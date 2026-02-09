@@ -13,4 +13,5 @@ Chinese Rhyming Tool for lyricists
 
 目前仍為beta版本，未經同意請勿轉載，正式版本將提供大家免費分享/使用
 
-寫詞順利。　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　Lyx 2026.02
+寫詞順利。
+Lyx 2026.02
