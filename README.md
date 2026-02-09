@@ -11,6 +11,7 @@ Chinese Rhyming Tool for lyricists
 
 ．支援複數搜尋
 
+
 目前仍為beta版本，未經同意請勿轉載，正式版本將提供大家免費分享/使用
 
 寫詞順利。
