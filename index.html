@@ -62,10 +62,17 @@
             background: var(--container-bg);
             border-radius: 20px;
             box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-            overflow: hidden;
+            overflow-y: auto;
+            overflow-x: hidden;
+            height: calc(100vh - 40px);
             animation: slideIn 0.5s ease-out;
-            transition: all 0.3s ease;
+            transition: background 0.3s ease, box-shadow 0.3s ease;
+            scrollbar-width: thin;
         }
+
+        .container::-webkit-scrollbar { width: 6px; }
+        .container::-webkit-scrollbar-track { background: transparent; }
+        .container::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.2); border-radius: 3px; }
         
         @keyframes slideIn {
             from {
@@ -172,9 +179,17 @@
             cursor: pointer;
         }
         
+        .sticky-toolbar {
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
         .search-section {
-            padding: 30px;
+            padding: 20px 30px;
             border-bottom: 1px solid var(--border);
+            background: var(--container-bg);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
         }
         
         .search-box {
@@ -294,24 +309,49 @@
             transform: rotate(90deg);
         }
 
-        .settings-dropdown {
+.settings-overlay {
             display: none;
-            position: absolute;
-            top: calc(100% + 8px);
-            right: 0;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.3);
+            backdrop-filter: blur(4px);
+            -webkit-backdrop-filter: blur(4px);
+            z-index: 999;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .settings-overlay.show {
+            display: flex;
+        }
+
+        .settings-dropdown {
             background: var(--card-bg);
             border: 1px solid var(--border);
-            border-radius: 10px;
-            padding: 12px 16px;
-            box-shadow: 0 8px 24px var(--shadow);
-            z-index: 500;
-            min-width: 160px;
+            border-radius: 14px;
+            padding: 24px 28px;
+            box-shadow: 0 12px 40px rgba(0,0,0,0.2);
+            min-width: 220px;
+            max-width: 320px;
         }
 
         .settings-dropdown.show {
             display: flex;
             flex-direction: column;
-            gap: 10px;
+            gap: 12px;
+        }
+
+        .settings-dropdown-title {
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 4px;
+            text-align: center;
+        }
+
+        /* 桌面：隱藏設定面板內的顏色區塊（已在 header 顯示） */
+        .settings-color-section {
+            display: none;
         }
 
         .results-section {
@@ -406,6 +446,16 @@
             font-size: 0.85rem;
             color: var(--text-secondary);
             font-family: 'JetBrains Mono', monospace;
+            text-align: center;
+        }
+
+        .tone-mark {
+            display: inline-block;
+            width: 0;
+            overflow: visible;
+            text-align: left;
+            vertical-align: top;
+            font-size: 0.9em;
         }
         
         /* 常用/冷僻標記 - 可點擊區域 */
@@ -462,7 +512,7 @@
             border-top: 2px solid var(--border);
             box-shadow: 0 -4px 20px rgba(0,0,0,0.12);
             transition: transform 0.3s ease;
-            max-height: 25vh;
+            max-height: 75vh;
             display: flex;
             flex-direction: column;
         }
@@ -508,6 +558,7 @@
             padding: 10px 20px 14px;
             overflow-y: auto;
             flex: 1;
+            min-height: 80px;
         }
 
         .recent-clicks-container {
@@ -731,12 +782,54 @@
             .checkbox-label {
                 font-size: 0.85rem;
             }
+
+            /* 手機：隱藏 header 顏色面板，顯示設定面板內的顏色 */
+            .color-panel {
+                display: none !important;
+            }
+            
+            .settings-color-section {
+                display: block !important;
+            }
+
+            /* 手機：batch 移到 header 區域 */
+            .batch-panel {
+                position: static;
+                transform: none;
+                flex-direction: row;
+                justify-content: center;
+                padding: 10px 15px;
+                background: var(--container-bg);
+                border-bottom: 1px solid var(--border);
+            }
+
+            .batch-btn {
+                width: auto;
+                height: auto;
+                padding: 8px 14px;
+                flex-direction: row;
+                gap: 6px;
+            }
+
+            .batch-btn .batch-icon {
+                font-size: 1rem;
+            }
+
+            .batch-count {
+                padding: 4px 0;
+            }
+
+            .mobile-batch-area {
+                display: block;
+            }
+
         }
     </style>
 </head>
 <body>
-    
+
     <div class="container" id="mainContainer">
+        <div class="sticky-toolbar">
         <div class="header">
             <!-- 顏色自定義面板 -->
             <div class="color-panel">
@@ -791,6 +884,8 @@
                 </div>
             </div>
             
+            <div class="mobile-batch-area" id="mobileBatchArea"></div>
+
             <div class="options" style="justify-content: space-between;">
                 <div class="button-group">
                     <button class="mode-button active" data-mode="common">常用字優先</button>
@@ -801,23 +896,10 @@
                 <div class="settings-trigger" id="settingsTrigger" onclick="toggleSettings()">
                     <span class="gear-icon">⚙</span>
                     <span>偏好設定</span>
-                    <div class="settings-dropdown" id="settingsDropdown">
-                        <label class="checkbox-label">
-                            <input type="checkbox" id="showPinyin" checked>
-                            <span>顯示讀音</span>
-                        </label>
-                        <label class="checkbox-label">
-                            <input type="checkbox" id="highlightSearch" checked>
-                            <span>標記搜尋</span>
-                        </label>
-                        <label class="checkbox-label">
-                            <input type="checkbox" id="hideRare" checked>
-                            <span>隱藏冷僻字</span>
-                        </label>
-                    </div>
                 </div>
             </div>
         </div>
+        </div><!-- end sticky-toolbar -->
         
         <div class="results-section">
             <div id="resultsContainer">
@@ -830,10 +912,38 @@
                 </div>
             </div>
         </div>
-        
+
         <div class="footer">
-            創作者專屬工具 · 可離線使用 · 告知作者後可分享 ( 因為還在開發中 >_< )　　　2026.02 beta v0.7.7
+            創作者專屬工具 · 可離線使用 · 告知作者後可分享 ( 因為還在開發中 >_< )　　　2026.02 beta v0.7.8
         </div>
+        
+        <div class="settings-overlay" id="settingsOverlay" onclick="closeSettingsOverlay(event)">
+            <div class="settings-dropdown show" onclick="event.stopPropagation()">
+                <div class="settings-dropdown-title">⚙ 偏好設定</div>
+                <label class="checkbox-label">
+                    <input type="checkbox" id="showPinyin" checked>
+                    <span>顯示讀音</span>
+                </label>
+                <label class="checkbox-label">
+                    <input type="checkbox" id="highlightSearch" checked>
+                    <span>標記搜尋</span>
+                </label>
+                <label class="checkbox-label">
+                    <input type="checkbox" id="hideRare" checked>
+                    <span>隱藏冷僻字</span>
+                </label>
+                <div class="settings-color-section" id="settingsColorSection">
+                    <div style="font-size:0.85rem; color:var(--text-secondary); margin-top:8px; margin-bottom:4px;">客製顏色</div>
+                    <div style="display:flex; flex-wrap:wrap; gap:10px;">
+                        <div class="color-item"><label>背景</label><input type="color" id="bgColor1" value="#667eea"></div>
+                        <div class="color-item"><label>底色</label><input type="color" id="containerBg" value="#ffffff"></div>
+                        <div class="color-item"><label>文字</label><input type="color" id="textColor" value="#2d3748"></div>
+                        <div class="color-item"><label>邊框</label><input type="color" id="highlightColor" value="#ed8936"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    
     </div>
 
     <div class="batch-panel" id="batchPanel">
@@ -2748,7 +2858,7 @@
                 const toneMarks = { 1: '', 2: 'ˊ', 3: 'ˇ', 4: 'ˋ', 5: '˙' };
                 const toneMark = toneMarks[item.tone] || '';
                 if (toneMark) {
-                    displayText += `<span style="margin-left:1px">${toneMark}</span>`;
+                    displayText += `<span class="tone-mark">${toneMark}</span>`;
                 }
             }
 
@@ -2838,13 +2948,14 @@
             updateBatchCount();
         }
 
-        // 批量標記
+        // 批量標記（含延遲重渲染）
         function batchMark(action) {
             if (selectedChars.size === 0) return;
 
-            // 收集所有被選中且在畫面上的字卡
             const cards = document.querySelectorAll('.char-card.selected');
             const processed = new Set();
+            const newTier = action === 'clear' ? 'normal' : action;
+            const tierLabels = { common: '常用', normal: '一般', rare: '冷僻' };
 
             cards.forEach(card => {
                 const char = card.dataset.char;
@@ -2852,25 +2963,38 @@
                 if (!char || !dictKey || dictKey === 'undefined0' || processed.has(char + dictKey)) return;
                 processed.add(char + dictKey);
 
-                if (action === 'clear') {
-                    // 取消標記 = 回歸 normal
-                    moveCharTier(char, dictKey, 'normal');
-                } else {
-                    moveCharTier(char, dictKey, action);
+                moveCharTier(char, dictKey, newTier);
+
+                // 就地更新徽章外觀（不重排）
+                const badge = card.querySelector('.mark-badge');
+                if (badge) {
+                    badge.className = `mark-badge ${newTier}`;
+                    badge.textContent = tierLabels[newTier];
                 }
+
+                // 取消選取外觀
+                card.classList.remove('selected');
             });
 
-            // 清除選取狀態
             selectedChars.clear();
-
-            // 重新渲染
-            const currentInput = document.getElementById('searchInput').value;
-            if (currentInput) {
-                const results = searchRhyme(currentInput);
-                displayResults(results);
-            }
-
             updateBatchCount();
+
+            // 延遲重渲染（與單字點擊共用 reorderTimer）
+            if (reorderTimer) clearTimeout(reorderTimer);
+            reorderTimer = setTimeout(() => {
+                reorderTimer = null;
+                const currentInput = document.getElementById('searchInput').value;
+                if (currentInput) {
+                    const container = document.getElementById('resultsContainer');
+                    container.style.opacity = '0.001';
+                    container.style.transition = 'opacity 0.3s ease';
+                    setTimeout(() => {
+                        const results = searchRhyme(currentInput);
+                        displayResults(results);
+                        container.style.opacity = '1';
+                    }, 500);
+                }
+            }, REORDER_DELAY);
         }
 
         // 更新批量面板計數
@@ -3088,26 +3212,16 @@
         
         // 偏好設定面板
         function toggleSettings() {
-            const trigger = document.getElementById('settingsTrigger');
-            const dropdown = document.getElementById('settingsDropdown');
-            trigger.classList.toggle('open');
-            dropdown.classList.toggle('show');
+            const overlay = document.getElementById('settingsOverlay');
+            overlay.classList.toggle('show');
         }
 
-        // 點擊外部關閉
-        document.addEventListener('click', (e) => {
-            const trigger = document.getElementById('settingsTrigger');
-            if (!trigger.contains(e.target)) {
-                trigger.classList.remove('open');
-                document.getElementById('settingsDropdown').classList.remove('show');
+        function closeSettingsOverlay(event) {
+            // 點擊遮罩本身才關閉（內容區已 stopPropagation）
+            if (event.target === event.currentTarget) {
+                document.getElementById('settingsOverlay').classList.remove('show');
             }
-        });
-
-        // 阻止 dropdown 內 checkbox 點擊時關閉面板
-        document.getElementById('settingsDropdown').addEventListener('click', (e) => {
-            e.stopPropagation();
-        });
-
+        }
         // 標準 input 事件
         searchInputEl.addEventListener('input', (e) => {
             // 如果正在輸入法組字中（如注音輸入法），跳過
@@ -3182,6 +3296,8 @@
             isDark = !isDark;
             document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
             themeToggle.textContent = isDark ? '🌙 深色模式' : '☀️ 淺色模式' ;
+            
+
             
             // 重新載入顏色（含反轉邏輯）
             loadColors();
@@ -3314,7 +3430,16 @@
         // 初始化
         loadDictOverrides();  // 先載入使用者修改，覆寫 rhymeDict
         buildIndex();
-        //loadUserMarks();
+
+        // 手機版：將 batch panel 移入搜尋區域
+        if (window.innerWidth <= 640) {
+            const batchPanel = document.getElementById('batchPanel');
+            const mobileArea = document.getElementById('mobileBatchArea');
+            if (batchPanel && mobileArea) {
+                mobileArea.appendChild(batchPanel);
+            }
+        }
+
         loadColors();
         // 只在桌面自動 focus（避免手機打開就彈出鍵盤）
         if (window.innerWidth > 640) {
