@@ -15,30 +15,34 @@
         @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
         
         :root {
-            --bg-gradient-1: #667eea;
-            --bg-gradient-2: #764ba2;
-            --container-bg: #ffffff;
+            --bg-gradient-1: #0a273d;
+            --bg-gradient-2: #001e3b;
+            --container-bg: #f1ecdd;
             --text-primary: #2d3748;
-            --text-secondary: #718096;
+            --text-secondary: #6b778a;
             --border: #e2e8f0;
             --card-bg: #f7fafc;
             --highlight-border: #ed8936;
             --shadow: rgba(0, 0, 0, 0.1);
-            --header-gradient-1: #e89e61;
-            --header-gradient-2: #764ba2;
+            --header-gradient-1: #b8865d;
+            --header-gradient-2: #8d51c9;
             --custom-text-color: none;
         }
         
         [data-theme="dark"] {
             --bg-gradient-1: #1a202c;
             --bg-gradient-2: #2d3748;
-            --container-bg: #1a202c;
-            --text-primary: #e2e8f0;
+            --container-bg: #d5d5d5;
+            --container-bg: #ffffff;
+            --text-primary: #f98628;
             --text-secondary: #a0aec0;
             --border: #4a5568;
             --card-bg: #2d3748;
+            --highlight-border: #ed8936;
+            --shadow: rgba(0, 0, 0, 0.1);
             --header-gradient-1: #2d3748;
             --header-gradient-2: #4a5568;
+            --custom-text-color: none;
         }
         
         * {
@@ -47,12 +51,6 @@
             box-sizing: border-box;
         }
 
-        /* html {
-            -webkit-text-size-adjust: 100%;
-            text-size-adjust: 100%;
-        }  */
-
-        
         body {
             font-family: 'Noto Sans TC', sans-serif;
             background: linear-gradient(135deg, var(--bg-gradient-1) 0%, var(--bg-gradient-2) 100%);
@@ -166,6 +164,18 @@
             transition: all 0.3s ease;
         }
         
+        .m-zoom-value{
+            display: none;
+        }
+        
+        .m-zoomIn-button {
+            display: none;
+        }
+        
+        .m-zoomOut-button{
+            display: none;
+        }
+
         .theme-toggle:hover, .zoom-control:hover {
             background: rgba(255, 255, 255, 0.3);
         }
@@ -178,7 +188,7 @@
         }
         
         .zoom-control input[type="range"] {
-            width: 80px;
+            width: 65px;
             cursor: pointer;
         }
         
@@ -265,8 +275,10 @@
         }
         
         .mode-button.active {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
+            /* background: linear-gradient(135deg, #cccccc 0%,#3a8dcc 100%); */
+            /* color: var(--text-primary); */
+            background: linear-gradient(120deg, #ffc0c0 0%, var(--container-bg)100%);
+            color: rgb(255, 255, 255);
         }
         
         .mode-button:hover:not(.active) {
@@ -278,7 +290,7 @@
             display: flex;
             align-items: center;
             gap: 6px;
-            padding: 8px 14px;
+            padding: 6px 6px;
             border: 1px solid var(--border);
             border-radius: 8px;
             background: var(--card-bg);
@@ -288,7 +300,6 @@
             font-family: 'Noto Sans TC', sans-serif;
             transition: all 0.2s ease;
             user-select: none;
-            position: relative; 
         }
 
         .settings-trigger:hover {
@@ -298,6 +309,7 @@
         .settings-trigger .gear-icon {
             font-size: 1rem;
             transition: transform 0.3s ease;
+            margin-left: 4px;
         }
 
         .settings-trigger.open .gear-icon {
@@ -335,7 +347,7 @@
             flex-direction: column;
             gap: 12px;
         }
-
+        
         .settings-dropdown-title {
             font-size: 1rem;
             font-weight: 600;
@@ -355,7 +367,8 @@
             flex: 1;
             overflow-y: auto;
             overflow-x: hidden;
-            border-top: 5px solid var(--border);
+            /* border-top: 5px solid var(--border); */
+            border-top: 4px solid  rgb(177, 110, 55);
             scrollbar-width: thin;
         }
 
@@ -384,17 +397,16 @@
         .group-title {
             font-size: 1.3rem;
             font-weight: 600;
-            color: var(--text-primary);
+            color: var(--text-secondary);
             margin-bottom: 15px;
             padding: 8px 12px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
             border-radius: 8px;
             display: inline-block;
         }
-
+        
         .group-title.rhyme-group {
-            background: var(--card-bg);
+            background: linear-gradient(75deg, #f9d7d7 0%, var(--container-bg)100%);
+            /* background: var(--card-bg); */
             border: 2px solid var(--border);
         }
 
@@ -511,8 +523,8 @@
         .search-highlight-1 { color: #ed8936; font-weight: 700; }
         .search-highlight-2 { color: #48bb78; font-weight: 700; }
         .search-highlight-3 { color: #4299e1; font-weight: 700; }
-        .search-highlight-4 { color: #9f7aea; font-weight: 700; }
-        .search-highlight-5 { color: #ed64a6; font-weight: 700; }
+        .search-highlight-4 { color: #b343fd; font-weight: 700; }
+        .search-highlight-5 { color: #fd51a4; font-weight: 700; }
         .search-highlight-6 { color: #000000; font-weight: 700; }
         
         /* 最近點擊浮動面板 */
@@ -522,6 +534,8 @@
             left: 0;
             right: 0;
             z-index: 1000;
+            border-top-left-radius: 30px;
+            border-top-right-radius: 30px;
             background: var(--card-bg);
             border-top: 2px solid var(--border);
             box-shadow: 0 -4px 20px rgba(0,0,0,0.12);
@@ -530,7 +544,7 @@
             display: flex;
             flex-direction: column;
         }
-
+        
         .recent-panel.collapsed {
             transform: translateY(calc(100% - 38px));
         }
@@ -550,6 +564,8 @@
 
         .recent-panel-header:hover {
             background: var(--container-bg);
+            border-top-left-radius: 30px;
+            border-top-right-radius: 30px;
         }
 
         .recent-panel-title {
@@ -610,7 +626,7 @@
         .batch-panel {
             position: fixed;
             right: 16px;
-            top: 50%;
+            top: 70%;
             transform: translateY(-50%);
             z-index: 900;
             display: flex;
@@ -620,8 +636,9 @@
         }
 
         .batch-btn {
-            width: 96px;
-            height: 96px;
+            width: auto;
+            height: auto;
+            padding: 3px 15px;
             border: 2px solid var(--border);
             border-radius: 10px;
             background: var(--card-bg);
@@ -632,7 +649,8 @@
             justify-content: center;
             gap: 4px;
             font-family: 'Noto Sans TC', sans-serif;
-            font-size: 0.8rem;
+            font-size: 14px;
+            /* font-size: 0.8rem; */
             font-weight: 600;
             color: var(--text-secondary);
             transition: all 0.2s ease;
@@ -645,7 +663,7 @@
         }
 
         .batch-btn .batch-icon {
-            font-size: 1.5rem;
+            font-size: 1.2rem;
         }
 
         .batch-btn.btn-common { border-left: 8px solid #f5576c; }
@@ -665,6 +683,7 @@
         
         .empty-state {
             text-align: center;
+            margin-top: -48px;
             padding: 60px 20px;
             color: var(--text-secondary);
         }
@@ -687,13 +706,15 @@
         }
         
         .footer {
-            padding: 20px 30px;
-            background: var(--card-bg);
+            position: relative;
+            padding: 10px 30px;
+            top:-18px;
             text-align: center;
             font-size: 0.85rem;
-            color: var(--text-secondary);
+            border-top: 4px solid  rgb(177, 110, 55);
+            background: var(--container-bg);
+            color: var(--text-primary);
             flex-shrink: 0;
-            position: relative;
         }
 
         .about-btn {
@@ -703,8 +724,8 @@
             width: 22px;
             height: 22px;
             border-radius: 50%;
-            border: 1.5px solid var(--text-secondary);
-            color: var(--text-secondary);
+            border: 1.5px solid rgb(55, 177, 92);
+            color: rgb(55, 177, 92);
             font-size: 0.75rem;
             font-weight: 700;
             font-style: italic;
@@ -765,7 +786,7 @@
             .container { height: calc(100vh - 20px); border-radius: 16px; }
 
             .header { padding: 14px 10px 16px; }
-            .header h1 { font-size: 1.35rem; margin-bottom: 6px; }
+            .header h1 { font-size: 1.25rem; margin-bottom: 6px; }
             .header p { font-size: 0.8rem; }
             
             
@@ -774,13 +795,63 @@
                 display: none !important;
             }
             
-            /*.controls { margin-top: 10px; gap: 10px; }*/
+            .controls { margin-top: 10px; gap: 10px; }
+
+            /* 放大控制面板 */
             .zoom-control { display: none; }
-            /* 控制面板 */
+
+            .m-zoomIn-button {
+                display: block;
+                position: absolute;
+                top: 10px;
+                left: 10px;
+                padding: 4px 10px;
+                background: rgba(255, 255, 255, 0.2);
+                backdrop-filter: blur(10px);
+                border-radius: 12px;
+                border: none;
+                font-size: 0.65rem;
+            }
+            
+            .m-zoomOut-button {
+                display: block;
+                position: absolute;
+                top: 10px;
+                left:46px;
+                padding: 4px 10px;
+                background: rgba(255, 255, 255, 0.2);
+                backdrop-filter: blur(10px);
+                border-radius: 12px;
+                font-size: 0.65rem;
+                border: none;
+            }
+
+            .m-zoom-value {
+                display: block;
+                position: absolute;
+                top: 42px;
+                left: 20px;
+                flex-direction: row;
+                color: white;
+                align-items: left;
+                font-size: 0.8rem;
+                gap:4px;
+            }
+        
+            .m-zoomIn-button:hover {
+                background: rgba(255, 255, 255, 0.415);
+            }
+            
+            .m-zoomOut-button:hover {
+                background: rgba(255, 255, 255, 0.415);
+            }
+
             .theme-toggle {
-                padding: 6px 6px;
-                position: static;
+                position: relative;
                 justify-content: center;
+                top:-10px;
+                right:-5px;
+                padding: 2px 6px;
                 margin-top: 2px;
                 margin-right: 2px;
                 flex-wrap: wrap;
@@ -792,10 +863,9 @@
                 padding: 20px 15px;
             }
             
-
             .search-input {
-                font-size: 1rem;
-                padding: 14px 18px;
+                font-size: 0.85rem;
+                padding: 8px 12px;
                 -webkit-appearance: none;
                 appearance: none;
                 border-radius: 12px;
@@ -809,31 +879,26 @@
      
             /* 手機：batch 移到 header 區域 */
             .mobile-batch-area {
-                display: block;
+                display: block !important; 
+                margin-top: -20px;
             }
-            
             .batch-panel{
                  display: none;
             }
-
-            /* 批量標記浮動面板 */
             .m-batch-panel {
+                position: static;
                 right: 16px;
                 display: flex;
                 top: 50%;
                 z-index: 900;
                 gap: 0px;
                 transition: opacity 0.3s ease;
-
-                position: static;
                 transform: none;
                 flex-direction: row;
                 justify-content: center;
                 padding: 10px 15px;
                 background: var(--container-bg);
-                border-bottom: 1px solid var(--border);
             }
-    
             .m-batch-btn {
                 width: auto;
                 height: auto;
@@ -851,23 +916,31 @@
                 color: var(--text-secondary);
                 transition: all 0.3s ease;
                 box-shadow: 0 2px 8px var(--shadow);
-                padding: 4px 14px;
+                padding: 4px 10px;
                 font-size: 0.8rem;
             }
-    
             .m-batch-btn:hover {
                 transform: scale(1.05);
                 border-color: #667eea;
             }
-    
             .m-batch-btn .batch-icon {
-                font-size: 1.2rem;
+                font-size: 1rem;
+                padding: 0px 4px;
+                margin-left: -2px;
             }
-    
-            .m-batch-btn.btn-common { border-left: 6px solid #f5576c; }
-            .m-batch-btn.btn-rare { border-left: 6px solid #4299e1; }
-            .m-batch-btn.btn-clear { border-left: 6px solid #bac0a0; }
-    
+            .m-batch-btn.btn-common { 
+                border-left: 6px solid #f5576c;
+                position:relative;
+                left: -14px;
+            }
+            .m-batch-btn.btn-rare { border-left: 6px solid #4299e1; 
+                gap: 2px;
+            }
+            .m-batch-btn.btn-clear { border-left: 6px solid #bac0a0; 
+                position:relative;
+                right: -14px;
+                gap: 2px;
+            }
             .m-batch-count {
                 text-align: center;
                 font-size: 0.75rem;
@@ -875,21 +948,24 @@
                 padding: 4px 0;
             }
 
+            /* 排列模式 */
             .mode-button {
-                padding: 2px 4px;
-                font-size: 0.8rem;
+                padding: 4px 10px;
+                font-size: 0.85rem;
             }
-            
+
             .options {
+                position: relative;
                 flex-wrap: nowrap;
             }
 
-            .settings-trigger {
-                padding: 8px 14px;
-                gap:0px;
-            }
             .settings-color-section {
                 display: block !important;
+                color: var(--text-secondary)
+            }
+            
+            .settings-color-section .color-item {
+                color: var(--text-secondary)
             }
 
             .settings-trigger {
@@ -899,18 +975,10 @@
             .checkbox-label {
                 font-size: 0.75rem;
             }
-
-            .batch-btn .batch-icon {
-                font-size: 0.8rem;
-            }
             
             .button-group {
                 width: 100%;
                 justify-content: center;
-            }
-
-            .results-section {
-                padding: 0px;
             }
             
             .results-grid {
@@ -942,6 +1010,36 @@
 
             .recent-panel-header {
                 padding: 6px 12px;
+            }
+            
+            .recent-panel-title {
+                font-size: 0.8rem;
+            }
+
+            .empty-state {
+                text-align: center;
+                margin-top: -30px;
+                padding: 60px 20px;
+            }
+            
+            .results-section {
+                padding: 20px;
+                min-height:270px;
+            }
+
+            .footer {
+                height: auto;
+                padding: 12px 30px;
+                top:-30px;
+                font-size: 0.8rem;
+            }
+            
+            .about-btn {
+                width: 18px;
+                height: 18px;
+                position: relative;
+                /* left:30px; */
+                transition: all 0.2s ease;
             }
 
         } 
@@ -981,6 +1079,10 @@
                     <span id="zoomValue">100%</span>
                 </div>
             </div>
+
+            <button class="m-zoomIn-button" id="MzoomIn" onclick="zoomIn()">➕</button>
+            <button class="m-zoomOut-button" id="MzoomOut" onclick="zoomOut()">➖</button>
+            <div class="m-zoom-value">🔎 <span id="MzoomValue">100%</span> </div>
             
             <h1>韻腳查詢器 📝</h1>
             <p>寫歌詞...不簡單...甘巴爹...早點睡...</p>
@@ -1001,7 +1103,7 @@
                     enterkeyhint="search"
                 >
                 <div class="search-hint">
-                    💡 支援注音（ㄅㄆㄇ）或拼音（ban、pan）輸入，也可輸入子音（如 ㄈ）查找所有符合該子音開頭的字
+                    💡 支援注音（ㄅㄆㄇ）或拼音（b p m）輸入，也可輸入中文字反查所有符合同樣韻腳的字
                 </div>
             </div>
             
@@ -1013,7 +1115,6 @@
                     <button class="mode-button" data-mode="initial">同聲韻並列</button>
                     <button class="mode-button" data-mode="tone">同聲調並列</button>
                 </div>
-
                 <div class="settings-trigger" id="settingsTrigger" onclick="toggleSettings()">
                     <span class="gear-icon">⚙️</span>
                     <span></span>
@@ -1034,16 +1135,16 @@
         </div>
 
         <div class="footer">
-            創作者專屬工具 · 告知作者後可分享 ( 因為還在開發中 >_< )　　　2026.02 beta v0.8.1 _by Lyx
+            創作者專屬工具 · 歡迎分享
             <span class="about-btn" onclick="toggleAbout()">i</span>
         </div>
 
         <div class="about-overlay" id="aboutOverlay" onclick="closeAbout(event)">
             <div class="about-content" onclick="event.stopPropagation()">
                 <h3>好韻器｜Lucky Hawaii</h3>
-                <p>版本 v0.8.1 beta</p>
-                <p>有鑑於目前網路上的韻腳查詢工具幾乎都是以「詞」為架構，並且容易混雜著大量的冷僻詞彙，因此特別開發針對「常用字」為索引系統的工具。</p>
-                <p>子音與母音皆可搜尋、支援漢語拼音系統。</p>
+                <p>版本 v0.8.2 beta</p>
+                <p>有鑑於目前網路上的韻腳查詢工具幾乎都是以「詞」為架構，並且容易混雜著大量的冷僻詞彙，因此特別開發針對「常用字」為索引系統的工具，將聽覺鄰近的借韻一併顯示。</p>
+                <p>支援子母音搜尋｜支援漢語拼音｜支援中文反查</p>
                 <p>2026.02 Lyx</p>
             </div>
         </div>
@@ -1068,7 +1169,7 @@
                     <span>過濾破音字</span>
                 </label>
                 <div class="settings-color-section" id="settingsColorSection">
-                    <div style="font-size:0.85rem; color:var(--text-secondary); margin-top:8px; margin-bottom:4px;">客製顏色</div>
+                    <div style="font-size:0.9rem; color:var(--text-primary); margin-top:0px; margin-bottom:10px;">客製顏色</div>
                     <div style="display:flex; flex-wrap:wrap; gap:10px;">
                         <div class="color-item"><label>背景</label><input type="color" id="bgColor1" value="#667eea"></div>
                         <div class="color-item"><label>底色</label><input type="color" id="containerBg" value="#ffffff"></div>
@@ -2590,8 +2691,8 @@
             'ㄨㄤ3':'往網枉｜罔惘魍｜-',
             'ㄨㄤ4':'忘望旺｜妄｜-',
             'ㄨㄥ1':'翁嗡｜-｜-',
-            'ㄨㄥ3':'-｜-｜-',
-            'ㄨㄥ4':'-｜-｜-',
+            'ㄨㄥ3':'-｜蓊｜-',
+            'ㄨㄥ4':'-｜甕｜-',
             'ㄩ1':'-｜迂淤瘀｜-',
             'ㄩ2':'於愉魚｜娛餘於漁予愚余竽輿榆逾虞俞腴隅盂臾諛踰覦｜-',
             'ㄩ3':'與語雨｜予羽嶼宇禹庾｜-',
@@ -2788,7 +2889,7 @@
             return zhuyin; // 整個都是韻母
         }
         
-                function pinyinToZhuyinGroups(pinyin) {
+        function pinyinToZhuyinGroups(pinyin) {
             pinyin = pinyin.toLowerCase().trim();
             if (!pinyin) return [];
 
@@ -2870,7 +2971,8 @@
             input = input.trim();
             lastSearchInput = input;
             const isBopomofo = /[ㄅ-ㄩ]/.test(input);
-            lastSearchType = isBopomofo ? 'bopomofo' : 'pinyin';
+            const hasChinese = /[\u4e00-\u9fff]/.test(input);
+            lastSearchType = (isBopomofo || hasChinese) ? 'bopomofo' : 'pinyin';
             
             const queries = input.split(/\s+/);
             const allResults = [];
@@ -2882,8 +2984,8 @@
             function collectByRhymes(rhymeList, initials, groupIdx) {
                 const rhymeSet = new Set(rhymeList);
                 for (let char in chineseDict) {
-                    if (seenChars.has(char)) continue;
                     for (let zy of chineseDict[char]) {
+                        if (seenChars.has(char + zy)) continue;
                         const rh = getZhuyinRhyme(zy);
                         const ini = getZhuyinInitial(zy);
                         if (rhymeSet.has(rh) && (!initials || initials.has(ini))) {
@@ -2892,8 +2994,7 @@
                                 zhuyinRhyme: rh, zhuyinInitial: ini,
                                 rhymeIndex: groupIdx
                             });
-                            seenChars.add(char);
-                            break;
+                            seenChars.add(char + zy);
                         }
                     }
                 }
@@ -2917,8 +3018,8 @@
             function searchByInitial(targetInitial, queryLabel) {
                 const familyGroups = {};
                 for (let char in chineseDict) {
-                    if (seenChars.has(char)) continue;
                     for (let zy of chineseDict[char]) {
+                        if (seenChars.has(char + zy)) continue;
                         if (getZhuyinInitial(zy) === targetInitial) {
                             const rh = getZhuyinRhyme(zy);
                             const famId = RHYME_TO_FAMILY[rh] !== undefined ? RHYME_TO_FAMILY[rh] : -1;
@@ -2927,8 +3028,7 @@
                                 char, zhuyin: zy, pinyin: zhuyinToPinyin(zy),
                                 zhuyinRhyme: rh, zhuyinInitial: targetInitial
                             });
-                            seenChars.add(char);
-                            break;
+                            seenChars.add(char + zy);
                         }
                     }
                 }
@@ -2956,8 +3056,8 @@
             function searchByInitialMedial(targetInitial, medial, queryLabel) {
                 const familyGroups = {};
                 for (let char in chineseDict) {
-                    if (seenChars.has(char)) continue;
                     for (let zy of chineseDict[char]) {
+                        if (seenChars.has(char + zy)) continue;
                         const ini = getZhuyinInitial(zy);
                         const rh = getZhuyinRhyme(zy);
                         if (ini === targetInitial && (rh === medial || rh.startsWith(medial))) {
@@ -2967,8 +3067,7 @@
                                 char, zhuyin: zy, pinyin: zhuyinToPinyin(zy),
                                 zhuyinRhyme: rh, zhuyinInitial: ini
                             });
-                            seenChars.add(char);
-                            break;
+                            seenChars.add(char + zy);
                         }
                     }
                 }
@@ -3001,8 +3100,8 @@
                     });
                     const rhymeSet = new Set(sg.rhymes);
                     for (let char in chineseDict) {
-                        if (seenChars.has(char)) continue;
                         for (let zy of chineseDict[char]) {
+                            if (seenChars.has(char + zy)) continue;
                             const rh = getZhuyinRhyme(zy);
                             const ini = getZhuyinInitial(zy);
                             if (rhymeSet.has(rh) && (!sg.initials || sg.initials.has(ini))) {
@@ -3011,8 +3110,7 @@
                                     zhuyinRhyme: rh, zhuyinInitial: ini,
                                     rhymeIndex: idx
                                 });
-                                seenChars.add(char);
-                                break;
+                                seenChars.add(char + zy);
                             }
                         }
                     }
@@ -3029,8 +3127,8 @@
                     isInitial: false, isRhymeSearch: true, index: idx
                 });
                 for (let char in chineseDict) {
-                    if (seenChars.has(char)) continue;
                     for (let zy of chineseDict[char]) {
+                        if (seenChars.has(char + zy)) continue;
                         const rh = getZhuyinRhyme(zy);
                         const ini = getZhuyinInitial(zy);
                         if (rh === 'ㄨㄛ' || (rh === 'ㄛ' && bpmfSet.has(ini))) {
@@ -3039,8 +3137,7 @@
                                 zhuyinRhyme: rh, zhuyinInitial: ini,
                                 rhymeIndex: idx
                             });
-                            seenChars.add(char);
-                            break;
+                            seenChars.add(char + zy);
                         }
                     }
                 }
@@ -3049,6 +3146,34 @@
 
             // === 主流程 ===
             queries.forEach((query) => {
+                // 0. 中文字反查：偵測到中文字時，查出韻母後走借韻
+                const hasChinese = /[\u4e00-\u9fff]/.test(query);
+                if (hasChinese) {
+                    const rhymesFound = new Set();
+                    const initialsFound = new Set();
+                    for (const ch of query) {
+                        if (/[\u4e00-\u9fff]/.test(ch) && chineseDict[ch]) {
+                            for (const zy of chineseDict[ch]) {
+                                const ini = getZhuyinInitial(zy);
+                                const rh = getZhuyinRhyme(zy);
+                                if (ini && rh === zy) {
+                                    // 純聲母字（如 知=ㄓ）→ 用聲母搜尋
+                                    initialsFound.add(ini);
+                                } else if (rh) {
+                                    rhymesFound.add(rh);
+                                }
+                            }
+                        }
+                    }
+                    initialsFound.forEach(ini => {
+                        searchByInitial(ini, query + `→${ini}`);
+                    });
+                    rhymesFound.forEach(rh => {
+                        expandBorrow(rh, query + `→${rh}`);
+                    });
+                    return;
+                }
+                
                 const queryIsBopomofo = /[ㄅ-ㄩ]/.test(query);
                 
                 if (queryIsBopomofo) {
@@ -3123,6 +3248,8 @@
         let hasCustomTextColor = false;
         let lastTarget = '';
         let phone = window.innerWidth <= 440;
+        let MzoomScale = 100;
+        let MzoomBaseRatio = 0.9; 
 
         // 創建字卡 (highlightTarget: 'initial'=標記子音, 'rhyme'=標記母音, null=自動)
         function createCharCard(item, showPinyin, highlightTarget) {
@@ -3159,10 +3286,13 @@
                         }
                         lastTarget = currentTarget;
                         
-                        if (hlInit) {                            
+                        if (isInitialOnly) {
+                            // 純聲母字（如 ㄓ=知）：整個標記
+                            displayText = `<span class="${colorClass}">${dispInit}</span>`;
+                        } else if (hlInit) {                            
                             displayText = `<span class="${colorClass}">${dispInit}</span>${dispRhyme}`;
                         } else {
-                            displayText = `${dispInit}<span class="${colorClass}">${dispRhyme || dispInit}</span>`;
+                            displayText = `${dispInit}<span class="${colorClass}">${dispRhyme}</span>`;
                         }
 
                     } else {
@@ -3322,12 +3452,9 @@
                     badge.className = `mark-badge ${newTier}`;
                     badge.textContent = tierLabels[newTier];
                 }
-
-                // 取消選取外觀
-                card.classList.remove('selected');
             });
 
-            selectedChars.clear();
+            // 不清除選擇狀態，保持已選文字
             updateBatchCount();
 
             // 延遲重渲染（與單字點擊共用 reorderTimer）
@@ -3388,10 +3515,12 @@
             localStorage.setItem('recentPanelCollapsed', panel.classList.contains('collapsed'));
         }
 
-        // 初始化面板狀態
+        // 初始化面板狀態（預設收起）
         (function() {
             const collapsed = localStorage.getItem('recentPanelCollapsed');
-            if (collapsed === 'true') {
+            if (collapsed === 'false') {
+                // 只有明確設為展開才展開
+            } else {
                 document.getElementById('recentPanel').classList.add('collapsed');
             }
         })();
@@ -3650,7 +3779,7 @@
 
         // 事件監聽器
         const searchInputEl = document.getElementById('searchInput');
-        
+
         // 偏好設定面板
         function toggleSettings() {
             const overlay = document.getElementById('settingsOverlay');
@@ -3662,6 +3791,18 @@
             if (event.target === event.currentTarget) {
                 document.getElementById('settingsOverlay').classList.remove('show');
             }
+        }
+
+        function zoomIn(){
+            MzoomScale = Math.min(MzoomScale + 5, 150); // 最大放大到 150%
+            resultsSection.style.zoom = MzoomScale / 100 * MzoomBaseRatio;
+            document.getElementById('MzoomValue').textContent = (MzoomScale) + '%';
+        }
+
+        function zoomOut(){
+            MzoomScale = Math.max(MzoomScale - 5, 50); // 最小縮小到 50%
+            resultsSection.style.zoom = MzoomScale / 100 * MzoomBaseRatio;
+            document.getElementById('MzoomValue').textContent = (MzoomScale) + '%';
         }
 
         function toggleAbout() {
@@ -3738,11 +3879,10 @@
             });
         });
 
-
         // Dark mode 切換
         const themeToggle = document.getElementById('themeToggle');
         const THEME_KEY = 'hoyun_theme_mode';
-        let isDark = true;
+        let isDark = false;
 
         // 顏色反轉工具函數
         function invertColor(hex) {
@@ -3768,7 +3908,7 @@
         const savedTheme = localStorage.getItem(THEME_KEY);
         if (savedTheme === 'dark') applyTheme(true, false);
         else if (savedTheme === 'light') applyTheme(false, false);
-        else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) applyTheme(true, false);
+        //else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) applyTheme(true, false);
         else applyTheme(false, false);
 
         themeToggle.addEventListener('click', () => {
@@ -3785,12 +3925,15 @@
             }
         });
 
-
-        // 縮放功能（只影響字卡區域）
+        // 電腦縮放功能（只影響字卡區域）
         const zoomSlider = document.getElementById('zoomSlider');
-        const zoomValue = document.getElementById('zoomValue');
+        const zoomValue =  document.getElementById('zoomValue');
         const resultsSection = document.querySelector('.results-section');
-
+        if (!!phone) {
+            resultsSection.style.zoom = MzoomBaseRatio
+            // document.getElementById('MzoomValue').textContent = '100%';
+        }
+        
         zoomSlider.addEventListener('input', (e) => {
             zoomValue.textContent = e.target.value + '%';
         });
@@ -3802,26 +3945,13 @@
             resultsSection.style.transform = 'none';
         });
 
-        // function enforceMobileZoom() {
-        //     if (window.matchMedia && window.matchMedia('(max-width: 440px)').matches) {
-        //         zoomSlider.value = 100;
-        //         zoomValue.textContent = '100%';
-        //         resultsSection.style.zoom = 1;
-        //         resultsSection.style.transform = 'none';
-        //         zoomSlider.disabled = true;
-        //     } else {
-        //         zoomSlider.disabled = false;
-        //     }
-        // }
-        // enforceMobileZoom();
-        // window.addEventListener('resize', enforceMobileZoom);
 
         // 顏色自定義
         function loadColors() {
             // 從 localStorage 讀取原始（淺色模式）顏色
             const rawColors = {
-                bgColor1: localStorage.getItem('bgColor1') || '#667eea',
-                containerBg: localStorage.getItem('containerBg') || '#ffffff',
+                bgColor1: localStorage.getItem('bgColor1') || '#0a273d',
+                containerBg: localStorage.getItem('containerBg') || '#f1ecdd',
                 textColor: localStorage.getItem('textColor') || '#2d3748',
                 highlightColor: localStorage.getItem('highlightColor') || '#ed8936'
             };
