@@ -191,13 +191,13 @@
             width: 65px;
             cursor: pointer;
         }
-        
+
         .search-section {
             padding: 20px 30px;
             background: var(--container-bg);
             flex-shrink: 0;
         }
-        
+
         .search-box {
             position: relative;
             margin-bottom: 20px;
@@ -301,15 +301,15 @@
         /* 偏好設定面板 */
         .settings-trigger {
             display: flex;
-            align-items: center;
-            gap: 6px;
-            padding: 6px 6px;
+            align-items: space-evenly;
+            justify-content: space-evenly;
+            padding: 2px 12px;
             border: 1px solid var(--border);
             border-radius: 8px;
             background: var(--card-bg);
             color: var(--text-secondary);
             cursor: pointer;
-            font-size: 0.9rem;
+            font-size: 0.8rem;
             font-family: 'Noto Sans TC', sans-serif;
             transition: all 0.2s ease;
             user-select: none;
@@ -324,9 +324,8 @@
         }
         
         .settings-trigger .gear-icon {
-            font-size: 1rem;
             transition: transform 0.3s ease;
-            margin-left: 4px;
+            padding: 6px 6px;
         }
 
         .settings-trigger.open .gear-icon {
@@ -836,8 +835,8 @@
             .m-zoom-value {
                 display: block;
                 position: absolute;
-                top: 42px;
-                left: 20px;
+                top: 32px;
+                left: 18px;
                 flex-direction: row;
                 color: white;
                 align-items: left;
@@ -865,7 +864,7 @@
             .search-section {
                 padding: 20px 15px;
             }
-            
+
             .search-input {
                 font-size: 0.85rem;
                 padding: 8px 12px;
@@ -875,9 +874,10 @@
             }
 
             .search-hint { 
-                font-size: 0.8rem; 
+                display: none;
+                /* font-size: 0.65rem; 
                 line-height: 1.3; 
-                margin-top: 6px; 
+                margin-top: 6px;  */
             }
      
             /* 手機：batch 移到 header 區域 */
@@ -983,8 +983,13 @@
                 content: attr(data-short);
             }
 
+
             .settings-trigger {
                 align-self: flex-end;
+                font-size: 1.25rem;
+                padding: 6px 6px;
+                border: none;
+                background: none;
             }
 
             .checkbox-label {
@@ -1109,7 +1114,7 @@
                     type="text" 
                     id="searchInput" 
                     class="search-input" 
-                    placeholder="輸入注音或拼音，例如：ㄢ 或 an"
+                    placeholder="輸入注音/拼音/中文，例如：「ㄢ」或「an」或「安」"
                     autocomplete="o"
                     autocorrect="off"
                     autocapitalize="off"
@@ -1118,7 +1123,7 @@
                     enterkeyhint="search"
                 >
                 <div class="search-hint">
-                    💡 支援注音（ㄅㄆㄇ）或拼音（b p m）輸入，也可輸入中文字反查所有符合同樣韻腳的字
+                    💡 支援注音（ㄅㄆㄇ）或拼音（b p m），輸入中文字則反查所有符合同樣韻腳的字
                 </div>
             </div>
             
@@ -1132,8 +1137,6 @@
                 </div>
                 <div class="settings-trigger" id="settingsTrigger" onclick="toggleSettings()">
                     <span class="gear-icon" data-long = "⚙️ 偏好設定" data-short ="⚙️"></span>
-                    <!-- <span class="m-gear-icon">⚙️</span> -->
-                    <span></span>
                 </div>
             </div>
         </div>
@@ -1145,7 +1148,7 @@
                         <path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
                     </svg>
                     <h3>開始搜尋</h3>
-                    <p>在上方輸入注音或拼音來尋找押韻的字</p>
+                    <p>在上方輸入注音或拼音來尋找押韻的字</br></br>支援子.母音搜尋｜支援注音拼音｜支援中文反查</p>
                 </div>
             </div>
         </div>
@@ -1160,8 +1163,7 @@
                 <h3>好韻器｜Lucky Hawaii</h3>
                 <p>版本 v0.8.2 beta</p>
                 <p>有鑑於目前網路上的韻腳查詢工具幾乎都是以「詞」為架構，並且容易混雜著大量的冷僻詞彙，因此特別開發針對「常用字」為索引系統的工具，將聽覺鄰近的借韻一併顯示。</p>
-                <p>支援子母音搜尋｜支援漢語拼音｜支援中文反查</p>
-                <p>2026.02 Lyx</p>
+                <span style="display: flex; justify-content: end; color: var(--text-secondary); font-size: 0.8rem;" >祝大家生出絕妙好詞！！&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2026.02 Lyx</span>
             </div>
         </div>
         
@@ -1230,7 +1232,6 @@
             <span>取消</span>
         </button>
     </div>    
-
     
     <div class="recent-panel" id="recentPanel">
         <div class="recent-panel-header" onclick="toggleRecentPanel()">
