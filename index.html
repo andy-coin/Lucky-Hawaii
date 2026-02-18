@@ -15,9 +15,9 @@
         @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
         
         :root {
-            --bg-gradient-1: #0a273d;
+            --bg-gradient-1: #0c4564;
             --bg-gradient-2: #001e3b;
-            --container-bg: #f1ecdd;
+            --container-bg: #eee3ce;
             --text-primary: #2d3748;
             --text-secondary: #6b778a;
             --border: #e2e8f0;
@@ -251,6 +251,10 @@
             cursor: pointer;
         }
         
+        .mode-button::before {
+            content: attr(data-short);
+        }
+
         /* 按鈕組 */
         .button-group {
             display: flex;
@@ -261,6 +265,15 @@
             border: 1px solid var(--border);
         }
         
+        .mode-button.active::before{
+            content:attr(data-long)
+        }
+        
+        .mode-button::before{
+            content:attr(data-long)
+        }
+
+
         .mode-button {
             padding: 8px 16px;
             border: none;
@@ -306,6 +319,10 @@
             background: var(--border);
         }
 
+        .gear-icon::before {
+            content: attr(data-long);
+        }
+        
         .settings-trigger .gear-icon {
             font-size: 1rem;
             transition: transform 0.3s ease;
@@ -781,7 +798,7 @@
         
         @media (max-width: 440px) {
 
-            body { padding: 10px; }
+            body { padding: 24px; }
             
             .container { height: calc(100vh - 20px); border-radius: 16px; }
 
@@ -800,11 +817,10 @@
             /* 放大控制面板 */
             .zoom-control { display: none; }
 
-            .m-zoomIn-button {
+            .m-zoomOut-button, .m-zoomIn-button{
                 display: block;
                 position: absolute;
                 top: 10px;
-                left: 10px;
                 padding: 4px 10px;
                 background: rgba(255, 255, 255, 0.2);
                 backdrop-filter: blur(10px);
@@ -812,19 +828,10 @@
                 border: none;
                 font-size: 0.65rem;
             }
+
+            .m-zoomOut-button {left: 10px}
             
-            .m-zoomOut-button {
-                display: block;
-                position: absolute;
-                top: 10px;
-                left:46px;
-                padding: 4px 10px;
-                background: rgba(255, 255, 255, 0.2);
-                backdrop-filter: blur(10px);
-                border-radius: 12px;
-                font-size: 0.65rem;
-                border: none;
-            }
+            .m-zoomIn-button {left:46px}
 
             .m-zoom-value {
                 display: block;
@@ -838,11 +845,7 @@
                 gap:4px;
             }
         
-            .m-zoomIn-button:hover {
-                background: rgba(255, 255, 255, 0.415);
-            }
-            
-            .m-zoomOut-button:hover {
+            .m-zoomIn-button:hover, .m-zoomOut-button:hover{
                 background: rgba(255, 255, 255, 0.415);
             }
 
@@ -949,6 +952,14 @@
             }
 
             /* 排列模式 */
+            .mode-button.active::before{
+                content:attr(data-short)
+            }
+            
+            .mode-button::before{
+                content:attr(data-short)
+            }
+
             .mode-button {
                 padding: 4px 10px;
                 font-size: 0.85rem;
@@ -966,6 +977,10 @@
             
             .settings-color-section .color-item {
                 color: var(--text-secondary)
+            }
+
+            .gear-icon::before {
+                content: attr(data-short);
             }
 
             .settings-trigger {
@@ -1072,7 +1087,7 @@
             
             <!-- 控制面板 -->
             <div class="controls">
-                <button class="theme-toggle" id="themeToggle"> ☀️ 淺色模式 </button>
+                <button class="theme-toggle" id="themeToggle" data-long=" ☀️ 淺色模式" data-short = "☀️" ></button>
                 <div class="zoom-control">
                     <span>🔍</span>
                     <input type="range" id="zoomSlider" min="50" max="150" value="100" step="5">
@@ -1111,12 +1126,13 @@
 
             <div class="options" style="justify-content: space-between;">
                 <div class="button-group">
-                    <button class="mode-button active" data-mode="common">常用字優先</button>
-                    <button class="mode-button" data-mode="initial">同聲韻並列</button>
-                    <button class="mode-button" data-mode="tone">同聲調並列</button>
+                    <button class="mode-button active" data-mode="common" data-long = "常用字優先" data-short = "常用字"></button> </button>
+                    <button class="mode-button" data-mode="initial" data-long = "同聲韻並列" data-short = "同聲韻" ></button>
+                    <button class="mode-button" data-mode="tone" data-long = "同聲調並列" data-short = "同聲調" ></button>
                 </div>
                 <div class="settings-trigger" id="settingsTrigger" onclick="toggleSettings()">
-                    <span class="gear-icon">⚙️</span>
+                    <span class="gear-icon" data-long = "⚙️ 偏好設定" data-short ="⚙️"></span>
+                    <!-- <span class="m-gear-icon">⚙️</span> -->
                     <span></span>
                 </div>
             </div>
@@ -3929,8 +3945,9 @@
         const zoomSlider = document.getElementById('zoomSlider');
         const zoomValue =  document.getElementById('zoomValue');
         const resultsSection = document.querySelector('.results-section');
+        
         if (!!phone) {
-            resultsSection.style.zoom = MzoomBaseRatio
+            
             // document.getElementById('MzoomValue').textContent = '100%';
         }
         
@@ -3950,8 +3967,8 @@
         function loadColors() {
             // 從 localStorage 讀取原始（淺色模式）顏色
             const rawColors = {
-                bgColor1: localStorage.getItem('bgColor1') || '#0a273d',
-                containerBg: localStorage.getItem('containerBg') || '#f1ecdd',
+                bgColor1: localStorage.getItem('bgColor1') || '#0c4564',
+                containerBg: localStorage.getItem('containerBg') || '#eee3ce',
                 textColor: localStorage.getItem('textColor') || '#2d3748',
                 highlightColor: localStorage.getItem('highlightColor') || '#ed8936'
             };
@@ -4036,9 +4053,10 @@
         buildIndex();
 
         // 手機版：將 batch panel 移入搜尋區域
-        if  (phone) {
+        if  (!!phone) {
             const batchPanel = document.getElementById('m-batchPanel');
             const mobileArea = document.getElementById('mobileBatchArea');
+            resultsSection.style.zoom = MzoomBaseRatio
             if (batchPanel && mobileArea) {
                 mobileArea.appendChild(batchPanel);
             }
