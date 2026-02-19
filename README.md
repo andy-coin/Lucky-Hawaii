@@ -1,4 +1,4 @@
-# 好韻器 x Lucky Hawaii
+# 好韻器 x Lucky Hawaii beta 0.8.3
 Chinese Rhyming Tool for lyricists
 
 很直覺啦，不需要解說什麼，有鑑於目前很難找到針對「單字」而非「詞」本身的韻腳搜尋工具，怒開發。
@@ -8,6 +8,8 @@ Chinese Rhyming Tool for lyricists
 ．支援注音、拼音
 
 ．支援子音、母音
+
+．支援漢字反查
 
 ．支援複數搜尋
 
