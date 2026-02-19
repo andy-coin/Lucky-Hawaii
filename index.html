@@ -254,7 +254,7 @@
         .mode-button::before {
             content: attr(data-short);
         }
-
+        
         /* 按鈕組 */
         .button-group {
             display: flex;
@@ -265,6 +265,24 @@
             border: 1px solid var(--border);
         }
         
+        .reset-color{
+            margin-top:8px;
+            padding:4px 8px;
+            font-size: 0.9rem;
+            border:1px solid  #ff8c3a;
+            border-radius:6px;
+            background: #f57f7f;
+            color: rgb(228, 228, 228);
+            font-weight: 900;
+            cursor:pointer;
+        }
+        
+        .reset-color:hover{
+            background: #ff3d3d;
+            border-color:  #000000;
+            color: rgb(255, 255, 255);
+        }
+        
         .mode-button.active::before{
             content:attr(data-long)
         }
@@ -272,7 +290,6 @@
         .mode-button::before{
             content:attr(data-long)
         }
-
 
         .mode-button {
             padding: 8px 16px;
@@ -386,8 +403,6 @@
             scrollbar-width: thin;
         }
 
-
-
         .results-section::-webkit-scrollbar { width: 6px; }
         .results-section::-webkit-scrollbar-track { background: transparent; }
         .results-section::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.2); border-radius: 3px; }
@@ -474,7 +489,8 @@
         
         .char-card.selected {
             border-color: var(--highlight-border);
-            border-width: 3px;
+            outline: 2px solid var(--highlight-border);
+            outline-offset: -1px;
             background: linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%);
         }
         
@@ -865,7 +881,8 @@
             }
 
             .search-input {
-                font-size: 0.85rem;
+                font-size: 16px;
+                /* font-size: 0.85rem; */
                 padding: 8px 12px;
                 -webkit-appearance: none;
                 appearance: none;
@@ -971,6 +988,16 @@
             .settings-color-section .color-item {
                 color: var(--text-secondary);
                 font-size: 0.8rem;
+            }
+
+            .reset-color{
+                font-size: 0.8rem;
+                width: fit-content;
+                display: block;
+                margin: 0 auto;
+                justify-content: center;
+                padding-top: 6px;
+                padding: 4px 12px;
             }
 
             .gear-icon::before {
@@ -1182,12 +1209,13 @@
                 <div class="settings-color-section" id="settingsColorSection">
                     <div style="font-size:0.9rem; color:var(--text-primary); margin-top:0px; margin-bottom:10px;">客製顏色</div>
                     <div style="display:flex; flex-wrap:wrap; gap:10px;">
-                        <div class="color-item"><label>背景</label><input type="color" id="bgColor1" value="#667eea"></div>
-                        <div class="color-item"><label>底色</label><input type="color" id="containerBg" value="#ffffff"></div>
-                        <div class="color-item"><label>文字</label><input type="color" id="textColor" value="#2d3748"></div>
-                        <div class="color-item"><label>邊框</label><input type="color" id="highlightColor" value="#ed8936"></div>
+                        <div class="color-item"><label>背景</label><input type="color" id="sBgColor1" value="#667eea"></div>
+                        <div class="color-item"><label>底色</label><input type="color" id="sContainerBg" value="#ffffff"></div>
+                        <div class="color-item"><label>文字</label><input type="color" id="sTextColor" value="#2d3748"></div>
+                        <div class="color-item"><label>邊框</label><input type="color" id="sHighlightColor" value="#ed8936"></div>
                     </div>
                 </div>
+                <button class="reset-color" onclick="resetColors()" >重設顏色!</button>
             </div>
         </div>
 
@@ -3800,6 +3828,11 @@
                 if (card) {
                     const char = card.dataset.char;
                     toggleSelection(char, card);
+                } else if (selectedChars.size > 0) {
+                    // 點擊空白處：取消所有選擇
+                    selectedChars.clear();
+                    document.querySelectorAll('.char-card.selected').forEach(c => c.classList.remove('selected'));
+                    updateBatchCount();
                 }
             };
         }
@@ -3847,7 +3880,7 @@
             //if (e.isComposing) return;
             selectedChars.clear();
             const results = searchRhyme(e.target.value);
-            displayResults(results);
+            displayResults(results);    
         });
         
         // 輸入法組字完成事件（支援手機注音/拼音輸入法）
@@ -3973,7 +4006,6 @@
 
         // 顏色自定義
         function loadColors() {
-            // 從 localStorage 讀取原始（淺色模式）顏色
             const rawColors = {
                 bgColor1: localStorage.getItem('bgColor1') || '#0c4564',
                 containerBg: localStorage.getItem('containerBg') || '#eee3ce',
@@ -3981,38 +4013,48 @@
                 highlightColor: localStorage.getItem('highlightColor') || '#ed8936'
             };
             
-            // 深色模式：背景以外的顏色反轉
             let displayColors;
             if (isDark) {
                 displayColors = {
-                    bgColor1: rawColors.bgColor1, // 背景不反轉
+                    bgColor1: invertColor(rawColors.bgColor1),
                     containerBg: invertColor(rawColors.containerBg),
                     textColor: invertColor(rawColors.textColor),
-                    highlightColor: invertColor(rawColors.highlightColor)
+                    highlightColor: invertColor(rawColors.highlightColor),
                 };
             } else {
                 displayColors = { ...rawColors };
             }
             
-            // 更新色票 UI 顯示當前實際使用的顏色
-            document.getElementById('bgColor1').value = rawColors.bgColor1; // 背景永遠顯示原色
+            // 同步桌面版色票
+            document.getElementById('bgColor1').value = displayColors.bgColor1;
             document.getElementById('containerBg').value = displayColors.containerBg;
             document.getElementById('textColor').value = displayColors.textColor;
             document.getElementById('highlightColor').value = displayColors.highlightColor;
+            // 同步手機設定面板色票
+            const sBg = document.getElementById('sBgColor1');
+            if (sBg) {
+                sBg.value = displayColors.bgColor1;
+                document.getElementById('sContainerBg').value = displayColors.containerBg;
+                document.getElementById('sTextColor').value = displayColors.textColor;
+                document.getElementById('sHighlightColor').value = displayColors.highlightColor;
+            }
             
             applyColors(displayColors, rawColors.textColor);
         }
 
         function applyColors(colors, rawTextColor) {
-            // 背景不受深色模式影響（深色模式有自己的背景）
-            if (!isDark) {
+            
+            // 背景：有自訂色就套用，沒有的話深色模式用預設深色
+            const defaultBg = '#0c4564';
+            const hasCustomBg = localStorage.getItem('bgColor1') && localStorage.getItem('bgColor1') !== defaultBg;
+            if (!isDark || hasCustomBg) {
                 document.documentElement.style.setProperty('--bg-gradient-1', colors.bgColor1);
                 document.documentElement.style.setProperty('--bg-gradient-2', colors.bgColor1);
             }
+
             document.documentElement.style.setProperty('--container-bg', colors.containerBg);
             document.documentElement.style.setProperty('--highlight-border', colors.highlightColor);
             
-            // 文字顏色
             const defaultTextColor = '#2d3748';
             const originalTextColor = rawTextColor || colors.textColor;
             if (originalTextColor !== defaultTextColor || isDark) {
@@ -4025,41 +4067,49 @@
             }
         }
 
-        document.getElementById('bgColor1').addEventListener('change', (e) => {
-            // 背景不反轉，直接儲存
-            localStorage.setItem('bgColor1', e.target.value);
+        function resetColors() {
+            localStorage.removeItem('bgColor1');
+            localStorage.removeItem('containerBg');
+            localStorage.removeItem('textColor');
+            localStorage.removeItem('highlightColor');
+            hasCustomTextColor = false;
             loadColors();
-        });
-
-        document.getElementById('containerBg').addEventListener('change', (e) => {
-            // 深色模式下使用者選的是反轉後的顏色，需反轉回原色再儲存
-            const rawValue = isDark ? invertColor(e.target.value) : e.target.value;
-            localStorage.setItem('containerBg', rawValue);
-            loadColors();
-        });
-
-        document.getElementById('textColor').addEventListener('change', (e) => {
-            const rawValue = isDark ? invertColor(e.target.value) : e.target.value;
-            localStorage.setItem('textColor', rawValue);
-            loadColors();
-            // 重新渲染以套用 custom-color class
             const currentInput = document.getElementById('searchInput').value;
             if (currentInput) {
                 const results = searchRhyme(currentInput);
                 displayResults(results);
             }
-        });
+        }
 
-        document.getElementById('highlightColor').addEventListener('change', (e) => {
-            const rawValue = isDark ? invertColor(e.target.value) : e.target.value;
-            localStorage.setItem('highlightColor', rawValue);
+        function handleColorChange(key, value, rerender) {
+            const rawValue = isDark ? invertColor(value) : value;
+            localStorage.setItem(key, rawValue);
             loadColors();
-        });
+            if (rerender) {
+                const currentInput = document.getElementById('searchInput').value;
+                if (currentInput) {
+                    const results = searchRhyme(currentInput);
+                    displayResults(results);
+                }
+            }
+        }
+
+
+        // 桌面版色票事件
+        document.getElementById('bgColor1').addEventListener('input', (e) => handleColorChange('bgColor1', e.target.value));
+        document.getElementById('containerBg').addEventListener('input', (e) => handleColorChange('containerBg', e.target.value));
+        document.getElementById('textColor').addEventListener('input', (e) => handleColorChange('textColor', e.target.value, true));
+        document.getElementById('highlightColor').addEventListener('input', (e) => handleColorChange('highlightColor', e.target.value));
+
+        // 手機設定面板色票事件（使用 input 事件以支援即時預覽）
+        document.getElementById('sBgColor1').addEventListener('input', (e) => handleColorChange('bgColor1', e.target.value));
+        document.getElementById('sContainerBg').addEventListener('input', (e) => handleColorChange('containerBg', e.target.value));
+        document.getElementById('sTextColor').addEventListener('input', (e) => handleColorChange('textColor', e.target.value, true));
+        document.getElementById('sHighlightColor').addEventListener('input', (e) => handleColorChange('highlightColor', e.target.value));
 
         // 初始化
         loadDictOverrides();  // 先載入使用者修改，覆寫 rhymeDict
         buildIndex();
-        loadColors();
 
         // 手機版：將 batch panel 移入搜尋區域
         if  (!!phone) {
@@ -4073,6 +4123,8 @@
             // 只在桌面自動 focus（避免手機打開就彈出鍵盤）
             document.getElementById('searchInput').focus();
         }
+
+        loadColors();
 
     </script>
 </body>
