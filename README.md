@@ -2,6 +2,8 @@
 
 Chinese Rhyming Tool for lyricists __v0.8.3 beta
 
+本專案字庫部分參考自 [小麥注音](https://mcbopomofo.openvanilla.org)（MIT License）
+
 使用上應該很直覺啦，不需要解說什麼，有鑑於目前很難找到針對「單字」而非「詞」本身的韻腳搜尋工具，怒開發。
 
 ．繁體中文
