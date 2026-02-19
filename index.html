@@ -40,8 +40,8 @@
             --card-bg: #2d3748;
             --highlight-border: #ed8936;
             --shadow: rgba(0, 0, 0, 0.1);
-            --header-gradient-1: #2d3748;
-            --header-gradient-2: #4a5568;
+            --header-gradient-1: #1a1f28;
+            --header-gradient-2: #174aa4;
             --custom-text-color: none;
         }
         
@@ -86,7 +86,7 @@
         }
         
         .header {
-            background: linear-gradient(135deg, var(--header-gradient-1) 0%, var(--header-gradient-2) 100%);
+            background: linear-gradient(150deg, var(--header-gradient-1) 5%, var(--header-gradient-2) 100%);
             color: white;
             padding: 40px 30px;
             text-align: center;
@@ -288,9 +288,7 @@
         }
         
         .mode-button.active {
-            /* background: linear-gradient(135deg, #cccccc 0%,#3a8dcc 100%); */
-            /* color: var(--text-primary); */
-            background: linear-gradient(120deg, #ffc0c0 0%, var(--container-bg)100%);
+            background: linear-gradient(120deg, #e3a5a5 0%, var(--container-bg)100%);
             color: rgb(255, 255, 255);
         }
         
@@ -382,11 +380,13 @@
             min-height: 300px;
             flex: 1;
             overflow-y: auto;
-            overflow-x: hidden;
+            /* overflow-x: hidden; */
             /* border-top: 5px solid var(--border); */
             border-top: 4px solid  rgb(177, 110, 55);
             scrollbar-width: thin;
         }
+
+
 
         .results-section::-webkit-scrollbar { width: 6px; }
         .results-section::-webkit-scrollbar-track { background: transparent; }
@@ -394,7 +394,7 @@
         
         .results-header {
             display: flex;
-            justify-content: space-between;
+            justify-content: left;
             align-items: center;
             margin-bottom: 20px;
         }
@@ -405,6 +405,12 @@
             font-weight: 500;
         }
         
+        .batch-count {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            padding-left: 20px ;
+        }
+
         /* 分組標題 */
         .group-section {
             margin-bottom: 30px;
@@ -686,13 +692,6 @@
         .batch-btn.btn-rare { border-left: 8px solid #4299e1; }
         .batch-btn.btn-clear { border-left: 8px solid #bac0a0; }
 
-        .batch-count {
-            text-align: center;
-            font-size: 0.75rem;
-            color: var(--text-secondary);
-            padding: 2px 0;
-        }
-
         .m-batch-panel{
             display: none;
         }
@@ -803,7 +802,7 @@
 
             .header { padding: 14px 10px 16px; }
             .header h1 { font-size: 1.25rem; margin-bottom: 6px; }
-            .header p { font-size: 0.8rem; }
+            .header p { font-size: 0.8rem; padding-top: 4px;}
             
             
             /* 手機：隱藏 header 顏色面板，顯示設定面板內的顏色*/
@@ -836,11 +835,11 @@
                 display: block;
                 position: absolute;
                 top: 32px;
-                left: 18px;
+                left: 22px;
                 flex-direction: row;
                 color: white;
                 align-items: left;
-                font-size: 0.8rem;
+                font-size: 0.7rem;
                 gap:4px;
             }
         
@@ -944,12 +943,6 @@
                 right: -14px;
                 gap: 2px;
             }
-            .m-batch-count {
-                text-align: center;
-                font-size: 0.75rem;
-                color: var(--text-secondary);
-                padding: 4px 0;
-            }
 
             /* 排列模式 */
             .mode-button.active::before{
@@ -972,17 +965,17 @@
 
             .settings-color-section {
                 display: block !important;
-                color: var(--text-secondary)
+                color: var(--text-secondary);
             }
             
             .settings-color-section .color-item {
-                color: var(--text-secondary)
+                color: var(--text-secondary);
+                font-size: 0.8rem;
             }
 
             .gear-icon::before {
                 content: attr(data-short);
             }
-
 
             .settings-trigger {
                 align-self: flex-end;
@@ -993,7 +986,7 @@
             }
 
             .checkbox-label {
-                font-size: 0.75rem;
+                font-size: 0.8rem;
             }
             
             .button-group {
@@ -1114,7 +1107,7 @@
                     type="text" 
                     id="searchInput" 
                     class="search-input" 
-                    placeholder="輸入注音/拼音/中文，例如：「ㄢ」或「an」或「安」"
+                    placeholder="輸入注音/拼音/漢字，例如：「ㄢ」或「an」或「安」"
                     autocomplete="o"
                     autocorrect="off"
                     autocapitalize="off"
@@ -1123,7 +1116,7 @@
                     enterkeyhint="search"
                 >
                 <div class="search-hint">
-                    💡 支援注音（ㄅㄆㄇ）或拼音（b p m），輸入中文字則反查所有符合同樣韻腳的字
+                    💡 支援注音（ㄅㄆㄇ）或拼音（b p m），輸入漢字則反查所有符合同樣韻腳的字
                 </div>
             </div>
             
@@ -1148,7 +1141,7 @@
                         <path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
                     </svg>
                     <h3>開始搜尋</h3>
-                    <p>在上方輸入注音或拼音來尋找押韻的字</br></br>支援子.母音搜尋｜支援中文反查</p>
+                    <p>在上方輸入注音或拼音來尋找押韻的字</br></br>支援子.母音搜尋｜支援漢字反查</p>
                 </div>
             </div>
         </div>
@@ -1161,9 +1154,9 @@
         <div class="about-overlay" id="aboutOverlay" onclick="closeAbout(event)">
             <div class="about-content" onclick="event.stopPropagation()">
                 <h3>好韻器｜Lucky Hawaii</h3>
-                <p>版本 v0.8.2 beta</p>
-                <p>有鑑於目前網路上的韻腳查詢工具幾乎都是以「詞」為架構，並且容易混雜著大量的冷僻詞彙，因此特別開發針對「常用字」為索引系統的工具，將聽覺鄰近的借韻一併顯示。</p>
-                <span style="display: flex; justify-content: end; color: var(--text-secondary); font-size: 0.8rem;" >祝大家生出絕妙好詞！！&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2026.02 Lyx</span>
+                <p>版本 v0.8.3 beta</p>
+                <p>鑑於目前網路上的韻腳查詢工具幾乎都是以「詞」為架構，且常混雜著大量冷僻詞彙，因此特別開發針對常用「字」為索引系統的工具，聽覺鄰近的借韻也一併顯示。希望能幫助大家想出絕妙好詞！！</p>
+                <span style="display: flex; justify-content: end; color: var(--text-secondary); font-size: 0.8rem;" >2026.02 Lyx </span>
             </div>
         </div>
         
@@ -1197,11 +1190,10 @@
                 </div>
             </div>
         </div>
-    
+
     </div>
 
     <div class="batch-panel" id="batchPanel">
-        <div class="batch-count" id="batchCount"></div>
         <button class="batch-btn btn-common" onclick="batchMark('common')">
             <span class="batch-icon">⭐</span>
             <span>標記為<br>常用</span>
@@ -1216,9 +1208,7 @@
         </button>
     </div>
 
-
     <div class="m-batch-panel" id="m-batchPanel">
-        <div class="m-batch-count" id="batchCount"></div>
         <button class="m-batch-btn btn-common" onclick="batchMark('common')">
             <span class="batch-icon">⭐</span>
             <span>常用</span>
@@ -1449,7 +1439,7 @@
             'ㄅㄧ1':'逼嗶｜屄｜-',
             'ㄅㄧ2':'鼻｜-｜-',
             'ㄅㄧ3':'比筆彼｜鄙｜-',
-            'ㄅㄧ4':'必畢閉｜壁避臂幣碧敝壁璧幣弊婢斃俾蔽庇愎辟陛埤弼裨｜-',
+            'ㄅㄧ4':'必畢閉｜壁避臂幣碧敝壁璧幣弊婢斃俾蔽庇愎辟陛埤裨｜弼',
             'ㄅㄧㄝ1':'憋｜鱉｜-',
             'ㄅㄧㄝ2':'別｜蹩｜-',
             'ㄅㄧㄝ3':'癟｜-｜-',
@@ -2479,7 +2469,7 @@
             'ㄖㄨㄣ4':'潤｜-｜-',
             'ㄖㄨㄥ2':'容榮融｜戎絨茸榕溶熔｜-',
             'ㄖㄨㄥ3':'冗｜-｜-',
-            'ㄖㄜ3':'惹｜若｜-',
+            'ㄖㄜ3':'惹｜-｜若',
             'ㄖㄜ4':'熱｜-｜-',
             'ㄖㄠ2':'饒｜-｜-',
             'ㄖㄠ3':'擾｜-｜-',
@@ -2497,7 +2487,7 @@
             'ㄖㄤ4':'讓｜-｜-',
             'ㄖㄥ1':'扔｜-｜-',
             'ㄖㄥ2':'仍｜-｜-',
-            'ㄗ1':'資姿滋｜茲吱咨孜諮輜齜孳｜-',
+            'ㄗ1':'資姿滋｜茲吱孜諮齜孳｜咨輜',
             'ㄗ3':'子仔｜梓紫籽｜-',
             'ㄗ4':'自字｜恣漬｜-',
             'ㄗㄨ1':'租｜-｜-',
@@ -3163,7 +3153,7 @@
 
             // === 主流程 ===
             queries.forEach((query) => {
-                // 0. 中文字反查：偵測到中文字時，查出韻母後走借韻
+                // 0. 漢字反查：偵測到漢字時，查出韻母後走借韻
                 const hasChinese = /[\u4e00-\u9fff]/.test(query);
                 if (hasChinese) {
                     const rhymesFound = new Set();
@@ -3254,8 +3244,7 @@
             return allResults;
         }
 
-
-        // 全局狀態
+        // 全局狀態 //
         let currentMode = 'common';
         let selectedChars = new Set();
         let recentClicks = [];
@@ -3383,9 +3372,30 @@
 
         // 延遲重排系統
         let reorderTimer = null;
-        const REORDER_DELAY = 3000; // 3秒
+        const REORDER_DELAY = 3000;
+        const pendingChanges = new Map(); // key: char+dictKey → oldTier
 
-        // 處理徽章點擊（阻止冒泡，不觸發選取）
+        function scheduleReorder() {
+            if (reorderTimer) clearTimeout(reorderTimer);
+            reorderTimer = setTimeout(() => {
+                reorderTimer = null;
+                // 快照庫空了 = 全部改回去了 = 不重排
+                if (pendingChanges.size === 0) return;
+                pendingChanges.clear();
+                const currentInput = document.getElementById('searchInput').value;
+                if (currentInput) {
+                    const container = document.getElementById('resultsContainer');
+                    container.style.opacity = '0.001';
+                    container.style.transition = 'opacity 0.3s ease';
+                    setTimeout(() => {
+                        const results = searchRhyme(currentInput);
+                        displayResults(results);
+                        container.style.opacity = '1';
+                    }, 500);
+                }
+            }, REORDER_DELAY);
+        }
+
         function handleBadgeClick(event) {
             event.stopPropagation();
             event.preventDefault();
@@ -3394,43 +3404,31 @@
             const dictKey = badge.dataset.key;
             if (!char || !dictKey) return;
 
+            const baseZhuyin = dictKey.slice(0, -1);
+            const snapKey = char + dictKey;
+
+            // 拍快照：記錄「改動前」的狀態（只在首次改動該字時記錄）
+            if (!pendingChanges.has(snapKey)) {
+                pendingChanges.set(snapKey, getCharMark(char, baseZhuyin));
+            }
+
+            // 執行狀態切換
             cycleCharMark(char, dictKey);
 
-            // 就地更新徽章外觀（不重排）
-            const baseZhuyin = dictKey.slice(0, -1);
+            // 取得切換後的新狀態
             const newMark = getCharMark(char, baseZhuyin);
-            
-            if (newMark === 'common') {
-                badge.className = 'mark-badge common';
-                badge.textContent = '常用';
-            } else if (newMark === 'rare') {
-                badge.className = 'mark-badge rare';
-                badge.textContent = '冷僻';
-            } else {
-                badge.className = 'mark-badge normal';
-                badge.textContent = '一般';
+
+            // 比對快照：新狀態 === 舊狀態 → 改回去了 → 消除快照
+            if (pendingChanges.get(snapKey) === newMark) {
+                pendingChanges.delete(snapKey);
             }
-            
-            // 重置/延長 3 秒計時器（共用同一個計時器 = 同區間內累積）
-            if (reorderTimer) {
-                clearTimeout(reorderTimer);
-            }
-            reorderTimer = setTimeout(() => {
-                reorderTimer = null;
-                // 時間到：完整重新渲染（含排序）
-                const currentInput = document.getElementById('searchInput').value;
-                if (currentInput) {
-                    const results = searchRhyme(currentInput);
-                    // 加入淡入動畫
-                    const container = document.getElementById('resultsContainer');
-                    container.style.opacity = '0.001';
-                    container.style.transition = 'opacity 0.3s ease';
-                    setTimeout(() => {
-                        displayResults(results);
-                        container.style.opacity = '1';
-                    }, 500);
-                }
-            }, REORDER_DELAY);
+
+            // 更新徽章外觀
+            const tierLabels = { common: '常用', normal: '一般', rare: '冷僻' };
+            badge.className = `mark-badge ${newMark}`;
+            badge.textContent = tierLabels[newMark];
+
+            scheduleReorder();
         }
 
         // 切換選中狀態
@@ -3446,7 +3444,6 @@
             updateBatchCount();
         }
 
-        // 批量標記（含延遲重渲染）
         function batchMark(action) {
             if (selectedChars.size === 0) return;
 
@@ -3461,9 +3458,22 @@
                 if (!char || !dictKey || dictKey === 'undefined0' || processed.has(char + dictKey)) return;
                 processed.add(char + dictKey);
 
+                const baseZhuyin = dictKey.slice(0, -1);
+                const snapKey = char + dictKey;
+
+                // 拍快照（首次改動才記錄）
+                if (!pendingChanges.has(snapKey)) {
+                    pendingChanges.set(snapKey, getCharMark(char, baseZhuyin));
+                }
+
                 moveCharTier(char, dictKey, newTier);
 
-                // 就地更新徽章外觀（不重排）
+                // 比對：改回原狀態 → 消除快照
+                if (pendingChanges.get(snapKey) === newTier) {
+                    pendingChanges.delete(snapKey);
+                }
+
+                // 更新徽章外觀
                 const badge = card.querySelector('.mark-badge');
                 if (badge) {
                     badge.className = `mark-badge ${newTier}`;
@@ -3471,25 +3481,8 @@
                 }
             });
 
-            // 不清除選擇狀態，保持已選文字
             updateBatchCount();
-
-            // 延遲重渲染（與單字點擊共用 reorderTimer）
-            if (reorderTimer) clearTimeout(reorderTimer);
-            reorderTimer = setTimeout(() => {
-                reorderTimer = null;
-                const currentInput = document.getElementById('searchInput').value;
-                if (currentInput) {
-                    const container = document.getElementById('resultsContainer');
-                    container.style.opacity = '0.001';
-                    container.style.transition = 'opacity 0.3s ease';
-                    setTimeout(() => {
-                        const results = searchRhyme(currentInput);
-                        displayResults(results);
-                        container.style.opacity = '1';
-                    }, 500);
-                }
-            }, REORDER_DELAY);
+            scheduleReorder();
         }
 
         // 更新批量面板計數
@@ -3544,6 +3537,22 @@
 
         // 顯示結果
         function displayResults(results) {
+            
+            // 搜尋欄為空時恢復初始畫面
+            const currentInput = document.getElementById('searchInput').value.trim();
+            if (!currentInput) {
+                const container = document.getElementById('resultsContainer');
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                        </svg>
+                        <h3>開始搜尋</h3>
+                        <p>在上方輸入注音或拼音來尋找押韻的字</br></br>支援子.母音搜尋｜支援漢字反查</p>
+                    </div>
+                `;
+                return;
+            }
 
             results.forEach(r => {
                 const infos = charInfo[r.char];
@@ -3603,6 +3612,7 @@
             const header = `
                 <div class="results-header">
                     <div class="results-count">找到 ${results.length} 個字</div>
+                    <div class="batch-count" id="batchCount"></div>
                 </div>
             `;
             
@@ -3781,7 +3791,7 @@
             }
             
             container.innerHTML = header + content;
-            
+
             // 點擊事件（使用事件委派）
             const resultsContainer = document.getElementById('resultsContainer');
             resultsContainer.onclick = function(e) {
@@ -3831,10 +3841,11 @@
                 document.getElementById('aboutOverlay').classList.remove('show');
             }
         }
-        // 標準 input 事件
+        //標準 input 事件
         searchInputEl.addEventListener('input', (e) => {
             // 如果正在輸入法組字中（如注音輸入法），跳過
-            if (e.isComposing) return;
+            //if (e.isComposing) return;
+            selectedChars.clear();
             const results = searchRhyme(e.target.value);
             displayResults(results);
         });
@@ -3842,6 +3853,7 @@
         // 輸入法組字完成事件（支援手機注音/拼音輸入法）
         searchInputEl.addEventListener('compositionend', (e) => {
             const results = searchRhyme(e.target.value);
+            selectedChars.clear();
             displayResults(results);
         });
         
@@ -3925,7 +3937,7 @@
         const savedTheme = localStorage.getItem(THEME_KEY);
         if (savedTheme === 'dark') applyTheme(true, false);
         else if (savedTheme === 'light') applyTheme(false, false);
-        //else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) applyTheme(true, false);
+        else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) applyTheme(true, false);
         else applyTheme(false, false);
 
         themeToggle.addEventListener('click', () => {
@@ -3946,11 +3958,6 @@
         const zoomSlider = document.getElementById('zoomSlider');
         const zoomValue =  document.getElementById('zoomValue');
         const resultsSection = document.querySelector('.results-section');
-        
-        if (!!phone) {
-            
-            // document.getElementById('MzoomValue').textContent = '100%';
-        }
         
         zoomSlider.addEventListener('input', (e) => {
             zoomValue.textContent = e.target.value + '%';
@@ -4052,6 +4059,7 @@
         // 初始化
         loadDictOverrides();  // 先載入使用者修改，覆寫 rhymeDict
         buildIndex();
+        loadColors();
 
         // 手機版：將 batch panel 移入搜尋區域
         if  (!!phone) {
@@ -4061,13 +4069,11 @@
             if (batchPanel && mobileArea) {
                 mobileArea.appendChild(batchPanel);
             }
-        }
-
-        loadColors();
-        // 只在桌面自動 focus（避免手機打開就彈出鍵盤）
-        if (!phone) {
+        } else {
+            // 只在桌面自動 focus（避免手機打開就彈出鍵盤）
             document.getElementById('searchInput').focus();
         }
+
     </script>
 </body>
 </html>
