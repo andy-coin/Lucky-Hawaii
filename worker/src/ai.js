@@ -2,6 +2,7 @@
 // 瀏覽器只送任務內容，由這裡決定用哪個模型、帶哪把金鑰（D-06）。
 // 換手鏈：逾時、429、5xx 換下一個；失效（404）與額度用完的模型先冷卻起來不再打；400 類請求錯誤直接回報不重試。
 import { MODELS, findModel } from './models.js';
+import { activeModels } from './health.js';
 
 // 下面的數字都可以調（研究值，上線後看實際狀況再改）
 const ATTEMPT_TIMEOUT_MS = 12000;      // 單次嘗試上限；env.ATTEMPT_TIMEOUT_MS 可覆寫（測試用）
@@ -15,7 +16,7 @@ const RETRY_MAX_MS = 900000;           // 429 的 Retry-After 上限（15 分鐘
 const RETRY_DEFAULT_MS = 60000;        // 429 沒給等待時間時的預設值
 
 // 冷卻狀態只放在這個 isolate 的記憶體裡：KV 太慢又有寫入次數限制，不適合每個請求都讀寫；
-// 長期的失效名單由每日健康檢查負責（plan 02-05）。isolate 重啟就歸零，最壞情況是多打一次失效的模型。
+// 長期的失效名單由每日健康檢查負責（health.js，存在 AI_STATE_KV）。isolate 重啟就歸零，最壞情況是多打一次失效的模型。
 const cooldown = new Map();            // 模型 id → 可再用的時間點（ms）
 const dead = new Map();                // 模型 id → 失效到何時（ms）
 const providerCooldown = new Map();    // 供應商 → 可再用的時間點（ms）
@@ -145,11 +146,16 @@ export async function runChain(req, env) {
     const budget = Number(env.CHAIN_BUDGET_MS) || CHAIN_BUDGET_MS;
     const timeoutMs = Number(env.ATTEMPT_TIMEOUT_MS) || ATTEMPT_TIMEOUT_MS;
 
-    // 候選順序：名單內的偏好模型先，再依登記順序；Groq 的額度算「提示＋預留輸出」，提示太長的先跳過
+    // 候選順序：偏好模型（要在白名單內且今天仍啟用）先，再依登記順序；候選來自每日健康檢查的啟用名單（沒有紀錄就是完整名單）。
+    // Groq 的額度算「提示＋預留輸出」，提示太長的先跳過
+    const active = await activeModels(env);
     const promptChars = req.messages.reduce((n, x) => n + String(x.content || '').length, 0);
-    const preferred = req.model !== 'auto' ? findModel(req.model) : undefined;
-    const order = preferred ? [preferred, ...MODELS.filter(m => m !== preferred)] : MODELS;
-    const fits = order.filter(m => !m.maxPromptChars || promptChars <= m.maxPromptChars);   // Gemini 沒有上限，所以不會空
+    const preferred = req.model !== 'auto' && active.includes(findModel(req.model)) ? findModel(req.model) : undefined;
+    const order = preferred ? [preferred, ...active.filter(m => m !== preferred)] : active;
+    const fitsPrompt = m => !m.maxPromptChars || promptChars <= m.maxPromptChars;
+    // 啟用名單可能只剩 Groq 而提示又太長：這時退回完整名單裡吃得下的（Gemini 沒有上限，所以不會空）
+    let fits = order.filter(fitsPrompt);
+    if (!fits.length) fits = MODELS.filter(fitsPrompt);
     let queue = fits.filter(isAvailable).map(m => ({ m, noThinking: false }));
     // 全部都在冷卻時不能不打：挑冷卻最早結束的那個硬試一次（冷卻只是估計，不是事實）
     const forced = queue.length === 0;

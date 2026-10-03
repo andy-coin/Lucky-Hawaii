@@ -5,7 +5,7 @@
 import { MODELS, computeActive } from './models.js';
 import { callModel, classify } from './ai.js';
 
-const HEALTH_KEY = 'health';
+export const HEALTH_KEY = 'health';
 const HEALTH_CACHE_MS = 300000;            // 同一個 isolate 5 分鐘內不重讀 KV
 const HEALTH_MAX_AGE_MS = 72 * 3600000;    // 超過 3 天沒更新的紀錄不可信（cron 可能停了），忽略並用完整名單
 const PROBE_PROMPT = '只回覆 OK';

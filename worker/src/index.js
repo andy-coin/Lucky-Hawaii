@@ -2,8 +2,7 @@
 // 瀏覽器不再指定供應商、金鑰或模型清單（D-06）：只送 { prompt, model, temperature }，由 Worker 決定怎麼呼叫。
 // 回報與後台路徑已在 plan 02-02 搬進來；舊版相容路由在 plan 02-03。
 import { runChain, toLegacy, parseAiBody, parseLegacyBody, BAD_REQUEST_ERROR, TOO_LARGE_ERROR } from './ai.js';
-import { MODELS } from './models.js';
-import { runHealthCheck } from './health.js';
+import { runHealthCheck, readHealth, activeModels, HEALTH_KEY } from './health.js';
 
 const ALLOWED_ORIGIN = 'https://andy-coin.github.io';
 
@@ -223,8 +222,23 @@ export default {
         if (pathname === '/models') {
             if (!originAllowed(origin, env)) return json(403, { ok: false, code: 'FORBIDDEN', message: '來源不被允許' }, origin, env);
             if (request.method !== 'GET') return json(405, { ok: false, code: 'METHOD', message: '不支援這個操作' }, origin, env);
-            // 網站選單的資料來源（D-14）；plan 02-05 改成讀每日健康檢查的結果並填入 checkedAt，回傳格式不變
-            return json(200, { ok: true, models: MODELS.map(({ id, label, provider }) => ({ id, label, provider })), checkedAt: null }, origin, env);
+            // 網站選單的資料來源（D-14）：只列每日健康檢查後仍啟用的模型；還沒有紀錄就列完整名單、checkedAt 是 null
+            const models = (await activeModels(env)).map(({ id, label, provider }) => ({ id, label, provider }));
+            return json(200, { ok: true, models, checkedAt: (await readHealth(env))?.checkedAt ?? null }, origin, env);
+        }
+        // 給 Andy 部署後立刻確認線上模型狀態，不必等凌晨排程；/health/run 會花 6 次模型呼叫，所以要後台金鑰（金鑰不可為空）
+        const isRun = pathname === '/health/run';
+        if (pathname === '/health.json' || isRun) {
+            const key = url.searchParams.get('key');
+            if (!key || key !== env.USER_REPORT_KEY) return new Response('Forbidden', { status: 403 });
+            if (isRun) {
+                if (request.method !== 'POST') return new Response('Method Not Allowed', { status: 405 });
+                return json(200, await runHealthCheck(env), origin, env);
+            }
+            // 直接讀 KV，不經快取，看到的就是目前存的那一筆
+            let doc = null;
+            try { doc = JSON.parse(await env.AI_STATE_KV.get(HEALTH_KEY)); } catch (e) { doc = null; }
+            return doc ? json(200, doc, origin, env) : json(404, { ok: false, message: '還沒有健康檢查紀錄' }, origin, env);
         }
         return json(404, { ok: false, code: 'NOT_FOUND', message: '找不到這個路徑' }, origin, env);
     },

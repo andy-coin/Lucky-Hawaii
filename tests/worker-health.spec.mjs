@@ -239,3 +239,132 @@ test('排程：scheduled 用 waitUntil 跑健康檢查，KV 裡出現 health 紀
         expect(env.AI_STATE_KV.puts).toBe(1);
     } finally { f.restore(); }
 });
+
+// ==================== 清單（AI 鏈與網站選單跟著每日結果走；後台可查看與重跑） ====================
+const ORIGIN = 'https://andy-coin.github.io';
+const call = (env, path, init = {}) => worker.fetch(new Request('https://w' + path, init), env, makeCtx());
+const getModels = async env => (await call(env, '/models', { headers: { Origin: ORIGIN } })).json();
+const postAi = async (env, body) => {
+    const res = await call(env, '/ai', { method: 'POST', headers: { Origin: ORIGIN, 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    return { status: res.status, j: await res.json() };
+};
+const idOf = c => c.body?.model || decodeURIComponent(c.url.match(/models\/([^:]+):/)[1]);
+
+// 跑一次排程：gemini-3.8-flash 回 404，其餘正常；跑完清掉 isolate 快取，讓後面的請求真的從 KV 讀
+async function seedWithG2Dead(env) {
+    const f = installFetch(byProvider(url => url.includes(G2) ? status(404, 'gone') : geminiOk('OK'), () => groqOk('OK')));
+    try {
+        const ctx = makeCtx();
+        await worker.scheduled({ cron: '' }, env, ctx);
+        await Promise.all(ctx.promises);
+    } finally { f.restore(); }
+    _resetHealthCache();
+}
+
+test('清單：排程發現 gemini-3.8-flash 失效後，/models 只列其餘 5 個並有 checkedAt', async () => {
+    const env = makeEnv();
+    await seedWithG2Dead(env);
+    const j = await getModels(env);
+    expect(j.models.map(m => m.id)).toEqual(ALL_IDS.filter(id => id !== G2));
+    expect(typeof j.checkedAt).toBe('string');
+    expect(Number.isNaN(Date.parse(j.checkedAt))).toBe(false);
+});
+
+test('清單：排程之後 model auto 的換手鏈從不打已被淘汰的模型，即使前面的都失敗', async () => {
+    const env = makeEnv();
+    await seedWithG2Dead(env);
+    const f = installFetch(() => status(500));
+    try {
+        const { status: st } = await postAi(env, { prompt: '心', model: 'auto' });
+        expect(st).toBe(503);
+        expect(f.calls.map(idOf)).toEqual([G1, G3, Q1, Q2]);          // 四次嘗試，沒有 G2
+    } finally { f.restore(); }
+});
+
+test('清單：偏好的模型雖在白名單但已被淘汰，請求照收、由啟用的模型回答、不打它', async () => {
+    const env = makeEnv();
+    await seedWithG2Dead(env);
+    const f = allOk();
+    try {
+        const { status: st, j } = await postAi(env, { prompt: '心', model: G2 });
+        expect(st).toBe(200);
+        expect(j.model.id).toBe(G1);
+        expect(f.calls.map(idOf)).not.toContain(G2);
+    } finally { f.restore(); }
+});
+
+test('清單：還沒有健康紀錄時，/models 列出全部六個，checkedAt 是 null，鏈也用完整名單', async () => {
+    const env = makeEnv();
+    const j = await getModels(env);
+    expect(j.models.map(m => m.id)).toEqual(ALL_IDS);
+    expect(j.checkedAt).toBeNull();
+    const f = allOk();
+    try {
+        const { j: a } = await postAi(env, { prompt: '心', model: G2 });
+        expect(a.model.id).toBe(G2);                                  // 沒有紀錄時偏好模型照常優先
+    } finally { f.restore(); }
+});
+
+test('清單：只剩 Groq 啟用、提示又很長時，鏈改用完整名單裡吃得下的模型，不丟例外', async () => {
+    const env = makeEnv({ AI_STATE_KV: new FakeKV({ health: JSON.stringify({ v: 1, checkedAt: new Date().toISOString(), results: {}, active: [Q1, Q3] }) }) });
+    const f = allOk();
+    try {
+        const { status: st, j } = await postAi(env, { prompt: '心'.repeat(5000), model: 'auto' });
+        expect(st).toBe(200);
+        expect(j.model.id).toBe(G1);
+    } finally { f.restore(); }
+});
+
+test('清單：後台——/health.json 與 /health/run 沒有金鑰、錯的金鑰、空金鑰都回 403 Forbidden 且不打上游', async () => {
+    const f = allOk();
+    try {
+        const env = makeEnv();
+        for (const q of ['', '?key=wrong', '?key=']) {
+            for (const [path, method] of [['/health.json', 'GET'], ['/health/run', 'POST'], ['/health/run', 'GET']]) {
+                const res = await call(env, path + q, { method });
+                expect(res.status, path + q).toBe(403);
+                expect(await res.text()).toBe('Forbidden');
+            }
+        }
+        expect(f.calls.length).toBe(0);
+        expect(env.AI_STATE_KV.puts).toBe(0);
+    } finally { f.restore(); }
+});
+
+test('清單：後台——沒有 USER_REPORT_KEY 設定時，空金鑰也進不去', async () => {
+    const env = makeEnv({ USER_REPORT_KEY: '' });
+    expect((await call(env, '/health.json?key=')).status).toBe(403);
+    expect((await call(env, '/health/run?key=', { method: 'POST' })).status).toBe(403);
+});
+
+test('清單：後台——/health.json 有金鑰回存起來的紀錄，沒有紀錄回 404', async () => {
+    const env = makeEnv();
+    let res = await call(env, '/health.json?key=admin-test');
+    expect(res.status).toBe(404);
+    expect((await res.json()).ok).toBe(false);
+    await seedWithG2Dead(env);
+    res = await call(env, '/health.json?key=admin-test');
+    expect(res.status).toBe(200);
+    const doc = await res.json();
+    expect(doc.v).toBe(1);
+    expect(doc.active).toEqual(ALL_IDS.filter(id => id !== G2));
+    expect(doc.results[G2]).toMatchObject({ ok: false, status: 404 });
+    expect(JSON.stringify(doc)).not.toContain('gone');                // 沒有上游文字
+});
+
+test('清單：後台——POST /health/run 立刻探測六個模型並回新紀錄；GET 是 405', async () => {
+    const env = makeEnv();
+    const f = allOk();
+    try {
+        expect((await call(env, '/health/run?key=admin-test')).status).toBe(405);
+        expect(f.calls.length).toBe(0);
+        const res = await call(env, '/health/run?key=admin-test', { method: 'POST' });
+        expect(res.status).toBe(200);
+        const doc = await res.json();
+        expect(f.calls.length).toBe(6);
+        expect(Object.keys(doc.results).length).toBe(6);
+        expect(doc.active).toEqual(ALL_IDS);
+        expect(JSON.parse(env.AI_STATE_KV.m.get('health')).checkedAt).toBe(doc.checkedAt);
+        expect((await getModels(env)).checkedAt).toBe(doc.checkedAt);  // /models 立刻跟上
+    } finally { f.restore(); }
+});
