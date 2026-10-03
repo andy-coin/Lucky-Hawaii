@@ -1,0 +1,40 @@
+{
+  "id": "py-ai2",
+  "input": "ai2",
+  "inputMode": "auto",
+  "options": {
+    "showPinyin": true,
+    "hideRare": true,
+    "filterDuplicate": false
+  },
+  "chipIndex": null,
+  "modes": {
+    "common": {
+      "header": "沒有找到結果",
+      "rhymeDisplay": "無法識別韻腳",
+      "chips": [],
+      "groups": [],
+      "flat": "",
+      "cardCount": 0,
+      "htmlSha1": "de6c7309e0d81393246d529eea5dfd30f03740c8"
+    },
+    "initial": {
+      "header": "沒有找到結果",
+      "rhymeDisplay": "無法識別韻腳",
+      "chips": [],
+      "groups": [],
+      "flat": "",
+      "cardCount": 0,
+      "htmlSha1": "de6c7309e0d81393246d529eea5dfd30f03740c8"
+    },
+    "tone": {
+      "header": "沒有找到結果",
+      "rhymeDisplay": "無法識別韻腳",
+      "chips": [],
+      "groups": [],
+      "flat": "",
+      "cardCount": 0,
+      "htmlSha1": "de6c7309e0d81393246d529eea5dfd30f03740c8"
+    }
+  }
+}

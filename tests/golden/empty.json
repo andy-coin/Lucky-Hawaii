@@ -1,0 +1,40 @@
+{
+  "id": "empty",
+  "input": "",
+  "inputMode": "auto",
+  "options": {
+    "showPinyin": true,
+    "hideRare": true,
+    "filterDuplicate": false
+  },
+  "chipIndex": null,
+  "modes": {
+    "common": {
+      "header": "開始搜尋",
+      "rhymeDisplay": "請先搜尋一個字或是詞確認韻腳",
+      "chips": [],
+      "groups": [],
+      "flat": "",
+      "cardCount": 0,
+      "htmlSha1": "efc36e5459ba2b2edce6d7b3a1d47472068d95ea"
+    },
+    "initial": {
+      "header": "開始搜尋",
+      "rhymeDisplay": "請先搜尋一個字或是詞確認韻腳",
+      "chips": [],
+      "groups": [],
+      "flat": "",
+      "cardCount": 0,
+      "htmlSha1": "efc36e5459ba2b2edce6d7b3a1d47472068d95ea"
+    },
+    "tone": {
+      "header": "開始搜尋",
+      "rhymeDisplay": "請先搜尋一個字或是詞確認韻腳",
+      "chips": [],
+      "groups": [],
+      "flat": "",
+      "cardCount": 0,
+      "htmlSha1": "efc36e5459ba2b2edce6d7b3a1d47472068d95ea"
+    }
+  }
+}
