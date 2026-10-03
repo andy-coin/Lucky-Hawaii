@@ -13,3 +13,7 @@ if (ids.length < 2 || ids.some(id => !/^[0-9a-f]{32}$/.test(id) || /^0{31}[12]$/
     console.error('wrangler.toml 的 KV id 還沒填好（需要兩個 32 碼的 id），請照 worker/DEPLOY.md 的步驟填入後再部署');
     process.exit(1);
 }
+if (new Set(ids).size !== ids.length) {
+    console.error('wrangler.toml 的兩個 KV id 不能相同（回報與健康檢查要用不同的 KV），請回到 worker/DEPLOY.md 步驟 3、4 分別確認各自的 id');
+    process.exit(1);
+}

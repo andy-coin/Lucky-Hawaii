@@ -87,4 +87,9 @@ test('config：KV id 沒填不准部署', () => {
     expect(placeholder.stderr).toContain('KV id');
     expect(check(fixture('both.toml', hex(), hex())).status).toBe(0);
     expect(check(fixture('one.toml', hex(), 'REPLACE_WITH_AI_STATE_KV_ID')).status).toBe(1);
+    // 兩個 id 貼成同一個：格式都對，但會讓健康檢查資料寫進回報 KV，一樣不准部署
+    const same = hex();
+    const dup = check(fixture('dup.toml', same, same));
+    expect(dup.status).toBe(1);
+    expect(dup.stderr).toContain('不能相同');
 });
