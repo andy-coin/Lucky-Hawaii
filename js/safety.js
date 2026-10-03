@@ -107,7 +107,8 @@ const LH_BANNER_THROTTLE_MS = 60000;
 const LH_BANNER_TEXT = {
     save: '存檔失敗：瀏覽器的儲存空間可能已滿，剛剛的修改可能沒有存下來。建議先按「匯出備份」存成檔案，再清掉不需要的舊資料。',
     backup: '資料備份沒有存成功：瀏覽器的儲存空間可能已滿。你的歌詞與設定沒有被更動，建議先按「匯出備份」存成檔案。',
-    'migrate-failed': '資料升級失敗，已自動還原成升級前的內容，歌詞與設定都在。'
+    'migrate-failed': '資料升級失敗，已自動還原成升級前的內容，歌詞與設定都在。',
+    'restore-failed': '資料升級失敗，而且自動還原沒有完整做完。請先按「匯出備份」存成檔案，並且不要清除網站資料；升級前的備份還留在瀏覽器裡。'
 };
 const _lhBannerShownAt = {};
 
@@ -336,13 +337,14 @@ function lhRestore(snap) {
     try {
         const keys = [];
         for (let i = 0; i < localStorage.length; i++) keys.push(localStorage.key(i));
-        // 備份裡沒有的清單內鍵要清掉（例如失敗的遷移新增的鍵）
-        for (const k of keys) {
-            if (k !== null && _lhRestorable(k) && !Object.prototype.hasOwnProperty.call(snap, k)) localStorage.removeItem(k);
-        }
+        // 先寫後刪：中途寫入失敗時，頂多多留幾個鍵，不會變成「該有的鍵被刪了又沒寫回」
         for (const [k, v] of Object.entries(snap)) {
             if (_lhRestorable(k) && typeof v === 'string') localStorage.setItem(k, v);
             else lhWarn('還原時略過不合法的項目：' + k);   // 只記鍵名，不記內容
+        }
+        // 備份裡沒有的清單內鍵要清掉（例如失敗的遷移新增的鍵）
+        for (const k of keys) {
+            if (k !== null && _lhRestorable(k) && !Object.prototype.hasOwnProperty.call(snap, k)) localStorage.removeItem(k);
         }
         return true;
     } catch (e) {
@@ -390,11 +392,14 @@ async function lhMigrate(steps, target) {
         }
         return { ran };
     } catch (e) {
-        lhWarn('資料升級失敗，已自動還原', e);
-        lhRestore(snap);
-        if (prevSchema === null) lhRemove('lh:schema'); else lhSet('lh:schema', prevSchema);
-        lhSaveFailed('migrate-failed');
-        return { ran: 0, restored: true };
+        lhWarn('資料升級失敗，嘗試還原成升級前', e);
+        let restored = lhRestore(snap);
+        try {
+            if (prevSchema === null) localStorage.removeItem('lh:schema'); else localStorage.setItem('lh:schema', prevSchema);
+        } catch (e2) { lhWarn('還原 lh:schema 失敗', e2); restored = false; }
+        // 還原沒做完就不能說「歌詞與設定都在」，改提示去匯出備份
+        lhSaveFailed(restored ? 'migrate-failed' : 'restore-failed');
+        return { ran: 0, restored };
     }
 }
 

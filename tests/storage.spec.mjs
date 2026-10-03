@@ -279,6 +279,29 @@ test('migrate: 中途失敗自動還原成升級前', async ({ browser }) => {
     await context.close();
 });
 
+test('migrate: 失敗後還原也失敗時，提示如實說還原沒做完（WR-02）', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, { storage: FIXTURE });
+    const result = await page.evaluate(() => {
+        const set = Storage.prototype.setItem;
+        // 步驟自己寫 'step2' 可以；之後還原要把 selectedModel 寫回原值時，模擬寫入失敗
+        Storage.prototype.setItem = function (k, v) {
+            if (k === 'selectedModel' && v !== 'step2') throw new DOMException('quota', 'QuotaExceededError');
+            return set.call(this, k, v);
+        };
+        return lhMigrate([{
+            to: 2,
+            run: s => { s.set('selectedModel', 'step2'); s.set('apiKey_newprov', 'x'); throw new Error('boom'); },
+        }], 2);
+    });
+    expect(result).toMatchObject({ ran: 0, restored: false });
+    await expect(page.locator('#lhSaveBanner')).toContainText('還原沒有完整做完');
+    await expect(page.locator('#lhSaveBanner')).not.toContainText('歌詞與設定都在');
+    // 先寫後刪：寫入失敗時沒有任何鍵被刪掉
+    expect(await page.evaluate(() => localStorage.getItem('apiKey_newprov'))).toBe('x');
+    expect(errors.filter(e => !e.includes('boom'))).toEqual([]);
+    await context.close();
+});
+
 test('migrate: 遷移步驟不可寫入未登記的鍵', async ({ browser }) => {
     const { context, page, errors } = await bootPage(browser, { storage: FIXTURE });
     const before = await dumpLS(page);
