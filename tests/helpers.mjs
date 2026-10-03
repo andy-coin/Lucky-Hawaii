@@ -99,7 +99,7 @@ export async function bootPage(browser, { storage = {}, init = null, wordlist = 
     if (beforeGoto) await beforeGoto({ context, page });
     await page.goto('/index.html');
     // 未定義的訊號會直接 resolve，後續 plan 加 __hoyunSafetyReady 時不必改這裡
-    await page.evaluate(() => Promise.all([window.__hoyunReady, window.__hoyunWordlistReady, window.__hoyunSafetyReady]));
+    await page.evaluate(() => Promise.all([window.__hoyunReady, window.__hoyunWordlistReady, window.__hoyunSafetyReady, window.__hoyunModelsReady]));
     return { context, page, errors, warnings, offOrigin };
 }
 
