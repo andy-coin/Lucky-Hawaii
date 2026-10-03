@@ -33,6 +33,16 @@ export const geminiOk = text => new Response(
     JSON.stringify({ candidates: [{ content: { parts: [{ text }] } }] }),
     { status: 200, headers: { 'Content-Type': 'application/json' } });
 
+export const groqOk = text => new Response(
+    JSON.stringify({ choices: [{ message: { content: text } }], usage: { total_tokens: 9 } }),
+    { status: 200, headers: { 'Content-Type': 'application/json' } });
+
+// 依網址分流：Gemini 一律用 gen，Groq 一律用 groq
+export const byProvider = (gen, groq) => (url, init, n) => url.includes('generativelanguage') ? gen(url, init, n) : groq(url, init, n);
+
+// 假的 ExecutionContext：waitUntil 收下的 promise 放進 promises，測試自己 await
+export const makeCtx = () => ({ promises: [], waitUntil(p) { this.promises.push(p); } });
+
 // 瀏覽器測試用這個把 Worker 網址的請求交給 worker/src/index.js 在測試程序內真的跑一遍（不是 mock 回覆）
 export async function bridgeWorker(context, env) {
     await context.route(url => new URL(url).hostname === 'lucky-hawaii.is3000dollar.workers.dev', async route => {

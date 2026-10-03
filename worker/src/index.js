@@ -3,6 +3,7 @@
 // 回報與後台路徑已在 plan 02-02 搬進來；舊版相容路由在 plan 02-03。
 import { runChain, toLegacy, parseAiBody, parseLegacyBody, BAD_REQUEST_ERROR, TOO_LARGE_ERROR } from './ai.js';
 import { MODELS } from './models.js';
+import { runHealthCheck } from './health.js';
 
 const ALLOWED_ORIGIN = 'https://andy-coin.github.io';
 
@@ -199,6 +200,10 @@ async function handleFeedbackAdmin(request, env, url) {
 }
 
 export default {
+    // 每日健康檢查（D-12）。本機觸發時 controller.cron 是空字串，所以不依它分支
+    async scheduled(controller, env, ctx) {
+        ctx.waitUntil(runHealthCheck(env));
+    },
     async fetch(request, env, ctx) {
         const origin = request.headers.get('Origin') || '';
         const url = new URL(request.url);

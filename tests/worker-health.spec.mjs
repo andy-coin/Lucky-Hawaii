@@ -1,0 +1,241 @@
+// Worker 每日健康檢查與模型淘汰規則測試（Node 內直接跑，不開瀏覽器）
+// 淘汰規則是純函式，用合成的「家族」直接測邊界；健康檢查與排程用替身 fetch 與假 KV。
+import { test, expect } from '@playwright/test';
+import worker from '../worker/src/index.js';
+import { MODELS, computeActive, STALE_DAYS, MIN_ACTIVE } from '../worker/src/models.js';
+import { _resetState } from '../worker/src/ai.js';
+import { runHealthCheck, readHealth, activeModels, _resetHealthCache } from '../worker/src/health.js';
+import { makeEnv, installFetch, geminiOk, groqOk, byProvider, makeCtx, FakeKV } from './worker-helpers.mjs';
+
+test.beforeEach(() => { _resetState(); _resetHealthCache(); });
+
+const DAY = 86400000;
+const NOW = Date.parse('2026-10-03T00:00:00Z');
+const ALL_IDS = MODELS.map(m => m.id);
+const [G1, G2, G3, Q1, Q2, Q3] = ALL_IDS;
+const okFor = ids => Object.fromEntries(ids.map(id => [id, { ok: true }]));
+const daysAgo = (n, from = NOW) => new Date(from - n * DAY).toISOString().slice(0, 10);
+const mk = (id, family, released) => ({ id, family, released, provider: 'gemini' });
+const allOk = () => installFetch(byProvider(() => geminiOk('OK'), () => groqOk('OK')));
+const status = (code, text = '') => new Response(text, { status: code });
+const stripMs = results => Object.fromEntries(Object.entries(results).map(([k, { ms, ...rest }]) => [k, rest]));
+
+// ==================== 淘汰（computeActive 純函式） ====================
+
+test('淘汰：常數是 183 天與至少 2 個', () => {
+    expect(STALE_DAYS).toBe(183);
+    expect(MIN_ACTIVE).toBe(2);
+});
+
+test('淘汰：今天的真實名單、全部健康，六個都留著（gpt-oss 雖舊但沒有更新的同家族）', () => {
+    expect(computeActive(okFor(ALL_IDS), NOW)).toEqual(ALL_IDS);
+});
+
+test('淘汰：探測失敗的模型被拿掉', () => {
+    const results = okFor(ALL_IDS);
+    results[G2] = { ok: false, status: 404 };
+    expect(computeActive(results, NOW)).toEqual(ALL_IDS.filter(id => id !== G2));
+});
+
+test('淘汰：太舊且同家族有更新又健康的，被拿掉', () => {
+    const models = [mk('old', 'a', daysAgo(300)), mk('new', 'a', daysAgo(10)), mk('other', 'b', daysAgo(10))];
+    expect(computeActive(okFor(['old', 'new', 'other']), NOW, models)).toEqual(['new', 'other']);
+});
+
+test('淘汰：太舊但同家族沒有更新的，留著（gpt-oss 這一對）', () => {
+    const models = [mk('p1', 'g', daysAgo(300)), mk('p2', 'g', daysAgo(300))];
+    expect(computeActive(okFor(['p1', 'p2']), NOW, models)).toEqual(['p1', 'p2']);
+});
+
+test('淘汰：更新的健康模型在別的家族，不會擠掉舊的', () => {
+    const models = [mk('stale', 'a', daysAgo(300)), mk('fresh', 'b', daysAgo(10)), mk('fresh2', 'c', daysAgo(10))];
+    expect(computeActive(okFor(['stale', 'fresh', 'fresh2']), NOW, models)).toEqual(['stale', 'fresh', 'fresh2']);
+});
+
+test('淘汰：邊界——剛好 183 天還算新，多 1 毫秒就算舊（以 UTC 毫秒計）', () => {
+    const models = [mk('edge', 'a', daysAgo(183)), mk('fresh', 'a', daysAgo(10)), mk('other', 'b', daysAgo(10))];
+    const results = okFor(['edge', 'fresh', 'other']);
+    expect(Date.parse(models[0].released)).toBe(NOW - STALE_DAYS * DAY);
+    expect(computeActive(results, NOW, models)).toEqual(['edge', 'fresh', 'other']);
+    expect(computeActive(results, NOW + 1, models)).toEqual(['fresh', 'other']);
+});
+
+test('淘汰：至少留兩個，不夠就依登記順序補回健康但太舊的', () => {
+    const models = [mk('old1', 'a', daysAgo(300)), mk('old2', 'a', daysAgo(300)), mk('fresh', 'a', daysAgo(10))];
+    expect(computeActive(okFor(['old1', 'old2', 'fresh']), NOW, models)).toEqual(['old1', 'fresh']);
+});
+
+test('淘汰：全部探測失敗，回完整名單（依登記順序）', () => {
+    const failed = Object.fromEntries(ALL_IDS.map(id => [id, { ok: false, status: 500 }]));
+    expect(computeActive(failed, NOW)).toEqual(ALL_IDS);
+    expect(computeActive({}, NOW)).toEqual(ALL_IDS);
+});
+
+test('淘汰：只有一個健康時湊到兩個，優先補沒被標成失效（404）的', () => {
+    const results = {
+        [G1]: { ok: false, status: 404 }, [G2]: { ok: true }, [G3]: { ok: false, status: 404 },
+        [Q1]: { ok: false, status: 500 }, [Q2]: { ok: false, status: 404 }, [Q3]: { ok: false, status: 404 },
+    };
+    expect(computeActive(results, NOW)).toEqual([G2, Q1]);
+});
+
+test('淘汰：結果的到達順序不影響輸出，永遠是登記順序', () => {
+    const results = {};
+    for (const id of [...ALL_IDS].reverse()) results[id] = { ok: true };
+    expect(computeActive(results, NOW)).toEqual(ALL_IDS);
+});
+
+test('淘汰：Gemini 回報 LEGACY／DEPRECATED／RETIRED 當作太舊', () => {
+    for (const stage of ['LEGACY', 'DEPRECATED', 'RETIRED']) {
+        const models = [mk('old', 'a', daysAgo(20)), mk('newer', 'a', daysAgo(5)), mk('other', 'b', daysAgo(5))];
+        const results = { ...okFor(['old', 'newer', 'other']), old: { ok: true, stage } };
+        expect(computeActive(results, NOW, models)).toEqual(['newer', 'other']);
+    }
+    // 沒有更新的同家族時，LEGACY 也不會被拿掉
+    const lone = [mk('old', 'a', daysAgo(20)), mk('other', 'b', daysAgo(5))];
+    expect(computeActive({ ...okFor(['old', 'other']), old: { ok: true, stage: 'LEGACY' } }, NOW, lone)).toEqual(['old', 'other']);
+});
+
+// ==================== 健康（runHealthCheck / readHealth / activeModels） ====================
+
+test('健康：一次檢查只寫一次 KV，內容是 { v, checkedAt, results, active }', async () => {
+    const f = allOk();
+    try {
+        const env = makeEnv();
+        const doc = await runHealthCheck(env);
+        expect(f.calls.length).toBe(6);
+        expect(env.AI_STATE_KV.puts).toBe(1);
+        const stored = JSON.parse(env.AI_STATE_KV.m.get('health'));
+        expect(stored).toEqual(doc);
+        expect(stored.v).toBe(1);
+        expect(new Date(stored.checkedAt).toISOString()).toBe(stored.checkedAt);
+        expect(Object.keys(stored.results).sort()).toEqual([...ALL_IDS].sort());
+        expect(stored.active).toEqual(ALL_IDS);
+        expect(stored.results[G1]).toMatchObject({ ok: true, status: 200 });
+        expect(JSON.stringify(stored)).not.toContain('OK"');          // 不存上游文字
+    } finally { f.restore(); }
+});
+
+test('健康：探測失敗的原因記成 timeout／network／http／empty', async () => {
+    const f = installFetch((url) => {
+        if (url.includes(G1)) return 'hang';
+        if (url.includes(G2)) return new Error('boom');
+        if (url.includes(G3)) return status(404, 'no such model');
+        if (url.includes('generativelanguage')) return geminiOk('');
+        return groqOk('OK');
+    });
+    try {
+        const doc = await runHealthCheck(makeEnv());
+        expect(doc.results[G1]).toMatchObject({ ok: false, reason: 'timeout' });
+        expect(doc.results[G2]).toMatchObject({ ok: false, reason: 'network' });
+        expect(doc.results[G3]).toMatchObject({ ok: false, reason: 'http', status: 404 });
+        expect(doc.results[Q1].ok).toBe(true);
+        expect(doc.active).not.toContain(G1);
+        expect(JSON.stringify(doc)).not.toContain('no such model');   // 上游錯誤文字不存
+    } finally { f.restore(); }
+});
+
+test('健康：Gemini 回 LEGACY 與 retirementTime 會記在結果裡', async () => {
+    const legacy = new Response(JSON.stringify({
+        candidates: [{ content: { parts: [{ text: 'OK' }] } }],
+        modelStatus: { modelStage: 'LEGACY', retirementTime: '2026-12-01T00:00:00Z' },
+    }), { status: 200 });
+    const f = installFetch(byProvider(url => url.includes(G3) ? legacy : geminiOk('OK'), () => groqOk('OK')));
+    try {
+        const doc = await runHealthCheck(makeEnv());
+        expect(doc.results[G3]).toMatchObject({ ok: true, stage: 'LEGACY', retirementTime: '2026-12-01T00:00:00Z' });
+    } finally { f.restore(); }
+});
+
+test('健康：thinkingLevel 被 400 退回時，探測去掉思考設定再試一次，不誤判為失效', async () => {
+    const f = installFetch(byProvider((url, init) => {
+        const cfg = JSON.parse(init.body).generationConfig;
+        return cfg.thinkingConfig ? status(400, 'Unknown name "thinkingLevel": thinking not supported') : geminiOk('OK');
+    }, () => groqOk('OK')));
+    try {
+        const doc = await runHealthCheck(makeEnv());
+        expect(doc.results[G2].ok).toBe(true);
+        expect(doc.results[G3].ok).toBe(true);
+        expect(doc.active).toEqual(ALL_IDS);
+        expect(f.calls.length).toBe(8);                               // 六個 + 兩個重試
+    } finally { f.restore(); }
+});
+
+test('健康：寫入 KV 失敗只記錄，不丟例外，仍回結果', async () => {
+    const f = allOk();
+    const errors = [], realErr = console.error;
+    console.error = (...a) => errors.push(a.join(' '));
+    try {
+        const env = makeEnv();
+        env.AI_STATE_KV.put = async () => { throw new Error('KV quota'); };
+        const doc = await runHealthCheck(env);
+        expect(doc.active).toEqual(ALL_IDS);
+        expect(errors.some(e => e.includes('健康檢查結果寫入 KV 失敗') && e.includes('KV quota'))).toBe(true);
+    } finally { console.error = realErr; f.restore(); }
+});
+
+test('健康：同樣的上游回答跑兩次，結果與名單相同，各寫一次 KV', async () => {
+    const f = allOk();
+    try {
+        const env = makeEnv();
+        const a = await runHealthCheck(env, NOW);
+        const b = await runHealthCheck(env, NOW);
+        expect(stripMs(b.results)).toEqual(stripMs(a.results));
+        expect(b.active).toEqual(a.active);
+        expect(env.AI_STATE_KV.puts).toBe(2);
+    } finally { f.restore(); }
+});
+
+test('健康：讀取——超過 72 小時、壞掉、缺 active 的紀錄一律忽略並用完整名單，五分鐘內不重讀 KV', async () => {
+    const hoursAgo = h => new Date(Date.now() - h * 3600000).toISOString();
+    const withDoc = doc => makeEnv({ AI_STATE_KV: new FakeKV(doc === undefined ? {} : { health: typeof doc === 'string' ? doc : JSON.stringify(doc) }) });
+
+    let env = withDoc({ v: 1, checkedAt: hoursAgo(73), results: {}, active: [G1, G2] });
+    expect(await readHealth(env)).toBeNull();
+    expect((await activeModels(env)).map(m => m.id)).toEqual(ALL_IDS);
+
+    _resetHealthCache();
+    env = withDoc({ v: 1, checkedAt: hoursAgo(71), results: {}, active: [G1, G2] });
+    expect((await readHealth(env)).active).toEqual([G1, G2]);
+    expect((await activeModels(env)).map(m => m.id)).toEqual([G1, G2]);
+    expect(env.AI_STATE_KV.gets).toBe(1);                             // 第二次讀在五分鐘內，沒有再碰 KV
+
+    for (const bad of ['{not json', { v: 1, checkedAt: hoursAgo(1) }, { v: 1, checkedAt: 'yesterday', active: [G1] }, undefined]) {
+        _resetHealthCache();
+        env = withDoc(bad);
+        expect(await readHealth(env)).toBeNull();
+        expect((await activeModels(env)).map(m => m.id)).toEqual(ALL_IDS);
+    }
+
+    _resetHealthCache();                                              // active 是空陣列：過濾結果為空，退回完整名單
+    env = withDoc({ v: 1, checkedAt: hoursAgo(1), results: {}, active: [] });
+    expect((await activeModels(env)).map(m => m.id)).toEqual(ALL_IDS);
+
+    _resetHealthCache();                                              // 完全沒有 KV 綁定也不能壞
+    expect((await activeModels({})).map(m => m.id)).toEqual(ALL_IDS);
+});
+
+test('健康：讀快取——五分鐘後才會再讀 KV', async () => {
+    const env = makeEnv({ AI_STATE_KV: new FakeKV({ health: JSON.stringify({ v: 1, checkedAt: new Date().toISOString(), results: {}, active: [G1, G2] }) }) });
+    const t = Date.now();
+    await readHealth(env, t);
+    await readHealth(env, t + 299000);
+    expect(env.AI_STATE_KV.gets).toBe(1);
+    await readHealth(env, t + 301000);
+    expect(env.AI_STATE_KV.gets).toBe(2);
+});
+
+// ==================== 排程 ====================
+
+test('排程：scheduled 用 waitUntil 跑健康檢查，KV 裡出現 health 紀錄（controller.cron 為空字串也一樣）', async () => {
+    const f = allOk();
+    try {
+        const env = makeEnv(), ctx = makeCtx();
+        await worker.scheduled({ cron: '' }, env, ctx);
+        expect(ctx.promises.length).toBe(1);
+        await Promise.all(ctx.promises);
+        const doc = JSON.parse(env.AI_STATE_KV.m.get('health'));
+        expect(doc.active).toEqual(ALL_IDS);
+        expect(env.AI_STATE_KV.puts).toBe(1);
+    } finally { f.restore(); }
+});
