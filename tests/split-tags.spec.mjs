@@ -42,6 +42,15 @@ test('split：safety.js 最先、其餘照原本順序', () => {
     expect(css).toEqual(CSS_ORDER.slice(0, css.length));
 });
 
+test('split：拆檔完成，index.html 只剩骨架', () => {
+    const js = scriptTags.filter(isLocal).filter(r => r.src.startsWith('js/')).map(pathOf);
+    expect(js.slice(1), '完整 20 個 js 依序').toEqual(JS_ORDER);
+    expect(linkTags.filter(isLocal).map(pathOf), '完整 3 個 css 依序').toEqual(CSS_ORDER);
+    const inline = [...html.matchAll(/<script\b([^>]*)>/g)].filter(m => !/\bsrc\s*=/.test(m[1]));
+    expect(inline.length, '不可有沒有 src 的 script').toBe(0);
+    expect(/<style\b/i.test(html), '不可有 style 元素').toBe(false);
+});
+
 test('split：本機 script 一律同步載入', () => {
     for (const r of scriptTags.filter(isLocal)) {
         expect(r.tag, `${r.src} 不可帶 defer／async／module`).not.toMatch(/\b(defer|async)\b|type\s*=\s*["']?module/i);
