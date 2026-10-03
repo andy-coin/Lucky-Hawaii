@@ -21,24 +21,34 @@ const SCRIPT_RE = /<script\b[^>]*\bsrc="([^"]+)"[^>]*>/g;
 const LINK_RE = /<link\b[^>]*\brel="stylesheet"[^>]*\bhref="([^"]+)"[^>]*>/g;
 const scriptTags = tagsOf(html, SCRIPT_RE);
 const linkTags = tagsOf(html, LINK_RE);
-const isLocal = r => /^(js|css)\//.test(r.src);
+const DATA_JS = ['data/rhyme-dict.js', 'data/polyphonic-order.js'];   // init.js／polyphonic.js 讀它們注入的全域變數，必須先於所有 js/ 載入
+const isLocal = r => /^(js|css|data)\//.test(r.src);
 const local = [...scriptTags, ...linkTags].filter(isLocal);
 const pathOf = r => r.src.split('?')[0];
 const listDir = dir => (existsSync(dir) ? readdirSync(dir) : []);
 
-test('split：本機 js/css 都帶同一個 ?v=', () => {
+test('split：本機 js/css/data 都帶同一個 ?v=', () => {
     const versions = local.map(r => new URLSearchParams(r.src.split('?')[1] ?? '').get('v'));
-    expect(versions.every(v => v), '每個本機 js/css 都要有非空的 ?v=').toBe(true);
+    expect(versions.every(v => v), '每個本機 js/css/data 都要有非空的 ?v=').toBe(true);
     expect([...new Set(versions)], '所有本機標籤共用同一個版本號').toHaveLength(1);
 });
 
 test('split：js/、css/ 每個檔剛好被引用一次', () => {
     const paths = local.map(pathOf);
     expect(paths.length, '重複引用').toBe(new Set(paths).size);
+    for (const p of paths) expect(existsSync(p), `${p} 不存在`).toBe(true);
+    // data/ 底下有很多沒被 index.html 直接引用的檔，所以資料夾比對只看 js/、css/
+    const referenced = paths.filter(p => !p.startsWith('data/'));
     const onDisk = [...listDir('js').filter(f => f.endsWith('.js')).map(f => `js/${f}`),
         ...listDir('css').filter(f => f.endsWith('.css')).map(f => `css/${f}`)];
-    expect([...paths].sort(), '引用的檔案與資料夾內容不一致').toEqual(onDisk.sort());
-    for (const p of paths) expect(existsSync(p), `${p} 不存在`).toBe(true);
+    expect([...referenced].sort(), '引用的檔案與資料夾內容不一致').toEqual(onDisk.sort());
+});
+
+test('split：data/ 兩支 script 都在、且先於所有 js/ 載入', () => {
+    const all = scriptTags.filter(isLocal).map(pathOf);
+    const firstJs = all.findIndex(p => p.startsWith('js/'));
+    expect(all.slice(0, firstJs).filter(p => p.startsWith('data/')), 'data/ script 要排在第一個 js/ 之前').toEqual(DATA_JS);
+    expect(all.filter(p => p.startsWith('data/')), '不可有其他或重複的 data/ script').toEqual(DATA_JS);
 });
 
 test('split：safety.js 最先、其餘照原本順序', () => {
@@ -59,7 +69,7 @@ test('split：拆檔完成，index.html 只剩骨架', () => {
     expect(/<style\b/i.test(html), '不可有 style 元素').toBe(false);
 });
 
-test('split：本機 script 一律同步載入', () => {
+test('split：本機 script（含 data/）一律同步載入', () => {
     for (const r of scriptTags.filter(isLocal)) {
         expect(r.tag, `${r.src} 不可帶 defer／async／module`).not.toMatch(/\b(defer|async)\b|type\s*=\s*["']?module/i);
     }
