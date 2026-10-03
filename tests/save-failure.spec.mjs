@@ -131,3 +131,54 @@ test('IndexedDB: 詞庫快取寫入失敗只跳提示、不出存檔失敗橫幅
     expect(errors).toEqual([]);
     await context.close();
 });
+
+test('IndexedDB: 備份寫入失敗時出現橫幅、改存一份在 localStorage、仍可正常使用', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, {
+        storage: FIXTURE,
+        init: () => {
+            // 只讓 backups 的寫入丟 QuotaExceededError；詞庫快取 wl 照常
+            const put = IDBObjectStore.prototype.put;
+            IDBObjectStore.prototype.put = function (...a) {
+                if (this.name === 'backups') throw new DOMException('quota', 'QuotaExceededError');
+                return put.apply(this, a);
+            };
+        },
+    });
+    const banner = page.locator(BANNER);
+    await expect(banner).toBeVisible();
+    await expect(banner).toContainText('資料備份沒有存成功');
+    const ls = await page.evaluate(() => ({ backup: localStorage.getItem('lh:backup:ls'), schema: localStorage.getItem('lh:schema') }));
+    const rec = JSON.parse(ls.backup);
+    expect(rec.id).toBe('baseline');
+    expect(rec.data).toEqual(FIXTURE);
+    expect(ls.schema).toBe('1');
+    await page.fill('#searchInput', 'ㄢ');
+    await settle(page);
+    await expect(page.locator('.results-count').first()).toHaveText(/[1-9]/);
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('IndexedDB: 備份兩處都存不進去時出現橫幅且不標記資料版本', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, {
+        storage: FIXTURE,
+        init: () => {
+            Object.defineProperty(window, 'indexedDB', { value: undefined, configurable: true });
+            const orig = Storage.prototype.setItem;
+            Storage.prototype.setItem = function (k, v) {
+                if (k === 'lh:backup:ls') throw new DOMException('The quota has been exceeded.', 'QuotaExceededError');
+                return orig.call(this, k, v);
+            };
+        },
+    });
+    await expect(page.locator(BANNER)).toBeVisible();
+    await expect(page.locator(BANNER)).toContainText('資料備份沒有存成功');
+    const ls = await page.evaluate(() => ({ backup: localStorage.getItem('lh:backup:ls'), schema: localStorage.getItem('lh:schema') }));
+    expect(ls.schema).toBeNull();
+    expect(ls.backup).toBeNull();
+    await page.fill('#searchInput', 'ㄢ');
+    await settle(page);
+    await expect(page.locator('.results-count').first()).toHaveText(/[1-9]/);
+    expect(errors).toEqual([]);
+    await context.close();
+});

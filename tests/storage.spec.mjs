@@ -162,3 +162,22 @@ test('backup: 全新瀏覽器開啟沒有錯誤並設定資料版本', async ({ 
     expect((await dumpLS(page))['lh:schema']).toBe('1');
     await context.close();
 });
+
+test('backup: IndexedDB 無法使用時改存 localStorage 單份並留記錄', async ({ browser }) => {
+    const { context, page, errors, warnings } = await bootPage(browser, {
+        storage: FIXTURE,
+        init: () => { Object.defineProperty(window, 'indexedDB', { value: undefined, configurable: true }); },
+    });
+    await expect(page.locator('#lhSaveBanner')).toHaveCount(0);
+    const ls = await dumpLS(page);
+    const rec = JSON.parse(ls['lh:backup:ls']);
+    expect(rec.id).toBe('baseline');
+    expect(rec.data).toEqual(FIXTURE);
+    expect(ls['lh:schema']).toBe('1');
+    expect(warnings.some(w => w.includes('[好韻器] IndexedDB 不可用'))).toBe(true);
+    const list = await page.evaluate(() => lhListBackups());
+    expect(list).toHaveLength(1);
+    expect(list[0].id).toBe('baseline');
+    expect(errors).toEqual([]);
+    await context.close();
+});
