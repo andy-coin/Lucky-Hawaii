@@ -31,6 +31,9 @@ const LH_META_KEYS = ['lh:schema', 'lh:backup:ls'];
 // 後台頁（admin/）與本站同網域，它的金鑰是機密，絕對不可被快照或備份（RESEARCH Pitfall 8）
 const LH_EXCLUDED_KEYS = ['haoYunQi_admin_key', 'haoYunQi_admin_theme'];
 
+// 讀到損毀 JSON 的鍵（啟動流程用來避免把「損毀後的預設值」誤當成使用者清空）
+const LH_CORRUPT_KEYS = new Set();
+
 // 背景、非關鍵錯誤只留主控台記錄（D-07）；呼叫端只傳鍵名與錯誤物件，不傳儲存的內容（apiKey 等）
 function lhWarn(tag, err) {
     if (err === undefined || err === null) console.warn(LH_LOG_PREFIX + ' ' + tag);
@@ -53,6 +56,18 @@ function lhAssertKnownKey(key) {
 function lhGet(key) {
     try { return localStorage.getItem(key); }
     catch (e) { lhWarn('讀取 ' + key + ' 失敗', e); return null; }
+}
+
+// 空值與沒存過都回預設值（等同舊的 `|| default`）；損毀的 JSON 回預設值並記錄，原始內容保留不動
+function lhGetJSON(key, fallback) {
+    const raw = lhGet(key);
+    if (raw === null || raw === '') return fallback;
+    try { return JSON.parse(raw); }
+    catch (e) {
+        LH_CORRUPT_KEYS.add(key);
+        lhWarn(key + ' 內容損毀，已改用預設值（原始內容保留不動）', e);
+        return fallback;
+    }
 }
 
 // 回傳 true/false；失敗一定顯示橫幅，絕不往外丟例外

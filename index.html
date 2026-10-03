@@ -3294,9 +3294,9 @@
         let currentMode = 'common';
         let selectedChars = new Set();
         let recentClicks = []; // kept for compatibility
-        let hashtags = JSON.parse(lhGet('haiku_hashtags') || '[]');
-        let lyricsSections = JSON.parse(lhGet('haiku_lyrics') || '[{"label":"","text":""}]');
-        let savedWords = JSON.parse(lhGet('haiku_savedwords') || '[]');
+        let hashtags = lhGetJSON('haiku_hashtags', []);
+        let lyricsSections = lhGetJSON('haiku_lyrics', [{ label: '', text: '' }]);
+        let savedWords = lhGetJSON('haiku_savedwords', []);
         let wordlistData = null;
         let wordlistLoading = false;
         let wordPriorityMap = new Map();
@@ -5417,7 +5417,8 @@ ${ctxBlock2}${lyricsBlock2}
             syncCenterPanel();
 
             // 歌詞全空時自動清除情境與標籤
-            if (lyricsSections.every(s => !s.text || s.text.trim() === '')) {
+            // 歌詞存檔損毀時會退回一個空段落，那不等於「使用者清空了歌詞」，不能因此刪掉標籤
+            if (!LH_CORRUPT_KEYS.has('haiku_lyrics') && lyricsSections.every(s => !s.text || s.text.trim() === '')) {
                 hashtags = [];
                 lhRemove('haiku_hashtags');
                 const ctxEl = document.getElementById('contextDescription');
