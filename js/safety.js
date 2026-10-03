@@ -88,9 +88,10 @@ function lhRemove(key) {
 
 // === 存檔失敗橫幅（D-09） ===
 const LH_BANNER_THROTTLE_MS = 60000;
-// 之後的 plan 會在這裡加 backup、migrate-failed 兩種
+// 之後的 plan 會在這裡加 migrate-failed
 const LH_BANNER_TEXT = {
-    save: '存檔失敗：瀏覽器的儲存空間可能已滿，剛剛的修改可能沒有存下來。建議先按「匯出備份」存成檔案，再清掉不需要的舊資料。'
+    save: '存檔失敗：瀏覽器的儲存空間可能已滿，剛剛的修改可能沒有存下來。建議先按「匯出備份」存成檔案，再清掉不需要的舊資料。',
+    backup: '資料備份沒有存成功：瀏覽器的儲存空間可能已滿。你的歌詞與設定沒有被更動，建議先按「匯出備份」存成檔案。'
 };
 const _lhBannerShownAt = {};
 
@@ -222,16 +223,37 @@ function lhSnapshot() {
 // 必須在載入當下、主程式 script 執行之前同步拍下：主程式開機時會讀取、甚至刪除 haiku_hashtags（RESEARCH Pitfall 4）
 const _lhBootSnapshot = lhSnapshot();
 
-// 回傳 { ok, where: 'idb' | null, existed }
+function _lhBuildRecord(id, seq, label, snap) {
+    return {
+        id, seq, label, createdAt: Date.now(), appVersion: LH_APP_VERSION,
+        schema: Number(lhGet('lh:schema') || 1), data: snap
+    };
+}
+
+// localStorage 單份備援（D-11）：同 id 已存在就不動；直接寫 storage 物件而不走 lhSet，
+// 因為這裡失敗要跳「備份」橫幅，不是「存檔」橫幅
+function _lhBackupToLocal(record) {
+    try {
+        const old = localStorage.getItem('lh:backup:ls');
+        if (old !== null && JSON.parse(old).id === record.id) return true;
+    } catch (e) { lhWarn('讀取 lh:backup:ls 失敗，將覆寫', e); }
+    try { localStorage.setItem('lh:backup:ls', JSON.stringify(record)); return true; }
+    catch (e) { lhWarn('備份寫入 localStorage 失敗', e); return false; }
+}
+
+// 回傳 { ok, where: 'idb' | 'ls' | null, existed }
 function lhBackup(id, label, snap) {
     return lhIdbOpen().then(db => new Promise(resolve => {
         let settled = false;
         let existed = false;
+        // IndexedDB 寫入失敗：跳橫幅（O-2），同時改存 localStorage 一份（D-11）
         const fail = e => {
             if (settled) return;
             settled = true;
-            lhWarn('備份失敗', e);
-            resolve({ ok: false, where: null, existed: false });
+            lhWarn('備份寫入 IndexedDB 失敗', e);
+            lhSaveFailed('backup');
+            const okLocal = _lhBackupToLocal(_lhBuildRecord(id, 0, label, snap));
+            resolve({ ok: okLocal, where: okLocal ? 'ls' : null, existed: false });
         };
         try {
             const tx = db.transaction('backups', 'readwrite');
@@ -243,11 +265,7 @@ function lhBackup(id, label, snap) {
                     // 同一個 id 已存在就不動它：當機重跑也不會把原始備份換成改到一半的狀態
                     if (recs.some(r => r.id === id)) { existed = true; return; }
                     // 依「寫入順序」編號與淘汰，不用 createdAt（同一毫秒會平手）
-                    const seq = recs.reduce((m, r) => Math.max(m, r.seq || 0), 0) + 1;
-                    const rec = {
-                        id, seq, label, createdAt: Date.now(), appVersion: LH_APP_VERSION,
-                        schema: Number(lhGet('lh:schema') || 1), data: snap
-                    };
+                    const rec = _lhBuildRecord(id, recs.reduce((m, r) => Math.max(m, r.seq || 0), 0) + 1, label, snap);
                     store.put(rec);
                     recs.concat(rec).sort((a, b) => b.seq - a.seq).slice(LH_BACKUP_KEEP)
                         .forEach(r => store.delete(r.id));
@@ -258,18 +276,27 @@ function lhBackup(id, label, snap) {
             tx.onabort = () => fail(tx.error);
         } catch (e) { fail(e); }
     }), e => {
-        lhWarn('備份失敗', e);
-        return { ok: false, where: null, existed: false };
+        // IndexedDB 根本不能用（不存在、被舊分頁擋住或逾時）：照 D-11 改存 localStorage，只留記錄、不跳橫幅
+        lhWarn('IndexedDB 不可用，備份改存在 localStorage（只保留一份）', e);
+        const okLocal = _lhBackupToLocal(_lhBuildRecord(id, 0, label, snap));
+        if (!okLocal) lhSaveFailed('backup');
+        return { ok: okLocal, where: okLocal ? 'ls' : null, existed: false };
     });
 }
 
-// 依 seq 由舊到新；失敗回 []
+// 依 seq 由舊到新；IndexedDB 讀不到時回 localStorage 那一份（沒有就是 []）
 function lhListBackups() {
     return lhIdbOpen().then(db => new Promise((resolve, reject) => {
         const req = db.transaction('backups', 'readonly').objectStore('backups').getAll();
         req.onsuccess = () => resolve(req.result.sort((a, b) => a.seq - b.seq));
         req.onerror = () => reject(req.error);
-    })).catch(e => { lhWarn('讀取備份清單失敗', e); return []; });
+    })).catch(e => {
+        lhWarn('讀取備份清單失敗', e);
+        try {
+            const raw = localStorage.getItem('lh:backup:ls');
+            return raw === null ? [] : [JSON.parse(raw)];
+        } catch (e2) { lhWarn('讀取 lh:backup:ls 失敗', e2); return []; }
+    });
 }
 
 // 絕不 reject；先確定有備份才把資料版本旗標 lh:schema 設成 '1'
