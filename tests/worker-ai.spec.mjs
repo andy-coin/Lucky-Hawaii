@@ -218,6 +218,29 @@ test('預算：每次都卡住時，超過總預算就不再開新的嘗試', as
     } finally { f.restore(); }
 });
 
+test('WR-01：單次嘗試被壓在剩餘預算內，整條鏈不會超過總預算太多', async () => {
+    const f = installFetch(() => 'hang');
+    try {
+        const t0 = Date.now();
+        const { j } = await ask(makeEnv({ CHAIN_BUDGET_MS: '300', ATTEMPT_TIMEOUT_MS: '10000' }));
+        expect(Date.now() - t0).toBeLessThan(1500);        // 沒有壓縮的話第一次就會卡 10 秒
+        expect(j.tried[0].error).toBe('timeout');
+    } finally { f.restore(); }
+});
+
+test('WR-01：讀本文時逾時算 timeout，不是空回覆（最後是 ALL_BUSY 而不是 EMPTY）', async () => {
+    const stuckBody = (url, init) => new Response(new ReadableStream({
+        start(c) { init.signal.addEventListener('abort', () => c.error(init.signal.reason)); },
+    }), { status: 200 });
+    const f = installFetch(stuckBody);
+    try {
+        const { status: st, j } = await ask(makeEnv());
+        expect(st).toBe(503);
+        expect(j.code).toBe('ALL_BUSY');
+        expect(j.tried.every(t => t.error === 'timeout')).toBe(true);
+    } finally { f.restore(); }
+});
+
 test('請求內容：Gemini 金鑰在 header、thinkingLevel LOW 只給 3.8/3.7、不送 thinkingBudget、輸出上限 2048', async () => {
     const f = installFetch(() => status(503));
     try {

@@ -9,7 +9,8 @@ import { activeModels } from './health.js';
 // 下面的數字都可以調（研究值，上線後看實際狀況再改）
 const ATTEMPT_TIMEOUT_MS = 12000;      // 單次嘗試上限；env.ATTEMPT_TIMEOUT_MS 可覆寫（測試用）
 const MAX_ATTEMPTS = 4;                // 一個請求最多打幾次上游，免得把免費額度燒光
-const CHAIN_BUDGET_MS = 28000;         // 整條鏈的總時間；超過就不開新的嘗試（瀏覽器那邊 35 秒放棄）；env.CHAIN_BUDGET_MS 可覆寫
+const CHAIN_BUDGET_MS = 28000;         // 整條鏈的總時間（每次嘗試的逾時會被壓到剩餘預算內，所以 Worker 最多約 28 秒；瀏覽器 35 秒才放棄）；env.CHAIN_BUDGET_MS 可覆寫
+const MIN_ATTEMPT_MS = 1500;           // 剩餘預算少於這個就不開新的嘗試（太短不可能有回覆）
 const TRANSIENT_COOLDOWN_MS = 30000;   // 逾時、5xx、空回覆：這個模型先休息 30 秒
 const DEAD_MS = 3600000;               // 404（模型不存在）：先當它失效 1 小時，每日健康檢查會做長期判斷
 const PROVIDER_COOLDOWN_MS = 600000;   // 401/402/403：金鑰或帳號有問題，整家供應商休息 10 分鐘
@@ -108,7 +109,8 @@ export async function callModel(m, req, env, signal, { noThinking } = {}) {
         : await groqRequest(m, req, env, signal);
     const out = { status: res.status, text: '', usage: undefined, retryAfterMs: 0, blocked: false, stage: undefined, retirementTime: undefined, errorText: '' };
     if (res.ok) {
-        const data = await res.json().catch(() => null);   // 回應不是 JSON 當成空回覆，由呼叫端換下一個
+        // 回應不是 JSON 當成空回覆，由呼叫端換下一個；但讀本文時逾時／中止要照丟，才會被當成逾時而不是空回覆
+        const data = await res.json().catch(e => { if (e?.name === 'TimeoutError' || e?.name === 'AbortError') throw e; return null; });
         if (m.provider === 'gemini') {
             out.text = geminiText(data);
             out.blocked = !!data?.promptFeedback?.blockReason;
@@ -167,7 +169,8 @@ export async function runChain(req, env) {
     const thinkingRetried = new Set();
     let attempts = 0;
     for (let i = 0; i < queue.length && attempts < MAX_ATTEMPTS; i++) {
-        if (Date.now() - t0 >= budget) break;
+        const remaining = budget - (Date.now() - t0);
+        if (remaining < Math.min(MIN_ATTEMPT_MS, budget / 2)) break;
         const { m, noThinking } = queue[i];
         // 鏈走到一半時，前面的 401 可能剛讓整家供應商進入冷卻，這裡再看一次
         if (!forced && !isAvailable(m)) continue;
@@ -175,7 +178,7 @@ export async function runChain(req, env) {
         const t1 = Date.now();
         let r;
         try {
-            r = await callModel(m, req, env, AbortSignal.timeout(timeoutMs), { noThinking });
+            r = await callModel(m, req, env, AbortSignal.timeout(Math.min(timeoutMs, remaining)), { noThinking });
         } catch (e) {
             const error = e?.name === 'TimeoutError' ? 'timeout' : 'network';
             tried.push({ id: m.id, error, ms: Date.now() - t1 });
