@@ -4506,8 +4506,18 @@
             return [LLM_MODELS.find(m => m.id === document.getElementById('modelSelect')?.value) || LLM_MODELS[0]];
         }
 
+        // AI 失敗時使用者看到的後備句子（錯誤不是 aiError 產生的就用這句，絕不顯示英文或技術字串）
+        const AI_FALLBACK_MSG = 'AI 暫時無法使用，請稍後再試';
+
+        // 帶 plain 旗標的 Error：message 已是可直接給使用者看的白話繁中；沒有旗標的 Error 是程式內部問題，不能直接顯示
+        function aiError(message) {
+            const e = new Error(message);
+            e.plain = true;
+            return e;
+        }
+
         // 統一呼叫介面 → 回傳純文字回應。只送任務內容，Worker 決定用哪個模型；
-        // 失敗一律 throw Error，message 已是可直接給使用者看的白話繁中
+        // 失敗一律 throw aiError，message 已是可直接給使用者看的白話繁中
         async function callLLM(model, prompt) {
             let res;
             try {
@@ -4519,16 +4529,16 @@
                 });
             } catch (e) {
                 lhWarn('AI 請求送不出去', e);
-                throw new Error(e.name === 'TimeoutError' ? 'AI 回應太久，請稍後再試' : '連不上 AI 服務，請檢查網路後再試');
+                throw aiError(e.name === 'TimeoutError' ? 'AI 回應太久，請稍後再試' : '連不上 AI 服務，請檢查網路後再試');
             }
             let data;
             try {
                 data = await res.json();
             } catch (e) {
                 lhWarn('AI 回應不是 JSON', e);
-                throw new Error('AI 服務回應格式不對，請稍後再試');
+                throw aiError('AI 服務回應格式不對，請稍後再試');
             }
-            if (!res.ok || !data?.ok) throw new Error(data?.message || 'AI 暫時無法使用，請稍後再試');
+            if (!res.ok || !data?.ok) throw aiError(data?.message || AI_FALLBACK_MSG);
 
             // Worker 換了模型時告訴使用者實際用的是哪一個
             const switched = model.id !== 'auto' && data.model && data.model.id !== model.id;
@@ -4922,7 +4932,7 @@
 
             const tryList = aiTryList();
 
-            let aiWordsAdded = false;
+            let aiWordsAdded = false, lastErr = null;
             for (const m of tryList) {
                 try {
                     statusDiv.textContent = `AI 生成補充詞…（${m.label}）`;
@@ -4941,14 +4951,15 @@
                         aiWordsAdded = true;
                     }
                     break;
-                } catch (e) { lhWarn('AI 造詞模型失敗，換下一個', e); /* 嘗試下一個 */ }
+                } catch (e) { lhWarn('AI 造詞模型失敗，換下一個', e); lastErr = e; }
             }
             if (statusDiv.isConnected) statusDiv.remove();
             if (!aiWordsAdded) {
                 const msg = document.createElement('div');
                 msg.className = 'candidate-report';
                 msg.style.fontStyle = 'italic';
-                msg.textContent = '唉...ai也想不到更多符合的詞彙，你自己想吧...';
+                // AI 根本沒答成（連線、額度、全部忙碌）時顯示原因；AI 有答但沒有詞通過驗證才是「想不到」
+                msg.textContent = lastErr ? (lastErr.plain ? lastErr.message : AI_FALLBACK_MSG) : '唉...ai也想不到更多符合的詞彙，你自己想吧...';
                 const report = container.querySelector('.candidate-report');
                 if (report) report.before(msg);
                 else container.appendChild(msg);
@@ -5168,11 +5179,14 @@ ${ctxBlock2}${lyricsBlock2}
                 } catch (e) {
                     lhWarn('AI 模型失敗，換下一個', e);
                     lastErr = e;
-                    if (!e.quota) { /* 非額度錯誤也往下試 */ }
                 }
             }
             if (!succeeded) {
-                container.innerHTML = `<span style="color:#e53e3e;font-size:0.85rem;">所有模型都失敗：${(lastErr?.message || '').slice(0,80)}</span>`;
+                // 完整顯示 Worker 給的白話原因；用 textContent 塞，不拼 HTML 字串
+                const failSpan = document.createElement('span');
+                failSpan.style.cssText = 'color:#e53e3e;font-size:0.85rem;';
+                failSpan.textContent = lastErr?.plain ? lastErr.message : AI_FALLBACK_MSG;
+                container.replaceChildren(failSpan);
             }
             btn.disabled = false;
             loading.style.display = 'none';
@@ -5209,11 +5223,11 @@ ${ctxBlock2}${lyricsBlock2}
             try {
                 // 沿用使用者選的模型 + 自動 fallback
                 const tryList = aiTryList();
-                let reply = null;
+                let reply = null, lastErr = null;
                 for (const m of tryList) {
-                    try { reply = await callLLM(m, prompt); break; } catch (e) { lhWarn('情境生成模型失敗，換下一個', e); }
+                    try { reply = await callLLM(m, prompt); break; } catch (e) { lhWarn('情境生成模型失敗，換下一個', e); lastErr = e; }
                 }
-                if (!reply) throw new Error('all models failed');
+                if (!reply) throw lastErr || aiError(AI_FALLBACK_MSG);
 
                 // 逐行解析，更穩健
                 let gotContext = false, gotTags = false;
@@ -5240,7 +5254,8 @@ ${ctxBlock2}${lyricsBlock2}
                 }
                 showToast(gotContext || gotTags ? '情境與標籤已更新 ✓' : '格式異常，請再試一次');
             } catch(e) {
-                showToast('生成失敗，請再試一次');
+                lhWarn('情境生成失敗', e);
+                showToast(e.plain ? e.message : '生成失敗，請再試一次', 4000);
             } finally {
                 if (btn) { btn.disabled = false; }
             }

@@ -4,6 +4,7 @@ import { test, expect } from '@playwright/test';
 import { readFileSync } from 'node:fs';
 import { bootPage, settle } from './helpers.mjs';
 import { makeEnv, installFetch, geminiOk, bridgeWorker } from './worker-helpers.mjs';
+import { _resetState } from '../worker/src/ai.js';
 
 const FIXTURE = JSON.parse(readFileSync(new URL('./fixtures/v096-localStorage.json', import.meta.url), 'utf8'));
 
@@ -155,4 +156,120 @@ test('選單：使用者改選才寫入', async ({ browser }) => {
         await page.selectOption('#modelSelect', GPT);
         expect(await page.evaluate(() => localStorage.getItem('selectedModel'))).toBe(GPT);
     });
+});
+
+// ==================== 白話：AI 失敗時使用者讀得到原因，按鈕和讀取中一定恢復 ====================
+const ALL_BUSY_MSG = 'AI 暫時都忙不過來，請稍後再試（已嘗試 4 個模型）';
+const FALLBACK_MSG = 'AI 暫時無法使用，請稍後再試';
+
+// 顯示給使用者的失敗文字：要有中文，不能出現英文錯誤字
+function expectPlainChinese(text) {
+    expect(text).toMatch(/[一-鿿]/);
+    expect(text).not.toMatch(/error|failed|undefined|TypeError|\bnull\b/i);
+}
+async function expectAiAreaIdle(page) {
+    expect(await page.locator('#generateBtn').isEnabled()).toBe(true);
+    await expect(page.locator('#aiLoading')).toBeHidden();
+}
+// 瀏覽器對 503 回應自己會記一行資源載入錯誤，這是唯一允許的 console.error；其他一律不行
+const unexpectedErrors = errors => errors.filter(e => !/status of 503/.test(e));
+// 面板收起時按鈕在畫面外，和 smoke 一樣直接觸發 click
+const clickGenerate = page => page.evaluate(() => document.getElementById('generateBtn').click());
+// 等到 AI 區出現指定文字（失敗訊息是非同步寫進去的）
+const aiAreaText = async (page, expected) => {
+    await expect(page.locator('#aiWordsContainer')).toContainText(expected);
+    return page.locator('#aiWordsContainer').innerText();
+};
+
+test('白話：補充詞路徑 — 每個供應商都 503 時 AI 區顯示 Worker 的白話原因', async ({ browser }) => {
+    _resetState();
+    const env = makeEnv({ ALLOW_LOCAL_ORIGIN: '1', ATTEMPT_TIMEOUT_MS: '5000' });
+    const f = installFetch(() => new Response('UPSTREAM-SECRET', { status: 503 }));
+    let context;
+    try {
+        const boot = await bootPage(browser, { wordlist: 'stub', beforeGoto: ({ context }) => bridgeWorker(context, env) });
+        context = boot.context;
+        const { page, errors, offOrigin } = boot;
+        await page.fill('#searchInput', '心');
+        await settle(page);
+        await clickGenerate(page);
+        const shown = await aiAreaText(page, ALL_BUSY_MSG);
+        expect(shown).not.toContain('UPSTREAM-SECRET');
+        expect(shown).not.toContain('唉...ai也想不到');          // 真的是連不上，不是「想不到」
+        expectPlainChinese(shown);
+        await expectAiAreaIdle(page);
+        expect(f.calls.length).toBe(4);                        // 真的走了 Worker 的換手鏈，最多 4 次
+        expect(unexpectedErrors(errors)).toEqual([]);
+        expect(offOrigin).toEqual([]);
+    } finally {
+        f.restore();
+        await context?.close();
+    }
+});
+
+test('白話：主要建議路徑 — 完整顯示 Worker 的訊息、不截斷，按鈕與讀取中恢復', async ({ browser }) => {
+    // 搜「安」：真詞庫有 1000 個候選（lastCandidatesTotal >= 24），所以走「從候選詞挑 24 個」的主要路徑；
+    // 訊息刻意拉長到超過舊版截斷的 80 字，證明現在整句都顯示
+    const longMsg = ALL_BUSY_MSG + '。' + '目前上游額度都用完了，等一下就會恢復。'.repeat(5);
+    expect(longMsg.length).toBeGreaterThan(80);
+    await withPage(browser, { aiFail: { status: 503, body: { ok: false, code: 'ALL_BUSY', message: longMsg, tried: [] } } }, async ({ page, errors }) => {
+        await page.fill('#searchInput', '安');
+        await settle(page);
+        await clickGenerate(page);
+        const shown = await aiAreaText(page, ALL_BUSY_MSG);
+        expect(await page.evaluate(() => lastCandidatesTotal)).toBeGreaterThanOrEqual(24);
+        expect(shown.trim()).toBe(longMsg);
+        expectPlainChinese(shown);
+        // 失敗訊息是 textContent，不是 HTML 字串
+        expect(await page.locator('#aiWordsContainer span').count()).toBe(1);
+        await expectAiAreaIdle(page);
+        expect(unexpectedErrors(errors)).toEqual([]);
+    });
+});
+
+test('白話：情境產生器 — 失敗時用提示訊息顯示 Worker 的原因，按鈕恢復', async ({ browser }) => {
+    await withPage(browser, { aiFail: { status: 503, body: { ok: false, code: 'ALL_BUSY', message: ALL_BUSY_MSG, tried: [] } } }, async ({ page, errors }) => {
+        await page.evaluate(() => { document.querySelector('.section-textarea').value = '夜裡的風吹過窗邊，我想起你的笑'; });
+        await page.evaluate(() => document.querySelector('.context-refresh-btn').click());
+        await expect(page.locator('#copyToast')).toHaveText(ALL_BUSY_MSG);
+        expectPlainChinese(await page.locator('#copyToast').textContent());
+        expect(await page.locator('.context-refresh-btn').isEnabled()).toBe(true);
+        expect(unexpectedErrors(errors)).toEqual([]);
+    });
+});
+
+test('白話：網路 — /ai 連不上時顯示「連不上 AI 服務」，頁面不留轉圈', async ({ browser }) => {
+    await withPage(browser, { wordlist: 'stub' }, async ({ page, errors }) => {
+        await page.route('**/ai', r => r.abort());              // 開頁之後才掛，/models 不受影響
+        await page.fill('#searchInput', '心');
+        await settle(page);
+        await clickGenerate(page);
+        const shown = await aiAreaText(page, '連不上 AI 服務，請檢查網路後再試');
+        expectPlainChinese(shown);
+        await expectAiAreaIdle(page);
+        // 唯一允許的錯誤：瀏覽器自己對被中斷的請求記的那一行
+        const rest = errors.filter(e => !/net::ERR_FAILED/.test(e));
+        expect(errors.length - rest.length).toBe(1);
+        expect(rest).toEqual([]);
+    });
+});
+
+test('白話：語言 — 各種怪回應顯示的字都是白話繁中，沒有英文錯誤字', async ({ browser }) => {
+    const cases = [
+        { name: 'Worker 沒給訊息', status: 503, body: JSON.stringify({ ok: false }), expected: FALLBACK_MSG },
+        { name: '回的不是 JSON', status: 502, body: 'Bad Gateway: TypeError undefined', expected: 'AI 服務回應格式不對，請稍後再試' },
+        { name: 'Worker 的白話訊息', status: 503, body: JSON.stringify({ ok: false, code: 'ALL_BUSY', message: ALL_BUSY_MSG }), expected: ALL_BUSY_MSG },
+    ];
+    for (const c of cases) {
+        await withPage(browser, { wordlist: 'stub' }, async ({ page, errors }) => {
+            await page.route('**/ai', r => r.fulfill({ status: c.status, contentType: 'application/json', body: c.body }));
+            await page.fill('#searchInput', '心');
+            await settle(page);
+            await clickGenerate(page);
+            const shown = await aiAreaText(page, c.expected);
+            expectPlainChinese(shown);
+            await expectAiAreaIdle(page);
+            expect(errors.filter(e => !/status of 50\d/.test(e)), c.name).toEqual([]);
+        });
+    }
 });
