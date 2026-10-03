@@ -5996,9 +5996,9 @@ ${ctxBlock2}${lyricsBlock2}
         rhymeDict = window._rhymeDictData || {};
         loadDictOverrides();
         buildIndex();
-        loadPolyphonicsOrder(); // 背景載入破音字讀音順序表
-        // 背景套用後台 overrides（data/rhyme-dict-overrides.json），完成後 rebuild
-        applyRhymeDictOverrides().then(applied => { if (applied) buildIndex(); });
+        // 測試用就緒訊號：只給自動測試等待用，程式邏輯不可依賴它
+        // 背景套用後台 overrides（data/rhyme-dict-overrides.json）完成後 rebuild；同時背景載入破音字讀音順序表
+        window.__hoyunReady = Promise.all([ applyRhymeDictOverrides().then(applied => { if (applied) buildIndex(); }), loadPolyphonicsOrder() ]);
 
         // 手機版（≤440px）：將 batch panel 移入搜尋區域
         if (!!phone) {
@@ -6019,7 +6019,7 @@ ${ctxBlock2}${lyricsBlock2}
         }
 
         loadColors();
-        loadWordlist();
+        window.__hoyunWordlistReady = loadWordlist();
 
         // 右鍵回報選單
         let _ctxWord = '';
