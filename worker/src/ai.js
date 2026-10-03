@@ -214,3 +214,13 @@ export async function runChain(req, env) {
     const n = new Set(tried.map(t => t.id)).size;
     return { status: 503, payload: { ok: false, code: 'ALL_BUSY', message: `AI 暫時都忙不過來，請稍後再試（已嘗試 ${n} 個模型）`, tried } };
 }
+
+// 舊版快取頁面（打根路徑）期待的回覆格式：_provider 只決定回覆長相，不決定用哪個模型。
+// gemini 解析 candidates；其餘（groq、已下架的 github 等）解析 choices，並順手顯示 usage。狀態碼由呼叫端原樣帶過去
+export function toLegacy(provider, status, payload) {
+    if (!payload.ok) return { error: { message: payload.message } };
+    if (provider === 'gemini') return { candidates: [{ content: { parts: [{ text: payload.text }] } }] };
+    const out = { choices: [{ message: { content: payload.text } }] };
+    if (payload.usage) out.usage = payload.usage;
+    return out;
+}

@@ -1,8 +1,8 @@
 // ==================== 好韻器 Worker：路由 ====================
 // 瀏覽器不再指定供應商、金鑰或模型清單（D-06）：只送 { prompt, model, temperature }，由 Worker 決定怎麼呼叫。
 // 回報與後台路徑已在 plan 02-02 搬進來；舊版相容路由在 plan 02-03。
-import { runChain } from './ai.js';
-import { MODELS } from './models.js';
+import { runChain, toLegacy } from './ai.js';
+import { MODELS, findModel } from './models.js';
 
 const ALLOWED_ORIGIN = 'https://andy-coin.github.io';
 
@@ -38,19 +38,43 @@ export function json(status, obj, origin, env = {}) {
 
 const BAD_REQUEST = { ok: false, code: 'BAD_REQUEST', message: '請求格式不正確' };
 
+// /ai 與舊版根路徑共用：溫度不是數字就用 0.95，其餘夾在 0 到 1
+function temperatureOf(raw) {
+    const t = Number(raw);
+    return Number.isFinite(t) ? Math.min(1, Math.max(0, t)) : 0.95;
+}
+
 async function handleAi(request, env, origin) {
     let body;
     try { body = await request.json(); } catch (e) { return json(400, BAD_REQUEST, origin, env); }
     if (!body || typeof body.prompt !== 'string' || !body.prompt) return json(400, BAD_REQUEST, origin, env);
-    const t = Number(body.temperature);
     const req = {
         messages: [{ role: 'user', content: body.prompt }],
         model: typeof body.model === 'string' ? body.model : 'auto',
-        temperature: Number.isFinite(t) ? Math.min(1, Math.max(0, t)) : 0.95,
+        temperature: temperatureOf(body.temperature),
         maxTokens: 2048,
     };
     const { status, payload } = await runChain(req, env);
     return json(status, payload, origin, env);
+}
+
+// 舊版快取頁面（GitHub Pages 快取 10 分鐘）仍打根路徑：收舊格式的 body，走同一條換手鏈，再依它的 _provider 回它看得懂的格式。
+// 不在名單內的舊模型（gpt-4.1、已下架的 qwen3.6 等）一律當「自動」，讓舊頁面自己好起來（D-06）。
+// messages 陣列的完整檢查與大小上限在 plan 02-04 跟 /ai 一起做；這裡先擋掉「不是陣列」免得鏈本身出例外。
+async function handleLegacy(request, env, origin) {
+    const legacyError = (status, message) => json(status, { error: { message } }, origin, env);
+    let body;
+    try { body = await request.json(); } catch (e) { return legacyError(400, BAD_REQUEST.message); }
+    if (!body || !Array.isArray(body.messages) || !body.messages.length) return legacyError(400, BAD_REQUEST.message);
+    const maxTokens = Number(body.max_tokens);
+    const req = {
+        messages: body.messages,
+        model: findModel(body.model) ? body.model : 'auto',
+        temperature: temperatureOf(body.temperature),
+        maxTokens: maxTokens > 0 ? maxTokens : 2048,
+    };
+    const { status, payload } = await runChain(req, env);
+    return json(status, toLegacy(body._provider, status, payload), origin, env);
 }
 
 // ==================== 回報與後台路徑（從舊的後台 Worker 原封不動搬過來） ====================
@@ -155,6 +179,10 @@ export default {
             if (!originAllowed(origin, env)) return json(403, { ok: false, code: 'FORBIDDEN', message: '來源不被允許' }, origin, env);
             if (request.method !== 'POST') return json(405, { ok: false, code: 'METHOD', message: '不支援這個操作' }, origin, env);
             return handleAi(request, env, origin);
+        }
+        if (pathname === '/' && request.method === 'POST') {
+            if (!originAllowed(origin, env)) return json(403, { error: { message: '來源不被允許' } }, origin, env);
+            return handleLegacy(request, env, origin);
         }
         if (pathname === '/models') {
             if (!originAllowed(origin, env)) return json(403, { ok: false, code: 'FORBIDDEN', message: '來源不被允許' }, origin, env);

@@ -282,3 +282,98 @@ test('並行：兩個請求同時進來而第一個模型卡住，兩個都由�
         }
     } finally { f.restore(); }
 });
+
+// ==================== 舊版快取頁面：打根路徑，收舊格式、回它看得懂的格式 ====================
+const legacy = async (env, over = {}, origin = ORIGIN) => {
+    const res = await worker.fetch(new Request('https://w/', {
+        method: 'POST', headers: { Origin: origin, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ _provider: 'gemini', model: 'gemini-2.5-flash', messages: [{ role: 'user', content: '心' }], temperature: 0.95, max_tokens: 2000, ...over }),
+    }), env, { waitUntil() {} });
+    return { status: res.status, j: await res.json() };
+};
+const geminiWithUsage = text => new Response(
+    JSON.stringify({ candidates: [{ content: { parts: [{ text }] } }], usageMetadata: { totalTokenCount: 42 } }),
+    { status: 200, headers: { 'Content-Type': 'application/json' } });
+
+test('舊版：_provider gemini 收到 candidates 格式', async () => {
+    const f = installFetch(() => geminiOk('心動、微光'));
+    try {
+        const { status: st, j } = await legacy(makeEnv(), { _provider: 'gemini' });
+        expect(st).toBe(200);
+        expect(j).toEqual({ candidates: [{ content: { parts: [{ text: '心動、微光' }] } }] });
+    } finally { f.restore(); }
+});
+
+test('舊版：_provider groq 收到 choices 與 usage', async () => {
+    const f = installFetch(() => geminiWithUsage('心動、微光'));
+    try {
+        const { status: st, j } = await legacy(makeEnv(), { _provider: 'groq', model: 'qwen/qwen3.6-27b' });
+        expect(st).toBe(200);
+        expect(j).toEqual({ choices: [{ message: { content: '心動、微光' } }], usage: { total_tokens: 42 } });
+    } finally { f.restore(); }
+});
+
+test('舊版：已下架的 _provider github 也由換手鏈回答，回 choices 格式（沒有 usage 就不放）', async () => {
+    const f = installFetch(() => geminiOk('甲、乙'));
+    try {
+        const { status: st, j } = await legacy(makeEnv(), { _provider: 'github', model: 'gpt-4.1' });
+        expect(st).toBe(200);
+        expect(j).toEqual({ choices: [{ message: { content: '甲、乙' } }] });
+    } finally { f.restore(); }
+});
+
+test('舊版：已下架的模型 id 當自動，第一個上游呼叫就是登記的第一個模型', async () => {
+    for (const model of ['gpt-4.1', 'qwen/qwen3.6-27b', 'gemini-2.5-flash']) {
+        _resetState();
+        const f = installFetch(() => geminiOk('甲'));
+        try {
+            const { status: st } = await legacy(makeEnv(), { _provider: 'github', model });
+            expect(st, model).toBe(200);
+            expect(idOf(f.calls[0]), model).toBe(G1);
+        } finally { f.restore(); }
+    }
+});
+
+test('舊版：名單內的模型 id 仍當偏好，排在最前面', async () => {
+    const f = installFetch(() => groqOk('丙、丁'));
+    try {
+        const { j } = await legacy(makeEnv(), { _provider: 'groq', model: Q3 });
+        expect(idOf(f.calls[0])).toBe(Q3);
+        expect(j.choices[0].message.content).toBe('丙、丁');
+        expect(f.calls[0].body.max_completion_tokens).toBeLessThanOrEqual(1024);   // 舊頁面要求 2000，仍被登記的上限壓住
+    } finally { f.restore(); }
+});
+
+test('舊版：全部上游失敗回 503 與 {error:{message}} 白話訊息，不帶上游原文', async () => {
+    const f = installFetch(() => status(503, {}, 'UPSTREAM-SECRET-TEXT'));
+    try {
+        const { status: st, j } = await legacy(makeEnv());
+        expect(st).toBe(503);
+        expect(j).toEqual({ error: { message: 'AI 暫時都忙不過來，請稍後再試（已嘗試 4 個模型）' } });
+    } finally { f.restore(); }
+});
+
+test('舊版：來源不對回 403，而且完全不打上游', async () => {
+    const f = installFetch(() => geminiOk('甲'));
+    try {
+        const { status: st, j } = await legacy(makeEnv(), {}, 'https://evil.example');
+        expect(st).toBe(403);
+        expect(j.error.message).toBeTruthy();
+        expect(f.calls).toHaveLength(0);
+    } finally { f.restore(); }
+});
+
+test('舊版：body 壞掉或 messages 不是陣列回 400，不讓換手鏈出例外', async () => {
+    const f = installFetch(() => geminiOk('甲'));
+    try {
+        const bad = await worker.fetch(new Request('https://w/', {
+            method: 'POST', headers: { Origin: ORIGIN }, body: '不是 JSON' }), makeEnv(), { waitUntil() {} });
+        expect(bad.status).toBe(400);
+        for (const messages of [undefined, 'x', []]) {
+            const { status: st, j } = await legacy(makeEnv(), { messages });
+            expect(st).toBe(400);
+            expect(j.error.message).toBeTruthy();
+        }
+        expect(f.calls).toHaveLength(0);
+    } finally { f.restore(); }
+});
