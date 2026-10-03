@@ -13,7 +13,6 @@ const ADMIN = 'smoke-admin';
 const TEXT = '心動、微光';
 
 const deadModels = new Set();
-const hits = {};                            // 每個模型被打了幾次
 
 const fake = createServer((req, res) => {
     req.resume();
@@ -22,12 +21,10 @@ const fake = createServer((req, res) => {
         const reply = (code, obj) => { res.writeHead(code, { 'Content-Type': 'application/json' }); res.end(JSON.stringify(obj)); };
         if (gem) {
             const id = decodeURIComponent(gem[1]);
-            hits[id] = (hits[id] || 0) + 1;
             if (deadModels.has(id)) return reply(404, { error: { code: 404, message: 'not found' } });
             return reply(200, { candidates: [{ content: { parts: [{ text: TEXT }] } }] });
         }
         if (req.url.endsWith('/chat/completions')) {
-            hits.groq = (hits.groq || 0) + 1;
             return reply(200, { choices: [{ message: { content: TEXT } }], usage: { total_tokens: 12 } });
         }
         reply(404, { error: 'unknown' });
