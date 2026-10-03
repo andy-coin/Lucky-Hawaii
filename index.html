@@ -6262,8 +6262,15 @@ ${ctxBlock2}${lyricsBlock2}
             const subject = document.getElementById('feedbackSubject').value.trim();
             const body = document.getElementById('feedbackBody').value.trim();
             if (!subject && !body) { showToast('請填寫主旨或內文'); return; }
-            document.getElementById('feedbackModalOverlay').classList.remove('show');
-            if (await postFeedback({ type: 'feedback', subject, body })) showToast('感謝你的回饋！');
+            // 送出成功才關視窗；失敗時視窗與已輸入的文字都留著，使用者可以直接重試（postFeedback 失敗時已顯示提示）
+            const sendBtn = document.querySelector('.feedback-send-btn');
+            sendBtn.disabled = true;   // 送出中不能重複按
+            try {
+                if (await postFeedback({ type: 'feedback', subject, body })) {
+                    document.getElementById('feedbackModalOverlay').classList.remove('show');
+                    showToast('感謝你的回饋！');
+                }
+            } finally { sendBtn.disabled = false; }
         }
 
         // Hover 3 秒顯示詞語注音/拼音

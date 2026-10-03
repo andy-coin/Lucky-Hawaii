@@ -120,9 +120,25 @@ test('使用者操作：回報送不出去會提示', async ({ browser }) => {
     await context.close();
 });
 
+test('使用者操作：回報送不出去時視窗與輸入的文字都保留（WR-05）', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, { beforeGoto: feedbackStatus(500) });
+    await page.evaluate(() => openFeedbackModal());
+    await page.fill('#feedbackSubject', '我的主旨');
+    await page.fill('#feedbackBody', '我寫了很久的內文');
+    await page.evaluate(() => submitFeedback());
+    await settle(page);
+    await expect(page.locator('#feedbackModalOverlay')).toHaveClass(/show/);
+    await expect(page.locator('#feedbackSubject')).toHaveValue('我的主旨');
+    await expect(page.locator('#feedbackBody')).toHaveValue('我寫了很久的內文');
+    await expect(page.locator('.feedback-send-btn')).toBeEnabled();
+    await expectQuiet(page, errors);
+    await context.close();
+});
+
 test('使用者操作：回報送出成功仍顯示感謝', async ({ browser }) => {
     const { context, page, errors } = await bootPage(browser, {});
     expect(await sendReport(page)).toBe('感謝你的回饋！');
+    await expect(page.locator('#feedbackModalOverlay')).not.toHaveClass(/show/);
     await expectQuiet(page, errors);
     await context.close();
 });
