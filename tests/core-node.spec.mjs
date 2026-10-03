@@ -7,6 +7,9 @@ import { bootPage } from './helpers.mjs';
 
 const CORE = ['js/phonetic-tables.js', 'js/dict.js', 'js/search.js', 'js/state.js', 'js/polyphonic.js', 'js/wordlist.js', 'js/candidates.js'];
 
+// vm 回傳的是跨 realm 物件，先 JSON 往返再比對
+const pick = ev => code => JSON.parse(JSON.stringify(ev(code)));
+
 function loadCore() {
     const quiet = () => {};
     const ctx = vm.createContext({
@@ -27,17 +30,13 @@ function loadCore() {
 
 test('core：純 Node 載入音韻表', () => {
     const { ev } = loadCore();
-    // vm 回傳的是跨 realm 物件，先 JSON 往返再比對
-    const get = code => JSON.parse(JSON.stringify(ev(code)));
+    const get = pick(ev);
     expect(get('zhuyinInitials.length')).toBe(21);
     expect(get("BORROW_MAP['ㄚ']")).toEqual(['ㄚ', 'ㄧㄚ', 'ㄨㄚ']);
     expect(get("fullZhuyinToPinyin['ㄅㄢ']")).toBe('ban');
     expect(get("fullPinyinToZhuyin['ban']")).toEqual(['ㄅㄢ']);
     expect(get("RHYME_TO_FAMILY['ㄧㄚ']")).toEqual(get("RHYME_TO_FAMILY['ㄚ']"));
 });
-
-// vm 回傳的是跨 realm 物件，先 JSON 往返再比對
-const pick = ev => code => JSON.parse(JSON.stringify(ev(code)));
 
 test('core：純 Node 注音／拼音工具', () => {
     const get = pick(loadCore().ev);
