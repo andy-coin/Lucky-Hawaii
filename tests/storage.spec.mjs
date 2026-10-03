@@ -1,7 +1,7 @@
 // 儲存相關測試：損毀資料開機（之後的 plan 會再加備份與遷移測試）
 import { test, expect } from '@playwright/test';
 import { readFileSync } from 'node:fs';
-import { bootPage, settle } from './helpers.mjs';
+import { bootPage, settle, BASE, CONTEXT_OPTS, routeExternal, stubWordlist, collectErrors } from './helpers.mjs';
 
 const CORRUPT = JSON.parse(readFileSync(new URL('./fixtures/v096-corrupt.json', import.meta.url), 'utf8'));
 const FIXTURE = JSON.parse(readFileSync(new URL('./fixtures/v096-localStorage.json', import.meta.url), 'utf8'));
@@ -451,5 +451,55 @@ test('corrupt: 損毀的原始內容完整保存在基準備份', async ({ brows
     expect(baseline.data.haiku_savedwords).toBe(CORRUPT.haiku_savedwords);
     expect(baseline.data.haiku_hashtags).toBe(CORRUPT.haiku_hashtags);
     expect(errors).toEqual([]);
+    await context.close();
+});
+
+// ===== 兩個分頁同時開啟／遷移（成功條件：並行不丟資料）=====
+// 同一個 context（共用 localStorage 與 IndexedDB）開兩個分頁，兩邊在同一個 tick 導航
+async function openTwoTabs(browser, storage) {
+    const context = await browser.newContext({
+        ...CONTEXT_OPTS,
+        storageState: { cookies: [], origins: [{ origin: BASE, localStorage: Object.entries(storage).map(([name, value]) => ({ name, value })) }] },
+    });
+    await routeExternal(context);
+    await stubWordlist(context, readFileSync(new URL('./fixtures/wordlist-stub.ndjson', import.meta.url), 'utf8'));
+    const pages = [await context.newPage(), await context.newPage()];
+    const errs = pages.map(p => collectErrors(p).errors);
+    await Promise.all(pages.map(p => p.goto('/index.html')));
+    await Promise.all(pages.map(ready));
+    return { context, pages, errs };
+}
+
+test('backup: 兩個分頁同時開啟', async ({ browser }) => {
+    const { context, pages, errs } = await openTwoTabs(browser, FIXTURE);
+    for (const page of pages) {
+        const list = await page.evaluate(() => lhListBackups());
+        expect(list.map(r => r.id)).toEqual(['baseline']);   // 只有一份，沒被另一個分頁重複建立
+        expect(list[0].data).toEqual(FIXTURE);               // 原始字串逐字相同
+        const ls = await dumpLS(page);
+        for (const [k, v] of Object.entries(FIXTURE)) expect(ls[k]).toBe(v);
+        expect(ls['lh:schema']).toBe('1');
+    }
+    expect(errs).toEqual([[], []]);
+    await context.close();
+});
+
+test('migrate: 兩個分頁同時遷移', async ({ browser }) => {
+    const { context, pages, errs } = await openTwoTabs(browser, FIXTURE);
+    // 冪等的轉換：已經加過 '+m' 就不再加；單獨跑一次的結果是 FIXTURE 值 + '+m'
+    const migrate = page => page.evaluate(() => lhMigrate([
+        { to: 2, run: s => { const v = s.get('haoYunQi_inputMode'); if (!v.endsWith('+m')) s.set('haoYunQi_inputMode', v + '+m'); } },
+    ], 2));
+    const results = await Promise.all(pages.map(migrate));
+    for (const r of results) expect(r).not.toMatchObject({ blocked: true });
+    for (const page of pages) {
+        const ls = await dumpLS(page);
+        for (const [k, v] of Object.entries(FIXTURE)) {
+            expect(ls[k]).toBe(k === 'haoYunQi_inputMode' ? v + '+m' : v);   // 沒有鍵遺失，結果等於單獨跑一次
+        }
+        expect(ls['lh:schema']).toBe('2');
+        expect((await page.evaluate(() => lhListBackups())).filter(r => r.id === 'pre-schema-2')).toHaveLength(1);
+    }
+    expect(errs).toEqual([[], []]);
     await context.close();
 });
