@@ -88,10 +88,10 @@ function lhRemove(key) {
 
 // === 存檔失敗橫幅（D-09） ===
 const LH_BANNER_THROTTLE_MS = 60000;
-// 之後的 plan 會在這裡加 migrate-failed
 const LH_BANNER_TEXT = {
     save: '存檔失敗：瀏覽器的儲存空間可能已滿，剛剛的修改可能沒有存下來。建議先按「匯出備份」存成檔案，再清掉不需要的舊資料。',
-    backup: '資料備份沒有存成功：瀏覽器的儲存空間可能已滿。你的歌詞與設定沒有被更動，建議先按「匯出備份」存成檔案。'
+    backup: '資料備份沒有存成功：瀏覽器的儲存空間可能已滿。你的歌詞與設定沒有被更動，建議先按「匯出備份」存成檔案。',
+    'migrate-failed': '資料升級失敗，已自動還原成升級前的內容，歌詞與設定都在。'
 };
 const _lhBannerShownAt = {};
 
@@ -299,11 +299,96 @@ function lhListBackups() {
     });
 }
 
-// 絕不 reject；先確定有備份才把資料版本旗標 lh:schema 設成 '1'
+// ===== 資料格式遷移 =====
+// 1 = 基準版本：所有 v0.96 鍵值維持原樣；缺 lh:schema 視為 1；Phase 8 多首歌是 1→2（D-14）
+const LH_SCHEMA_TARGET = 1;
+// 步驟格式 { to: N, run(store) }：同步執行、必須冪等、只能透過 store 碰清單內的鍵、任何失敗都要 throw
+const LH_MIGRATIONS = [];
+
+// 還原只動清單內的鍵：不含 lh: 中介資料、後台金鑰與同網域其他專案的鍵
+function _lhRestorable(key) {
+    return lhIsKnownKey(key) && !LH_META_KEYS.includes(key);
+}
+
+// 把 snap（{ 鍵: 原始字串 }）寫回儲存空間；snap 來自可能被竄改的備份記錄，所以逐項驗證（V5）
+// 回傳 true/false；snap 不是物件時完全不動資料
+function lhRestore(snap) {
+    if (snap === null || typeof snap !== 'object' || Array.isArray(snap)) {
+        lhWarn('還原內容不是物件，沒有動任何資料');
+        return false;
+    }
+    try {
+        const keys = [];
+        for (let i = 0; i < localStorage.length; i++) keys.push(localStorage.key(i));
+        // 備份裡沒有的清單內鍵要清掉（例如失敗的遷移新增的鍵）
+        for (const k of keys) {
+            if (k !== null && _lhRestorable(k) && !Object.prototype.hasOwnProperty.call(snap, k)) localStorage.removeItem(k);
+        }
+        for (const [k, v] of Object.entries(snap)) {
+            if (_lhRestorable(k) && typeof v === 'string') localStorage.setItem(k, v);
+            else lhWarn('還原時略過不合法的項目：' + k);   // 只記鍵名，不記內容
+        }
+        return true;
+    } catch (e) {
+        lhWarn('還原失敗', e);
+        lhSaveFailed('save');
+        return false;
+    }
+}
+
+// Phase 8 的手動還原介面會呼叫這個；優先用 IndexedDB 的記錄，找不到才看 localStorage 那一份備援
+async function lhRestoreFromBackup(id) {
+    let rec = (await lhListBackups()).find(r => r && r.id === id);
+    if (!rec) {
+        try {
+            const raw = localStorage.getItem('lh:backup:ls');
+            const ls = raw === null ? null : JSON.parse(raw);
+            if (ls && ls.id === id) rec = ls;
+        } catch (e) { lhWarn('讀取 lh:backup:ls 失敗', e); }
+    }
+    if (!rec) return false;
+    return lhRestore(rec.data);
+}
+
+// 先備份才動手（D-12）；步驟依 to 由小到大、每步最多一次；任何例外都還原成升級前並提示（D-15）
+async function lhMigrate(steps, target) {
+    const prevSchema = lhGet('lh:schema');
+    const cur = Number(prevSchema || 1);
+    if (cur >= target) return { ran: 0 };
+    const snap = lhSnapshot();
+    const b = await lhBackup('pre-schema-' + target, '升級資料格式前的備份（目標版本 ' + target + '）', snap);
+    if (!b.ok) return { ran: 0, blocked: true };   // 備份橫幅 lhBackup 已跳；備份沒存成就一步都不跑
+    const guard = k => { if (!_lhRestorable(k)) throw new Error('遷移不可寫入未登記的鍵：' + k); };
+    // 直接寫 storage 物件：寫入失敗要 throw 讓遷移中止，不能像 lhSet 那樣吞掉
+    const store = {
+        get: k => lhGet(k),
+        set: (k, v) => { guard(k); localStorage.setItem(k, v); },
+        remove: k => { guard(k); localStorage.removeItem(k); }
+    };
+    let ran = 0;
+    try {
+        for (const s of steps.filter(s => s.to > cur && s.to <= target).sort((a, c) => a.to - c.to)) {
+            s.run(store);
+            localStorage.setItem('lh:schema', String(s.to));   // 每步完成才翻旗標
+            ran++;
+        }
+        return { ran };
+    } catch (e) {
+        lhWarn('資料升級失敗，已自動還原', e);
+        lhRestore(snap);
+        if (prevSchema === null) lhRemove('lh:schema'); else lhSet('lh:schema', prevSchema);
+        lhSaveFailed('migrate-failed');
+        return { ran: 0, restored: true };
+    }
+}
+
+// 絕不 reject；先確定有備份才把資料版本旗標 lh:schema 設成 '1'，再跑遷移（目前是空清單，等於不動作）
+// 之後有改資料格式的程式，第一次讀取前必須先 await window.__hoyunSafetyReady
 async function lhBootSafety() {
     try {
         const r = await lhBackup('baseline', '基準備份（這個版本第一次開啟時）', _lhBootSnapshot);
         if (r.ok && lhGet('lh:schema') === null) lhSet('lh:schema', '1');
+        await lhMigrate(LH_MIGRATIONS, LH_SCHEMA_TARGET);
         return r;
     } catch (e) {
         lhWarn('開機備份流程失敗', e);
