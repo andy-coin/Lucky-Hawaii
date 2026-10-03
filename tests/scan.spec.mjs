@@ -124,3 +124,10 @@ test('catch: 多個違規全部列出並依檔名與行號排序', () => {
     const a = fx('a.js', '\ntry { a(); } catch (e) {}\n\n\n\n\ntry { a(); } catch (e) {}'); // 第 2、7 行
     expect(scanCatches([b, a])).toEqual(['a.js:2', 'a.js:7', 'b.js:5']);
 });
+
+test('catch: 程式碼裡沒有吞錯的 catch', () => {
+    const sources = collectSources();
+    expect(sources.length).toBeGreaterThan(0);
+    // 失敗時會列出每個違規的 file:line
+    expect(scanCatches(sources)).toEqual([]);
+});
