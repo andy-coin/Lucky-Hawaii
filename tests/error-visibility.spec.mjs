@@ -123,6 +123,9 @@ test('使用者操作：回報送不出去會提示', async ({ browser }) => {
 test('使用者操作：回報送不出去時視窗與輸入的文字都保留（WR-05）', async ({ browser }) => {
     const { context, page, errors } = await bootPage(browser, { beforeGoto: feedbackStatus(500) });
     await page.evaluate(() => openFeedbackModal());
+    // openFeedbackModal 隔 50ms 才把焦點移到主旨欄；先等它落定再輸入。
+    // 否則負載高時計時器會落在 fill() 的 focus 與 insertText 之間，內文被打進主旨欄
+    await expect(page.locator('#feedbackSubject')).toBeFocused();
     await page.fill('#feedbackSubject', '我的主旨');
     await page.fill('#feedbackBody', '我寫了很久的內文');
     await page.evaluate(() => submitFeedback());
