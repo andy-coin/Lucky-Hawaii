@@ -25,10 +25,12 @@ test('config：wrangler.toml 形狀', () => {
     expect(blocks).toHaveLength(2);
     expect(blocks.map(b => b.match(/binding\s*=\s*"([^"]+)"/)[1])).toEqual(['USER_FEEDBACK_KV', 'AI_STATE_KV']);
     for (const b of blocks) expect(b).toMatch(/^id\s*=\s*"[^"]+"/m);
-    expect(toml).toContain('[[ratelimits]]');
-    expect(toml).toContain('name = "AI_LIMITER"');
-    expect(toml).toMatch(/limit\s*=\s*20/);
-    expect(toml).toMatch(/period\s*=\s*60/);
+    // 限流是選配（DEPLOY.md 步驟 7 允許整段刪掉，程式偵測不到就不限流），所以有這段才檢查內容
+    if (toml.includes('[[ratelimits]]')) {
+        expect(toml).toContain('name = "AI_LIMITER"');
+        expect(toml).toMatch(/limit\s*=\s*20/);
+        expect(toml).toMatch(/period\s*=\s*60/);
+    }
     // 開發用開關只能從 --var 進來，正式設定檔連註解都不能出現
     for (const s of ['ALLOW_LOCAL_ORIGIN', 'GEMINI_BASE', 'GROQ_BASE', 'ATTEMPT_TIMEOUT_MS', 'CHAIN_BUDGET_MS']) expect(toml).not.toContain(s);
 });
@@ -60,7 +62,8 @@ test('config：dry-run 部署離線可跑、重跑結果相同', () => {
     const before = statusCmd();
     for (const r of [run(), run()]) {
         expect(r.status, r.out).toBe(0);
-        for (const b of ['USER_FEEDBACK_KV', 'AI_STATE_KV', 'AI_LIMITER']) expect(r.out).toContain(b);
+        const expected = ['USER_FEEDBACK_KV', 'AI_STATE_KV', ...(toml.includes('[[ratelimits]]') ? ['AI_LIMITER'] : [])];
+        for (const b of expected) expect(r.out).toContain(b);
         expect(r.out).not.toContain('WARNING');
     }
     // 重跑不留下任何改動（FND-05 冪等）；和跑之前比對，所以提交前後都成立
@@ -68,18 +71,20 @@ test('config：dry-run 部署離線可跑、重跑結果相同', () => {
 });
 
 test('config：KV id 沒填不准部署', () => {
-    const check = path => spawnSync('node', ['worker/check-ids.mjs', ...(path ? [path] : [])], { encoding: 'utf8' });
-    const committed = check();
-    expect(committed.status).toBe(1);
-    expect(committed.stderr).toContain('KV id');
+    const check = path => spawnSync('node', ['worker/check-ids.mjs', path], { encoding: 'utf8' });
     const hex = () => randomBytes(16).toString('hex');
     const dir = mkdtempSync(join(tmpdir(), 'lh-ids-'));
     const ids = toml.match(/^id\s*=\s*"[^"]+"/gm);
     expect(ids).toHaveLength(2);
-    const both = join(dir, 'both.toml');
-    writeFileSync(both, toml.replace(ids[0], `id = "${hex()}"`).replace(ids[1], `id = "${hex()}"`));
-    expect(check(both).status).toBe(0);
-    const one = join(dir, 'one.toml');
-    writeFileSync(one, toml.replace(ids[0], `id = "${hex()}"`));
-    expect(check(one).status).toBe(1);
+    // 一律用 fixture：不依賴正式 wrangler.toml 目前是佔位字串還是已填真實 id（Andy 填完 id 後這題也要過）
+    const fixture = (name, a, b) => {
+        const f = join(dir, name);
+        writeFileSync(f, toml.replace(ids[0], `id = "${a}"`).replace(ids[1], `id = "${b}"`));
+        return f;
+    };
+    const placeholder = check(fixture('placeholder.toml', 'REPLACE_WITH_USER_FEEDBACK_KV_ID', 'REPLACE_WITH_AI_STATE_KV_ID'));
+    expect(placeholder.status).toBe(1);
+    expect(placeholder.stderr).toContain('KV id');
+    expect(check(fixture('both.toml', hex(), hex())).status).toBe(0);
+    expect(check(fixture('one.toml', hex(), 'REPLACE_WITH_AI_STATE_KV_ID')).status).toBe(1);
 });
