@@ -5,7 +5,7 @@ import vm from 'node:vm';
 import { readFileSync } from 'node:fs';
 import { bootPage } from './helpers.mjs';
 
-const CORE = ['js/phonetic-tables.js', 'js/dict.js', 'js/search.js', 'js/state.js', 'js/polyphonic.js'];
+const CORE = ['js/phonetic-tables.js', 'js/dict.js', 'js/search.js', 'js/state.js', 'js/polyphonic.js', 'js/wordlist.js', 'js/candidates.js'];
 
 function loadCore() {
     const quiet = () => {};
@@ -80,4 +80,28 @@ test('core：Node 與瀏覽器的 searchRhyme 結果一致', async ({ browser })
             expect(node, input).toBe(web);
         }
     } finally { await context.close(); }
+});
+
+test('core：純 Node 詞庫篩選', () => {
+    const { ev } = loadCore();
+    const get = pick(ev);
+    // stub 詞庫：每行一個 JSON 物件，直接塞進 vm 裡的 wordlistData
+    ev('wordlistData = ' + JSON.stringify(readFileSync('tests/fixtures/wordlist-stub.ndjson', 'utf8').trim().split('\n').map(l => JSON.parse(l))));
+    const words = get("wordlistData.map(e => e.w)").sort();
+    expect(words.length).toBe(12);
+    const sortedHits = code => get(code).sort();
+    expect(sortedHits("filterWordsByRhyme([{rhyme:'ㄧㄣ'}], 2, 1)")).toEqual(words);
+    expect(get("filterWordsByRhyme([{rhyme:'ㄚ'}], 2, 1)")).toEqual([]);
+    expect(get("filterWordsByRhyme([{rhyme:'ㄧㄣ'}], 3, 1)")).toEqual([]);
+    // 已存詞彙要被排除
+    ev("savedWords = ['一心']");
+    const hits = sortedHits("filterWordsByRhyme([{rhyme:'ㄧㄣ'}], 2, 1)");
+    ev('savedWords = []');
+    expect(hits.length).toBe(11);
+    expect(hits).not.toContain('一心');
+    // 字數篩選：0 不限、2 剛好兩字、4 代表四字以上
+    const pass = (f, n) => get(`(filterWordLen = ${f}, _wordLenPass(${n}))`);
+    for (const n of [1, 2, 3, 4, 5]) expect(pass(0, n)).toBe(true);
+    expect([1, 2, 3, 4].map(n => pass(2, n))).toEqual([false, true, false, false]);
+    expect([2, 3, 4, 5, 6].map(n => pass(4, n))).toEqual([false, false, true, true, true]);
 });
