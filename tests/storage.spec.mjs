@@ -312,3 +312,36 @@ test('restore: 不是物件的備份內容不會動到任何資料', async ({ br
     expect(errors).toEqual([]);
     await context.close();
 });
+
+// ===== 舊版資料快照（成功條件 5）=====
+test('restore: v0.96 舊資料完整備份並可完整還原', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, { storage: FIXTURE });
+    expect(await dumpLS(page)).toMatchObject(FIXTURE);
+    const baseline = (await page.evaluate(() => lhListBackups())).find(r => r.id === 'baseline');
+    expect(baseline.data).toEqual(FIXTURE);
+    // 模擬資料全部遺失
+    await page.evaluate(keys => keys.forEach(k => localStorage.removeItem(k)), Object.keys(FIXTURE));
+    expect(Object.keys(await dumpLS(page)).filter(k => k in FIXTURE)).toEqual([]);
+    expect(await page.evaluate(() => lhRestoreFromBackup('baseline'))).toBe(true);
+    const ls = await dumpLS(page);
+    for (const [k, v] of Object.entries(FIXTURE)) expect(ls[k]).toBe(v);
+    // 重新整理後照常查韻，還原的歌詞顯示在第一段
+    await page.reload();
+    await ready(page);
+    await page.fill('#searchInput', 'ㄢ');
+    await settle(page);
+    await expect(page.locator('.results-count').first()).toHaveText(/[1-9]/);
+    expect(await page.locator('.section-textarea').first().inputValue()).toContain('輕輕唱起心裡的歌');
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('corrupt: 損毀的原始內容完整保存在基準備份', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, { storage: CORRUPT });
+    const baseline = (await page.evaluate(() => lhListBackups())).find(r => r.id === 'baseline');
+    expect(baseline.data.haiku_lyrics).toBe(CORRUPT.haiku_lyrics);
+    expect(baseline.data.haiku_savedwords).toBe(CORRUPT.haiku_savedwords);
+    expect(baseline.data.haiku_hashtags).toBe(CORRUPT.haiku_hashtags);
+    expect(errors).toEqual([]);
+    await context.close();
+});
