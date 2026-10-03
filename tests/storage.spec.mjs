@@ -88,3 +88,77 @@ test('IndexedDB: 舊分頁擋住升級時仍能開啟並查韻', async ({ browse
     expect(errors).toEqual([]);
     await context.close();
 });
+
+// ===== 備份（FND-03）=====
+const dumpLS = page => page.evaluate(() => Object.fromEntries(Object.keys(localStorage).map(k => [k, localStorage.getItem(k)])));
+const ready = page => page.evaluate(() => Promise.all([window.__hoyunReady, window.__hoyunWordlistReady, window.__hoyunSafetyReady]));
+const EXTRA = { haoYunQi_admin_key: 'admin-secret-test', haoYunQi_admin_theme: 'dark', otherProject_setting: 'x' };
+
+test('backup: 第一次開啟建立基準備份，只含清單內的鍵', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, { storage: { ...FIXTURE, ...EXTRA } });
+    const list = await page.evaluate(() => lhListBackups());
+    expect(list.map(r => r.id)).toEqual(['baseline']);
+    expect(list[0].data).toEqual(FIXTURE);
+    expect(Object.keys(list[0].data)).toHaveLength(17);
+    for (const k of Object.keys(list[0].data)) expect(k.startsWith('lh:')).toBe(false);
+    expect(list[0].data).not.toHaveProperty('haoYunQi_admin_key');
+    expect(list[0].data).not.toHaveProperty('haoYunQi_admin_theme');
+    expect(list[0].data).not.toHaveProperty('otherProject_setting');
+    expect((await dumpLS(page))['lh:schema']).toBe('1');
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('backup: 舊版資料開啟後每個鍵值完全不變', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, { storage: { ...FIXTURE, ...EXTRA } });
+    const ls = await dumpLS(page);
+    for (const [k, v] of Object.entries({ ...FIXTURE, ...EXTRA })) expect(ls[k]).toBe(v);
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('backup: 基準備份之後不會被覆寫', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, { storage: FIXTURE });
+    const first = (await page.evaluate(() => lhListBackups()))[0];
+    await page.evaluate(() => lhSet('haiku_savedwords', '["新"]'));
+    await page.reload();
+    await ready(page);
+    const list = await page.evaluate(() => lhListBackups());
+    expect(list).toHaveLength(1);
+    expect(list[0].createdAt).toBe(first.createdAt);
+    expect(list[0].data).toEqual(first.data);
+    expect((await dumpLS(page)).haiku_savedwords).toBe('["新"]');
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('backup: 同一毫秒建立的備份不互相覆蓋，只保留最新 3 份', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, {
+        storage: FIXTURE,
+        beforeGoto: ({ page }) => page.clock.setFixedTime(new Date('2026-01-01T00:00:00Z')),
+    });
+    await page.evaluate(() => Promise.all(['t1', 't2', 't3', 't4', 't5'].map(id => lhBackup(id, 'same-ms', { id }))));
+    const list = await page.evaluate(() => lhListBackups());
+    expect(list.map(r => r.id)).toEqual(['t3', 't4', 't5']);      // 最新 3 份，baseline 與 t1、t2 被淘汰
+    expect(new Set(list.map(r => r.id)).size).toBe(3);
+    expect(list[0].seq).toBeLessThan(list[1].seq);
+    expect(list[1].seq).toBeLessThan(list[2].seq);
+    expect(new Set(list.map(r => r.createdAt)).size).toBe(1);
+    // 同 id 再備份：不覆寫
+    const again = await page.evaluate(() => lhBackup('t5', 'again', {}));
+    expect(again).toMatchObject({ ok: true, existed: true });
+    const after = await page.evaluate(() => lhListBackups());
+    expect(after).toEqual(list);
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('backup: 全新瀏覽器開啟沒有錯誤並設定資料版本', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, { storage: {} });
+    expect(errors).toEqual([]);
+    const list = await page.evaluate(() => lhListBackups());
+    expect(list.map(r => r.id)).toEqual(['baseline']);
+    expect(list[0].data).toEqual({});
+    expect((await dumpLS(page))['lh:schema']).toBe('1');
+    await context.close();
+});
