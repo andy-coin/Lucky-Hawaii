@@ -1,4 +1,6 @@
 // 測試共用工具：開乾淨頁面、攔截外部網路、收集錯誤
+import { readFileSync } from 'node:fs';
+
 export const BASE = 'http://127.0.0.1:' + (process.env.LH_TEST_PORT || '4310');
 
 // 手動建立的 context 不會繼承 config 的 use，所以這裡明確帶入
@@ -46,8 +48,18 @@ export function collectErrors(page) {
     return { errors, warnings };
 }
 
+// 詞庫換成小型 stub（回 404／空字串會被當成錯誤或讓 JSON.parse 丟例外，所以每塊都要是合法的 200 NDJSON）
+export async function stubWordlist(context, ndjson) {
+    const filler = '{"w":"測試","z":"ㄘㄜˋ ㄕˋ","p":0}\n';
+    await context.route(/\/data\/wordlist-c0\d\.json$/, route => {
+        const isFirst = route.request().url().endsWith('wordlist-c00.json');
+        return route.fulfill({ status: 200, contentType: 'application/json', body: isFirst ? ndjson : filler });
+    });
+}
+
 // 每次都是全新 profile（D-06）；storage 為 { key: value } 預先放進 localStorage
-export async function bootPage(browser, { storage = {}, init = null } = {}) {
+// wordlist: 'real'（預設，golden 用）或 'stub'（讀 tests/fixtures/wordlist-stub.ndjson）
+export async function bootPage(browser, { storage = {}, init = null, wordlist = 'real', aiReply } = {}) {
     const context = await browser.newContext({
         ...CONTEXT_OPTS,
         storageState: {
@@ -58,7 +70,8 @@ export async function bootPage(browser, { storage = {}, init = null } = {}) {
             }],
         },
     });
-    const offOrigin = await routeExternal(context);
+    const offOrigin = await routeExternal(context, { aiReply });
+    if (wordlist === 'stub') await stubWordlist(context, readFileSync(new URL('./fixtures/wordlist-stub.ndjson', import.meta.url), 'utf8'));
     if (init) await context.addInitScript(init);
     const page = await context.newPage();
     const { errors, warnings } = collectErrors(page);

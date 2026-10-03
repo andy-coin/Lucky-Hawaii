@@ -1,0 +1,19 @@
+{
+  "haiku_lyrics": "[{\"label\":\"主歌\",\"text\":\"夜色 & 微光<b>粗體</b>\\n輕輕唱起心裡的歌\",\"collapsed\":false},{\"label\":\"副歌\",\"text\":\"一起走到天亮\\n不怕風雨\",\"collapsed\":false},{\"label\":\"橋段\",\"text\":\"安靜的時候\\n也有光\",\"collapsed\":true}]",
+  "haiku_hashtags": "[\"浪漫\",\"夏天\"]",
+  "haiku_savedwords": "[\"微光\",\"天亮\"]",
+  "dictOverrides_v076": "{\"ㄅㄧㄣ4\":\"殯｜鬢｜儐擯臏髕鶣\"}",
+  "haoYunQi_inputMode": "auto",
+  "selectedModel": "gpt-4.1",
+  "hoyun_theme_mode": "light",
+  "bgColor1": "#0c4564",
+  "containerBg": "#eee3ce",
+  "textColor": "#2d3748",
+  "highlightColor": "#ed8936",
+  "recentPanelCollapsed": "false",
+  "leftPanelCollapsed": "false",
+  "rightPanelCollapsed": "false",
+  "contextSectionCollapsed": "false",
+  "savedPoolCollapsed": "false",
+  "apiKey_gemini": "test-key-not-real"
+}
