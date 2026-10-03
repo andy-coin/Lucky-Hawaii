@@ -373,9 +373,11 @@ async function lhMigrate(steps, target) {
     const prevSchema = lhGet('lh:schema');
     const cur = Number(prevSchema || 1);
     if (cur >= target) return { ran: 0 };
-    const snap = lhSnapshot();
-    const b = await lhBackup('pre-schema-' + target, '升級資料格式前的備份（目標版本 ' + target + '）', snap);
+    const b = await lhBackup('pre-schema-' + target, '升級資料格式前的備份（目標版本 ' + target + '）', lhSnapshot());
     if (!b.ok) return { ran: 0, blocked: true };   // 備份橫幅 lhBackup 已跳；備份沒存成就一步都不跑
+    // 還原用的快照要在備份 await 之後才拍：備份最久會等 5 秒，期間使用者的編輯不能被還原蓋掉。
+    // ponytail: 主程式記憶體裡的資料仍是升級前格式；Phase 8 第一個真遷移上線前，主程式要改成先 await __hoyunSafetyReady 再讀取
+    const snap = lhSnapshot();
     const guard = k => { if (!_lhRestorable(k)) throw new Error('遷移不可寫入未登記的鍵：' + k); };
     // 直接寫 storage 物件：寫入失敗要 throw 讓遷移中止，不能像 lhSet 那樣吞掉
     const store = {

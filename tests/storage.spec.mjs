@@ -279,6 +279,21 @@ test('migrate: 中途失敗自動還原成升級前', async ({ browser }) => {
     await context.close();
 });
 
+test('migrate: 備份等待期間的編輯不會被失敗還原蓋掉（WR-03）', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, { storage: FIXTURE });
+    const result = await page.evaluate(() => {
+        const p = lhMigrate([{ to: 2, run: s => { s.set('selectedModel', 'step2'); throw new Error('boom'); } }], 2);
+        // lhMigrate 在 await 備份時就回到這裡：模擬使用者在這段時間改了歌詞
+        localStorage.setItem('haiku_lyrics', 'EDITED-DURING-BACKUP');
+        return p;
+    });
+    expect(result).toMatchObject({ ran: 0, restored: true });
+    expect(await page.evaluate(() => localStorage.getItem('haiku_lyrics'))).toBe('EDITED-DURING-BACKUP');
+    expect(await page.evaluate(() => localStorage.getItem('selectedModel'))).toBe(FIXTURE.selectedModel);
+    expect(errors.filter(e => !e.includes('boom'))).toEqual([]);
+    await context.close();
+});
+
 test('migrate: 失敗後還原也失敗時，提示如實說還原沒做完（WR-02）', async ({ browser }) => {
     const { context, page, errors } = await bootPage(browser, { storage: FIXTURE });
     const result = await page.evaluate(() => {
