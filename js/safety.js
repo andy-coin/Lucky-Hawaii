@@ -58,6 +58,17 @@ function lhGet(key) {
     catch (e) { lhWarn('讀取 ' + key + ' 失敗', e); return null; }
 }
 
+// 損毀的原始內容另存一份：呼叫端退回預設值後，下一次存檔會蓋掉原本的損毀字串，使用者就再也救不回來。
+// 刻意不登記成已知鍵：不進快照、不被還原動到；寫入失敗只留記錄（再跳橫幅會干擾開機）
+const LH_CORRUPT_STASH = 'lh:corrupt:';
+function _lhStashCorrupt(key, raw) {
+    try {
+        const old = localStorage.getItem(LH_CORRUPT_STASH + key);
+        if (old !== null && JSON.parse(old).raw === raw) return;   // 同一份損毀內容不重複寫
+        localStorage.setItem(LH_CORRUPT_STASH + key, JSON.stringify({ savedAt: Date.now(), raw }));
+    } catch (e) { lhWarn('保存 ' + key + ' 的損毀內容失敗', e); }
+}
+
 // 空值與沒存過都回預設值（等同舊的 `|| default`）；損毀的 JSON 回預設值並記錄，原始內容保留不動
 // validate（選用）：JSON 合法但形狀不對（例如 'null'、'{}'、'5'）一樣當成損毀處理，不然呼叫端會在開機時丟例外
 function lhGetJSON(key, fallback, validate) {
@@ -69,6 +80,7 @@ function lhGetJSON(key, fallback, validate) {
         return v;
     } catch (e) {
         LH_CORRUPT_KEYS.add(key);
+        _lhStashCorrupt(key, raw);
         lhWarn(key + ' 內容損毀，已改用預設值（原始內容保留不動）', e);
         return fallback;
     }

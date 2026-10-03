@@ -43,6 +43,28 @@ for (const [key, value] of [['haiku_lyrics', 'null'], ['haiku_lyrics', '{}'], ['
     });
 }
 
+// WR-01：損毀後使用者繼續打字，下一次存檔會蓋掉原始字串；原始內容必須另存一份救得回來
+test('corrupt: 損毀後繼續編輯，原始內容仍另存可救回（歌詞與字庫覆寫）', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, { storage: CORRUPT });
+    await page.locator('.section-textarea').first().fill('新寫的歌詞');   // 觸發 saveLyrics，蓋掉損毀字串
+    await page.evaluate(() => { dictOverrides = { x: 'y' }; saveDictOverrides(); });
+    const got = await page.evaluate(() => ({
+        lyrics: localStorage.getItem('haiku_lyrics'),
+        stashLyrics: JSON.parse(localStorage.getItem('lh:corrupt:haiku_lyrics')).raw,
+        stashSaved: JSON.parse(localStorage.getItem('lh:corrupt:haiku_savedwords')).raw,
+    }));
+    expect(got.lyrics).toContain('新寫的歌詞');
+    expect(got.stashLyrics).toBe(CORRUPT.haiku_lyrics);
+    expect(got.stashSaved).toBe(CORRUPT.haiku_savedwords);
+    expect(errors).toEqual([]);
+    await context.close();
+
+    const b = await bootPage(browser, { storage: { dictOverrides_v076: '{bad' } });
+    await b.page.evaluate(() => { dictOverrides = { x: 'y' }; saveDictOverrides(); });
+    expect(await b.page.evaluate(() => JSON.parse(localStorage.getItem('lh:corrupt:dictOverrides_v076')).raw)).toBe('{bad');
+    await b.context.close();
+});
+
 // ===== IndexedDB 升級（FND-03 / PERF-04）=====
 // 同網域的 JSON 頁面當作「空白頁」，才能在 index.html 載入前先把資料庫弄成舊版狀態
 const openV1 = () => new Promise((resolve, reject) => {

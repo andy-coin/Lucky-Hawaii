@@ -2728,15 +2728,13 @@
         let dictOverrides = {}; // 記錄被使用者修改過的 rhymeDict key
 
         function loadDictOverrides() {
-            try {
-                const saved = lhGet('dictOverrides_v076');
-                if (saved) {
-                    dictOverrides = JSON.parse(saved);
-                    for (const [key, val] of Object.entries(dictOverrides)) {
-                        rhymeDict[key] = val;
-                    }
-                }
-            } catch(e) { lhWarn('本機字庫覆寫資料損毀，已忽略', e); dictOverrides = {}; }
+            // 走 lhGetJSON：損毀或形狀不對時會留記錄、另存原始內容，不然下次存檔就把它蓋掉了
+            const saved = lhGetJSON('dictOverrides_v076', null, v => v && typeof v === 'object' && !Array.isArray(v));
+            if (!saved) return;
+            dictOverrides = saved;
+            for (const [key, val] of Object.entries(dictOverrides)) {
+                rhymeDict[key] = val;
+            }
         }
 
         function saveDictOverrides() {

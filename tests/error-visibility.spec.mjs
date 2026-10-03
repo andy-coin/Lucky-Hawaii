@@ -79,7 +79,7 @@ test('背景錯誤：破音字排序檔壞掉會留下記錄', async ({ browser 
 
 test('背景錯誤：本機字庫覆寫損毀會留下記錄', async ({ browser }) => {
     const { context, page, errors, warnings } = await bootPage(browser, { storage: { dictOverrides_v076: '{bad' } });
-    expect(hasRecord(warnings, '本機字庫覆寫資料損毀')).toBe(true);
+    expect(hasRecord(warnings, 'dictOverrides_v076 內容損毀')).toBe(true);
     await expectSearchWorks(page);
     await expectQuiet(page, errors);
     await context.close();
