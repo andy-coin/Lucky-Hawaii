@@ -106,7 +106,11 @@ test('split：樣式表沒有相對路徑 url()', () => {
     for (const f of listDir('css').filter(n => n.endsWith('.css'))) {
         const text = readFileSync(`css/${f}`, 'utf8');
         for (const m of text.matchAll(/url\(\s*(['"]?)([^'")]*)\1\s*\)/g)) {
-            expect(m[2], `css/${f} 有相對路徑 url(${m[2]})`).toMatch(/^(https:\/\/|data:)/);
+            expect(m[2], `css/${f} 有相對路徑 url(${m[2]})`).toMatch(/^(https:\/\/|data:|#)/);   // #id 是頁內片段參考，不受基準路徑影響
+        }
+        // @import "x.css"（沒有 url()）同樣以 css/ 為基準；只允許 https://
+        for (const m of text.matchAll(/@import\s+(['"])([^'"]*)\1/g)) {
+            expect(m[2], `css/${f} 有相對路徑 @import "${m[2]}"`).toMatch(/^https:\/\//);
         }
     }
 });
