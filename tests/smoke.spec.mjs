@@ -23,8 +23,7 @@ const clickGenerate = async page => {
 };
 // 搜尋 心 → 詞庫 stub 只有 12 個候選（<24）→ 直接渲染 .ai-word-card，再由 mock 的 Worker 補 AI 詞
 async function searchAndGenerate(page) {
-    // 舊資料的 selectedModel 'gpt-4.1' 已不在 LLM_MODELS 裡，下拉選單會是空值，AI 完全不會被呼叫（Phase 2 要處理）；這裡手動選一個
-    await page.evaluate(() => { document.getElementById('modelSelect').value = 'gemini-3.5-flash-lite'; });
+    // 舊資料裡已下架的模型現在顯示成「自動」，AI 照常呼叫（Phase 2 AI-01）
     await page.fill('#searchInput', '心');
     await settle(page);
     await clickGenerate(page);

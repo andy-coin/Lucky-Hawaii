@@ -2435,7 +2435,7 @@
         <div class="side-panel-body">
             <div class="side-panel-title" style="flex-shrink:0;display:flex;align-items:center;justify-content:space-between;gap:8px">
                 <span>✨ AI 建議</span>
-                <select id="modelSelect" class="model-select" title="選擇 AI 模型（從這個開始往下自動 fallback）" onchange="onModelChange()"></select>
+                <select id="modelSelect" class="model-select" title="選擇 AI 模型（自動＝由伺服器挑選並自動換手）" onchange="onModelChange()"></select>
             </div>
             <div class="ai-scroll-area">
                 <div class="ai-rhyme-display" id="aiRhymeDisplay">請先搜尋一個字或是詞確認韻腳</div>
@@ -4462,25 +4462,9 @@
 
         const WORKER_URL = 'https://lucky-hawaii.is3000dollar.workers.dev';
 
-        // 模型清單（強→弱）。autoFallback=false 的不會被自動降級流程使用
-        const LLM_MODELS = [
-            // Gemini（直連，domain restriction 保護）
-            { id: 'gemini-3.5-flash-lite',                     label: 'Gemini 3.5 Flash-Lite',  provider: 'gemini', autoFallback: false },
-            { id: 'gemini-3.7-flash',                          label: 'Gemini 3.7 Flash',       provider: 'gemini', autoFallback: false },
-            { id: 'gemini-2.5-flash',                          label: 'Gemini 2.5 Flash',       provider: 'gemini', autoFallback: false },
-            // Groq
-            { id: 'qwen/qwen3.6-27b',                          label: ' Qwen3.6 27B',           provider: 'groq', autoFallback: false, hidden: false },
-            { id: 'openai/gpt-oss-120b',                       label: 'OpenAI GPT-OSS 120B',    provider: 'groq', autoFallback: false, hidden: false },
-        ];
-
-        // 修改後的邏輯：只要是走你 Worker 的 Provider，都不需要前端傳 Key
-        function getApiKey(provider) {
-            const workerProviders = ['gemini', 'groq', 'github', 'claude'];
-            if (workerProviders.includes(provider)) {
-                return 'worker-managed'; // 回傳一個識別字串即可，實際 Key 在後端
-            }
-            return lhGet(`apiKey_${provider}`) || '';
-        }
+        // 模型由 Worker 決定與換手；清單由 /models 提供，「自動」永遠排第一
+        const AUTO_MODEL = { id: 'auto', label: '自動（推薦）', provider: 'auto' };
+        let LLM_MODELS = [AUTO_MODEL];
 
         function saveApiKey(provider, val) {
             // 如果是 Worker 代理的服務，其實可以不讓使用者填 Key
@@ -4488,148 +4472,57 @@
             renderModelSelect();
         }
 
-        function isModelAvailable(m) { return !!getApiKey(m.provider); }
-
         function renderModelSelect() {
             const sel = document.getElementById('modelSelect');
             if (!sel) return;
-            const current = lhGet('selectedModel') || 'gpt-4.1';
-            sel.innerHTML = LLM_MODELS.filter(m => !m.hidden).map(m => {
-                const ok = isModelAvailable(m);
-                const tag = ok ? '' : '（未設定 key）';
-                return `<option value="${m.id}" ${ok ? '' : 'disabled'}>${m.label}${tag}</option>`;
-            }).join('');
-            sel.value = current;
-            if (sel.selectedIndex < 0 || sel.options[sel.selectedIndex].disabled) {
-                sel.value = 'gpt-4.1';
-            }
+            // 選項標籤來自網路，用 Option 建立，不拼 HTML 字串
+            sel.replaceChildren(...LLM_MODELS.map(m => new Option(m.label, m.id)));
+            // 舊值（例如已下架的模型）只在畫面上顯示成「自動」，不改使用者存的值（Phase 1 測試要求開站不改任何鍵；使用者自己改選才寫入）
+            const stored = lhGet('selectedModel');
+            sel.value = LLM_MODELS.some(m => m.id === stored) ? stored : 'auto';
         }
         function onModelChange() {
             lhSet('selectedModel', document.getElementById('modelSelect').value);
         }
 
-        // 統一呼叫介面 → 回傳純文字回應；429 / 超限會 throw 帶 .quota = true
-        // async function callLLM(model, prompt) {
-        //     const key = getApiKey(model.provider);
-        //     if (!key) { const e = new Error('no key'); e.quota = true; throw e; }
+        // 換模型由 Worker 負責，這裡只回傳一個（D-16）
+        function aiTryList() {
+            return [LLM_MODELS.find(m => m.id === document.getElementById('modelSelect')?.value) || LLM_MODELS[0]];
+        }
 
-        //     if (model.provider === 'gemini') {
-        //         const res = await fetch(geminiUrl(model.id), {
-        //             method: 'POST',
-        //             headers: { 'Content-Type': 'application/json' },
-        //             body: JSON.stringify({
-        //                 contents: [{ parts: [{ text: prompt }] }],
-        //                 generationConfig: { maxOutputTokens: 2000, temperature: 0.95, thinkingConfig: { thinkingBudget: 0 } }
-        //             })
-        //         });
-        //         if (res.status === 429) { const e = new Error('quota'); e.quota = true; throw e; }
-        //         const data = await res.json();
-        //         if (!data.candidates) {
-        //             const e = new Error(data?.error?.message || 'no candidates');
-        //             if (data?.error?.status === 'RESOURCE_EXHAUSTED') e.quota = true;
-        //             throw e;
-        //         }
-        //         return data.candidates[0].content.parts[0].text.trim();
-        //     }
-
-        //     // Groq / Claude / GitHub（全部走 Cloudflare Worker，由 _provider 路由）
-        //     const url = WORKER_URL;
-        //     const headers = { 'Content-Type': 'application/json' };
-        //     const res = await fetch(url, {
-        //         method: 'POST',
-        //         headers,
-        //         body: JSON.stringify({
-        //             _provider: model.provider,
-        //             model: model.id,
-        //             messages: [{ role: 'user', content: prompt }],
-        //             temperature: 0.95,
-        //             max_tokens: 2000
-        //         })
-        //     });
-        //     if (res.status === 429) { const e = new Error('quota'); e.quota = true; throw e; }
-        //     if (!res.ok) {
-        //         const txt = await res.text();
-        //         const e = new Error(txt || res.statusText);
-        //         if (/quota|exceed|limit/i.test(txt)) e.quota = true;
-        //         throw e;
-        //     }
-        //     const data = await res.json();
-        //     const content = data?.choices?.[0]?.message?.content;
-        //     if (!content) throw new Error('empty response');
-        //     console.log('[LLM raw]', model.label, content);
-        //     if (data.usage) {
-        //         const u = data.usage;
-        //         showToast(`${model.label}｜本次 ${u.total_tokens} tokens（prompt ${u.prompt_tokens} + 回覆 ${u.completion_tokens}）`, 4000);
-        //     }
-        //     return content.replace(/<think>[\s\S]*?<\/think>/g, '').trim();
-        // }
-
+        // 統一呼叫介面 → 回傳純文字回應。只送任務內容，Worker 決定用哪個模型；
+        // 失敗一律 throw Error，message 已是可直接給使用者看的白話繁中
         async function callLLM(model, prompt) {
-            // 現在統一從 Worker 獲取，這裡不需要再管 Key 了，Worker 會處理
-            // 如果你原本有判斷 Key 的邏輯，可以簡化為只要有 provider 就過
-            if (!model.provider) throw new Error('找不到 Provider 設定');
-
-            // 所有的請求都統一發向你的 Worker URL
-            // 請確保你腳本上方定義的變量名是 WORKER_URL 或 GROQ_WORKER_URL
-            const url = 'https://lucky-hawaii.is3000dollar.workers.dev'; 
-            
-            const headers = { 'Content-Type': 'application/json' };
-            
-            // 統一發送的資料格式（OpenAI 格式）
-            const body = {
-                _provider: model.provider, // 這是給 Worker 判斷要走哪條路的
-                model: model.id,
-                messages: [{ role: 'user', content: prompt }],
-                temperature: 0.95,
-                max_tokens: 2000
-            };
-
-            const res = await fetch(url, {
-                method: 'POST',
-                headers,
-                body: JSON.stringify(body)
-            });
-
-            // 處理限流 (Quota)
-            if (res.status === 429) { 
-                const e = new Error('額度已滿'); 
-                e.quota = true; 
-                throw e; 
+            let res;
+            try {
+                res = await fetch(WORKER_URL + '/ai', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ prompt, model: model.id, temperature: 0.95 }),
+                    signal: AbortSignal.timeout(35000)
+                });
+            } catch (e) {
+                lhWarn('AI 請求送不出去', e);
+                throw new Error(e.name === 'TimeoutError' ? 'AI 回應太久，請稍後再試' : '連不上 AI 服務，請檢查網路後再試');
             }
-
-            if (!res.ok) {
-                const txt = await res.text();
-                const e = new Error(txt || res.statusText);
-                if (/quota|exceed|limit/i.test(txt)) e.quota = true;
-                throw e;
+            let data;
+            try {
+                data = await res.json();
+            } catch (e) {
+                lhWarn('AI 回應不是 JSON', e);
+                throw new Error('AI 服務回應格式不對，請稍後再試');
             }
+            if (!res.ok || !data?.ok) throw new Error(data?.message || 'AI 暫時無法使用，請稍後再試');
 
-            const data = await res.json();
-
-            // --- 重點：解析回傳資料 ---
-            let content = '';
-            
-            if (model.provider === 'gemini') {
-                // 如果是 Gemini，Google 回傳的結構長這樣
-                if (!data.candidates || !data.candidates[0].content) {
-                    throw new Error(data?.error?.message || 'Gemini 無法回傳內容');
-                }
-                content = data.candidates[0].content.parts[0].text;
-            } else {
-                // 如果是 Groq 或 GitHub，回傳的結構（OpenAI 格式）長這樣
-                content = data?.choices?.[0]?.message?.content;
-            }
-
-            if (!content) throw new Error('回傳內容為空');
-
-            // 顯示 Token 使用量（如果 API 有提供的話）
+            // Worker 換了模型時告訴使用者實際用的是哪一個
+            const switched = model.id !== 'auto' && data.model && data.model.id !== model.id;
             if (data.usage) {
-                const u = data.usage;
-                showToast(`${model.label}｜本次 ${u.total_tokens} tokens`, 4000);
+                showToast(`${switched ? '已切到 ' : ''}${data.model.label}｜本次 ${data.usage.total_tokens} tokens`, 4000);
+            } else if (switched) {
+                showToast(`已切到 ${data.model.label}`);
             }
-
             // 移除思考標籤（針對 DeepSeek R1 等模型）並回傳
-            return content.replace(/<think>[\s\S]*?<\/think>/g, '').trim();
+            return String(data.text).replace(/<think>[\s\S]*?<\/think>/g, '').trim();
         }
 
         function updateModeButtonLabels() {
@@ -5011,13 +4904,7 @@
 禁止重複以下詞語：${excludeStr}
 直接輸出詞語，頓號「、」分隔，不要說明或編號。`;
 
-            const selectedId = document.getElementById('modelSelect')?.value || 'gpt-4.1';
-            const startIdx = LLM_MODELS.findIndex(m => m.id === selectedId);
-            const tryList = [];
-            if (startIdx >= 0 && isModelAvailable(LLM_MODELS[startIdx])) tryList.push(LLM_MODELS[startIdx]);
-            for (let i = Math.max(startIdx, 0) + 1; i < LLM_MODELS.length; i++) {
-                const m = LLM_MODELS[i]; if (m.autoFallback && isModelAvailable(m)) tryList.push(m);
-            }
+            const tryList = aiTryList();
 
             let aiWordsAdded = false;
             for (const m of tryList) {
@@ -5201,18 +5088,7 @@
             // 非詞庫路徑補上保留詞排除 + 不硬湊規則
             if (!usingWordlist) prompt += savedWordsLine + flexRule;
 
-            const selectedId = document.getElementById('modelSelect')?.value || 'gpt-4.1';
-            const startIdx = LLM_MODELS.findIndex(m => m.id === selectedId);
-            const tryList = [];
-            if (startIdx >= 0 && isModelAvailable(LLM_MODELS[startIdx])) tryList.push(LLM_MODELS[startIdx]);
-            for (let i = Math.max(startIdx, 0) + 1; i < LLM_MODELS.length; i++) {
-                const m = LLM_MODELS[i];
-                if (m.autoFallback && isModelAvailable(m)) tryList.push(m);
-            }
-            if (tryList.length === 0) {
-                container.innerHTML = '<span style="color:#e53e3e;font-size:0.85rem;">沒有可用模型，請到 ⚙️ 設定 API key</span>';
-                btn.disabled = false; loading.style.display = 'none'; return;
-            }
+            const tryList = aiTryList();
 
             const candidateSet = usingWordlist ? new Set(cumulativeCandidates) : null;
 
@@ -5231,7 +5107,6 @@
                     ).join('');
                     container.innerHTML = renderCards(words) +
                         `<div class="candidate-report">從 ${lastCandidatesTotal} 個候選詞中，挑出 ${words.length} 個</div>`;
-                    if (m.id !== selectedId) showToast(`已切到 ${m.label}`);
                     succeeded = true;
 
                     // 不滿 24 → 再丟一輪給 AI 補挑（同候選池，排除已選），不隨機湊數
@@ -5317,14 +5192,7 @@ ${ctxBlock2}${lyricsBlock2}
 
             try {
                 // 沿用使用者選的模型 + 自動 fallback
-                const selectedId = document.getElementById('modelSelect')?.value || 'gpt-4.1';
-                const startIdx = LLM_MODELS.findIndex(m => m.id === selectedId);
-                const tryList = [];
-                if (startIdx >= 0 && isModelAvailable(LLM_MODELS[startIdx])) tryList.push(LLM_MODELS[startIdx]);
-                for (let i = Math.max(startIdx, 0) + 1; i < LLM_MODELS.length; i++) {
-                    const m = LLM_MODELS[i];
-                    if (m.autoFallback && isModelAvailable(m)) tryList.push(m);
-                }
+                const tryList = aiTryList();
                 let reply = null;
                 for (const m of tryList) {
                     try { reply = await callLLM(m, prompt); break; } catch (e) { lhWarn('情境生成模型失敗，換下一個', e); }

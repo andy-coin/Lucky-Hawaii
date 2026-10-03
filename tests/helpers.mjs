@@ -13,8 +13,15 @@ export const CONTEXT_OPTS = {
     permissions: ['clipboard-read', 'clipboard-write'],
 };
 
+// /models 預設清單（Worker 沒指定時）
+const DEFAULT_MODELS = [
+    { id: 'gemini-3.5-flash-lite', label: 'Gemini 3.5 Flash-Lite', provider: 'gemini' },
+    { id: 'openai/gpt-oss-120b', label: 'GPT-OSS 120B', provider: 'groq' },
+];
+
 // 外部網路一律 200 mock（回 404／abort 會被 Chromium 記成 console.error）；不認得的主機記錄下來讓測試失敗
-export async function routeExternal(context, { aiReply } = {}) {
+// aiFail: { status, body } 讓 /ai 回失敗；models: 陣列 或 'down'（/models 回 503）
+export async function routeExternal(context, { aiReply, aiFail, models } = {}) {
     const offOrigin = [];
     await context.route(url => new URL(url).origin !== BASE, route => {
         const u = new URL(route.request().url());
@@ -24,6 +31,18 @@ export async function routeExternal(context, { aiReply } = {}) {
         if (u.hostname === 'lucky-hawaii.is3000dollar.workers.dev') {
             if (u.pathname === '/feedback') {
                 return route.fulfill({ status: 200, contentType: 'application/json', body: '{"ok":true}' });
+            }
+            if (u.pathname === '/models') {
+                if (models === 'down') return route.fulfill({ status: 503, contentType: 'application/json', body: '{"ok":false}' });
+                return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, models: models ?? DEFAULT_MODELS, checkedAt: null }) });
+            }
+            if (u.pathname === '/ai') {
+                if (aiFail) return route.fulfill({ status: aiFail.status, contentType: 'application/json', body: JSON.stringify(aiFail.body) });
+                return route.fulfill({
+                    status: 200,
+                    contentType: 'application/json',
+                    body: JSON.stringify({ ok: true, text: aiReply ?? '', model: { id: 'gemini-3.5-flash-lite', label: 'Gemini 3.5 Flash-Lite' }, tried: [] }),
+                });
             }
             return route.fulfill({
                 status: 200,
@@ -60,7 +79,7 @@ export async function stubWordlist(context, ndjson) {
 // 每次都是全新 profile（D-06）；storage 為 { key: value } 預先放進 localStorage
 // wordlist: 'real'（預設，golden 用）或 'stub'（讀 tests/fixtures/wordlist-stub.ndjson）
 // beforeGoto: async ({ context, page }) => {}，在收集器掛好之後、導航之前執行（例如 page.clock.install()）
-export async function bootPage(browser, { storage = {}, init = null, wordlist = 'real', aiReply, beforeGoto = null } = {}) {
+export async function bootPage(browser, { storage = {}, init = null, wordlist = 'real', aiReply, aiFail, models, beforeGoto = null } = {}) {
     const context = await browser.newContext({
         ...CONTEXT_OPTS,
         storageState: {
@@ -71,7 +90,7 @@ export async function bootPage(browser, { storage = {}, init = null, wordlist = 
             }],
         },
     });
-    const offOrigin = await routeExternal(context, { aiReply });
+    const offOrigin = await routeExternal(context, { aiReply, aiFail, models });
     if (wordlist === 'stub') await stubWordlist(context, readFileSync(new URL('./fixtures/wordlist-stub.ndjson', import.meta.url), 'utf8'));
     if (init) await context.addInitScript(init);
     const page = await context.newPage();
