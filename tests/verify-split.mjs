@@ -3,7 +3,11 @@
 // 只在「由上往下」搬移時有效；不是 *.spec，所以 npm test 不會跑它（後續 phase 會合法修改搬出的程式碼）。
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { stripHtmlComments } from './html-lib.mjs';
+
+// 相對路徑（index.html、js/、css/）一律以 repo 根目錄為基準，不受執行時所在目錄影響
+process.chdir(fileURLToPath(new URL('..', import.meta.url)));
 
 const baseRef = process.argv[2];
 if (!baseRef) {
@@ -18,7 +22,11 @@ const now = stripHtmlComments(readFileSync(process.argv[3] ?? 'index.html', 'utf
 
 // 只抓沒有 src= 的 inline 標籤
 const INLINE = tag => `<${tag}(?![^>]*\\bsrc=)[^>]*>([\\s\\S]*?)</${tag}>`;
-const baseBody = tag => new RegExp(INLINE(tag)).exec(base)[1];
+const baseBody = tag => {
+    const m = new RegExp(INLINE(tag)).exec(base);
+    if (!m) { console.log(`基準 commit ${baseRef} 沒有 inline <${tag}>（是不是給了拆檔之後的 commit？）`); process.exit(2); }
+    return m[1];
+};
 
 // 依出現順序：外部檔（js/ 或 css/，safety.js 不算）貼檔案內容，沒搬完的 inline 貼本文。
 // inline 本文開頭會多一個緊接在標籤後的換行，貼上前去掉恰好一個，否則每個中間狀態都會多出一行空白
