@@ -90,3 +90,20 @@ test('localStorage: 未登記的鍵會留下錯誤記錄', async ({ browser }) =
     expect(errors).toEqual(['console.error: [好韻器] 未登記的儲存鍵：lhProbeUnknownKey']);
     await context.close();
 });
+
+test('localStorage: 使用者操作存檔失敗時不再出現程式錯誤', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, { storage: FIXTURE, init: injectQuota });
+    await page.evaluate(() => { window.__failLS = true; });
+    // 展開側欄：toggleLeftPanel 會寫入 leftPanelCollapsed（以前這裡會丟未捕捉的例外）
+    await page.evaluate(() => document.querySelector('[onclick="toggleLeftPanel()"]').click());
+    await expect(page.locator(BANNER)).toBeVisible();
+    // 打字：oninput 觸發 saveLyrics 寫入 haiku_lyrics
+    await page.evaluate(() => {
+        const ta = document.querySelector('.section-textarea');
+        ta.value = ta.value + '新的一行';
+        ta.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    await expect(page.locator(BANNER)).toContainText('存檔失敗');
+    expect(errors).toEqual([]);
+    await context.close();
+});
