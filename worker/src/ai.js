@@ -215,6 +215,63 @@ export async function runChain(req, env) {
     return { status: 503, payload: { ok: false, code: 'ALL_BUSY', message: `AI 暫時都忙不過來，請稍後再試（已嘗試 ${n} 個模型）`, tried } };
 }
 
+// ==================== 請求驗證（AI-07：擋陌生人燒免費額度） ====================
+// 上限以位元組計（中文一字 3 bytes），64 KB 是為了容納今天最多約 1000 個候選詞的提示；Phase 4 限縮候選詞後可再調低。
+// 位元組上限在 index.js 的 readBodyCapped，這裡管訊息數、字元數、模型名單與輸出預算。
+const MAX_MESSAGES = 8;
+const MAX_CHARS = 24000;
+const DEFAULT_MAX_TOKENS = 2048;
+const DEFAULT_TEMPERATURE = 0.95;
+const ROLES = ['user', 'assistant', 'system'];
+
+export const BAD_REQUEST_ERROR = { status: 400, code: 'BAD_REQUEST', message: '請求格式不正確' };
+export const TOO_LARGE_ERROR = { status: 413, code: 'TOO_LARGE', message: '內容太長，請縮短後再試' };
+
+const isPlainObject = v => !!v && typeof v === 'object' && !Array.isArray(v);
+
+// 溫度夾在 0..1；不是有限數字就用預設值
+function clampTemperature(v) {
+    return typeof v === 'number' && Number.isFinite(v) ? Math.min(1, Math.max(0, v)) : DEFAULT_TEMPERATURE;
+}
+// 輸出 token 由 Worker 決定上限：先夾 2048，各模型的 maxOut 之後還會再壓一次（Groq 最後 1024）
+function clampMaxTokens(v) {
+    return typeof v === 'number' && Number.isFinite(v) && v >= 1 ? Math.min(Math.floor(v), DEFAULT_MAX_TOKENS) : DEFAULT_MAX_TOKENS;
+}
+
+// 新格式 { prompt, model?, temperature?, maxTokens? } → { req } 或 { error: { status, code, message } }
+export function parseAiBody(body) {
+    if (!isPlainObject(body) || typeof body.prompt !== 'string' || !body.prompt) return { error: BAD_REQUEST_ERROR };
+    if (body.prompt.length > MAX_CHARS) return { error: TOO_LARGE_ERROR };
+    const model = body.model === undefined ? 'auto' : body.model;
+    if (model !== 'auto' && !(typeof model === 'string' && findModel(model))) {
+        return { error: { status: 400, code: 'MODEL_NOT_ALLOWED', message: '這個模型不在可用清單裡' } };
+    }
+    return { req: {
+        messages: [{ role: 'user', content: body.prompt }],
+        model,
+        temperature: clampTemperature(body.temperature),
+        maxTokens: clampMaxTokens(body.maxTokens),
+    } };
+}
+
+// 舊版 { messages, model, temperature, max_tokens }：模型不在名單就當 auto，讓還留著舊設定的頁面自己好起來（O-3）
+export function parseLegacyBody(body) {
+    if (!isPlainObject(body) || !Array.isArray(body.messages)
+        || !body.messages.length || body.messages.length > MAX_MESSAGES) return { error: BAD_REQUEST_ERROR };
+    let chars = 0;
+    for (const m of body.messages) {
+        if (!isPlainObject(m) || !ROLES.includes(m.role) || typeof m.content !== 'string') return { error: BAD_REQUEST_ERROR };
+        chars += m.content.length;
+    }
+    if (chars > MAX_CHARS) return { error: TOO_LARGE_ERROR };
+    return { req: {
+        messages: body.messages.map(m => ({ role: m.role, content: m.content })),   // 只留這兩個欄位，不讓多餘欄位進上游
+        model: findModel(body.model) ? body.model : 'auto',
+        temperature: clampTemperature(body.temperature),
+        maxTokens: clampMaxTokens(body.max_tokens),
+    } };
+}
+
 // 舊版快取頁面（打根路徑）期待的回覆格式：_provider 只決定回覆長相，不決定用哪個模型。
 // gemini 解析 candidates；其餘（groq、已下架的 github 等）解析 choices，並順手顯示 usage。狀態碼由呼叫端原樣帶過去
 export function toLegacy(provider, status, payload) {

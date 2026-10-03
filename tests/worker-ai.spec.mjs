@@ -377,3 +377,217 @@ test('舊版：body 壞掉或 messages 不是陣列回 400，不讓換手鏈出�
         expect(f.calls).toHaveLength(0);
     } finally { f.restore(); }
 });
+
+// ==================== AI-07：白名單、上限、輸出 token（擋陌生人燒額度） ====================
+const rawPost = (env, body, headers = {}, path = 'https://w/ai', extra = {}) => worker.fetch(new Request(path, {
+    method: 'POST', headers: { Origin: ORIGIN, ...headers }, body, ...extra,
+}), env, { waitUntil() {} });
+// 剛好 total 位元組的 /ai body：用 ASCII 空格墊在 JSON 裡，prompt 本身保持很短
+const bodyOfBytes = (total, extra = {}) => {
+    const base = JSON.stringify({ prompt: '心', model: 'auto', ...extra });
+    const pad = total - Buffer.byteLength(base);
+    expect(pad).toBeGreaterThanOrEqual(0);
+    return base.slice(0, -1) + ' '.repeat(pad) + '}';
+};
+// 把位元組切成多塊的串流（沒有 Content-Length，用來測「宣告不可信」）
+const streamOf = (text, chunk = 8192) => {
+    const bytes = new TextEncoder().encode(text);
+    let i = 0;
+    return new ReadableStream({
+        pull(c) { if (i >= bytes.length) c.close(); else { c.enqueue(bytes.slice(i, i + chunk)); i += chunk; } },
+    });
+};
+
+test('白名單：不在名單的模型回 400 MODEL_NOT_ALLOWED，完全不打上游', async () => {
+    const f = installFetch(() => geminiOk('甲'));
+    try {
+        const { status: st, j } = await ask(makeEnv(), { prompt: '心', model: 'not-a-model' });
+        expect(st).toBe(400);
+        expect(j).toEqual({ ok: false, code: 'MODEL_NOT_ALLOWED', message: '這個模型不在可用清單裡' });
+        expect(f.calls).toHaveLength(0);
+        for (const model of [' auto', 'AUTO', 'gemini-2.5-flash', 5, null]) {
+            const r = await ask(makeEnv(), { prompt: '心', model });
+            expect(r.j.code, String(model)).toBe('MODEL_NOT_ALLOWED');
+        }
+        expect(f.calls).toHaveLength(0);
+    } finally { f.restore(); }
+});
+
+test('白名單：auto、沒寫 model、名單內每個 id 都放行', async () => {
+    const f = installFetch(() => geminiOk('甲'));
+    try {
+        const { MODELS } = await import('../worker/src/models.js');
+        for (const model of ['auto', undefined, ...MODELS.map(m => m.id)]) {
+            const { status: st } = await ask(makeEnv(), model === undefined ? { prompt: '心' } : { prompt: '心', model });
+            expect(st, String(model)).toBe(200);
+        }
+    } finally { f.restore(); }
+});
+
+test('白名單：舊版根路徑的未知模型當 auto 照常回答（老頁面自己好起來）', async () => {
+    const f = installFetch(() => geminiOk('甲'));
+    try {
+        const { status: st } = await legacy(makeEnv(), { model: 'not-a-model' });
+        expect(st).toBe(200);
+        expect(idOf(f.calls[0])).toBe(G1);
+    } finally { f.restore(); }
+});
+
+test('上限：body 剛好 65,536 位元組放行（有無 Content-Length 都一樣），65,537 回 413', async () => {
+    const f = installFetch(() => geminiOk('甲'));
+    try {
+        const ok = bodyOfBytes(65536), big = bodyOfBytes(65537);
+        expect(Buffer.byteLength(ok)).toBe(65536);
+        expect(Buffer.byteLength(big)).toBe(65537);
+        const a = await rawPost(makeEnv(), ok);
+        expect(a.status).toBe(200);
+        const b = await rawPost(makeEnv(), ok, { 'Content-Length': '65536' });
+        expect(b.status).toBe(200);
+        const n = f.calls.length;
+        for (const headers of [{}, { 'Content-Length': '65537' }]) {
+            const r = await rawPost(makeEnv(), big, headers);
+            expect(r.status).toBe(413);
+            expect(await r.json()).toEqual({ ok: false, code: 'TOO_LARGE', message: '內容太長，請縮短後再試' });
+        }
+        expect(f.calls).toHaveLength(n);
+    } finally { f.restore(); }
+});
+
+test('上限：沒寫 Content-Length 的 70 KB 串流、謊報 100 的 Content-Length、宣告 999999 都回 413，零上游呼叫', async () => {
+    const f = installFetch(() => geminiOk('甲'));
+    try {
+        const text = bodyOfBytes(70 * 1024);
+        const stream = await rawPost(makeEnv(), streamOf(text), {}, 'https://w/ai', { duplex: 'half' });
+        expect(stream.status).toBe(413);
+        const lying = await rawPost(makeEnv(), streamOf(text), { 'Content-Length': '100' }, 'https://w/ai', { duplex: 'half' });
+        expect(lying.status).toBe(413);
+        const declared = await rawPost(makeEnv(), '{}', { 'Content-Length': '999999' });
+        expect(declared.status).toBe(413);
+        const legacyBig = await rawPost(makeEnv(), streamOf(text), {}, 'https://w/', { duplex: 'half' });
+        expect(legacyBig.status).toBe(413);
+        expect((await legacyBig.json()).error.message).toBe('內容太長，請縮短後再試');
+        expect(f.calls).toHaveLength(0);
+    } finally { f.restore(); }
+});
+
+test('上限：超過上限就停止讀取串流（不會把 70 KB 全部讀完）', async () => {
+    const f = installFetch(() => geminiOk('甲'));
+    try {
+        let pulled = 0, cancelled = false;
+        const stream = new ReadableStream({
+            pull(c) { pulled++; c.enqueue(new Uint8Array(8192).fill(32)); },
+            cancel() { cancelled = true; },
+        });
+        const r = await rawPost(makeEnv(), stream, {}, 'https://w/ai', { duplex: 'half' });
+        expect(r.status).toBe(413);
+        expect(cancelled).toBe(true);
+        expect(pulled).toBeLessThan(20);
+    } finally { f.restore(); }
+});
+
+test('上限：位元組不是字元數，21,846 個「音」（65,538 位元組，字元數低於 24,000）回 413', async () => {
+    const f = installFetch(() => geminiOk('甲'));
+    try {
+        const prompt = '音'.repeat(21846);
+        expect(Buffer.byteLength(prompt)).toBe(65538);
+        expect(prompt.length).toBeLessThan(24000);
+        const { status: st, j } = await ask(makeEnv(), { prompt });
+        expect(st).toBe(413);
+        expect(j.code).toBe('TOO_LARGE');
+        expect(f.calls).toHaveLength(0);
+    } finally { f.restore(); }
+});
+
+test('上限：prompt 剛好 24,000 字放行，24,001 字回 413', async () => {
+    const f = installFetch(() => geminiOk('甲'));
+    try {
+        const ok = await ask(makeEnv(), { prompt: 'a'.repeat(24000) });
+        expect(ok.status).toBe(200);
+        const n = f.calls.length;
+        const big = await ask(makeEnv(), { prompt: 'a'.repeat(24001) });
+        expect(big.status).toBe(413);
+        expect(big.j.code).toBe('TOO_LARGE');
+        expect(f.calls).toHaveLength(n);
+    } finally { f.restore(); }
+});
+
+test('上限：舊版 messages 剛好 8 則放行，9 則與 0 則回 400', async () => {
+    const f = installFetch(() => geminiOk('甲'));
+    try {
+        const msgs = n => Array.from({ length: n }, () => ({ role: 'user', content: '心' }));
+        expect((await legacy(makeEnv(), { messages: msgs(8) })).status).toBe(200);
+        const n = f.calls.length;
+        expect((await legacy(makeEnv(), { messages: msgs(9) })).status).toBe(400);
+        expect((await legacy(makeEnv(), { messages: msgs(0) })).status).toBe(400);
+        expect(f.calls).toHaveLength(n);
+    } finally { f.restore(); }
+});
+
+test('上限：舊版 messages 內容合計超過 24,000 字回 413；非字串內容或未知角色回 400', async () => {
+    const f = installFetch(() => geminiOk('甲'));
+    try {
+        const half = 'a'.repeat(12000);
+        const ok = await legacy(makeEnv(), { messages: [{ role: 'user', content: half }, { role: 'assistant', content: half }] });
+        expect(ok.status).toBe(200);
+        const n = f.calls.length;
+        const big = await legacy(makeEnv(), { messages: [{ role: 'user', content: half }, { role: 'user', content: half + 'a' }] });
+        expect(big.status).toBe(413);
+        for (const messages of [[{ role: 'user', content: 5 }], [{ role: 'god', content: 'x' }], [null], ['x'], [{ role: 'user' }]]) {
+            const r = await legacy(makeEnv(), { messages });
+            expect(r.status, JSON.stringify(messages)).toBe(400);
+        }
+        expect(f.calls).toHaveLength(n);
+    } finally { f.restore(); }
+});
+
+test('上限：不是 JSON 或 prompt 缺、空、不是字串都回 400 BAD_REQUEST', async () => {
+    const f = installFetch(() => geminiOk('甲'));
+    try {
+        const bad = await rawPost(makeEnv(), '不是 JSON');
+        expect(bad.status).toBe(400);
+        expect((await bad.json()).code).toBe('BAD_REQUEST');
+        for (const body of [{}, { prompt: '' }, { prompt: 5 }, { prompt: ['a'] }, [], null]) {
+            const r = await ask(makeEnv(), body);
+            expect(r.status, JSON.stringify(body)).toBe(400);
+            expect(r.j.code, JSON.stringify(body)).toBe('BAD_REQUEST');
+        }
+        expect(f.calls).toHaveLength(0);
+    } finally { f.restore(); }
+});
+
+test('token：maxTokens 99999 → Gemini 2048、Groq 1024；50 維持 50；沒給用 2048', async () => {
+    const f = installFetch(() => status(503));
+    try {
+        await ask(makeEnv(), { prompt: '心', model: G1, maxTokens: 99999 });
+        await ask(makeEnv(), { prompt: '心', model: Q1, maxTokens: 99999 });
+        expect(f.calls[0].body.generationConfig.maxOutputTokens).toBe(2048);
+        const groq = f.calls.find(c => idOf(c) === Q1);
+        expect(groq.body.max_completion_tokens).toBe(1024);
+        f.calls.length = 0; _resetState();
+        await ask(makeEnv(), { prompt: '心', model: G1, maxTokens: 50 });
+        expect(f.calls[0].body.generationConfig.maxOutputTokens).toBe(50);
+        f.calls.length = 0; _resetState();
+        for (const maxTokens of [undefined, 'many', -5, 0, NaN]) {
+            _resetState(); f.calls.length = 0;
+            await ask(makeEnv(), { prompt: '心', model: G1, maxTokens });
+            expect(f.calls[0].body.generationConfig.maxOutputTokens, String(maxTokens)).toBe(2048);
+        }
+    } finally { f.restore(); }
+});
+
+test('token：temperature 5 → 1、-1 → 0、字串 → 0.95；舊版 max_tokens 與 temperature 同樣被夾住', async () => {
+    const f = installFetch(() => status(503));
+    try {
+        const temps = [];
+        for (const temperature of [5, -1, 'hot', 0.3]) {
+            _resetState(); f.calls.length = 0;
+            await ask(makeEnv(), { prompt: '心', model: G1, temperature });
+            temps.push(f.calls[0].body.generationConfig.temperature);
+        }
+        expect(temps).toEqual([1, 0, 0.95, 0.3]);
+        _resetState(); f.calls.length = 0;
+        await legacy(makeEnv(), { max_tokens: 99999, temperature: 5 });
+        expect(f.calls[0].body.generationConfig.maxOutputTokens).toBe(2048);
+        expect(f.calls[0].body.generationConfig.temperature).toBe(1);
+    } finally { f.restore(); }
+});

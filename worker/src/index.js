@@ -1,8 +1,8 @@
 // ==================== 好韻器 Worker：路由 ====================
 // 瀏覽器不再指定供應商、金鑰或模型清單（D-06）：只送 { prompt, model, temperature }，由 Worker 決定怎麼呼叫。
 // 回報與後台路徑已在 plan 02-02 搬進來；舊版相容路由在 plan 02-03。
-import { runChain, toLegacy } from './ai.js';
-import { MODELS, findModel } from './models.js';
+import { runChain, toLegacy, parseAiBody, parseLegacyBody, BAD_REQUEST_ERROR, TOO_LARGE_ERROR } from './ai.js';
+import { MODELS } from './models.js';
 
 const ALLOWED_ORIGIN = 'https://andy-coin.github.io';
 
@@ -36,45 +36,59 @@ export function json(status, obj, origin, env = {}) {
     });
 }
 
-const BAD_REQUEST = { ok: false, code: 'BAD_REQUEST', message: '請求格式不正確' };
+// 請求本文上限 64 KB，以位元組計（中文一字 3 bytes）。Content-Length 只是宣告、不可信，所以一律邊讀邊數，超過就停止讀取。
+const MAX_BODY_BYTES = 65536;
+async function readBodyCapped(request) {
+    const declared = Number(request.headers.get('Content-Length'));
+    if (Number.isFinite(declared) && declared > MAX_BODY_BYTES) return { ok: false };
+    if (!request.body) return { ok: true, text: '' };
+    const reader = request.body.getReader();
+    const chunks = [];
+    let total = 0;
+    for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        total += value.byteLength;
+        if (total > MAX_BODY_BYTES) { await reader.cancel(); return { ok: false }; }
+        chunks.push(value);
+    }
+    const bytes = new Uint8Array(total);
+    let at = 0;
+    for (const c of chunks) { bytes.set(c, at); at += c.byteLength; }
+    return { ok: true, text: new TextDecoder('utf-8').decode(bytes) };
+}
 
-// /ai 與舊版根路徑共用：溫度不是數字就用 0.95，其餘夾在 0 到 1
-function temperatureOf(raw) {
-    const t = Number(raw);
-    return Number.isFinite(t) ? Math.min(1, Math.max(0, t)) : 0.95;
+// 讀（有上限）→ 解析 JSON → 交給 parse：回 { req } 或 { error: { status, code, message } }
+async function readAiRequest(request, parse) {
+    const r = await readBodyCapped(request);
+    if (!r.ok) return { error: TOO_LARGE_ERROR };
+    let body;
+    try { body = JSON.parse(r.text); } catch (e) { return { error: BAD_REQUEST_ERROR }; }
+    return parse(body);
 }
 
 async function handleAi(request, env, origin) {
-    let body;
-    try { body = await request.json(); } catch (e) { return json(400, BAD_REQUEST, origin, env); }
-    if (!body || typeof body.prompt !== 'string' || !body.prompt) return json(400, BAD_REQUEST, origin, env);
-    const req = {
-        messages: [{ role: 'user', content: body.prompt }],
-        model: typeof body.model === 'string' ? body.model : 'auto',
-        temperature: temperatureOf(body.temperature),
-        maxTokens: 2048,
-    };
-    const { status, payload } = await runChain(req, env);
+    const parsed = await readAiRequest(request, parseAiBody);
+    if (parsed.error) {
+        const { status, code, message } = parsed.error;
+        return json(status, { ok: false, code, message }, origin, env);
+    }
+    const { status, payload } = await runChain(parsed.req, env);
     return json(status, payload, origin, env);
 }
 
 // 舊版快取頁面（GitHub Pages 快取 10 分鐘）仍打根路徑：收舊格式的 body，走同一條換手鏈，再依它的 _provider 回它看得懂的格式。
-// 不在名單內的舊模型（gpt-4.1、已下架的 qwen3.6 等）一律當「自動」，讓舊頁面自己好起來（D-06）。
-// messages 陣列的完整檢查與大小上限在 plan 02-04 跟 /ai 一起做；這裡先擋掉「不是陣列」免得鏈本身出例外。
+// 不在名單內的舊模型（gpt-4.1、已下架的 qwen3.6 等）一律當「自動」，讓舊頁面自己好起來（D-06）；大小與數量上限和 /ai 共用。
 async function handleLegacy(request, env, origin) {
-    const legacyError = (status, message) => json(status, { error: { message } }, origin, env);
-    let body;
-    try { body = await request.json(); } catch (e) { return legacyError(400, BAD_REQUEST.message); }
-    if (!body || !Array.isArray(body.messages) || !body.messages.length) return legacyError(400, BAD_REQUEST.message);
-    const maxTokens = Number(body.max_tokens);
-    const req = {
-        messages: body.messages,
-        model: findModel(body.model) ? body.model : 'auto',
-        temperature: temperatureOf(body.temperature),
-        maxTokens: maxTokens > 0 ? maxTokens : 2048,
-    };
-    const { status, payload } = await runChain(req, env);
-    return json(status, toLegacy(body._provider, status, payload), origin, env);
+    // 先拿 _provider：它只決定回覆長相；parse 完的 req 不帶它
+    let provider;
+    const parsed = await readAiRequest(request, body => {
+        provider = body?._provider;
+        return parseLegacyBody(body);
+    });
+    if (parsed.error) return json(parsed.error.status, { error: { message: parsed.error.message } }, origin, env);
+    const { status, payload } = await runChain(parsed.req, env);
+    return json(status, toLegacy(provider, status, payload), origin, env);
 }
 
 // ==================== 回報與後台路徑（從舊的後台 Worker 原封不動搬過來） ====================
