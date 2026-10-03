@@ -2729,7 +2729,7 @@
 
         function loadDictOverrides() {
             try {
-                const saved = localStorage.getItem('dictOverrides_v076');
+                const saved = lhGet('dictOverrides_v076');
                 if (saved) {
                     dictOverrides = JSON.parse(saved);
                     for (const [key, val] of Object.entries(dictOverrides)) {
@@ -2740,15 +2740,15 @@
         }
 
         function saveDictOverrides() {
-            try { localStorage.setItem('dictOverrides_v076', JSON.stringify(dictOverrides)); } catch(e) {}
+            try { lhSet('dictOverrides_v076', JSON.stringify(dictOverrides)); } catch(e) {}
         }
 
         function clearDictOverrides() {
             const n = Object.keys(dictOverrides || {}).length;
-            const stored = localStorage.getItem('dictOverrides_v076');
+            const stored = lhGet('dictOverrides_v076');
             if (!n && !stored) { alert('目前沒有 local 字庫覆寫'); return; }
             if (!confirm(`將清除瀏覽器暫存的 ${n} 筆字庫覆寫，並重新載入頁面以套用乾淨的資料檔。確定？`)) return;
-            localStorage.removeItem('dictOverrides_v076');
+            lhRemove('dictOverrides_v076');
             dictOverrides = {};
             location.reload();
         }
@@ -3290,13 +3290,13 @@
         }
 
         // 全局狀態 //
-        let inputMode = localStorage.getItem('haoYunQi_inputMode') || 'auto';
+        let inputMode = lhGet('haoYunQi_inputMode') || 'auto';
         let currentMode = 'common';
         let selectedChars = new Set();
         let recentClicks = []; // kept for compatibility
-        let hashtags = JSON.parse(localStorage.getItem('haiku_hashtags') || '[]');
-        let lyricsSections = JSON.parse(localStorage.getItem('haiku_lyrics') || '[{"label":"","text":""}]');
-        let savedWords = JSON.parse(localStorage.getItem('haiku_savedwords') || '[]');
+        let hashtags = JSON.parse(lhGet('haiku_hashtags') || '[]');
+        let lyricsSections = JSON.parse(lhGet('haiku_lyrics') || '[{"label":"","text":""}]');
+        let savedWords = JSON.parse(lhGet('haiku_savedwords') || '[]');
         let wordlistData = null;
         let wordlistLoading = false;
         let wordPriorityMap = new Map();
@@ -3684,7 +3684,7 @@
         function toggleRecentPanel() {
             const panel = document.getElementById('recentPanel');
             panel.classList.toggle('collapsed');
-            localStorage.setItem('recentPanelCollapsed', panel.classList.contains('collapsed'));
+            lhSet('recentPanelCollapsed', panel.classList.contains('collapsed'));
         }
 
         function addHashtag(tagValue) {
@@ -3692,7 +3692,7 @@
             if (!tag) return;
             if (!hashtags.includes(tag)) {
                 hashtags.push(tag);
-                localStorage.setItem('haiku_hashtags', JSON.stringify(hashtags));
+                lhSet('haiku_hashtags', JSON.stringify(hashtags));
                 renderHashtags();
             }
         }
@@ -3718,7 +3718,7 @@
 
         function removeHashtag(tag) {
             hashtags = hashtags.filter(t => t !== tag);
-            localStorage.setItem('haiku_hashtags', JSON.stringify(hashtags));
+            lhSet('haiku_hashtags', JSON.stringify(hashtags));
             renderHashtags();
         }
 
@@ -3737,7 +3737,7 @@
         function toggleLeftPanel() {
             const panel = document.getElementById('leftPanel');
             panel.classList.toggle('collapsed');
-            localStorage.setItem('leftPanelCollapsed', panel.classList.contains('collapsed'));
+            lhSet('leftPanelCollapsed', panel.classList.contains('collapsed'));
             syncCenterPanel();
         }
 
@@ -3748,7 +3748,7 @@
                 text: s.querySelector('.section-textarea')?.value ?? '',
                 collapsed: s.classList.contains('collapsed')
             }));
-            localStorage.setItem('haiku_lyrics', JSON.stringify(lyricsSections));
+            lhSet('haiku_lyrics', JSON.stringify(lyricsSections));
         }
 
         // ===== 段落 toggle / label edit / drag reorder =====
@@ -3766,7 +3766,7 @@
                 const chev = section.querySelector('.section-chevron');
                 if (chev) chev.style.transform = lyricsSections[i].collapsed ? 'rotate(-90deg)' : '';
             }
-            localStorage.setItem('haiku_lyrics', JSON.stringify(lyricsSections));
+            lhSet('haiku_lyrics', JSON.stringify(lyricsSections));
         }
 
         function enableSectionLabel(input, e) {
@@ -3806,7 +3806,7 @@
             const [moved] = lyricsSections.splice(_dragSrcIdx, 1);
             lyricsSections.splice(i, 0, moved);
             _dragSrcIdx = null;
-            localStorage.setItem('haiku_lyrics', JSON.stringify(lyricsSections));
+            lhSet('haiku_lyrics', JSON.stringify(lyricsSections));
             renderLyricsSections();
         }
         function onSectionDragEnd() {
@@ -3820,14 +3820,14 @@
             const ch = document.getElementById('contextChevron');
             const col = s.classList.toggle('collapsed');
             if (ch) ch.style.transform = col ? 'rotate(-90deg)' : '';
-            localStorage.setItem('contextSectionCollapsed', col);
+            lhSet('contextSectionCollapsed', col);
         }
         function toggleSavedPool() {
             const s = document.getElementById('savedPoolSection');
             const ch = document.getElementById('savedPoolChevron');
             const col = s.classList.toggle('collapsed');
             if (ch) ch.style.transform = col ? 'rotate(-90deg)' : '';
-            localStorage.setItem('savedPoolCollapsed', col);
+            lhSet('savedPoolCollapsed', col);
         }
 
         // ===== 存檔 / 讀取（左側歌詞段落 + 情境 + #標籤 + 右側保留池）=====
@@ -3869,17 +3869,17 @@
                     }
                     if (Array.isArray(data.lyricsSections)) {
                         lyricsSections = data.lyricsSections;
-                        localStorage.setItem('haiku_lyrics', JSON.stringify(lyricsSections));
+                        lhSet('haiku_lyrics', JSON.stringify(lyricsSections));
                         renderLyricsSections();
                     }
                     if (Array.isArray(data.hashtags)) {
                         hashtags = data.hashtags;
-                        localStorage.setItem('haiku_hashtags', JSON.stringify(hashtags));
+                        lhSet('haiku_hashtags', JSON.stringify(hashtags));
                         renderHashtags();
                     }
                     if (Array.isArray(data.savedWords)) {
                         savedWords = data.savedWords;
-                        localStorage.setItem('haiku_savedwords', JSON.stringify(savedWords));
+                        lhSet('haiku_savedwords', JSON.stringify(savedWords));
                         renderSavedWords();
                     }
                     if (typeof data.contextDescription === 'string') {
@@ -3897,7 +3897,7 @@
 
         function addLyricsSection() {
             lyricsSections.push({ label: '新段落', text: '', collapsed: false });
-            localStorage.setItem('haiku_lyrics', JSON.stringify(lyricsSections));
+            lhSet('haiku_lyrics', JSON.stringify(lyricsSections));
             renderLyricsSections();
             // 滾到底部讓新段落可見
             setTimeout(() => {
@@ -3908,7 +3908,7 @@
 
         function removeLyricsSection(index) {
             lyricsSections.splice(index, 1);
-            localStorage.setItem('haiku_lyrics', JSON.stringify(lyricsSections));
+            lhSet('haiku_lyrics', JSON.stringify(lyricsSections));
             renderLyricsSections();
         }
 
@@ -4195,7 +4195,7 @@
         function toggleRightPanel() {
             const panel = document.getElementById('rightPanel');
             panel.classList.toggle('collapsed');
-            localStorage.setItem('rightPanelCollapsed', panel.classList.contains('collapsed'));
+            lhSet('rightPanelCollapsed', panel.classList.contains('collapsed'));
             //if (!panel.classList.contains('collapsed')) loadWordlist();
             syncCenterPanel();
         }
@@ -4258,7 +4258,7 @@
         function saveWord(word) {
             if (!savedWords.includes(word)) {
                 savedWords.unshift(word);
-                localStorage.setItem('haiku_savedwords', JSON.stringify(savedWords));
+                lhSet('haiku_savedwords', JSON.stringify(savedWords));
                 renderSavedWords();
             }
             showToast(`「${word}」已保留`);
@@ -4266,7 +4266,7 @@
 
         function removeSavedWord(word) {
             savedWords = savedWords.filter(w => w !== word);
-            localStorage.setItem('haiku_savedwords', JSON.stringify(savedWords));
+            lhSet('haiku_savedwords', JSON.stringify(savedWords));
             renderSavedWords();
         }
 
@@ -4463,12 +4463,12 @@
             if (workerProviders.includes(provider)) {
                 return 'worker-managed'; // 回傳一個識別字串即可，實際 Key 在後端
             }
-            return localStorage.getItem(`apiKey_${provider}`) || '';
+            return lhGet(`apiKey_${provider}`) || '';
         }
 
         function saveApiKey(provider, val) {
             // 如果是 Worker 代理的服務，其實可以不讓使用者填 Key
-            localStorage.setItem(`apiKey_${provider}`, val.trim());
+            lhSet(`apiKey_${provider}`, val.trim());
             renderModelSelect();
         }
 
@@ -4477,7 +4477,7 @@
         function renderModelSelect() {
             const sel = document.getElementById('modelSelect');
             if (!sel) return;
-            const current = localStorage.getItem('selectedModel') || 'gpt-4.1';
+            const current = lhGet('selectedModel') || 'gpt-4.1';
             sel.innerHTML = LLM_MODELS.filter(m => !m.hidden).map(m => {
                 const ok = isModelAvailable(m);
                 const tag = ok ? '' : '（未設定 key）';
@@ -4489,7 +4489,7 @@
             }
         }
         function onModelChange() {
-            localStorage.setItem('selectedModel', document.getElementById('modelSelect').value);
+            lhSet('selectedModel', document.getElementById('modelSelect').value);
         }
 
         // 統一呼叫介面 → 回傳純文字回應；429 / 超限會 throw 帶 .quota = true
@@ -5331,7 +5331,7 @@ ${ctxBlock2}${lyricsBlock2}
                         const tags = val.split(/[,，、\s#]+/).map(t => t.trim()).filter(Boolean);
                         if (tags.length) {
                             hashtags = tags;
-                            localStorage.setItem('haiku_hashtags', JSON.stringify(hashtags));
+                            lhSet('haiku_hashtags', JSON.stringify(hashtags));
                             renderHashtags();
                             gotTags = true;
                         }
@@ -5370,7 +5370,7 @@ ${ctxBlock2}${lyricsBlock2}
             const modes = ['auto', 'zhuyin', 'pinyin'];
             const labels = { auto: '自動', zhuyin: '注音', pinyin: '拼音' };
             inputMode = modes[(modes.indexOf(inputMode) + 1) % 3];
-            localStorage.setItem('haoYunQi_inputMode', inputMode);
+            lhSet('haoYunQi_inputMode', inputMode);
             const btn = document.getElementById('inputModeBtn');
             if (btn) {
                 btn.textContent = labels[inputMode];
@@ -5400,15 +5400,15 @@ ${ctxBlock2}${lyricsBlock2}
 
         // ===== 初始化三個面板狀態 =====
         (function() {
-            const rCollapsed = localStorage.getItem('recentPanelCollapsed');
+            const rCollapsed = lhGet('recentPanelCollapsed');
             if (rCollapsed !== 'false') document.getElementById('recentPanel').classList.add('collapsed');
 
             // 窄視窗（≤900px）固定收起，由 Tab 列控制
             if (window.innerWidth > 900) {
-                const lCollapsed = localStorage.getItem('leftPanelCollapsed');
+                const lCollapsed = lhGet('leftPanelCollapsed');
                 document.getElementById('leftPanel').classList.toggle('collapsed', lCollapsed !== 'false');
 
-                const rightCollapsed = localStorage.getItem('rightPanelCollapsed');
+                const rightCollapsed = lhGet('rightPanelCollapsed');
                 document.getElementById('rightPanel').classList.toggle('collapsed', rightCollapsed !== 'false');
             } else {
                 document.getElementById('leftPanel').classList.add('collapsed');
@@ -5419,7 +5419,7 @@ ${ctxBlock2}${lyricsBlock2}
             // 歌詞全空時自動清除情境與標籤
             if (lyricsSections.every(s => !s.text || s.text.trim() === '')) {
                 hashtags = [];
-                localStorage.removeItem('haiku_hashtags');
+                lhRemove('haiku_hashtags');
                 const ctxEl = document.getElementById('contextDescription');
                 if (ctxEl) ctxEl.value = '';
             }
@@ -5438,13 +5438,13 @@ ${ctxBlock2}${lyricsBlock2}
             renderModelSelect();
 
             // 恢復情境＆標籤收納狀態
-            if (localStorage.getItem('contextSectionCollapsed') === 'true') {
+            if (lhGet('contextSectionCollapsed') === 'true') {
                 const s = document.getElementById('contextSection');
                 const ch = document.getElementById('contextChevron');
                 if (s) { s.classList.add('collapsed'); if (ch) ch.style.transform = 'rotate(-90deg)'; }
             }
             // 恢復保留池收納狀態
-            if (localStorage.getItem('savedPoolCollapsed') === 'true') {
+            if (lhGet('savedPoolCollapsed') === 'true') {
                 const s = document.getElementById('savedPoolSection');
                 const ch = document.getElementById('savedPoolChevron');
                 if (s) { s.classList.add('collapsed'); if (ch) ch.style.transform = 'rotate(-90deg)'; }
@@ -5848,11 +5848,11 @@ ${ctxBlock2}${lyricsBlock2}
             } else{
                 themeToggle.textContent = isDark ? '🌙 ' : '☀️ ';
             }
-            if (save) localStorage.setItem(THEME_KEY, isDark ? 'dark' : 'light');
+            if (save) lhSet(THEME_KEY, isDark ? 'dark' : 'light');
         }
 
         // 初始：記憶 > 系統偏好 > 預設淺色
-        const savedTheme = localStorage.getItem(THEME_KEY);
+        const savedTheme = lhGet(THEME_KEY);
         if (savedTheme === 'dark') applyTheme(true, false);
         else if (savedTheme === 'light') applyTheme(false, false);
         else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) applyTheme(true, false);
@@ -5893,10 +5893,10 @@ ${ctxBlock2}${lyricsBlock2}
         // 顏色自定義
         function loadColors() {
             const rawColors = {
-                bgColor1: localStorage.getItem('bgColor1') || '#0c4564',
-                containerBg: localStorage.getItem('containerBg') || '#eee3ce',
-                textColor: localStorage.getItem('textColor') || '#2d3748',
-                highlightColor: localStorage.getItem('highlightColor') || '#ed8936'
+                bgColor1: lhGet('bgColor1') || '#0c4564',
+                containerBg: lhGet('containerBg') || '#eee3ce',
+                textColor: lhGet('textColor') || '#2d3748',
+                highlightColor: lhGet('highlightColor') || '#ed8936'
             };
             
             let displayColors;
@@ -5932,7 +5932,7 @@ ${ctxBlock2}${lyricsBlock2}
             
             // 背景：有自訂色就套用，沒有的話深色模式用預設深色
             const defaultBg = '#0c4564';
-            const hasCustomBg = localStorage.getItem('bgColor1') && localStorage.getItem('bgColor1') !== defaultBg;
+            const hasCustomBg = lhGet('bgColor1') && lhGet('bgColor1') !== defaultBg;
             if (!isDark || hasCustomBg) {
                 document.documentElement.style.setProperty('--bg-gradient-1', colors.bgColor1);
                 document.documentElement.style.setProperty('--bg-gradient-2', colors.bgColor1);
@@ -5954,10 +5954,10 @@ ${ctxBlock2}${lyricsBlock2}
         }
 
         function resetColors() {
-            localStorage.removeItem('bgColor1');
-            localStorage.removeItem('containerBg');
-            localStorage.removeItem('textColor');
-            localStorage.removeItem('highlightColor');
+            lhRemove('bgColor1');
+            lhRemove('containerBg');
+            lhRemove('textColor');
+            lhRemove('highlightColor');
             hasCustomTextColor = false;
             loadColors();
             const currentInput = document.getElementById('searchInput').value;
@@ -5969,7 +5969,7 @@ ${ctxBlock2}${lyricsBlock2}
 
         function handleColorChange(key, value, rerender) {
             const rawValue = isDark ? invertColor(value) : value;
-            localStorage.setItem(key, rawValue);
+            lhSet(key, rawValue);
             loadColors();
             if (rerender) {
                 const currentInput = document.getElementById('searchInput').value;
