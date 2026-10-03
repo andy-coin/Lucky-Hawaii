@@ -2736,11 +2736,12 @@
                         rhymeDict[key] = val;
                     }
                 }
-            } catch(e) { dictOverrides = {}; }
+            } catch(e) { lhWarn('本機字庫覆寫資料損毀，已忽略', e); dictOverrides = {}; }
         }
 
         function saveDictOverrides() {
-            try { lhSet('dictOverrides_v076', JSON.stringify(dictOverrides)); } catch(e) {}
+            // lhSet 不會丟例外，寫入失敗時由它自己顯示存檔失敗橫幅，所以不需要再包 try/catch
+            lhSet('dictOverrides_v076', JSON.stringify(dictOverrides));
         }
 
         function clearDictOverrides() {
@@ -2797,7 +2798,7 @@
                 const r = await fetch('data/rhyme-dict-overrides.json', { cache: 'no-cache' });
                 if (!r.ok) return false;
                 ovr = await r.json();
-            } catch(e) { return false; }
+            } catch(e) { lhWarn('字庫修正檔載入失敗', e); return false; }
             let count = 0;
             for (const it of (ovr.removed || []).concat(ovr.hidden || [])) {
                 if (!it.char || !it.dict_key) continue;
@@ -3346,7 +3347,7 @@
             _polyphonicsOrderPromise = fetch('data/polyphonic-order.json')
                 .then(r => r.json())
                 .then(d => { polyphonicsOrderMap = new Map(Object.entries(d)); })
-                .catch(() => { polyphonicsOrderMap = new Map(); });
+                .catch(e => { lhWarn('破音字排序檔載入失敗', e); polyphonicsOrderMap = new Map(); });
             return _polyphonicsOrderPromise;
         }
 
@@ -3984,14 +3985,14 @@
             updateWordlistProgress(0, WORDLIST_CHUNKS);
 
             let db = null;
-            try { db = await _idbOpen(); } catch(e) {}
+            try { db = await _idbOpen(); } catch(e) { lhWarn('IndexedDB 開啟失敗，詞庫改走網路', e); }
 
             // 從 meta 取當前版本號，與 IDB 快取比對
             let currentVer = null;
             try {
                 const metaRes = await fetch('data/wordlist-meta.json');
                 if (metaRes.ok) currentVer = (await metaRes.json()).version;
-            } catch(e) {}
+            } catch(e) { lhWarn('詞庫版本檔讀取失敗', e); }
 
             const cachedVer = db ? await _idbGet(db, 'ver') : null;
             const useCache = currentVer && cachedVer === currentVer;
@@ -4017,7 +4018,7 @@
                             wordPhoneticMap.set(e.w, e.z);
                         }
                     }
-                } catch(e) {}
+                } catch(e) { lhWarn('詞庫分段 ' + i + ' 載入失敗', e); }
                 loaded++;
                 updateWordlistProgress(loaded, WORDLIST_CHUNKS);
             }));
@@ -4039,7 +4040,7 @@
                 const r = await fetch('data/wordlist-overrides.json', { cache: 'no-cache' });
                 if (!r.ok) return;
                 ovr = await r.json();
-            } catch(e) { return; }
+            } catch(e) { lhWarn('詞庫修正檔載入失敗', e); return; }
             const removedSet = new Set(ovr.removed || []);
             const hiddenSet  = new Set(ovr.hidden  || []);
             const fixedMap   = ovr.fixed  || {};
@@ -5022,7 +5023,7 @@
                         aiWordsAdded = true;
                     }
                     break;
-                } catch (e) { /* 嘗試下一個 */ }
+                } catch (e) { lhWarn('AI 造詞模型失敗，換下一個', e); /* 嘗試下一個 */ }
             }
             if (statusDiv.isConnected) statusDiv.remove();
             if (!aiWordsAdded) {
@@ -5254,11 +5255,12 @@ ${ctxBlock2}${lyricsBlock2}
                                         container.insertAdjacentHTML('beforeend', html2);
                                     }
                                 }
-                            } catch (_) { /* 第二輪失敗就算了，第一輪已顯示 */ }
+                            } catch (e) { lhWarn('AI 第二輪補挑失敗', e); /* 第二輪失敗就算了，第一輪已顯示 */ }
                         }
                     }
                     break;
                 } catch (e) {
+                    lhWarn('AI 模型失敗，換下一個', e);
                     lastErr = e;
                     if (!e.quota) { /* 非額度錯誤也往下試 */ }
                 }
@@ -5310,7 +5312,7 @@ ${ctxBlock2}${lyricsBlock2}
                 }
                 let reply = null;
                 for (const m of tryList) {
-                    try { reply = await callLLM(m, prompt); break; } catch (_) {}
+                    try { reply = await callLLM(m, prompt); break; } catch (e) { lhWarn('情境生成模型失敗，換下一個', e); }
                 }
                 if (!reply) throw new Error('all models failed');
 
