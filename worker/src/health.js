@@ -14,8 +14,22 @@ const PROBE_MAX_TOKENS = 256;              // 思考型模型的思考也算在�
 let cache = null;                          // { at, doc }；doc 可以是 null（讀過了、沒有可用紀錄）
 export function _resetHealthCache() { cache = null; }
 
-// 打一次探測 → { ok, status, ms, reason?, stage?, retirementTime? }；絕不存上游回覆的文字
+// 暫時性失敗：逾時、網路錯誤、空回覆、429/5xx。這類失敗不代表模型壞了，不能立刻拿掉
+const isTransient = r => !r.ok && (['timeout', 'network', 'empty'].includes(r.reason) || classify(r.status) === 'transient');
+
+// 暫時性失敗先等一下再探一次；還是失敗就標 transient: true，由 runHealthCheck 決定要不要沿用昨天的啟用狀態
 async function probe(m, env) {
+    let r = await probeOnce(m, env);
+    if (isTransient(r)) {
+        await new Promise(done => setTimeout(done, Number(env.PROBE_RETRY_DELAY_MS ?? 1000)));   // env 可覆寫（測試用）
+        r = await probeOnce(m, env);
+        if (isTransient(r)) r.transient = true;
+    }
+    return r;
+}
+
+// 打一次探測 → { ok, status, ms, reason?, stage?, retirementTime? }；絕不存上游回覆的文字
+async function probeOnce(m, env) {
     const req = { messages: [{ role: 'user', content: PROBE_PROMPT }], temperature: 0, maxTokens: PROBE_MAX_TOKENS };
     const timeoutMs = Number(env.ATTEMPT_TIMEOUT_MS) || 12000;
     const t0 = Date.now();
@@ -43,7 +57,15 @@ async function probe(m, env) {
 export async function runHealthCheck(env, now = Date.now()) {
     const results = {};
     await Promise.all(MODELS.map(async m => { results[m.id] = await probe(m, env); }));
-    const doc = { v: 1, checkedAt: new Date(now).toISOString(), results, active: computeActive(results, now) };
+    // 只有暫時性失敗（重試後仍然）而且昨天是啟用的，今天就先沿用「健康」；連兩天都是暫時性失敗才讓它掉出名單。
+    // 沒有昨天的紀錄就等於全部啟用（換手鏈本來就在用完整名單）。404 與其他明確失敗照舊立刻淘汰
+    let prev = null;
+    try { prev = JSON.parse(await env.AI_STATE_KV.get(HEALTH_KEY)); } catch (e) { prev = null; }
+    const judged = { ...results };
+    for (const m of MODELS) {
+        if (results[m.id].transient && (!Array.isArray(prev?.active) || prev.active.includes(m.id)) && !prev?.results?.[m.id]?.transient) judged[m.id] = { ...results[m.id], ok: true };
+    }
+    const doc = { v: 1, checkedAt: new Date(now).toISOString(), results, active: computeActive(judged, now) };
     try {
         await env.AI_STATE_KV.put(HEALTH_KEY, JSON.stringify(doc));
     } catch (e) {

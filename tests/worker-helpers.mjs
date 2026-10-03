@@ -12,7 +12,7 @@ export class FakeKV {
 
 export const makeEnv = (over = {}) => ({
     GEMINI_API_KEY: 'g-test', GROQ_API_KEY: 'q-test', USER_REPORT_KEY: 'admin-test',
-    USER_FEEDBACK_KV: new FakeKV(), AI_STATE_KV: new FakeKV(), ATTEMPT_TIMEOUT_MS: '60', ...over,
+    USER_FEEDBACK_KV: new FakeKV(), AI_STATE_KV: new FakeKV(), ATTEMPT_TIMEOUT_MS: '60', PROBE_RETRY_DELAY_MS: '0', ...over,
 });
 
 // handler(url, init, n) 可回 Response、字串 'hang'（一直不回，直到被 abort）或 Error（網路錯誤）；

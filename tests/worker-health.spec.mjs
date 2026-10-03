@@ -130,8 +130,59 @@ test('健康：探測失敗的原因記成 timeout／network／http／empty', as
         expect(doc.results[G2]).toMatchObject({ ok: false, reason: 'network' });
         expect(doc.results[G3]).toMatchObject({ ok: false, reason: 'http', status: 404 });
         expect(doc.results[Q1].ok).toBe(true);
-        expect(doc.active).not.toContain(G1);
+        expect(doc.results[G1].transient).toBe(true);                 // 重試後仍逾時：標暫時性，第一次沒有昨天的紀錄就先沿用
+        expect(doc.active).toContain(G1);
+        expect(doc.active).not.toContain(G3);                         // 404 是明確失效，立刻拿掉
         expect(JSON.stringify(doc)).not.toContain('no such model');   // 上游錯誤文字不存
+    } finally { f.restore(); }
+});
+
+test('WR-04：暫時性失敗（429/5xx/逾時/網路/空回覆）先重試一次；重試成功就算健康', async () => {
+    const seen = {};
+    const f = installFetch((url, init) => {
+        const id = url.includes('generativelanguage') ? url.match(/models\/([^:]+):/)[1] : JSON.parse(init.body).model;
+        seen[id] = (seen[id] || 0) + 1;
+        if (seen[id] > 1) return id.startsWith('gemini') ? geminiOk('OK') : groqOk('OK');   // 第二次都好
+        if (id === G1) return status(429);
+        if (id === G2) return status(503);
+        if (id === G3) return 'hang';
+        if (id === Q1) return new Error('boom');
+        if (id === Q2) return groqOk('');
+        return groqOk('OK');
+    });
+    try {
+        const doc = await runHealthCheck(makeEnv());
+        for (const id of ALL_IDS) expect(doc.results[id], id).toMatchObject({ ok: true });
+        expect(doc.results[G1].transient).toBeUndefined();
+        expect(doc.active).toEqual(ALL_IDS);
+        expect(f.calls.length).toBe(11);                               // 六個 + 五個重試（Q3 一次就好）
+    } finally { f.restore(); }
+});
+
+test('WR-04：重試後仍是暫時性失敗——昨天啟用的今天沿用；昨天就是暫時性失敗的才掉出名單；404 不重試也不沿用', async () => {
+    const f = installFetch((url, init) => {
+        const id = url.includes('generativelanguage') ? url.match(/models\/([^:]+):/)[1] : JSON.parse(init.body).model;
+        if (id === G1) return status(503);
+        if (id === G2) return status(404);
+        return id.startsWith('gemini') ? geminiOk('OK') : groqOk('OK');
+    });
+    try {
+        const env = makeEnv();
+        const day1 = await runHealthCheck(env, NOW);
+        expect(day1.results[G1]).toMatchObject({ ok: false, status: 503, transient: true });
+        expect(day1.results[G2].transient).toBeUndefined();
+        expect(f.calls.filter(c => c.url.includes(G2))).toHaveLength(1);        // 404 不重試
+        expect(day1.active).toContain(G1);                                     // 沒有昨天的紀錄＝全部啟用，所以沿用
+        expect(day1.active).not.toContain(G2);
+        // 第二天：昨天紀錄是啟用 → 沿用；先把昨天的紀錄換成「G1 啟用且不是暫時性」
+        env.AI_STATE_KV.m.set('health', JSON.stringify({ ...day1, results: { ...day1.results, [G1]: { ok: true, status: 200 } }, active: ALL_IDS }));
+        const day2 = await runHealthCheck(env, NOW + DAY);
+        expect(day2.active).toContain(G1);
+        expect(day2.results[G1].ok).toBe(false);                               // 紀錄照實寫失敗
+        // 第三天：昨天就是暫時性失敗 → 不再沿用，掉出名單
+        const day3 = await runHealthCheck(env, NOW + 2 * DAY);
+        expect(day3.active).not.toContain(G1);
+        expect(day3.active.length).toBeGreaterThanOrEqual(MIN_ACTIVE);
     } finally { f.restore(); }
 });
 
