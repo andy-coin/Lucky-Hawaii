@@ -6215,13 +6215,20 @@ ${ctxBlock2}${lyricsBlock2}
         }, { passive: true });
 
         async function postFeedback(data) {
+            // 回傳是否送出成功；失敗時給使用者一個白話提示（D-08：回報是使用者主動的操作）
             try {
-                await fetch(WORKER_URL + '/feedback', {
+                const res = await fetch(WORKER_URL + '/feedback', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(data)
                 });
-            } catch(e) {}
+                if (res.ok) return true;
+                lhWarn('回報送出失敗：伺服器回應 ' + res.status);
+            } catch(e) {
+                lhWarn('回報送出失敗', e);
+            }
+            showToast('回報沒有送出，請檢查網路後再試一次');
+            return false;
         }
 
         function openFeedbackModal() {
@@ -6241,8 +6248,7 @@ ${ctxBlock2}${lyricsBlock2}
             const body = document.getElementById('feedbackBody').value.trim();
             if (!subject && !body) { showToast('請填寫主旨或內文'); return; }
             document.getElementById('feedbackModalOverlay').classList.remove('show');
-            await postFeedback({ type: 'feedback', subject, body });
-            showToast('感謝你的回饋！');
+            if (await postFeedback({ type: 'feedback', subject, body })) showToast('感謝你的回饋！');
         }
 
         // Hover 3 秒顯示詞語注音/拼音
