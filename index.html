@@ -3948,12 +3948,8 @@
         // ===== 右側面板：AI 建議 =====
 
         function _idbOpen() {
-            return new Promise((res, rej) => {
-                const req = indexedDB.open('haoYunQi', 1);
-                req.onupgradeneeded = e => e.target.result.createObjectStore('wl', { keyPath: 'k' });
-                req.onsuccess = e => res(e.target.result);
-                req.onerror = () => rej(req.error);
-            });
+            // 全站只有 js/safety.js 的 lhIdbOpen 一個開啟入口：詞庫快取與備份共用，版本才不會打架
+            return lhIdbOpen();
         }
         function _idbGet(db, k) {
             return new Promise(res => {
@@ -3962,12 +3958,31 @@
                 req.onerror = () => res(null);
             });
         }
+        // 詞庫快取只是加速用，不是使用者資料：寫入失敗只提示一次（不跳存檔失敗橫幅），並留 [好韻器] 記錄
+        let _wlCacheToastShown = false;
+        function _wlCacheWriteFailed(err) {
+            lhWarn('詞庫快取寫入失敗', err);
+            if (_wlCacheToastShown) return;
+            _wlCacheToastShown = true;
+            showToast('詞庫快取沒存成功，下次開啟會比較慢，不影響使用', 4000);
+        }
+        // 只結算一次：complete → true；error / abort / 同步例外 → false 並通報
         function _idbPut(db, k, v) {
             return new Promise(res => {
-                const tx = db.transaction('wl', 'readwrite');
-                tx.objectStore('wl').put({ k, v });
-                tx.oncomplete = res;
-                tx.onerror = res;
+                let settled = false;
+                const fin = (ok, err) => {
+                    if (settled) return;
+                    settled = true;
+                    if (!ok) _wlCacheWriteFailed(err);
+                    res(ok);
+                };
+                try {
+                    const tx = db.transaction('wl', 'readwrite');
+                    tx.objectStore('wl').put({ k, v });
+                    tx.oncomplete = () => fin(true);
+                    tx.onerror = e => fin(false, tx.error || e.target.error);
+                    tx.onabort = () => fin(false, tx.error);
+                } catch (e) { fin(false, e); }
             });
         }
 

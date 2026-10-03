@@ -157,3 +157,43 @@ function lhSaveFailed(kind) {
     // body 還沒生出來（例如 head 階段就寫入）→ 等 DOM 好了再顯示一次
     document.addEventListener('DOMContentLoaded', () => _lhBannerShow(LH_BANNER_TEXT[k]), { once: true });
 }
+
+// ===== IndexedDB（詞庫快取 wl ＋ 備份 backups 共用同一個開啟入口）=====
+// 兩個地方各自 open 不同版本會互相打架（RESEARCH Pitfall 3），所以全站只有這一個入口
+const LH_IDB_TIMEOUT_MS = 5000;
+let _lhDbP = null;
+
+function lhIdbOpen() {
+    if (_lhDbP) return _lhDbP;
+    const p = new Promise((resolve, reject) => {
+        if (typeof indexedDB === 'undefined' || !indexedDB) return reject(new Error('IndexedDB 不可用'));
+        let timedOut = false;
+        // 舊分頁還抓著 v1 連線時，v2 的 open 會永遠卡住；等 5 秒就放棄，讓詞庫改走網路
+        const timer = setTimeout(() => {
+            timedOut = true;
+            reject(new Error('IndexedDB 升級逾時（可能被舊分頁擋住）'));
+        }, LH_IDB_TIMEOUT_MS);
+        try {
+            const req = indexedDB.open('haoYunQi', 2);
+            req.onupgradeneeded = () => {
+                // 舊使用者已經有 wl，絕對不能無條件重建（會 ConstraintError，也會丟掉詞庫快取）
+                const db = req.result;
+                if (!db.objectStoreNames.contains('wl')) db.createObjectStore('wl', { keyPath: 'k' });
+                if (!db.objectStoreNames.contains('backups')) db.createObjectStore('backups', { keyPath: 'id' });
+            };
+            req.onblocked = () => lhWarn('IndexedDB 升級被其他分頁擋住，請關閉舊的好韻器分頁');
+            req.onsuccess = () => {
+                const db = req.result;
+                clearTimeout(timer);
+                if (timedOut) { db.close(); return; }   // 已經放棄了，不要留一條沒人用的連線擋住以後的升級
+                // 以後別的分頁要升級時，本分頁主動讓路
+                db.onversionchange = () => { db.close(); if (_lhDbP === p) _lhDbP = null; };
+                resolve(db);
+            };
+            req.onerror = () => { clearTimeout(timer); reject(req.error); };
+        } catch (e) { clearTimeout(timer); reject(e); }
+    });
+    _lhDbP = p;
+    p.catch(() => { if (_lhDbP === p) _lhDbP = null; });   // 失敗後下次呼叫可重試
+    return p;
+}
