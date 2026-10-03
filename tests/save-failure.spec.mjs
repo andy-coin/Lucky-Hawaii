@@ -150,7 +150,7 @@ test('IndexedDB: 備份寫入失敗時出現橫幅、改存一份在 localStorag
     const ls = await page.evaluate(() => ({ backup: localStorage.getItem('lh:backup:ls'), schema: localStorage.getItem('lh:schema') }));
     const rec = JSON.parse(ls.backup);
     expect(rec.id).toBe('baseline');
-    expect(rec.data).toEqual(FIXTURE);
+    expect(rec.data).toEqual(Object.fromEntries(Object.entries(FIXTURE).filter(([k]) => !k.startsWith('apiKey_'))));   // 備援不含金鑰
     expect(ls.schema).toBe('1');
     await page.fill('#searchInput', 'ㄢ');
     await settle(page);

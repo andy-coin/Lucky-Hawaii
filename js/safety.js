@@ -249,12 +249,21 @@ function _lhBuildRecord(id, seq, label, snap) {
 
 // localStorage 單份備援（D-11）：同 id 已存在就不動；直接寫 storage 物件而不走 lhSet，
 // 因為這裡失敗要跳「備份」橫幅，不是「存檔」橫幅
+// 備援跟使用者自己的歌詞共用同一個約 5MB 的額度：金鑰不放進備援（不要多一份明文），
+// 太大就不存（寧可跳備份橫幅，也不要把使用者自己的存檔擠爆）
+const LH_LS_BACKUP_MAX_CHARS = 500000;
 function _lhBackupToLocal(record) {
     try {
         const old = localStorage.getItem('lh:backup:ls');
         if (old !== null && JSON.parse(old).id === record.id) return true;
     } catch (e) { lhWarn('讀取 lh:backup:ls 失敗，將覆寫', e); }
-    try { localStorage.setItem('lh:backup:ls', JSON.stringify(record)); return true; }
+    const data = {};
+    for (const [k, v] of Object.entries(record.data)) {
+        if (!LH_KEY_PREFIXES.some(p => p.secret && k.startsWith(p.prefix))) data[k] = v;
+    }
+    const json = JSON.stringify({ ...record, data, secretsOmitted: true });
+    if (json.length > LH_LS_BACKUP_MAX_CHARS) { lhWarn('備援備份太大，不寫入 localStorage（' + json.length + ' 字元）'); return false; }
+    try { localStorage.setItem('lh:backup:ls', json); return true; }
     catch (e) { lhWarn('備份寫入 localStorage 失敗', e); return false; }
 }
 
@@ -365,6 +374,12 @@ async function lhRestoreFromBackup(id) {
         } catch (e) { lhWarn('讀取 lh:backup:ls 失敗', e); }
     }
     if (!rec) return false;
+    // localStorage 備援不含金鑰：還原時把目前的金鑰補進去，不然「清掉備份裡沒有的鍵」會把金鑰刪掉
+    if (rec.secretsOmitted && rec.data && typeof rec.data === 'object') {
+        const cur = lhSnapshot();
+        const keep = Object.keys(cur).filter(k => LH_KEY_PREFIXES.some(p => p.secret && k.startsWith(p.prefix)));
+        return lhRestore({ ...rec.data, ...Object.fromEntries(keep.map(k => [k, cur[k]])) });
+    }
     return lhRestore(rec.data);
 }
 

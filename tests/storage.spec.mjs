@@ -5,6 +5,7 @@ import { bootPage, settle } from './helpers.mjs';
 
 const CORRUPT = JSON.parse(readFileSync(new URL('./fixtures/v096-corrupt.json', import.meta.url), 'utf8'));
 const FIXTURE = JSON.parse(readFileSync(new URL('./fixtures/v096-localStorage.json', import.meta.url), 'utf8'));
+const NO_SECRETS = Object.fromEntries(Object.entries(FIXTURE).filter(([k]) => !k.startsWith('apiKey_')));
 
 test('corrupt: 存檔內容損毀時照常開啟、查韻正常、原始內容不動', async ({ browser }) => {
     const { context, page, errors, warnings } = await bootPage(browser, { storage: CORRUPT });
@@ -210,12 +211,43 @@ test('backup: IndexedDB 無法使用時改存 localStorage 單份並留記錄', 
     const ls = await dumpLS(page);
     const rec = JSON.parse(ls['lh:backup:ls']);
     expect(rec.id).toBe('baseline');
-    expect(rec.data).toEqual(FIXTURE);
+    expect(rec.data).toEqual(NO_SECRETS);   // 備援不含金鑰
     expect(ls['lh:schema']).toBe('1');
     expect(warnings.some(w => w.includes('[好韻器] IndexedDB 不可用'))).toBe(true);
     const list = await page.evaluate(() => lhListBackups());
     expect(list).toHaveLength(1);
     expect(list[0].id).toBe('baseline');
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('backup: localStorage 備援不含金鑰、太大就不存並跳橫幅（WR-04）', async ({ browser }) => {
+    const noIdb = () => { Object.defineProperty(window, 'indexedDB', { value: undefined, configurable: true }); };
+    expect(FIXTURE.apiKey_gemini).toBeTruthy();
+    const a = await bootPage(browser, { storage: FIXTURE, init: noIdb });
+    expect(await a.page.evaluate(() => localStorage.getItem('lh:backup:ls'))).not.toContain('apiKey_');
+    expect(await a.page.evaluate(() => localStorage.getItem('apiKey_gemini'))).toBe(FIXTURE.apiKey_gemini);
+    await a.context.close();
+
+    const big = { ...FIXTURE, haiku_lyrics: JSON.stringify([{ label: '', text: 'x'.repeat(600000) }]) };
+    const b = await bootPage(browser, { storage: big, init: noIdb });
+    await expect(b.page.locator('#lhSaveBanner')).toContainText('資料備份沒有存成功');
+    expect(await b.page.evaluate(() => localStorage.getItem('lh:backup:ls'))).toBeNull();
+    expect(await b.page.evaluate(() => localStorage.getItem('lh:schema'))).toBeNull();
+    expect(b.errors).toEqual([]);
+    await b.context.close();
+});
+
+test('restore: 從 localStorage 備援還原時不會刪掉目前的金鑰', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, {
+        storage: FIXTURE,
+        init: () => { Object.defineProperty(window, 'indexedDB', { value: undefined, configurable: true }); },
+    });
+    await page.evaluate(() => localStorage.setItem('selectedModel', 'changed-later'));
+    expect(await page.evaluate(() => lhRestoreFromBackup('baseline'))).toBe(true);
+    const after = await dumpLS(page);
+    expect(after.selectedModel).toBe(FIXTURE.selectedModel);
+    expect(after.apiKey_gemini).toBe(FIXTURE.apiKey_gemini);
     expect(errors).toEqual([]);
     await context.close();
 });
