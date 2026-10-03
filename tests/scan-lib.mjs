@@ -111,3 +111,39 @@ export function resolveKey(keyNode, consts) {
     if (keyNode.type === 'Identifier' && consts.has(keyNode.name)) return { type: 'literal', value: consts.get(keyNode.name) };
     return { type: 'unresolved', value: null };
 }
+
+// 吞錯規則（D-10）：catch 本體或 .catch(回呼) 裡沒有任何函式呼叫、也沒有 throw，就是吞錯
+// NewExpression 不算回報（`.catch(() => { x = new Map(); })` 仍會被抓）；註解不是 AST 節點，所以只有註解的 catch 自然被抓
+// ponytail: 呼叫任何不相干的函式就會放行；`.then(ok, fail)` 的第二個參數不檢查。要更嚴再限定 lhWarn/showToast/console.*
+function reports(node) {
+    let found = false;
+    walk(node, n => { if (n.type === 'CallExpression' || n.type === 'ThrowStatement') found = true; });
+    return found;
+}
+
+export function findSwallowedCatches(ast) {
+    const out = [];
+    walk(ast, node => {
+        if (node.type === 'CatchClause' && !reports(node.body)) {
+            out.push({ line: node.loc.start.line, shape: 'catch' });
+        } else if (node.type === 'CallExpression' && node.callee.type === 'MemberExpression' &&
+            !node.callee.computed && node.callee.property.name === 'catch') {
+            const cb = node.arguments[0];
+            if (cb && (cb.type === 'ArrowFunctionExpression' || cb.type === 'FunctionExpression') && !reports(cb.body)) {
+                out.push({ line: node.loc.start.line, shape: '.catch' });
+            }
+        }
+    });
+    return out;
+}
+
+// 全部來源的違規，格式 file:line，依檔名再依行號排序
+export function scanCatches(sources) {
+    const hits = [];
+    for (const src of sources) {
+        for (const h of findSwallowedCatches(parseAny(src.code))) hits.push({ file: src.file, line: h.line + src.lineOffset });
+    }
+    return hits
+        .sort((a, b) => a.file.localeCompare(b.file) || a.line - b.line)
+        .map(h => `${h.file}:${h.line}`);
+}
