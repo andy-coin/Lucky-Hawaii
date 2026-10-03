@@ -591,3 +591,170 @@ test('token：temperature 5 → 1、-1 → 0、字串 → 0.95；舊版 max_toke
         expect(f.calls[0].body.generationConfig.temperature).toBe(1);
     } finally { f.restore(); }
 });
+
+// ==================== AI-07：來源、限流、不洩漏 ====================
+// 三條 AI 路徑各用自己的請求方式；origin 傳 null 代表完全不帶 Origin 標頭
+const hit = (env, route, origin) => {
+    const headers = origin === null ? {} : { Origin: origin };
+    const init = route === 'GET /models' ? { method: 'GET', headers }
+        : { method: 'POST', headers: { ...headers, 'Content-Type': 'application/json' },
+            body: JSON.stringify(route === 'POST /ai' ? { prompt: '心' } : { messages: [{ role: 'user', content: '心' }] }) };
+    const url = route === 'POST /ai' ? 'https://w/ai' : route === 'GET /models' ? 'https://w/models' : 'https://w/';
+    return worker.fetch(new Request(url, init), env, { waitUntil() {} });
+};
+const ROUTES = ['POST /ai', 'GET /models', 'POST /'];
+
+test('來源：別的網站、沒帶 Origin、長得像的網址都回 403，三條路徑都一樣，完全不打上游', async () => {
+    const f = installFetch(() => geminiOk('甲'));
+    try {
+        for (const origin of ['https://evil.example', null, 'https://andy-coin.github.io.evil.com', 'http://andy-coin.github.io',
+            'https://andy-coin.github.io:8443', 'null']) {
+            for (const route of ROUTES) {
+                const res = await hit(makeEnv(), route, origin);
+                expect(res.status, `${route} ${origin}`).toBe(403);
+                const acao = res.headers.get('Access-Control-Allow-Origin');
+                expect(acao, `${route} ${origin}`).not.toBe(origin);       // 被拒的來源絕不被回聲
+                const j = await res.json();
+                expect(JSON.stringify(j), `${route} ${origin}`).toMatch(/來源不被允許/);
+            }
+        }
+        expect(f.calls).toHaveLength(0);
+    } finally { f.restore(); }
+});
+
+test('來源：正式網站放行並回聲在 Access-Control-Allow-Origin', async () => {
+    const f = installFetch(() => geminiOk('甲'));
+    try {
+        for (const route of ROUTES) {
+            const res = await hit(makeEnv(), route, ORIGIN);
+            expect(res.status, route).toBe(200);
+            expect(res.headers.get('Access-Control-Allow-Origin'), route).toBe(ORIGIN);
+        }
+    } finally { f.restore(); }
+});
+
+test('來源：localhost 與 127.0.0.1 沒開開關一律 403，開了 ALLOW_LOCAL_ORIGIN 才放行並回聲', async () => {
+    const f = installFetch(() => geminiOk('甲'));
+    try {
+        for (const origin of ['http://localhost:4310', 'http://127.0.0.1:4310', 'https://localhost']) {
+            for (const route of ROUTES) {
+                expect((await hit(makeEnv(), route, origin)).status, `無開關 ${route} ${origin}`).toBe(403);
+                expect((await hit(makeEnv({ ALLOW_LOCAL_ORIGIN: '0' }), route, origin)).status, `開關 0 ${route} ${origin}`).toBe(403);
+                const res = await hit(makeEnv({ ALLOW_LOCAL_ORIGIN: '1' }), route, origin);
+                expect(res.status, `有開關 ${route} ${origin}`).toBe(200);
+                expect(res.headers.get('Access-Control-Allow-Origin')).toBe(origin);
+            }
+        }
+    } finally { f.restore(); }
+});
+
+test('來源：開關打開時，長得像 localhost 的網址與非 http(s) 協定仍回 403', async () => {
+    const f = installFetch(() => geminiOk('甲'));
+    try {
+        const env = () => makeEnv({ ALLOW_LOCAL_ORIGIN: '1' });
+        for (const origin of ['http://localhost.evil.com', 'http://evil.com/localhost', 'http://127.0.0.1.evil.com', 'http://notlocalhost:4310',
+            'ftp://localhost', 'file://localhost', 'localhost', '']) {
+            for (const route of ROUTES) {
+                const res = await hit(env(), route, origin);
+                expect(res.status, `${route} ${origin}`).toBe(403);
+            }
+        }
+        expect(f.calls).toHaveLength(0);
+    } finally { f.restore(); }
+});
+
+test('限流：AI_LIMITER 回 success:false 時 /ai 與根路徑回 429 RATE_LIMITED，零上游呼叫', async () => {
+    const f = installFetch(() => geminiOk('甲'));
+    try {
+        const env = makeEnv({ AI_LIMITER: { limit: async () => ({ success: false }) } });
+        const a = await hit(env, 'POST /ai', ORIGIN);
+        expect(a.status).toBe(429);
+        expect(await a.json()).toEqual({ ok: false, code: 'RATE_LIMITED', message: '操作太頻繁，請稍後再試' });
+        const b = await hit(env, 'POST /', ORIGIN);
+        expect(b.status).toBe(429);
+        expect(await b.json()).toEqual({ error: { message: '操作太頻繁，請稍後再試' } });
+        expect(f.calls).toHaveLength(0);
+    } finally { f.restore(); }
+});
+
+test('限流：success:true 照常服務；key 是 CF-Connecting-IP，沒有這個標頭用 unknown；限流在讀 body 之前', async () => {
+    const f = installFetch(() => geminiOk('甲'));
+    try {
+        const keys = [];
+        const env = makeEnv({ AI_LIMITER: { limit: async ({ key }) => { keys.push(key); return { success: true }; } } });
+        const withIp = await worker.fetch(new Request('https://w/ai', {
+            method: 'POST', headers: { Origin: ORIGIN, 'CF-Connecting-IP': '203.0.113.7' }, body: JSON.stringify({ prompt: '心' }),
+        }), env, { waitUntil() {} });
+        expect(withIp.status).toBe(200);
+        expect((await hit(env, 'POST /', ORIGIN)).status).toBe(200);
+        expect(keys).toEqual(['203.0.113.7', 'unknown']);
+        // 被限流的請求連 body 都不讀：給一個讀了就會丟錯的串流
+        let read = false;
+        const stream = new ReadableStream({ pull() { read = true; throw new Error('should not read'); } }, { highWaterMark: 0 });   // 0：建構 Request 時不預先拉資料
+        const blocked = await worker.fetch(new Request('https://w/ai', { method: 'POST', headers: { Origin: ORIGIN }, body: stream, duplex: 'half' }),
+            makeEnv({ AI_LIMITER: { limit: async () => ({ success: false }) } }), { waitUntil() {} });
+        expect(blocked.status).toBe(429);
+        expect(read).toBe(false);
+    } finally { f.restore(); }
+});
+
+test('限流：沒有 AI_LIMITER 綁定照常服務；限流器丟例外也放行並記一行 console.error', async () => {
+    const f = installFetch(() => geminiOk('甲'));
+    const realErr = console.error, lines = [];
+    console.error = (...a) => lines.push(a.join(' '));
+    try {
+        expect((await hit(makeEnv(), 'POST /ai', ORIGIN)).status).toBe(200);
+        expect((await hit(makeEnv(), 'POST /', ORIGIN)).status).toBe(200);
+        const boom = makeEnv({ AI_LIMITER: { limit: async () => { throw new Error('limiter down'); } } });
+        expect((await hit(boom, 'POST /ai', ORIGIN)).status).toBe(200);
+        expect((await hit(boom, 'POST /', ORIGIN)).status).toBe(200);
+        expect(lines.filter(l => l.includes('限流檢查失敗'))).toHaveLength(2);
+    } finally { console.error = realErr; f.restore(); }
+});
+
+test('限流：/models 與回報路徑不受限流影響', async () => {
+    const f = installFetch(() => geminiOk('甲'));
+    try {
+        const env = makeEnv({ AI_LIMITER: { limit: async () => ({ success: false }) } });
+        expect((await hit(env, 'GET /models', ORIGIN)).status).toBe(200);
+    } finally { f.restore(); }
+});
+
+test('不洩漏：上游 500/400/429 的內文與金鑰不出現在 /ai 與舊版回應，也不出現在 console.error', async () => {
+    const SECRET = 'SECRET-UPSTREAM-DETAIL g-test q-test admin-test https://generativelanguage.googleapis.com https://api.groq.com';
+    const realErr = console.error, lines = [];
+    console.error = (...a) => lines.push(a.join(' '));
+    try {
+        for (const code of [500, 400, 429]) {
+            _resetState();
+            const f = installFetch(() => status(code, {}, SECRET));
+            try {
+                const env = makeEnv();
+                const a = await post(env, { prompt: '心' });
+                const b = await legacy(env);
+                const seen = [await a.text(), JSON.stringify(b.j)].join('\n');
+                for (const bad of ['g-test', 'q-test', 'admin-test', 'SECRET-UPSTREAM-DETAIL', 'googleapis', 'groq.com']) {
+                    expect(seen, `${code} 回應含 ${bad}`).not.toContain(bad);
+                }
+            } finally { f.restore(); }
+        }
+        const logged = lines.join('\n');
+        expect(logged.length).toBeGreaterThan(0);                    // 確實有記錄失敗，下面的斷言才有意義
+        for (const key of ['g-test', 'q-test', 'admin-test']) expect(logged).not.toContain(key);
+    } finally { console.error = realErr; }
+});
+
+test('不洩漏：被拒絕的請求（白名單、過大、來源、限流）回應也不帶金鑰或上游資訊', async () => {
+    const f = installFetch(() => geminiOk('甲'));
+    try {
+        const env = makeEnv({ AI_LIMITER: { limit: async ({ key }) => ({ success: key !== 'limited' }) } });
+        const texts = [
+            await (await post(env, { prompt: '心', model: 'nope' })).text(),
+            await (await rawPost(env, bodyOfBytes(70000))).text(),
+            await (await hit(env, 'POST /ai', 'https://evil.example')).text(),
+            await (await worker.fetch(new Request('https://w/ai', { method: 'POST', headers: { Origin: ORIGIN, 'CF-Connecting-IP': 'limited' }, body: '{}' }), env, { waitUntil() {} })).text(),
+        ];
+        for (const t of texts) for (const bad of ['g-test', 'q-test', 'admin-test', 'googleapis', 'groq.com']) expect(t).not.toContain(bad);
+        expect(f.calls).toHaveLength(0);
+    } finally { f.restore(); }
+});

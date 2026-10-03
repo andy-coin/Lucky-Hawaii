@@ -12,8 +12,8 @@ export function originAllowed(origin, env) {
     if (origin === ALLOWED_ORIGIN) return true;
     if (env.ALLOW_LOCAL_ORIGIN !== '1' || !origin) return false;
     try {
-        const host = new URL(origin).hostname;
-        return host === 'localhost' || host === '127.0.0.1';
+        const u = new URL(origin);
+        return (u.protocol === 'http:' || u.protocol === 'https:') && (u.hostname === 'localhost' || u.hostname === '127.0.0.1');
     } catch (e) {
         console.warn('[好韻器] Origin 無法解析', e.message);
         return false;
@@ -67,7 +67,23 @@ async function readAiRequest(request, parse) {
     return parse(body);
 }
 
+// 每個 IP 的請求上限（D-19）。Origin 擋得住別的網站的瀏覽器，擋不住腳本；真正的防線是白名單、上限與限流。
+// 沒有 AI_LIMITER 綁定就不限流（部署時若免費方案拒絕這段設定，刪掉即可）；限流器自己出錯也放行：免費個人工具，可用性比嚴格更重要。
+// 計數在 Cloudflare 是每個地點各算、最終一致，所以同一個 IP 短時間內可能略多於上限才開始收到 429。
+async function isRateLimited(request, env) {
+    if (!env.AI_LIMITER) return false;
+    try {
+        const { success } = await env.AI_LIMITER.limit({ key: request.headers.get('CF-Connecting-IP') || 'unknown' });
+        return success === false;
+    } catch (e) {
+        console.error('[好韻器] 限流檢查失敗，先放行', e.message);
+        return false;
+    }
+}
+const RATE_LIMITED_MESSAGE = '操作太頻繁，請稍後再試';
+
 async function handleAi(request, env, origin) {
+    if (await isRateLimited(request, env)) return json(429, { ok: false, code: 'RATE_LIMITED', message: RATE_LIMITED_MESSAGE }, origin, env);
     const parsed = await readAiRequest(request, parseAiBody);
     if (parsed.error) {
         const { status, code, message } = parsed.error;
@@ -80,6 +96,7 @@ async function handleAi(request, env, origin) {
 // 舊版快取頁面（GitHub Pages 快取 10 分鐘）仍打根路徑：收舊格式的 body，走同一條換手鏈，再依它的 _provider 回它看得懂的格式。
 // 不在名單內的舊模型（gpt-4.1、已下架的 qwen3.6 等）一律當「自動」，讓舊頁面自己好起來（D-06）；大小與數量上限和 /ai 共用。
 async function handleLegacy(request, env, origin) {
+    if (await isRateLimited(request, env)) return json(429, { error: { message: RATE_LIMITED_MESSAGE } }, origin, env);
     // 先拿 _provider：它只決定回覆長相；parse 完的 req 不帶它
     let provider;
     const parsed = await readAiRequest(request, body => {
