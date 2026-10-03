@@ -2176,7 +2176,7 @@
     </style>
     <script src="data/rhyme-dict.js"></script>
     <script src="data/polyphonic-order.js"></script>
-    <script src="js/safety.js?v=0.96.2"></script>
+    <script src="js/safety.js?v=0.96.3"></script>
 </head>
 <body>
 
@@ -3295,9 +3295,11 @@
         let currentMode = 'common';
         let selectedChars = new Set();
         let recentClicks = []; // kept for compatibility
-        let hashtags = lhGetJSON('haiku_hashtags', []);
-        let lyricsSections = lhGetJSON('haiku_lyrics', [{ label: '', text: '' }]);
-        let savedWords = lhGetJSON('haiku_savedwords', []);
+        // 形狀不對的存檔（例如 'null'、'{}'）跟損毀的 JSON 一樣處理：用預設值開機、原始內容不動
+        let hashtags = lhGetJSON('haiku_hashtags', [], Array.isArray);
+        let lyricsSections = lhGetJSON('haiku_lyrics', [{ label: '', text: '' }],
+            v => Array.isArray(v) && v.length > 0 && v.every(s => s && typeof s === 'object' && (s.text === undefined || typeof s.text === 'string')));
+        let savedWords = lhGetJSON('haiku_savedwords', [], Array.isArray);
         let wordlistData = null;
         let wordlistLoading = false;
         let wordPriorityMap = new Map();

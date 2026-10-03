@@ -59,11 +59,15 @@ function lhGet(key) {
 }
 
 // 空值與沒存過都回預設值（等同舊的 `|| default`）；損毀的 JSON 回預設值並記錄，原始內容保留不動
-function lhGetJSON(key, fallback) {
+// validate（選用）：JSON 合法但形狀不對（例如 'null'、'{}'、'5'）一樣當成損毀處理，不然呼叫端會在開機時丟例外
+function lhGetJSON(key, fallback, validate) {
     const raw = lhGet(key);
     if (raw === null || raw === '') return fallback;
-    try { return JSON.parse(raw); }
-    catch (e) {
+    try {
+        const v = JSON.parse(raw);
+        if (validate && !validate(v)) throw new TypeError('資料形狀不符');
+        return v;
+    } catch (e) {
         LH_CORRUPT_KEYS.add(key);
         lhWarn(key + ' 內容損毀，已改用預設值（原始內容保留不動）', e);
         return fallback;

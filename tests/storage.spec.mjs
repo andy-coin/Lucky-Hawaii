@@ -27,6 +27,22 @@ test('corrupt: 存檔內容損毀時照常開啟、查韻正常、原始內容�
     await context.close();
 });
 
+// JSON 合法但形狀不對（CR-01）：跟損毀的 JSON 一樣，照常開機、原始內容不動
+for (const [key, value] of [['haiku_lyrics', 'null'], ['haiku_lyrics', '{}'], ['haiku_lyrics', '[]'], ['haiku_savedwords', '5'], ['haiku_hashtags', '{}']]) {
+    test(`corrupt: ${key}=${value}（形狀不對）照常開啟、查韻正常、原始內容不動`, async ({ browser }) => {
+        const { context, page, errors, warnings } = await bootPage(browser, { storage: { ...FIXTURE, [key]: value } });
+        expect(errors).toEqual([]);
+        expect(warnings.some(w => w.includes('[好韻器]') && w.includes(key))).toBe(true);
+        await page.fill('#searchInput', 'ㄢ');
+        await settle(page);
+        await expect(page.locator('.results-count').first()).toHaveText(/[1-9]/);
+        expect(await page.locator('.char-card').count()).toBeGreaterThan(0);
+        expect(await page.evaluate(k => localStorage.getItem(k), key)).toBe(value);
+        expect(errors).toEqual([]);
+        await context.close();
+    });
+}
+
 // ===== IndexedDB 升級（FND-03 / PERF-04）=====
 // 同網域的 JSON 頁面當作「空白頁」，才能在 index.html 載入前先把資料庫弄成舊版狀態
 const openV1 = () => new Promise((resolve, reject) => {
