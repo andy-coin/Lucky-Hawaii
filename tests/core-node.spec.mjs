@@ -72,8 +72,20 @@ test('core：純 Node 查韻', () => {
 const INPUTS = ['ㄢ', 'ㄅ', 'an', 'uo', 'bi', '愛', '行', '安打', 'an ing', '* ㄢ', 'zzz', ''];
 test('core：Node 與瀏覽器的 searchRhyme 結果一致', async ({ browser }) => {
     const { ev } = loadCore();
-    const { context, page } = await bootPage(browser, {});
+    // 瀏覽器會再套用後台匯出的 overrides；固定回空內容，測試才不會被 admin 之後提交的資料影響（Node 側不套 overrides）
+    const served = [];
+    const { context, page } = await bootPage(browser, {
+        beforeGoto: async ({ context }) => {
+            const stub = (re, body) => context.route(re, route => {
+                served.push(route.request().url());
+                return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) });
+            });
+            await stub(/\/data\/rhyme-dict-overrides\.json$/, { version: 2, removed: [], hidden: [], fixed: [], added: [] });
+            await stub(/\/data\/wordlist-overrides\.json$/, { version: 2, removed: [], hidden: [], fixed: {}, added: [] });
+        },
+    });
     try {
+        expect(served.some(u => u.includes('rhyme-dict-overrides')), '字庫 overrides 請求應走固定空內容').toBe(true);
         for (const input of INPUTS) {
             const node = ev(`(() => { const r = searchRhyme(${JSON.stringify(input)}); return JSON.stringify({ r, t: searchedTerms }); })()`);
             const web = await page.evaluate(i => { const r = searchRhyme(i); return JSON.stringify({ r, t: searchedTerms }); }, input);
