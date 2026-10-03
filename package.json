@@ -1,0 +1,12 @@
+{
+  "name": "lucky-hawaii",
+  "private": true,
+  "scripts": {
+    "test": "playwright test",
+    "golden:update": "UPDATE_GOLDEN=1 playwright test tests/golden.spec.mjs"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.63.0",
+    "acorn": "8.18.0"
+  }
+}
