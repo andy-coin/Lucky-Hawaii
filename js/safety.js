@@ -194,6 +194,95 @@ function lhIdbOpen() {
         } catch (e) { clearTimeout(timer); reject(e); }
     });
     _lhDbP = p;
-    p.catch(() => { if (_lhDbP === p) _lhDbP = null; });   // 失敗後下次呼叫可重試
+    p.catch(e => { if (_lhDbP === p) _lhDbP = null; lhWarn('IndexedDB 開啟失敗', e); });   // 失敗後下次呼叫可重試
     return p;
 }
+
+// ===== 備份 =====
+// 備份記錄格式 { id, seq, label, createdAt, appVersion, schema, data }，之後的遷移與還原都讀這個形狀（D-11、D-12）
+const LH_APP_VERSION = '0.96';
+const LH_BACKUP_KEEP = 3;
+
+// 只收清單內的鍵與已登記前綴的鍵（D-13）：不收中介資料、後台金鑰、同網域其他專案的鍵
+function lhSnapshot() {
+    const snap = {};
+    let keys = [];
+    try {
+        for (let i = 0; i < localStorage.length; i++) keys.push(localStorage.key(i));
+    } catch (e) { lhWarn('列舉儲存鍵失敗', e); return snap; }
+    for (const key of keys) {
+        if (key === null || LH_EXCLUDED_KEYS.includes(key) || LH_META_KEYS.includes(key)) continue;
+        if (!LH_KEYS.some(k => k.key === key) && !LH_KEY_PREFIXES.some(p => key.startsWith(p.prefix))) continue;
+        try { snap[key] = localStorage.getItem(key); }
+        catch (e) { lhWarn('讀取 ' + key + ' 失敗', e); }
+    }
+    return snap;
+}
+
+// 必須在載入當下、主程式 script 執行之前同步拍下：主程式開機時會讀取、甚至刪除 haiku_hashtags（RESEARCH Pitfall 4）
+const _lhBootSnapshot = lhSnapshot();
+
+// 回傳 { ok, where: 'idb' | null, existed }
+function lhBackup(id, label, snap) {
+    return lhIdbOpen().then(db => new Promise(resolve => {
+        let settled = false;
+        let existed = false;
+        const fail = e => {
+            if (settled) return;
+            settled = true;
+            lhWarn('備份失敗', e);
+            resolve({ ok: false, where: null, existed: false });
+        };
+        try {
+            const tx = db.transaction('backups', 'readwrite');
+            const store = tx.objectStore('backups');
+            const all = store.getAll();
+            all.onsuccess = () => {
+                try {
+                    const recs = all.result;
+                    // 同一個 id 已存在就不動它：當機重跑也不會把原始備份換成改到一半的狀態
+                    if (recs.some(r => r.id === id)) { existed = true; return; }
+                    // 依「寫入順序」編號與淘汰，不用 createdAt（同一毫秒會平手）
+                    const seq = recs.reduce((m, r) => Math.max(m, r.seq || 0), 0) + 1;
+                    const rec = {
+                        id, seq, label, createdAt: Date.now(), appVersion: LH_APP_VERSION,
+                        schema: Number(lhGet('lh:schema') || 1), data: snap
+                    };
+                    store.put(rec);
+                    recs.concat(rec).sort((a, b) => b.seq - a.seq).slice(LH_BACKUP_KEEP)
+                        .forEach(r => store.delete(r.id));
+                } catch (e) { fail(e); try { tx.abort(); } catch (e2) { lhWarn('備份交易中止失敗', e2); } }
+            };
+            tx.oncomplete = () => { if (settled) return; settled = true; resolve({ ok: true, where: 'idb', existed }); };
+            tx.onerror = e => fail(tx.error || e.target.error);
+            tx.onabort = () => fail(tx.error);
+        } catch (e) { fail(e); }
+    }), e => {
+        lhWarn('備份失敗', e);
+        return { ok: false, where: null, existed: false };
+    });
+}
+
+// 依 seq 由舊到新；失敗回 []
+function lhListBackups() {
+    return lhIdbOpen().then(db => new Promise((resolve, reject) => {
+        const req = db.transaction('backups', 'readonly').objectStore('backups').getAll();
+        req.onsuccess = () => resolve(req.result.sort((a, b) => a.seq - b.seq));
+        req.onerror = () => reject(req.error);
+    })).catch(e => { lhWarn('讀取備份清單失敗', e); return []; });
+}
+
+// 絕不 reject；先確定有備份才把資料版本旗標 lh:schema 設成 '1'
+async function lhBootSafety() {
+    try {
+        const r = await lhBackup('baseline', '基準備份（這個版本第一次開啟時）', _lhBootSnapshot);
+        if (r.ok && lhGet('lh:schema') === null) lhSet('lh:schema', '1');
+        return r;
+    } catch (e) {
+        lhWarn('開機備份流程失敗', e);
+        return { ok: false, where: null, existed: false };
+    }
+}
+
+// 測試用就緒訊號：只給自動測試等待用，程式邏輯不可依賴它
+window.__hoyunSafetyReady = lhBootSafety();
