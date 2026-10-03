@@ -107,3 +107,27 @@ test('localStorage: 使用者操作存檔失敗時不再出現程式錯誤', asy
     expect(errors).toEqual([]);
     await context.close();
 });
+
+// ===== IndexedDB（PERF-04 的另一半）=====
+test('IndexedDB: 詞庫快取寫入失敗只跳提示、不出存檔失敗橫幅', async ({ browser }) => {
+    const { context, page, errors, warnings } = await bootPage(browser, {
+        storage: FIXTURE,
+        init: () => {
+            // 只讓 wl（詞庫快取）的寫入 abort；backups 照常，才能證明兩者分開處理
+            const put = IDBObjectStore.prototype.put;
+            IDBObjectStore.prototype.put = function (...a) {
+                const r = put.apply(this, a);
+                if (this.name === 'wl') this.transaction.abort();
+                return r;
+            };
+        },
+    });
+    await page.waitForFunction(() => (document.getElementById('copyToast')?.textContent || '').includes('詞庫快取沒存成功'), null, { timeout: 10_000 });
+    expect(warnings.some(w => w.includes('[好韻器] 詞庫快取寫入失敗'))).toBe(true);
+    await expect(page.locator(BANNER)).toHaveCount(0);
+    await page.fill('#searchInput', 'ㄢ');
+    await settle(page);
+    await expect(page.locator('.results-count').first()).toHaveText(/[1-9]/);
+    expect(errors).toEqual([]);
+    await context.close();
+});
