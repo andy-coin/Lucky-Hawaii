@@ -1,0 +1,37 @@
+# ==================== 好韻器 Worker 部署設定 ====================
+# 一行部署：npm run worker:deploy（會先檢查下面兩個 KV id 是不是真的 id）
+# 注意：TOML 的單一設定值一定要寫在第一個 [表格] 之前，否則會被吃進那個表格裡、不生效
+
+name = "lucky-hawaii"                 # 沿用線上名稱，網址 lucky-hawaii.is3000dollar.workers.dev 不變（D-01）
+main = "src/index.js"
+compatibility_date = "2026-10-01"
+workers_dev = true
+keep_vars = true                      # 後台手動設的純文字變數不會被部署清掉
+
+[triggers]
+crons = ["17 19 * * *"]               # UTC，等於台灣 03:17；每日健康檢查（D-12）
+
+[secrets]                             # 少任何一個就中止部署；金鑰用 wrangler secret put 設定，不寫在這裡（D-03）
+required = ["GEMINI_API_KEY", "GROQ_API_KEY", "USER_REPORT_KEY"]
+
+# 既有的回報資料（後台列表讀的就是它）
+# 查 id：npx wrangler kv namespace list（找回報用的那個）
+# 一定要填既有的 id，留空會被當成新建一個空的（回報資料會看不到）
+[[kv_namespaces]]
+binding = "USER_FEEDBACK_KV"
+id = "REPLACE_WITH_USER_FEEDBACK_KV_ID"
+
+# 健康檢查專用，不和回報混用，後台列表才不會出現這些資料（D-12）
+# 建立並取得 id：npx wrangler kv namespace create AI_STATE_KV
+[[kv_namespaces]]
+binding = "AI_STATE_KV"
+id = "REPLACE_WITH_AI_STATE_KV_ID"
+
+# 每個 IP 每分鐘的請求上限（D-19）；免費方案若部署時拒絕這段，整段刪掉即可，程式偵測不到就不限流
+[[ratelimits]]
+name = "AI_LIMITER"
+namespace_id = "1001"
+
+  [ratelimits.simple]
+  limit = 20
+  period = 60                         # 只能是 10 或 60
