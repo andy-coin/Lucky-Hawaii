@@ -1,7 +1,7 @@
 // 冒煙測試：用 v0.96 形狀的舊資料開頁，把畫面上每一種 inline 事件處理器各點一次，任何 JS 錯誤都算失敗
 // 每個 handler 都在全新的 browser context 裡觸發（D-06），所以破壞性的按鈕（清除、刪除、重新載入）不會互相影響
 import { test, expect } from '@playwright/test';
-import { readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { bootPage, settle } from './helpers.mjs';
 
 const FIXTURE = JSON.parse(readFileSync(new URL('./fixtures/v096-localStorage.json', import.meta.url), 'utf8'));
@@ -54,6 +54,13 @@ const SCENARIOS = {
         await clickGenerate(page);
         await page.waitForSelector('.reset-pool-btn');
     },
+    // 破音字 chip（selectPolyphonicReading）＋ 字卡右鍵選單（charSuggestReading）
+    polyphonic: async page => {
+        await page.fill('#searchInput', '樂');
+        await settle(page);
+        await page.waitForSelector('#polyphonicChips .poly-chip');
+        await contextMenuOn(page, '.char-card');
+    },
     // 字庫沒有的字 → 「回報」鈕
     missingChar: async page => {
         await page.fill('#searchInput', MISSING_CHAR);
@@ -75,15 +82,18 @@ const SIG_SRC = `(el => [...el.attributes].filter(a => ${JSON.stringify(HANDLER_
 
 // 每個簽章第一次出現的情境；順序固定，所以多次列舉結果相同
 async function enumerateAll(browser) {
-    const found = new Map();   // signature -> { scenario }
+    const found = new Map();   // signature -> { scenario, values }
     for (const name of Object.keys(SCENARIOS)) {
         const { context, page } = await bootScenario(browser, name);
         try {
-            const sigs = await page.evaluate(([sel, src]) => {
+            const els = await page.evaluate(([sel, src, attrs]) => {
                 const sigOf = eval(src);
-                return [...document.querySelectorAll(sel)].map(sigOf);
-            }, [SELECTOR, SIG_SRC]);
-            for (const sig of sigs) if (!found.has(sig)) found.set(sig, { scenario: name });
+                return [...document.querySelectorAll(sel)].map(el => ({
+                    sig: sigOf(el),
+                    values: attrs.map(a => el.getAttribute(a)).filter(v => v !== null),
+                }));
+            }, [SELECTOR, SIG_SRC, HANDLER_ATTRS]);
+            for (const { sig, values } of els) if (!found.has(sig)) found.set(sig, { scenario: name, values });
         } finally {
             await context.close();
         }
@@ -168,6 +178,107 @@ test('smoke 負向對照：壞掉的 handler 與未知外部主機都會被抓�
         await page.evaluate(() => fetch('https://example.invalid/x').catch(() => {}));
         await page.waitForTimeout(100);
         expect(offOrigin).toContain('https://example.invalid/x');
+    } finally {
+        await context.close();
+    }
+});
+
+// ==================== 覆蓋率閘門 ====================
+// 原始碼裡每個 handler 呼叫的函式，都必須被上面的迴圈觸發過；
+// 真的無法在 headless 渲染出來的才能列在這裡，而且一定要寫理由。目前沒有。
+const UNREACHABLE = {
+    // 函式名: '無法觸發的具體原因（繁體中文）',
+};
+
+// 從 handler 屬性內容抽出被呼叫的函式名：識別字後面緊接 (，且前面不是 . 、字元或 $
+const IGNORED_WORDS = new Set(['if', 'for', 'while', 'switch', 'function', 'return', 'typeof', 'event',
+    'stopPropagation', 'preventDefault', 'blur']);
+function namesIn(handlerValue) {
+    const names = [];
+    for (const m of handlerValue.matchAll(/(?<![.\w$])([A-Za-z_$][\w$]*)\s*\(/g)) {
+        if (!IGNORED_WORDS.has(m[1])) names.push(m[1]);
+    }
+    return names;
+}
+
+// index.html 加上 js/ 底下所有 .js（Phase 3 拆檔後 handler 會跟著搬過去；目錄還不存在就當空的）
+function sourceTexts() {
+    const root = new URL('../', import.meta.url);
+    const files = [new URL('index.html', root)];
+    const walk = dir => {
+        if (!existsSync(dir)) return;
+        for (const e of readdirSync(dir, { withFileTypes: true })) {
+            const u = new URL(e.name + (e.isDirectory() ? '/' : ''), dir);
+            if (e.isDirectory()) walk(u);
+            else if (e.name.endsWith('.js')) files.push(u);
+        }
+    };
+    walk(new URL('js/', root));
+    return files.map(f => readFileSync(f, 'utf8'));
+}
+
+function sourceHandlerNames() {
+    const names = new Set();
+    const re = new RegExp(`\\b(?:${HANDLER_ATTRS.join('|')})="([^"]*)"`, 'g');   // 連 template literal 裡的 handler 也抓得到
+    for (const text of sourceTexts()) {
+        for (const m of text.matchAll(re)) namesIn(m[1]).forEach(n => names.add(n));
+    }
+    return names;
+}
+
+test('smoke 覆蓋率：原始碼裡的每個 handler 都有被觸發', async ({ browser }) => {
+    test.setTimeout(120_000);
+    const found = await enumerateAll(browser);
+    const fired = new Set();
+    for (const { values } of found.values()) for (const v of values) namesIn(v).forEach(n => fired.add(n));
+    const source = sourceHandlerNames();
+
+    const problems = [];
+    const missing = [...source].filter(n => !fired.has(n) && !(n in UNREACHABLE)).sort();
+    if (missing.length) problems.push('原始碼有、但沒被觸發也沒列入 UNREACHABLE：' + missing.join(', ') + '\n  → 新增或擴充 SCENARIOS 讓它渲染出來');
+    const stale = Object.keys(UNREACHABLE).filter(n => fired.has(n) || !source.has(n)).sort();
+    if (stale.length) problems.push('UNREACHABLE 有過期項目（其實已被觸發或原始碼已不存在）：' + stale.join(', '));
+    const noReason = Object.entries(UNREACHABLE).filter(([, r]) => !String(r).trim()).map(([n]) => n);
+    if (noReason.length) problems.push('UNREACHABLE 項目缺理由：' + noReason.join(', '));
+    expect(problems, problems.join('\n')).toEqual([]);
+});
+
+// ==================== 匯入存檔 ====================
+// 程式呼叫 input.click() 沒有使用者手勢，所以直接用 setInputFiles
+const importFile = (page, buffer) => page.setInputFiles('#importFileInput', { name: 'session.json', mimeType: 'application/json', buffer: Buffer.from(buffer) });
+
+test('import 合法存檔：顯示已讀取存檔並渲染歌詞', async ({ browser }) => {
+    const { context, page, errors, offOrigin } = await bootPage(browser, { wordlist: 'stub' });
+    try {
+        const payload = {   // 與 exportSession 輸出同形狀
+            version: 1,
+            exportedAt: '2026-10-03T00:00:00.000Z',
+            lyricsSections: [
+                { label: '主歌', text: '匯入的第一段歌詞', collapsed: false },
+                { label: '副歌', text: '匯入的第二段歌詞', collapsed: false },
+            ],
+            hashtags: ['匯入'],
+            savedWords: ['詞彙'],
+            contextDescription: '匯入的情境',
+        };
+        await importFile(page, JSON.stringify(payload));
+        await expect(page.locator('#copyToast')).toHaveText('已讀取存檔');
+        await expect(page.locator('.section-textarea').first()).toHaveValue('匯入的第一段歌詞');
+        await expect(page.locator('#contextDescription')).toHaveValue('匯入的情境');
+        expect(errors).toEqual([]);
+        expect(offOrigin).toEqual([]);
+    } finally {
+        await context.close();
+    }
+});
+
+test('import 壞掉的檔案：顯示讀取失敗，不丟 JS 錯誤', async ({ browser }) => {
+    const { context, page, errors, offOrigin } = await bootPage(browser, { wordlist: 'stub' });
+    try {
+        await importFile(page, 'not json');
+        await expect(page.locator('#copyToast')).toHaveText('讀取失敗：檔案格式錯誤');
+        expect(errors).toEqual([]);
+        expect(offOrigin).toEqual([]);
     } finally {
         await context.close();
     }
