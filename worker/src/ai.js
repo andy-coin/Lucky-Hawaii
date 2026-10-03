@@ -1,6 +1,8 @@
 // ==================== AI 轉接 ====================
 // 瀏覽器只送任務內容，由這裡決定用哪個模型、帶哪把金鑰（D-06）。
-// 換手鏈：逾時、429、5xx 換下一個；失效（404）與額度用完的模型先冷卻起來不再打；400 類請求錯誤直接回報不重試。
+// 換手鏈：逾時、429、5xx 換下一個；失效（404）與額度用完的模型先冷卻起來不再打；
+// 400 類錯誤不能直接當成「瀏覽器送錯」：Gemini 的金鑰錯、地區不支援，Groq 的模型下架也都回 400，所以先當成這個模型的問題換下一個，
+// 只有每個試過的模型都回 400 類才回報 BAD_REQUEST（我們自己的請求檢查在打上游之前就擋掉了）。
 import { MODELS, findModel } from './models.js';
 import { activeModels } from './health.js';
 
@@ -29,7 +31,7 @@ export function _resetState() {
 }
 
 // 上游狀態碼 → 處理方式：'ok' 成功 | 'transient' 暫時性（換下一個）| 'dead' 模型不存在 | 'auth' 金鑰問題
-//                         | 'big' 這個模型吃不下（換下一個，不冷卻）| 'fatal' 其餘 4xx（直接回報不重試）
+//                         | 'big' 這個模型吃不下（換下一個，不冷卻）| 'fatal' 其餘 4xx（冷卻該模型換下一個；全部都 fatal 才回報 BAD_REQUEST）
 export function classify(status) {
     if (status >= 200 && status < 300) return 'ok';
     if (status === 429 || status === 408 || status >= 500) return 'transient';
@@ -209,11 +211,20 @@ export async function runChain(req, env) {
                 queue.splice(i + 1, 0, { m, noThinking: true });
                 continue;
             }
-            return { status: 400, payload: { ok: false, code: 'BAD_REQUEST', message: 'AI 請求格式有問題，已記錄，請稍後再試', tried } };
+            // 其餘 400 類：先當這個模型的問題。金鑰、地區、方案類的訊息代表整家供應商都不行，整家休息；否則只讓這個模型休息
+            if (/api[ _-]?key|location|region|FAILED_PRECONDITION|billing/i.test(r.errorText)) {
+                providerCooldown.set(m.provider, Date.now() + PROVIDER_COOLDOWN_MS);
+            } else {
+                cooldown.set(m.id, Date.now() + TRANSIENT_COOLDOWN_MS);
+            }
         }
         // 'big'：這個模型吃不下，換下一個，不冷卻
     }
 
+    // 每個試過的模型都回 400 類才算請求本身有問題
+    if (tried.length && tried.every(t => t.status && classify(t.status) === 'fatal')) {
+        return { status: 400, payload: { ok: false, code: 'BAD_REQUEST', message: 'AI 請求格式有問題，已記錄，請稍後再試', tried } };
+    }
     if (tried.length && tried.every(t => t.error === 'empty')) {
         return { status: 503, payload: { ok: false, code: 'EMPTY', message: 'AI 這次沒有回覆內容，請再試一次', tried } };
     }

@@ -103,7 +103,7 @@ test('分類：Gemini 回 401 整家冷卻，改打 Groq，下一次請求完全
     } finally { f.restore(); }
 });
 
-test('分類：400、430、499、405 直接回 400 BAD_REQUEST，只打一次上游', async () => {
+test('分類：400、430、499、405 每個模型都這樣回才算 BAD_REQUEST（試滿 4 個，不洩漏上游內文）', async () => {
     for (const code of [400, 430, 499, 405]) {
         _resetState();
         const f = installFetch(() => status(code, {}, 'UPSTREAM-SECRET-TEXT'));
@@ -112,9 +112,43 @@ test('分類：400、430、499、405 直接回 400 BAD_REQUEST，只打一次上
             expect(st, String(code)).toBe(400);
             expect(j, String(code)).toMatchObject({ ok: false, code: 'BAD_REQUEST' });
             expect(JSON.stringify(j)).not.toContain('UPSTREAM-SECRET-TEXT');
-            expect(f.calls.length, String(code)).toBe(1);
+            expect(f.calls.length, String(code)).toBe(4);
         } finally { f.restore(); }
     }
+});
+
+test('CR-02：一個模型回 400 只讓它休息，鏈繼續走；下一次請求跳過它、其他模型照常', async () => {
+    const f = installFetch((url, _i, n) => n === 1 ? status(400, {}, 'model decommissioned') : geminiOk('甲、乙'));
+    try {
+        const a = await ask(makeEnv());
+        expect(a.status).toBe(200);
+        expect(ids(f.calls)).toEqual([G1, G2]);
+        expect(a.j.model.id).toBe(G2);
+        await ask(makeEnv());
+        expect(ids(f.calls)).toEqual([G1, G2, G2]);        // G1 冷卻中；G2 沒被牽連
+    } finally { f.restore(); }
+});
+
+test('CR-02：Gemini 回 400 說金鑰無效，整家 Gemini 休息，改打 Groq，下一次請求完全不打 Gemini', async () => {
+    const keyBad = () => status(400, {}, JSON.stringify({ error: { status: 'INVALID_ARGUMENT', message: 'API key not valid. Please pass a valid API key.' } }));
+    const f = installFetch(byProvider(keyBad, () => groqOk('丙、丁')));
+    try {
+        const a = await ask(makeEnv());
+        expect(a.status).toBe(200);
+        expect(a.j.model.id).toBe(Q1);
+        expect(ids(f.calls)).toEqual([G1, Q1]);
+        await ask(makeEnv());
+        expect(ids(f.calls)).toEqual([G1, Q1, Q1]);
+    } finally { f.restore(); }
+});
+
+test('CR-02：400 混著 503 不算請求錯誤，回 ALL_BUSY 而不是 BAD_REQUEST', async () => {
+    const f = installFetch((url, _i, n) => n % 2 ? status(400) : status(503));
+    try {
+        const { status: st, j } = await ask(makeEnv());
+        expect(st).toBe(503);
+        expect(j.code).toBe('ALL_BUSY');
+    } finally { f.restore(); }
 });
 
 test('分類：相鄰狀態碼 429/408 重試而 430 不重試、499 不重試而 500 重試、404 失效而 405 停止', () => {
@@ -235,13 +269,13 @@ test('請求內容：Gemini 回 400 提到 thinking 時，同一個模型去掉 
     } finally { f.restore(); }
 });
 
-test('請求內容：thinking 重試只做一次，第二次仍 400 就停', async () => {
+test('請求內容：thinking 重試只做一次，第二次仍 400 就放棄這個模型（不再第三次）', async () => {
     const f = installFetch(() => status(400, {}, 'thinking again'));
     try {
         const { status: st, j } = await ask(makeEnv(), { prompt: '心', model: G2 });
         expect(st).toBe(400);
         expect(j.code).toBe('BAD_REQUEST');
-        expect(f.calls).toHaveLength(2);
+        expect(ids(f.calls).filter(i => i === G2)).toHaveLength(2);
     } finally { f.restore(); }
 });
 
