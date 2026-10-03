@@ -181,3 +181,134 @@ test('backup: IndexedDB 無法使用時改存 localStorage 單份並留記錄', 
     expect(errors).toEqual([]);
     await context.close();
 });
+
+// ===== 資料格式遷移（FND-03）=====
+test('migrate: 依版本順序執行、每步最多一次', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, { storage: FIXTURE });
+    const run = () => page.evaluate(() => lhMigrate([
+        { to: 3, run: s => s.set('haoYunQi_inputMode', s.get('haoYunQi_inputMode') + '3') },
+        { to: 2, run: s => s.set('haoYunQi_inputMode', s.get('haoYunQi_inputMode') + '2') },
+    ], 3));
+    expect(await run()).toMatchObject({ ran: 2 });
+    let ls = await dumpLS(page);
+    expect(ls.haoYunQi_inputMode).toBe('auto23');
+    expect(ls['lh:schema']).toBe('3');
+    expect(await run()).toEqual({ ran: 0 });
+    expect(await dumpLS(page)).toEqual(ls);
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('migrate: 重跑三次結果相同、不多存備份', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, { storage: FIXTURE });
+    const run = () => page.evaluate(() => lhMigrate([{ to: 2, run: s => s.set('selectedModel', 'gemini-test') }], 2));
+    await run();
+    const once = await dumpLS(page);
+    await run();
+    await run();
+    expect(await dumpLS(page)).toEqual(once);
+    expect(once.selectedModel).toBe('gemini-test');
+    const list = await page.evaluate(() => lhListBackups());
+    expect(list.filter(r => r.id === 'pre-schema-2')).toHaveLength(1);
+    expect(list.length).toBeLessThanOrEqual(3);
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('migrate: 中途失敗自動還原成升級前', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, { storage: FIXTURE });
+    const before = await dumpLS(page);
+    // 第一步成功（lh:schema 已翻成 2），第二步改到一半才失敗：lh:schema 也必須回到升級前
+    const result = await page.evaluate(() => lhMigrate([
+        { to: 2, run: s => s.set('selectedModel', 'step2') },
+        {
+            to: 3,
+            run: s => {
+                s.set('haiku_lyrics', 'CORRUPT');
+                s.remove('haiku_savedwords');
+                s.set('apiKey_newprov', 'x');
+                throw new Error('boom');
+            },
+        },
+    ], 3));
+    expect(result).toMatchObject({ ran: 0, restored: true });
+    const after = await dumpLS(page);
+    expect(after).toEqual(before);
+    expect(after).not.toHaveProperty('apiKey_newprov');
+    expect(after['lh:schema']).toBe('1');
+    await expect(page.locator('#lhSaveBanner')).toContainText('已自動還原');
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('migrate: 遷移步驟不可寫入未登記的鍵', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, { storage: FIXTURE });
+    const before = await dumpLS(page);
+    const result = await page.evaluate(() => lhMigrate([{ to: 2, run: s => s.set('evilKey', 'x') }], 2));
+    expect(result).toMatchObject({ restored: true });
+    const after = await dumpLS(page);
+    expect(after).not.toHaveProperty('evilKey');
+    expect(after).toEqual(before);
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('migrate: 備份存不進去時不執行遷移', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, {
+        storage: FIXTURE,
+        init: () => {
+            const put = IDBObjectStore.prototype.put;
+            IDBObjectStore.prototype.put = function (...a) {
+                if (window.__failBackupIdb) throw new DOMException('quota', 'QuotaExceededError');
+                return put.apply(this, a);
+            };
+            const set = Storage.prototype.setItem;
+            Storage.prototype.setItem = function (k, v) {
+                if (window.__failBackupLs && k === 'lh:backup:ls') throw new DOMException('quota', 'QuotaExceededError');
+                return set.call(this, k, v);
+            };
+        },
+    });
+    await page.evaluate(() => { window.__failBackupIdb = true; window.__failBackupLs = true; });
+    const result = await page.evaluate(() => lhMigrate([{ to: 2, run: s => s.set('selectedModel', 'SHOULD-NOT') }], 2));
+    expect(result).toMatchObject({ ran: 0, blocked: true });
+    const ls = await dumpLS(page);
+    expect(ls.selectedModel).toBe(FIXTURE.selectedModel);
+    expect(ls['lh:schema']).toBe('1');
+    await expect(page.locator('#lhSaveBanner')).toContainText('資料備份沒有存成功');
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('restore: 只還原清單內的鍵與字串值', async ({ browser }) => {
+    const { context, page, errors, warnings } = await bootPage(browser, { storage: { ...FIXTURE, haoYunQi_admin_key: 'orig-admin' } });
+    const before = await dumpLS(page);
+    const ok = await page.evaluate(() => lhRestore({
+        haiku_lyrics: 123, evil_key: 'x', haoYunQi_admin_key: 'steal', 'lh:schema': '9', haiku_savedwords: '["ok"]',
+    }));
+    expect(ok).toBe(true);
+    const ls = await dumpLS(page);
+    expect(ls).not.toHaveProperty('evil_key');
+    expect(ls.haoYunQi_admin_key).toBe('orig-admin');
+    expect(ls['lh:schema']).toBe(before['lh:schema']);
+    expect(ls.haiku_lyrics).toBe(before.haiku_lyrics);
+    expect(ls.haiku_savedwords).toBe('["ok"]');
+    expect(ls).not.toHaveProperty('haiku_hashtags');       // 記錄裡沒有的清單內鍵會被清掉
+    for (const k of ['haiku_lyrics', 'evil_key', 'haoYunQi_admin_key', 'lh:schema']) {
+        expect(warnings.some(w => w.includes('還原時略過不合法的項目：' + k))).toBe(true);
+    }
+    expect(warnings.some(w => w.includes('steal'))).toBe(false);
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('restore: 不是物件的備份內容不會動到任何資料', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, { storage: FIXTURE });
+    const before = await dumpLS(page);
+    for (const bad of [null, [], 'x', 5]) {
+        expect(await page.evaluate(b => lhRestore(b), bad)).toBe(false);
+    }
+    expect(await dumpLS(page)).toEqual(before);
+    expect(errors).toEqual([]);
+    await context.close();
+});
