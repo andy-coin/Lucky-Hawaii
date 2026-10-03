@@ -57,3 +57,29 @@ test('split：檔案編碼 UTF-8 無 BOM、只用 LF', () => {
         }
     }
 });
+
+test('split：css/base.css 第一條規則是 Google Fonts @import', () => {
+    // @import 若排在任何規則之後，瀏覽器會直接忽略（字型就不會載入）
+    const text = readFileSync('css/base.css', 'utf8').replace(/^(\s|\/\*[\s\S]*?\*\/)+/, '');
+    expect(text.startsWith("@import url('https://fonts.googleapis.com/")).toBe(true);
+});
+
+test('split：樣式表都在 <head>、排在所有 script 前', () => {
+    const headEnd = html.indexOf('</head>');
+    const firstScript = html.indexOf('<script');
+    for (const r of linkTags.filter(isLocal)) {
+        const pos = html.indexOf(r.tag);
+        expect(pos, `${r.src} 要在 </head> 之前`).toBeLessThan(headEnd);
+        expect(pos, `${r.src} 要在第一個 script 之前`).toBeLessThan(firstScript);
+    }
+});
+
+test('split：樣式表沒有相對路徑 url()', () => {
+    // 連結進來的樣式表，相對路徑會以 css/ 為基準而不是頁面，會悄悄壞掉
+    for (const f of listDir('css').filter(n => n.endsWith('.css'))) {
+        const text = readFileSync(`css/${f}`, 'utf8');
+        for (const m of text.matchAll(/url\(\s*(['"]?)([^'")]*)\1\s*\)/g)) {
+            expect(m[2], `css/${f} 有相對路徑 url(${m[2]})`).toMatch(/^(https:\/\/|data:)/);
+        }
+    }
+});
