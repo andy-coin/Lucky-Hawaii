@@ -77,8 +77,8 @@ export function groqRequest(m, req, env, signal) {
     });
 }
 
-// 去掉思考標籤（沿用舊前端的行為）
-const stripThink = s => String(s || '').replace(/<think>[\s\S]*?<\/think>/g, '').trim();
+// 去掉思考標籤（沿用舊前端的行為）；沒收尾的 <think>（思考到一半就被 token 上限截斷）整段丟掉，當成空回覆換下一個模型
+const stripThink = s => String(s || '').replace(/<think>[\s\S]*?<\/think>/g, '').replace(/<think>[\s\S]*$/, '').trim();
 
 // 把所有 parts 的文字串起來
 function geminiText(data) {

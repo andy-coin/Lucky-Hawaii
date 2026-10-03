@@ -241,6 +241,28 @@ test('WR-01：讀本文時逾時算 timeout，不是空回覆（最後是 ALL_BU
     } finally { f.restore(); }
 });
 
+test('WR-05：沒收尾的 <think> 當空回覆，換下一個模型；有收尾的照舊剝掉', async () => {
+    const f = installFetch(byProvider(() => geminiOk('<think>想到一半就被截斷了'), () => groqOk('<think>推理</think>甲、乙')));
+    try {
+        const { status: st, j } = await ask(makeEnv(), { prompt: '心', model: Q1 });
+        expect(st).toBe(200);
+        expect(j.text).toBe('甲、乙');                       // Q1 的完整 think 剝掉後有內容
+        const g = await ask(makeEnv());                      // auto：Gemini 三個都是截斷的 → 記為 empty，落到 Groq
+        expect(g.status).toBe(200);
+        expect(g.j.model.id).toBe(Q1);
+        expect(g.j.tried.filter(t => t.error === 'empty')).toHaveLength(3);
+    } finally { f.restore(); }
+});
+
+test('WR-05：每個模型都只吐沒收尾的 <think> 時回 EMPTY', async () => {
+    const f = installFetch(() => groqOk('<think>還在想'));
+    try {
+        const { status: st, j } = await ask(makeEnv(), { prompt: '心', model: Q2 });
+        expect(st).toBe(503);
+        expect(j.code).toBe('EMPTY');
+    } finally { f.restore(); }
+});
+
 test('請求內容：Gemini 金鑰在 header、thinkingLevel LOW 只給 3.8/3.7、不送 thinkingBudget、輸出上限 2048', async () => {
     const f = installFetch(() => status(503));
     try {
