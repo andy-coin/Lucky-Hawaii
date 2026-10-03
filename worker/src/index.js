@@ -2,6 +2,7 @@
 // 瀏覽器不再指定供應商、金鑰或模型清單（D-06）：只送 { prompt, model, temperature }，由 Worker 決定怎麼呼叫。
 // plan 02-02／02-03 會再補回報後台與舊版相容路由。
 import { runChain } from './ai.js';
+import { MODELS } from './models.js';
 
 const ALLOWED_ORIGIN = 'https://andy-coin.github.io';
 
@@ -61,6 +62,12 @@ export default {
             if (!originAllowed(origin, env)) return json(403, { ok: false, code: 'FORBIDDEN', message: '來源不被允許' }, origin, env);
             if (request.method !== 'POST') return json(405, { ok: false, code: 'METHOD', message: '不支援這個操作' }, origin, env);
             return handleAi(request, env, origin);
+        }
+        if (pathname === '/models') {
+            if (!originAllowed(origin, env)) return json(403, { ok: false, code: 'FORBIDDEN', message: '來源不被允許' }, origin, env);
+            if (request.method !== 'GET') return json(405, { ok: false, code: 'METHOD', message: '不支援這個操作' }, origin, env);
+            // 網站選單的資料來源（D-14）；plan 02-05 改成讀每日健康檢查的結果並填入 checkedAt，回傳格式不變
+            return json(200, { ok: true, models: MODELS.map(({ id, label, provider }) => ({ id, label, provider })), checkedAt: null }, origin, env);
         }
         return json(404, { ok: false, code: 'NOT_FOUND', message: '找不到這個路徑' }, origin, env);
     },

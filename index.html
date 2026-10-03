@@ -4485,6 +4485,22 @@
             lhSet('selectedModel', document.getElementById('modelSelect').value);
         }
 
+        // 從 Worker 取得目前可用的模型，選單 = 自動 + 這份清單（依 Worker 給的順序）
+        // 任何失敗都只留下「自動」；只重畫選單，不寫使用者的設定
+        async function loadModels() {
+            try {
+                const res = await fetch(WORKER_URL + '/models', { signal: AbortSignal.timeout(5000) });
+                if (!res.ok) throw new Error('HTTP ' + res.status);
+                const data = await res.json();
+                if (data?.ok !== true || !Array.isArray(data.models)) throw new Error('模型清單格式不對');
+                const list = data.models.filter(m => m && typeof m.id === 'string' && m.id && typeof m.label === 'string' && m.label && m.id !== 'auto');
+                LLM_MODELS = [AUTO_MODEL, ...list];
+                renderModelSelect();
+            } catch (e) {
+                lhWarn('模型清單載入失敗，先用「自動」', e);
+            }
+        }
+
         // 換模型由 Worker 負責，這裡只回傳一個（D-16）
         function aiTryList() {
             return [LLM_MODELS.find(m => m.id === document.getElementById('modelSelect')?.value) || LLM_MODELS[0]];
@@ -5322,6 +5338,8 @@ ${ctxBlock2}${lyricsBlock2}
             renderHashtags();
             renderSavedWords();
             renderModelSelect();
+            // 模型清單非同步載入；測試用這個訊號等待，程式邏輯不可依賴它；載入完只重畫選單、不寫入使用者設定
+            window.__hoyunModelsReady = loadModels();
 
             // 恢復情境＆標籤收納狀態
             if (lhGet('contextSectionCollapsed') === 'true') {

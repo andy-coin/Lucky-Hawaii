@@ -72,7 +72,8 @@ test('保留：有效的手動選擇保留並送給 Worker', async ({ browser })
         page.on('request', r => { if (r.method() === 'POST' && new URL(r.url()).pathname === '/ai') bodies.push(JSON.parse(r.postData())); });
         await page.fill('#searchInput', '心');
         await settle(page);
-        await page.click('#generateBtn');
+        // 只存了一個鍵 → 面板是收起的，按鈕在畫面外；和 smoke 一樣直接觸發 click
+        await page.evaluate(() => document.getElementById('generateBtn').click());
         await page.waitForSelector('.ai-word-card .ai-badge');
         expect(bodies.length).toBeGreaterThan(0);
         expect(bodies[0].model).toBe(GPT);
