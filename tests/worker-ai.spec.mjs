@@ -777,6 +777,35 @@ test('限流：success:true 照常服務；key 是 CF-Connecting-IP，沒有這�
     } finally { f.restore(); }
 });
 
+test('WR-02：限流 key——IPv6 取 /64（含 :: 縮寫與大小寫）、IPv4 完整位址、IPv4 映射還原、沒標頭是 unknown', async () => {
+    const f = installFetch(() => geminiOk('甲'));
+    try {
+        const keys = [];
+        const env = makeEnv({ AI_LIMITER: { limit: async ({ key }) => { keys.push(key); return { success: true }; } } });
+        for (const ip of ['2001:db8:1:2:aaaa:bbbb:cccc:dddd', '2001:DB8:1:2::1', '2001:db8:1:2:0:0:0:9', '2001:db8::1', '::1', '::ffff:203.0.113.7', '203.0.113.7']) {
+            await worker.fetch(new Request('https://w/ai', { method: 'POST', headers: { Origin: ORIGIN, 'CF-Connecting-IP': ip }, body: JSON.stringify({ prompt: '心' }) }), env, { waitUntil() {} });
+        }
+        expect(keys).toEqual(['2001:db8:1:2', '2001:db8:1:2', '2001:db8:1:2', '2001:db8:0:0', '0:0:0:0', '203.0.113.7', '203.0.113.7']);
+    } finally { f.restore(); }
+});
+
+test('WR-06：沒預期的例外（讀 body 時串流壞掉）回 500 JSON 帶 CORS，不洩漏內部細節，新舊格式都讀得到訊息', async () => {
+    const realErr = console.error, lines = [];
+    console.error = (...a) => lines.push(a.join(' '));
+    try {
+        for (const path of ['https://w/ai', 'https://w/']) {
+            const broken = new ReadableStream({ pull() { throw new Error('INTERNAL-BOOM-DETAIL'); } }, { highWaterMark: 0 });
+            const res = await worker.fetch(new Request(path, { method: 'POST', headers: { Origin: ORIGIN }, body: broken, duplex: 'half' }), makeEnv(), { waitUntil() {} });
+            expect(res.status, path).toBe(500);
+            expect(res.headers.get('Access-Control-Allow-Origin'), path).toBe(ORIGIN);
+            const j = await res.json();
+            expect(j, path).toMatchObject({ ok: false, code: 'INTERNAL', message: 'AI 暫時無法使用，請稍後再試', error: { message: 'AI 暫時無法使用，請稍後再試' } });
+            expect(JSON.stringify(j), path).not.toContain('BOOM');
+        }
+        expect(lines.filter(l => l.includes('未預期錯誤'))).toHaveLength(2);
+    } finally { console.error = realErr; }
+});
+
 test('限流：沒有 AI_LIMITER 綁定照常服務；限流器丟例外也放行並記一行 console.error', async () => {
     const f = installFetch(() => geminiOk('甲'));
     const realErr = console.error, lines = [];

@@ -2376,7 +2376,7 @@
         <div class="feedback-modal" onclick="event.stopPropagation()">
             <h3>意見回饋</h3>
             <input id="feedbackSubject" placeholder="主旨（例：建議、問題回報）" maxlength="80">
-            <textarea id="feedbackBody" placeholder="內文…" rows="5"></textarea>
+            <textarea id="feedbackBody" placeholder="內文…" rows="5" maxlength="2000"></textarea>
             <div class="feedback-modal-actions">
                 <button class="feedback-cancel-btn" onclick="closeFeedbackModal()">取消</button>
                 <button class="feedback-send-btn" onclick="submitFeedback()">送出</button>

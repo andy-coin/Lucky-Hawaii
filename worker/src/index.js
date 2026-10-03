@@ -38,9 +38,10 @@ export function json(status, obj, origin, env = {}) {
 
 // 請求本文上限 64 KB，以位元組計（中文一字 3 bytes）。Content-Length 只是宣告、不可信，所以一律邊讀邊數，超過就停止讀取。
 const MAX_BODY_BYTES = 65536;
-async function readBodyCapped(request) {
+const MAX_FEEDBACK_BYTES = 8192;   // 回報只是幾行字，8 KB 綽綽有餘；/feedback 每次都寫一筆 KV，不能讓人塞大內容
+async function readBodyCapped(request, max = MAX_BODY_BYTES) {
     const declared = Number(request.headers.get('Content-Length'));
-    if (Number.isFinite(declared) && declared > MAX_BODY_BYTES) return { ok: false };
+    if (Number.isFinite(declared) && declared > max) return { ok: false };
     if (!request.body) return { ok: true, text: '' };
     const reader = request.body.getReader();
     const chunks = [];
@@ -49,7 +50,7 @@ async function readBodyCapped(request) {
         const { done, value } = await reader.read();
         if (done) break;
         total += value.byteLength;
-        if (total > MAX_BODY_BYTES) { await reader.cancel(); return { ok: false }; }
+        if (total > max) { await reader.cancel(); return { ok: false }; }
         chunks.push(value);
     }
     const bytes = new Uint8Array(total);
@@ -70,10 +71,22 @@ async function readAiRequest(request, parse) {
 // 每個 IP 的請求上限（D-19）。Origin 擋得住別的網站的瀏覽器，擋不住腳本；真正的防線是白名單、上限與限流。
 // 沒有 AI_LIMITER 綁定就不限流（部署時若免費方案拒絕這段設定，刪掉即可）；限流器自己出錯也放行：免費個人工具，可用性比嚴格更重要。
 // 計數在 Cloudflare 是每個地點各算、最終一致，所以同一個 IP 短時間內可能略多於上限才開始收到 429。
-async function isRateLimited(request, env) {
+// IPv6 用戶通常整個 /64 都是自己的，一個請求換一個位址就繞得過去，所以 IPv6 以前 4 組（/64）當 key；IPv4 用完整位址。
+// 先把 :: 展開再取前 4 組，免得 2001:db8::1 這種縮寫被誤判；IPv4 映射位址（::ffff:1.2.3.4）還原成 IPv4。
+export function rateKey(ip) {
+    if (!ip.includes(':')) return ip;
+    if (ip.includes('.')) return ip.slice(ip.lastIndexOf(':') + 1);
+    const [head, tail] = ip.split('::');
+    const h = head ? head.split(':') : [];
+    const t = tail ? tail.split(':') : [];
+    const groups = tail === undefined ? h : [...h, ...Array(Math.max(0, 8 - h.length - t.length)).fill('0'), ...t];
+    return groups.slice(0, 4).map(g => g.toLowerCase().replace(/^0+(?=.)/, '')).join(':');
+}
+// prefix：不同路由用不同前綴，回報不會吃掉 AI 的額度
+async function isRateLimited(request, env, prefix = '') {
     if (!env.AI_LIMITER) return false;
     try {
-        const { success } = await env.AI_LIMITER.limit({ key: request.headers.get('CF-Connecting-IP') || 'unknown' });
+        const { success } = await env.AI_LIMITER.limit({ key: prefix + rateKey(request.headers.get('CF-Connecting-IP') || 'unknown') });
         return success === false;
     } catch (e) {
         console.error('[好韻器] 限流檢查失敗，先放行', e.message);
@@ -123,8 +136,12 @@ async function handleFeedbackAdmin(request, env, url) {
     if (path === '/feedback') {
         if (request.method !== 'POST') return new Response('Method Not Allowed', { status: 405 });
         if (request.headers.get('Origin') !== ALLOWED_ORIGIN) return new Response('Forbidden', { status: 403 });
+        // 每次回報都是一次 KV 寫入（免費額度一天 1000 次）：先限流、再限大小（沒有限流器綁定就只限大小）
+        if (await isRateLimited(request, env, 'fb:')) return feedbackJson({ error: RATE_LIMITED_MESSAGE }, 429);
         try {
-            const data = await request.json();
+            const body = await readBodyCapped(request, MAX_FEEDBACK_BYTES);
+            if (!body.ok) return feedbackJson({ error: TOO_LARGE_ERROR.message }, 413);
+            const data = JSON.parse(body.text);
             const key = `${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
             await env.USER_FEEDBACK_KV.put(key, JSON.stringify({ ...data, ts: new Date().toISOString() }));
             return feedbackJson({ ok: true });
@@ -204,42 +221,55 @@ export default {
         ctx.waitUntil(runHealthCheck(env));
     },
     async fetch(request, env, ctx) {
-        const origin = request.headers.get('Origin') || '';
-        const url = new URL(request.url);
-        const { pathname } = url;
-        if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: corsHeaders(origin, env) });
-        const admin = await handleFeedbackAdmin(request, env, url);
-        if (admin) return admin;
-        if (pathname === '/ai') {
-            if (!originAllowed(origin, env)) return json(403, { ok: false, code: 'FORBIDDEN', message: '來源不被允許' }, origin, env);
-            if (request.method !== 'POST') return json(405, { ok: false, code: 'METHOD', message: '不支援這個操作' }, origin, env);
-            return handleAi(request, env, origin);
+        try {
+            return await route(request, env);
+        } catch (e) {
+            // 沒預期的例外（例如讀 body 時客戶端中斷）：回帶 CORS 的 JSON，瀏覽器才讀得到；不帶內部細節。
+            // 同時給新舊兩種格式：新版讀 message，舊版快取頁面讀 error.message
+            console.error('[好韻器] 未預期錯誤', e?.message);
+            const message = 'AI 暫時無法使用，請稍後再試';
+            return json(500, { ok: false, code: 'INTERNAL', message, error: { message } }, request.headers.get('Origin') || '', env);
         }
-        if (pathname === '/' && request.method === 'POST') {
-            if (!originAllowed(origin, env)) return json(403, { error: { message: '來源不被允許' } }, origin, env);
-            return handleLegacy(request, env, origin);
-        }
-        if (pathname === '/models') {
-            if (!originAllowed(origin, env)) return json(403, { ok: false, code: 'FORBIDDEN', message: '來源不被允許' }, origin, env);
-            if (request.method !== 'GET') return json(405, { ok: false, code: 'METHOD', message: '不支援這個操作' }, origin, env);
-            // 網站選單的資料來源（D-14）：只列每日健康檢查後仍啟用的模型；還沒有紀錄就列完整名單、checkedAt 是 null
-            const models = (await activeModels(env)).map(({ id, label, provider }) => ({ id, label, provider }));
-            return json(200, { ok: true, models, checkedAt: (await readHealth(env))?.checkedAt ?? null }, origin, env);
-        }
-        // 給 Andy 部署後立刻確認線上模型狀態，不必等凌晨排程；/health/run 會花 6 次模型呼叫，所以要後台金鑰（金鑰不可為空）
-        const isRun = pathname === '/health/run';
-        if (pathname === '/health.json' || isRun) {
-            const key = url.searchParams.get('key');
-            if (!key || key !== env.USER_REPORT_KEY) return new Response('Forbidden', { status: 403 });
-            if (isRun) {
-                if (request.method !== 'POST') return new Response('Method Not Allowed', { status: 405 });
-                return json(200, await runHealthCheck(env), origin, env);
-            }
-            // 直接讀 KV，不經快取，看到的就是目前存的那一筆
-            let doc = null;
-            try { doc = JSON.parse(await env.AI_STATE_KV.get(HEALTH_KEY)); } catch (e) { doc = null; }
-            return doc ? json(200, doc, origin, env) : json(404, { ok: false, message: '還沒有健康檢查紀錄' }, origin, env);
-        }
-        return json(404, { ok: false, code: 'NOT_FOUND', message: '找不到這個路徑' }, origin, env);
     },
 };
+
+// 路由本體；上面的 fetch 只負責兜底
+async function route(request, env) {
+    const origin = request.headers.get('Origin') || '';
+    const url = new URL(request.url);
+    const { pathname } = url;
+    if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: corsHeaders(origin, env) });
+    const admin = await handleFeedbackAdmin(request, env, url);
+    if (admin) return admin;
+    if (pathname === '/ai') {
+        if (!originAllowed(origin, env)) return json(403, { ok: false, code: 'FORBIDDEN', message: '來源不被允許' }, origin, env);
+        if (request.method !== 'POST') return json(405, { ok: false, code: 'METHOD', message: '不支援這個操作' }, origin, env);
+        return handleAi(request, env, origin);
+    }
+    if (pathname === '/' && request.method === 'POST') {
+        if (!originAllowed(origin, env)) return json(403, { error: { message: '來源不被允許' } }, origin, env);
+        return handleLegacy(request, env, origin);
+    }
+    if (pathname === '/models') {
+        if (!originAllowed(origin, env)) return json(403, { ok: false, code: 'FORBIDDEN', message: '來源不被允許' }, origin, env);
+        if (request.method !== 'GET') return json(405, { ok: false, code: 'METHOD', message: '不支援這個操作' }, origin, env);
+        // 網站選單的資料來源（D-14）：只列每日健康檢查後仍啟用的模型；還沒有紀錄就列完整名單、checkedAt 是 null
+        const models = (await activeModels(env)).map(({ id, label, provider }) => ({ id, label, provider }));
+        return json(200, { ok: true, models, checkedAt: (await readHealth(env))?.checkedAt ?? null }, origin, env);
+    }
+    // 給 Andy 部署後立刻確認線上模型狀態，不必等凌晨排程；/health/run 會花 6 次模型呼叫，所以要後台金鑰（金鑰不可為空）
+    const isRun = pathname === '/health/run';
+    if (pathname === '/health.json' || isRun) {
+        const key = url.searchParams.get('key');
+        if (!key || key !== env.USER_REPORT_KEY) return new Response('Forbidden', { status: 403 });
+        if (isRun) {
+            if (request.method !== 'POST') return new Response('Method Not Allowed', { status: 405 });
+            return json(200, await runHealthCheck(env), origin, env);
+        }
+        // 直接讀 KV，不經快取，看到的就是目前存的那一筆
+        let doc = null;
+        try { doc = JSON.parse(await env.AI_STATE_KV.get(HEALTH_KEY)); } catch (e) { doc = null; }
+        return doc ? json(200, doc, origin, env) : json(404, { ok: false, message: '還沒有健康檢查紀錄' }, origin, env);
+    }
+    return json(404, { ok: false, code: 'NOT_FOUND', message: '找不到這個路徑' }, origin, env);
+}

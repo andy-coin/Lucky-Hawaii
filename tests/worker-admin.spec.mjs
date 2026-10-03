@@ -56,6 +56,42 @@ test('admin：/feedback 內容不是 JSON → 500 {error}（沿用舊格式）',
     expect(env.USER_FEEDBACK_KV.puts).toBe(0);
 });
 
+test('WR-03：/feedback 超過 8 KB 回 413 {error}，不寫 KV；剛好 8192 位元組放行', async () => {
+    const env = makeEnv();
+    const withBytes = n => { const pad = 'a'.repeat(n - new TextEncoder().encode(JSON.stringify({ n: '' })).length); return JSON.stringify({ n: pad }); };
+    const ok = await call('/feedback', { method: 'POST', origin: ORIGIN, body: withBytes(8192), env });
+    expect(ok.status).toBe(200);
+    expect(env.USER_FEEDBACK_KV.puts).toBe(1);
+    const big = await call('/feedback', { method: 'POST', origin: ORIGIN, body: withBytes(8193), env });
+    expect(big.status).toBe(413);
+    expect(typeof (await big.json()).error).toBe('string');
+    // 謊報很小的 Content-Length、實際很大的串流也要擋
+    const lie = await worker.fetch(new Request('https://w/feedback', { method: 'POST', headers: { Origin: ORIGIN, 'Content-Length': '10' }, body: withBytes(20000) }), env, { waitUntil() {} });
+    expect(lie.status).toBe(413);
+    expect(env.USER_FEEDBACK_KV.puts).toBe(1);
+});
+
+test('WR-03：/feedback 被限流回 429 {error}，不寫 KV；key 帶 fb: 前綴；沒有限流器或限流器壞掉就放行', async () => {
+    const keys = [];
+    const limited = makeEnv({ AI_LIMITER: { limit: async ({ key }) => { keys.push(key); return { success: false }; } } });
+    const res = await call('/feedback', { method: 'POST', origin: ORIGIN, body: { a: 1 }, env: limited });
+    expect(res.status).toBe(429);
+    expect(await res.json()).toEqual({ error: '操作太頻繁，請稍後再試' });
+    expect(res.headers.get('Access-Control-Allow-Origin')).toBe(ORIGIN);
+    expect(keys).toEqual(['fb:unknown']);
+    expect(limited.USER_FEEDBACK_KV.puts).toBe(0);
+    const realErr = console.error; console.error = () => {};
+    try {
+        const boom = makeEnv({ AI_LIMITER: { limit: async () => { throw new Error('down'); } } });
+        expect((await call('/feedback', { method: 'POST', origin: ORIGIN, body: { a: 1 }, env: boom })).status).toBe(200);
+    } finally { console.error = realErr; }
+    expect((await call('/feedback', { method: 'POST', origin: ORIGIN, body: { a: 1 }, env: makeEnv() })).status).toBe(200);
+    // 其他來源／錯誤方法仍先被擋，不會消耗限流額度
+    const spy = []; const env2 = makeEnv({ AI_LIMITER: { limit: async ({ key }) => { spy.push(key); return { success: true }; } } });
+    await call('/feedback', { method: 'POST', origin: 'https://evil.example', body: { a: 1 }, env: env2 });
+    expect(spy).toEqual([]);
+});
+
 test('admin：/reports.json 依 ts 新到舊，附 kvKey，壞掉的值丟掉，CORS 標頭照舊', async () => {
     const env = seeded({
         old: record({ ts: '2026-01-01T00:00:00.000Z', n: 'old' }),
