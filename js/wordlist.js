@@ -217,9 +217,7 @@
                 for (let i = 0; i < rhymes.length; i++) {
                     if (rhymes[i].isWild) continue;
                     if (rhymes[i].notFound) continue;
-                    const zy = syllables[i];
-                    const init = getZhuyinInitial(zy);
-                    const eff = init || (zy[0]==='ㄩ'?'ㄩ':zy[0]==='ㄧ'?'ㄧ':zy[0]==='ㄨ'?'ㄨ':getZhuyinRhyme(zy));
+                    const eff = _effInitial(syllables[i]);
                     const target = rhymes[i].initial || rhymes[i].rhyme;
                     if (eff !== target) { match = false; break; }
                 }
