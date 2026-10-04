@@ -78,8 +78,9 @@ export async function stubWordlist(context, ndjson) {
 
 // 每次都是全新 profile（D-06）；storage 為 { key: value } 預先放進 localStorage
 // wordlist: 'real'（預設，golden 用）或 'stub'（讀 tests/fixtures/wordlist-stub.ndjson）
+// waitWordlist: false 時不等詞庫載完（測慢速載入用）
 // beforeGoto: async ({ context, page }) => {}，在收集器掛好之後、導航之前執行（例如 page.clock.install()）
-export async function bootPage(browser, { storage = {}, init = null, wordlist = 'real', aiReply, aiFail, models, beforeGoto = null } = {}) {
+export async function bootPage(browser, { storage = {}, init = null, wordlist = 'real', aiReply, aiFail, models, beforeGoto = null, waitWordlist = true } = {}) {
     const context = await browser.newContext({
         ...CONTEXT_OPTS,
         storageState: {
@@ -99,7 +100,7 @@ export async function bootPage(browser, { storage = {}, init = null, wordlist = 
     if (beforeGoto) await beforeGoto({ context, page });
     await page.goto('/index.html');
     // 未定義的訊號會直接 resolve，後續 plan 加 __hoyunSafetyReady 時不必改這裡
-    await page.evaluate(() => Promise.all([window.__hoyunReady, window.__hoyunWordlistReady, window.__hoyunSafetyReady, window.__hoyunModelsReady]));
+    await page.evaluate(w => Promise.all([window.__hoyunReady, w ? window.__hoyunWordlistReady : null, window.__hoyunSafetyReady, window.__hoyunModelsReady]), waitWordlist);
     return { context, page, errors, warnings, offOrigin };
 }
 

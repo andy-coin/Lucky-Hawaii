@@ -9,7 +9,6 @@
             v => Array.isArray(v) && v.length > 0 && v.every(s => s && typeof s === 'object' && (s.text === undefined || typeof s.text === 'string')));
         let savedWords = lhGetJSON('haiku_savedwords', [], Array.isArray);
         let wordlistData = null;
-        let wordlistLoading = false;
         let wordPriorityMap = new Map();
         // ── 偵錯旗標：開啟後 AI 字卡 hover/右鍵會顯示 p 值（前端無 UI 切換，需手改）──
         const USE_PRIORITY = false;

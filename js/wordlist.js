@@ -47,9 +47,16 @@
             el.textContent = `詞庫載入中 ${loaded}/${total}…`;
         }
 
-        async function loadWordlist() {
-            if (wordlistData !== null || wordlistLoading) return;
-            wordlistLoading = true;
+        // 同一時間只有一次載入；失敗後下次呼叫會重抓。永遠回傳不會 reject 的 Promise，成功後立刻 resolve
+        let _wlP = null;
+        function loadWordlist() {
+            if (wordlistData !== null) return Promise.resolve();
+            return _wlP ??= _loadWordlistOnce()
+                .catch(e => lhWarn('詞庫載入失敗', e))
+                .finally(() => { _wlP = null; });
+        }
+
+        async function _loadWordlistOnce() {
             updateWordlistProgress(0, WORDLIST_CHUNKS);
 
             let db = null;
@@ -93,30 +100,29 @@
 
             if (!useCache && db && buf.length > 0 && currentVer) _idbPut(db, 'ver', currentVer);
 
-            wordlistData = buf.length > 0 ? buf : null;
-            await applyWordlistOverrides();
-            wordlistLoading = false;
+            // 套完 overrides 才公開，wordlistData 不會出現「還沒套修正」的中間狀態
+            wordlistData = buf.length > 0 ? await applyWordlistOverrides(buf) : null;
             updateWordlistProgress(WORDLIST_CHUNKS, WORDLIST_CHUNKS);
         }
 
         // ── 後台匯出的詞庫 overrides（data/wordlist-overrides.json）──
         // 不存進 IDB（避免改 overrides 要重 build 詞庫），每次 loadWordlist 末段重新套用
-        async function applyWordlistOverrides() {
-            if (!wordlistData) return;
+        // 吃進詞庫陣列、回傳套完修正的陣列（任何提早結束都原樣回傳輸入）
+        async function applyWordlistOverrides(list) {
             let ovr;
             try {
                 const r = await fetch('data/wordlist-overrides.json', { cache: 'no-cache' });
-                if (!r.ok) return;
+                if (!r.ok) return list;
                 ovr = await r.json();
-            } catch(e) { lhWarn('詞庫修正檔載入失敗', e); return; }
+            } catch(e) { lhWarn('詞庫修正檔載入失敗', e); return list; }
             const removedSet = new Set(ovr.removed || []);
             const hiddenSet  = new Set(ovr.hidden  || []);
             const fixedMap   = ovr.fixed  || {};
             const added      = ovr.added  || [];
-            const before  = wordlistData.length;
+            const before  = list.length;
             const filtered = [];
             let removed = 0, fixed = 0;
-            for (const e of wordlistData) {
+            for (const e of list) {
                 if (removedSet.has(e.w) || hiddenSet.has(e.w)) {
                     wordPriorityMap.delete(e.w);
                     wordPhoneticMap.delete(e.w);
@@ -139,10 +145,10 @@
                 wordPhoneticMap.set(a.w, entry.z);
                 addedCount++;
             }
-            wordlistData = filtered;
             if (removed || fixed || addedCount) {
                 console.log(`[wordlist overrides] before=${before} → after=${filtered.length} (removed=${removed}, fixed=${fixed}, added=${addedCount})`);
             }
+            return filtered;
         }
 
         // rhymes: currentRhymes 陣列, targetLen: 目標詞長, minPriority: 本輪門檻

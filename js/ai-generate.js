@@ -83,15 +83,21 @@
             container.innerHTML = '';
 
             try {
-                // 候選來源：選字 → 單字（非萬用）→ 押母音 → 押子音；詞庫未載入時回傳 null
+                // 詞庫還在載入就等同一個載入；等完才算候選，絕不把「還沒載好」當成候選太少而造詞
+                if (wordlistData === null) {
+                    const snapRhymes = currentRhymes, snapMode = rhymeMode;
+                    loading.textContent = '詞庫載入中…';
+                    await loadWordlist();
+                    loading.textContent = 'AI 思考中…';
+                    if (currentRhymes !== snapRhymes || rhymeMode !== snapMode) return;   // 等待期間換了搜尋，這次作廢
+                    if (wordlistData === null) { showToast('詞庫載入失敗，請重新整理頁面'); return; }
+                }
+                // 候選來源：選字 → 單字（非萬用）→ 押母音 → 押子音
                 const newBatch = selectedChars.size > 0 ? getWordlistCandidatesSelected()
                     : (currentRhymes.length === 1 && !currentRhymes[0]?.isWild) ? getWordlistCandidatesSingle()
                     : rhymeMode === 'rhyme' ? getWordlistCandidates(currentRhymes, currentRhymes.length)
                     : getWordlistCandidatesInitial(currentRhymes, currentRhymes.length);
-                if (newBatch === null) {
-                    showToast(wordlistLoading ? '詞庫載入中，請稍後再試' : '詞庫載入失敗，請重新整理頁面');
-                    return;
-                }
+                if (newBatch === null) { showToast('詞庫載入失敗，請重新整理頁面'); return; }
 
                 // 活躍累積池：移除已被推薦或已保留的詞，新候選排前面
                 const savedSet = new Set(savedWords);
