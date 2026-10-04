@@ -20,6 +20,8 @@
         }
         let wordPhoneticMap = new Map();
         const WORDLIST_CHUNKS = 10;
+        // AI 建議目標數；數量由程式保證，不是 UI 設定
+        const AI_TARGET = 24;
         let suggestedPool = new Set();
         let sentCandidatesSet = new Set();
         let cumulativeCandidates = [];

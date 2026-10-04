@@ -236,6 +236,23 @@
             }
         }
 
+        // 把 AI 回的文字切成詞：頓號、逗號、換行、空白都算分隔，只留 2～8 字
+        function parseAiWords(text) {
+            return String(text).split(/[，,、\n\s]+/).map(w => w.trim()).filter(w => w.length >= 2 && w.length <= 8);
+        }
+
+        // AI 只提供偏好順序，數量由程式保證：pool 夠大時 words.length 一定等於 target
+        // 純函式（不碰 DOM、不讀全域，rank 由呼叫端傳入）：AI 亂編的池外詞在 picked 這步被丟掉，
+        // 不足的部分依 rank 由高到低補滿（sort 穩定：同分維持池原順序）
+        function fillToTarget(pool, aiPicks, target, rank = () => 0) {
+            const all = [...new Set(pool)];
+            const inPool = new Set(all);
+            const picked = [...new Set(aiPicks)].filter(w => inPool.has(w)).slice(0, target);
+            const pickedSet = new Set(picked);
+            const filled = all.filter(w => !pickedSet.has(w)).sort((a, b) => rank(b) - rank(a)).slice(0, target - picked.length);
+            return { words: [...picked, ...filled], picked: picked.length, filled: filled.length };
+        }
+
         // 驗證 AI 生成詞是否符合當前韻腳要求
         function validateWordRhyme(word) {
             if (currentRhymes.length === 0) return false;

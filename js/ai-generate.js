@@ -120,7 +120,7 @@
                     }
                     _aiExtraRoundDone = true;
                     btn.disabled = false; loading.style.display = 'none'; loading.textContent = 'AI 思考中…';
-                    await generateAIWords(24, container, new Set([...suggestedPool, ...savedWords]));
+                    await generateAIWords(AI_TARGET, container, new Set([...suggestedPool, ...savedWords]));
                     return;
                 }
                 usingWordlist = true;
@@ -130,7 +130,7 @@
                 const ctxBlock = contextFull ? `\n【情境與#標籤】（請重點優先參考）：${contextFull}` : '';
                 const lyricsBlock = lyricsText ? `\n【歌詞風格參考】：${lyricsText.slice(0, 200)}` : '';
                 const savedBlock = savedWords.length > 0 ? `\n已保留（不可重複）：${savedWords.slice(-30).join('、')}` : '';
-                prompt = `你是歌詞創作助手。以下詞語的${posStr}含有指定字，請挑選最適合此創作情境的詞語（必須挑滿 24 個，候選詞充足時絕對不可少於 24，少於即視為失敗）：
+                prompt = `你是歌詞創作助手。以下詞語的${posStr}含有指定字，請挑選最適合此創作情境的詞語（必須挑滿 ${AI_TARGET} 個，候選詞充足時絕對不可少於 ${AI_TARGET}，少於即視為失敗）：
 
                 候選詞：${cumulativeCandidates.join('、')}
                 【指定${posStr}字】：${selectedCharsList}
@@ -154,7 +154,7 @@
                     }
                     _aiExtraRoundDone = true;
                     btn.disabled = false; loading.style.display = 'none'; loading.textContent = 'AI 思考中…';
-                    await generateAIWords(24, container, new Set([...suggestedPool, ...savedWords]));
+                    await generateAIWords(AI_TARGET, container, new Set([...suggestedPool, ...savedWords]));
                     return;
                 }
                 usingWordlist = true;
@@ -162,7 +162,7 @@
                 const ctxBlock = contextFull ? `\n【情境與#標籤】（請重點優先參考）：${contextFull}` : '';
                 const lyricsBlock = lyricsText ? `\n【歌詞風格參考】：${lyricsText.slice(0, 200)}` : '';
                 const savedBlock = savedWords.length > 0 ? `\n已保留（不可重複）：${savedWords.slice(-30).join('、')}` : '';
-                prompt = `你是歌詞創作助手。以下詞語的押韻符合要求，請挑選最適合此創作情境的詞語（必須挑滿 24 個，候選詞充足時絕對不可少於 24，少於即視為失敗）：
+                prompt = `你是歌詞創作助手。以下詞語的押韻符合要求，請挑選最適合此創作情境的詞語（必須挑滿 ${AI_TARGET} 個，候選詞充足時絕對不可少於 ${AI_TARGET}，少於即視為失敗）：
 
                 候選詞：${cumulativeCandidates.join('、')}
                 ${ctxBlock}${lyricsBlock}${savedBlock}
@@ -186,7 +186,7 @@
                     }
                     _aiExtraRoundDone = true;
                     btn.disabled = false; loading.style.display = 'none'; loading.textContent = 'AI 思考中…';
-                    await generateAIWords(24, container, new Set([...suggestedPool, ...savedWords]));
+                    await generateAIWords(AI_TARGET, container, new Set([...suggestedPool, ...savedWords]));
                     return;
                 }
                 usingWordlist = true;
@@ -194,15 +194,15 @@
                 const ctxBlock = contextFull ? `\n【情境與#標籤】（請重點優先參考）：${contextFull}` : '';
                 const lyricsBlock = lyricsText ? `\n【歌詞風格參考】：${lyricsText.slice(0, 200)}` : '';
                 const savedBlock = savedWords.length > 0 ? `\n已保留（不可重複）：${savedWords.slice(-30).join('、')}` : '';
-                prompt = `你是歌詞創作助手。以下詞語的聲母（字首）符合要求，請挑選最適合此創作情境的詞語（必須挑滿 24 個，候選詞充足時絕對不可少於 24，少於即視為失敗）：
+                prompt = `你是歌詞創作助手。以下詞語的聲母（字首）符合要求，請挑選最適合此創作情境的詞語（必須挑滿 ${AI_TARGET} 個，候選詞充足時絕對不可少於 ${AI_TARGET}，少於即視為失敗）：
 
                 候選詞：${cumulativeCandidates.join('、')}
                 ${ctxBlock}${lyricsBlock}${savedBlock}
                 直接輸出詞語，頓號「、」分隔，不要說明或編號。`;
             }
 
-            // 候選詞 <24 → 直接全數列出，再由 AI 補足
-            if (usingWordlist && cumulativeCandidates.length > 0 && cumulativeCandidates.length < 24) {
+            // 候選詞不足 AI_TARGET → 直接全數列出，再由 AI 補足
+            if (usingWordlist && cumulativeCandidates.length > 0 && cumulativeCandidates.length < AI_TARGET) {
                 const directWords = [...cumulativeCandidates];
                 directWords.forEach(w => { suggestedPool.add(w); sentCandidatesSet.add(w); });
                 const shownSet = new Set(directWords);
@@ -210,85 +210,32 @@
                     `<div class="ai-word-card" data-word="${w}" onclick="saveWord('${w.replace(/'/g, "\\'")}')">${w}</div>`
                 ).join('') + `<div class="candidate-report">共 ${directWords.length} 個候選詞，已全數列出</div>`;
                 btn.disabled = false; loading.style.display = 'none'; loading.textContent = 'AI 思考中…';
-                if (directWords.length < 24) await generateAIWords(24 - directWords.length, container, shownSet);
+                if (directWords.length < AI_TARGET) await generateAIWords(AI_TARGET - directWords.length, container, shownSet);
                 return;
             }
 
-            // 非詞庫路徑補上保留詞排除 + 不硬湊規則
-            if (!usingWordlist) prompt += savedWordsLine + flexRule;
-
-            const tryList = aiTryList();
-
-            const candidateSet = usingWordlist ? new Set(cumulativeCandidates) : null;
-
-            let succeeded = false, lastErr = null;
-            for (const m of tryList) {
-                try {
-                    loading.textContent = `AI 思考中…（${m.label}）`;
-                    const text = await callLLM(m, prompt);
-                    let words = text.split(/[，,、\n\s]+/).map(w => w.trim()).filter(w =>
-                        w.length >= 2 && w.length <= 8 && (!candidateSet || candidateSet.has(w))
-                    ).slice(0, 24);
-                    if (words.length === 0) throw new Error('empty');
-                    words.forEach(w => { suggestedPool.add(w); sentCandidatesSet.add(w); });
-                    const renderCards = arr => arr.map(w =>
-                        `<div class="ai-word-card" data-word="${w}" onclick="saveWord('${w.replace(/'/g, "\\'")}')">${w}</div>`
-                    ).join('');
-                    container.innerHTML = renderCards(words) +
-                        `<div class="candidate-report">從 ${lastCandidatesTotal} 個候選詞中，挑出 ${words.length} 個</div>`;
-                    succeeded = true;
-
-                    // 不滿 24 → 再丟一輪給 AI 補挑（同候選池，排除已選），不隨機湊數
-                    const isSameCharMode = currentRhymes.length === 1 && filterSameChar;
-                    if (usingWordlist && words.length < 24 && !isSameCharMode && candidateSet) {
-                        const pickedSet = new Set(words);
-                        const remainingPool = [...candidateSet].filter(w =>
-                            !pickedSet.has(w) && !suggestedPool.has(w) && !savedWords.includes(w)
-                        );
-                        if (remainingPool.length > 0) {
-                            const need = 24 - words.length;
-                            const ctxBlock2 = contextFull ? `\n【情境與#標籤】（請重點優先參考）：${contextFull}` : '';
-                            const lyricsBlock2 = lyricsText ? `\n【歌詞風格參考】：${lyricsText.slice(0, 200)}` : '';
-                            const round2Prompt = `你是歌詞創作助手。上一輪挑得不夠，請從以下剩餘候選詞中再挑 ${need} 個最適合此創作情境的詞語（必須挑滿 ${need} 個，少於即視為失敗，不要重複前一輪已選）：
-
-候選詞：${remainingPool.join('、')}
-已選過（不可重複）：${[...pickedSet].join('、')}
-${ctxBlock2}${lyricsBlock2}
-直接輸出詞語，頓號「、」分隔，不要說明或編號。`;
-                            const round2Set = new Set(remainingPool);
-                            try {
-                                loading.textContent = `AI 補挑第二輪…（${m.label}）`;
-                                loading.style.display = 'block';
-                                const text2 = await callLLM(m, round2Prompt);
-                                const more = text2.split(/[，,、\n\s]+/).map(w => w.trim()).filter(w =>
-                                    w.length >= 2 && w.length <= 8 && round2Set.has(w) && !pickedSet.has(w)
-                                ).slice(0, need);
-                                if (more.length > 0) {
-                                    more.forEach(w => { suggestedPool.add(w); sentCandidatesSet.add(w); });
-                                    const report = container.querySelector('.candidate-report');
-                                    const html2 = renderCards(more);
-                                    if (report) {
-                                        report.insertAdjacentHTML('beforebegin', html2);
-                                        report.textContent = `從 ${lastCandidatesTotal} 個候選詞中，挑出 ${words.length + more.length} 個`;
-                                    } else {
-                                        container.insertAdjacentHTML('beforeend', html2);
-                                    }
-                                }
-                            } catch (e) { lhWarn('AI 第二輪補挑失敗', e); /* 第二輪失敗就算了，第一輪已顯示 */ }
-                        }
-                    }
-                    break;
-                } catch (e) {
-                    lhWarn('AI 模型失敗，換下一個', e);
-                    lastErr = e;
-                }
+            // 候選 >= AI_TARGET：只呼叫一次 AI 排序，數量由程式補滿（AI 亂回、少回、失敗都一樣給滿）
+            const m = aiTryList()[0];
+            let picks = [], aiErr = null;
+            try {
+                loading.textContent = `AI 思考中…（${m.label}）`;
+                picks = parseAiWords(await callLLM(m, prompt));
+            } catch (e) {
+                lhWarn('AI 排序失敗', e);
+                aiErr = e;
             }
-            if (!succeeded) {
+            if (aiErr) {
                 // 完整顯示 Worker 給的白話原因；用 textContent 塞，不拼 HTML 字串
                 const failSpan = document.createElement('span');
                 failSpan.style.cssText = 'color:#e53e3e;font-size:0.85rem;';
-                failSpan.textContent = lastErr?.plain ? lastErr.message : AI_FALLBACK_MSG;
+                failSpan.textContent = aiErr.plain ? aiErr.message : AI_FALLBACK_MSG;
                 container.replaceChildren(failSpan);
+            } else {
+                const { words } = fillToTarget(cumulativeCandidates, picks, AI_TARGET, w => wordPriorityMap.get(w) ?? 0);
+                words.forEach(w => { suggestedPool.add(w); sentCandidatesSet.add(w); });
+                container.innerHTML = words.map(w =>
+                    `<div class="ai-word-card" data-word="${w}" onclick="saveWord('${w.replace(/'/g, "\\'")}')">${w}</div>`
+                ).join('') + `<div class="candidate-report">從 ${lastCandidatesTotal} 個候選詞中，挑出 ${words.length} 個</div>`;
             }
             btn.disabled = false;
             loading.style.display = 'none';
