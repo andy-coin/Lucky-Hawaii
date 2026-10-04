@@ -52,7 +52,7 @@
                     st.put({ k: 'ver', v: ver });
                 } catch (e) {
                     // 同步例外時交易可能已排進刪除與部分寫入，不 abort 就會被提交成半套
-                    try { tx && tx.abort(); } catch (_) {}
+                    try { tx && tx.abort(); } catch (e2) { lhWarn('詞庫快取交易中止失敗', e2); }
                     fin(false, e);
                 }
             });
