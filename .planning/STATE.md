@@ -4,16 +4,16 @@ milestone: v0.96
 current_phase: 06
 current_phase_name: Lexicon Packs 台灣詞庫包
 status: executing
-stopped_at: Completed 06-03-PLAN.md
-last_updated: "2026-10-04T17:42:04.530Z"
+stopped_at: Completed 06-04-PLAN.md
+last_updated: "2026-10-04T18:00:41.759Z"
 last_activity: 2026-10-04
 last_activity_desc: Phase 06 execution started
-state_head: 7290a4a08e3dc0afdc37e4c8c1bcf6d3be6a5bd2
+state_head: f387026b1fe99c943e985386c92fcad532adfb51
 progress:
   total_phases: 12
   completed_phases: 2
   total_plans: 41
-  completed_plans: 36
+  completed_plans: 37
 ---
 
 # Project State
@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-10-03)
 ## Current Position
 
 Phase: 06 (Lexicon Packs 台灣詞庫包) — EXECUTING
-Plan: 4 of 8
+Plan: 5 of 8
 Status: Ready to execute
 Last activity: 2026-10-04 — Phase 06 execution started
 
@@ -93,6 +93,7 @@ Progress: [██░░░░░░░░] 17%
 | Phase 06 P01 | 20 min | 3 tasks | 30 files |
 | Phase 06 P02 | 27min | 2 tasks | 9 files |
 | Phase 06 P03 | 70min | 3 tasks | 8 files |
+| Phase 06 P04 | 35min | 2 tasks | 24 files |
 
 ## Accumulated Context
 
@@ -146,6 +147,7 @@ Recent decisions affecting current work:
 - [Phase 06]: Keep at most 2 cached packs (active + most recently used other); eviction in the swap transaction by range delete, never clear()
 - [Phase 06]: Overrides added-word de-dup by word; removed/hidden/fixed apply to every pack
 - [Phase 06]: About NOTICE re-read with no-cache on every open, textContent only
+- [Phase 06]: 06-04: notice_extra config field prints a 補充說明 line in NOTICE (absent for chewing, its NOTICE unchanged); vanguard-tw uses only the two non-MOE phrase files
 
 ### Pending Todos
 
@@ -184,6 +186,6 @@ Items acknowledged and deferred at milestone close, most recent first:
 
 ## Session Continuity
 
-Last session: 2026-10-04T17:42:04.426Z
-Stopped at: Completed 06-03-PLAN.md
+Last session: 2026-10-04T18:00:41.664Z
+Stopped at: Completed 06-04-PLAN.md
 Resume file: None
