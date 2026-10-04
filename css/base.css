@@ -845,7 +845,7 @@
            電腦滑鼠（≥ 901 且 fine pointer）不在這個條件裡，維持原本緊湊尺寸。 ===== */
         @media (pointer: coarse), (max-width: 900px) {
             .mode-button, .batch-btn, .settings-trigger, .feedback-btn, .save-load-btn { min-height: var(--hit); }
-            .save-load-btn { min-width: var(--hit); }
+            .save-load-btn, .feedback-btn { min-width: var(--hit); }
             .poly-chip { min-height: var(--hit); display: inline-flex; align-items: center; }
             .char-card { min-height: var(--hit); }
             /* 勾選框：整列 44 高，勾選框本身視覺 20×20 */

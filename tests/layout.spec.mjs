@@ -1566,6 +1566,20 @@ test('觸控：相鄰按鈕的點擊範圍重疊不超過 4px', async ({ browser
     expect([...new Set(bad)], '相鄰控制項的點擊範圍重疊超過 4px').toEqual([]);
 });
 
+test('觸控：橫放平板與觸控電腦（寬度超過 900）回報、存檔鈕也夠大', async ({ browser }) => {
+    // 寬度 > 900 但是觸控：標題區右下的存檔／讀檔鈕與頁尾的「回報」都還在，也要 ≥ 44×44
+    for (const [name, device] of [['橫放平板 1180×820', DEVICES.tabletLandscape], ['觸控電腦 1440×900', TOUCH_DESKTOP]]) {
+        const { context, page } = await bootTouch(browser, device);
+        try {
+            await waitStill(page);
+            const r = await auditTouchTargets(page, { mustSee: ['button.feedback-btn', 'button.save-load-btn'] });
+            expect(r.missing, `${name}：這些控制項沒被掃到（掃到 ${[...new Set(r.seen)]}）`).toEqual([]);
+            expect(r.failures, `${name}：這些控制項點擊範圍不到 44×44`).toEqual([]);
+            expect(r.overlaps, `${name}：相鄰控制項重疊超過 4px`).toEqual([]);
+        } finally { await context.close(); }
+    }
+});
+
 test('觸控：桌機滑鼠維持原本大小', async ({ browser }) => {
     const { context, page } = await bootPage(browser, { device: DEVICES.desktop });
     try {
