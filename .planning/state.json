@@ -31,7 +31,7 @@
     {
       "number": "6",
       "name": "Lexicon Packs 台灣詞庫包",
-      "status": "pending"
+      "status": "in_progress"
     },
     {
       "number": "7",
@@ -69,5 +69,5 @@
     "label": "Advance to the next step",
     "reason": "Phase 06 of 12 · executing"
   },
-  "updated_at": "2026-10-04T16:46:42.432Z"
+  "updated_at": "2026-10-04T17:07:47.618Z"
 }
