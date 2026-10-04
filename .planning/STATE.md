@@ -4,16 +4,16 @@ milestone: v0.96
 current_phase: 06
 current_phase_name: Lexicon Packs 台灣詞庫包
 status: executing
-stopped_at: Completed 06-02-PLAN.md
-last_updated: "2026-10-04T17:07:48.971Z"
+stopped_at: Completed 06-03-PLAN.md
+last_updated: "2026-10-04T17:42:04.530Z"
 last_activity: 2026-10-04
 last_activity_desc: Phase 06 execution started
-state_head: 129876dc48065fb1492f1bda2340d4abd2fa44a2
+state_head: 7290a4a08e3dc0afdc37e4c8c1bcf6d3be6a5bd2
 progress:
   total_phases: 12
   completed_phases: 2
   total_plans: 41
-  completed_plans: 35
+  completed_plans: 36
 ---
 
 # Project State
@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-10-03)
 ## Current Position
 
 Phase: 06 (Lexicon Packs 台灣詞庫包) — EXECUTING
-Plan: 3 of 8
+Plan: 4 of 8
 Status: Ready to execute
 Last activity: 2026-10-04 — Phase 06 execution started
 
@@ -92,6 +92,7 @@ Progress: [██░░░░░░░░] 17%
 | Phase 05 P11 | 75 min | 2 tasks | 22 files |
 | Phase 06 P01 | 20 min | 3 tasks | 30 files |
 | Phase 06 P02 | 27min | 2 tasks | 9 files |
+| Phase 06 P03 | 70min | 3 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -142,6 +143,9 @@ Recent decisions affecting current work:
 - [Phase 05]: 05-10: fixed SLICE 64 (adaptive per-frame budget measured and dropped); perf absolute thresholds scaled by machine speedFactor 7.35 stored in perf-baseline.json
 - [Phase 05]: 05-11: screenshot baselines are per platform (-linux committed from the cloud container); Mac needs one npm run visual:update (D-11); missing-baseline guard lives in tests/visual.spec.mjs
 - [Phase 06]: 06-02: failed pack switch rolls back stored value and active pack; legacyCache honoured for v096 only; stale loads guarded by _wlGen (incl. overrides mutation)
+- [Phase 06]: Keep at most 2 cached packs (active + most recently used other); eviction in the swap transaction by range delete, never clear()
+- [Phase 06]: Overrides added-word de-dup by word; removed/hidden/fixed apply to every pack
+- [Phase 06]: About NOTICE re-read with no-cache on every open, textContent only
 
 ### Pending Todos
 
@@ -180,6 +184,6 @@ Items acknowledged and deferred at milestone close, most recent first:
 
 ## Session Continuity
 
-Last session: 2026-10-04T17:07:48.873Z
-Stopped at: Completed 06-02-PLAN.md
+Last session: 2026-10-04T17:42:04.426Z
+Stopped at: Completed 06-03-PLAN.md
 Resume file: None

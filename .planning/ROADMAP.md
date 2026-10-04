@@ -226,7 +226,7 @@ Plans:
   5. 產出刪除報告：每個被刪的詞都有原因，附原因統計與樣本；被誤刪的詞可透過回報流程加回〔自動〕
 
 **Human check**: 提供灰色地帶判斷用的免費 AI API key（若 Worker 不代理）；Andy 抽查刪除報告樣本；Andy 切換不同詞庫包實際寫詞比較手感（供 Phase 12 決定）
-**Plans**: 2/8 plans executed
+**Plans**: 3/8 plans executed
 
 Plans:
 **Wave 1**
@@ -236,7 +236,7 @@ Plans:
 - [x] 06-02-PLAN.md — Tracer（網站）：依清單載入使用者選的包（每包自己的版本與快取鍵）、偏好設定「詞庫包」清單、切換後重跑搜尋與 AI 建議、連點不混包；版號 0.96.8
 
 **Wave 3** *(blocked on Wave 2 completion)*
-- [ ] 06-03-PLAN.md — 快取只留目前＋上一個包、新版只換該包快取、修正檔加回不重複且每包生效、「關於」顯示目前詞庫來源
+- [x] 06-03-PLAN.md — 快取只留目前＋上一個包、新版只換該包快取、修正檔加回不重複且每包生效、「關於」顯示目前詞庫來源
 
 **Wave 4** *(blocked on Wave 3 completion)*
 - [ ] 06-04-PLAN.md — 小麥注音詞庫、唯音台灣詞庫（精簡版，不含教育部部分）兩個包＋各自授權全文；網站列出四個包
@@ -360,7 +360,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 3. Split index.html 拆檔 | 5/5 | Complete    | 2026-10-04 |
 | 4. AI Fill & Validate AI 挑詞填滿與造詞驗證 | 5/5 | In Progress|  |
 | 5. Multi-Device Layout 多裝置版面與流暢度 | 11/11 | In Progress|  |
-| 6. Lexicon Packs 台灣詞庫包 | 2/8 | In Progress|  |
+| 6. Lexicon Packs 台灣詞庫包 | 3/8 | In Progress|  |
 | 7. Feedback & Correction Layer 回報與修正層 | 0/TBD | Not started | - |
 | 8. Songs & Editor Model 歌曲管理與資料模型 | 0/TBD | Not started | - |
 | 9. Section Modules 段落模組 | 0/TBD | Not started | - |
