@@ -224,7 +224,8 @@ test('詞庫包：偏好設定列出四個詞庫包（真正的清單），v0.96
             expect(metas[i], p.id).toBe(`${p.entries.toLocaleString('zh-TW')} 詞・${p.description}`);
         });
         expect(metas[0]).toContain('233,713 詞');
-        expect(metas[1]).toContain('128,973 詞');
+        expect(manifest.packs[1].entries, '新酷音詞數落在合理範圍').toBeGreaterThan(100_000);
+        expect(manifest.packs[1].entries).toBeLessThan(140_000);
         await expect(radio(page, 'v096')).toBeChecked();
         for (const id of ['chewing', 'mcbopomofo', 'vanguard-tw']) await expect(radio(page, id)).not.toBeChecked();
         expect(realErrors(errors)).toEqual([]);

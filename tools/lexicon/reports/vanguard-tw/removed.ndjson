@@ -1,12 +1,156 @@
 {"w":"エロ禁止","z":"ㄝ ㄌㄛ ㄐㄧㄣˋ ㄓˇ","p":4,"rule":"R0-nonhan","reason":"含非漢字字元","src":["vanguard-tw"],"n":1}
+{"w":"㗝呸","z":"ㄍㄠ ㄆㄟ","p":1,"rule":"R2-rare-char","reason":"含罕用字「㗝」（不在教育部常用／次常用字與 Big5 內）","src":["vanguard-tw"],"n":1}
+{"w":"㗝呸店","z":"ㄍㄠ ㄆㄟ ㄉㄧㄢˋ","p":1,"rule":"R2-rare-char","reason":"含罕用字「㗝」（不在教育部常用／次常用字與 Big5 內）","src":["vanguard-tw"],"n":1}
+{"w":"㞎㞎","z":"ㄅㄚˇ ㄅㄚ","p":4,"rule":"R2-rare-char","reason":"含罕用字「㞎」（不在教育部常用／次常用字與 Big5 內）","src":["vanguard-tw"],"n":1}
+{"w":"㞞貨","z":"ㄙㄨㄥˊ ㄏㄨㄛˋ","p":4,"rule":"R2-rare-char","reason":"含罕用字「㞞」（不在教育部常用／次常用字與 Big5 內）","src":["vanguard-tw"],"n":1}
+{"w":"㨃人","z":"ㄉㄨㄟˇ ㄖㄣˊ","p":4,"rule":"R2-rare-char","reason":"含罕用字「㨃」（不在教育部常用／次常用字與 Big5 內）","src":["vanguard-tw"],"n":1}
+{"w":"㨃死","z":"ㄉㄨㄟˇ ㄙˇ","p":4,"rule":"R2-rare-char","reason":"含罕用字「㨃」（不在教育部常用／次常用字與 Big5 內）","src":["vanguard-tw"],"n":1}
+{"w":"㨃誰","z":"ㄉㄨㄟˇ ㄕㄟˊ","p":4,"rule":"R2-rare-char","reason":"含罕用字「㨃」（不在教育部常用／次常用字與 Big5 內）","src":["vanguard-tw"],"n":1}
 {"w":"一四〇","z":"ㄧ ㄙˋ ㄌㄧㄥˊ","p":0,"rule":"R0-nonhan","reason":"含非漢字字元","src":["vanguard-tw"],"n":1}
+{"w":"丙肝","z":"ㄅㄧㄥˇ ㄍㄢ","p":4,"rule":"R3-china-term","reason":"中國用語（台灣多作「C肝」）","src":["vanguard-tw"],"n":1}
+{"w":"乙肝","z":"ㄧˇ ㄍㄢ","p":4,"rule":"R3-china-term","reason":"中國用語（台灣多作「B肝」）","src":["vanguard-tw"],"n":1}
 {"w":"二〇二","z":"ㄦˋ ㄌㄧㄥˊ ㄦˋ","p":0,"rule":"R0-nonhan","reason":"含非漢字字元","src":["vanguard-tw"],"n":1}
-{"w":"倒三角形","z":"ㄉㄠˋ ㄙㄢ ㄐㄧㄠˇ","p":0,"rule":"R0-syllables","reason":"注音音節數與字數不符","src":["vanguard-tw"],"n":1}
+{"w":"信噪比","z":"ㄒㄧㄣˋ ㄗㄠˋ ㄅㄧˇ","p":4,"rule":"R3-china-term","reason":"中國用語（台灣多作「訊雜比」）","src":["vanguard-tw"],"n":1}
+{"w":"倒三角形","z":"ㄉㄠˋ ㄙㄢ ㄐㄧㄠˇ","p":0,"rule":"R0-syllables","reason":"注音音節數與字數不符","src":["mcbopomofo","vanguard-tw"],"n":2}
+{"w":"借記卡","z":"ㄐㄧㄝˋ ㄐㄧˋ ㄎㄚˇ","p":19,"rule":"R3-china-term","reason":"中國用語（台灣多作「簽帳金融卡」）","src":["vanguard-tw"],"n":1}
+{"w":"傻狍子","z":"ㄕㄚˇ ㄆㄠˊ ㄗ˙","p":4,"rule":"R2-rare-char","reason":"含罕用字「狍」（不在教育部常用／次常用字與 Big5 內）","src":["vanguard-tw"],"n":1}
+{"w":"傻閪","z":"ㄕㄚˇ ㄏㄞ","p":0,"rule":"R2-rare-char","reason":"含罕用字「閪」（不在教育部常用／次常用字與 Big5 內）","src":["vanguard-tw"],"n":1}
+{"w":"光驅","z":"ㄍㄨㄤ ㄑㄩ","p":4,"rule":"R3-china-term","reason":"中國用語（台灣多作「光碟機」）","src":["vanguard-tw"],"n":1}
+{"w":"內核","z":"ㄋㄟˋ ㄏㄜˊ","p":1,"rule":"R3-china-term","reason":"中國用語（台灣多作「核心」）","src":["mcbopomofo","vanguard-tw"],"n":2}
+{"w":"冴島大和","z":"ㄏㄨˋ ㄉㄠˇ ㄉㄚˋ ㄏㄜˊ","p":4,"rule":"R2-rare-char","reason":"含罕用字「冴」（不在教育部常用／次常用字與 Big5 內）","src":["vanguard-tw"],"n":1}
+{"w":"出租車","z":"ㄔㄨ ㄗㄨ ㄔㄜ","p":4,"rule":"R3-china-term","reason":"中國用語（台灣多作「計程車」）","src":["vanguard-tw"],"n":1}
+{"w":"分解酶","z":"ㄈㄣ ㄐㄧㄝˇ ㄇㄟˊ","p":6,"rule":"R2-rare-char","reason":"含罕用字「酶」（不在教育部常用／次常用字與 Big5 內）","src":["mcbopomofo","vanguard-tw"],"n":2}
+{"w":"分辨率","z":"ㄈㄣ ㄅㄧㄢˋ ㄌㄩˋ","p":1,"rule":"R3-china-term","reason":"中國用語（台灣多作「解析度」）","src":["vanguard-tw"],"n":1}
+{"w":"剪貼板","z":"ㄐㄧㄢˇ ㄊㄧㄝ ㄅㄢˇ","p":1,"rule":"R3-china-term","reason":"中國用語（台灣多作「剪貼簿」）","src":["vanguard-tw"],"n":1}
+{"w":"劏房","z":"ㄊㄤ ㄈㄤˊ","p":4,"rule":"R2-rare-char","reason":"含罕用字「劏」（不在教育部常用／次常用字與 Big5 內）","src":["vanguard-tw"],"n":1}
+{"w":"勳伯格","z":"ㄒㄩㄣ ㄅㄛˊ ㄍㄜˊ","p":1,"rule":"R3-china-term","reason":"中國用語（台灣多作「荀白克」）","src":["vanguard-tw"],"n":1}
+{"w":"半角","z":"ㄅㄢˋ ㄐㄧㄠˇ","p":4,"rule":"R3-china-term","reason":"中國用語（台灣多作「半形」）","src":["vanguard-tw"],"n":1}
+{"w":"卸載","z":"ㄒㄧㄝˋ ㄗㄞˇ","p":9,"rule":"R3-china-term","reason":"中國用語（台灣多作「解除安裝」）","src":["chewing","mcbopomofo","vanguard-tw"],"n":3}
+{"w":"句柄","z":"ㄐㄩˋ ㄅㄧㄥˇ","p":19,"rule":"R3-china-term","reason":"中國用語（台灣多作「控制代碼」）","src":["vanguard-tw"],"n":1}
+{"w":"吊鑔","z":"ㄉㄧㄠˋ ㄔㄚˇ","p":4,"rule":"R2-rare-char","reason":"含罕用字「鑔」（不在教育部常用／次常用字與 Big5 內）","src":["vanguard-tw"],"n":1}
+{"w":"吔屎","z":"ㄧㄚ ㄒㄧˊ","p":19,"rule":"R2-rare-char","reason":"含罕用字「吔」（不在教育部常用／次常用字與 Big5 內）","src":["vanguard-tw"],"n":1}
+{"w":"吡哌酸","z":"ㄅㄧˇ ㄆㄞˋ ㄙㄨㄢ","p":4,"rule":"R2-rare-char","reason":"含罕用字「吡」（不在教育部常用／次常用字與 Big5 內）","src":["vanguard-tw"],"n":1}
+{"w":"吡啶基","z":"ㄅㄧˇ ㄉㄧㄥˋ ㄐㄧ","p":0,"rule":"R2-rare-char","reason":"含罕用字「吡」（不在教育部常用／次常用字與 Big5 內）","src":["mcbopomofo","vanguard-tw"],"n":2}
+{"w":"和菓子","z":"ㄏㄜˊ ㄍㄨㄛˇ ㄗ˙","p":0,"rule":"R2-rare-char","reason":"含罕用字「菓」（不在教育部常用／次常用字與 Big5 內）","src":["mcbopomofo","vanguard-tw"],"n":2}
 {"w":"哆啦Ａ夢","z":"ㄉㄨㄛ ㄌㄚ ㄟ ㄇㄥˋ","p":4,"rule":"R0-nonhan","reason":"含非漢字字元","src":["vanguard-tw"],"n":1}
+{"w":"嗎啉胍","z":"ㄇㄚ ㄌㄧㄣˊ ㄍㄨㄚ","p":4,"rule":"R2-rare-char","reason":"含罕用字「啉」（不在教育部常用／次常用字與 Big5 內）","src":["vanguard-tw"],"n":1}
+{"w":"嘚瑟","z":"ㄉㄜˋ ㄙㄜˋ","p":114,"rule":"R2-rare-char","reason":"含罕用字「嘚」（不在教育部常用／次常用字與 Big5 內）","src":["vanguard-tw"],"n":1}
+{"w":"噁瘮","z":"ㄜˇ ㄕㄣˋ","p":114,"rule":"R2-rare-char","reason":"含罕用字「瘮」（不在教育部常用／次常用字與 Big5 內）","src":["vanguard-tw"],"n":1}
+{"w":"噁瘮人","z":"ㄜˇ ㄕㄣˋ ㄖㄣˊ","p":114,"rule":"R2-rare-char","reason":"含罕用字「瘮」（不在教育部常用／次常用字與 Big5 內）","src":["vanguard-tw"],"n":1}
+{"w":"回㨃","z":"ㄏㄨㄟˊ ㄉㄨㄟˇ","p":4,"rule":"R2-rare-char","reason":"含罕用字「㨃」（不在教育部常用／次常用字與 Big5 內）","src":["vanguard-tw"],"n":1}
+{"w":"圖標","z":"ㄊㄨˊ ㄅㄧㄠ","p":4,"rule":"R3-china-term","reason":"中國用語（台灣多作「圖示」）","src":["vanguard-tw"],"n":1}
+{"w":"坔埔村","z":"ㄌㄢˋ ㄆㄨˇ ㄘㄨㄣ","p":4,"rule":"R2-rare-char","reason":"含罕用字「坔」（不在教育部常用／次常用字與 Big5 內）","src":["mcbopomofo","vanguard-tw"],"n":2}
+{"w":"多動症","z":"ㄉㄨㄛ ㄉㄨㄥˋ ㄓㄥˋ","p":4,"rule":"R3-china-term","reason":"中國用語（台灣多作「過動症」）","src":["vanguard-tw"],"n":1}
+{"w":"多線程","z":"ㄉㄨㄛ ㄒㄧㄢˋ ㄔㄥˊ","p":19,"rule":"R3-china-term","reason":"中國用語（台灣多作「多執行緒」）","src":["vanguard-tw"],"n":1}
+{"w":"奥利給","z":"ㄠˋ ㄌㄧˋ ㄍㄟˇ","p":4,"rule":"R1-simplified","reason":"含簡體字「奥」","src":["vanguard-tw"],"n":1}
+{"w":"字庫","z":"ㄗˋ ㄎㄨˋ","p":92,"rule":"R3-china-term","reason":"中國用語（台灣多作「字型檔」）","src":["mcbopomofo","vanguard-tw"],"n":2}
+{"w":"寄存器","z":"ㄐㄧˋ ㄘㄨㄣˊ ㄑㄧˋ","p":0,"rule":"R3-china-term","reason":"中國用語（台灣多作「暫存器」）","src":["chewing","mcbopomofo","vanguard-tw"],"n":3}
+{"w":"密鑰","z":"ㄇㄧˋ ㄧㄠˋ","p":11,"rule":"R3-china-term","reason":"中國用語（台灣多作「金鑰」）","src":["mcbopomofo","vanguard-tw"],"n":2}
+{"w":"對話框","z":"ㄉㄨㄟˋ ㄏㄨㄚˋ ㄎㄨㄤ","p":0,"rule":"R3-china-term","reason":"中國用語（台灣多作「對話方塊」）","src":["mcbopomofo","vanguard-tw"],"n":2}
+{"w":"局域網","z":"ㄐㄩˊ ㄩˋ ㄨㄤˇ","p":4,"rule":"R3-china-term","reason":"中國用語（台灣多作「區域網」）","src":["vanguard-tw"],"n":1}
+{"w":"屙㞎㞎","z":"ㄜ ㄅㄚˇ ㄅㄚ","p":4,"rule":"R2-rare-char","reason":"含罕用字「㞎」（不在教育部常用／次常用字與 Big5 內）","src":["vanguard-tw"],"n":1}
+{"w":"巴布亞新幾內亞","z":"ㄅㄚ ㄅㄨˋ ㄧㄚˇ ㄒㄧㄣ ㄐㄧˇ ㄋㄟˋ ㄧㄚˇ","p":4,"rule":"R3-china-term","reason":"中國用語（台灣多作「巴布亞紐幾內亞」）","src":["mcbopomofo","vanguard-tw"],"n":2}
+{"w":"幾率","z":"ㄐㄧˇ ㄌㄩˋ","p":4,"rule":"R3-china-term","reason":"中國用語（台灣多作「機率」）","src":["chewing","vanguard-tw"],"n":2}
+{"w":"往死裡㨃","z":"ㄨㄤˇ ㄙˇ ㄌㄧˇ ㄉㄨㄟˇ","p":4,"rule":"R2-rare-char","reason":"含罕用字「㨃」（不在教育部常用／次常用字與 Big5 內）","src":["vanguard-tw"],"n":1}
+{"w":"愺性","z":"ㄘㄠˋ ㄒㄧㄥˋ","p":114,"rule":"R2-rare-char","reason":"含罕用字「愺」（不在教育部常用／次常用字與 Big5 內）","src":["vanguard-tw"],"n":1}
+{"w":"我愺","z":"ㄨㄛ ㄘㄠ","p":114,"rule":"R2-rare-char","reason":"含罕用字「愺」（不在教育部常用／次常用字與 Big5 內）","src":["vanguard-tw"],"n":1}
+{"w":"戳㑚","z":"ㄘㄜ ㄋㄚ","p":114,"rule":"R2-rare-char","reason":"含罕用字「㑚」（不在教育部常用／次常用字與 Big5 內）","src":["vanguard-tw"],"n":1}
+{"w":"打印機","z":"ㄉㄚˇ ㄧㄣˋ ㄐㄧ","p":19,"rule":"R3-china-term","reason":"中國用語（台灣多作「印表機」）","src":["chewing","vanguard-tw"],"n":2}
+{"w":"撲熱息痛","z":"ㄆㄨ ㄖㄜˋ ㄒㄧ ㄊㄨㄥˋ","p":4,"rule":"R3-china-term","reason":"中國用語（台灣多作「對乙醯胺基酚」）","src":["vanguard-tw"],"n":1}
 {"w":"擸𢶍","z":"ㄌㄜˋ ㄙㄜˋ #MACOS","p":114,"rule":"R0-nonbmp","reason":"含擴充區字元（網頁算不出正確字數）","src":["vanguard-tw"],"n":1}
+{"w":"數組","z":"ㄕㄨˋ ㄗㄨˇ","p":19,"rule":"R3-china-term","reason":"中國用語（台灣多作「陣列」）","src":["vanguard-tw"],"n":1}
+{"w":"李世乭","z":"ㄌㄧˇ ㄕˋ ㄕˊ","p":0,"rule":"R2-rare-char","reason":"含罕用字「乭」（不在教育部常用／次常用字與 Big5 內）","src":["mcbopomofo","vanguard-tw"],"n":2}
+{"w":"栃木","z":"ㄌㄧˋ ㄇㄨˋ","p":5,"rule":"R2-rare-char","reason":"含罕用字「栃」（不在教育部常用／次常用字與 Big5 內）","src":["mcbopomofo","vanguard-tw"],"n":2}
+{"w":"栃木縣","z":"ㄌㄧˋ ㄇㄨˋ ㄒㄧㄢˋ","p":10,"rule":"R2-rare-char","reason":"含罕用字「栃」（不在教育部常用／次常用字與 Big5 內）","src":["mcbopomofo","vanguard-tw"],"n":2}
+{"w":"梶浦由記","z":"ㄨㄟˇ ㄆㄨˇ ㄧㄡˊ ㄐㄧˋ","p":1,"rule":"R2-rare-char","reason":"含罕用字「梶」（不在教育部常用／次常用字與 Big5 內）","src":["vanguard-tw"],"n":1}
+{"w":"橫浜","z":"ㄏㄥˋ ㄅㄤ","p":4,"rule":"R2-rare-char","reason":"含罕用字「浜」（不在教育部常用／次常用字與 Big5 內）","src":["vanguard-tw"],"n":1}
+{"w":"正則表達式","z":"ㄓㄥˋ ㄗㄜˊ ㄅㄧㄠˇ ㄉㄚˊ ㄕˋ","p":1,"rule":"R3-china-term","reason":"中國用語（台灣多作「正規表示式」）","src":["mcbopomofo","vanguard-tw"],"n":2}
+{"w":"死機","z":"ㄙˇ ㄐㄧ","p":4,"rule":"R3-china-term","reason":"中國用語（台灣多作「宕機」）","src":["vanguard-tw"],"n":1}
+{"w":"殺毒","z":"ㄕㄚ ㄉㄨˊ","p":19,"rule":"R3-china-term","reason":"中國用語（台灣多作「防毒」）","src":["vanguard-tw"],"n":1}
+{"w":"氧化酶","z":"ㄧㄤˇ ㄏㄨㄚˋ ㄇㄟˊ","p":5,"rule":"R2-rare-char","reason":"含罕用字「酶」（不在教育部常用／次常用字與 Big5 內）","src":["mcbopomofo","vanguard-tw"],"n":2}
+{"w":"氯苯甲嗪","z":"ㄌㄩˋ ㄅㄣˇ ㄐㄧㄚˇ ㄑㄧㄣˊ","p":4,"rule":"R2-rare-char","reason":"含罕用字「嗪」（不在教育部常用／次常用字與 Big5 內）","src":["vanguard-tw"],"n":1}
+{"w":"水解酶","z":"ㄕㄨㄟˇ ㄐㄧㄝˇ ㄇㄟˊ","p":2,"rule":"R2-rare-char","reason":"含罕用字「酶」（不在教育部常用／次常用字與 Big5 內）","src":["mcbopomofo","vanguard-tw"],"n":2}
+{"w":"氹仔","z":"ㄉㄤˋ ㄗㄞˇ","p":19,"rule":"R2-rare-char","reason":"含罕用字「氹」（不在教育部常用／次常用字與 Big5 內）","src":["vanguard-tw"],"n":1}
+{"w":"氹仔島","z":"ㄉㄤˋ ㄗㄞˇ ㄉㄠˇ","p":19,"rule":"R2-rare-char","reason":"含罕用字「氹」（不在教育部常用／次常用字與 Big5 內）","src":["vanguard-tw"],"n":1}
 {"w":"泰ㄖ天","z":"ㄊㄞˋ ㄖ ㄊㄧㄢ","p":19,"rule":"R0-nonhan","reason":"含非漢字字元","src":["vanguard-tw"],"n":1}
+{"w":"洋菓子","z":"ㄧㄤˊ ㄍㄨㄛˇ ㄗ˙","p":0,"rule":"R2-rare-char","reason":"含罕用字「菓」（不在教育部常用／次常用字與 Big5 內）","src":["mcbopomofo","vanguard-tw"],"n":2}
+{"w":"津巴布韋","z":"ㄐㄧㄣ ㄅㄚ ㄅㄨˋ ㄨㄟˊ","p":4,"rule":"R3-china-term","reason":"中國用語（台灣多作「辛巴威」）","src":["chewing","vanguard-tw"],"n":2}
+{"w":"浜咲","z":"ㄅㄤ ㄒㄧㄠˋ","p":1,"rule":"R2-rare-char","reason":"含罕用字「浜」（不在教育部常用／次常用字與 Big5 內）","src":["vanguard-tw"],"n":1}
+{"w":"深水埗","z":"ㄕㄣ ㄕㄨㄟˇ ㄅㄨˋ","p":32,"rule":"R2-rare-char","reason":"含罕用字「埗」（不在教育部常用／次常用字與 Big5 內）","src":["vanguard-tw"],"n":1}
+{"w":"源代碼","z":"ㄩㄢˊ ㄉㄞˋ ㄇㄚˇ","p":4,"rule":"R3-china-term","reason":"中國用語（台灣多作「原始碼」）","src":["vanguard-tw"],"n":1}
+{"w":"溶菌酶","z":"ㄖㄨㄥˊ ㄐㄩㄣ ㄇㄟˊ","p":0,"rule":"R2-rare-char","reason":"含罕用字「酶」（不在教育部常用／次常用字與 Big5 內）","src":["mcbopomofo","vanguard-tw"],"n":2}
+{"w":"溶酶體","z":"ㄖㄨㄥˊ ㄇㄟˊ ㄊㄧˇ","p":0,"rule":"R2-rare-char","reason":"含罕用字「酶」（不在教育部常用／次常用字與 Big5 內）","src":["mcbopomofo","vanguard-tw"],"n":2}
+{"w":"滾動條","z":"ㄍㄨㄣˇ ㄉㄨㄥˋ ㄊㄧㄠˊ","p":19,"rule":"R3-china-term","reason":"中國用語（台灣多作「捲軸」）","src":["vanguard-tw"],"n":1}
+{"w":"澱粉酶","z":"ㄉㄧㄢˋ ㄈㄣˇ ㄇㄟˊ","p":2,"rule":"R2-rare-char","reason":"含罕用字「酶」（不在教育部常用／次常用字與 Big5 內）","src":["mcbopomofo","vanguard-tw"],"n":2}
+{"w":"犯㞞","z":"ㄈㄢˋ ㄙㄨㄥˊ","p":4,"rule":"R2-rare-char","reason":"含罕用字「㞞」（不在教育部常用／次常用字與 Big5 內）","src":["vanguard-tw"],"n":1}
+{"w":"狍子","z":"ㄆㄠˊ ㄗ˙","p":4,"rule":"R2-rare-char","reason":"含罕用字「狍」（不在教育部常用／次常用字與 Big5 內）","src":["vanguard-tw"],"n":1}
+{"w":"狐獴","z":"ㄏㄨˊ ㄇㄥˇ","p":0,"rule":"R2-rare-char","reason":"含罕用字「獴」（不在教育部常用／次常用字與 Big5 內）","src":["mcbopomofo","vanguard-tw"],"n":2}
+{"w":"甘氨酸","z":"ㄍㄢ ㄢ ㄙㄨㄢ","p":40,"rule":"R3-china-term","reason":"中國用語（台灣多作「甘胺酸」）","src":["vanguard-tw"],"n":1}
+{"w":"産業省","z":"ㄔㄢˇ ㄧㄝˋ ㄕㄥˇ","p":1,"rule":"R2-rare-char","reason":"含罕用字「産」（不在教育部常用／次常用字與 Big5 內）","src":["vanguard-tw"],"n":1}
+{"w":"甲肝","z":"ㄐㄧㄚˇ ㄍㄢ","p":4,"rule":"R3-china-term","reason":"中國用語（台灣多作「A肝」）","src":["vanguard-tw"],"n":1}
+{"w":"異步","z":"ㄧˋ ㄅㄨˋ","p":4,"rule":"R3-china-term","reason":"中國用語（台灣多作「非同步」）","src":["chewing","vanguard-tw"],"n":2}
+{"w":"瘮人","z":"ㄕㄣˋ ㄖㄣˊ","p":114,"rule":"R2-rare-char","reason":"含罕用字「瘮」（不在教育部常用／次常用字與 Big5 內）","src":["vanguard-tw"],"n":1}
+{"w":"瘮人蛋","z":"ㄕㄣˋ ㄖㄣˊ ㄉㄢˋ","p":114,"rule":"R2-rare-char","reason":"含罕用字「瘮」（不在教育部常用／次常用字與 Big5 內）","src":["vanguard-tw"],"n":1}
+{"w":"相冊","z":"ㄒㄧㄤˋ ㄘㄜˋ","p":4,"rule":"R3-china-term","reason":"中國用語（台灣多作「相簿」）","src":["vanguard-tw"],"n":1}
+{"w":"硬㨃","z":"ㄧㄥˋ ㄉㄨㄟˇ","p":4,"rule":"R2-rare-char","reason":"含罕用字「㨃」（不在教育部常用／次常用字與 Big5 內）","src":["vanguard-tw"],"n":1}
+{"w":"神之雫","z":"ㄕㄣˊ ㄓ ㄋㄚˇ","p":0,"rule":"R2-rare-char","reason":"含罕用字「雫」（不在教育部常用／次常用字與 Big5 內）","src":["mcbopomofo","vanguard-tw"],"n":2}
+{"w":"程序員","z":"ㄔㄥˊ ㄒㄩˋ ㄩㄢˊ","p":4,"rule":"R3-china-term","reason":"中國用語（台灣多作「程式設計師」）","src":["vanguard-tw"],"n":1}
+{"w":"穀氨酸","z":"ㄍㄨˇ ㄢ ㄙㄨㄢ","p":3,"rule":"R3-china-term","reason":"中國用語（台灣多作「麩胺酸」）","src":["vanguard-tw"],"n":1}
+{"w":"竈門","z":"ㄗㄠˋ ㄇㄣˊ","p":0,"rule":"R2-rare-char","reason":"含罕用字「竈」（不在教育部常用／次常用字與 Big5 內）","src":["mcbopomofo","vanguard-tw"],"n":2}
+{"w":"組氨酸","z":"ㄗㄨˇ ㄢ ㄙㄨㄢ","p":10,"rule":"R3-china-term","reason":"中國用語（台灣多作「組胺酸」）","src":["vanguard-tw"],"n":1}
+{"w":"聚合酶","z":"ㄐㄩˋ ㄏㄜˊ ㄇㄟˊ","p":27,"rule":"R2-rare-char","reason":"含罕用字「酶」（不在教育部常用／次常用字與 Big5 內）","src":["mcbopomofo","vanguard-tw"],"n":2}
+{"w":"聲卡","z":"ㄕㄥ ㄎㄚˇ","p":2,"rule":"R3-china-term","reason":"中國用語（台灣多作「音效卡」）","src":["vanguard-tw"],"n":1}
+{"w":"肋脦","z":"ㄌㄜ ㄊㄜˋ","p":114,"rule":"R2-rare-char","reason":"含罕用字「脦」（不在教育部常用／次常用字與 Big5 內）","src":["vanguard-tw"],"n":1}
+{"w":"胜肽","z":"ㄒㄧㄥ ㄊㄞˋ","p":104,"rule":"R2-rare-char","reason":"含罕用字「肽」（不在教育部常用／次常用字與 Big5 內）","src":["chewing","mcbopomofo","vanguard-tw"],"n":3}
+{"w":"胰腺","z":"ㄧˊ ㄒㄧㄢˋ","p":44,"rule":"R3-china-term","reason":"中國用語（台灣多作「胰臟」）","src":["chewing","mcbopomofo","vanguard-tw"],"n":3}
+{"w":"胱氨酸","z":"ㄍㄨㄤ ㄢ ㄙㄨㄢ","p":9,"rule":"R3-china-term","reason":"中國用語（台灣多作「胱胺酸」）","src":["chewing","mcbopomofo","vanguard-tw"],"n":3}
+{"w":"腚對腚","z":"ㄉㄧㄥˋ ㄉㄨㄟˋ ㄉㄧㄥˋ","p":4,"rule":"R2-rare-char","reason":"含罕用字「腚」（不在教育部常用／次常用字與 Big5 內）","src":["vanguard-tw"],"n":1}
+{"w":"腚幫子","z":"ㄉㄧㄥˋ ㄅㄤ ㄗ˙","p":4,"rule":"R2-rare-char","reason":"含罕用字「腚」（不在教育部常用／次常用字與 Big5 內）","src":["vanguard-tw"],"n":1}
 {"w":"腳𧿹趾","z":"ㄐㄧㄠˇ ㄇㄨˇ ㄓˇ","p":4,"rule":"R0-nonbmp","reason":"含擴充區字元（網頁算不出正確字數）","src":["vanguard-tw"],"n":1}
+{"w":"舌鮃魚","z":"ㄕㄜˊ ㄆㄧㄥˊ ㄩˊ","p":4,"rule":"R2-rare-char","reason":"含罕用字「鮃」（不在教育部常用／次常用字與 Big5 內）","src":["vanguard-tw"],"n":1}
+{"w":"芯片","z":"ㄒㄧㄣ ㄆㄧㄢˋ","p":4,"rule":"R3-china-term","reason":"中國用語（台灣多作「晶片」）","src":["vanguard-tw"],"n":1}
 {"w":"花Ｑ","z":"ㄏㄨㄚ ㄎㄧㄡ","p":1,"rule":"R0-nonhan","reason":"含非漢字字元","src":["vanguard-tw"],"n":1}
+{"w":"茶裏王","z":"ㄔㄚˊ ㄌㄧˇ ㄨㄤˊ","p":18,"rule":"R2-rare-char","reason":"含罕用字「裏」（不在教育部常用／次常用字與 Big5 內）","src":["mcbopomofo","vanguard-tw"],"n":2}
+{"w":"草彅剛","z":"ㄘㄠˇ ㄐㄧㄢˇ ㄍㄤ","p":32,"rule":"R2-rare-char","reason":"含罕用字「彅」（不在教育部常用／次常用字與 Big5 內）","src":["mcbopomofo","vanguard-tw"],"n":2}
+{"w":"菊花殘滿腚傷","z":"ㄐㄩˊ ㄏㄨㄚ ㄘㄢˊ ㄇㄢˇ ㄉㄧㄥˋ ㄕㄤ","p":114,"rule":"R2-rare-char","reason":"含罕用字「腚」（不在教育部常用／次常用字與 Big5 內）","src":["vanguard-tw"],"n":1}
+{"w":"萘普生","z":"ㄋㄞˋ ㄆㄨˇ ㄕㄥ","p":4,"rule":"R2-rare-char","reason":"含罕用字「萘」（不在教育部常用／次常用字與 Big5 內）","src":["vanguard-tw"],"n":1}
+{"w":"萘酚","z":"ㄋㄞˋ ㄈㄣ","p":0,"rule":"R2-rare-char","reason":"含罕用字「萘」（不在教育部常用／次常用字與 Big5 內）","src":["mcbopomofo","vanguard-tw"],"n":2}
+{"w":"萜烯","z":"ㄊㄧㄝ ㄒㄧ","p":0,"rule":"R2-rare-char","reason":"含罕用字「萜」（不在教育部常用／次常用字與 Big5 內）","src":["mcbopomofo","vanguard-tw"],"n":2}
+{"w":"萜類","z":"ㄊㄧㄝ ㄌㄟˋ","p":0,"rule":"R2-rare-char","reason":"含罕用字「萜」（不在教育部常用／次常用字與 Big5 內）","src":["mcbopomofo","vanguard-tw"],"n":2}
+{"w":"蒓菜","z":"ㄔㄨㄣˊ ㄘㄞˋ","p":1,"rule":"R2-rare-char","reason":"含罕用字「蒓」（不在教育部常用／次常用字與 Big5 內）","src":["vanguard-tw"],"n":1}
+{"w":"蒓菜湯","z":"ㄔㄨㄣˊ ㄘㄞˋ ㄊㄤ","p":2,"rule":"R2-rare-char","reason":"含罕用字「蒓」（不在教育部常用／次常用字與 Big5 內）","src":["vanguard-tw"],"n":1}
+{"w":"虛擬機","z":"ㄒㄩ ㄋㄧˇ ㄐㄧ","p":7,"rule":"R3-china-term","reason":"中國用語（台灣多作「虛擬機器」）","src":["mcbopomofo","vanguard-tw"],"n":2}
+{"w":"蛋白酶","z":"ㄉㄢˋ ㄅㄞˊ ㄇㄟˊ","p":3,"rule":"R2-rare-char","reason":"含罕用字「酶」（不在教育部常用／次常用字與 Big5 內）","src":["mcbopomofo","vanguard-tw"],"n":2}
+{"w":"表達式","z":"ㄅㄧㄠˇ ㄉㄚˊ ㄕˋ","p":4,"rule":"R3-china-term","reason":"中國用語（台灣多作「表示式」）","src":["vanguard-tw"],"n":1}
+{"w":"註冊機","z":"ㄓㄨˋ ㄘㄜˋ ㄐㄧ","p":4,"rule":"R3-china-term","reason":"中國用語（台灣多作「序號產生器」）","src":["vanguard-tw"],"n":1}
+{"w":"變量","z":"ㄅㄧㄢˋ ㄌㄧㄤˋ","p":33,"rule":"R3-china-term","reason":"中國用語（台灣多作「變數」）","src":["chewing","mcbopomofo","vanguard-tw"],"n":3}
+{"w":"踩鑔","z":"ㄘㄞˇ ㄔㄚˇ","p":4,"rule":"R2-rare-char","reason":"含罕用字「鑔」（不在教育部常用／次常用字與 Big5 內）","src":["vanguard-tw"],"n":1}
+{"w":"軟驅","z":"ㄖㄨㄢˇ ㄑㄩ","p":4,"rule":"R3-china-term","reason":"中國用語（台灣多作「軟碟機」）","src":["vanguard-tw"],"n":1}
+{"w":"這副愺性","z":"ㄓㄜˋ ㄈㄨˋ ㄘㄠˋ ㄒㄧㄥˋ","p":4,"rule":"R2-rare-char","reason":"含罕用字「愺」（不在教育部常用／次常用字與 Big5 內）","src":["vanguard-tw"],"n":1}
+{"w":"通配符","z":"ㄊㄨㄥ ㄆㄟˋ ㄈㄨˊ","p":4,"rule":"R3-china-term","reason":"中國用語（台灣多作「萬用字元」）","src":["vanguard-tw"],"n":1}
+{"w":"遞歸","z":"ㄉㄧˋ ㄍㄨㄟ","p":4,"rule":"R3-china-term","reason":"中國用語（台灣多作「遞迴」）","src":["chewing","vanguard-tw"],"n":2}
+{"w":"還原酶","z":"ㄏㄨㄢˊ ㄩㄢˊ ㄇㄟˊ","p":7,"rule":"R2-rare-char","reason":"含罕用字「酶」（不在教育部常用／次常用字與 Big5 內）","src":["mcbopomofo","vanguard-tw"],"n":2}
+{"w":"那副愺性","z":"ㄋㄚˋ ㄈㄨˋ ㄘㄠˋ ㄒㄧㄥˋ","p":4,"rule":"R2-rare-char","reason":"含罕用字「愺」（不在教育部常用／次常用字與 Big5 內）","src":["vanguard-tw"],"n":1}
+{"w":"酒枡","z":"ㄐㄧㄡˇ ㄕㄥ","p":4,"rule":"R2-rare-char","reason":"含罕用字「枡」（不在教育部常用／次常用字與 Big5 內）","src":["vanguard-tw"],"n":1}
+{"w":"酪氨酸","z":"ㄌㄨㄛˋ ㄢ ㄙㄨㄢ","p":62,"rule":"R3-china-term","reason":"中國用語（台灣多作「酪胺酸」）","src":["chewing","vanguard-tw"],"n":2}
+{"w":"重載","z":"ㄔㄨㄥˊ ㄗㄞˋ","p":4,"rule":"R3-china-term","reason":"中國用語（台灣多作「過載」）","src":["chewing","vanguard-tw"],"n":2}
+{"w":"防銹","z":"ㄈㄤˊ ㄒㄧㄡˋ","p":14,"rule":"R2-rare-char","reason":"含罕用字「銹」（不在教育部常用／次常用字與 Big5 內）","src":["mcbopomofo","vanguard-tw"],"n":2}
+{"w":"阿塞拜疆","z":"ㄚ˙ ㄙㄞˋ ㄅㄞˋ ㄐㄧㄤ","p":0,"rule":"R3-china-term","reason":"中國用語（台灣多作「亞塞拜然」）","src":["vanguard-tw"],"n":1}
+{"w":"限制酶","z":"ㄒㄧㄢˋ ㄓˋ ㄇㄟˊ","p":0,"rule":"R2-rare-char","reason":"含罕用字「酶」（不在教育部常用／次常用字與 Big5 內）","src":["mcbopomofo","vanguard-tw"],"n":2}
+{"w":"陳冲","z":"ㄔㄣˊ ㄔㄨㄥ","p":527,"rule":"R1-simplified","reason":"含簡體字「冲」","src":["mcbopomofo","vanguard-tw"],"n":2}
+{"w":"頂你個閪","z":"ㄉㄧㄥˇ ㄋㄧˇ ㄍㄜˋ ㄏㄞ","p":4,"rule":"R2-rare-char","reason":"含罕用字「閪」（不在教育部常用／次常用字與 Big5 內）","src":["vanguard-tw"],"n":1}
+{"w":"頭孢克肟","z":"ㄊㄡˊ ㄅㄠ ㄎㄜˋ ㄨㄛˋ","p":4,"rule":"R2-rare-char","reason":"含罕用字「肟」（不在教育部常用／次常用字與 Big5 內）","src":["vanguard-tw"],"n":1}
+{"w":"頭孢氨苄","z":"ㄊㄡˊ ㄅㄠ ㄢ ㄅㄧㄢˋ","p":4,"rule":"R2-rare-char","reason":"含罕用字「苄」（不在教育部常用／次常用字與 Big5 內）","src":["vanguard-tw"],"n":1}
+{"w":"類萜","z":"ㄌㄟˋ ㄊㄧㄝ","p":0,"rule":"R2-rare-char","reason":"含罕用字「萜」（不在教育部常用／次常用字與 Big5 內）","src":["mcbopomofo","vanguard-tw"],"n":2}
+{"w":"顯卡","z":"ㄒㄧㄢˇ ㄎㄚˇ","p":4,"rule":"R3-china-term","reason":"中國用語（台灣多作「顯示卡」）","src":["vanguard-tw"],"n":1}
+{"w":"食蟹獴","z":"ㄕˊ ㄒㄧㄝˋ ㄇㄥˇ","p":0,"rule":"R2-rare-char","reason":"含罕用字「獴」（不在教育部常用／次常用字與 Big5 內）","src":["mcbopomofo","vanguard-tw"],"n":2}
+{"w":"餄餎麵","z":"ㄏㄜˊ ㄌㄜ˙ ㄇㄧㄢˋ","p":19,"rule":"R2-rare-char","reason":"含罕用字「餄」（不在教育部常用／次常用字與 Big5 內）","src":["vanguard-tw"],"n":1}
+{"w":"饢餅","z":"ㄋㄤˊ ㄅㄧㄥˇ","p":4,"rule":"R2-rare-char","reason":"含罕用字「饢」（不在教育部常用／次常用字與 Big5 內）","src":["vanguard-tw"],"n":1}
+{"w":"鮟鱇魚","z":"ㄢ ㄎㄤ ㄩˊ","p":4,"rule":"R2-rare-char","reason":"含罕用字「鮟」（不在教育部常用／次常用字與 Big5 內）","src":["mcbopomofo","vanguard-tw"],"n":2}
+{"w":"鹽酸嗎啉胍","z":"ㄧㄢˊ ㄙㄨㄢ ㄇㄚ ㄌㄧㄣˊ ㄍㄨㄚ","p":4,"rule":"R2-rare-char","reason":"含罕用字「啉」（不在教育部常用／次常用字與 Big5 內）","src":["vanguard-tw"],"n":1}
+{"w":"鹽酸嗎啉胍片","z":"ㄧㄢˊ ㄙㄨㄢ ㄇㄚ ㄌㄧㄣˊ ㄍㄨㄚ ㄆㄧㄢˋ","p":4,"rule":"R2-rare-char","reason":"含罕用字「啉」（不在教育部常用／次常用字與 Big5 內）","src":["vanguard-tw"],"n":1}
+{"w":"黑客","z":"ㄏㄟ ㄎㄜˋ","p":58,"rule":"R3-china-term","reason":"中國用語（台灣多作「駭客」）","src":["chewing","mcbopomofo","vanguard-tw"],"n":3}
+{"w":"默認值","z":"ㄇㄛˋ ㄖㄣˋ ㄓˊ","p":4,"rule":"R3-china-term","reason":"中國用語（台灣多作「預設值」）","src":["vanguard-tw"],"n":1}
 {"w":"Ｑ彈","z":"ㄎㄧㄡ ㄊㄢˊ","p":4,"rule":"R0-nonhan","reason":"含非漢字字元","src":["vanguard-tw"],"n":1}
 {"w":"𨑨迌","z":"ㄓˋ ㄊㄨˋ","p":0,"rule":"R0-nonbmp","reason":"含擴充區字元（網頁算不出正確字數）","src":["vanguard-tw"],"n":1}
 {"w":"𰻞𰻞麵","z":"ㄅㄧㄤˊ ㄅㄧㄤˊ ㄇㄧㄢˋ","p":19,"rule":"R0-nonbmp","reason":"含擴充區字元（網頁算不出正確字數）","src":["vanguard-tw"],"n":1}

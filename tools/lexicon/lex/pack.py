@@ -130,7 +130,8 @@ def pack_notice(cfg, meta, upstream_version, removed_count, tabe_text=None):
         lines.append('補充說明：' + cfg['notice_extra'])
     lines.append('改作說明：本詞庫包由上述資料經自動清洗產生——刪除格式不合的詞條'
                  '（含非漢字或擴充區字元、詞長超過 11 字、注音符號錯誤或音節數與字數不符），'
-                 '略過單字，並轉換為 JSON Lines 格式。')
+                 '刪除含簡體字或罕用字的詞條，以及中國用語（與對照表完全吻合、且在該來源很少出現者），'
+                 '略過單字，並轉換為 JSON Lines 格式；只有單一來源收錄的詞予以保留，另行標記留待後續判斷。')
     lines.append('          共刪除 %d 筆，刪除清單與原因見 tools/lexicon/reports/%s/removed.ndjson。'
                  % (removed_count, cfg['id']))
     lines.append('改作日期：' + meta['built'])

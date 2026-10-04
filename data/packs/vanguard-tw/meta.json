@@ -2,9 +2,9 @@
   "id": "vanguard-tw",
   "name": "唯音台灣詞庫（精簡版）",
   "description": "唯音詞庫中不含教育部辭典的部分，詞比較少",
-  "version": "1.fffafbac8b",
-  "hash": "fffafbac8b44b65f5011c351236aca01ecfae3ffcdd7156a3270cd2c12ac738d",
-  "entries": 64781,
+  "version": "2.3f0521dcc1",
+  "hash": "3f0521dcc1bfd77a68e2653e6aa0e6e2c9b4cf4cb0ce41cce9b9baf2e249ba64",
+  "entries": 64637,
   "chunks": 3,
   "sources": [
     {
@@ -25,13 +25,29 @@
       "sha256": "edbaad40848bdeb5a3863a07784087cf58bed2ce592b6bdcc0ac70b055737b54"
     }
   ],
-  "rules_version": "1",
+  "rules_version": "2",
   "built": "2026-10-04",
   "stats": {
     "lines": 68706,
     "skipped_single": 0,
     "merged_lines": 3913,
-    "removed": 12,
-    "kept": 64781
-  }
+    "removed": 156,
+    "kept": 64637,
+    "in_scope": 64793,
+    "dropped_readings": 0,
+    "rules": {
+      "R0-nonbmp": 4,
+      "R0-nonhan": 7,
+      "R0-syllables": 1,
+      "R1-simplified": 2,
+      "R2-rare-char": 86,
+      "R3-china-term": 56
+    },
+    "gray": 6864,
+    "china_kept": 64,
+    "keep_allow": 12
+  },
+  "gray": 6864,
+  "gray_pending": 6864,
+  "gray_policy": "p1"
 }

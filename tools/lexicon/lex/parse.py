@@ -203,25 +203,33 @@ def choose_reading(w, readings, poly_order, overrides):
 
 
 def collect(rows, poly_order, overrides, src_id):
-    """把解析出的行變成詞庫條目。
+    """把解析出的行變成詞庫條目（只套用 R0 格式規則）。
 
     回傳 (entries, removed, stats)：
       entries = [{'w','z','p'}]（未排序，由 write_pack 排序）
-      removed = [{'w','z','p','rule','reason','src','n'}]（R0 刪除的行，依詞排序）
-      stats   = {'lines','skipped_single','merged_lines','removed','kept'}
+      removed = [{'w','z','p','rule','reason','src','n'}]（R0 刪除的詞，一個詞一列，依詞排序）
+      stats   = {'lines','skipped_single','merged_lines','removed','kept','in_scope','dropped_readings'}
+    一個詞只要有任何一個讀音合格就留下（不合格的讀音只是丟掉、算進 dropped_readings，
+    不另列刪除列），所以「留下 + 刪除 == 範圍內的詞（in_scope）」永遠成立（D1）。
     """
     words = {}   # w → {'readings': set, 'freq': int}
-    bad = {}     # (w, z, rule) → freq
+    bad = {}     # w → (z, rule, freq)（沒有任何合格讀音的詞；取排序最前的一個當代表）
     skipped_single = 0
     merged = 0
+    in_scope = set()
     for w0, z, freq in rows:
         w, verdict = normalise(w0, z)
         if verdict == SKIP_SINGLE:
             skipped_single += 1
             continue
+        in_scope.add(w)
         if verdict is not None:
-            k = (w, z, verdict)
-            bad[k] = max(bad.get(k, 0), freq)
+            cur = bad.get(w)
+            cand = (z, verdict, freq)
+            if cur is None:
+                bad[w] = cand
+            else:
+                bad[w] = (min(cur[:2], cand[:2]) + (max(cur[2], freq),))
             continue
         ev = words.get(w)
         if ev is None:
@@ -234,10 +242,12 @@ def collect(rows, poly_order, overrides, src_id):
     for w, ev in words.items():
         entries.append({'w': w, 'z': choose_reading(w, ev['readings'], poly_order, overrides),
                         'p': ev['freq']})
+    dropped = sum(1 for w in bad if w in words)
     removed = [{'w': w, 'z': z, 'p': p, 'rule': rule, 'reason': R0_REASONS[rule],
                 'src': [src_id], 'n': 1}
-               for (w, z, rule), p in bad.items()]
+               for w, (z, rule, p) in bad.items() if w not in words]
     removed.sort(key=lambda r: (r['w'], r['z'], r['rule']))
     stats = {'lines': len(rows), 'skipped_single': skipped_single, 'merged_lines': merged,
-             'removed': len(removed), 'kept': len(entries)}
+             'removed': len(removed), 'kept': len(entries), 'in_scope': len(in_scope),
+             'dropped_readings': dropped}
     return entries, removed, stats

@@ -2,9 +2,9 @@
   "id": "chewing",
   "name": "新酷音詞庫",
   "description": "輸入法常用詞，偏日常口語",
-  "version": "1.b04c2ee8bd",
-  "hash": "b04c2ee8bd0c1dd4946a7d8c8690bd5afa3155d061c6c057a53e1adafb59bf4a",
-  "entries": 128973,
+  "version": "2.c1553b706b",
+  "hash": "c1553b706b5356a30df2343551501925932a66db0efa04f48f8982a10456a3ca",
+  "entries": 128841,
   "chunks": 6,
   "sources": [
     {
@@ -25,13 +25,25 @@
       "sha256": "edbaad40848bdeb5a3863a07784087cf58bed2ce592b6bdcc0ac70b055737b54"
     }
   ],
-  "rules_version": "1",
+  "rules_version": "2",
   "built": "2026-10-04",
   "stats": {
     "lines": 160458,
     "skipped_single": 26073,
     "merged_lines": 5412,
-    "removed": 0,
-    "kept": 128973
-  }
+    "removed": 132,
+    "kept": 128841,
+    "in_scope": 128973,
+    "dropped_readings": 0,
+    "rules": {
+      "R2-rare-char": 18,
+      "R3-china-term": 114
+    },
+    "gray": 13359,
+    "china_kept": 79,
+    "keep_allow": 25
+  },
+  "gray": 13359,
+  "gray_pending": 13359,
+  "gray_policy": "p1"
 }

@@ -9,7 +9,7 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[3]
 
 # 清洗規則版本：規則改了就加一，所有詞庫包的版本字串會跟著變
-RULES_VERSION = '1'
+RULES_VERSION = '2'
 
 # 每個分片檔的行數（最後一片可以比較短）
 CHUNK_SIZE = 24000

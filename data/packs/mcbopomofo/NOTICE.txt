@@ -1,11 +1,11 @@
-小麥注音詞庫（id: mcbopomofo，版本 1.0054220524）
+小麥注音詞庫（id: mcbopomofo，版本 2.89e6dcffac）
 來源：mcbopomofo — https://github.com/openvanilla/McBopomofo（commit be6564acad6c4d3265c34a2e1a872d80f9db6068，上游未標版本，以 commit 為準）
 授權：MIT AND BSD-3-Clause（全文見同資料夾 LICENSE.MIT.txt、LICENSE.TaBE-BSD-3-Clause.txt）
 著作權：Copyright (c) 2011-2026 Mengjuei Hsieh et al.
 著作權：Copyright (c) 1999 TaBE Project. Copyright (c) 1999 Pai-Hsiang Hsiao.
 補充說明：McBopomofo 的詞表最初由 libtabe 的 tsi.src 精簡而來（BSD 授權）
-改作說明：本詞庫包由上述資料經自動清洗產生——刪除格式不合的詞條（含非漢字或擴充區字元、詞長超過 11 字、注音符號錯誤或音節數與字數不符），略過單字，並轉換為 JSON Lines 格式。
-          共刪除 7 筆，刪除清單與原因見 tools/lexicon/reports/mcbopomofo/removed.ndjson。
+改作說明：本詞庫包由上述資料經自動清洗產生——刪除格式不合的詞條（含非漢字或擴充區字元、詞長超過 11 字、注音符號錯誤或音節數與字數不符），刪除含簡體字或罕用字的詞條，以及中國用語（與對照表完全吻合、且在該來源很少出現者），略過單字，並轉換為 JSON Lines 格式；只有單一來源收錄的詞予以保留，另行標記留待後續判斷。
+          共刪除 152 筆，刪除清單與原因見 tools/lexicon/reports/mcbopomofo/removed.ndjson。
 改作日期：2026-10-04
 清洗規則使用：OpenCC 字表（Apache-2.0）；教育部常用／次常用國字表僅作比對，不重新散布。
 

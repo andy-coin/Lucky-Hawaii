@@ -16,7 +16,7 @@
       "id": "chewing",
       "name": "新酷音詞庫",
       "description": "輸入法常用詞，偏日常口語",
-      "entries": 128973,
+      "entries": 128841,
       "meta": "data/packs/chewing/meta.json",
       "chunkPattern": "data/packs/chewing/c{NN}.json",
       "notice": "data/packs/chewing/NOTICE.txt"
@@ -25,7 +25,7 @@
       "id": "mcbopomofo",
       "name": "小麥注音詞庫",
       "description": "輸入法詞庫，成語與生活用語較多",
-      "entries": 140010,
+      "entries": 139865,
       "meta": "data/packs/mcbopomofo/meta.json",
       "chunkPattern": "data/packs/mcbopomofo/c{NN}.json",
       "notice": "data/packs/mcbopomofo/NOTICE.txt"
@@ -34,7 +34,7 @@
       "id": "vanguard-tw",
       "name": "唯音台灣詞庫（精簡版）",
       "description": "唯音詞庫中不含教育部辭典的部分，詞比較少",
-      "entries": 64781,
+      "entries": 64637,
       "meta": "data/packs/vanguard-tw/meta.json",
       "chunkPattern": "data/packs/vanguard-tw/c{NN}.json",
       "notice": "data/packs/vanguard-tw/NOTICE.txt"

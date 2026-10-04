@@ -102,9 +102,12 @@ class CollectTest(unittest.TestCase):
             rows, {'一': ['ㄧˊ', 'ㄧ'], '乾': ['ㄍㄢ', 'ㄑㄧㄢˊ']}, {}, 'libchewing-data')
 
     def test_counts(self):
-        # 單字：你、ˇ；刪除：𰻞𰻞麵、12 字詞、你好嗎、哆啦Ａ夢、你好(ni hao)
+        # 單字：你、ˇ；刪除：𰻞𰻞麵、12 字詞、你好嗎、哆啦Ａ夢
+        # 你好(ni hao) 的壞讀音只是丟掉（你好另有合格讀音），不另列刪除列，所以「留下 + 刪除 == 範圍內的詞」成立
         self.assertEqual(self.stats['skipped_single'], 2)
-        self.assertEqual(self.stats['removed'], 5)
+        self.assertEqual(self.stats['removed'], 4)
+        self.assertEqual(self.stats['dropped_readings'], 1)
+        self.assertEqual(self.stats['kept'] + self.stats['removed'], self.stats['in_scope'])
         self.assertEqual(self.stats['kept'], len(self.entries))
         self.assertEqual(self.stats['merged_lines'], 2)  # 一下、乾杯各多一行
 
@@ -117,7 +120,8 @@ class CollectTest(unittest.TestCase):
 
     def test_removed_rows_carry_rule_reason_and_source(self):
         rules = sorted(r['rule'] for r in self.removed)
-        self.assertEqual(rules, ['R0-bopomofo', 'R0-length', 'R0-nonbmp', 'R0-nonhan', 'R0-syllables'])
+        self.assertEqual(rules, ['R0-length', 'R0-nonbmp', 'R0-nonhan', 'R0-syllables'])
+        self.assertNotIn('你好', [r['w'] for r in self.removed])
         for r in self.removed:
             self.assertEqual(sorted(r), ['n', 'p', 'reason', 'rule', 'src', 'w', 'z'])
             self.assertEqual(r['src'], ['libchewing-data'])

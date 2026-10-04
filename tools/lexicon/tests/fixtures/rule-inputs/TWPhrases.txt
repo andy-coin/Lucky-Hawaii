@@ -1,0 +1,13 @@
+# Open Chinese Convert (OpenCC) Dictionary
+# File: TWPhrases.txt
+# Format: key	value(s) (values separated by spaces)
+# License: Apache-2.0 (see LICENSE)
+# Source: https://github.com/ByVoid/OpenCC
+# Used in configs: s2twp.json (via TWPhrases.ocd2)
+
+剪貼板	剪貼簿
+打印機	印表機
+支持	支援
+用戶	使用者
+設備	裝置
+阿司匹林	阿斯匹靈

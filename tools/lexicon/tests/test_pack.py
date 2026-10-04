@@ -7,7 +7,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from lex import pack
+from lex import RULES_VERSION, pack
 
 LICENCE_BYTES = b'Fake licence text\n'
 LICENCE_SHA = hashlib.sha256(LICENCE_BYTES).hexdigest()
@@ -91,7 +91,7 @@ class WritePackTest(PackTestBase):
         for i in range(3):
             h.update((self.out / ('c%02d.json' % i)).read_bytes())
         self.assertEqual(meta['hash'], h.hexdigest())
-        self.assertEqual(meta['version'], '1.' + h.hexdigest()[:10])
+        self.assertEqual(meta['version'], RULES_VERSION + '.' + h.hexdigest()[:10])
         self.assertEqual(list(meta)[:12], ['id', 'name', 'description', 'version', 'hash', 'entries',
                                            'chunks', 'sources', 'licence', 'licence_files',
                                            'rules_version', 'built'])

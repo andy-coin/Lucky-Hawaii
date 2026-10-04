@@ -2,9 +2,9 @@
   "id": "mcbopomofo",
   "name": "小麥注音詞庫",
   "description": "輸入法詞庫，成語與生活用語較多",
-  "version": "1.0054220524",
-  "hash": "0054220524e6b7620785097d9c4f8b3e9a909aa0685c4de0fe5936484ec70d63",
-  "entries": 140010,
+  "version": "2.89e6dcffac",
+  "hash": "89e6dcffac5daf74caeca0c2f12b0d29135b90f130f8eebea807dce3c3d97c56",
+  "entries": 139865,
   "chunks": 6,
   "sources": [
     {
@@ -25,13 +25,28 @@
       "sha256": "edbaad40848bdeb5a3863a07784087cf58bed2ce592b6bdcc0ac70b055737b54"
     }
   ],
-  "rules_version": "1",
+  "rules_version": "2",
   "built": "2026-10-04",
   "stats": {
     "lines": 145603,
     "skipped_single": 0,
     "merged_lines": 5586,
-    "removed": 7,
-    "kept": 140010
-  }
+    "removed": 152,
+    "kept": 139865,
+    "in_scope": 140017,
+    "dropped_readings": 0,
+    "rules": {
+      "R0-nonbmp": 2,
+      "R0-nonhan": 5,
+      "R1-simplified": 5,
+      "R2-rare-char": 74,
+      "R3-china-term": 66
+    },
+    "gray": 13389,
+    "china_kept": 42,
+    "keep_allow": 24
+  },
+  "gray": 13389,
+  "gray_pending": 13389,
+  "gray_policy": "p1"
 }
