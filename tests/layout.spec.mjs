@@ -196,7 +196,8 @@ test('縮放：整個介面一起放大（側邊面板、分頁列、提示）',
         const read = () => page.evaluate(() => {
             showToast('測試');
             const px = (sel, prop) => parseFloat(getComputedStyle(document.querySelector(sel))[prop]);
-            return { panel: px('.side-panel', 'width'), tab: px('.mtab-btn', 'fontSize'), toast: px('.copy-toast', 'fontSize') };
+            // 面板寬度改成跟視窗寬度連動（--panel-w，05-05 推開版型），不再固定 25rem，所以改量分頁寬（--tab-w，隨根字級放大）
+            return { panel: px('.side-panel-tab', 'width'), tab: px('.mtab-btn', 'fontSize'), toast: px('.copy-toast', 'fontSize') };
         });
         const base = await read();
         expect(base.panel).toBeGreaterThan(0);
@@ -462,5 +463,136 @@ test('設定：文字色與底色相同時仍按得到重設顏色', async ({ br
         await reset.click();
         expect(await page.evaluate(() => ({ stored: lhGet('textColor'), bg: lhGet('containerBg'), tp: getComputedStyle(document.documentElement).getPropertyValue('--text-primary').trim() })))
             .toEqual({ stored: null, bg: null, tp: '#2d3748' });
+    } finally { await context.close(); }
+});
+
+// ===== 05-05：桌機側邊面板推開主畫面（D-03、D-17、UI-SPEC §6） =====
+const rectOf = (page, sel) => page.evaluate(s => {
+    const r = document.querySelector(s).getBoundingClientRect();
+    return { x: r.x, y: r.y, width: r.width, height: r.height };
+}, sel);
+// 元素中心點點下去，最上面的是不是它自己（或它的子元素）：被面板蓋住就會是別人
+const hitsItself = (page, sel) => page.evaluate(s => {
+    const el = document.querySelector(s);
+    const r = el.getBoundingClientRect();
+    const top = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2);
+    return el === top || el.contains(top);
+}, sel);
+const clickTab = (page, side) => page.locator(`.${side}-panel .side-panel-tab`).click();
+const isCollapsed = (page, side) => page.evaluate(s => document.getElementById(s + 'Panel').classList.contains('collapsed'), side);
+
+test('面板：桌機展開不蓋住主畫面（1440、1280；左、右、兩邊）', async ({ browser }) => {
+    for (const [w, h] of [[1440, 900], [1280, 900]]) {
+        for (const [label, sides] of [['左', ['left']], ['右', ['right']], ['兩邊', ['left', 'right']]]) {
+            const { context, page } = await bootPage(browser, { device: { viewport: { width: w, height: h }, deviceScaleFactor: 1 } });
+            try {
+                for (const s of sides) await clickTab(page, s);
+                await waitStill(page);
+                for (const s of ['left', 'right']) {
+                    expect(await isCollapsed(page, s), `${w} ${label}：${s} 面板狀態`).toBe(!sides.includes(s));
+                }
+                const container = await rectOf(page, '.container');
+                for (const id of ['#leftPanel', '#rightPanel']) {
+                    const p = await rectOf(page, id);
+                    expect(rectsOverlap(p, container), `${w} ${label}：${id} ${JSON.stringify(p)} 蓋到主畫面 ${JSON.stringify(container)}`).toBe(false);
+                }
+                for (const sel of ['#MzoomOut', '#MzoomIn', '#themeToggle']) {
+                    expect(await hitsItself(page, sel), `${w} ${label}：${sel} 被蓋住`).toBe(true);
+                }
+            } finally { await context.close(); }
+        }
+    }
+});
+
+test('面板：窄桌機時收合分頁不碰到主畫面（920）', async ({ browser }) => {
+    const { context, page } = await bootPage(browser, { device: { viewport: { width: 920, height: 900 }, deviceScaleFactor: 1 } });
+    try {
+        await waitStill(page);
+        expect(await isCollapsed(page, 'left')).toBe(true);
+        expect(await isCollapsed(page, 'right')).toBe(true);
+        const container = await rectOf(page, '.container');
+        const tabL = await rectOf(page, '.left-panel .side-panel-tab');
+        const tabR = await rectOf(page, '.right-panel .side-panel-tab');
+        expect(container.x, `主畫面左緣 ${container.x} 要離分頁寬 ${tabL.width} 再多 4px`).toBeGreaterThanOrEqual(tabL.width + 4 - 0.5);
+        expect(920 - (container.x + container.width), '主畫面右緣離視窗邊').toBeGreaterThanOrEqual(tabR.width + 4 - 0.5);
+        expect(rectsOverlap(tabL, container), '左分頁蓋到主畫面').toBe(false);
+        expect(rectsOverlap(tabR, container), '右分頁蓋到主畫面').toBe(false);
+        // 兩個分頁都還在畫面內、點得到
+        expect(await hitsItself(page, '.left-panel .side-panel-tab')).toBe(true);
+        expect(await hitsItself(page, '.right-panel .side-panel-tab')).toBe(true);
+    } finally { await context.close(); }
+});
+
+test('面板：放不下兩個面板時開第二個會收起第一個（1000）', async ({ browser }) => {
+    // 1000 寬：面板各 320、邊距各 20 → 主畫面只剩 320，不到 24rem（384），所以不能兩邊同時開
+    // （計畫寫的 1100 在這組數字下主畫面剩 400，其實放得下，所以用 1000 才碰得到邊界）
+    const narrow = await bootPage(browser, { device: { viewport: { width: 1000, height: 900 }, deviceScaleFactor: 1 } });
+    try {
+        const { page } = narrow;
+        await clickTab(page, 'left');
+        await waitStill(page);
+        expect(await isCollapsed(page, 'left')).toBe(false);
+        await clickTab(page, 'right');
+        await waitStill(page);
+        expect(await isCollapsed(page, 'right'), '第二個開的要留著').toBe(false);
+        expect(await isCollapsed(page, 'left'), '第一個要被收起').toBe(true);
+        // 反過來：先開右、再開左 → 右收起
+        await clickTab(page, 'left');
+        await waitStill(page);
+        expect(await isCollapsed(page, 'left')).toBe(false);
+        expect(await isCollapsed(page, 'right')).toBe(true);
+        // 主畫面還有 24rem 以上
+        const c = await rectOf(page, '.container');
+        expect(c.width, '主畫面寬度').toBeGreaterThanOrEqual(384 - 0.5);
+    } finally { await narrow.context.close(); }
+    // 1440 寬、100%：兩邊可以同時開
+    const wide = await bootPage(browser, { device: { viewport: { width: 1440, height: 900 }, deviceScaleFactor: 1 } });
+    try {
+        await clickTab(wide.page, 'left');
+        await clickTab(wide.page, 'right');
+        await waitStill(wide.page);
+        expect(await isCollapsed(wide.page, 'left')).toBe(false);
+        expect(await isCollapsed(wide.page, 'right')).toBe(false);
+    } finally { await wide.context.close(); }
+});
+
+test('面板：收起的面板內容不能被 Tab 鍵選到', async ({ browser }) => {
+    const { context, page } = await bootPage(browser, { device: { viewport: { width: 1440, height: 900 }, deviceScaleFactor: 1 } });
+    try {
+        await waitStill(page);
+        const inertState = () => page.evaluate(() => Object.fromEntries(['leftPanel', 'rightPanel'].map(id => {
+            const p = document.getElementById(id);
+            return [id, { panel: p.inert, aria: p.getAttribute('aria-hidden'), body: p.querySelector('.side-panel-body').inert, collapsed: p.classList.contains('collapsed') }];
+        })));
+        // 全收起：內容 inert、面板本身不 inert（分頁還要點得到）
+        let st = await inertState();
+        for (const id of ['leftPanel', 'rightPanel']) {
+            expect(st[id], id).toEqual({ panel: false, aria: null, body: true, collapsed: true });
+        }
+        // 從搜尋框連按 Tab：焦點不可以落進收起面板的內容
+        await page.focus('#searchInput');
+        for (let i = 0; i < 40; i++) {
+            await page.keyboard.press('Tab');
+            const bad = await page.evaluate(() => {
+                const a = document.activeElement;
+                const b = a && a.closest && a.closest('.side-panel-body');
+                return b && b.closest('.side-panel').classList.contains('collapsed') ? (a.id || a.className || a.tagName) : null;
+            });
+            expect(bad, `第 ${i + 1} 下 Tab 跑進收起的面板：${bad}`).toBeNull();
+        }
+        // 分頁本身還是點得到：點了就展開，展開的面板內容不 inert、另一邊仍 inert
+        await clickTab(page, 'left');
+        await waitStill(page);
+        st = await inertState();
+        expect(st.leftPanel).toEqual({ panel: false, aria: null, body: false, collapsed: false });
+        expect(st.rightPanel).toEqual({ panel: false, aria: null, body: true, collapsed: true });
+        // 展開後鍵盤真的選得到面板裡的按鈕
+        await page.focus('#searchInput');
+        let reached = false;
+        for (let i = 0; i < 60 && !reached; i++) {
+            await page.keyboard.press('Tab');
+            reached = await page.evaluate(() => !!document.activeElement.closest('#leftPanel .side-panel-body'));
+        }
+        expect(reached, '展開的歌詞面板應該能用 Tab 選到').toBe(true);
     } finally { await context.close(); }
 });

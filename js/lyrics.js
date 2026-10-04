@@ -56,7 +56,8 @@
             const panel = document.getElementById('leftPanel');
             panel.classList.toggle('collapsed');
             lhSet('leftPanelCollapsed', panel.classList.contains('collapsed'));
-            syncCenterPanel();
+            // 剛打開的是左邊：放不下兩個面板時，收起的是右邊
+            syncCenterPanel(panel.classList.contains('collapsed') ? undefined : 'left');
         }
 
         function saveLyrics() {

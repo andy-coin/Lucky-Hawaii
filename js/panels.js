@@ -12,36 +12,58 @@
             panel.classList.toggle('collapsed');
             lhSet('rightPanelCollapsed', panel.classList.contains('collapsed'));
             //if (!panel.classList.contains('collapsed')) loadWordlist();
-            syncCenterPanel();
+            // 剛打開的是右邊：放不下兩個面板時，收起的是左邊
+            syncCenterPanel(panel.classList.contains('collapsed') ? undefined : 'right');
         }
 
-        function syncCenterPanel() {
+        // 面板狀態的唯一同步入口（呼叫端不變）。只做三件事，不再算任何像素位移：
+        // 1. 桌機／平板橫放：依展開狀態切 body.lp-open / body.rp-open，由 CSS 把主畫面推開
+        //    （以前用 translateX 往外推，面板內容被切掉 86–100px、縮放按鈕被蓋住）
+        // 2. 兩個面板都展開、主畫面會不到 24rem 時，收起「不是剛打開」的那一個
+        // 3. 收起的面板鍵盤選不到（inert）；展開的面板絕不 inert，否則寫詞／AI 建議就用不了
+        // opener：'left'／'right' 代表使用者剛打開那邊；沒給（開頁、改視窗大小）就保留左邊、收右邊
+        function syncCenterPanel(opener) {
             const lp = document.getElementById('leftPanel');
             const rp = document.getElementById('rightPanel');
             if (!lp || !rp) return;
+            const sheet = lhIsSheetMode();
 
-            if (window.innerWidth <= 900) {
-                lp.style.transform = '';
-                rp.style.transform = '';
-                return;
+            if (sheet) {
+                document.body.classList.remove('lp-open', 'rp-open');
+            } else {
+                if (!lp.classList.contains('collapsed') && !rp.classList.contains('collapsed')) {
+                    const rootStyle = getComputedStyle(document.documentElement);
+                    const rem = parseFloat(rootStyle.fontSize) || 16;
+                    const gutter = parseFloat(rootStyle.getPropertyValue('--page-pad')) || 0;
+                    const panelW = lp.getBoundingClientRect().width;
+                    if (window.innerWidth - 2 * panelW - 2 * gutter < 24 * rem) {
+                        const victim = opener === 'right' ? lp : rp;
+                        victim.classList.add('collapsed');
+                        // 只有使用者親手打開造成的收起才記起來；單純視窗變窄不改他存的偏好
+                        if (opener === 'right') lhSet('leftPanelCollapsed', true);
+                        else if (opener === 'left') lhSet('rightPanelCollapsed', true);
+                    }
+                }
+                document.body.classList.toggle('lp-open', !lp.classList.contains('collapsed'));
+                document.body.classList.toggle('rp-open', !rp.classList.contains('collapsed'));
             }
 
-            const vw = window.innerWidth;
-            const containerW = Math.min(900, vw);
-            const containerLeft = (vw - containerW) / 2;
-            const GAP = 5;
-            const MIN_PANEL = 300;
-            const PANEL_W = 400;
-
-            // 面板可見寬 = container 左邊界 - 5px，最少 300px（不足時疊進 container）
-            const visibleW = Math.min(PANEL_W, Math.max(MIN_PANEL, containerLeft - GAP));
-            const shift = visibleW - PANEL_W; // 永遠 ≤ 0
-
-            const lpExp = !lp.classList.contains('collapsed');
-            const rpExp = !rp.classList.contains('collapsed');
-
-            lp.style.transform = lpExp && shift < 0 ? `translateX(${shift}px)` : '';
-            rp.style.transform = rpExp && shift < 0 ? `translateX(${-shift}px)` : '';
+            for (const panel of [lp, rp]) {
+                const collapsed = panel.classList.contains('collapsed');
+                const content = panel.querySelector('.side-panel-body');
+                if (sheet) {
+                    // 底部 sheet：收起的整個面板藏起來（含鍵盤與讀屏）
+                    panel.toggleAttribute('inert', collapsed);
+                    if (collapsed) panel.setAttribute('aria-hidden', 'true');
+                    else panel.removeAttribute('aria-hidden');
+                    if (content) content.removeAttribute('inert');
+                } else {
+                    // 桌機：面板本身不能 inert（邊上的分頁要點得到），只鎖收起面板的內容
+                    panel.removeAttribute('inert');
+                    panel.removeAttribute('aria-hidden');
+                    if (content) content.toggleAttribute('inert', collapsed);
+                }
+            }
         }
 
         function mobileTab(tab) {
@@ -67,6 +89,8 @@
                 const btn = document.getElementById(`mtab-${t}`);
                 if (btn) btn.classList.toggle('active', t === tab);
             });
+            // 開關狀態變了：一併更新 inert 與 body 類別
+            syncCenterPanel();
         }
 
         // ===== 右側：保留池 =====

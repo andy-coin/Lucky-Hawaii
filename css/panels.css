@@ -1,8 +1,8 @@
         /* ===== 左右側邊面板 ===== */
+        /* 共用外觀（所有寬度）；位置、寬度、收合位移只在 ≥ 901px 的推開版型定義（D-03），
+           ≤ 900 的底部 sheet 版型在 responsive.css 自己決定，不必再用 !important 蓋掉桌機規則 */
         .side-panel {
             position: fixed;
-            top: 1.25rem;
-            height: calc(100vh - 2.5rem);
             background: var(--card-bg);
             border: 1px solid var(--border);
             box-shadow: 0 4px 24px rgba(0,0,0,0.18);
@@ -11,27 +11,39 @@
             transition: transform 0.3s ease;
         }
 
-        .left-panel {
-            left: 0;
-            width: 25rem;
-            border-radius: 0 1.125rem 1.125rem 0;
-            flex-direction: row;
-        }
-        .left-panel.collapsed {
-            transform: translateX(calc(-100% + 40px));
-        }
-        .right-panel {
-            right: 0;
-            width: 25rem;
-            border-radius: 1.125rem 0 0 1.125rem;
-            flex-direction: row-reverse;
-        }
-        .right-panel.collapsed {
-            transform: translateX(calc(100% - 40px));
+        /* 桌機／平板橫放：面板推開主畫面，不再疊在上面。
+           以前用 translateX 把展開的面板往外推，面板裡 86–100px 的內容被切掉，縮放按鈕也被蓋住 */
+        @media (min-width: 901px) {
+            .side-panel {
+                top: var(--page-pad);
+                height: calc(var(--app-h) - 2 * var(--page-pad));
+                width: var(--panel-w);
+            }
+            .left-panel {
+                left: 0;
+                border-radius: 0 1.125rem 1.125rem 0;
+                flex-direction: row;
+            }
+            .right-panel {
+                right: 0;
+                border-radius: 1.125rem 0 0 1.125rem;
+                flex-direction: row-reverse;
+            }
+            .left-panel.collapsed { transform: translateX(calc(-100% + var(--tab-w))); }
+            .right-panel.collapsed { transform: translateX(calc(100% - var(--tab-w))); }
+            .left-panel:not(.collapsed), .right-panel:not(.collapsed) { transform: none; }
+            .side-panel-tab { width: var(--tab-w); }
+
+            /* 收合時兩側各留一條分頁寬的邊，分頁不會貼到主畫面；展開時整個面板寬度讓給面板（不做 transition，避免每一幀重排） */
+            body {
+                padding-left: max(var(--page-pad), env(safe-area-inset-left), calc(var(--tab-w) + 0.25rem));
+                padding-right: max(var(--page-pad), env(safe-area-inset-right), calc(var(--tab-w) + 0.25rem));
+            }
+            body.lp-open { padding-left: calc(var(--panel-w) + var(--page-pad)); }
+            body.rp-open { padding-right: calc(var(--panel-w) + var(--page-pad)); }
         }
 
         .side-panel-tab {
-            width: 2.5rem;
             flex-shrink: 0;
             display: flex;
             align-items: center;

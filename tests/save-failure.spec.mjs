@@ -112,8 +112,8 @@ test('localStorage: 使用者操作存檔失敗時不再出現程式錯誤', asy
 // D-05：橫幅排在 .container 最上方的正常流程，把內容往下推，不蓋住任何按鈕
 for (const [name, device] of [['phone', DEVICES.phone], ['tablet', DEVICES.tablet], ['desktop', DEVICES.desktop]]) {
     test(`localStorage: 橫幅排在主畫面最上方、不擋任何按鈕（${name}）`, async ({ browser }) => {
-        // 兩個側欄收合：桌機側欄展開時會疊在主畫面邊緣（05-05 改成推開主畫面，之後可拿掉這個覆寫並驗證展開狀態）
-        const storage = { ...FIXTURE, leftPanelCollapsed: 'true', rightPanelCollapsed: 'true' };
+        // 兩個側欄都展開：桌機側欄會把主畫面推開（05-05），橫幅不會被蓋住；手機、平板 ≤ 900 一律收起，這個設定沒作用
+        const storage = { ...FIXTURE, leftPanelCollapsed: 'false', rightPanelCollapsed: 'false' };
         const { context, page, errors } = await bootPage(browser, { storage, init: injectQuota, device });
         const touch = !!device.hasTouch;
         for (const scale of [100, 150]) {
