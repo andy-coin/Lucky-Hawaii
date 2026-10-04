@@ -3,7 +3,7 @@
 import { test, expect } from '@playwright/test';
 import { readFileSync, readdirSync } from 'node:fs';
 import { bootPage, settle } from './helpers.mjs';
-import { DEVICES, setScale, waitStill, noPageScroll, expectFullyInViewport, expectReallyClickable, rectsOverlap, auditVisibleControls, emulateKeyboard, restoreViewport, readKeyboard, insideVisible, meetsInputFloor, scanInputFonts } from './layout-lib.mjs';
+import { DEVICES, setScale, waitStill, noPageScroll, expectFullyInViewport, expectReallyClickable, rectsOverlap, auditVisibleControls, emulateKeyboard, restoreViewport, readKeyboard, insideVisible, meetsInputFloor, scanInputFonts, auditTouchTargets, meetsHit } from './layout-lib.mjs';
 
 const SCALE_KEY = 'lh:uiScale';
 
@@ -1464,4 +1464,146 @@ test('輸入：5000 字歌詞會自動換行', async ({ browser }) => {
             expect(m.sh, `${name}：長歌詞往下長、可往下捲`).toBeGreaterThan(m.ch);
         } finally { await context.close(); }
     }
+});
+
+// ===== 05-08 任務一：手機平板每個按鈕至少 44px 好點（視覺可以小，用透明範圍放大）；桌機滑鼠維持原樣 =====
+// 七種畫面：閒置、搜尋後、歌詞開著、AI 開著（有詞、有保留詞）、設定、回報、標籤；每個畫面都用全新頁面，捲動位置不互相影響
+const TOUCH_DEVICES = [['手機 390×844', DEVICES.phone], ['平板 820×1180', DEVICES.tablet]];
+const TOUCH_STORAGE = {
+    haiku_lyrics: JSON.stringify([{ label: '主歌', text: '第一段歌詞', collapsed: false }, { label: '副歌', text: '第二段歌詞', collapsed: false }, { label: '空白段', text: '', collapsed: false }, { label: '收起段', text: '收起來的歌詞', collapsed: true }]),
+    haiku_hashtags: JSON.stringify(['日常', '夜晚']),
+    haiku_savedwords: JSON.stringify(['平安', '晚安']),
+};
+// 每個畫面：名稱、一定要掃到的控制項（防止掃了個寂寞）、開啟方式
+const TOUCH_STATES = [
+    ['閒置', ['button#MzoomIn', 'button#themeToggle', 'input#searchInput', 'button.mode-button', 'button.mtab-btn', 'div#settingsTrigger'], async () => {}],
+    ['搜尋後', ['div.char-card', 'button.poly-chip', 'span.mark-badge', 'button.m-batch-btn, button.batch-btn'], async page => {
+        await page.fill('#searchInput', '樂');
+        await settle(page);
+    }],
+    ['歌詞開著', ['button.section-remove', 'button.panel-add-btn', 'button.hashtag-add-btn', 'button.context-refresh-btn', 'span.chip-remove', 'span.hashtag-chip', 'input.section-label', 'div.lyrics-section-header', 'div.context-section-header', '.lyrics-section.collapsed button.section-remove'],
+        (page, d) => toggleSide(page, d, 'lyrics')],
+    ['AI 開著', ['select#modelSelect', 'button.rhyme-mode-btn', 'button.filter-chip', 'button#generateBtn', 'div.ai-word-card', 'span.chip-remove', 'div.saved-pool-title', 'button.reset-pool-btn', 'button.hint-clear'], async (page, d) => {
+        await page.fill('#searchInput', 'ㄢ');
+        await settle(page);
+        await page.locator('.char-card .char-main').first().click();   // 選一個字：AI 面板才會出現「已選字」提示與 ✕
+        await toggleSide(page, d, 'ai');
+        await page.evaluate(() => { document.getElementById('aiWordsContainer').innerHTML = ['平安', '晚安', '早安', '心安'].map(w => aiWordCardHtml(w, false)).join('') + '<div class="ai-exhausted">已推薦所有詞彙<button class="reset-pool-btn" onclick="resetSuggestedPool()">↺ 重置</button></div>'; });
+    }],
+    ['設定開著', ['input[type=checkbox]', 'input[type=color]', 'button.reset-color', 'button.save-load-btn'], async page => {
+        await page.evaluate(() => toggleSettings()); await expect(page.locator('#settingsOverlay')).toHaveClass(/show/);
+    }],
+    ['回報開著', ['button.feedback-send-btn', 'button.feedback-cancel-btn', 'input#feedbackSubject'], async page => {
+        await page.evaluate(() => openFeedbackModal()); await expect(page.locator('#feedbackModalOverlay')).toHaveClass(/show/);
+    }],
+    ['標籤開著', ['button.hashtag-popup-cancel', 'button.hashtag-popup-confirm', 'input#hashtagPopupInput'], async page => {
+        await page.evaluate(() => openHashtagPopup()); await expect(page.locator('#hashtagPopupOverlay')).toHaveClass(/show/);
+    }],
+];
+const bootTouch = (browser, device, extra = {}) => bootPage(browser, { device, storage: TOUCH_STORAGE, ...extra });
+// 14 次掃描（2 裝置 × 7 畫面）在同一個 worker 內只做一次，「44px」與「相鄰重疊」兩個測試共用
+let touchScans = null;
+const scanAllTouch = browser => touchScans ??= (async () => {
+    const out = [];
+    for (const [dname, device] of TOUCH_DEVICES) {
+        for (const state of TOUCH_STATES) {
+            const { context, page } = await bootTouch(browser, device);
+            try {
+                await waitStill(page);
+                await state[2](page, device);
+                await waitStill(page);
+                out.push({ label: `${dname} ${state[0]}`, ...await auditTouchTargets(page, { mustSee: state[1] }) });
+            } finally { await context.close(); }
+        }
+    }
+    return out;
+})();
+
+test('觸控：手機平板每個按鈕至少 44px（7 種畫面）', async ({ browser }) => {
+    // 負向對照：掃描器抓得到 43px、放行 44px；mark-badge 例外只放寬到 44×32（徽章的 ::after 會外擴上下各 6px）
+    {
+        const { context, page } = await bootPage(browser, { device: DEVICES.phone });
+        try {
+            await page.evaluate(() => {
+                const mk = (id, w, h, cls = '') => { const b = document.createElement('button'); b.id = id; b.className = cls; b.style.cssText = `position:fixed;left:8px;width:${w}px;height:${h}px;padding:0;border:0;min-height:0;min-width:0;z-index:99999`; return b; };
+                const els = [mk('p43', 43, 43), mk('p44', 44, 44), mk('pbadgeok', 44, 22, 'mark-badge'), mk('pbadgebad', 44, 18, 'mark-badge')];
+                els.forEach((b, i) => { b.style.top = 8 + i * 60 + 'px'; document.body.appendChild(b); });
+            });
+            const r = await auditTouchTargets(page);
+            const flagged = r.failures.map(f => f.selector.replace(/^button/, '').replace(/\.mark-badge$/, '.mark-badge')).filter(n => /^#p/.test(n));
+            expect(flagged.sort(), '只有 43px 與擴大後仍不到 32 高的徽章該被抓到（徽章 22 高＋外擴 12＝34 算過）').toEqual(['#p43', '#pbadgebad.mark-badge']);
+            expect(meetsHit(44, 44) && !meetsHit(43.4, 44) && !meetsHit(44, 43.4), '比較器邊界').toBe(true);
+        } finally { await context.close(); }
+    }
+    const bad = [];
+    for (const r of await scanAllTouch(browser)) {
+        expect(r.missing, `${r.label}：這些控制項沒被掃到（掃到 ${[...new Set(r.seen)]}）`).toEqual([]);
+        expect(r.scanned, `${r.label}：掃到的控制項太少`).toBeGreaterThanOrEqual(3);
+        for (const f of r.failures) bad.push(`${r.label}：${f.selector} ${f.w}×${f.h}`);
+    }
+    expect([...new Set(bad)], '這些控制項點擊範圍不到 44×44').toEqual([]);
+});
+
+test('觸控：相鄰按鈕的點擊範圍重疊不超過 4px', async ({ browser }) => {
+    // 負向對照：兩顆相鄰按鈕疊 10px 會被抓到、疊 4px 不會
+    {
+        const { context, page } = await bootPage(browser, { device: DEVICES.phone });
+        try {
+            await page.evaluate(() => {
+                for (const [id, left] of [['q1', 8], ['q2', 8 + 44 - 10]]) {
+                    const b = document.createElement('button');
+                    b.id = id; b.style.cssText = `position:fixed;top:300px;left:${left}px;width:44px;height:44px;padding:0;border:0;min-height:0;min-width:0;z-index:99999`;
+                    document.body.appendChild(b);
+                }
+            });
+            expect((await auditTouchTargets(page)).overlaps.some(o => /#q1/.test(o.a + o.b) && /#q2/.test(o.a + o.b)), '疊 10px 要被抓到').toBe(true);
+            await page.evaluate(() => { document.getElementById('q2').style.left = 8 + 44 - 4 + 'px'; });
+            expect((await auditTouchTargets(page)).overlaps.some(o => /#q1/.test(o.a + o.b) && /#q2/.test(o.a + o.b)), '疊 4px 不算').toBe(false);
+        } finally { await context.close(); }
+    }
+    const bad = [];
+    for (const r of await scanAllTouch(browser)) for (const o of r.overlaps) bad.push(`${r.label}：${o.a} 與 ${o.b} 重疊 ${o.amount}px`);
+    expect([...new Set(bad)], '相鄰控制項的點擊範圍重疊超過 4px').toEqual([]);
+});
+
+test('觸控：桌機滑鼠維持原本大小', async ({ browser }) => {
+    const { context, page } = await bootPage(browser, { device: DEVICES.desktop });
+    try {
+        expect(await page.evaluate(() => matchMedia('(pointer: fine) and (hover: hover)').matches), '這個 context 是滑鼠').toBe(true);
+        const hs = await page.evaluate(() => Object.fromEntries(['.mode-button', '.batch-btn'].map(s => [s, [...document.querySelectorAll(s)].filter(e => e.getClientRects().length).map(e => e.getBoundingClientRect().height)])));
+        for (const [sel, list] of Object.entries(hs)) {
+            expect(list.length, `${sel} 有看得見的`).toBeGreaterThan(0);
+            for (const h of list) expect(h, `桌機滑鼠 ${sel} 高度 ${h} 要比 44 矮（維持緊湊）`).toBeLessThan(44);
+        }
+    } finally { await context.close(); }
+});
+
+test('觸控：手機搜尋後結果區至少 420px', async ({ browser }) => {
+    const { context, page } = await bootTouch(browser, DEVICES.phone);
+    try {
+        await page.fill('#searchInput', 'ㄢ');
+        await settle(page);
+        await waitStill(page);
+        expect((await readKeyboard(page)).open, '鍵盤是收起的').toBe(false);
+        const h = await page.locator('.results-section').evaluate(el => el.getBoundingClientRect().height);
+        expect(h, `結果區高度 ${h}px`).toBeGreaterThanOrEqual(420);
+    } finally { await context.close(); }
+});
+
+test('觸控：還沒搜尋時 AI 面板按鈕夠大、按建議會提示先搜尋', async ({ browser }) => {
+    const device = DEVICES.phone;
+    const { context, page } = await bootTouch(browser, device);
+    try {
+        await toggleSide(page, device, 'ai');
+        // 篩選晶片列在搜尋單一字之前本來就是隱藏的（既有行為）；這裡只是把它顯示出來量 CSS 尺寸
+        await page.evaluate(() => { document.getElementById('aiFilterRow').style.display = 'flex'; });
+        for (const sel of ['#modeRhyme', '#modeInitial', '#filterChipSameTone', '#filterChipSameChar', '#filterChipNoExtRhyme', '#filterChipWordLen']) {
+            const b = await page.locator(sel).boundingBox();
+            expect(b, `${sel} 看得到`).not.toBeNull();
+            expect(b.height, `${sel} 高度 ${b.height}`).toBeGreaterThanOrEqual(43.5);
+        }
+        await expectReallyClickable(page, page.locator('#generateBtn'), '提供詞語建議');
+        await page.locator('#generateBtn').tap();
+        await expect(page.locator('.copy-toast')).toContainText('請先在上方搜尋要押韻的字');
+    } finally { await context.close(); }
 });

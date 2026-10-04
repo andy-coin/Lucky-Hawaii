@@ -165,3 +165,94 @@ export function scanInputFonts(page) {
         return { bad, seen };
     }, meetsInputFloor.toString());
 }
+
+// ===== 觸控目標（05-08，D-07）=====
+// 比較器獨立匯出，邊界測試直接驗：44 剛好過、43.4 不過（容許 0.5px 的小數誤差）
+export const HIT_MIN = 44;
+export function meetsHit(w, h, minW = 44, minH = 44) { return w >= minW - 0.5 && h >= minH - 0.5; }
+
+// 每個畫面要檢查的控制項：button、a、select、input、有 onclick 的、字卡、分頁、同音字晶片，
+// 加上動態產生的詞卡／保留詞／標籤／刪除鈕（它們不一定帶 onclick 屬性）
+const TOUCH_SELECTOR = 'button, a, select, input, [onclick], .char-card, .mtab-btn, .poly-chip, .ai-word-card, .word-chip, .hashtag-chip, .section-remove, .chip-remove, .mark-badge';
+
+// 掃整頁所有「看得見、點得到」的控制項，量真正的點擊範圍：
+//  - 範圍 = 元素自己的框 ＋ 往四個方向用 elementFromPoint 一格一格往外探到不再是它為止（::before／::after 擴大區也會被量到）
+//  - 勾選框用外面的 label 當點擊範圍（點 label 就是點勾選框）
+//  - 中心被別的東西蓋住的（遮罩下面、被收起面板）不算「看得見、點得到」，只記數量
+//  - 例外：.mark-badge 只要 44 寬 × 32 高；關於對話框裡的行內文字連結不檢查（D-07、UI-SPEC §7）
+// 回傳 { failures: [{ selector, w, h }], overlaps: [{ a, b, amount }], seen: [名稱], missing: [沒掃到的 mustSee], scanned, covered }
+// 相鄰重疊：框 ＝ 實際點擊範圍；只比較同一捲動區／同一固定層、互相不包含、也不是 sticky、也不是「刻意疊在搜尋框裡的絕對定位按鈕」的兩個元素；amount = 重疊區較短的那一邊
+export function auditTouchTargets(page, { sample = 30, mustSee = [] } = {}) {
+    return page.evaluate(({ sel, hit, sample, tol, meetsSrc, mustSee }) => {
+        const meets = new Function('return ' + meetsSrc)();
+        const nameOf = n => n.tagName.toLowerCase() + (n.id ? '#' + n.id : '') + (typeof n.className === 'string' && n.className.trim() ? '.' + n.className.trim().split(/\s+/).join('.') : '');
+        const owns = (el, top) => !!top && (top === el || el.contains(top) || (el.labels && [...el.labels].some(l => l === top || l.contains(top))));
+        // 數量很多的同一種元素（字卡、徽章）等距抽樣，頭尾一定包含
+        const groups = new Map();
+        for (const el of document.querySelectorAll(sel)) {
+            if (el.getClientRects().length === 0) continue;
+            if (el.closest('[inert], [hidden]')) continue;
+            const cs = getComputedStyle(el);
+            if (cs.visibility === 'hidden' || Number(cs.opacity) === 0 || cs.pointerEvents === 'none') continue;
+            if (el.tagName === 'INPUT' && /^(hidden|file)$/i.test(el.type)) continue;
+            const b = el.getBoundingClientRect();
+            if (b.width === 0 || b.height === 0) continue;
+            const key = el.tagName + '|' + el.className;
+            if (!groups.has(key)) groups.set(key, []);
+            groups.get(key).push(el);
+        }
+        const els = [];
+        for (const list of groups.values()) {
+            if (list.length <= sample) { els.push(...list); continue; }
+            for (let i = 0; i < sample; i++) els.push(list[Math.round(i * (list.length - 1) / (sample - 1))]);
+        }
+        const probe = (el, x, y) => owns(el, document.elementFromPoint(x, y));
+        const groupOf = el => {
+            for (let n = el.parentElement; n; n = n.parentElement) {
+                const cs = getComputedStyle(n);
+                if (cs.position === 'fixed' || /(auto|scroll)/.test(cs.overflowY)) return n;
+            }
+            return document.documentElement;
+        };
+        const items = [];
+        const failures = [];
+        const seen = [];
+        const sizes = [];
+        let covered = 0;
+        for (const el of els) {
+            el.scrollIntoView({ block: 'center', inline: 'center' });
+            const r = el.getBoundingClientRect();
+            const cx = Math.min(Math.max(r.left + r.width / 2, 0.5), innerWidth - 0.5);
+            const cy = Math.min(Math.max(r.top + r.height / 2, 0.5), innerHeight - 0.5);
+            if (!probe(el, cx, cy)) { covered++; continue; }
+            // 探點取整數座標：Chromium 的 elementFromPoint 命中範圍是 (左-1, 右)、(上-1, 下)（左上多算 1px），
+            // 所以左／上從 邊-1 往外、右／下從 邊 往外，一格一格數到不再是它為止，數出來剛好等於真正外擴的 px 數
+            const ext = (dx, dy, x0, y0) => { let d = 0; while (d < 60 && probe(el, x0 + dx * d + (dx < 0 ? -1 : 0), y0 + dy * d + (dy < 0 ? -1 : 0))) d++; return d; };
+            const e = { l: ext(-1, 0, r.left, cy), r: ext(1, 0, r.right, cy), t: ext(0, -1, cx, r.top), b: ext(0, 1, cx, r.bottom) };
+            const w = r.width + e.l + e.r, h = r.height + e.t + e.b;
+            const name = nameOf(el);
+            seen.push(name);
+            sizes.push({ name, w, h, e });
+            const isBadge = el.classList.contains('mark-badge');
+            const isAboutLink = el.tagName === 'A' && !!el.closest('.about-content');
+            if (!isAboutLink && !(isBadge ? meets(w, h, 44, 32) : meets(w, h, hit, hit))) failures.push({ selector: name, w: Math.round(w * 10) / 10, h: Math.round(h * 10) / 10 });
+            const g = groupOf(el);
+            const sx = g === document.documentElement ? 0 : g.scrollLeft, sy = g === document.documentElement ? 0 : g.scrollTop;
+            items.push({ el, name, g, sticky: getComputedStyle(el).position === 'sticky', abs: getComputedStyle(el).position === 'absolute', x0: r.left - e.l + sx, y0: r.top - e.t + sy, x1: r.right + e.r + sx, y1: r.bottom + e.b + sy });
+        }
+        const overlaps = [];
+        for (let i = 0; i < items.length; i++) {
+            for (let j = i + 1; j < items.length; j++) {
+                const a = items[i], b = items[j];
+                if (a.g !== b.g || a.sticky || b.sticky || a.el.contains(b.el) || b.el.contains(a.el)) continue;
+                // 刻意疊在另一個控制項上的絕對定位按鈕（搜尋框右側的輸入模式鈕，搜尋框已留出 4rem 空位）不算相鄰重疊
+                if ((a.abs && a.el.parentElement.contains(b.el)) || (b.abs && b.el.parentElement.contains(a.el))) continue;
+                const ix = Math.min(a.x1, b.x1) - Math.max(a.x0, b.x0), iy = Math.min(a.y1, b.y1) - Math.max(a.y0, b.y0);
+                if (ix > tol && iy > tol && Math.min(ix, iy) > 4) overlaps.push({ a: a.name, b: b.name, amount: Math.round(Math.min(ix, iy) * 10) / 10 });
+            }
+        }
+        // 一定要掃到的控制項（CSS 選擇器）：沒有任何一個被量到就列入 missing，防止「掃了個寂寞」
+        const missing = mustSee.filter(m => !items.some(it => it.el.matches(m)));
+        return { failures, overlaps, seen, sizes, missing, scanned: items.length, covered };
+    }, { sel: TOUCH_SELECTOR, hit: HIT_MIN, sample, tol: 0.5, meetsSrc: meetsHit.toString(), mustSee });
+}

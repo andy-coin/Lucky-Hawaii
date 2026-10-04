@@ -62,12 +62,13 @@
             .lyrics-area { overflow-y: auto; overscroll-behavior: contain; }
             .lyrics-section { flex: 0 0 auto; min-height: 9rem; }
             .lyrics-section[data-index="0"] { flex: 1 0 12rem; }
-            .lyrics-section.collapsed { flex: 0 0 var(--hit); min-height: 0; }
+            /* 收合時標題列本身就要 44px：另外加上外框 2px＋標題底線 1px，才不會把按鈕的下緣裁掉（05-08） */
+            .lyrics-section.collapsed { flex: 0 0 calc(var(--hit) + 3px); min-height: 0; }
             .lyrics-section .section-body { display: flex; flex-direction: column; flex: 1 1 auto; }
             .lyrics-section .section-textarea { flex: 1 1 auto; min-height: 7rem; }
             .section-label { min-width: 0; text-overflow: ellipsis; }
             .context-section { flex: 0 0 33%; }
-            .context-section.collapsed { flex: 0 0 var(--hit); }
+            .context-section.collapsed { flex: 0 0 calc(var(--hit) + 1px); }
             .context-section-header { min-height: var(--hit); }
             .hashtag-chip { min-width: 0; max-width: 100%; overflow-wrap: anywhere; }
 
@@ -79,7 +80,7 @@
                 order: 1;
                 position: sticky;
                 bottom: 0;
-                min-height: 3rem;
+                min-height: max(3rem, var(--hit));
                 box-shadow: 0 0 0 0.5rem var(--card-bg);
             }
             .ai-words-grid { grid-template-columns: repeat(auto-fill, minmax(8.5rem, 1fr)); gap: var(--sp-2); }
@@ -87,7 +88,7 @@
             .ai-exhausted { max-width: 100%; overflow-wrap: anywhere; }
             .saved-pool-title { min-height: var(--hit); }
             .saved-pool-section { flex: 0 0 28%; }
-            .saved-pool-section.collapsed { flex: 0 0 var(--hit); }
+            .saved-pool-section.collapsed { flex: 0 0 calc(var(--hit) + 1px); }
 
             /* 顯示底部 tab 列 */
             .mobile-tab-bar { display: flex; }
@@ -429,8 +430,9 @@
                 border-radius: 0.625rem;
             }
 
+            /* 上下 0.75rem（UI-SPEC §5.2）：按鈕長到 44px 之後，結果區要靠這裡把高度讓回來（手機搜尋後 ≥ 420px） */
             .search-section {
-                padding: 1.25rem 0.9375rem;
+                padding: 0.75rem 0.9375rem;
             }
 
             .search-input {
@@ -456,22 +458,22 @@
             .batch-panel.inline {
                  display: none;
             }
+            /* 三個批次按鈕：三欄等寬格線（UI-SPEC §5.2），不再用左右位移硬擠 */
             .m-batch-panel {
                 position: static;
-                right: 1rem;
-                display: flex;
-                top: 50%;
+                display: grid;
+                grid-template-columns: repeat(3, 1fr);
+                gap: 0.5rem;
                 z-index: 900;
-                gap: 0;
                 transition: opacity 0.3s ease;
                 transform: none;
-                flex-direction: row;
-                justify-content: center;
-                padding: 0.625rem 0.9375rem;
+                padding: 0.25rem 0.9375rem;
                 background: var(--container-bg);
             }
             .m-batch-btn {
-                width: auto;
+                width: 100%;
+                min-width: 0;
+                min-height: var(--hit);
                 height: auto;
                 border: 2px solid var(--border);
                 border-radius: 0.625rem;
@@ -499,17 +501,11 @@
                 padding: 0 0.25rem;
                 margin-left: -0.125rem;
             }
-            .m-batch-btn.btn-common { 
-                border-left: 0.375rem solid #f5576c;
-                position:relative;
-                left: -0.875rem;
-            }
+            .m-batch-btn.btn-common { border-left: 0.375rem solid #f5576c; }
             .m-batch-btn.btn-rare { border-left: 0.375rem solid #4299e1; 
                 gap: 0.125rem;
             }
             .m-batch-btn.btn-clear { border-left: 0.375rem solid #bac0a0; 
-                position:relative;
-                right: -0.875rem;
                 gap: 0.125rem;
             }
 
@@ -546,11 +542,14 @@
                 content: attr(data-short);
             }
 
+            /* 齒輪：44×44 只放圖示（UI-SPEC §5.2） */
             .settings-trigger {
                 margin-left: auto;
                 align-self: flex-end;
+                align-items: center;
                 font-size: 1.25rem;
-                padding: 0.375rem 0.375rem;
+                padding: 0;
+                min-width: var(--hit);
                 border: none;
                 background: none;
             }
@@ -585,7 +584,7 @@
             }
             
             .mark-badge {
-                font-size: 0.6rem;
+                font-size: 0.75rem;
                 padding: 0.0625rem 0.25rem;
                 min-width: 1.75rem;
             }
@@ -691,4 +690,27 @@
             #inputModeBtn { min-width: 2.75rem; min-height: 2.5rem; }
             #inputModeBtn::after { content: ''; position: absolute; inset: -0.25rem; }
             .section-textarea { overflow-wrap: anywhere; }
+        }
+
+        /* ===== 觸控目標下限（05-08，UI-SPEC §7，D-07）：本檔定義的控制項 =====
+           小圓鈕用透明邊框把點擊範圍撐到 44（background-clip 讓可見圓點維持 22px），
+           「i」與 ✕ 用 ::after／實體大小。 ===== */
+        @media (pointer: coarse), (max-width: 900px) {
+            .about-btn { position: relative; }
+            .about-btn::after { content: ''; position: absolute; inset: -0.875rem; }
+            .hashtag-add-btn {
+                width: var(--hit);
+                height: var(--hit);
+                border: 0.6875rem solid transparent;
+                background-clip: padding-box;
+            }
+            .selected-chars-hint .hint-clear {
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                min-width: var(--hit);
+                min-height: var(--hit);
+                padding: 0;
+            }
+            .hashtag-popup-input, .feedback-modal input, .search-input { min-height: max(3rem, var(--hit)); }
         }

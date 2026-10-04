@@ -834,3 +834,35 @@
             .mobile-backdrop { backdrop-filter: none; -webkit-backdrop-filter: none; }
         }
 
+
+        /* ===== 觸控目標下限（05-08，UI-SPEC §7，D-07）：兩個面板裡的控制項 =====
+           晶片裡的 × 與段落刪除鈕直接做成 44×44 的實體大小（不用 ::after 外擴），
+           這樣相鄰的晶片、標題列文字不會被它的透明範圍蓋住（相鄰重疊 ≤ 4px）。 ===== */
+        @media (pointer: coarse), (max-width: 900px) {
+            .panel-add-btn, .reset-pool-btn, .rhyme-mode-btn, .filter-chip, .generate-btn, .model-select,
+            .ai-word-card, .context-refresh-btn, .lyrics-section-header, .section-label { min-height: var(--hit); }
+            .context-refresh-btn { min-width: var(--hit); }
+            .word-chip, .hashtag-chip { min-height: var(--hit); padding-block: 0; padding-right: 0; }
+            .chip-remove {
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                min-width: var(--hit);
+                min-height: var(--hit);
+                padding: 0;
+                font-size: 1rem;
+            }
+            .lyrics-section-header { padding-block: 0; }
+            /* 段落刪除：觸控上沒有 hover，所以一律完整顯示；刪除前有內容會先確認（js/lyrics.js） */
+            .section-remove {
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                min-width: var(--hit);
+                min-height: var(--hit);
+                padding: 0;
+                opacity: 1;
+            }
+            /* 右鍵／長按選單：每個選項夠高、選單夠寬（UI-SPEC §6） */
+            .word-ctx-item { min-height: var(--hit); }
+        }

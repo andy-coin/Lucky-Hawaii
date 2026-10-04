@@ -838,3 +838,20 @@
             transform: scale(1.05);
         }
 
+
+        /* ===== 觸控目標下限（05-08，UI-SPEC §7，D-07）=====
+           手機、平板、觸控裝置：每個可點的東西點擊範圍至少 44×44（var(--hit) 是實體像素，不跟縮放變小）。
+           視覺可以維持精巧：真的長高（min-height）或用透明的 ::after 把點擊範圍往外放大。
+           電腦滑鼠（≥ 901 且 fine pointer）不在這個條件裡，維持原本緊湊尺寸。 ===== */
+        @media (pointer: coarse), (max-width: 900px) {
+            .mode-button, .batch-btn, .settings-trigger, .feedback-btn, .save-load-btn { min-height: var(--hit); }
+            .save-load-btn { min-width: var(--hit); }
+            .poly-chip { min-height: var(--hit); display: inline-flex; align-items: center; }
+            .char-card { min-height: var(--hit); }
+            /* 勾選框：整列 44 高，勾選框本身視覺 20×20 */
+            .checkbox-label { min-height: var(--hit); }
+            .checkbox-label input[type="checkbox"] { width: 1.25rem; height: 1.25rem; flex-shrink: 0; }
+            /* 常用／冷僻徽章：視覺還是小小一顆，點擊範圍 ≥ 44 寬 × 32 高（刻意不做到 44 高：會吃掉字卡 40% 又容易誤改等級） */
+            .mark-badge { position: relative; font-size: 0.75rem; min-height: 1.25rem; }
+            .mark-badge::after { content: ''; position: absolute; inset: -0.375rem -0.5rem; }
+        }
