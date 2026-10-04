@@ -646,10 +646,15 @@
 
         } 
 
-        /* 矮視窗（橫拿手機；Android 鍵盤收起前的可見高度）：標題區與手機批次列讓位給結果（Pitfall 8） */
+        /* 矮視窗（橫拿手機）：結果區可以縮、說明文字先讓位（Pitfall 8）。
+           標題區（含主題、縮放、SAVE／LOAD）與手機批次列「不能」在這裡整塊藏起來——橫拿時沒有別的入口可以用（WR-04）；
+           它們只在虛擬鍵盤打開、可見高度不到 600 時（下面的 html.kb-short）才暫時讓位，鍵盤收起就回來。 */
         @media (max-width: 900px) and (max-height: 600px) {
-            .header, .mobile-batch-area { display: none !important; }
-            .results-section { min-height: 0; }
+            /* 標題區縮成只剩工具列（縮放、主題）一列：標題文字與口號是裝飾，「關於」在設定裡也有入口 */
+            .header h1, .header p { display: none; }
+            .header { padding-block: 0.25rem; }
+            .search-section { padding-block: 0.5rem; }
+            .results-section { min-height: 0; padding-top: 0.5rem; }
             /* 只藏說明文字（不是控制項）：橫拿時多換 30 多 px 給字卡 */
             .search-hint { display: none; }
         }

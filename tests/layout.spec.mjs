@@ -242,6 +242,30 @@ test('版面：橫拿手機搜尋後看得到第一張字卡', async ({ browser 
     } finally { await context.close(); }
 });
 
+// WR-04：橫拿手機沒有虛擬鍵盤時，主題、縮放、批次標記都要還在、點得到（只有鍵盤打開才讓位）
+test('版面：橫拿手機的主題、縮放、批次標記按鈕還在且點得到', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, { device: DEVICES.phoneLandscape });
+    try {
+        await page.fill('#searchInput', 'ㄢ');
+        await waitStill(page);
+        expect(await page.evaluate(() => matchMedia('(max-width: 900px) and (max-height: 600px)').matches)).toBe(true);
+        expect(await page.evaluate(() => getComputedStyle(document.querySelector('.header')).display), '標題區沒有被藏起來').not.toBe('none');
+        for (const [name, sel] of [['主題切換', '#themeToggle'], ['縮小', '#MzoomOut'], ['縮放百分比', '.zoom-reset'], ['放大', '#MzoomIn'], ['批次：常用', '#batchPanel .batch-btn >> nth=0']]) {
+            await expectReallyClickable(page, page.locator(sel).first(), name);
+        }
+        // 真的按得動：切到深色、放大一格
+        const theme = () => page.evaluate(() => document.documentElement.getAttribute('data-theme') ?? document.body.className);
+        const before = await theme();
+        await page.locator('#themeToggle').tap();
+        await waitStill(page);
+        expect(await theme(), '主題真的切換了').not.toBe(before);
+        await page.locator('#MzoomIn').tap();
+        await waitStill(page);
+        expect(await page.locator('#MzoomValue').textContent()).toBe('105%');
+        expect(errors).toEqual([]);
+    } finally { await context.close(); }
+});
+
 test('輸入：viewport 設定保留縮放手勢', async ({ browser }) => {
     const { context, page } = await bootPage(browser, {});
     try {
