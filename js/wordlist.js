@@ -368,8 +368,12 @@
                     } else filtered.push(e);
                 }
                 let addedCount = 0;
+                // 加回的詞若這一包本來就有（或 added 裡重複出現），只留一筆：不同詞庫包重疊的詞很多，重複會讓 AI 建議出現同一個詞兩次（B5）
+                const have = new Set(filtered.map(e => e.w));
                 for (const a of added) {
                     if (typeof a?.w !== 'string' || typeof a.z !== 'string' || !a.w || !a.z || a.z.includes('?')) continue;  // 缺注音或格式不對的跳過
+                    if (have.has(a.w)) continue;
+                    have.add(a.w);
                     const entry = { w: a.w, z: a.z, p: a.p ?? 1 };
                     filtered.push(entry);
                     mapSet.push([a.w, entry.z, entry.p]);

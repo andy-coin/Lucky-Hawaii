@@ -1,7 +1,7 @@
 // Phase 4 詞庫載入：慢速載入與 AI 建議的競態、版本更新整套換新、非 200 留記錄
 import { test, expect } from '@playwright/test';
 import { readFileSync } from 'node:fs';
-import { bootPage, settle, CONTEXT_OPTS, routeExternal, collectErrors } from './helpers.mjs';
+import { bootPage, settle, CONTEXT_OPTS, routeExternal, collectErrors, stubManifest, stubPack, packEntry } from './helpers.mjs';
 
 const clickGenerate = page => page.evaluate(() => document.getElementById('generateBtn').click());
 
@@ -378,5 +378,111 @@ test('版本：兩個分頁同時換版不會看到混合的詞庫', async ({ br
         expect([{ ver: 'V2', chunks: seq('新') }, { ver: 'V3', chunks: seq('甲') }]).toContainEqual(d);
         expect(ea.errors).toEqual([]);
         expect(eb.errors).toEqual([]);
+    } finally { await context.close(); }
+});
+
+// ==================== 非預設詞庫包改版（06-03，LEX-06）====================
+// alpha 改版時只換 alpha 自己的快取（p:alpha:*）；缺一段就整包不用、舊版整套留著、下次載入重試；v0.96 的數字鍵不受影響
+test('版本：非預設詞庫包改版時只換該包、缺段保留舊版', async ({ browser }) => {
+    test.setTimeout(60_000);
+    const v096Entry = JSON.parse(readFileSync(new URL('../data/packs/index.json', import.meta.url), 'utf8')).packs.find(p => p.id === 'v096');
+    const mk = ver => Array.from({ length: 3 }, (_, i) => `{"w":"甲${ver}${i}","z":"ㄅㄚ ㄢ","p":1}\n`);
+    const alpha = { version: 'V1', chunks: mk('V1'), fail: null, notice: 'x', requests: [] };
+    const context = await browser.newContext(CONTEXT_OPTS);
+    await routeExternal(context, { aiReply: '' });
+    await context.addInitScript(() => localStorage.setItem('lh:lexiconPack', 'alpha'));
+    await stubManifest(context, { schema: 1, default: 'v096', packs: [v096Entry, packEntry('alpha', 'Alpha', { entries: 3 })] });
+    await stubPack(context, 'alpha', alpha);
+    await context.route(/\/data\/wordlist-overrides\.json$/, r => r.fulfill({ status: 200, contentType: 'application/json', body: '{}' }));
+
+    const open = async () => {
+        const page = await context.newPage();
+        const { errors, warnings } = collectErrors(page);
+        const before = alpha.requests.length;
+        await page.goto('/index.html');
+        await page.evaluate(() => Promise.all([window.__hoyunReady, window.__hoyunWordlistReady, window.__hoyunSafetyReady, window.__hoyunModelsReady]));
+        return { page, errors, warnings, urls: alpha.requests.slice(before) };
+    };
+    // 讀 wl：alpha 的 ver 與三段各自的第一筆 w、v0.96 的標記鍵（ver 與數字鍵 0）、sentinel
+    const dump = page => page.evaluate(async () => {
+        const db = await lhIdbOpen();
+        return new Promise(res => {
+            const st = db.transaction('wl', 'readonly').objectStore('wl');
+            const out = { ver: null, chunks: [], v096Ver: null, v096Chunk0: null, sentinel: null, index: null };
+            st.get('p:alpha:ver').onsuccess = e => { out.ver = e.target.result?.v ?? null; };
+            st.get('ver').onsuccess = e => { out.v096Ver = e.target.result?.v ?? null; };
+            st.get(0).onsuccess = e => { out.v096Chunk0 = e.target.result?.v ?? null; };
+            st.get('sentinel').onsuccess = e => { out.sentinel = e.target.result?.v ?? null; };
+            st.get('p:index').onsuccess = e => { out.index = (e.target.result?.v ?? []).map(r => r.id); };
+            for (let i = 0; i < 3; i++) st.get('p:alpha:' + i).onsuccess = e => { const c = e.target.result?.v; out.chunks[i] = c ? c[0].w : null; };
+            st.transaction.oncomplete = () => res(out);
+        });
+    });
+    const words = page => page.evaluate(() => wordlistData && wordlistData.map(e => e.w));
+    const seq = ver => Array.from({ length: 3 }, (_, i) => '甲' + ver + i);
+    try {
+        // ① V1：整包存進 alpha 自己的鍵，網址帶 ?v=V1
+        let t = await open();
+        expect(await words(t.page)).toEqual(seq('V1'));
+        expect(t.urls).toHaveLength(3);
+        for (const u of t.urls) expect(u).toContain('?v=V1');
+        let d = await dump(t.page);
+        expect(d.ver).toBe('V1');
+        expect(d.chunks).toEqual(seq('V1'));
+        // 放標記：模擬 v0.96 的快取（ver 與數字鍵 0）與一個不相干的鍵，改版後它們都必須原封不動
+        await t.page.evaluate(async () => {
+            const db = await lhIdbOpen();
+            await new Promise(res => {
+                const tx = db.transaction('wl', 'readwrite');
+                const st = tx.objectStore('wl');
+                st.put({ k: 'ver', v: 'V096-MARK' }); st.put({ k: 0, v: [{ w: '舊包標記', z: 'ㄐㄧㄡˋ', p: 1 }] }); st.put({ k: 'sentinel', v: 1 });
+                tx.oncomplete = res;
+            });
+        });
+        expect(realErrors(t.errors)).toEqual([]);
+        await t.page.close();
+
+        // ② 同版本再開：快取命中，不再下載
+        t = await open();
+        expect(t.urls).toHaveLength(0);
+        expect(await words(t.page)).toEqual(seq('V1'));
+        await t.page.close();
+
+        // ③ alpha 改成 V2：三段都用 ?v=V2 重抓，只換 alpha 的鍵
+        alpha.version = 'V2'; alpha.chunks = mk('V2');
+        t = await open();
+        expect(t.urls).toHaveLength(3);
+        for (const u of t.urls) expect(u).toContain('?v=V2');
+        expect(await words(t.page)).toEqual(seq('V2'));
+        d = await dump(t.page);
+        expect(d.ver).toBe('V2');
+        expect(d.chunks).toEqual(seq('V2'));
+        expect(d.v096Ver, 'v0.96 的 ver 沒被動').toBe('V096-MARK');
+        expect(d.v096Chunk0, 'v0.96 的數字鍵沒被動').toEqual([{ w: '舊包標記', z: 'ㄐㄧㄡˋ', p: 1 }]);
+        expect(d.sentinel).toBe(1);
+        expect(d.index).toEqual(['alpha', 'v096']);
+        expect(realErrors(t.errors)).toEqual([]);
+        await t.page.close();
+
+        // ④ alpha 再改成 V3 但第 1 段壞掉：詞庫不公開、舊的 V2 整套留著、留記錄
+        alpha.version = 'V3'; alpha.chunks = mk('V3'); alpha.fail = 1;
+        t = await open();
+        expect(await words(t.page)).toBeNull();
+        d = await dump(t.page);
+        expect(d.ver).toBe('V2');
+        expect(d.chunks).toEqual(seq('V2'));
+        expect(t.warnings.some(m => m.includes('詞庫分段 1 載入失敗'))).toBe(true);
+        expect(realErrors(t.errors)).toEqual([]);
+        await t.page.close();
+
+        // ⑤ 修好後下次載入重試，V3 整套公開並換掉 V2
+        alpha.fail = null;
+        t = await open();
+        expect(await words(t.page)).toEqual(seq('V3'));
+        d = await dump(t.page);
+        expect(d.ver).toBe('V3');
+        expect(d.chunks).toEqual(seq('V3'));
+        expect(d.v096Ver).toBe('V096-MARK');
+        await t.page.close();
     } finally { await context.close(); }
 });

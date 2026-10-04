@@ -437,3 +437,54 @@ test('詞庫包：還沒有登記簿的舊快取（v0.96 升級前就存好的�
         expect(realErrors(errors)).toEqual([]);
     } finally { await context.close(); }
 });
+
+// ===== 修正檔（wordlist-overrides.json）在每個包都照樣生效，加回的詞不重複（B5）=====
+test('詞庫包：修正檔加回的詞不重複、刪除與改音在別的包也生效', async ({ browser }) => {
+    test.setTimeout(60_000);
+    const w = i => '甲' + String.fromCharCode(0x4e00 + i * 3);      // alpha 的第 i 個詞（見 stubWords）
+    const [A, B, C, D] = [w(0), w(1), w(2), '新增詞'];
+    const overrides = {
+        version: 2, removed: [A], hidden: [], fixed: { [B]: 'ㄅㄚˇ ㄢˋ' },
+        // C 本來就在 alpha 裡；D 是新詞（還重複寫了一次）；缺注音的那筆要被跳過
+        added: [{ w: C, z: 'ㄅㄚ ㄢ', p: 1 }, { w: D, z: 'ㄅㄚ ㄢ', p: 1 }, { w: D, z: 'ㄅㄚ ㄢ', p: 1 }, { w: '無音', z: '', p: 1 }],
+    };
+    const { context, page, errors, warnings } = await bootWithStubPacks(browser, {
+        storage: { 'lh:lexiconPack': 'alpha' },
+        afterStubs: ({ context }) => context.route(/\/data\/wordlist-overrides\.json$/, r => r.fulfill({
+            status: 200, contentType: 'application/json', body: JSON.stringify(overrides),
+        })),
+    });
+    try {
+        const probe = ws => page.evaluate(ws => {
+            const count = x => wordlistData.filter(e => e.w === x).length;
+            return {
+                id: activeLexiconPack.id, total: wordlistData.length,
+                counts: Object.fromEntries(ws.map(x => [x, count(x)])),
+                z: Object.fromEntries(ws.map(x => [x, wordPhoneticMap.get(x) ?? null])),
+                entryZ: wordlistData.find(e => e.w === ws[1])?.z ?? null,
+                alphaOthers: wordlistData.filter(e => e.w[0] === '甲' && e.w !== ws[2]).length,
+                noAudio: count('無音'),
+            };
+        }, [A, B, C, D]);
+
+        const a = await probe();
+        expect(a.id).toBe('alpha');
+        expect(a.counts, 'A 被刪、C 只有一筆（沒重複）、D 只有一筆').toEqual({ [A]: 0, [B]: 1, [C]: 1, [D]: 1 });
+        expect(a.z[A], '被刪的詞連對照表也沒有').toBeNull();
+        expect(a.z[B]).toBe('ㄅㄚˇ ㄢˋ');
+        expect(a.entryZ).toBe('ㄅㄚˇ ㄢˋ');
+        expect(a.noAudio, '缺注音的加回項目被跳過').toBe(0);
+        expect(a.total, '30 詞 - 1 刪除 + 1 新增').toBe(30);
+
+        // 換到 beta：修正檔照樣套用（加回的詞出現在 beta），而且 alpha 的詞一個都不會混進來
+        expect(await page.evaluate(() => switchLexiconPack('beta'))).toBe(true);
+        const b = await probe();
+        expect(b.id).toBe('beta');
+        expect(b.counts[C], '加回的詞在 beta 也只有一筆').toBe(1);
+        expect(b.counts[D]).toBe(1);
+        expect(b.alphaOthers, '沒有混進 alpha 的詞').toBe(0);
+        expect(b.total, 'beta 30 詞 + 加回 2 個').toBe(32);
+        expect(realErrors(errors)).toEqual([]);
+        expect(warnings.filter(m => m.includes('詞庫修正檔'))).toEqual([]);
+    } finally { await context.close(); }
+});
