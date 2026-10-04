@@ -4,16 +4,16 @@ milestone: v0.96
 current_phase: 05
 current_phase_name: Multi-Device Layout 多裝置版面與流暢度
 status: executing
-stopped_at: Completed 05-05-PLAN.md
-last_updated: "2026-10-04T11:25:34.354Z"
+stopped_at: Completed 05-06-PLAN.md
+last_updated: "2026-10-04T11:54:16.128Z"
 last_activity: 2026-10-04
 last_activity_desc: Phase 05 execution started
-state_head: 67b5701c5512e44ec18a6bda7a15af6ec82006c7
+state_head: 9957321d8fdf6ef4a036eec86117fb0d335cf8f1
 progress:
   total_phases: 12
   completed_phases: 2
   total_plans: 33
-  completed_plans: 27
+  completed_plans: 28
 ---
 
 # Project State
@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-10-03)
 ## Current Position
 
 Phase: 05 (Multi-Device Layout 多裝置版面與流暢度) — EXECUTING
-Plan: 2 of 11
+Plan: 7 of 11
 Status: Ready to execute
 Last activity: 2026-10-04 — Phase 05 execution started
 
@@ -84,6 +84,7 @@ Progress: [██░░░░░░░░] 17%
 | Phase 05 P03 | 35 min | 2 tasks | 9 files |
 | Phase 05 P04 | 30min | 2 tasks | 7 files |
 | Phase 05 P05 | 25 min | 2 tasks | 11 files |
+| Phase 05 P06 | 75 min | 2 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -125,6 +126,10 @@ Recent decisions affecting current work:
 - [Phase 05]: 05-04: banner z-index 820 (flex item, stays in flow) keeps buttons clickable over desktop side panels until 05-05; dialogs sized min(w,92vw) with max-height app-h-2rem and internal scroll
 - [Phase 05]: 05-05: 兩個面板同時展開的規則用邊距 page-pad 當 gutter；只有使用者親手打開造成的收起才寫入 localStorage，單純縮視窗不改偏好
 - [Phase 05]: 05-05: 跨過 900 斷點時一併清掉底部面板遮罩與分頁高亮；離開手機版時批次按鈕放回原本位置
+- [Phase 05]: 底部面板高度用可見高度（dvh）的 78%，上限 52rem；平板最寬 44rem 置中
+- [Phase 05]: 分頁列上緣線改用內陰影，避免 48px 分頁按鈕被框線擠出視窗
+- [Phase 05]: 沒開面板時亮「查韻」；Esc 只在 900 以下收起底部面板
+- [Phase 05]: AI 按鈕用 order 排到詞卡後再 sticky 貼底（DOM 不動，桌機不變）
 
 ### Pending Todos
 
@@ -162,6 +167,6 @@ Items acknowledged and deferred at milestone close, most recent first:
 
 ## Session Continuity
 
-Last session: 2026-10-04T11:25:34.267Z
-Stopped at: Completed 05-05-PLAN.md
+Last session: 2026-10-04T11:54:16.041Z
+Stopped at: Completed 05-06-PLAN.md
 Resume file: None
