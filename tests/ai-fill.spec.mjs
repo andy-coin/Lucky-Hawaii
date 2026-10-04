@@ -558,3 +558,34 @@ test('舊回覆作廢：造詞（候選 < 24）等 AI 期間換搜尋／篩選�
         actions: { ...staleActions, 換搜尋: async page => { await page.fill('#searchInput', '安'); await settle(page); } },
     });
 });
+
+// ==================== 字卡樣板跳脫（WR-01）====================
+test('字卡：詞含 " < > \' \\ 也不會跳出屬性或字串，點下去保留的就是原詞', async ({ browser }) => {
+    const { context, page, errors, offOrigin } = await bootPage(browser, { wordlist: 'stub' });
+    try {
+        const words = ['a"b', "a'b", 'a<i>b', 'a>b', 'a\\b', 'a\\\'b', '"><img src=x onerror=window.__pwn=1>', "');window.__pwn=1;('", 'a&amp;b', '</div><b>x</b>'];
+        const res = await page.evaluate(ws => {
+            const box = document.getElementById('aiWordsContainer');
+            box.innerHTML = ws.map((w, i) => aiWordCardHtml(w, i % 2 === 0)).join('');
+            savedWords = [];
+            const cards = [...box.children];
+            cards.forEach(c => c.click());
+            return {
+                n: cards.length,
+                datasets: cards.map(c => c.dataset.word),
+                texts: cards.map(c => c.firstChild.textContent),
+                saved: [...savedWords].reverse(),
+                extra: box.querySelectorAll('img, b, i').length,
+                pwn: window.__pwn ?? null,
+            };
+        }, words);
+        expect(res.n, '每個詞一張卡、沒被拆開').toBe(words.length);
+        expect(res.datasets).toEqual(words);
+        expect(res.texts).toEqual(words);
+        expect(res.saved, '點卡片保留的就是原詞').toEqual(words);
+        expect(res.extra, '沒有被注入的元素').toBe(0);
+        expect(res.pwn).toBeNull();
+        expect(errors).toEqual([]);
+        expect(offOrigin).toEqual([]);
+    } finally { await context.close(); }
+});

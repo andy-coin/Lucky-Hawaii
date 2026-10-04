@@ -1,6 +1,11 @@
         // AI 字卡（isAI 時加 AI 徽章）；保留字串樣板，smoke 掃原始碼找 onclick="saveWord(" 的處理器名
+        // 詞可能來自詞庫或後台 overrides，這裡自己負責跳脫：
+        //   HTML：& < > " ' 轉實體（屬性與內文兩處都用）
+        //   JS 字串：JSON.stringify 處理反斜線、引號與換行，再整段做 HTML 跳脫放進 onclick 屬性
         function aiWordCardHtml(w, isAI) {
-            return `<div class="ai-word-card" data-word="${w}" onclick="saveWord('${w.replace(/'/g, "\\'")}')">${w}${isAI ? '<span class="ai-badge">AI</span>' : ''}</div>`;
+            const escHtml = s => s.replace(/[&<>"']/g, c => '&#' + c.charCodeAt(0) + ';');
+            const jsArg = escHtml(JSON.stringify(w));
+            return `<div class="ai-word-card" data-word="${escHtml(w)}" onclick="saveWord(${jsArg})">${escHtml(w)}${isAI ? '<span class="ai-badge">AI</span>' : ''}</div>`;
         }
 
         // AI 生成補足詞（AI 造詞，不從詞庫選），驗證後顯示並標 "AI" 徽章
