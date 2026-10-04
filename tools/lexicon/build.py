@@ -15,6 +15,7 @@ sys.path.insert(0, str(HERE))
 
 from lex import LexError, REPO, cache_dir  # noqa: E402
 from lex import pack as packlib  # noqa: E402
+from lex import report as reportlib  # noqa: E402
 from lex import parse as parselib  # noqa: E402
 from lex import rules as ruleslib  # noqa: E402
 from lex import sources  # noqa: E402
@@ -83,6 +84,7 @@ def cmd_build(lock, gray_policy='p1'):
     ctx = ruleslib.load_rule_context(rule_paths(lock, base), gray_policy=gray_policy)
     # 第一階段：解析所有詞庫包（規則要比對「幾個來源都有這個詞」，所以要全部讀完才能判斷）
     parsed = {}
+    multi = {}
     infos = {}
     for cfg in packs_cfg['packs']:
         if cfg.get('legacy'):
@@ -102,7 +104,8 @@ def cmd_build(lock, gray_policy='p1'):
         if parser is None:
             raise LexError('不認得的 parser：%s' % cfg['parser'])
         header, rows = parser(files)
-        parsed[cfg['id']] = parselib.collect(rows, poly_order, overrides, cfg['sources'][0])
+        multi[cfg['id']] = []
+        parsed[cfg['id']] = parselib.collect(rows, poly_order, overrides, cfg['sources'][0], multi[cfg['id']])
         infos[cfg['id']] = (cfg, header, srcs_meta)
     # 第二階段：套用規則（K0、R0–R3、灰色）
     results = ruleslib.apply_rules(parsed, ctx)
@@ -128,12 +131,20 @@ def cmd_build(lock, gray_policy='p1'):
             sources=srcs_meta, licence_files=licence_files)
         packlib.write_notice(out_dir, cfg, meta, upstream, stats['removed'], tabe_text)
         packlib.write_removed(HERE / 'reports' / pid / 'removed.ndjson', res['removed'])
+        # 刪除報告（06-06）：只留下保留的詞的多讀音列；網站不會讀（放在 tools/ 底下，不在 data/）
+        kept_words = {e['w'] for e in res['entries']}
+        multi_rows = sorted((m for m in multi[pid] if m['w'] in kept_words), key=lambda m: m['w'])
+        rstats = reportlib.build_stats(cfg, meta, res['removed'], res['gray_rows'], multi_rows,
+                                       res['china_kept_rows'])
+        reportlib.write_report(HERE / 'reports' / pid, cfg, meta, rstats, res['removed'], res['gray_rows'],
+                               multi_rows, res['china_kept_rows'])
         metas[pid] = meta
         per_rule = '、'.join('%s %d' % (k, v) for k, v in stats['rules'].items()) or '無'
         print('%s：保留 %d 筆、刪除 %d 筆（%s）、略過單字 %d 筆；灰色 %d 筆（待 AI 判斷 %d 筆）；'
               '中國用語但詞頻夠高而保留 %d 筆；版本 %s' % (
                   cfg['name'], stats['kept'], stats['removed'], per_rule, stats['skipped_single'],
                   res['gray'], res['gray'], stats['china_kept'], meta['version']))
+        print('  刪除報告：tools/lexicon/reports/%s/REPORT.md' % pid)
     packlib.write_manifest(packs_cfg, metas, REPO)
     packlib.write_v096_notice(REPO)
     problems = ruleslib.shipped_text_problems(_shipped_texts(REPO), ctx)

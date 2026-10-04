@@ -7,7 +7,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from lex import RULES_VERSION, pack
+from lex import RULES_VERSION, pack, report
 
 LICENCE_BYTES = b'Fake licence text\n'
 LICENCE_SHA = hashlib.sha256(LICENCE_BYTES).hexdigest()
@@ -56,9 +56,16 @@ class PackTestBase(unittest.TestCase):
     def build(self, entries=ENTRIES):
         self.out.mkdir(parents=True, exist_ok=True)
         (self.out / 'LICENSE.MIT.txt').write_bytes(LICENCE_BYTES)
-        meta = pack.write_pack(self.out, CFG, entries, {'stats': {}},
-                               sources=SRC_META, licence_files=self.licence_files())
+        meta = pack.write_pack(
+            self.out, CFG, entries,
+            {'stats': {'in_scope': len(entries), 'skipped_single': 0, 'merged_lines': 0},
+             'gray': 0, 'gray_pending': 0, 'gray_policy': 'p1'},
+            sources=SRC_META, licence_files=self.licence_files())
         pack.write_notice(self.out, CFG, meta, '2025.1', 0)
+        # 刪除報告（06-06）：verify 會核對 stats.json 與詞庫包
+        reports = self.repo / 'tools' / 'lexicon' / 'reports' / 'demo'
+        pack.write_removed(reports / 'removed.ndjson', [])
+        report.write_report(reports, CFG, meta, report.build_stats(CFG, meta, [], [], [], []), [], [], [], [])
         pack.write_v096_notice(self.repo)
         pack.write_manifest(PACKS_CFG, {'demo': meta}, self.repo)
         return meta

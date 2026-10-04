@@ -306,7 +306,8 @@ def apply_rules(parsed, ctx):
 
     parsed = {pack id: (entries, r0_removed, stats)}（parse.collect 的結果，依 pack id 順序）。
     回傳 {pack id: {'entries', 'removed', 'gray', 'stats'}}：
-      entries = 留下的條目（含灰色），removed = 全部刪除列（R0 + R1/R2/R3，依詞排序）。
+      entries = 留下的條目（含灰色），removed = 全部刪除列（R0 + R1/R2/R3，依詞排序）；
+      gray_rows = 灰色詞列 {w,z,p,rule}、china_kept_rows = 中國用語吻合但詞頻夠高而保留的列 {w,z,p,tw}（報告用）。
     一個詞「被收錄」的定義：通過 R0 格式檢查、出現在該來源。n = 收錄它的來源數。
     每個詞庫包都檢查：留下 + 刪除 == 範圍內的詞（D1、T-06-15）。
     """
@@ -320,6 +321,8 @@ def apply_rules(parsed, ctx):
         removed = []
         counts = {}
         gray = 0
+        gray_rows = []
+        china_kept_rows = []
         china_gray = 0
         china_kept = 0
         keep_allow_n = 0
@@ -340,17 +343,20 @@ def apply_rules(parsed, ctx):
             kept.append(e)
             if decision == 'gray':
                 gray += 1
+                gray_rows.append({'w': e['w'], 'z': e['z'], 'p': e['p'], 'rule': rule})
                 if rule == 'G-china-term':
                     china_gray += 1
             if rule == 'K0-allowlist':
                 keep_allow_n += 1
             if e['w'] in ctx.china_terms and e['p'] >= ctx.china_freq_min:
                 china_kept += 1
+                china_kept_rows.append({'w': e['w'], 'z': e['z'], 'p': e['p'], 'tw': ctx.china_terms[e['w']]})
         removed.sort(key=lambda r: (r['w'], r['z'], r['rule']))
         if len(kept) + len(removed) != stats['in_scope']:
             raise LexError('%s：留下 %d + 刪除 %d 不等於範圍內的詞 %d（規則實作有誤）'
                            % (pid, len(kept), len(removed), stats['in_scope']))
         out[pid] = {'entries': kept, 'removed': removed, 'gray': gray,
+                    'gray_rows': gray_rows, 'china_kept_rows': china_kept_rows,
                     'stats': dict(stats, kept=len(kept), removed=len(removed), rules=dict(sorted(counts.items())),
                                   gray=gray, china_gray=china_gray, china_kept=china_kept,
                                   keep_allow=keep_allow_n)}

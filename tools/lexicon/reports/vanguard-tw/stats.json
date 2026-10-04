@@ -1,0 +1,114 @@
+{
+  "by_rule": {
+    "R0-nonbmp": 4,
+    "R0-nonhan": 7,
+    "R0-syllables": 1,
+    "R1-simplified": 2,
+    "R2-rare-char": 86,
+    "R3-china-term": 56
+  },
+  "china_kept": 64,
+  "est": {
+    "batch": 150,
+    "in_tokens": 75669,
+    "out_tokens": 20601,
+    "requests": 46
+  },
+  "gray": 6867,
+  "gray_by_rule": {
+    "G-china-term": 3,
+    "G-single-source": 6864
+  },
+  "gray_pending": 6867,
+  "id": "vanguard-tw",
+  "in_scope": 64793,
+  "kept": 64637,
+  "merged_lines": 3913,
+  "multi_reading": 3525,
+  "removed": 156,
+  "rules_version": "2",
+  "skipped_single": 0,
+  "top_chars": [
+    [
+      "酶",
+      10
+    ],
+    [
+      "㨃",
+      6
+    ],
+    [
+      "愺",
+      4
+    ],
+    [
+      "瘮",
+      4
+    ],
+    [
+      "啉",
+      3
+    ],
+    [
+      "腚",
+      3
+    ],
+    [
+      "萜",
+      3
+    ],
+    [
+      "㗝",
+      2
+    ],
+    [
+      "㞎",
+      2
+    ],
+    [
+      "㞞",
+      2
+    ],
+    [
+      "吡",
+      2
+    ],
+    [
+      "栃",
+      2
+    ],
+    [
+      "氹",
+      2
+    ],
+    [
+      "浜",
+      2
+    ],
+    [
+      "狍",
+      2
+    ],
+    [
+      "獴",
+      2
+    ],
+    [
+      "菓",
+      2
+    ],
+    [
+      "萘",
+      2
+    ],
+    [
+      "蒓",
+      2
+    ],
+    [
+      "鑔",
+      2
+    ]
+  ],
+  "version": "2.3f0521dcc1"
+}

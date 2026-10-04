@@ -394,6 +394,8 @@ def _verify_pack(repo, entry, cfg, lock):
     for f in sorted(folder.iterdir()):
         if f.name not in allowed:
             problems.append(tag + '多出來的檔案 %s' % f.name)
+    # --- 刪除報告（06-06）---
+    problems += _verify_report(repo, pid, meta)
     # --- NOTICE ---
     try:
         notice = (folder / 'NOTICE.txt').read_text(encoding='utf-8')
@@ -405,6 +407,54 @@ def _verify_pack(repo, entry, cfg, lock):
                 problems.append(tag + 'NOTICE 缺少「%s」' % n)
     except OSError:
         problems.append(tag + '找不到 NOTICE.txt')
+    return problems
+
+
+def _verify_report(repo, pid, meta):
+    """報告與詞庫包對得起來：stats.json 的數字重新核對（T-06-28）。"""
+    tag = '詞庫包 %s：' % pid
+    folder = Path(repo) / 'tools' / 'lexicon' / 'reports' / pid
+    problems = []
+    for name in ('stats.json', 'REPORT.md', 'removed.ndjson'):
+        if not (folder / name).is_file():
+            problems.append(tag + '缺少 tools/lexicon/reports/%s/%s（請重新建包）' % (pid, name))
+    if problems:
+        return problems
+    try:
+        stats = _read_json(folder / 'stats.json')
+    except ValueError as exc:
+        return [tag + 'stats.json 不是 JSON：%s' % exc]
+    need = ('id', 'version', 'in_scope', 'kept', 'removed', 'by_rule', 'gray', 'gray_pending')
+    missing = [k for k in need if k not in stats]
+    if missing:
+        return [tag + 'stats.json 缺少欄位 %s' % '、'.join(missing)]
+    lines = [ln for ln in (folder / 'removed.ndjson').read_text(encoding='utf-8').split('\n') if ln]
+    by_rule = {}
+    for ln in lines:
+        try:
+            rule = json.loads(ln)['rule']
+        except (ValueError, KeyError, TypeError):
+            problems.append(tag + 'removed.ndjson 有一行不是刪除列')
+            break
+        by_rule[rule] = by_rule.get(rule, 0) + 1
+    if stats['id'] != pid:
+        problems.append(tag + 'stats.json 的 id %r 不對' % stats['id'])
+    if stats['version'] != meta['version']:
+        problems.append(tag + 'stats.json 的版本 %r 與 meta.version %r 不同（報告過期了）' % (stats['version'], meta['version']))
+    if stats['kept'] != meta['entries']:
+        problems.append(tag + 'stats.kept %r 與 meta.entries %r 不同' % (stats['kept'], meta['entries']))
+    if stats['removed'] != len(lines):
+        problems.append(tag + 'stats.removed %r 與 removed.ndjson 的行數 %d 不同' % (stats['removed'], len(lines)))
+    if stats['kept'] + stats['removed'] != stats['in_scope']:
+        problems.append(tag + '保留 %r + 刪除 %r 不等於範圍內的詞 %r' % (stats['kept'], stats['removed'], stats['in_scope']))
+    if not isinstance(stats['by_rule'], dict) or sum(stats['by_rule'].values()) != stats['removed']:
+        problems.append(tag + 'stats.by_rule 各原因加總不等於刪除筆數')
+    elif stats['by_rule'] != by_rule:
+        problems.append(tag + 'stats.by_rule 與 removed.ndjson 的各原因筆數不同')
+    if stats['gray_pending'] > stats['gray']:
+        problems.append(tag + 'gray_pending %r 大於 gray %r' % (stats['gray_pending'], stats['gray']))
+    if 'gray' in meta and stats['gray'] != meta['gray']:
+        problems.append(tag + 'stats.gray %r 與 meta.gray %r 不同' % (stats['gray'], meta['gray']))
     return problems
 
 

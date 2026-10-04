@@ -202,7 +202,7 @@ def choose_reading(w, readings, poly_order, overrides):
     return min(readings, key=key)
 
 
-def collect(rows, poly_order, overrides, src_id):
+def collect(rows, poly_order, overrides, src_id, multi_out=None):
     """把解析出的行變成詞庫條目（只套用 R0 格式規則）。
 
     回傳 (entries, removed, stats)：
@@ -211,6 +211,8 @@ def collect(rows, poly_order, overrides, src_id):
       stats   = {'lines','skipped_single','merged_lines','removed','kept','in_scope','dropped_readings'}
     一個詞只要有任何一個讀音合格就留下（不合格的讀音只是丟掉、算進 dropped_readings，
     不另列刪除列），所以「留下 + 刪除 == 範圍內的詞（in_scope）」永遠成立（D1）。
+    multi_out（選用的 list）：每個有多個合格讀音的詞加一列 {'w','z'（選用的）,'others'（其他讀音）}，
+    給報告列出「多讀音詞選了哪個讀音」；不給就不收集，回傳值不變。
     """
     words = {}   # w → {'readings': set, 'freq': int}
     bad = {}     # w → (z, rule, freq)（沒有任何合格讀音的詞；取排序最前的一個當代表）
@@ -240,8 +242,10 @@ def collect(rows, poly_order, overrides, src_id):
             ev['freq'] = max(ev['freq'], freq)
     entries = []
     for w, ev in words.items():
-        entries.append({'w': w, 'z': choose_reading(w, ev['readings'], poly_order, overrides),
-                        'p': ev['freq']})
+        z = choose_reading(w, ev['readings'], poly_order, overrides)
+        entries.append({'w': w, 'z': z, 'p': ev['freq']})
+        if multi_out is not None and len(ev['readings']) > 1:
+            multi_out.append({'w': w, 'z': z, 'others': sorted(ev['readings'] - {z})})
     dropped = sum(1 for w in bad if w in words)
     removed = [{'w': w, 'z': z, 'p': p, 'rule': rule, 'reason': R0_REASONS[rule],
                 'src': [src_id], 'n': 1}

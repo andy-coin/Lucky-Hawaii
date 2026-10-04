@@ -1,0 +1,74 @@
+{
+  "by_rule": {
+    "R2-rare-char": 18,
+    "R3-china-term": 114
+  },
+  "china_kept": 79,
+  "est": {
+    "batch": 150,
+    "in_tokens": 147555,
+    "out_tokens": 40095,
+    "requests": 90
+  },
+  "gray": 13365,
+  "gray_by_rule": {
+    "G-china-term": 6,
+    "G-single-source": 13359
+  },
+  "gray_pending": 13365,
+  "id": "chewing",
+  "in_scope": 128973,
+  "kept": 128841,
+  "merged_lines": 5412,
+  "multi_reading": 4887,
+  "removed": 132,
+  "rules_version": "2",
+  "skipped_single": 26073,
+  "top_chars": [
+    [
+      "裏",
+      6
+    ],
+    [
+      "鐧",
+      2
+    ],
+    [
+      "鮘",
+      2
+    ],
+    [
+      "㹴",
+      1
+    ],
+    [
+      "䠷",
+      1
+    ],
+    [
+      "倈",
+      1
+    ],
+    [
+      "稺",
+      1
+    ],
+    [
+      "粧",
+      1
+    ],
+    [
+      "肽",
+      1
+    ],
+    [
+      "蠭",
+      1
+    ],
+    [
+      "銹",
+      1
+    ]
+  ],
+  "version": "2.c1553b706b"
+}

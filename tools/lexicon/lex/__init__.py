@@ -18,6 +18,24 @@ CHUNK_SIZE = 24000
 SPDX_ALLOW = {'LGPL-2.1-or-later', 'MIT', 'BSD-3-Clause', 'MulanPSL-2.0'}
 
 
+# AI 判斷灰色詞的用量估算模型（RESEARCH）：每個詞約 7 個輸入 token、3 個輸出 token，
+# 每次請求另有約 600 個固定的輸入 token（說明與範例）。報告（06-06）與 AI 判斷（06-07）共用。
+PER_WORD_IN = 7
+PER_WORD_OUT = 3
+PER_REQUEST_IN = 600
+DEFAULT_BATCH = 150
+
+
+def estimate_tokens(n_words, batch_size=DEFAULT_BATCH):
+    """估算判斷 n_words 個詞要幾次請求、多少 token：{requests, in_tokens, out_tokens}。"""
+    if n_words <= 0:
+        return {'requests': 0, 'in_tokens': 0, 'out_tokens': 0}
+    requests = -(-n_words // batch_size)
+    return {'requests': requests,
+            'in_tokens': n_words * PER_WORD_IN + requests * PER_REQUEST_IN,
+            'out_tokens': n_words * PER_WORD_OUT}
+
+
 class LexError(Exception):
     """可預期的失敗（授權、雜湊、路徑）；build.py 印出訊息並以代碼 2 結束。"""
 
