@@ -3,17 +3,17 @@ gsd_state_version: "1.0"
 milestone: v0.96
 current_phase: 05
 current_phase_name: Multi-Device Layout 多裝置版面與流暢度
-status: executing
-stopped_at: Completed 05-10-PLAN.md
-last_updated: "2026-10-04T14:10:29.039Z"
+status: verifying
+stopped_at: Completed 05-11-PLAN.md
+last_updated: "2026-10-04T14:35:13.129Z"
 last_activity: 2026-10-04
 last_activity_desc: Phase 05 execution started
-state_head: ffd1ae1faec7bb4434badfe9b72a722d682615ef
+state_head: 36d98a47613e1f89d2176f230104a3c39711e4b2
 progress:
   total_phases: 12
   completed_phases: 2
   total_plans: 33
-  completed_plans: 32
+  completed_plans: 33
 ---
 
 # Project State
@@ -29,7 +29,7 @@ See: .planning/PROJECT.md (updated 2026-10-03)
 
 Phase: 05 (Multi-Device Layout 多裝置版面與流暢度) — EXECUTING
 Plan: 11 of 11
-Status: Ready to execute
+Status: Phase complete — ready for verification
 Last activity: 2026-10-04 — Phase 05 execution started
 
 Progress: [██░░░░░░░░] 17%
@@ -89,6 +89,7 @@ Progress: [██░░░░░░░░] 17%
 | Phase 05 P08 | 32 min | 2 tasks | 10 files |
 | Phase 05 P09 | 35 min | 2 tasks | 6 files |
 | Phase 05 P10 | 95 min | 3 tasks | 8 files |
+| Phase 05 P11 | 75 min | 2 tasks | 22 files |
 
 ## Accumulated Context
 
@@ -137,6 +138,7 @@ Recent decisions affecting current work:
 - [Phase 05]: 05-07: keyboard = text field focused and stable height minus visualViewport height >= 150; kb-short below 600; input floor max(16px, 1rem) for <=900 or coarse
 - [Phase 05]: 05-08: chip x, section minus, hint clear and context refresh are real 44x44 (not ::after) so neighbouring chips and section names are never overlapped; deleting a non-empty lyrics section confirms first; context menus placed by lhPlaceMenu from measured size
 - [Phase 05]: 05-10: fixed SLICE 64 (adaptive per-frame budget measured and dropped); perf absolute thresholds scaled by machine speedFactor 7.35 stored in perf-baseline.json
+- [Phase 05]: 05-11: screenshot baselines are per platform (-linux committed from the cloud container); Mac needs one npm run visual:update (D-11); missing-baseline guard lives in tests/visual.spec.mjs
 
 ### Pending Todos
 
@@ -174,6 +176,6 @@ Items acknowledged and deferred at milestone close, most recent first:
 
 ## Session Continuity
 
-Last session: 2026-10-04T14:10:28.954Z
-Stopped at: Completed 05-10-PLAN.md
+Last session: 2026-10-04T14:35:13.043Z
+Stopped at: Completed 05-11-PLAN.md
 Resume file: None
