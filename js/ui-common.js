@@ -51,23 +51,38 @@
             toast._timer = setTimeout(() => toast.classList.remove('show'), duration);
         }
 
+        // ===== 面板跟著目前版型走 =====
+        // 底部 sheet 模式（≤ 900）：兩個面板固定收起，由底部分頁列控制；其餘版型：依使用者存的偏好還原。
+        // 只讀 leftPanelCollapsed／rightPanelCollapsed，絕不改寫，所以轉向、縮放視窗不會弄丟偏好。
+        // 開頁跑一次，之後每次跨過斷點（轉向、拖視窗）再跑一次，不必重新整理
+        function _lhApplyPanelTier() {
+            const lp = document.getElementById('leftPanel');
+            const rp = document.getElementById('rightPanel');
+            if (!lp || !rp) return;
+            if (lhIsSheetMode()) {
+                lp.classList.add('collapsed');
+                rp.classList.add('collapsed');
+            } else {
+                lp.classList.toggle('collapsed', lhGet('leftPanelCollapsed') !== 'false');
+                rp.classList.toggle('collapsed', lhGet('rightPanelCollapsed') !== 'false');
+            }
+            // 底部 sheet 專用的遮罩與分頁高亮：跨過斷點後不能殘留（否則桌機上會有一層看不見的遮罩擋住點擊）
+            const bd = document.getElementById('mobileBackdrop');
+            if (bd) bd.classList.remove('show');
+            for (const t of ['lyrics', 'ai']) {
+                const btn = document.getElementById('mtab-' + t);
+                if (btn) btn.classList.remove('active');
+            }
+            syncCenterPanel();
+        }
+        LH_MQ_SHEET.addEventListener('change', _lhApplyPanelTier);
+
         // ===== 初始化三個面板狀態 =====
         (function() {
             const rCollapsed = lhGet('recentPanelCollapsed');
             if (rCollapsed !== 'false') document.getElementById('recentPanel').classList.add('collapsed');
 
-            // 窄視窗（≤900px）固定收起，由 Tab 列控制
-            if (window.innerWidth > 900) {
-                const lCollapsed = lhGet('leftPanelCollapsed');
-                document.getElementById('leftPanel').classList.toggle('collapsed', lCollapsed !== 'false');
-
-                const rightCollapsed = lhGet('rightPanelCollapsed');
-                document.getElementById('rightPanel').classList.toggle('collapsed', rightCollapsed !== 'false');
-            } else {
-                document.getElementById('leftPanel').classList.add('collapsed');
-                document.getElementById('rightPanel').classList.add('collapsed');
-            }
-            syncCenterPanel();
+            _lhApplyPanelTier();
 
             // 歌詞全空時自動清除情境與標籤
             // 歌詞存檔損毀時會退回一個空段落，那不等於「使用者清空了歌詞」，不能因此刪掉標籤

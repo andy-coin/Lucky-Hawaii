@@ -26,7 +26,8 @@
             _polyCtxMenu.classList.add('show');
         }
 
-        window.addEventListener('resize', syncCenterPanel);
+        // 桌機改視窗寬度時重新檢查「兩個面板同時開、主畫面會不夠寬」；用箭頭函式，避免把 resize 事件當成參數傳進去
+        window.addEventListener('resize', () => syncCenterPanel());
         document.addEventListener('click', () => { _hideCtxMenu(); _hidePolyCtxMenu(); });
         document.addEventListener('contextmenu', e => {
             if (!e.target.closest('.word-ctx-menu') && !e.target.closest('.ai-word-card') && !e.target.closest('.char-card')) _hideCtxMenu();

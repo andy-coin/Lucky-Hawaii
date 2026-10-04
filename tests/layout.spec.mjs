@@ -596,3 +596,119 @@ test('面板：收起的面板內容不能被 Tab 鍵選到', async ({ browser }
         expect(reached, '展開的歌詞面板應該能用 Tab 選到').toBe(true);
     } finally { await context.close(); }
 });
+
+// ===== 05-05 任務二：版型跟著即時斷點走（D-02、UI-SPEC §6 breakpoint cross） =====
+// 一次讀出面板、body 類別、inert、批次按鈕所在位置，讓每一步只比一份物件
+const readPanels = page => page.evaluate(() => {
+    const info = id => {
+        const p = document.getElementById(id);
+        return { collapsed: p.classList.contains('collapsed'), inert: p.inert, aria: p.getAttribute('aria-hidden'), bodyInert: p.querySelector('.side-panel-body').inert };
+    };
+    const bp = document.getElementById('m-batchPanel');
+    return {
+        left: info('leftPanel'),
+        right: info('rightPanel'),
+        lpOpen: document.body.classList.contains('lp-open'),
+        rpOpen: document.body.classList.contains('rp-open'),
+        batchIn: bp.parentElement.id || bp.parentElement.tagName.toLowerCase(),
+    };
+});
+const SHEET_COLLAPSED = { collapsed: true, inert: true, aria: 'true', bodyInert: false };
+const PUSH_OPEN = { collapsed: false, inert: false, aria: null, bodyInert: false };
+const PUSH_CLOSED = { collapsed: true, inert: false, aria: null, bodyInert: true };
+
+test('面板：轉向不必重新整理（1180→820→390→820→1180）', async ({ browser }) => {
+    const { context, page } = await bootPage(browser, {
+        device: DEVICES.tabletLandscape,
+        storage: { leftPanelCollapsed: 'false', rightPanelCollapsed: 'true' },
+    });
+    try {
+        const steps = [
+            [1180, 820, { left: PUSH_OPEN, right: PUSH_CLOSED, lpOpen: true, rpOpen: false, batchIn: 'body' }],
+            [820, 1180, { left: SHEET_COLLAPSED, right: SHEET_COLLAPSED, lpOpen: false, rpOpen: false, batchIn: 'body' }],
+            [390, 844, { left: SHEET_COLLAPSED, right: SHEET_COLLAPSED, lpOpen: false, rpOpen: false, batchIn: 'mobileBatchArea' }],
+            [820, 1180, { left: SHEET_COLLAPSED, right: SHEET_COLLAPSED, lpOpen: false, rpOpen: false, batchIn: 'body' }],
+            [1180, 820, { left: PUSH_OPEN, right: PUSH_CLOSED, lpOpen: true, rpOpen: false, batchIn: 'body' }],
+        ];
+        for (const [w, h, want] of steps) {
+            await page.setViewportSize({ width: w, height: h });
+            await expect.poll(() => readPanels(page), { message: `${w}×${h}` }).toEqual(want);
+        }
+        // 改視窗大小不可以改掉使用者存的偏好
+        expect(await page.evaluate(() => [lhGet('leftPanelCollapsed'), lhGet('rightPanelCollapsed')])).toEqual(['false', 'true']);
+    } finally { await context.close(); }
+});
+
+test('面板：開著底部面板時轉成寬螢幕，遮罩不會殘留擋住畫面', async ({ browser }) => {
+    const { context, page } = await bootPage(browser, { device: DEVICES.phone });
+    try {
+        await page.locator('#mtab-lyrics').click();
+        await expect(page.locator('#mobileBackdrop')).toHaveClass(/show/);
+        await page.setViewportSize({ width: 1180, height: 820 });
+        await expect.poll(() => page.evaluate(() => ({
+            backdrop: document.getElementById('mobileBackdrop').classList.contains('show'),
+            active: document.querySelectorAll('.mtab-btn.active').length,
+        }))).toEqual({ backdrop: false, active: 0 });
+        // 搜尋框點得到（沒有東西蓋在上面）
+        expect(await hitsItself(page, '#searchInput')).toBe(true);
+    } finally { await context.close(); }
+});
+
+test('面板：900／901、440／441 剛好換版', async ({ browser }) => {
+    const { context, page } = await bootPage(browser, { device: { viewport: { width: 900, height: 900 }, deviceScaleFactor: 1 } });
+    try {
+        const tier = () => page.evaluate(() => ({
+            tabBar: getComputedStyle(document.querySelector('.mobile-tab-bar')).display !== 'none',
+            edgeTab: getComputedStyle(document.querySelector('.side-panel-tab')).display !== 'none',
+            leftInert: document.getElementById('leftPanel').inert,
+            batchIn: document.getElementById('m-batchPanel').parentElement.id || 'body',
+        }));
+        const SHEET = { tabBar: true, edgeTab: false, leftInert: true };
+        const PUSH = { tabBar: false, edgeTab: true, leftInert: false };
+        await expect.poll(tier, { message: '900' }).toMatchObject(SHEET);
+        await page.setViewportSize({ width: 901, height: 900 });
+        await expect.poll(tier, { message: '901' }).toMatchObject(PUSH);
+        await page.setViewportSize({ width: 900, height: 900 });
+        await expect.poll(tier, { message: '回到 900' }).toMatchObject(SHEET);
+        // 批次按鈕：440 在搜尋區、441 不在
+        await page.setViewportSize({ width: 440, height: 900 });
+        await expect.poll(tier, { message: '440' }).toMatchObject({ batchIn: 'mobileBatchArea' });
+        await page.setViewportSize({ width: 441, height: 900 });
+        await expect.poll(tier, { message: '441' }).toMatchObject({ batchIn: 'body' });
+    } finally { await context.close(); }
+});
+
+test('輸入：觸控裝置開頁不會自動跳出鍵盤', async ({ browser }) => {
+    // 手機、平板（含橫放超過 900 寬的觸控平板）開頁都不能自己聚焦搜尋框，否則鍵盤會自己彈出來
+    for (const [name, device] of [['手機', DEVICES.phone], ['平板', DEVICES.tablet], ['橫放平板', DEVICES.tabletLandscape]]) {
+        const { context, page } = await bootPage(browser, { device });
+        try {
+            expect(await page.evaluate(() => document.activeElement === document.body), `${name} 開頁焦點應該在 body`).toBe(true);
+        } finally { await context.close(); }
+    }
+    // 桌機（寬、滑鼠）開頁直接可以打字
+    const { context, page } = await bootPage(browser, { device: DEVICES.desktop });
+    try {
+        expect(await page.evaluate(() => document.activeElement && document.activeElement.id), '桌機開頁焦點應該在搜尋框').toBe('searchInput');
+    } finally { await context.close(); }
+});
+
+// 靜態檢查（不開瀏覽器）：版型判斷只能走 lhIsPhone()／lhIsSheetMode() 與 matchMedia 監聽
+const WIDTH_CHECK_RE = /innerWidth\s*(?:<=|>)\s*(?:440|900)/;
+const PHONE_GLOBAL_RE = /\b(?:let|const|var)\s+phone\b/;
+test('面板：程式不再用 innerWidth 判斷版型', () => {
+    // 負向對照：舊寫法一定要抓得到，否則這個檢查沒有意義
+    expect(WIDTH_CHECK_RE.test('if (window.innerWidth <= 900) {')).toBe(true);
+    expect(WIDTH_CHECK_RE.test('if (window.innerWidth > 900)')).toBe(true);
+    expect(WIDTH_CHECK_RE.test('window.innerWidth <= 440')).toBe(true);
+    expect(WIDTH_CHECK_RE.test('Math.min(x, window.innerWidth - 160)')).toBe(false);
+    expect(PHONE_GLOBAL_RE.test('let phone = window.innerWidth <= 440;')).toBe(true);
+    expect(PHONE_GLOBAL_RE.test('const phoneLike = 1;')).toBe(false);
+    const hits = [];
+    for (const f of readdirSync(new URL('../js/', import.meta.url)).filter(n => n.endsWith('.js'))) {
+        readFileSync(new URL('../js/' + f, import.meta.url), 'utf8').split('\n').forEach((line, i) => {
+            if (WIDTH_CHECK_RE.test(line) || PHONE_GLOBAL_RE.test(line)) hits.push(`js/${f}:${i + 1}: ${line.trim()}`);
+        });
+    }
+    expect(hits, '這些行還在用寬度數字判斷版型或宣告 phone 全域').toEqual([]);
+});
