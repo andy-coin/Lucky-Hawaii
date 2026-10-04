@@ -1,5 +1,123 @@
+        // ===== 字卡分批出現（PERF-02）=====
+        // 一次畫上千張字卡會讓手機凍結，所以第一屏（FIRST_BATCH 張）當場畫完，其餘每個動畫格畫 SLICE 張。
+        // 鐵則：最後的 DOM 要和「一次畫完」的舊版一字不差（golden 比對）——
+        //   1. 字卡、群組、標題的標記都不能多加屬性或 class；狀態只放在 #resultsContainer 本身與它的最後一個子元素（.render-status，畫完就移除）。
+        //   2. createCharCard 會讀寫全域的 colorClass、lastTarget，呼叫順序必須等於文件順序，兩次渲染不可交錯。
+        //   3. 群組標題的「（k）」一開始就是最終數字；群組的外殼（標題＋空的 grid）只在它的第一張字卡要畫時才加進去。
+        let _renderEpoch = 0;          // 每次 displayResults 加一；舊的分批看到不一致就自己停掉
+        const FIRST_BATCH = 48;
+        const SLICE = 64;
+        const _CARD_SLOT = '\u0001';   // 模板裡「字卡清單」的位置標記，只在 _makeJob 內被拆掉
+        let _flushRender = null;       // 目前這一輪「把剩下的一次畫完」的函式（分頁被藏起來時用）
+
+        // 把原本的模板字串拆成「外殼」與「字卡清單」：
+        // 外殼 = 模板去掉字卡清單，且保留 grid 開頭的空白；grid 結尾的空白等這一組字卡畫完再補回去，
+        // 這樣最後的 HTML（連空白）跟舊版一次 map().join('') 完全相同。
+        function _makeJob(tpl, items, hl) {
+            const i = tpl.indexOf(_CARD_SLOT);
+            const pre = tpl.slice(0, i);
+            const post = tpl.slice(i + _CARD_SLOT.length);
+            const wsAfter = post.match(/^\s*/)[0];
+            return { shell: pre + post.slice(wsAfter.length), wsAfter, items, hl };
+        }
+
+        function _setRenderLive(text) {
+            const live = document.getElementById('renderLive');
+            if (live) live.textContent = text;
+        }
+
+        // 回到「沒有分批在跑」的狀態（空白畫面、無結果）
+        function _renderIdle(container) {
+            container.dataset.render = 'idle';
+            container.removeAttribute('aria-busy');
+            _flushRender = null;
+            _setRenderLive('');
+        }
+
+        // 依序把 jobs 裡的字卡畫出來：第一批同步，其餘每個動畫格一批
+        function _startRender(container, jobs, total, epoch, showPinyin) {
+            const st = { ji: 0, ci: 0, shown: 0, grid: null, status: null };
+
+            function slice(budget) {
+                while (budget > 0 && st.ji < jobs.length) {
+                    const job = jobs[st.ji];
+                    if (st.ci === 0) {
+                        // 這一組的第一張字卡要畫了：先開外殼（有狀態列時放在它上面，永遠只往下長）
+                        if (st.status) st.status.insertAdjacentHTML('beforebegin', job.shell);
+                        else container.insertAdjacentHTML('beforeend', job.shell);
+                        const grids = container.querySelectorAll('.results-grid');
+                        st.grid = grids[grids.length - 1];
+                    }
+                    const n = Math.min(budget, job.items.length - st.ci);
+                    let html = '';
+                    for (let k = 0; k < n; k++) html += createCharCard(job.items[st.ci + k], showPinyin, job.hl);
+                    st.grid.insertAdjacentHTML('beforeend', html);
+                    st.ci += n;
+                    st.shown += n;
+                    budget -= n;
+                    if (st.ci >= job.items.length) {
+                        if (job.wsAfter) st.grid.appendChild(document.createTextNode(job.wsAfter));
+                        st.ji++;
+                        st.ci = 0;
+                    }
+                }
+            }
+
+            function finish() {
+                if (st.status) st.status.remove();
+                st.status = null;
+                _flushRender = null;
+                container.dataset.render = 'done';
+                container.removeAttribute('aria-busy');
+                _setRenderLive(`已顯示全部 ${total} 字`);
+                window.dispatchEvent(new Event('lh:render-done'));
+            }
+
+            function updateStatus() {
+                if (!st.status) {
+                    st.status = document.createElement('div');
+                    st.status.className = 'render-status';
+                    container.appendChild(st.status);
+                }
+                st.status.textContent = `載入中… 已顯示 ${st.shown.toLocaleString('zh-TW')} / ${total.toLocaleString('zh-TW')} 字`;
+            }
+
+            function flushAll() {
+                if (epoch !== _renderEpoch) return;
+                slice(Infinity);
+                finish();
+            }
+
+            function step() {
+                if (epoch !== _renderEpoch) return;     // 已被新的搜尋／重畫取代：不再加任何舊卡
+                if (document.hidden) { flushAll(); return; }
+                slice(SLICE);
+                if (st.ji >= jobs.length) { finish(); return; }
+                updateStatus();
+                requestAnimationFrame(step);
+            }
+
+            container.dataset.render = 'first';
+            container.setAttribute('aria-busy', 'true');
+            _setRenderLive('');
+            slice(FIRST_BATCH);
+            if (st.ji >= jobs.length) { finish(); return; }
+            // 背景分頁的動畫格會被暫停，剩下的一次畫完，絕不少於標題的字數
+            if (document.hidden) { flushAll(); return; }
+            container.dataset.render = 'more';
+            updateStatus();
+            _flushRender = flushAll;
+            requestAnimationFrame(step);
+        }
+
+        // 分頁中途被藏起來：動畫格會停，直接把剩下的畫完
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden && _flushRender) _flushRender();
+        });
+
         // 顯示結果
         function displayResults(results) {
+            _renderEpoch++;   // 先作廢任何還在跑的分批
             
             // 搜尋欄為空時恢復初始畫面
             const currentInput = document.getElementById('searchInput').value.trim();
@@ -15,6 +133,7 @@
                         </br>*代表任意聲韻｜歌詞、情境、標籤將作為AI參考依據</p>
                     </div>
                 `;
+                _renderIdle(container);
                 return;
             }
 
@@ -72,6 +191,7 @@
                         <p>試試其他韻腳，例如：an、ing、ong</p>
                     </div>
                 `;
+                _renderIdle(container);
                 return;
             }
             
@@ -82,7 +202,7 @@
                 </div>
             `;
             
-            let content = '';
+            const jobs = [];   // 依文件順序排好的「群組外殼＋字卡清單」，字卡晚點才一張張產生
             
             if (currentMode === 'tone') {
                 // ===== 同聲調並列模式 =====
@@ -103,14 +223,14 @@
 
                 toneOrder.forEach(t => {
                     if (!toneGroups[t] || toneGroups[t].length === 0) return;
-                    content += `
+                    jobs.push(_makeJob(`
                         <div class="group-section">
                             <div class="group-title">${toneNames[t]}（${toneGroups[t].length}）</div>
                             <div class="results-grid">
-                                ${toneGroups[t].map(item => createCharCard(item, showPinyin)).join('')}
+                                ${_CARD_SLOT}
                             </div>
                         </div>
-                    `;
+                    `, toneGroups[t], undefined));
                 });
             } else if (currentMode === 'initial') {
                 // ===== 同聲韻並列模式 =====
@@ -155,14 +275,14 @@
                             displayTitle = zhuyinInitialToPinyin[consonant] || consonant;
                         }
                         
-                        content += `
+                        jobs.push(_makeJob(`
                             <div class="group-section">
                                 <div class="group-title rhyme-group"><span class="${colorClass}">[${displayTitle}]</span>（${group.length}）</div>
                                 <div class="results-grid">
-                                    ${group.map(item => createCharCard(item, showPinyin, 'initial')).join('')}
+                                    ${_CARD_SLOT}
                                 </div>
                             </div>
-                        `;
+                        `, group, 'initial'));
                     });
                 } else if (hasInitialSearch && !hasRhymeSearch) {
                     // ===== 子音搜尋 → 按韻母家族分組，顏色標記母音 =====
@@ -193,14 +313,14 @@
                         group.sort(tierSort);
                         const colorClass = `search-highlight-${(parseInt(gKey) % 5) + 1}`;
                         
-                        content += `
+                        jobs.push(_makeJob(`
                             <div class="group-section">
                                 <div class="group-title rhyme-group"><span class="${colorClass}">[${displayTitle}]</span>（${group.length}）</div>
                                 <div class="results-grid">
-                                    ${group.map(item => createCharCard(item, showPinyin, 'rhyme')).join('')}
+                                    ${_CARD_SLOT}
                                 </div>
                             </div>
-                        `;
+                        `, group, 'rhyme'));
                     });
                 } else {
                     // ===== 混合搜尋 / PINYIN_SPECIAL → 按 rhymeIndex 分組 =====
@@ -231,14 +351,14 @@
                         // 混合模式：根據該組的 searchTerm 決定高亮目標
                         const hlTarget = searchTerm && searchTerm.isRhymeSearch ? 'initial' : 'rhyme';
                         
-                        content += `
+                        jobs.push(_makeJob(`
                             <div class="group-section">
                                 <div class="group-title rhyme-group"><span class="${colorClass}">[${displayTitle}]</span>（${group.length}）</div>
                                 <div class="results-grid">
-                                    ${group.map(item => createCharCard(item, showPinyin, hlTarget)).join('')}
+                                    ${_CARD_SLOT}
                                 </div>
                             </div>
-                        `;
+                        `, group, hlTarget));
                     });
                 }
             } else {
@@ -251,14 +371,15 @@
                     return orderA - orderB;
                 });
                 
-                content = `<div class="results-grid">
-                    ${results.map(item => createCharCard(item, showPinyin)).join('')}
-                </div>`;
+                jobs.push(_makeJob(`<div class="results-grid">
+                    ${_CARD_SLOT}
+                </div>`, results, undefined));
             }
             
-            container.innerHTML = header + content;
+            // 標題一定要同步就位（renderPolyphonicChips 會把破音字 chips 放進 .results-header）
+            container.innerHTML = header;
 
-            // 點擊事件（使用事件委派）
+            // 點擊事件（使用事件委派）：必須在第一批字卡出現之前就綁好
             const resultsContainer = document.getElementById('resultsContainer');
             resultsContainer.onclick = function(e) {
                 if (e.target.classList.contains('mark-badge')) return;
@@ -273,5 +394,7 @@
                     updateBatchCount();
                 }
             };
+
+            _startRender(container, jobs, results.length, _renderEpoch, showPinyin);
         }
 

@@ -2,6 +2,7 @@
   "recordedAt": "2026-10-04T13:16:22.795Z",
   "commit": "f0abf9634dfb46ab8dd9f9041532374534ff2831",
   "cpu": "Intel(R) Xeon(R) Processor @ 2.10GHz",
+  "speedFactor": 7.35,
   "cases": {
     "bpm-off@4": {
       "maxLongTask": 1936,
