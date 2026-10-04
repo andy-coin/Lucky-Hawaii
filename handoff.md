@@ -5,14 +5,19 @@
 - Pi Agent 預設連 ToshLLM (Qwen3.6)，profile: IQ50
 - `.devcontainer/docker-compose.yml` 的 ports 預設註解，web server 專案需取消註解
 
-## ⏸ 暫停點（2026-10-04，Andy 要 /clear 後繼續）
+## ⏸ 雲端接力結束（2026-10-04，接回本機繼續）
 
-- `/gsd-autonomous` 停在 **Phase 5 第 4/11 計畫完成後**（05-01～05-04 ✅，下一個 05-05）
-- 續跑：`/clear` 後 `/gsd-autonomous --from 5`（Phase 5 的 CONTEXT／UI-SPEC／RESEARCH／11 個 PLAN 都在，會直接從 05-05 執行）
-- 目前 `npm test` 302 passed／21 skipped（parity 只在 LH_PARITY 時跑）；HEAD 05c5e45；golden 自 078c5d1 未變
-- Phase 1、3 ✅ 已驗證；Phase 2、4 程式完成、驗證待 Andy（02-UAT.md、04-UAT.md，STATE.md「Deferred Verification」）
-- Phase 5 改版前截圖：`.planning/phases/05-multi-device-layout/baseline-before/`（15 張，給 Andy 對照）
-- 這輪自主決定給 Andy 過目：開本機分支、use_worktrees=false、wrangler 檢查放行 fsevents、Gemini 2.5 雖未證實退役仍移除
+- 分支 `gsd/v0.96-stabilize` 已全部 push；`main`（線上網站）沒動
+- **Phase 5 多裝置版面**：11/11 計畫完成＋程式碼審查（3 輪修正）＋驗證（自動 5/5）；實機項目待 Andy → `/gsd-verify-work 05`（05-UAT.md）
+- **Phase 6 台灣詞庫包**：8/8 計畫完成（LEX-01～07）。**尚未跑**：`/gsd-code-review 6`、phase 驗證（verifier）、`phase.complete`（為省雲端額度留到本機）
+  - 本機接續：`/gsd-code-review 6 --fix --auto` → `/gsd-execute-phase 6`（會偵測到計畫全做完、直接進驗證）→ 再 `/gsd-autonomous --from 7`
+  - 四個詞庫包：v0.96 現行（預設）、新酷音、小麥注音、唯音台灣精簡版；偏好設定可切換；`npm run lexicon:build` 重建、`tools/lexicon/reports/*/REPORT.md` 刪除報告
+  - 灰色地帶約 3.36 萬詞「待 AI 判斷」：Mac 上 `GEMINI_API_KEY=… npm run lexicon:eval`（≥90%）再 `npm run lexicon:judge`（約 225 次請求，可續跑）
+- `?v=` 目前 0.96.8；雲端 `npm test` 421 過／27 跳過／1 失敗（worker-config.spec.mjs:53 為雲端代理造成，Mac 上應全過）
+- **Mac 第一次跑 `npm test` 前**：先 `npm run visual:update` 建立 Mac 版截圖基準（雲端只有 -linux.png，D-11）
+- **一口氣驗收清單**：`.planning/TEST-CHECKLIST.md`（必測／建議測／待 Andy 決定 D-1～D-20／自主決定）
+- **合併 main 前**：`git rm -r --cached .planning handoff.md .claude/CLAUDE.md`（見 CLOUD-RELAY.md）
+- 授權注意（D-16）：v0.96 預設詞庫約 15 萬詞源自教育部 CC BY-ND 辭典；新詞庫包都不含
 
 ## GSD 狀態（以 .planning/ 為準）
 

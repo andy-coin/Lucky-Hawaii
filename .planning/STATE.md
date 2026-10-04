@@ -185,6 +185,7 @@ Recent decisions affecting current work:
 | 02 | verification_deferred_human | /gsd-verify-work 02（先照 worker/DEPLOY.md 部署；UAT 清單 02-UAT.md） |
 | 04 | verification_deferred_human | /gsd-verify-work 04（需 Worker 已部署；UAT 清單 04-UAT.md） |
 | 05 | verification_deferred_human | /gsd-verify-work 05（實機鍵盤／縮放手感／美觀；UAT 清單 05-UAT.md，步驟見 TEST-CHECKLIST.md） |
+| 06 | code_review_and_verification_pending | /gsd-code-review 6 --fix --auto → /gsd-execute-phase 6（計畫 8/8 已完成，雲端為省額度未跑審查與驗證） |
 
 ## Deferred Items
 
