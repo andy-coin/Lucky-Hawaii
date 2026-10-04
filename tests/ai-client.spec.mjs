@@ -207,26 +207,6 @@ test('白話：補充詞路徑 — 每個供應商都 503 時 AI 區顯示 Worke
     }
 });
 
-test('白話：主要建議路徑 — 完整顯示 Worker 的訊息、不截斷，按鈕與讀取中恢復', async ({ browser }) => {
-    // 搜「安」：真詞庫有 1000 個候選（lastCandidatesTotal >= 24），所以走「從候選詞挑 24 個」的主要路徑；
-    // 訊息刻意拉長到超過舊版截斷的 80 字，證明現在整句都顯示
-    const longMsg = ALL_BUSY_MSG + '。' + '目前上游額度都用完了，等一下就會恢復。'.repeat(5);
-    expect(longMsg.length).toBeGreaterThan(80);
-    await withPage(browser, { aiFail: { status: 503, body: { ok: false, code: 'ALL_BUSY', message: longMsg, tried: [] } } }, async ({ page, errors }) => {
-        await page.fill('#searchInput', '安');
-        await settle(page);
-        await clickGenerate(page);
-        const shown = await aiAreaText(page, ALL_BUSY_MSG);
-        expect(await page.evaluate(() => lastCandidatesTotal)).toBeGreaterThanOrEqual(24);
-        expect(shown.trim()).toBe(longMsg);
-        expectPlainChinese(shown);
-        // 失敗訊息是 textContent，不是 HTML 字串
-        expect(await page.locator('#aiWordsContainer span').count()).toBe(1);
-        await expectAiAreaIdle(page);
-        expect(unexpectedErrors(errors)).toEqual([]);
-    });
-});
-
 test('白話：情境產生器 — 失敗時用提示訊息顯示 Worker 的原因，按鈕恢復', async ({ browser }) => {
     await withPage(browser, { aiFail: { status: 503, body: { ok: false, code: 'ALL_BUSY', message: ALL_BUSY_MSG, tried: [] } } }, async ({ page, errors }) => {
         await page.evaluate(() => { document.querySelector('.section-textarea').value = '夜裡的風吹過窗邊，我想起你的笑'; });

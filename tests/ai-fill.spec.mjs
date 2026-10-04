@@ -98,3 +98,31 @@ test('parseAiWords：分隔與長度', () => {
     expect(parse('')).toEqual([]);
     expect(parse(undefined)).toEqual([]);   // String(undefined) 是 "undefined"（9 字），會被長度規則擋掉
 });
+
+// ==================== AI 整個失敗：候選夠就依常用度給滿，並附白話原因 ====================
+test('AI 失敗仍填滿：候選 ≥ 24 時 AI 503 仍給 24 張並附原因', async ({ browser }) => {
+    const ALL_BUSY_MSG = 'AI 暫時都忙不過來，請稍後再試（已嘗試 4 個模型）';
+    const longMsg = ALL_BUSY_MSG + '。' + '目前上游額度都用完了，等一下就會恢復。'.repeat(5);
+    expect(longMsg.length).toBeGreaterThan(80);
+    const { context, page, errors } = await bootPage(browser, { aiFail: { status: 503, body: { ok: false, code: 'ALL_BUSY', message: longMsg, tried: [] } } });
+    try {
+        await page.fill('#searchInput', '安');
+        await settle(page);
+        await clickGenerate(page);
+        await expect(page.locator('#aiWordsContainer .ai-word-card')).toHaveCount(24);
+        const cards = await page.locator('#aiWordsContainer .ai-word-card').allTextContents();
+        const ranks = await page.evaluate(ws => ws.map(w => wordPriorityMap.get(w) ?? 0), cards);
+        for (let i = 1; i < ranks.length; i++) expect(ranks[i], `第 ${i + 1} 張 p 值不可大於前一張`).toBeLessThanOrEqual(ranks[i - 1]);
+        const hint = page.locator('#aiWordsContainer .candidate-report', { hasText: 'AI 暫時無法排序，先依常用度列出' });
+        await expect(hint).toHaveCount(1);
+        const text = await hint.textContent();
+        expect(text, '完整顯示 Worker 訊息，不截斷').toBe(`AI 暫時無法排序，先依常用度列出（${longMsg}）`);
+        expect(text).toMatch(/[一-鿿]/);
+        expect(text).not.toMatch(/error|failed|undefined|TypeError|\bnull\b/i);
+        expect(await hint.locator('*').count(), '提示是 textContent，不是 HTML').toBe(0);
+        expect(await page.evaluate(() => lastCandidatesTotal)).toBeGreaterThanOrEqual(24);
+        expect(await page.locator('#generateBtn').isEnabled()).toBe(true);
+        await expect(page.locator('#aiLoading')).toBeHidden();
+        expect(errors.filter(e => !/status of 503/.test(e))).toEqual([]);
+    } finally { await context.close(); }
+});

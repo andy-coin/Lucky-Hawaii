@@ -221,21 +221,20 @@
                 loading.textContent = `AI 思考中…（${m.label}）`;
                 picks = parseAiWords(await callLLM(m, prompt));
             } catch (e) {
-                lhWarn('AI 排序失敗', e);
+                lhWarn('AI 排序失敗，改依常用度補滿', e);
                 aiErr = e;
             }
+            const { words } = fillToTarget(cumulativeCandidates, picks, AI_TARGET, w => wordPriorityMap.get(w) ?? 0);
+            words.forEach(w => { suggestedPool.add(w); sentCandidatesSet.add(w); });
+            container.innerHTML = words.map(w =>
+                `<div class="ai-word-card" data-word="${w}" onclick="saveWord('${w.replace(/'/g, "\\'")}')">${w}</div>`
+            ).join('') + `<div class="candidate-report">從 ${lastCandidatesTotal} 個候選詞中，挑出 ${words.length} 個</div>`;
             if (aiErr) {
-                // 完整顯示 Worker 給的白話原因；用 textContent 塞，不拼 HTML 字串
-                const failSpan = document.createElement('span');
-                failSpan.style.cssText = 'color:#e53e3e;font-size:0.85rem;';
-                failSpan.textContent = aiErr.plain ? aiErr.message : AI_FALLBACK_MSG;
-                container.replaceChildren(failSpan);
-            } else {
-                const { words } = fillToTarget(cumulativeCandidates, picks, AI_TARGET, w => wordPriorityMap.get(w) ?? 0);
-                words.forEach(w => { suggestedPool.add(w); sentCandidatesSet.add(w); });
-                container.innerHTML = words.map(w =>
-                    `<div class="ai-word-card" data-word="${w}" onclick="saveWord('${w.replace(/'/g, "\\'")}')">${w}</div>`
-                ).join('') + `<div class="candidate-report">從 ${lastCandidatesTotal} 個候選詞中，挑出 ${words.length} 個</div>`;
+                // AI 沒排成就不假裝是正常結果；原因只在 Worker 白話訊息（e.plain）時附上，用 textContent 塞，不拼 HTML
+                const hint = document.createElement('div');
+                hint.className = 'candidate-report';
+                hint.textContent = 'AI 暫時無法排序，先依常用度列出' + (aiErr.plain ? '（' + aiErr.message + '）' : '');
+                container.appendChild(hint);
             }
             btn.disabled = false;
             loading.style.display = 'none';
