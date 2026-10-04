@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
-"""好韻器詞庫清洗工具：fetch（下載）| build（建包）| verify（離線驗證）| rescue（救回誤刪的詞）| all（全部）。
+"""好韻器詞庫清洗工具：fetch（下載）| build（建包）| verify（離線驗證）| rescue（救回誤刪的詞）
+| judge（灰色詞 AI 判斷）| all（全部）。
 
 用法（一律加 -B，不寫 __pycache__）：
     python3 -B tools/lexicon/build.py all
-結束代碼：0 成功、1 驗證有問題（逐行列出）、2 工具停止（訊息在 stderr）。
+結束代碼：0 成功、1 驗證有問題（逐行列出）、2 工具停止（訊息在 stderr）、
+judge 另有 3（估計用量超過上限）、4（AI 服務中斷，已判斷的已存檔）。
 """
 import argparse
 import json
@@ -15,7 +17,8 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 
-from lex import LexError, REPO, cache_dir  # noqa: E402
+from lex import DEFAULT_BATCH, LexError, REPO, cache_dir  # noqa: E402
+from lex import judge as judgelib  # noqa: E402
 from lex import pack as packlib  # noqa: E402
 from lex import report as reportlib  # noqa: E402
 from lex import parse as parselib  # noqa: E402
@@ -29,6 +32,7 @@ POLY_PATH = REPO / 'data' / 'polyphonic-order.json'
 OVERRIDES_WORDS_PATH = REPO / 'data' / 'wordlist-overrides.json'
 KEEP_PATH = HERE / 'rules' / 'keep.json'      # rescue 寫入的救回清單（測試會換成暫存檔）
 REPORTS_ROOT = HERE / 'reports'               # rescue 查刪除清單的位置（測試會換成暫存資料夾）
+JUDGMENTS_PATH = HERE / 'judgments' / 'judgments.tsv'   # 灰色詞 AI 判斷快取（測試會換成暫存檔）
 
 
 def _load_json(path):
@@ -80,13 +84,14 @@ def _shipped_texts(repo):
     return out
 
 
-def cmd_build(lock, gray_policy='p1'):
+def _prepare(lock, gray_policy='p1'):
+    """解析所有詞庫包（規則要比對「幾個來源都有這個詞」，所以要全部讀完才能判斷）。
+    回傳 (packs_cfg, ctx, parsed, multi, infos)；build 與 judge 共用。"""
     packs_cfg = _load_json(PACKS_PATH)
     base = cache_dir()
     poly_order = _load_json(POLY_PATH)
     overrides = _load_json(OVERRIDES_PATH)
     ctx = ruleslib.load_rule_context(rule_paths(lock, base), gray_policy=gray_policy)
-    # 第一階段：解析所有詞庫包（規則要比對「幾個來源都有這個詞」，所以要全部讀完才能判斷）
     parsed = {}
     multi = {}
     infos = {}
@@ -111,8 +116,17 @@ def cmd_build(lock, gray_policy='p1'):
         multi[cfg['id']] = []
         parsed[cfg['id']] = parselib.collect(rows, poly_order, overrides, cfg['sources'][0], multi[cfg['id']])
         infos[cfg['id']] = (cfg, header, srcs_meta)
+    return packs_cfg, ctx, parsed, multi, infos
+
+
+def cmd_build(lock, gray_policy='p1'):
+    packs_cfg, ctx, parsed, multi, infos = _prepare(lock, gray_policy)
+    base = cache_dir()
+    judgments, bad = judgelib.load_judgments(JUDGMENTS_PATH)
+    if bad:
+        print('注意：判斷快取有 %d 行格式不對，已略過（%s）' % (bad, JUDGMENTS_PATH))
     # 第二階段：套用規則（K0、R0–R3、灰色）
-    results = ruleslib.apply_rules(parsed, ctx)
+    results = ruleslib.apply_rules(parsed, ctx, judgments)
     metas = {}
     for pid, (cfg, header, srcs_meta) in infos.items():
         res = results[pid]
@@ -131,7 +145,8 @@ def cmd_build(lock, gray_policy='p1'):
         upstream = header.get(cfg.get('upstream_version_from', ''), '')
         meta = packlib.write_pack(
             out_dir, cfg, res['entries'],
-            {'stats': stats, 'gray': res['gray'], 'gray_pending': res['gray'], 'gray_policy': gray_policy},
+            {'stats': stats, 'gray': res['gray'], 'gray_pending': res['gray_pending'], 'gray_policy': gray_policy,
+             'judged_with': res['judged_with']},
             sources=srcs_meta, licence_files=licence_files)
         packlib.write_notice(out_dir, cfg, meta, upstream, stats['removed'], tabe_text)
         packlib.write_removed(HERE / 'reports' / pid / 'removed.ndjson', res['removed'])
@@ -147,7 +162,10 @@ def cmd_build(lock, gray_policy='p1'):
         print('%s：保留 %d 筆、刪除 %d 筆（%s）、略過單字 %d 筆；灰色 %d 筆（待 AI 判斷 %d 筆）；'
               '中國用語但詞頻夠高而保留 %d 筆；版本 %s' % (
                   cfg['name'], stats['kept'], stats['removed'], per_rule, stats['skipped_single'],
-                  res['gray'], res['gray'], stats['china_kept'], meta['version']))
+                  res['gray'], res['gray_pending'], stats['china_kept'], meta['version']))
+        if res['judged_with']:
+            print('  AI 判斷：保留 %d 筆、刪除 %d 筆（模型：%s）' % (
+                stats['gray_keep'], stats['gray_deleted'], '、'.join(res['judged_with'])))
         print('  刪除報告：tools/lexicon/reports/%s/REPORT.md' % pid)
     packlib.write_manifest(packs_cfg, metas, REPO)
     packlib.write_v096_notice(REPO)
@@ -193,6 +211,10 @@ def item_chunks(folder):
 
 def cmd_verify(strict=False):
     problems = packlib.verify(REPO)
+    _table, bad = judgelib.load_judgments(JUDGMENTS_PATH)
+    if bad:
+        problems.append('判斷快取 %s 有 %d 行格式不對（要是「詞<TAB>K|D<TAB>模型<TAB>提示版本」）' % (
+            JUDGMENTS_PATH.name, bad))
     if strict:
         try:
             lock = sources.load_lock(LOCK_PATH)
@@ -291,6 +313,42 @@ def cmd_rescue(words, rebuild=False, lock=None):
     return 0
 
 
+def cmd_judge(args, lock=None):
+    """灰色詞 AI 判斷（LEX-04）：先估算、再分批判斷並存檔，--rebuild 判完立刻重建詞庫包。
+
+    沒有金鑰也沒有 LEX_AI_URL 時直接停止（代碼 2），什麼檔案都不改；灰色詞在有判斷之前一律保留。
+    """
+    provider = None
+    if not args.dry_run:
+        provider = judgelib.select_provider(args.provider, args.model, os.environ, recorded=args.recorded)
+        if provider is None:
+            raise LexError(judgelib.NO_PROVIDER_MESSAGE)
+    lock = lock or sources.load_lock(LOCK_PATH)
+    _cfg, ctx, parsed, _multi, _infos = _prepare(lock, args.gray_policy)
+    # 不帶判斷套一次規則，就能拿到所有灰色詞（keep.json／修正檔的加回詞是 K0，不會出現在裡面）
+    results = ruleslib.apply_rules(parsed, ctx)
+    gray = sorted({r['w'] for res in results.values() for r in res['gray_rows']})
+    rc = judgelib.run_judge(gray, JUDGMENTS_PATH, provider, batch_size=args.batch_size,
+                            max_requests=args.max_requests, max_tokens=args.max_tokens, force=args.force,
+                            dry_run=args.dry_run, rejudge=args.rejudge)
+    if rc == 0 and args.rebuild and not args.dry_run:
+        cmd_build(lock, args.gray_policy)
+        return cmd_verify(strict=True)
+    return rc
+
+
+def _int_between(lo, hi):
+    def conv(text):
+        try:
+            n = int(text)
+        except ValueError:
+            raise argparse.ArgumentTypeError('要是整數：%s' % text)
+        if not lo <= n <= hi:
+            raise argparse.ArgumentTypeError('要在 %d 到 %d 之間：%s' % (lo, hi, text))
+        return n
+    return conv
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description='好韻器詞庫清洗工具')
     sub = ap.add_subparsers(dest='cmd', required=True)
@@ -302,6 +360,22 @@ def main(argv=None):
     r = sub.add_parser('rescue', help='救回被誤刪的詞（加進 rules/keep.json，並印出可貼進修正檔的那一行）')
     r.add_argument('words', nargs='+', help='要救回的詞（2～11 個漢字）')
     r.add_argument('--rebuild', action='store_true', help='加進保留名單後立刻重建詞庫包')
+    j = sub.add_parser('judge', help='用 AI 判斷灰色詞（要金鑰；--dry-run 只估算不連網）')
+    j.add_argument('--provider', choices=('auto', 'gemini', 'worker', 'recorded'), default='auto',
+                   help='auto：有 GEMINI_API_KEY 用 Gemini，否則有 LEX_AI_URL 用 Worker；recorded 只給測試用（要 --recorded）')
+    j.add_argument('--recorded', metavar='PATH', help='recorded 用的判斷檔（詞<TAB>K|D<TAB>模型<TAB>提示版本）')
+    j.add_argument('--model', default=judgelib.DEFAULT_MODEL, help='Gemini 模型（預設 %(default)s）')
+    j.add_argument('--batch-size', type=_int_between(1, 300), default=DEFAULT_BATCH,
+                   help='每次請求判斷幾個詞（預設 %(default)s，最多 300）')
+    j.add_argument('--max-requests', type=_int_between(1, 100000), default=400,
+                   help='這次最多送幾次請求（預設 %(default)s）；到了就乾淨停下，下次接著跑')
+    j.add_argument('--max-tokens', type=_int_between(1, 10**9), default=1_000_000,
+                   help='估計用量超過這個 token 數就不跑（預設 %(default)s），要硬跑加 --force')
+    j.add_argument('--force', action='store_true', help='估計用量超過上限也照跑')
+    j.add_argument('--dry-run', action='store_true', help='只印估算，不呼叫任何 AI')
+    j.add_argument('--rejudge', action='store_true', help='已判斷過的詞也重新問一次')
+    j.add_argument('--rebuild', action='store_true', help='判斷完立刻重建詞庫包並嚴格驗證')
+    j.add_argument('--gray-policy', choices=('p1', 'p2'), default='p1', help='灰色策略（同 build）')
     a = sub.add_parser('all', help='fetch + build + verify --strict')
     for sp in (b, a):
         sp.add_argument('--gray-policy', choices=('p1', 'p2'), default='p1',
@@ -315,6 +389,8 @@ def main(argv=None):
             return cmd_verify(args.strict)
         if args.cmd == 'rescue':
             return cmd_rescue(args.words, args.rebuild)
+        if args.cmd == 'judge':
+            return cmd_judge(args)
         lock = sources.load_lock(LOCK_PATH)
         if args.cmd in ('fetch', 'all'):
             cmd_fetch(lock)

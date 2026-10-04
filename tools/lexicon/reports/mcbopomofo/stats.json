@@ -18,9 +18,12 @@
     "G-china-term": 10,
     "G-single-source": 13389
   },
+  "gray_deleted": 0,
+  "gray_keep": 0,
   "gray_pending": 13399,
   "id": "mcbopomofo",
   "in_scope": 140017,
+  "judged_with": [],
   "kept": 139865,
   "merged_lines": 5586,
   "multi_reading": 5168,

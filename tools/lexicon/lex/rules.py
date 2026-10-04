@@ -31,6 +31,7 @@ RULE_REASONS = {
     'R1-simplified': '含簡體字「{c}」',
     'R2-rare-char': '含罕用字「{c}」（不在教育部常用／次常用字與 Big5 內）',
     'R3-china-term': '中國用語（台灣多作「{tw}」）',
+    'R5-ai-incomprehensible': 'AI 判斷：一般讀者難以理解（{m}）',
 }
 
 # 漢字範圍：擴充 A、基本區（BMP）；教育部字表另含相容區與擴充 B 以後（只用來收集）
@@ -245,6 +246,8 @@ def reason_for(rule, detail=None):
     tpl = RULE_REASONS[rule]
     if rule == 'R3-china-term':
         return tpl.format(tw=detail)
+    if rule == 'R5-ai-incomprehensible':
+        return tpl.format(m=detail)
     return tpl.format(c=detail)
 
 
@@ -301,13 +304,34 @@ def classify(w, z, ev, ctx):
     return 'keep', 'K1-pass', None
 
 
-def apply_rules(parsed, ctx):
+def resolve(w, decision, rule, judgments, keep_allow):
+    """灰色詞遇到 AI 判斷（C3、D2）。回傳 (decision, rule, 待判斷嗎, 判斷的模型)。
+
+    只有 gray 會動：keep_allow 的詞一律保留（K0，優先於 D）；判斷 D → 刪除（R5）；判斷 K → 保留；
+    沒有判斷 → 保留並算「待 AI 判斷」。其他決定（keep／delete）原封不動。
+    judgments = {詞: (K|D, 模型, 提示版本)}。
+    """
+    if decision != 'gray':
+        return decision, rule, False, None
+    if w in keep_allow:
+        return 'keep', 'K0-allowlist', False, None
+    j = (judgments or {}).get(w)
+    if j is None:
+        return 'keep', rule, True, None
+    if j[0] == 'D':
+        return 'delete', 'R5-ai-incomprehensible', False, j[1]
+    return 'keep', rule, False, j[1]
+
+
+def apply_rules(parsed, ctx, judgments=None):
     """對所有詞庫包套用規則。
 
     parsed = {pack id: (entries, r0_removed, stats)}（parse.collect 的結果，依 pack id 順序）。
     回傳 {pack id: {'entries', 'removed', 'gray', 'stats'}}：
       entries = 留下的條目（含灰色），removed = 全部刪除列（R0 + R1/R2/R3，依詞排序）；
       gray_rows = 灰色詞列 {w,z,p,rule}、china_kept_rows = 中國用語吻合但詞頻夠高而保留的列 {w,z,p,tw}（報告用）。
+    judgments（06-07）：灰色詞的 AI 判斷 {詞: (K|D, 模型, 提示版本)}；D 的詞改為刪除（R5），其餘保留。
+    gray 一律是「分到灰色的詞數」，不因判斷而變；gray_pending 是還沒判斷的，gray_keep／gray_deleted 是判斷的結果。
     一個詞「被收錄」的定義：通過 R0 格式檢查、出現在該來源。n = 收錄它的來源數。
     每個詞庫包都檢查：留下 + 刪除 == 範圍內的詞（D1、T-06-15）。
     """
@@ -321,6 +345,10 @@ def apply_rules(parsed, ctx):
         removed = []
         counts = {}
         gray = 0
+        gray_pending = 0
+        gray_keep = 0
+        gray_deleted = 0
+        judged_with = set()
         gray_rows = []
         china_kept_rows = []
         china_gray = 0
@@ -334,6 +362,23 @@ def apply_rules(parsed, ctx):
             holders = index[e['w']]
             ev = {'n': len(holders), 'freq': e['p'], 'freqs': [holders[k] for k in sorted(holders)]}
             decision, rule, detail = classify(e['w'], e['z'], ev, ctx)
+            if decision == 'gray':
+                gray += 1
+                row = {'w': e['w'], 'z': e['z'], 'p': e['p'], 'rule': rule}
+                decision, rule, pending, model = resolve(e['w'], decision, rule, judgments, ctx.keep_allow)
+                if pending:
+                    gray_pending += 1
+                elif model is not None:
+                    judged_with.add(model)
+                    row['verdict'] = 'D' if decision == 'delete' else 'K'
+                    if decision == 'delete':
+                        gray_deleted += 1
+                        detail = model
+                    else:
+                        gray_keep += 1
+                gray_rows.append(row)
+                if row['rule'] == 'G-china-term':
+                    china_gray += 1
             if decision == 'delete':
                 srcs = sorted(holders)
                 removed.append({'w': e['w'], 'z': e['z'], 'p': e['p'], 'rule': rule,
@@ -341,11 +386,6 @@ def apply_rules(parsed, ctx):
                 counts[rule] = counts.get(rule, 0) + 1
                 continue
             kept.append(e)
-            if decision == 'gray':
-                gray += 1
-                gray_rows.append({'w': e['w'], 'z': e['z'], 'p': e['p'], 'rule': rule})
-                if rule == 'G-china-term':
-                    china_gray += 1
             if rule == 'K0-allowlist':
                 keep_allow_n += 1
             if e['w'] in ctx.china_terms and e['p'] >= ctx.china_freq_min:
@@ -355,11 +395,12 @@ def apply_rules(parsed, ctx):
         if len(kept) + len(removed) != stats['in_scope']:
             raise LexError('%s：留下 %d + 刪除 %d 不等於範圍內的詞 %d（規則實作有誤）'
                            % (pid, len(kept), len(removed), stats['in_scope']))
-        out[pid] = {'entries': kept, 'removed': removed, 'gray': gray,
+        out[pid] = {'entries': kept, 'removed': removed, 'gray': gray, 'gray_pending': gray_pending,
+                    'judged_with': sorted(judged_with),
                     'gray_rows': gray_rows, 'china_kept_rows': china_kept_rows,
                     'stats': dict(stats, kept=len(kept), removed=len(removed), rules=dict(sorted(counts.items())),
-                                  gray=gray, china_gray=china_gray, china_kept=china_kept,
-                                  keep_allow=keep_allow_n)}
+                                  gray=gray, gray_keep=gray_keep, gray_deleted=gray_deleted,
+                                  china_gray=china_gray, china_kept=china_kept, keep_allow=keep_allow_n)}
     return out
 
 

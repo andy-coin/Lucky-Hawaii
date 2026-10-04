@@ -15,9 +15,12 @@
     "G-china-term": 6,
     "G-single-source": 13359
   },
+  "gray_deleted": 0,
+  "gray_keep": 0,
   "gray_pending": 13365,
   "id": "chewing",
   "in_scope": 128973,
+  "judged_with": [],
   "kept": 128841,
   "merged_lines": 5412,
   "multi_reading": 4887,

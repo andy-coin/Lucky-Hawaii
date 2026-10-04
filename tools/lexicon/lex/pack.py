@@ -10,8 +10,12 @@ import os
 import re
 from pathlib import Path
 
-from . import CHUNK_SIZE, LexError, REPO, RULES_VERSION, SPDX_ALLOW  # noqa: F401
+from . import CHUNK_SIZE, DEFAULT_BATCH, LexError, REPO, RULES_VERSION, SPDX_ALLOW, estimate_tokens  # noqa: F401
 from .parse import _SYLLABLE, is_han
+
+# 灰色詞 AI 判斷在免費額度內的上限估計（06-07；與 build.py judge 的預設上限一致）
+FREE_QUOTA_TOKENS = 1_000_000
+FREE_QUOTA_REQUESTS = 400
 
 _CHUNK_NAME = re.compile(r'^c(\d{2})\.json$')
 _META_KEYS = ('id', 'name', 'description', 'version', 'hash', 'entries', 'chunks', 'sources',
@@ -134,6 +138,9 @@ def pack_notice(cfg, meta, upstream_version, removed_count, tabe_text=None):
                  '略過單字，並轉換為 JSON Lines 格式；只有單一來源收錄的詞予以保留，另行標記留待後續判斷。')
     lines.append('          共刪除 %d 筆，刪除清單與原因見 tools/lexicon/reports/%s/removed.ndjson。'
                  % (removed_count, cfg['id']))
+    if meta.get('judged_with'):
+        lines.append('          灰色詞（只有單一來源收錄、或拿不準是否為中國用語的詞）已由 AI（%s）依「一般讀者能否理解」判斷，'
+                     '判為難以理解者已刪除（規則 R5，同樣列在刪除清單）。' % '、'.join(meta['judged_with']))
     lines.append('改作日期：' + meta['built'])
     lines.append('清洗規則使用：OpenCC 字表（Apache-2.0）；教育部常用／次常用國字表僅作比對，不重新散布。')
     text = '\n'.join(lines) + '\n'
@@ -251,12 +258,24 @@ def verify(repo=REPO, packs_cfg=None, lock=None):
                 problems.append('data/packs/%s：清單裡沒有這個詞庫包' % child.name)
             elif child.is_file() and child.name != 'index.json':
                 problems.append('data/packs/%s：多出來的檔案' % child.name)
+    pending_total = 0
     for entry in mpacks:
         pid = entry.get('id')
         if pid == 'v096':
             problems += _verify_legacy(repo, entry)
         else:
             problems += _verify_pack(repo, entry, cfg_by_id.get(pid), lock)
+            try:
+                pending = _read_json(repo / 'data' / 'packs' / pid / 'meta.json').get('gray_pending', 0)
+                pending_total += pending if isinstance(pending, int) and not isinstance(pending, bool) else 0
+            except (OSError, ValueError):
+                pass
+    # 待判灰色詞（各包加總，同一個詞被算多次，所以是偏保守的估計）要在免費額度內（ROADMAP 第 3 點）
+    est = estimate_tokens(pending_total, DEFAULT_BATCH)
+    if est['in_tokens'] + est['out_tokens'] > FREE_QUOTA_TOKENS or est['requests'] > FREE_QUOTA_REQUESTS:
+        problems.append('待判灰色詞超過免費額度估計：%d 個詞約需 %d 次請求、%d token（上限 %d 次、%d token）' % (
+            pending_total, est['requests'], est['in_tokens'] + est['out_tokens'],
+            FREE_QUOTA_REQUESTS, FREE_QUOTA_TOKENS))
     return problems
 
 
@@ -315,6 +334,9 @@ def _verify_pack(repo, entry, cfg, lock):
             problems.append(tag + 'meta.json 缺少欄位 %s' % key)
     if problems and any('缺少欄位' in p for p in problems):
         return problems
+    jw = meta.get('judged_with', [])
+    if not isinstance(jw, list) or not all(isinstance(m, str) and m for m in jw):
+        problems.append(tag + 'meta.judged_with 必須是模型名稱的清單')
     # --- 分片 ---
     chunks = meta['chunks']
     if not isinstance(chunks, int) or chunks < 1:
@@ -451,6 +473,13 @@ def _verify_report(repo, pid, meta):
         problems.append(tag + 'stats.by_rule 各原因加總不等於刪除筆數')
     elif stats['by_rule'] != by_rule:
         problems.append(tag + 'stats.by_rule 與 removed.ndjson 的各原因筆數不同')
+    if all(k in stats for k in ('gray_keep', 'gray_deleted')):
+        if stats['gray_pending'] + stats['gray_keep'] + stats['gray_deleted'] != stats['gray']:
+            problems.append(tag + '待判 %r + 判斷保留 %r + 判斷刪除 %r 不等於灰色總數 %r' % (
+                stats['gray_pending'], stats['gray_keep'], stats['gray_deleted'], stats['gray']))
+        if stats['gray_deleted'] != by_rule.get('R5-ai-incomprehensible', 0):
+            problems.append(tag + 'stats.gray_deleted %r 與 removed.ndjson 的 R5 筆數 %r 不同' % (
+                stats['gray_deleted'], by_rule.get('R5-ai-incomprehensible', 0)))
     if stats['gray_pending'] > stats['gray']:
         problems.append(tag + 'gray_pending %r 大於 gray %r' % (stats['gray_pending'], stats['gray']))
     if 'gray' in meta and stats['gray'] != meta['gray']:

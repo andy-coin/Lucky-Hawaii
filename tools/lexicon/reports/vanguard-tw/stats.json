@@ -19,9 +19,12 @@
     "G-china-term": 3,
     "G-single-source": 6864
   },
+  "gray_deleted": 0,
+  "gray_keep": 0,
   "gray_pending": 6867,
   "id": "vanguard-tw",
   "in_scope": 64793,
+  "judged_with": [],
   "kept": 64637,
   "merged_lines": 3913,
   "multi_reading": 3525,

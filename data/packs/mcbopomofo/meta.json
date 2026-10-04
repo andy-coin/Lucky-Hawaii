@@ -43,11 +43,14 @@
       "R3-china-term": 66
     },
     "gray": 13399,
+    "gray_keep": 0,
+    "gray_deleted": 0,
     "china_gray": 10,
     "china_kept": 42,
     "keep_allow": 14
   },
   "gray": 13399,
   "gray_pending": 13399,
-  "gray_policy": "p1"
+  "gray_policy": "p1",
+  "judged_with": []
 }

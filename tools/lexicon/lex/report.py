@@ -24,6 +24,7 @@ RULE_LABELS = dict(
         'R1-simplified': '含簡體字',
         'R2-rare-char': '含罕用字（不在教育部常用／次常用字與 Big5 內）',
         'R3-china-term': '中國用語（與對照表完全吻合，且在這個來源詞頻低於 100）',
+        'R5-ai-incomprehensible': 'AI 判斷：一般讀者難以理解（灰色詞經 AI 判斷後刪除）',
         'G-single-source': '灰色：只有一個詞庫包收錄',
         'G-zero-freq': '灰色：所有來源詞頻都是 0',
         'G-china-term': '灰色：可能是中國用語但拿不準（r3-gray 清單）',
@@ -67,6 +68,8 @@ def build_stats(cfg, meta, removed_rows, gray_rows, multi_rows, china_kept_rows)
     for r in gray_rows:
         gray_by_rule[r['rule']] = gray_by_rule.get(r['rule'], 0) + 1
     pending = meta.get('gray_pending', len(gray_rows))
+    judged_keep = sum(1 for r in gray_rows if r.get('verdict') == 'K')
+    judged_del = sum(1 for r in gray_rows if r.get('verdict') == 'D')
     return {
         'id': cfg['id'],
         'version': meta['version'],
@@ -77,6 +80,9 @@ def build_stats(cfg, meta, removed_rows, gray_rows, multi_rows, china_kept_rows)
         'by_rule': dict(sorted(by_rule.items())),
         'gray': len(gray_rows),
         'gray_pending': pending,
+        'gray_keep': judged_keep,
+        'gray_deleted': judged_del,
+        'judged_with': list(meta.get('judged_with', [])),
         'gray_by_rule': dict(sorted(gray_by_rule.items())),
         'skipped_single': pstats.get('skipped_single', 0),
         'merged_lines': pstats.get('merged_lines', 0),
@@ -116,7 +122,9 @@ def render_report(cfg, meta, stats, removed_rows, gray_rows, multi_rows, china_k
         ['範圍內的詞（2 字以上）', _n(stats['in_scope'])],
         ['保留', _n(stats['kept'])],
         ['刪除', _n(stats['removed'])],
-        ['灰色（保留、待 AI 判斷；已含在保留裡）', _n(stats['gray'])],
+        ['灰色（判斷前一律保留；AI 判為難以理解才刪）', _n(stats['gray'])],
+        ['　其中 AI 判斷保留', _n(stats['gray_keep'])],
+        ['　其中 AI 判斷刪除（已含在刪除裡）', _n(stats['gray_deleted'])],
         ['待 AI 判斷', _n(stats['gray_pending'])],
         ['略過的單字（不在範圍內）', _n(stats['skipped_single'])],
         ['合併的重複詞行（同一詞多個讀音或多個檔案）', _n(stats['merged_lines'])],
@@ -148,8 +156,12 @@ def render_report(cfg, meta, stats, removed_rows, gray_rows, multi_rows, china_k
     L.append('')
     L.append('## 灰色地帶（待 AI 判斷）')
     L.append('')
-    L.append('灰色的詞都**保留**在詞庫包裡，只是標成「待 AI 判斷」：只有一個詞庫包收錄、或拿不準是不是中國用語。'
-             '之後 AI 判斷那一步才會決定要不要刪；沒有 AI 金鑰時它們一律保留。')
+    L.append('灰色的詞是只有一個詞庫包收錄、或拿不準是不是中國用語的詞。AI 判斷（`npm run lexicon:judge`）之前它們都**保留**'
+             '在詞庫包裡、標成「待 AI 判斷」；判斷之後，被判為一般讀者難以理解的才會刪（規則 R5），其餘保留。'
+             '沒有 AI 金鑰時它們一律保留。')
+    if stats['judged_with']:
+        L.append('')
+        L.append('已判斷的模型：%s。' % '、'.join(stats['judged_with']))
     L.append('')
     est = stats['est']
     L += _table(['項目', '數量'], [
@@ -164,12 +176,14 @@ def render_report(cfg, meta, stats, removed_rows, gray_rows, multi_rows, china_k
         L.append('')
         L.append('可能是中國用語、拿不準而標成灰色的詞（全部列出；清單在 `tools/lexicon/rules/r3-gray.json`）：')
         L.append('')
-        L += _table(['詞', '注音', '詞頻'], [[r['w'], r['z'], r['p']] for r in sorted(cg, key=_row_key)])
-    others = [r for r in gray_rows if r['rule'] != 'G-china-term']
+        L += _table(['詞', '注音', '詞頻', 'AI 判斷'],
+                    [[r['w'], r['z'], r['p'], {'K': '保留', 'D': '刪除'}.get(r.get('verdict'), '待判斷')]
+                     for r in sorted(cg, key=_row_key)])
+    others = [r for r in gray_rows if r['rule'] != 'G-china-term' and 'verdict' not in r]
     picked = pick_samples(others, SAMPLES_PER_RULE, '%s:gray' % seed)
     if picked:
         L.append('')
-        L.append('灰色樣本（最多 %d 筆）：' % SAMPLES_PER_RULE)
+        L.append('待判斷的灰色樣本（最多 %d 筆）：' % SAMPLES_PER_RULE)
         L.append('')
         L += _table(['詞', '注音', '詞頻', '規則'], [[r['w'], r['z'], r['p'], r['rule']] for r in picked])
     L.append('')
