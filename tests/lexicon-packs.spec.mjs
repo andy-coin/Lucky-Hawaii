@@ -550,6 +550,38 @@ test('詞庫包：修正檔加回的詞不重複、刪除與改音在別的包�
     } finally { await context.close(); }
 });
 
+// ===== 救回誤刪的詞（LEX-05、D2）：刪除清單的一列貼進修正檔，詞就回到包裡，而且只出現一次 =====
+test('詞庫包：刪除清單的詞放進修正檔就會回來', async ({ browser }) => {
+    test.setTimeout(90_000);
+    // 刪除清單（給人看的報告旁邊那份）第一列：{w, z, p, rule, reason, …}；救回時只需要 {w, z, p}
+    const removed = readFileSync(new URL('../tools/lexicon/reports/chewing/removed.ndjson', import.meta.url), 'utf8')
+        .split('\n').filter(Boolean).map(l => JSON.parse(l));
+    const row = removed[0];
+    expect(row.w.length, '刪除清單第一列要是個詞').toBeGreaterThanOrEqual(2);
+    const chewMeta = readJson('data/packs/chewing/meta.json');
+    expect(readWords('chewing', 'data/packs/chewing/c{NN}.json', chewMeta.chunks).has(row.w),
+        '詞庫包本身沒有這個被刪的詞').toBe(false);
+    const overrides = { version: 2, removed: [], hidden: [], fixed: {}, added: [{ w: row.w, z: row.z, p: row.p }] };
+    const { context, page, errors, warnings } = await bootPage(browser, {
+        storage: { 'lh:lexiconPack': 'chewing' },
+        beforeGoto: ({ context }) => context.route(/\/data\/wordlist-overrides\.json$/, r => r.fulfill({
+            status: 200, contentType: 'application/json', body: JSON.stringify(overrides),
+        })),
+    });
+    try {
+        const got = await page.evaluate(w => ({
+            id: activeLexiconPack.id,
+            count: wordlistData.filter(e => e.w === w).length,
+            z: wordPhoneticMap.get(w) ?? null,
+        }), row.w);
+        expect(got.id).toBe('chewing');
+        expect(got.count, '救回的詞只出現一次').toBe(1);
+        expect(got.z).toBe(row.z);
+        expect(realErrors(errors)).toEqual([]);
+        expect(warnings.filter(m => m.includes('詞庫修正檔'))).toEqual([]);
+    } finally { await context.close(); }
+});
+
 // ===== 「關於」視窗顯示目前詞庫包的來源（A2）=====
 test('詞庫包：關於視窗顯示目前詞庫的來源', async ({ browser }) => {
     test.setTimeout(60_000);

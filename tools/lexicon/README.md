@@ -29,6 +29,33 @@ npm run lexicon:build
 - `data/packs/<名稱>/meta.json`：版本、筆數、來源 commit、授權、建立日期。版本 = 規則版本 + 全部分片內容的雜湊前 10 碼，內容只要有變版本就跟著變。
 - `data/packs/<名稱>/NOTICE.txt`：來源、授權、改作說明（繁體中文）；`LICENSE.*.txt`：授權全文（原文）。
 - `tools/lexicon/reports/<名稱>/removed.ndjson`：被刪掉的詞與原因（每行一個詞，含注音與次數，可直接拿來「救回」）。
+- `tools/lexicon/reports/<名稱>/REPORT.md`、`stats.json`：給人看的刪除報告與機器讀的數字（見下面「刪除報告在哪裡、怎麼看」）。這些報告不在 `data/` 底下，網站不會讀取。
+
+## 刪除報告在哪裡、怎麼看
+
+每次 `npm run lexicon:build` 都會替每個新詞庫包重寫 `tools/lexicon/reports/<名稱>/REPORT.md`（繁體中文，用文字編輯器或 GitHub 打開都行）。從上往下看：
+
+- **總覽**：範圍內的詞、保留、刪除、灰色（保留但待 AI 判斷）、略過的單字、多讀音詞各有幾筆；保留 + 刪除 = 範圍內的詞。
+- **各原因統計與樣本**：每種刪除原因（R0 格式、R1 簡體字、R2 罕用字、R3 中國用語）共幾筆，並抽最多 20 個詞給你抽查有沒有誤刪。樣本是固定種子抽的，同一版本每次重建都一樣。
+- **灰色地帶（待 AI 判斷）**：灰色詞數、估算的 AI 請求次數與 token（照每次 150 個詞估），以及灰色樣本；拿不準的中國用語（`rules/r3-gray.json`）會全部列出。
+- **最常造成刪除的字**：害最多詞被刪的 20 個字；其中其實台灣正常在用的字，加進 `rules/char-allow.txt`。
+- **中國用語對照表吻合但保留**：詞頻夠高所以不刪的詞。
+- **多讀音詞選用的讀音**：一個詞有多個讀音時選了哪個。詞庫包保留辭典原本的聲調（例如「一下」是 ㄧ，v0.96 是 ㄧˊ），押韻比對不看聲調，所以不影響結果。
+
+完整的被刪詞清單在同資料夾的 `removed.ndjson`。`stats.json` 是同一份數字的機器版，`verify` 會重算它（保留數要等於 `meta.json` 的筆數、刪除數要等於 `removed.ndjson` 的行數、各原因加總要等於刪除數），報告和詞庫包對不起來就會報錯。
+
+## 誤刪了怎麼救回
+
+兩種方式：
+
+1. **一個指令（推薦，之後每次重建都會保留）**：
+
+   ```
+   python3 -B tools/lexicon/build.py rescue 詞
+   ```
+
+   可一次寫多個詞（輸入必須是 2～11 個漢字，否則停下來、什麼都不寫）。它會把詞加進 `rules/keep.json`（排序、不重複），並列出每個刪掉這個詞的詞庫包、規則與原因，以及一行 `{"w":…,"z":…,"p":…}`。然後執行 `npm run lexicon:build`（或在指令後面加 `--rebuild` 直接重建），詞就回到那些詞庫包、從 `removed.ndjson` 消失。因為「格式不合」（R0）被刪的詞（例如含擴充區字元）救不回來，指令會明講。
+2. **馬上在網站上看到**：把指令印出的那一行貼進 `data/wordlist-overrides.json` 的 `added`，網站每個詞庫包都會把它加回來（同一個詞只會出現一次）。第 7 階段會把這一步做成管理頁上的一個按鈕。
 
 ## 授權閘門（會直接停下來的情況，結束代碼 2）
 
@@ -51,6 +78,7 @@ npm run lexicon:build
 | `npm run lexicon:build` | `python3 -B tools/lexicon/build.py all` | 下載 + 建包 + 嚴格驗證 |
 | `npm run lexicon:verify` | `python3 -B tools/lexicon/build.py verify` | 只驗證已提交的詞庫包（離線） |
 | （沒有捷徑） | `python3 -B tools/lexicon/build.py verify --strict` | 嚴格驗證：另外確認沒有簡體字、罕用字、中國用語殘留（要有規則輸入的快取） |
+| （沒有捷徑） | `python3 -B tools/lexicon/build.py rescue 詞 [詞 …] [--rebuild]` | 救回被誤刪的詞（見下面「誤刪了怎麼救回」） |
 | `npm run lexicon:test` | `python3 -B -m unittest discover -s tools/lexicon/tests -t tools/lexicon` | 跑 Python 單元測試 |
 
 另外有 `build.py fetch`（只下載）與 `build.py build`（只用快取建包）。結束代碼：0 成功、1 驗證有問題（逐行列出）、2 工具停止。

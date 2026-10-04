@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""好韻器詞庫清洗工具：fetch（下載）| build（建包）| verify（離線驗證）| all（全部）。
+"""好韻器詞庫清洗工具：fetch（下載）| build（建包）| verify（離線驗證）| rescue（救回誤刪的詞）| all（全部）。
 
 用法（一律加 -B，不寫 __pycache__）：
     python3 -B tools/lexicon/build.py all
@@ -7,7 +7,9 @@
 """
 import argparse
 import json
+import os
 import sys
+import unicodedata
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -25,6 +27,8 @@ PACKS_PATH = HERE / 'packs.json'
 OVERRIDES_PATH = HERE / 'rules' / 'reading-overrides.json'
 POLY_PATH = REPO / 'data' / 'polyphonic-order.json'
 OVERRIDES_WORDS_PATH = REPO / 'data' / 'wordlist-overrides.json'
+KEEP_PATH = HERE / 'rules' / 'keep.json'      # rescue 寫入的救回清單（測試會換成暫存檔）
+REPORTS_ROOT = HERE / 'reports'               # rescue 查刪除清單的位置（測試會換成暫存資料夾）
 
 
 def _load_json(path):
@@ -208,6 +212,85 @@ def cmd_verify(strict=False):
     return 0
 
 
+def _valid_rescue_word(w):
+    """救回的詞只能是 2～11 個 BMP 漢字（網站吃得下的格式，T-06-18）。"""
+    return 2 <= len(w) <= parselib.MAX_WORD_LEN and all(parselib.is_han(c) and ord(c) <= 0xFFFF for c in w)
+
+
+def _write_keep(path, words):
+    """排序（依字碼）、不重複、縮排 2、先寫暫存檔再 os.replace；內容沒變就不動檔案。"""
+    text = json.dumps(sorted(set(words)), ensure_ascii=False, indent=2) + '\n'
+    path = Path(path)
+    try:
+        if path.read_text(encoding='utf-8') == text:
+            return
+    except OSError:
+        pass
+    tmp = path.with_name(path.name + '.tmp%d' % os.getpid())
+    try:
+        tmp.write_text(text, encoding='utf-8')
+        os.replace(tmp, path)
+    finally:
+        if tmp.exists():
+            tmp.unlink()
+
+
+def _pack_names():
+    try:
+        return {p['id']: p['name'] for p in _load_json(PACKS_PATH)['packs']}
+    except LexError:
+        return {}
+
+
+def cmd_rescue(words, rebuild=False, lock=None):
+    """救回誤刪的詞（D2）：加進 keep.json，並印出每個刪掉它的詞庫包、規則、原因，以及可貼進
+    data/wordlist-overrides.json「added」的那一行。輸入不合格就整批不寫、結束代碼 2。"""
+    clean = []
+    for raw in words:
+        w = unicodedata.normalize('NFC', raw)
+        if not _valid_rescue_word(w):
+            raise LexError('只能救回 2～11 個漢字的詞：%s' % raw)
+        if w not in clean:
+            clean.append(w)
+    keep_path = Path(KEEP_PATH)
+    try:
+        current = json.loads(keep_path.read_text(encoding='utf-8'))
+    except OSError:
+        current = []
+    except ValueError as exc:
+        raise LexError('keep.json 不是正確的 JSON：%s' % exc)
+    if not isinstance(current, list):
+        raise LexError('keep.json 必須是詞的清單')
+    names = _pack_names()
+    reports = Path(REPORTS_ROOT)
+    folders = sorted(p for p in reports.iterdir() if (p / 'removed.ndjson').is_file()) if reports.is_dir() else []
+    for w in clean:
+        print('「%s」' % w)
+        found = False
+        for folder in folders:
+            for line in (folder / 'removed.ndjson').read_text(encoding='utf-8').splitlines():
+                if not line:
+                    continue
+                row = json.loads(line)
+                if row['w'] != w:
+                    continue
+                found = True
+                print('  %s：%s（%s）' % (names.get(folder.name, folder.name), row['rule'], row['reason']))
+                if row['rule'].startswith('R0-'):
+                    print('    這個詞因為「格式不合」被刪，救回名單救不回來（網站吃不下這種格式）')
+                else:
+                    print('    貼進 data/wordlist-overrides.json 的 added：%s' % json.dumps(
+                        {'w': row['w'], 'z': row['z'], 'p': row['p']}, ensure_ascii=False, separators=(',', ':')))
+        if not found:
+            print('  目前沒有詞庫包刪除這個詞，已加入保留名單（之後 AI 判斷也不會刪它）')
+    _write_keep(keep_path, [x for x in current if isinstance(x, str)] + clean)
+    if rebuild:
+        cmd_build(lock or sources.load_lock(LOCK_PATH))
+        return cmd_verify(strict=True)
+    print('重新執行 npm run lexicon:build 後生效')
+    return 0
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description='好韻器詞庫清洗工具')
     sub = ap.add_subparsers(dest='cmd', required=True)
@@ -216,6 +299,9 @@ def main(argv=None):
     v = sub.add_parser('verify', help='離線驗證已提交的詞庫包')
     v.add_argument('--strict', action='store_true',
                    help='加嚴驗證：另載入規則輸入，確認沒有簡體、罕用字、中國用語殘留')
+    r = sub.add_parser('rescue', help='救回被誤刪的詞（加進 rules/keep.json，並印出可貼進修正檔的那一行）')
+    r.add_argument('words', nargs='+', help='要救回的詞（2～11 個漢字）')
+    r.add_argument('--rebuild', action='store_true', help='加進保留名單後立刻重建詞庫包')
     a = sub.add_parser('all', help='fetch + build + verify --strict')
     for sp in (b, a):
         sp.add_argument('--gray-policy', choices=('p1', 'p2'), default='p1',
@@ -227,6 +313,8 @@ def main(argv=None):
     try:
         if args.cmd == 'verify':
             return cmd_verify(args.strict)
+        if args.cmd == 'rescue':
+            return cmd_rescue(args.words, args.rebuild)
         lock = sources.load_lock(LOCK_PATH)
         if args.cmd in ('fetch', 'all'):
             cmd_fetch(lock)

@@ -1,12 +1,16 @@
 """刪除報告（REPORT.md、stats.json）的測試：數字對得上、樣本可重現、verify 抓得到不一致、網站不讀報告。"""
+import contextlib
+import io
 import json
 import re
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 import build
-from lex import estimate_tokens, pack, parse, report
+from lex import estimate_tokens, pack, parse, report, rules
+from tests import test_rules
 
 CFG = {'id': 'demo', 'name': '示範詞庫', 'description': '測試用', 'licence_spdx': 'MIT'}
 SRC_META = [{'id': 'demo-src', 'repo': 'https://github.com/o/s', 'commit': 'c' * 40, 'licence_spdx': 'MIT'}]
@@ -194,6 +198,96 @@ class HelpersTest(unittest.TestCase):
         self.assertEqual(sorted([multi[0]['z']] + multi[0]['others']), ['ㄧ ㄒㄧㄚˋ', 'ㄧˊ ㄒㄧㄚˋ'])
         # 不給 multi_out 時回傳值一樣
         self.assertEqual(parse.collect(rows, {}, {}, 'a')[0], entries)
+
+
+class RescueTest(unittest.TestCase):
+    """build.py rescue：加進保留名單、印出可貼進修正檔的那一行；重建後詞就回來。"""
+    W = '打印機'
+    Z = 'ㄉㄚˇ ㄧㄣˋ ㄐㄧ'
+
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self.tmp = Path(self._tmp.name)
+        self.keep = self.tmp / 'keep.json'
+        self.keep.write_text('[]\n', encoding='utf-8')
+        self.reports = self.tmp / 'reports'
+        (self.reports / 'demo').mkdir(parents=True)
+        row = {'w': self.W, 'z': self.Z, 'p': 3, 'rule': 'R3-china-term',
+               'reason': '中國用語（台灣多作「印表機」）', 'src': ['demo'], 'n': 1}
+        bad = {'w': '壞音節', 'z': 'ㄅㄢˋ ㄧ', 'p': 1, 'rule': 'R0-syllables', 'reason': '注音音節數與字數不符',
+               'src': ['demo'], 'n': 1}
+        pack.write_removed(self.reports / 'demo' / 'removed.ndjson', [row, bad])
+        for patcher in (mock.patch.object(build, 'KEEP_PATH', self.keep),
+                        mock.patch.object(build, 'REPORTS_ROOT', self.reports)):
+            patcher.start()
+            self.addCleanup(patcher.stop)
+
+    def run_cli(self, *args):
+        out, err = io.StringIO(), io.StringIO()
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+            rc = build.main(['rescue'] + list(args))
+        return rc, out.getvalue(), err.getvalue()
+
+    def keep_words(self):
+        return json.loads(self.keep.read_text(encoding='utf-8'))
+
+    def test_rescue_adds_the_word_and_prints_pack_rule_reason_and_the_overrides_line(self):
+        rc, out, _err = self.run_cli(self.W)
+        self.assertEqual(rc, 0)
+        self.assertEqual(self.keep_words(), [self.W])
+        self.assertIn('demo：R3-china-term（中國用語（台灣多作「印表機」））', out)
+        self.assertIn('{"w":"打印機","z":"ㄉㄚˇ ㄧㄣˋ ㄐㄧ","p":3}', out)
+        self.assertIn('重新執行 npm run lexicon:build 後生效', out)
+        # 印出的那一行就是網站修正檔 added 吃的格式
+        line = re.search(r'added：(\{.*\})', out).group(1)
+        self.assertEqual(json.loads(line), {'w': self.W, 'z': self.Z, 'p': 3})
+
+    def test_after_a_fixture_rebuild_the_word_is_back_and_not_removed(self):
+        (self.tmp / 'a').mkdir()
+        before = rules.load_rule_context(test_rules.make_paths(self.tmp / 'a'), check_counts=False)
+        rows = [(self.W, self.Z, 3), ('你好', 'ㄋㄧˇ ㄏㄠˇ', 500)]
+        parsed = {'demo': parse.collect(rows, {}, {}, 'demo')}
+        res = rules.apply_rules(parsed, before)['demo']
+        self.assertEqual([r['w'] for r in res['removed']], [self.W])
+        self.assertEqual(self.run_cli(self.W)[0], 0)
+        paths = test_rules.make_paths(self.tmp / 'a')
+        paths['keep'] = self.keep
+        after = rules.apply_rules(parsed, rules.load_rule_context(paths, check_counts=False))['demo']
+        self.assertIn(self.W, {e['w'] for e in after['entries']})
+        self.assertEqual(after['removed'], [])
+
+    def test_word_no_pack_removed_is_still_added_with_a_note(self):
+        rc, out, _err = self.run_cli('你好')
+        self.assertEqual(rc, 0)
+        self.assertEqual(self.keep_words(), ['你好'])
+        self.assertIn('目前沒有詞庫包刪除這個詞，已加入保留名單', out)
+
+    def test_format_failures_are_explained_not_offered_as_an_overrides_line(self):
+        rc, out, _err = self.run_cli('壞音節')
+        self.assertEqual(rc, 0)
+        self.assertIn('救回名單救不回來', out)
+        self.assertNotIn('貼進 data/wordlist-overrides.json', out)
+
+    def test_invalid_input_exits_2_and_writes_nothing(self):
+        before = self.keep.read_bytes()
+        for bad in ('abc', '好', '一二三四五六七八九十一二', 'ａｂ', '𠀀𠀁'):
+            rc, out, err = self.run_cli(self.W, bad)
+            self.assertEqual(rc, 2, bad)
+            self.assertIn('只能救回 2～11 個漢字的詞', err)
+            self.assertEqual(self.keep.read_bytes(), before, bad)
+            self.assertEqual(out, '', bad)
+
+    def test_rescue_twice_keeps_one_copy_and_the_list_stays_sorted(self):
+        self.run_cli('蘋果', self.W)
+        self.run_cli(self.W)
+        self.assertEqual(self.keep_words(), sorted({'蘋果', self.W}))
+        self.assertEqual(self.keep.read_text(encoding='utf-8'),
+                         json.dumps(sorted({'蘋果', self.W}), ensure_ascii=False, indent=2) + '\n')
+
+    def test_the_real_keep_json_is_untouched_by_these_tests(self):
+        real = json.loads((build.HERE / 'rules' / 'keep.json').read_text(encoding='utf-8'))
+        self.assertEqual(real, sorted(set(real)))
 
 
 class CommittedReportsTest(unittest.TestCase):
