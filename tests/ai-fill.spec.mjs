@@ -358,10 +358,10 @@ test('buildGenPrompt：押字首看韻部、純聲母、字數、同聲調、選
     has(prompt([REQ.愛, REQ.心]), '字數：2字', '第1字韻母：ㄞ', '第2字韻母：ㄧㄣ');
     has(prompt([REQ.萬用, REQ.心]), '第1字不限', '第2字韻母：ㄧㄣ');
     has(prompt([REQ.心, REQ.衣], { mode: 'initial' }), '第1字聲母：ㄒ', '第2字聲母：ㄧ');
-    // 排除清單最多 40 個
+    // 排除清單最多 40 個，取最新的（Set 尾端）
     const fifty = Array.from({ length: 50 }, (_, i) => `詞${i}`);
     const line = prompt([REQ.心], {}, 12, fifty).split('\n').find(l => l.startsWith('禁止重複'));
-    expect(line.split('：')[1].split('、')).toEqual(fifty.slice(0, 40));
+    expect(line.split('：')[1].split('、')).toEqual(fifty.slice(-40));
 });
 
 // ==================== 一條流程：夠就挑、不夠才造一次（D-03、D-05）====================

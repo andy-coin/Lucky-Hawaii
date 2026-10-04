@@ -345,7 +345,8 @@
                 if (filterSameTone && (charInfo[ch] || []).length) rhymeDesc += `，聲調與「${ch}」相同`;
                 if (isTail && filterNoExtRhyme && !pureInitial) rhymeDesc += '，韻母需完全相同';
             }
-            const excludeStr = [...excludeSet].slice(0, 40).join('、') || '（無）';
+            // 取最新的 40 個（Set 依加入順序，最後面才是剛列出與剛保留的詞）
+            const excludeStr = [...excludeSet].slice(-40).join('、') || '（無）';
             return `你是歌詞創作助手。請直接生成${n}個押韻的中文詞語（多給幾個備篩選）：
 字數：${lenDesc}
 韻腳要求：${rhymeDesc}
