@@ -4,16 +4,16 @@ milestone: v0.96
 current_phase: 06
 current_phase_name: Lexicon Packs 台灣詞庫包
 status: executing
-stopped_at: Completed 06-05-PLAN.md
-last_updated: "2026-10-04T18:17:57.608Z"
+stopped_at: Completed 06-06-PLAN.md
+last_updated: "2026-10-04T18:47:24.295Z"
 last_activity: 2026-10-04
 last_activity_desc: Phase 06 execution started
-state_head: b9d63d7d01a1d18764bf80fcdf03fb116308746e
+state_head: 0274b46cd246645c2a5ff674ab603d22345bfca0
 progress:
   total_phases: 12
   completed_phases: 2
   total_plans: 41
-  completed_plans: 38
+  completed_plans: 39
 ---
 
 # Project State
@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-10-03)
 ## Current Position
 
 Phase: 06 (Lexicon Packs 台灣詞庫包) — EXECUTING
-Plan: 6 of 8
+Plan: 7 of 8
 Status: Ready to execute
 Last activity: 2026-10-04 — Phase 06 execution started
 
@@ -95,6 +95,7 @@ Progress: [██░░░░░░░░] 17%
 | Phase 06 P03 | 70min | 3 tasks | 8 files |
 | Phase 06 P04 | 35min | 2 tasks | 24 files |
 | Phase 06 P05 | 70min | 2 tasks | 40 files |
+| Phase 06 P06 | 100min | 2 tasks | 22 files |
 
 ## Accumulated Context
 
@@ -152,6 +153,8 @@ Recent decisions affecting current work:
 - [Phase 06]: 06-05: 倒三角形 被 R0 刪除是唯音來源注音只有 3 個音節的資料錯誤（小麥注音版本完整、仍保留），R0 不改
 - [Phase 06]: 06-05: R3 中國用語只看本來源詞頻（<100 才刪）；keep.json 放 27 個台灣日常詞、char-allow.txt 多加 9 個人名／小吃用字
 - [Phase 06]: 06-05: Big5 字數只數統一漢字範圍（5,401／7,650）；規則層上線後詞庫包 rules_version 2
+- [Phase 06]: 06-06: keep.json holds only 15 clearly everyday Taiwan words; 12 doubtful China-flavoured computing terms go to rules/r3-gray.json and become gray (G-china-term), judged later by the AI pass
+- [Phase 06]: 06-06: deletion reports live in tools/lexicon/reports/<id>/ (not data/), seeded samples, verify recomputes stats identities; rescue command writes sorted keep.json and cannot rescue R0 format removals
 
 ### Pending Todos
 
@@ -190,6 +193,6 @@ Items acknowledged and deferred at milestone close, most recent first:
 
 ## Session Continuity
 
-Last session: 2026-10-04T18:17:51.693Z
-Stopped at: Completed 06-05-PLAN.md
+Last session: 2026-10-04T18:47:24.186Z
+Stopped at: Completed 06-06-PLAN.md
 Resume file: None
