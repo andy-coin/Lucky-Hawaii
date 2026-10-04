@@ -40,8 +40,9 @@
                     if (!ok) _wlCacheWriteFailed(err);
                     res(ok);
                 };
+                let tx;
                 try {
-                    const tx = db.transaction('wl', 'readwrite');
+                    tx = db.transaction('wl', 'readwrite');
                     tx.oncomplete = () => fin(true);
                     tx.onerror = e => fin(false, tx.error || e.target.error);
                     tx.onabort = () => fin(false, tx.error);
@@ -49,7 +50,11 @@
                     st.delete(IDBKeyRange.bound(0, 1e9));
                     chunks.forEach((c, i) => st.put({ k: i, v: c }));
                     st.put({ k: 'ver', v: ver });
-                } catch (e) { fin(false, e); }
+                } catch (e) {
+                    // 同步例外時交易可能已排進刪除與部分寫入，不 abort 就會被提交成半套
+                    try { tx && tx.abort(); } catch (_) {}
+                    fin(false, e);
+                }
             });
         }
 
