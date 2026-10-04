@@ -434,8 +434,7 @@
             }
 
             .search-input {
-                font-size: 1rem;
-                /* font-size: 0.85rem; */
+                /* 字級下限由檔尾「輸入框字級下限」統一管（≤ 900 或觸控） */
                 padding: 0.5rem 3.75rem 0.5rem 0.75rem;
                 -webkit-appearance: none;
                 appearance: none;
@@ -670,4 +669,26 @@
             html.kb-short .results-section { min-height: 0; }
             /* 寫歌詞時把「情境 ＆ 標籤」收到只剩標題列，讓出高度給歌詞框 */
             .side-panel:has(.section-textarea:focus) .context-section { flex-basis: var(--hit); }
+        }
+
+        /* ===== 輸入框字級下限（D-08）：手機、平板、觸控裝置所有文字欄位至少 16px，iOS 點進去才不會自動放大 =====
+           用 max(16px, 1rem) 而不是 1rem：縮放 50% 時 1rem 只剩 8px，放大又會回來。
+           class 選擇器比元素選擇器強，所以每種輸入框都要明確列出（檔尾，同權重時這裡贏）。
+           電腦（≥ 901 且滑鼠）維持原本字級。 ===== */
+        @media (max-width: 900px), (pointer: coarse) {
+            .search-input, .section-label, .section-textarea, .context-textarea, .hashtag-popup-input,
+            .hashtag-input-row input, .word-input-row input, .feedback-modal input, .feedback-modal textarea,
+            .model-select {
+                font-size: max(16px, 1rem);
+            }
+            /* 搜尋框：單行、長字串用 … 收尾不撐破；右邊讓出切換按鈕的位置 */
+            .search-input {
+                min-height: 3rem;
+                padding-right: 4rem;
+                text-overflow: ellipsis;
+            }
+            /* 輸入模式按鈕：實體面積夠大，外圍再用透明區塊擴大可點範圍（UI-SPEC §5.2） */
+            #inputModeBtn { min-width: 2.75rem; min-height: 2.5rem; }
+            #inputModeBtn::after { content: ''; position: absolute; inset: -0.25rem; }
+            .section-textarea { overflow-wrap: anywhere; }
         }

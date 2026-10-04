@@ -1329,3 +1329,139 @@ test('鍵盤：寫歌詞時情境區自動收起、回報視窗輸入框看得�
         expect(insideVisible(await page.locator('#feedbackModalOverlay .feedback-modal').boundingBox(), kb), '對話框整個在可見範圍內').toBe(true);
     } finally { await context.close(); }
 });
+
+// ===== 05-07 任務二：手機平板所有輸入框字級至少 16px（任何縮放都一樣），長字串不撐破搜尋框 =====
+// 電腦視窗加上 isMobile＋hasTouch：這個組合在 Chromium 會回報 pointer: coarse（平板接鍵盤滑鼠之外的純觸控大螢幕）
+const TOUCH_DESKTOP = { ...DEVICES.desktop, isMobile: true, hasTouch: true };
+const FLOOR_CONTEXTS = [['手機 390×844', DEVICES.phone], ['平板 820×1180', DEVICES.tablet], ['橫放手機 844×390', DEVICES.phoneLandscape], ['觸控電腦 1440×900', TOUCH_DESKTOP]];
+const OVERLAY_OPEN = { settings: ['#settingsOverlay', 'toggleSettings()'], feedback: ['#feedbackModalOverlay', 'openFeedbackModal()'], hashtag: ['#hashtagPopupOverlay', 'openHashtagPopup()'] };
+// 每個狀態：開啟、該狀態一定要掃到的控制項（防止「掃了個寂寞」）、關閉
+const INPUT_STATES = [
+    ['閒置', ['input#searchInput'], async () => {}, async () => {}],
+    ['歌詞開著', ['textarea.section-textarea', 'textarea#contextDescription'],
+        (page, d) => toggleSide(page, d, 'lyrics'), (page, d) => isWide(d) ? toggleSide(page, d, 'lyrics') : closeSheet(page, d)],
+    ['AI 開著', ['select#modelSelect'],
+        (page, d) => toggleSide(page, d, 'ai'), (page, d) => isWide(d) ? toggleSide(page, d, 'ai') : closeSheet(page, d)],
+    ...Object.entries({ 設定開著: 'settings', 回報開著: 'feedback', 標籤開著: 'hashtag' }).map(([name, key]) => [
+        name,
+        key === 'feedback' ? ['input#feedbackSubject', 'textarea#feedbackBody'] : key === 'hashtag' ? ['input#hashtagPopupInput'] : ['input#searchInput'],
+        // 對話框跟其他測試一樣直接呼叫開啟函式（橫放手機的標題區被藏起來，設定鈕本來就點不到）
+        async page => { await page.evaluate(OVERLAY_OPEN[key][1]); await expect(page.locator(OVERLAY_OPEN[key][0])).toHaveClass(/show/); },
+        page => page.evaluate(sel => document.querySelector(sel).classList.remove('show'), OVERLAY_OPEN[key][0]),
+    ]),
+];
+
+test('輸入：手機平板所有輸入框字級 ≥ 16px（3 縮放 × 6 狀態）', async ({ browser }) => {
+    // 負向對照：掃描器抓得到小字、放得過大字（用一個臨時的 8px 輸入框驗證，之後移除）
+    {
+        const { context, page } = await bootPage(browser, { device: DEVICES.phone });
+        try {
+            await page.evaluate(() => { const i = document.createElement('input'); i.id = 'probe'; i.style.cssText = 'font-size:15.99px;position:fixed;top:0;left:0'; document.body.appendChild(i); });
+            expect((await scanInputFonts(page)).bad, '15.99px 要被抓到').toEqual([expect.stringMatching(/^input#probe 15\.99px$/)]);
+            await page.evaluate(() => { document.getElementById('probe').style.fontSize = '16px'; });
+            expect((await scanInputFonts(page)).bad, '16px 要放行').toEqual([]);
+            await page.evaluate(() => { const p = document.getElementById('probe'); p.type = 'checkbox'; p.style.fontSize = '8px'; });
+            expect((await scanInputFonts(page)).bad, 'checkbox 不在掃描範圍').toEqual([]);
+        } finally { await context.close(); }
+    }
+    for (const [dname, device] of FLOOR_CONTEXTS) {
+        for (const pct of [50, 100, 150]) {
+            const { context, page } = await bootPage(browser, { device, storage: { 'lh:uiScale': String(pct) } });
+            try {
+                await waitStill(page);
+                expect(await page.evaluate(() => matchMedia('(pointer: coarse)').matches), `${dname}：應為觸控`).toBe(true);
+                for (const [sname, mustSee, open, close] of INPUT_STATES) {
+                    await open(page, device);
+                    const r = await scanInputFonts(page);
+                    for (const want of mustSee) {
+                        expect(r.seen.some(n => n.startsWith(want)), `${dname} ${pct}% ${sname}：沒掃到 ${want}（掃到 ${r.seen}）`).toBe(true);
+                    }
+                    expect(r.bad, `${dname} ${pct}% ${sname}：這些輸入框字級不到 16px`).toEqual([]);
+                    await close(page, device);
+                }
+            } finally { await context.close(); }
+        }
+    }
+});
+
+test('輸入：16px 剛好通過、900 套用、901 桌機不變', async ({ browser }) => {
+    expect([meetsInputFloor(16), meetsInputFloor(15.99), meetsInputFloor(16.01), meetsInputFloor(0)]).toEqual([true, false, true, false]);
+    // 滑鼠（fine pointer）：900 寬套用下限、901 寬維持桌機字級
+    const { context, page } = await bootPage(browser, { device: DEVICES.desktop });
+    try {
+        expect(await page.evaluate(() => matchMedia('(pointer: fine)').matches), '這個 context 是滑鼠').toBe(true);
+        const fonts = () => page.evaluate(() => Object.fromEntries(['#modelSelect', '#searchInput', '.context-textarea', '.section-textarea'].map(s => [s, parseFloat(getComputedStyle(document.querySelector(s)).fontSize)])));
+        const desktop = await fonts();
+        expect(desktop['#modelSelect'], '1440 桌機維持原字級').toBeLessThan(16);
+        await page.setViewportSize({ width: 901, height: 900 });
+        expect((await fonts())['#modelSelect'], '901 滑鼠：桌機字級不變').toBe(desktop['#modelSelect']);
+        await page.setViewportSize({ width: 900, height: 900 });
+        const at900 = await fonts();
+        for (const [sel, px] of Object.entries(at900)) expect(meetsInputFloor(px), `900 寬滑鼠 ${sel} ${px}px`).toBe(true);
+        await page.setViewportSize({ width: 901, height: 900 });
+        expect((await fonts())['#modelSelect'], '回到 901 又變回桌機字級').toBe(desktop['#modelSelect']);
+    } finally { await context.close(); }
+});
+
+test('輸入：20 個中文字的查詢不換行不撐破', async ({ browser }) => {
+    const QUERY = '好運氣一定會來找到屬於我自己的歌';   // 16 字；再補 4 字湊 20
+    const long20 = (QUERY + '押韻真有趣').slice(0, 20);
+    expect([...long20].length).toBe(20);
+    for (const [name, device] of [['手機', DEVICES.phone], ['平板', DEVICES.tablet]]) {
+        const { context, page } = await bootPage(browser, { device });
+        try {
+            await page.locator('#searchInput').fill(long20);
+            await waitStill(page);
+            const m = await page.evaluate(() => {
+                const inp = document.getElementById('searchInput');
+                const wrap = inp.closest('.search-input-wrap').getBoundingClientRect();
+                const r = inp.getBoundingClientRect();
+                const cs = getComputedStyle(inp);
+                return { w: r.width, h: r.height, wrapW: wrap.width, left: r.left, right: r.right, iw: innerWidth, fs: parseFloat(cs.fontSize), ellipsis: cs.textOverflow, tag: inp.tagName, sw: document.documentElement.scrollWidth };
+            });
+            expect(m.tag).toBe('INPUT');
+            expect(m.w, `${name}：搜尋框 ${m.w} 不比容器 ${m.wrapW} 寬`).toBeLessThanOrEqual(m.wrapW + 0.5);
+            expect(m.h, `${name}：搜尋框高度 ${m.h} 是單行`).toBeLessThan(m.fs * 3.2);
+            expect(m.right, `${name}：搜尋框右緣在視窗內`).toBeLessThanOrEqual(m.iw + 0.5);
+            expect(m.sw, `${name}：整頁不橫向捲動`).toBeLessThanOrEqual(m.iw);
+            expect(m.ellipsis).toBe('ellipsis');
+            // 切換輸入模式的按鈕：實體 ≥ 44×40，外圍透明擴大區讓「點得到按鈕」的範圍 ≥ 44×44。
+            // 用 elementFromPoint 從框邊往外 1px 1px 探，量實際點得到的延伸量（不是只看 CSS 寫了什麼）
+            const hit = await page.evaluate(() => {
+                const b = document.getElementById('inputModeBtn');
+                const r = b.getBoundingClientRect();
+                const reach = (dx, dy, x0, y0) => {
+                    let d = 0;
+                    while (d < 12 && document.elementFromPoint(x0 + dx * (d + 1), y0 + dy * (d + 1)) === b) d++;
+                    return d;
+                };
+                const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+                const ext = { left: reach(-1, 0, r.left, cy), right: reach(1, 0, r.right, cy), top: reach(0, -1, cx, r.top), bottom: reach(0, 1, cx, r.bottom) };
+                return { w: r.width, h: r.height, ext, hitW: r.width + ext.left + ext.right, hitH: r.height + ext.top + ext.bottom };
+            });
+            expect(hit.hitW, `${name}：按鈕可點寬度 ${hit.hitW}（本體 ${hit.w}＋外延 ${JSON.stringify(hit.ext)}）`).toBeGreaterThanOrEqual(44);
+            expect(hit.hitH, `${name}：按鈕可點高度 ${hit.hitH}（本體 ${hit.h}＋外延 ${JSON.stringify(hit.ext)}）`).toBeGreaterThanOrEqual(44);
+            await expectReallyClickable(page, page.locator('#inputModeBtn'), `${name} 輸入模式按鈕`);
+        } finally { await context.close(); }
+    }
+});
+
+test('輸入：5000 字歌詞會自動換行', async ({ browser }) => {
+    // 5000 字：中文、標點，加一段 300 個字母連在一起的長字串（沒有空格也要換行，不能左右捲）
+    const unbroken = 'a'.repeat(300);
+    const text = ('好運氣天天來，寫詞不用愁。' + unbroken).repeat(Math.ceil(5000 / (13 + 300))).slice(0, 5000) + '\n結尾' + unbroken;
+    for (const [name, device] of [['手機', DEVICES.phone], ['平板', DEVICES.tablet]]) {
+        const { context, page } = await bootPage(browser, { device });
+        try {
+            await toggleSide(page, device, 'lyrics');
+            const ta = page.locator('#lyricsSections .section-textarea').first();
+            await ta.fill(text);
+            await waitStill(page);
+            const m = await ta.evaluate(el => ({ sw: el.scrollWidth, cw: el.clientWidth, sh: el.scrollHeight, ch: el.clientHeight, len: el.value.length, wrap: getComputedStyle(el).overflowWrap }));
+            expect(m.len).toBeGreaterThanOrEqual(5000);
+            expect(m.sw, `${name}：歌詞框 scrollWidth ${m.sw} 不超過 clientWidth ${m.cw}`).toBeLessThanOrEqual(m.cw + 1);
+            expect(m.wrap).toBe('anywhere');
+            expect(m.sh, `${name}：長歌詞往下長、可往下捲`).toBeGreaterThan(m.ch);
+        } finally { await context.close(); }
+    }
+});

@@ -140,14 +140,14 @@ export function insideVisible(box, kb, tol = 0.5) {
 export function meetsInputFloor(px) { return px >= 16; }
 
 // 掃整頁所有看得見的文字輸入控制項（input 排除勾選／色票／拉桿／檔案／按鈕類、textarea、select），
-// 回傳字級不到下限的清單；量的是每個元素自己的計算字級（CSS px），跟 --ui-scale、裝置像素比都無關
+// 回傳 { bad: 字級不到下限的清單, seen: 掃到的所有控制項 }；量的是每個元素自己的計算字級（CSS px），跟 --ui-scale、裝置像素比都無關
 export function scanInputFonts(page) {
     // 比較器原始碼送進頁面執行，掃描與邊界測試用的是同一個函式
     return page.evaluate(src => {
         const meets = new Function('return ' + src)();
         const skip = /^(checkbox|radio|color|range|file|button|submit|reset|image|hidden)$/i;
         const bad = [];
-        let count = 0;
+        const seen = [];
         for (const el of document.querySelectorAll('input, textarea, select')) {
             if (el.tagName === 'INPUT' && skip.test(el.type)) continue;
             // 看不見的不算：沒有版面框（display:none）、visibility 隱藏、整個透明（例如複製用的隱形 textarea）
@@ -156,13 +156,12 @@ export function scanInputFonts(page) {
             if (cs.visibility === 'hidden' || Number(cs.opacity) === 0) continue;
             const r = el.getBoundingClientRect();
             if (r.width === 0 || r.height === 0) continue;
-            count++;
             const px = parseFloat(cs.fontSize);
-            if (!meets(px)) {
-                const cls = typeof el.className === 'string' && el.className.trim() ? '.' + el.className.trim().split(/\s+/).join('.') : '';
-                bad.push(`${el.tagName.toLowerCase()}${el.id ? '#' + el.id : ''}${cls} ${px}px`);
-            }
+            const cls = typeof el.className === 'string' && el.className.trim() ? '.' + el.className.trim().split(/\s+/).join('.') : '';
+            const name = `${el.tagName.toLowerCase()}${el.id ? '#' + el.id : ''}${cls}`;
+            seen.push(name);
+            if (!meets(px)) bad.push(`${name} ${px}px`);
         }
-        return { bad, count };
+        return { bad, seen };
     }, meetsInputFloor.toString());
 }
