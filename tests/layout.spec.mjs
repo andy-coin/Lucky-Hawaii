@@ -266,6 +266,43 @@ test('版面：橫拿手機的主題、縮放、批次標記按鈕還在且點�
     } finally { await context.close(); }
 });
 
+// 第二輪 WR-01：橫拿的矮手機（667×375、740×360…）結果區不能被標題＋搜尋＋批次列擠成一條縫。
+// 做法是整個主內容可捲：捲到結果區之後，至少要看得到完整的一列字卡；往回捲，主題／縮放／批次鈕照樣點得到。
+for (const [w, h] of [[844, 390], [667, 375], [740, 360], [568, 320]]) {
+    test(`版面：橫拿手機 ${w}×${h} 結果區看得到完整一列字卡，控制鈕也點得到`, async ({ browser }) => {
+        const device = { viewport: { width: w, height: h }, isMobile: true, hasTouch: true, deviceScaleFactor: 1 };
+        const { context, page, errors } = await bootPage(browser, { device });
+        try {
+            await page.fill('#searchInput', 'ㄢ');
+            await waitStill(page);
+            expect(await page.evaluate(() => matchMedia('(max-width: 900px) and (max-height: 600px)').matches), '矮橫拿規則生效').toBe(true);
+            expect(await noPageScroll(page).then(m => m.sh <= m.ih + 1), '整頁本身不捲動（只有主內容在捲）').toBe(true);
+            const rect = sel => page.locator(sel).first().boundingBox();
+            // 1. 結果區高度：捲到結果區頂端之後，比一列字卡（含上下留白）還高
+            await page.locator('.results-section').evaluate(el => el.scrollIntoView({ block: 'start' }));
+            await waitStill(page);
+            const [res, card, cont] = await Promise.all([rect('.results-section'), rect('.char-card'), rect('#mainContainer')]);
+            expect(res.height, `結果區高度 ${res.height}px 放不下一列字卡（${card.height}px）`).toBeGreaterThanOrEqual(card.height + 8);
+            // 2. 第一張字卡完整露出：在結果區裡、也在主內容（會裁切）可見範圍裡、也在視窗裡
+            expect(card.y, '字卡頂端在結果區之上').toBeGreaterThanOrEqual(res.y - 0.5);
+            expect(card.y + card.height, '字卡底端超出結果區').toBeLessThanOrEqual(res.y + res.height + 0.5);
+            expect(card.y + card.height, '字卡底端被主內容裁掉').toBeLessThanOrEqual(cont.y + cont.height + 0.5);
+            await expectFullyInViewport(page, page.locator('.char-card').first());
+            // 3. 往回捲：標題與批次列都在，主題、縮放、批次標記真的點得到
+            await page.locator('#mainContainer').evaluate(el => { el.scrollTop = 0; });
+            await waitStill(page);
+            for (const [name, sel] of [['主題切換', '#themeToggle'], ['縮小', '#MzoomOut'], ['縮放百分比', '.zoom-reset'], ['放大', '#MzoomIn'], ['批次：常用', '#batchPanel .batch-btn >> nth=0'], ['批次：冷僻', '#batchPanel .batch-btn >> nth=1'], ['批次：取消', '#batchPanel .batch-btn >> nth=2']]) {
+                await expectReallyClickable(page, page.locator(sel).first(), name);
+            }
+            // 4. 真的按得動：放大一格
+            await page.locator('#MzoomIn').tap();
+            await waitStill(page);
+            expect(await page.locator('#MzoomValue').textContent()).toBe('105%');
+            expect(errors).toEqual([]);
+        } finally { await context.close(); }
+    });
+}
+
 test('輸入：viewport 設定保留縮放手勢', async ({ browser }) => {
     const { context, page } = await bootPage(browser, {});
     try {

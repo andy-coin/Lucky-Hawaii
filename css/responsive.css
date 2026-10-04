@@ -657,6 +657,12 @@
             .results-section { min-height: 0; padding-top: 0.5rem; }
             /* 只藏說明文字（不是控制項）：橫拿時多換 30 多 px 給字卡 */
             .search-hint { display: none; }
+            /* 標題＋搜尋＋批次列加起來就吃掉 190～250px，橫拿的 667×375、740×360 以下結果區只剩 30～50px（連一列字卡都放不下，第二輪 WR-01）。
+               改成「整個主內容往上捲」：標題與搜尋區保持原高度（工具列、批次鈕照樣點得到），結果區撐滿整個可視高度，
+               捲過標題區之後整個畫面都是字卡；往回捲就又看到控制鈕。結果區自己的捲動（字卡捲動位置記憶）不變。 */
+            .container { overflow-x: hidden; overflow-y: auto; overscroll-behavior-y: contain; }
+            .header, .search-section { flex-shrink: 0; }
+            .results-section { flex: 0 0 auto; height: 100%; }
         }
 
         /* ===== 虛擬鍵盤（D-09，UI-SPEC §4）：js/layout.js 在「有文字欄位聚焦、可見高度矮 150px 以上」時加 html.kb-open，
@@ -688,6 +694,8 @@
             /* 可見高度不到 600px：標題區先讓位，字卡留在鍵盤上方（與矮視窗規則同樣的宣告） */
             html.kb-short .header, html.kb-short .mobile-batch-area { display: none !important; }
             html.kb-short .results-section { min-height: 0; }
+            /* 鍵盤開著：回到「結果區吃剩下的高度」，不要整頁再多出一段捲動 */
+            html.kb-short .results-section { flex: 1 1 0; height: auto; }
             /* 寫歌詞時把「情境 ＆ 標籤」收到只剩標題列，讓出高度給歌詞框 */
             .side-panel:has(.section-textarea:focus) .context-section { flex-basis: var(--hit); }
         }
