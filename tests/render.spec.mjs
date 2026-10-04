@@ -51,6 +51,26 @@ const snapshot = page => page.evaluate(() => {
     };
 });
 
+// 把「分批畫字卡」的下一格卡住：只攔 results.js 排的那一格（函式名 step），別的動畫格（含 Playwright 自己等元素穩定用的）照跑。
+// 這樣「載入中」這個狀態是被測試握住的，不是跟畫面搶時間；release() 才放行並補排被擋下的那一格。
+async function holdRenderSlices(page) {
+    await page.evaluate(() => {
+        const raf = window.requestAnimationFrame.bind(window);
+        window.__heldSlices = [];
+        window.__holdSlices = true;
+        window.requestAnimationFrame = cb => {
+            if (window.__holdSlices && cb && cb.name === 'step') { window.__heldSlices.push(cb); return 0; }
+            return raf(cb);
+        };
+    });
+    return async () => page.evaluate(() => {
+        window.__holdSlices = false;
+        const held = window.__heldSlices.splice(0);
+        held.forEach(cb => requestAnimationFrame(cb));
+        return held.length;
+    });
+}
+
 const renderState = page => page.evaluate(() => document.getElementById('resultsContainer').getAttribute('data-render'));
 const waitState = (page, s) => page.waitForFunction(v => document.getElementById('resultsContainer').getAttribute('data-render') === v, s);
 
@@ -276,27 +296,42 @@ test.describe('分批', () => {
         const { context, page, errors } = await bootPage(browser);
         try {
             await showAllRare(page);
+            const release = await holdRenderSlices(page);   // 先把後續分批卡住：點選一定發生在「載入中」，不靠時間碰運氣
             await startMore(page, 'ㄢ');
-            // 還在載入時，真的點第 3 張字卡
-            const card = page.locator('#resultsContainer .char-card').nth(2);
-            const char = await card.getAttribute('data-char');
+            // 還在載入時，真的點一張字卡：挑第一批裡「同一個字後面還會再畫出別張卡（破音字的其他讀音）」的那張，
+            // 這樣畫完後才驗得到「選取會套到之後才畫出來的卡」
+            const pick = await page.evaluate(() => {
+                const all = {};
+                searchRhyme('ㄢ').forEach(r => { all[r.char] = (all[r.char] || 0) + 1; });
+                const cards = [...document.querySelectorAll('#resultsContainer .char-card')];
+                const shown = {};
+                cards.forEach(c => { shown[c.dataset.char] = (shown[c.dataset.char] || 0) + 1; });
+                const idx = cards.findIndex(c => all[c.dataset.char] > shown[c.dataset.char]);
+                return { idx, char: idx < 0 ? null : cards[idx].dataset.char, total: idx < 0 ? 0 : all[cards[idx].dataset.char] };
+            });
+            expect(pick.idx, '第一批裡要有一個字，後面還會再畫出它的其他卡').toBeGreaterThanOrEqual(0);
+            const card = page.locator('#resultsContainer .char-card').nth(pick.idx);
+            const char = pick.char;
             await card.click();
-            expect(await renderState(page)).toBe('more');                  // 點的當下確實還在分批
+            expect(await renderState(page)).toBe('more');                  // 點的當下確實還在分批（被卡住，所以一定是）
             await expect(card).toHaveClass(/selected/);
             // 批量標記也要能用在已經畫好的字卡上（按「冷僻」鈕）
             await page.evaluate(() => batchMark('rare'));
             await expect(card.locator('.mark-badge')).toHaveText('冷僻');
+            expect(await renderState(page)).toBe('more');                  // 標記完仍然卡在分批中
 
+            expect(await release(), '放行時應該有一格被擋下').toBe(1);
             await settle(page);
             // 畫完後選取還在，而且同一個字後面才畫出來的卡（破音字的其他讀音）也是選取狀態
             const after = await page.evaluate(c => {
                 const cards = [...document.querySelectorAll(`#resultsContainer .char-card[data-char="${c}"]`)];
                 return { n: cards.length, selected: cards.filter(x => x.classList.contains('selected')).length, size: selectedChars.size };
             }, char);
-            expect(after.n).toBeGreaterThanOrEqual(1);
+            expect(after.n).toBe(pick.total);                               // 後面真的又畫出了同一個字的其他卡
+            expect(after.n).toBeGreaterThanOrEqual(2);
             expect(after.selected).toBe(after.n);
             expect(after.size).toBe(1);
-            await expect(page.locator('#resultsContainer .char-card').nth(2)).toHaveClass(/selected/);
+            await expect(page.locator('#resultsContainer .char-card').nth(pick.idx)).toHaveClass(/selected/);
             expect(errors).toEqual([]);
         } finally {
             await context.close();
