@@ -607,3 +607,21 @@ test('字卡：詞含 " < > \' \\ 也不會跳出屬性或字串，點下去保�
         expect(offOrigin).toEqual([]);
     } finally { await context.close(); }
 });
+
+// ==================== 預期外的例外：白話提示、留記錄、按鈕解鎖（IN-03）====================
+test('AI 建議流程中途丟例外：顯示白話提示、留記錄、按鈕解鎖、沒有未處理的錯誤', async ({ browser }) => {
+    const { context, page, errors, warnings, offOrigin } = await bootPage(browser);
+    try {
+        await page.route('**/ai', route => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, text: '', model: MODEL, tried: [] }) }));
+        await page.fill('#searchInput', '安');
+        await settle(page);
+        await page.evaluate(() => { fillToTarget = () => { throw new TypeError('注入的例外'); }; });
+        await clickGenerate(page);
+        await expect(page.locator('#copyToast')).toContainText('建議詞產生失敗');
+        await expect(page.locator('#generateBtn')).toBeEnabled();
+        await expect(page.locator('#aiLoading')).toBeHidden();
+        expect(warnings.some(w => w.startsWith('[好韻器] AI 建議失敗'))).toBe(true);
+        expect(errors, '例外被接住，不可變成 pageerror').toEqual([]);
+        expect(offOrigin).toEqual([]);
+    } finally { await context.close(); }
+});

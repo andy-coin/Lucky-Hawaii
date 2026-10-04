@@ -169,6 +169,10 @@
                     const what = selectedChars.size > 0 ? '含選字' : '符合';
                     container.innerHTML = `<div class="ai-exhausted">已推薦所有${what}的詞彙<button class="reset-pool-btn" onclick="resetSuggestedPool()">↺ 重置</button></div>`;
                 }
+            } catch (e) {
+                // 預期外的例外（資料形狀不對等）：留記錄、給白話提示，不讓 inline onclick 拋出未處理的 rejection
+                lhWarn('AI 建議失敗', e);
+                if (!stale()) showToast('建議詞產生失敗，請再按一次試試');
             } finally {
                 // 任何出口（含提早 return、例外）都在這裡解鎖，不要在別處手動解鎖
                 btn.toggleAttribute('disabled', false);
