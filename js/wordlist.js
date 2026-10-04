@@ -98,6 +98,40 @@
                 } catch (e) { lhWarn('詞庫快取讀取失敗', e); res(null); }
             });
         }
+        // 快取登記簿：IndexedDB 'wl' 的 'p:index' 記錄，列出有快取的包與最近使用時間；字串鍵，數字範圍刪除碰不到
+        const LH_PACK_INDEX_KEY = 'p:index';
+        const LH_PACK_KEEP = 2;   // 目前的包＋最近用過的另一包
+        function _packRegistryRead(rec) {
+            const v = rec && rec.v;
+            return Array.isArray(v) ? v.filter(r => r && typeof r.id === 'string' && typeof r.t === 'number').map(r => ({ id: r.id, ver: r.ver, t: r.t })) : [];
+        }
+        // 把這一包放到最前面（同時間時排最新）；回傳新陣列，不改原陣列
+        function _packRegistryUpsert(reg, id, ver) {
+            return [{ id, ver, t: Date.now() }, ...reg.filter(r => r.id !== id)];
+        }
+        // 依最近使用排序，留前 LH_PACK_KEEP 筆，掉出去的包刪掉自己的鍵（只在 'wl'，格式不合格的 id 不組範圍），再寫回登記簿
+        function _packRegistryEvict(st, reg) {
+            const kept = reg.slice().sort((a, b) => b.t - a.t).slice(0, LH_PACK_KEEP);
+            for (const r of reg) {
+                if (kept.includes(r)) continue;
+                if (r.id === LH_LEGACY_PACK.id) { st.delete(IDBKeyRange.bound(0, 1e9)); st.delete('ver'); }
+                else if (LH_PACK_ID_RE.test(r.id)) st.delete(IDBKeyRange.bound('p:' + r.id + ':', 'p:' + r.id + ':￿'));
+            }
+            st.put({ k: LH_PACK_INDEX_KEY, v: kept });
+        }
+        // 快取命中時只更新「最近使用」時間，不清任何東西；失敗不影響載入
+        function _idbTouchPack(db, desc, ver) {
+            try {
+                const tx = db.transaction('wl', 'readwrite');
+                const st = tx.objectStore('wl');
+                tx.onerror = () => lhWarn('詞庫快取索引更新失敗', tx.error);
+                tx.onabort = () => lhWarn('詞庫快取索引更新失敗', tx.error);
+                st.get(LH_PACK_INDEX_KEY).onsuccess = e => {
+                    try { st.put({ k: LH_PACK_INDEX_KEY, v: _packRegistryUpsert(_packRegistryRead(e.target.result), desc.id, ver) }); }
+                    catch (e2) { lhWarn('詞庫快取索引更新失敗', e2); try { tx.abort(); } catch (e3) { lhWarn('詞庫快取交易中止失敗', e3); } }
+                };
+            } catch (e) { lhWarn('詞庫快取索引更新失敗', e); }
+        }
         // 一個交易：刪這一包的舊分段 → 寫全部新分段 → 寫版本。交易 abort 會整筆還原，不可能留下「新版號配舊分段」
         // v0.96 只刪數字鍵；其他包只刪自己 p:<id>: 開頭的鍵。字串鍵（'ver'、別包）與 backups store 一律不碰，所以不用 clear()
         // 只結算一次：complete → true；error / abort / 同步例外 → false 並通報
@@ -121,6 +155,27 @@
                     else st.delete(IDBKeyRange.bound('p:' + desc.id + ':', 'p:' + desc.id + ':￿'));
                     chunks.forEach((c, i) => st.put({ k: _packKey(desc, i), v: c }));
                     st.put({ k: _packVerKey(desc), v: ver });
+                    // 快取登記簿 'p:index'：[{id, ver, t}]，同一個交易裡讀改寫；最近用過的只留 2 包（目前的＋上一個，B4），其餘整包刪掉
+                    st.get(LH_PACK_INDEX_KEY).onsuccess = e => {
+                        try {
+                            const reg = _packRegistryRead(e.target.result);
+                            const finish = () => {
+                                try { _packRegistryEvict(st, _packRegistryUpsert(reg, desc.id, ver)); }
+                                catch (e3) { try { tx.abort(); } catch (e4) { lhWarn('詞庫快取交易中止失敗', e4); } fin(false, e3); }
+                            };
+                            // 舊 v0.96 快取還沒登記過：算「最舊」的一包，才輪得到被清掉
+                            if (!desc.legacyCache && !reg.some(r => r.id === LH_LEGACY_PACK.id)) {
+                                st.get('ver').onsuccess = e2 => {
+                                    const v = e2.target.result?.v;
+                                    if (v !== undefined && v !== null) reg.push({ id: LH_LEGACY_PACK.id, ver: v, t: 0 });
+                                    finish();
+                                };
+                            } else finish();
+                        } catch (e2) {
+                            try { tx.abort(); } catch (e3) { lhWarn('詞庫快取交易中止失敗', e3); }
+                            fin(false, e2);
+                        }
+                    };
                 } catch (e) {
                     // 同步例外時交易可能已排進刪除與部分寫入，不 abort 就會被提交成半套
                     try { tx && tx.abort(); } catch (e2) { lhWarn('詞庫快取交易中止失敗', e2); }
@@ -187,6 +242,7 @@
             let chunks, fromNet = false;
             if (useCache) {
                 chunks = cache.chunks;
+                _idbTouchPack(db, desc, currentVer);
             } else {
                 fromNet = true;
                 // 網址帶版本：HTTP 快取不可能把舊版本文配給新版本號

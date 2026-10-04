@@ -165,21 +165,25 @@ const makeState = (head, version) => ({ version, chunks: [stubWords(head)], fail
 const realV096 = () => readJson('data/packs/index.json').packs.find(p => p.id === 'v096');
 
 // 開一個有 v096 + alpha + beta 的頁面；v0.96 用小 stub 詞庫（不需要 13 MB）
-async function bootWithStubPacks(browser, { alpha, beta, ...opts } = {}) {
+async function bootWithStubPacks(browser, { alpha, beta, gamma, afterStubs, ...opts } = {}) {
     const alphaState = alpha ?? makeState('甲', 'A1');
     const betaState = beta ?? makeState('乙', 'B1');
+    const gammaState = gamma ?? null;   // 第三個包只有需要時才加（換包快取測試用）
     const booted = await bootPage(browser, {
         wordlist: 'stub', aiReply: '', ...opts,
         beforeGoto: async ({ context }) => {
             await stubManifest(context, {
                 schema: 1, default: 'v096',
-                packs: [realV096(), packEntry('alpha', 'Alpha', { entries: 1234, description: '甲開頭的測試詞' }), packEntry('beta', 'Beta', { entries: 30, description: '乙開頭的測試詞' })],
+                packs: [realV096(), packEntry('alpha', 'Alpha', { entries: 1234, description: '甲開頭的測試詞' }), packEntry('beta', 'Beta', { entries: 30, description: '乙開頭的測試詞' }),
+                    ...(gammaState ? [packEntry('gamma', 'Gamma', { entries: 30, description: '丙開頭的測試詞' })] : [])],
             });
             await stubPack(context, 'alpha', alphaState);
             await stubPack(context, 'beta', betaState);
+            if (gammaState) await stubPack(context, 'gamma', gammaState);
+            if (afterStubs) await afterStubs({ context });
         },
     });
-    return { ...booted, alphaState, betaState };
+    return { ...booted, alphaState, betaState, gammaState };
 }
 const openSettings = page => page.locator('#settingsTrigger').click();
 const radio = (page, id) => page.locator(`#lexiconPackList input[name="lexiconPack"][value="${id}"]`);
@@ -294,6 +298,142 @@ test('詞庫包：新包載入失敗時提示、退回原本的包並維持勾�
         await page.evaluate(() => window.__hoyunWordlistReady);
         expect(await page.evaluate(() => activeLexiconPack.id)).toBe('v096');
         expect(await page.evaluate(() => wordlistData.length), '退回後仍有詞庫可用').toBeGreaterThan(0);
+        expect(realErrors(errors)).toEqual([]);
+    } finally { await context.close(); }
+});
+
+// ===== 快取登記簿與清理（06-03）=====
+// 讀 IndexedDB：'wl' 全部的鍵、非分段內容的記錄（ver、sentinel、p:index…）、備份筆數
+const wlState = page => page.evaluate(async () => {
+    const db = await lhIdbOpen();
+    const all = await new Promise(res => { const r = db.transaction('wl', 'readonly').objectStore('wl').getAll(); r.onsuccess = () => res(r.result); });
+    const backups = await new Promise(res => { const r = db.transaction('backups', 'readonly').objectStore('backups').count(); r.onsuccess = () => res(r.result); });
+    const small = {};
+    for (const rec of all) if (!Array.isArray(rec.v)) small[rec.k] = rec.v;
+    const index = all.find(rec => rec.k === 'p:index');
+    return { keys: all.map(r => r.k), small, index: index ? index.v.map(e => e.id) : null, backups };
+});
+const numericKeys = keys => keys.filter(k => typeof k === 'number');
+const packKeys = (keys, id) => keys.filter(k => typeof k === 'string' && k.startsWith('p:' + id + ':'));
+const putSentinel = page => page.evaluate(async () => {
+    const db = await lhIdbOpen();
+    await new Promise(res => { const tx = db.transaction('wl', 'readwrite'); tx.objectStore('wl').put({ k: 'sentinel', v: 1 }); tx.oncomplete = res; });
+});
+
+test('詞庫包：快取最多留目前的包加上一個', async ({ browser }) => {
+    test.setTimeout(90_000);
+    const { context, page, errors, alphaState, gammaState } = await bootWithStubPacks(browser, { gamma: makeState('丙', 'G1') });
+    try {
+        const sw = async id => {
+            expect(await page.evaluate(i => switchLexiconPack(i), id), `換到 ${id}`).toBe(true);
+            return wlState(page);
+        };
+
+        const boot = await wlState(page);
+        expect(numericKeys(boot.keys)).toHaveLength(10);
+        expect(boot.keys).toContain('ver');
+        expect(boot.index, '預設包開機後就登記').toEqual(['v096']);
+        await putSentinel(page);
+        const backupsBefore = (await wlState(page)).backups;
+
+        const a = await sw('alpha');
+        expect(numericKeys(a.keys), 'v0.96 是「上一個」，還留著').toHaveLength(10);
+        expect(packKeys(a.keys, 'alpha')).toHaveLength(2);      // 1 段 + ver
+        expect(a.index).toEqual(['alpha', 'v096']);
+
+        const b = await sw('beta');
+        expect(numericKeys(b.keys), 'v0.96 被擠出：數字鍵全沒了').toHaveLength(0);
+        expect(b.keys).not.toContain('ver');
+        expect(packKeys(b.keys, 'alpha')).toHaveLength(2);
+        expect(packKeys(b.keys, 'beta')).toHaveLength(2);
+        expect(b.index).toEqual(['beta', 'alpha']);
+
+        const g = await sw('gamma');
+        expect(packKeys(g.keys, 'alpha'), 'alpha 被擠出').toHaveLength(0);
+        expect(packKeys(g.keys, 'beta')).toHaveLength(2);
+        expect(packKeys(g.keys, 'gamma')).toHaveLength(2);
+        expect(g.index).toEqual(['gamma', 'beta']);
+
+        // 換回被清掉的 alpha：要重新下載
+        const before = alphaState.requests.length;
+        const a2 = await sw('alpha');
+        expect(alphaState.requests.length, 'alpha 重新下載').toBeGreaterThan(before);
+        expect(packKeys(a2.keys, 'gamma'), 'gamma 是最近用過的另一包，留著').toHaveLength(2);
+        expect(packKeys(a2.keys, 'beta'), 'beta 比較久沒用，被擠出').toHaveLength(0);
+        expect(a2.index).toEqual(['alpha', 'gamma']);
+
+        // 換回還在快取裡的 gamma：不再下載，而且它變成「目前的」、alpha 變成「上一個」
+        const gammaReqs = gammaState.requests.length;
+        const g2 = await sw('gamma');
+        expect(gammaState.requests.length, 'gamma 還在快取裡，不用再下載').toBe(gammaReqs);
+        expect(g2.index).toEqual(['gamma', 'alpha']);
+        for (const st of [b, g, a2, g2]) {
+            expect(st.small.sentinel, '別的鍵一直都在').toBe(1);
+            expect(st.backups, '備份筆數沒變').toBe(backupsBefore);
+        }
+        expect(realErrors(errors)).toEqual([]);
+    } finally { await context.close(); }
+});
+
+test('詞庫包：v0.96 換版只刪數字鍵，別的包留著', async ({ browser }) => {
+    test.setTimeout(90_000);
+    let v096Version = 'V1';
+    const chunkReqs = [];
+    const { context, page, errors } = await bootWithStubPacks(browser, {
+        afterStubs: async ({ context }) => {
+            await context.route(/\/data\/wordlist-meta\.json(\?.*)?$/, route => route.fulfill({
+                status: 200, contentType: 'application/json', body: JSON.stringify({ version: v096Version, chunks: 10, entries: 12 }),
+            }));
+        },
+    });
+    try {
+        page.on('request', r => { if (/\/data\/wordlist-c0\d\.json/.test(r.url())) chunkReqs.push(r.url()); });
+        const first = await wlState(page);
+        expect(first.small.ver).toBe('V1');
+        expect(numericKeys(first.keys)).toHaveLength(10);
+        await putSentinel(page);
+        expect(await page.evaluate(() => switchLexiconPack('alpha'))).toBe(true);
+        const mid = await wlState(page);
+        expect(mid.small['p:alpha:ver']).toBe('A1');
+        const backupsBefore = mid.backups;
+
+        v096Version = 'V2';                                    // v0.96 發了新版
+        chunkReqs.length = 0;
+        expect(await page.evaluate(() => switchLexiconPack('v096'))).toBe(true);
+        expect(chunkReqs, '10 段都用新版號重新下載').toHaveLength(10);
+        for (const u of chunkReqs) expect(u).toContain('?v=V2');
+        const after = await wlState(page);
+        expect(after.small.ver).toBe('V2');
+        expect(numericKeys(after.keys)).toHaveLength(10);
+        expect(packKeys(after.keys, 'alpha'), 'alpha 的快取沒被碰').toHaveLength(2);
+        expect(after.small['p:alpha:ver']).toBe('A1');
+        expect(after.keys).toContain('p:index');
+        expect(after.index).toEqual(['v096', 'alpha']);
+        expect(after.small.sentinel).toBe(1);
+        expect(after.backups).toBe(backupsBefore);
+        expect(realErrors(errors)).toEqual([]);
+    } finally { await context.close(); }
+});
+
+test('詞庫包：還沒有登記簿的舊快取（v0.96 升級前就存好的）算最舊的一包，會被正常清掉', async ({ browser }) => {
+    test.setTimeout(60_000);
+    const { context, page, errors } = await bootWithStubPacks(browser);
+    try {
+        // 模擬升級前的使用者：數字鍵與 ver 都在，但沒有 p:index
+        await page.evaluate(async () => {
+            const db = await lhIdbOpen();
+            await new Promise(res => { const tx = db.transaction('wl', 'readwrite'); tx.objectStore('wl').delete('p:index'); tx.oncomplete = res; });
+        });
+        expect((await wlState(page)).index).toBeNull();
+        expect(await page.evaluate(() => switchLexiconPack('alpha'))).toBe(true);
+        const a = await wlState(page);
+        expect(a.index).toEqual(['alpha', 'v096']);
+        expect(numericKeys(a.keys)).toHaveLength(10);
+        expect(await page.evaluate(() => switchLexiconPack('beta'))).toBe(true);
+        const b = await wlState(page);
+        expect(b.index).toEqual(['beta', 'alpha']);
+        expect(numericKeys(b.keys)).toHaveLength(0);
+        expect(b.keys).not.toContain('ver');
         expect(realErrors(errors)).toEqual([]);
     } finally { await context.close(); }
 });
