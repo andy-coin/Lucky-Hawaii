@@ -175,7 +175,7 @@ Plans:
   5. 晝夜模式與客製顏色在新版面下都正常，整體視覺一致〔自動：截圖比對〕
 
 **Human check**: iPhone／Android 實機的鍵盤遮擋與縮放手感；整體美觀判斷
-**Plans**: 4/11 plans executed
+**Plans**: 5/11 plans executed
 **UI hint**: yes
 
 Plans:
@@ -192,7 +192,7 @@ Plans:
 - [x] 05-04-PLAN.md — 存檔失敗橫幅改排在主畫面最上方；偏好設定每種裝置都完整、對話框矮螢幕可捲
 
 **Wave 5** *(blocked on Wave 4 completion)*
-- [ ] 05-05-PLAN.md — 桌機側邊面板推開主畫面；斷點改即時（轉向不必重整）、觸控不自動聚焦
+- [x] 05-05-PLAN.md — 桌機側邊面板推開主畫面；斷點改即時（轉向不必重整）、觸控不自動聚焦
 
 **Wave 6** *(blocked on Wave 5 completion)*
 - [ ] 05-06-PLAN.md — 底部三分頁（查韻・歌詞・AI 建議）、把手與 Esc、面板內容；五種視窗完整流程
@@ -334,7 +334,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 2. AI Service Hotfix AI 服務不斷線 | 6/6 | In Progress|  |
 | 3. Split index.html 拆檔 | 5/5 | Complete    | 2026-10-04 |
 | 4. AI Fill & Validate AI 挑詞填滿與造詞驗證 | 5/5 | In Progress|  |
-| 5. Multi-Device Layout 多裝置版面與流暢度 | 4/11 | In Progress|  |
+| 5. Multi-Device Layout 多裝置版面與流暢度 | 5/11 | In Progress|  |
 | 6. Lexicon Packs 台灣詞庫包 | 0/TBD | Not started | - |
 | 7. Feedback & Correction Layer 回報與修正層 | 0/TBD | Not started | - |
 | 8. Songs & Editor Model 歌曲管理與資料模型 | 0/TBD | Not started | - |
