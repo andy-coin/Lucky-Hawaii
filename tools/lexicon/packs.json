@@ -23,6 +23,23 @@
         {"source": "tabe-notice", "extract": true, "as": "LICENSE.TaBE-BSD-3-Clause.txt"}
       ],
       "upstream_version_from": "dc:identifier"
+    },
+    {
+      "id": "mcbopomofo",
+      "name": "小麥注音詞庫",
+      "description": "輸入法詞庫，成語與生活用語較多",
+      "sources": ["mcbopomofo"],
+      "parser": "mcbopomofo",
+      "licence_spdx": "MIT AND BSD-3-Clause",
+      "copyright": [
+        "Copyright (c) 2011-2026 Mengjuei Hsieh et al.",
+        "Copyright (c) 1999 TaBE Project. Copyright (c) 1999 Pai-Hsiang Hsiao."
+      ],
+      "licence_texts": [
+        {"source": "mcbopomofo", "file": "LICENSE.txt", "as": "LICENSE.MIT.txt"},
+        {"source": "tabe-notice", "extract": true, "as": "LICENSE.TaBE-BSD-3-Clause.txt"}
+      ],
+      "notice_extra": "McBopomofo 的詞表最初由 libtabe 的 tsi.src 精簡而來（BSD 授權）"
     }
   ]
 }

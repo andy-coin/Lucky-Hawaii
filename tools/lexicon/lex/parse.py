@@ -72,8 +72,49 @@ def parse_tsi(src):
     return header, rows
 
 
-# 解析器登錄表：packs.json 的 parser 欄位對應到這裡（06-04 會加兩個，不必改 build.py）
-PARSERS = {'tsi': parse_tsi}
+def parse_mcbopomofo(src):
+    """小麥注音：BPMFMappings.txt（詞 注音1 注音2 …）＋ phrase.occ（詞 次數）。
+
+    注意兩個檔都是「單一空格」分隔，不是 TAB（AGENTS.md 寫 TAB，但實際檔案不是，
+    見 RESEARCH 的格式查證）。BPMFMappings 一個讀音一行、沒有頻率；次數從 phrase.occ 來，
+    phrase.occ 裡沒有的詞（約 4 萬個）次數記 0。沒有表頭，回傳空 dict。
+    欄位不足或次數不是整數的行直接略過。
+    """
+    mappings = _pick(src, 'BPMFMappings.txt')
+    occ_path = _pick(src, 'phrase.occ')
+    occ = {}
+    with open(occ_path, encoding='utf-8', newline='') as fh:
+        for raw in fh:
+            line = raw.rstrip('\r\n')
+            if not line.strip() or line.startswith('#'):
+                continue
+            # 從右邊切一次：左邊是詞、右邊是次數
+            parts = line.rsplit(' ', 1)
+            if len(parts) != 2:
+                continue
+            try:
+                n = int(parts[1])
+            except ValueError:
+                continue
+            word = parts[0].strip()
+            if word:
+                occ[word] = max(occ.get(word, 0), max(n, 0))
+    rows = []
+    with open(mappings, encoding='utf-8', newline='') as fh:
+        for raw in fh:
+            line = raw.rstrip('\r\n')
+            if not line.strip() or line.startswith('#'):
+                continue
+            parts = line.split(' ')
+            if len(parts) < 2:
+                continue
+            word = parts[0]
+            rows.append((word, ' '.join(parts[1:]), occ.get(word, 0)))
+    return {}, rows
+
+
+# 解析器登錄表：packs.json 的 parser 欄位對應到這裡（新增來源只要在這裡登記，不必改 build.py）
+PARSERS = {'tsi': parse_tsi, 'mcbopomofo': parse_mcbopomofo}
 
 
 def normalise(w, z):

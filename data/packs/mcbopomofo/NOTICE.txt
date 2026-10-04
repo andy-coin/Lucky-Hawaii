@@ -1,0 +1,83 @@
+小麥注音詞庫（id: mcbopomofo，版本 1.0054220524）
+來源：mcbopomofo — https://github.com/openvanilla/McBopomofo（commit be6564acad6c4d3265c34a2e1a872d80f9db6068，上游未標版本，以 commit 為準）
+授權：MIT AND BSD-3-Clause（全文見同資料夾 LICENSE.MIT.txt、LICENSE.TaBE-BSD-3-Clause.txt）
+著作權：Copyright (c) 2011-2026 Mengjuei Hsieh et al.
+著作權：Copyright (c) 1999 TaBE Project. Copyright (c) 1999 Pai-Hsiang Hsiao.
+補充說明：McBopomofo 的詞表最初由 libtabe 的 tsi.src 精簡而來（BSD 授權）
+改作說明：本詞庫包由上述資料經自動清洗產生——刪除格式不合的詞條（含非漢字或擴充區字元、詞長超過 11 字、注音符號錯誤或音節數與字數不符），略過單字，並轉換為 JSON Lines 格式。
+          共刪除 7 筆，刪除清單與原因見 tools/lexicon/reports/mcbopomofo/removed.ndjson。
+改作日期：2026-10-04
+清洗規則使用：OpenCC 字表（Apache-2.0）；教育部常用／次常用國字表僅作比對，不重新散布。
+
+---- libtabe（TaBE）著作權與授權聲明（原文）----
+
+ /*
+  * Copyright (c) 1999 TaBE Project.
+  * Copyright (c) 1999 Pai-Hsiang Hsiao.
+  * All rights reserved.
+  *
+  * Redistribution and use in source and binary forms, with or without
+  * modification, are permitted provided that the following conditions
+  * are met:
+  *
+  * . Redistributions of source code must retain the above copyright
+  *   notice, this list of conditions and the following disclaimer.
+  * . Redistributions in binary form must reproduce the above copyright
+  *   notice, this list of conditions and the following disclaimer in
+  *   the documentation and/or other materials provided with the
+  *   distribution.
+  * . Neither the name of the TaBE Project nor the names of its
+  *   contributors may be used to endorse or promote products derived
+  *   from this software without specific prior written permission.
+  *
+  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+  * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+  * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+  * FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
+  * REGENTS OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+  * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+  * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+  * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+  * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
+  * STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
+  * OF THE POSSIBILITY OF SUCH DAMAGE.
+  */
+
+ /*
+  * Copyright (c) 1999 Computer Systems and Communication Lab,
+  *                    Institute of Information Science, Academia
+      *                    Sinica. All rights reserved.
+  *
+  * Redistribution and use in source and binary forms, with or without
+  * modification, are permitted provided that the following conditions
+  * are met:
+  *
+  * . Redistributions of source code must retain the above copyright
+  *   notice, this list of conditions and the following disclaimer.
+  * . Redistributions in binary form must reproduce the above copyright
+  *   notice, this list of conditions and the following disclaimer in
+  *   the documentation and/or other materials provided with the
+  *   distribution.
+  * . Neither the name of the Computer Systems and Communication Lab
+  *   nor the names of its contributors may be used to endorse or
+  *   promote products derived from this software without specific
+  *   prior written permission.
+  *
+  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+  * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+  * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+  * FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
+  * REGENTS OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+  * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+  * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+  * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+  * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
+  * STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
+  * OF THE POSSIBILITY OF SUCH DAMAGE.
+  */
+
+ Copyright 1996 Chih-Hao Tsai @ Beckman Institute,
+     University of Illinois
+ c-tsai4@uiuc.edu  http://casper.beckman.uiuc.edu/~c-tsai4

@@ -207,16 +207,45 @@ test('詞庫包：偏好設定列出每個包的名稱、詞數與說明，目�
     } finally { await context.close(); }
 });
 
-test('詞庫包：真正的清單有 v0.96（233,713 詞、預設勾選）與新酷音詞庫', async ({ browser }) => {
+test('詞庫包：真正的清單有 v0.96（233,713 詞、預設勾選）、新酷音詞庫與小麥注音詞庫', async ({ browser }) => {
     const { context, page, errors } = await bootPage(browser, { wordlist: 'stub' });
     try {
         await openSettings(page);
         const rows = page.locator('#lexiconPackList .pack-option');
-        await expect(rows).toHaveCount(2);
+        await expect(rows).toHaveCount(3);
         await expect(rows.nth(0)).toContainText('233,713 詞');
         await expect(radio(page, 'v096')).toBeChecked();
         await expect(rows.nth(1).locator('.pack-option-name')).toHaveText('新酷音詞庫');
         await expect(rows.nth(1)).toContainText('128,973 詞');
+        await expect(rows.nth(2).locator('.pack-option-name')).toHaveText('小麥注音詞庫');
+        expect(realErrors(errors)).toEqual([]);
+    } finally { await context.close(); }
+});
+
+test('詞庫包：真的清單裡有小麥注音詞庫，選了就載入', async ({ browser }) => {
+    test.setTimeout(90_000);
+    const manifest = readJson('data/packs/index.json');
+    const entry = manifest.packs.find(p => p.id === 'mcbopomofo');
+    expect(entry, '清單裡要有 mcbopomofo').toBeTruthy();
+    const meta = readJson('data/packs/mcbopomofo/meta.json');
+    expect(entry.entries).toBe(meta.entries);
+    // 取 c00 裡一個三字以上的詞，換包後它要在注音對照表裡
+    const probe = readFileSync(new URL('../data/packs/mcbopomofo/c00.json', import.meta.url), 'utf8')
+        .split('\n').filter(Boolean).map(l => JSON.parse(l)).find(e => e.w.length >= 3);
+    const { context, page, errors } = await bootPage(browser, { wordlist: 'stub' });
+    try {
+        await openSettings(page);
+        const row = page.locator('#lexiconPackList .pack-option', { has: page.locator('input[value="mcbopomofo"]') });
+        await expect(row.locator('.pack-option-name')).toHaveText('小麥注音詞庫');
+        await expect(row.locator('.pack-option-meta')).toHaveText(
+            `${entry.entries.toLocaleString('zh-TW')} 詞・${entry.description}`);
+        expect(await page.evaluate(w => wordPhoneticMap.has(w), probe.w), '換包前還是 v0.96 的詞庫').toBe(false);
+        await radio(page, 'mcbopomofo').check();
+        await expect(page.locator('#lexiconPackStatus')).toHaveText('已改用：小麥注音詞庫', { timeout: 60_000 });
+        await page.evaluate(() => window.__hoyunWordlistReady);
+        expect(await page.evaluate(() => activeLexiconPack.id)).toBe('mcbopomofo');
+        expect(await page.evaluate(() => lhGet('lh:lexiconPack'))).toBe('mcbopomofo');
+        expect(await page.evaluate(w => wordPhoneticMap.get(w), probe.w)).toBe(probe.z);
         expect(realErrors(errors)).toEqual([]);
     } finally { await context.close(); }
 });

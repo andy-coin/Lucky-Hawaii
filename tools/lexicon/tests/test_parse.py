@@ -125,5 +125,66 @@ class CollectTest(unittest.TestCase):
         self.assertEqual([r['w'] for r in self.removed], sorted(r['w'] for r in self.removed))
 
 
+FIXDIR = Path(__file__).resolve().parent / 'fixtures'
+POLY = {'一': ['ㄧˊ', 'ㄧ']}
+
+
+class ParseMcBopomofoTest(unittest.TestCase):
+    def setUp(self):
+        self.header, self.rows = parse.parse_mcbopomofo({
+            'mcbopomofo/Source/Data/BPMFMappings.txt': FIXDIR / 'BPMFMappings-mini.txt',
+            'mcbopomofo/Source/Data/phrase.occ': FIXDIR / 'phrase-mini.occ'})
+        self.by = {}
+        for w, z, p in self.rows:
+            self.by.setdefault(w, []).append((z, p))
+
+    def test_registered_and_header_is_empty(self):
+        self.assertIs(parse.PARSERS['mcbopomofo'], parse.parse_mcbopomofo)
+        self.assertEqual(self.header, {})
+
+    def test_blank_comment_and_one_token_lines_are_skipped(self):
+        # 10 筆：壞掉（只有一欄）、空行、# 註解都不算
+        self.assertEqual(len(self.rows), 10)
+        self.assertNotIn('壞掉', self.by)
+
+    def test_single_space_separated_syllables_are_joined(self):
+        self.assertEqual(self.by['一九九○'][0][0], 'ㄧ ㄐㄧㄡˇ ㄐㄧㄡˇ ㄌㄧㄥˊ')
+        self.assertEqual(self.by['你好'], [('ㄋㄧˇ ㄏㄠˇ', 9000)])
+
+    def test_occurrence_count_is_read_with_single_space_not_tab(self):
+        # phrase.occ 是「詞 次數」單一空格；若誤用 TAB 切會整檔讀成 0
+        self.assertEqual(self.by['一一'][0][1], 3)
+        self.assertEqual(self.by['好了'][0][1], 77)
+
+    def test_word_missing_from_occ_gets_zero(self):
+        self.assertEqual(self.by['沒次數詞'][0][1], 0)
+
+    def test_malformed_occ_line_is_ignored(self):
+        self.assertNotIn('壞次數', self.by)
+
+    def test_multi_reading_word_keeps_every_line_with_the_same_count(self):
+        self.assertEqual(sorted(self.by['一下']), [('ㄧ ㄒㄧㄚˋ', 120), ('ㄧˊ ㄒㄧㄚˋ', 120)])
+
+    def test_tab_separated_occ_would_not_parse(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as d:
+            occ = Path(d) / 'phrase.occ'
+            occ.write_text('你好\t9000\n', encoding='utf-8')
+            _, rows = parse.parse_mcbopomofo({'x/BPMFMappings.txt': FIXDIR / 'BPMFMappings-mini.txt',
+                                              'x/phrase.occ': occ})
+        self.assertEqual([p for w, z, p in rows if w == '你好'], [0])
+
+    def test_r0_outcomes_and_reading_choice(self):
+        entries, removed, stats = parse.collect(self.rows, POLY, {}, 'mcbopomofo')
+        rules = {r['w']: r['rule'] for r in removed}
+        self.assertEqual(rules, {'一九九○': 'R0-nonhan', '𰻞𰻞麵': 'R0-nonbmp', '菜々子': 'R0-nonhan'})
+        by = {e['w']: e for e in entries}
+        self.assertEqual(by['一下'], {'w': '一下', 'z': 'ㄧˊ ㄒㄧㄚˋ', 'p': 120})
+        self.assertEqual(by['沒次數詞']['p'], 0)
+        self.assertEqual(stats['skipped_single'], 1)
+        self.assertEqual(stats['kept'], 5)  # 一一、一下、你好、沒次數詞、好了
+        self.assertEqual(stats['merged_lines'], 1)
+
+
 if __name__ == '__main__':
     unittest.main()

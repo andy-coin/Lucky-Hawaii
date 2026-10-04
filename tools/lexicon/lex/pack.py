@@ -126,6 +126,8 @@ def pack_notice(cfg, meta, upstream_version, removed_count, tabe_text=None):
     lines.append('授權：%s（全文見同資料夾 %s）' % (meta['licence'], '、'.join(lic_names)))
     for c in cfg.get('copyright', []):
         lines.append('著作權：' + c)
+    if cfg.get('notice_extra'):
+        lines.append('補充說明：' + cfg['notice_extra'])
     lines.append('改作說明：本詞庫包由上述資料經自動清洗產生——刪除格式不合的詞條'
                  '（含非漢字或擴充區字元、詞長超過 11 字、注音符號錯誤或音節數與字數不符），'
                  '略過單字，並轉換為 JSON Lines 格式。')

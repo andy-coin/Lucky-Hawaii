@@ -1,0 +1,37 @@
+{
+  "id": "mcbopomofo",
+  "name": "小麥注音詞庫",
+  "description": "輸入法詞庫，成語與生活用語較多",
+  "version": "1.0054220524",
+  "hash": "0054220524e6b7620785097d9c4f8b3e9a909aa0685c4de0fe5936484ec70d63",
+  "entries": 140010,
+  "chunks": 6,
+  "sources": [
+    {
+      "id": "mcbopomofo",
+      "repo": "https://github.com/openvanilla/McBopomofo",
+      "commit": "be6564acad6c4d3265c34a2e1a872d80f9db6068",
+      "licence_spdx": "MIT"
+    }
+  ],
+  "licence": "MIT AND BSD-3-Clause",
+  "licence_files": [
+    {
+      "file": "LICENSE.MIT.txt",
+      "sha256": "72ed32193b0c629def66df63791b2fb125946b593a3251380e6b949488f47b72"
+    },
+    {
+      "file": "LICENSE.TaBE-BSD-3-Clause.txt",
+      "sha256": "edbaad40848bdeb5a3863a07784087cf58bed2ce592b6bdcc0ac70b055737b54"
+    }
+  ],
+  "rules_version": "1",
+  "built": "2026-10-04",
+  "stats": {
+    "lines": 145603,
+    "skipped_single": 0,
+    "merged_lines": 5586,
+    "removed": 7,
+    "kept": 140010
+  }
+}

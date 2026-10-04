@@ -1,0 +1,7 @@
+{"w":"一九九○","z":"ㄧ ㄐㄧㄡˇ ㄐㄧㄡˇ ㄌㄧㄥˊ","p":0,"rule":"R0-nonhan","reason":"含非漢字字元","src":["mcbopomofo"],"n":1}
+{"w":"一四〇","z":"ㄧ ㄙˋ ㄌㄧㄥˊ","p":1,"rule":"R0-nonhan","reason":"含非漢字字元","src":["mcbopomofo"],"n":1}
+{"w":"二〇二","z":"ㄦˋ ㄌㄧㄥˊ ㄦˋ","p":1,"rule":"R0-nonhan","reason":"含非漢字字元","src":["mcbopomofo"],"n":1}
+{"w":"松嶋菜々子","z":"ㄙㄨㄥ ㄉㄠˇ ㄘㄞˋ ㄘㄞˋ ㄗˇ","p":1,"rule":"R0-nonhan","reason":"含非漢字字元","src":["mcbopomofo"],"n":1}
+{"w":"菜々子","z":"ㄘㄞˋ ㄘㄞˋ ㄗˇ","p":1,"rule":"R0-nonhan","reason":"含非漢字字元","src":["mcbopomofo"],"n":1}
+{"w":"𨑨迌","z":"ㄓˋ ㄊㄨˋ","p":0,"rule":"R0-nonbmp","reason":"含擴充區字元（網頁算不出正確字數）","src":["mcbopomofo"],"n":1}
+{"w":"𰻞𰻞麵","z":"ㄅㄧㄤˊ ㄅㄧㄤˊ ㄇㄧㄢˋ","p":0,"rule":"R0-nonbmp","reason":"含擴充區字元（網頁算不出正確字數）","src":["mcbopomofo"],"n":1}

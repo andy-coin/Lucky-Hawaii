@@ -22,6 +22,11 @@ class PackNoticeTest(unittest.TestCase):
                        'tools/lexicon/reports/demo/removed.ndjson', '共刪除 7 筆', 'OpenCC'):
             self.assertIn(needle, text)
 
+    def test_notice_extra_is_printed_only_when_configured(self):
+        extra = dict(CFG, notice_extra='只取自己維護的詞，不含教育部部分')
+        self.assertIn('補充說明：只取自己維護的詞，不含教育部部分', pack.pack_notice(extra, META, '', 0))
+        self.assertNotIn('補充說明', pack.pack_notice(CFG, META, '', 0))
+
     def test_tabe_text_appended_when_configured(self):
         tabe = 'Copyright (c) 1999 TaBE Project.\nRedistribution and use ...\n'
         with_tabe = pack.pack_notice(CFG, META, '2025.11.17', 0, tabe)

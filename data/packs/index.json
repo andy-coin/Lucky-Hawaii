@@ -20,6 +20,15 @@
       "meta": "data/packs/chewing/meta.json",
       "chunkPattern": "data/packs/chewing/c{NN}.json",
       "notice": "data/packs/chewing/NOTICE.txt"
+    },
+    {
+      "id": "mcbopomofo",
+      "name": "小麥注音詞庫",
+      "description": "輸入法詞庫，成語與生活用語較多",
+      "entries": 140010,
+      "meta": "data/packs/mcbopomofo/meta.json",
+      "chunkPattern": "data/packs/mcbopomofo/c{NN}.json",
+      "notice": "data/packs/mcbopomofo/NOTICE.txt"
     }
   ]
 }
