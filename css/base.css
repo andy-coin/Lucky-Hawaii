@@ -48,19 +48,19 @@
             font-family: 'Noto Sans TC', sans-serif;
             background: linear-gradient(135deg, var(--bg-gradient-1) 0%, var(--bg-gradient-2) 100%);
             min-height: 100vh;
-            padding: 20px;
+            padding: 1.25rem;
             color: var(--text-primary);
             transition: background 0.3s ease;
         }
         
         .container {
-            max-width: 900px;
+            max-width: 56.25rem;
             margin: 0 auto;
             background: var(--container-bg);
-            border-radius: 20px;
+            border-radius: 1.25rem;
             box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
             overflow: hidden;
-            height: calc(100vh - 40px);
+            height: calc(100vh - 2.5rem);
             display: flex;
             flex-direction: column;
             animation: slideIn 0.5s ease-out;
@@ -81,7 +81,7 @@
         .header {
             background: linear-gradient(150deg, var(--header-gradient-1) 5%, var(--header-gradient-2) 100%);
             color: white;
-            padding: clamp(18px, 4vw, 40px) clamp(14px, 3vw, 30px);
+            padding: clamp(1.125rem, 4vw, 2.5rem) clamp(0.875rem, 3vw, 1.875rem);
             text-align: center;
             position: relative;
             flex-shrink: 0;
@@ -90,7 +90,7 @@
         .header h1 {
             font-size: clamp(1.4rem, 3.5vw, 2.5rem);
             font-weight: 700;
-            margin-bottom: clamp(4px, 1vw, 10px);
+            margin-bottom: clamp(0.25rem, 1vw, 0.625rem);
             letter-spacing: -0.5px;
         }
 
@@ -102,18 +102,18 @@
 
         .save-load-controls {
             position: absolute;
-            right: 12px;
-            bottom: 10px;
+            right: 0.75rem;
+            bottom: 0.625rem;
             display: flex;
-            gap: 6px;
+            gap: 0.375rem;
             z-index: 5;
         }
         .save-load-btn {
             background: rgba(255,255,255,0.18);
             color: white;
             border: 1px solid rgba(255,255,255,0.35);
-            border-radius: 6px;
-            padding: 4px 10px;
+            border-radius: 0.375rem;
+            padding: 0.25rem 0.625rem;
             font-size: 0.8rem;
             font-family: 'Noto Sans TC', sans-serif;
             cursor: pointer;
@@ -135,32 +135,32 @@
         .color-item {
             display: flex;
             align-items: center;
-            gap: 8px;
+            gap: 0.5rem;
             font-size: 0.75rem;
             color: white;
         }
         
         .color-item label {
-            min-width: 60px;
+            min-width: 3.75rem;
             font-weight: 500;
         }
         
         .color-item input[type="color"] {
-            width: 30px;
-            height: 24px;
+            width: 1.875rem;
+            height: 1.5rem;
             border: none;
-            border-radius: 4px;
+            border-radius: 0.25rem;
             cursor: pointer;
         }
         
         /* 控制面板 */
         .controls {
             position: absolute;
-            top: 15px;
-            right: 15px;
+            top: 0.9375rem;
+            right: 0.9375rem;
             display: flex;
             align-items: center;
-            gap: 15px;
+            gap: 0.9375rem;
         }
         
         .theme-toggle {
@@ -168,8 +168,8 @@
             backdrop-filter: blur(10px);
             border: none;
             color: white;
-            padding: 8px 12px;
-            border-radius: 8px;
+            padding: 0.5rem 0.75rem;
+            border-radius: 0.5rem;
             cursor: pointer;
             font-size: 0.9rem;
             transition: all 0.3s ease;
@@ -179,26 +179,26 @@
         .m-zoomOut-button, .m-zoomIn-button {
             display: block;
             position: absolute;
-            top: 15px;
-            padding: 6px 12px;
+            top: 0.9375rem;
+            padding: 0.375rem 0.75rem;
             background: rgba(255, 255, 255, 0.2);
             backdrop-filter: blur(10px);
-            border-radius: 10px;
+            border-radius: 0.625rem;
             border: none;
             color: white;
             font-size: 0.75rem;
             cursor: pointer;
         }
-        .m-zoomOut-button { left: 15px; }
-        .m-zoomIn-button { left: 55px; }
+        .m-zoomOut-button { left: 0.9375rem; }
+        .m-zoomIn-button { left: 3.4375rem; }
         .m-zoomIn-button:hover, .m-zoomOut-button:hover {
             background: rgba(255, 255, 255, 0.35);
         }
         .m-zoom-value {
             display: block;
             position: absolute;
-            top: 42px;
-            left: 27px;
+            top: 2.625rem;
+            left: 1.6875rem;
             color: white;
             font-size: 0.72rem;
         }
@@ -208,14 +208,14 @@
         }
 
         .search-section {
-            padding: 20px 30px;
+            padding: 1.25rem 1.875rem;
             background: var(--container-bg);
             flex-shrink: 0;
         }
 
         .search-box {
             position: relative;
-            margin-bottom: 20px;
+            margin-bottom: 1.25rem;
         }
         
         .search-input-wrap {
@@ -223,14 +223,14 @@
         }
         .input-mode-btn {
             position: absolute;
-            right: 10px;
+            right: 0.625rem;
             top: 50%;
             transform: translateY(-50%);
             background: transparent;
             color: var(--text-secondary);
             border: 1.5px solid var(--border);
-            border-radius: 6px;
-            padding: 3px 7px;
+            border-radius: 0.375rem;
+            padding: 0.1875rem 0.4375rem;
             font-size: 0.72rem;
             cursor: pointer;
             font-family: 'Noto Sans TC', sans-serif;
@@ -244,10 +244,10 @@
 
         .search-input {
             width: 100%;
-            padding: clamp(10px, 1.5vw, 18px) 64px clamp(10px, 1.5vw, 18px) clamp(14px, 2vw, 24px);
+            padding: clamp(0.625rem, 1.5vw, 1.125rem) 4rem clamp(0.625rem, 1.5vw, 1.125rem) clamp(0.875rem, 2vw, 1.5rem);
             font-size: clamp(0.95rem, 1.4vw, 1.2rem);
             border: 3px solid var(--border);
-            border-radius: 12px;
+            border-radius: 0.75rem;
             outline: none;
             transition: all 0.3s ease;
             font-family: 'Noto Sans TC', sans-serif;
@@ -263,24 +263,24 @@
         .search-hint {
             font-size: 0.9rem;
             color: var(--text-secondary);
-            margin-top: 8px;
+            margin-top: 0.5rem;
             font-weight: 300;
         }
         .polyphonic-chips {
             display: flex;
             flex-wrap: wrap;
-            gap: 5px;
-            margin-left: 12px;
+            gap: 0.3125rem;
+            margin-left: 0.75rem;
             align-items: center;
         }
         .polyphonic-chips-label {
             font-size: 0.78rem;
             color: var(--text-secondary);
-            margin-right: 2px;
+            margin-right: 0.125rem;
         }
         .poly-chip {
-            padding: 2px 10px;
-            border-radius: 20px;
+            padding: 0.125rem 0.625rem;
+            border-radius: 1.25rem;
             border: 1.5px solid rgba(102, 126, 234, 0.5);
             font-size: 0.82rem;
             cursor: pointer;
@@ -294,13 +294,13 @@
         .poly-chip.active { background: #667eea; border-color: #667eea; color: #fff; }
         .poly-chip.rare { opacity: 0.62; border-style: dashed; }
         .poly-chip.rare.active { opacity: 1; }
-        .poly-chip .rare-mark { font-size: 0.62rem; opacity: 0.75; margin-left: 3px; vertical-align: 1px; }
-        .word-ctx-reading-row .rare-mark { font-size: 0.65rem; opacity: 0.7; margin-left: 4px; }
+        .poly-chip .rare-mark { font-size: 0.62rem; opacity: 0.75; margin-left: 0.1875rem; vertical-align: 1px; }
+        .word-ctx-reading-row .rare-mark { font-size: 0.65rem; opacity: 0.7; margin-left: 0.25rem; }
         .word-ctx-reading-row.rare { opacity: 0.72; }
         
         .options {
             display: flex;
-            gap: clamp(6px, 1vw, 15px);
+            gap: clamp(0.375rem, 1vw, 0.9375rem);
             align-items: center;
             flex-wrap: wrap;
         }
@@ -308,7 +308,7 @@
         .checkbox-label {
             display: flex;
             align-items: center;
-            gap: 8px;
+            gap: 0.5rem;
             cursor: pointer;
             user-select: none;
             font-size: 0.95rem;
@@ -316,8 +316,8 @@
         }
         
         .checkbox-label input[type="checkbox"] {
-            width: 18px;
-            height: 18px;
+            width: 1.125rem;
+            height: 1.125rem;
             cursor: pointer;
         }
         
@@ -328,19 +328,19 @@
         /* 按鈕組 */
         .button-group {
             display: flex;
-            gap: 8px;
+            gap: 0.5rem;
             background: var(--card-bg);
-            padding: 4px;
-            border-radius: 10px;
+            padding: 0.25rem;
+            border-radius: 0.625rem;
             border: 1px solid var(--border);
         }
         
         .reset-color{
-            margin-top:8px;
-            padding:4px 8px;
+            margin-top:0.5rem;
+            padding:0.25rem 0.5rem;
             font-size: 0.9rem;
             border:1px solid  #ff8c3a;
-            border-radius:6px;
+            border-radius:0.375rem;
             background: #f57f7f;
             color: rgb(228, 228, 228);
             font-weight: 900;
@@ -362,12 +362,12 @@
         }
 
         .mode-button {
-            padding: 8px 16px;
+            padding: 0.5rem 1rem;
             border: none;
             background: transparent;
             color: var(--text-secondary);
             cursor: pointer;
-            border-radius: 6px;
+            border-radius: 0.375rem;
             font-size: 0.9rem;
             font-family: 'Noto Sans TC', sans-serif;
             transition: all 0.2s ease;
@@ -388,9 +388,9 @@
             display: flex;
             align-items: space-evenly;
             justify-content: space-evenly;
-            padding: 2px 12px;
+            padding: 0.125rem 0.75rem;
             border: 1px solid var(--border);
-            border-radius: 8px;
+            border-radius: 0.5rem;
             background: var(--card-bg);
             color: var(--text-secondary);
             cursor: pointer;
@@ -410,7 +410,7 @@
         
         .settings-trigger .gear-icon {
             transition: transform 0.3s ease;
-            padding: 6px 6px;
+            padding: 0.375rem 0.375rem;
         }
 
         .settings-trigger.open .gear-icon {
@@ -436,24 +436,24 @@
         .settings-dropdown {
             background: var(--card-bg);
             border: 1px solid var(--border);
-            border-radius: 14px;
-            padding: 24px 28px;
+            border-radius: 0.875rem;
+            padding: 1.5rem 1.75rem;
             box-shadow: 0 12px 40px rgba(0,0,0,0.2);
-            min-width: 220px;
-            max-width: 320px;
+            min-width: 13.75rem;
+            max-width: 20rem;
         }
 
         .settings-dropdown.show {
             display: flex;
             flex-direction: column;
-            gap: 12px;
+            gap: 0.75rem;
         }
         
         .settings-dropdown-title {
             font-size: 1rem;
             font-weight: 600;
             color: var(--text-primary);
-            margin-bottom: 4px;
+            margin-bottom: 0.25rem;
             text-align: center;
         }
 
@@ -467,8 +467,8 @@
         .settings-feedback-btn { display: none; }
 
         .results-section {
-            padding: 30px;
-            min-height: 300px;
+            padding: 1.875rem;
+            min-height: 18.75rem;
             flex: 1;
             overflow-y: auto;
             /* overflow-x: hidden; */
@@ -477,15 +477,15 @@
             scrollbar-width: thin;
         }
 
-        .results-section::-webkit-scrollbar { width: 6px; }
+        .results-section::-webkit-scrollbar { width: 0.375rem; }
         .results-section::-webkit-scrollbar-track { background: transparent; }
-        .results-section::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.2); border-radius: 3px; }
+        .results-section::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.2); border-radius: 0.1875rem; }
         
         .results-header {
             display: flex;
             justify-content: left;
             align-items: center;
-            margin-bottom: 20px;
+            margin-bottom: 1.25rem;
         }
         
         .results-count {
@@ -497,21 +497,21 @@
         .batch-count {
             font-size: 0.85rem;
             color: var(--text-secondary);
-            padding-left: 20px ;
+            padding-left: 1.25rem ;
         }
 
         /* 分組標題 */
         .group-section {
-            margin-bottom: 30px;
+            margin-bottom: 1.875rem;
         }
         
         .group-title {
             font-size: 1.3rem;
             font-weight: 600;
             color: var(--text-secondary);
-            margin-bottom: 15px;
-            padding: 8px 12px;
-            border-radius: 8px;
+            margin-bottom: 0.9375rem;
+            padding: 0.5rem 0.75rem;
+            border-radius: 0.5rem;
             display: inline-block;
         }
         
@@ -527,8 +527,8 @@
         
         .results-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
-            gap: 12px;
+            grid-template-columns: repeat(auto-fill, minmax(5rem, 1fr));
+            gap: 0.75rem;
             animation: fadeIn 0.4s ease-out;
         }
         
@@ -544,8 +544,8 @@
         .char-card {
             background: var(--card-bg);
             border: 2px solid var(--border);
-            border-radius: 8px;
-            padding: 12px;
+            border-radius: 0.5rem;
+            padding: 0.75rem;
             text-align: center;
             transition: all 0.2s ease;
             cursor: pointer;
@@ -573,7 +573,7 @@
         .char-main {
             font-size: 2rem;
             font-weight: 500;
-            margin-bottom: 4px;
+            margin-bottom: 0.25rem;
         }
 
         /* 自定義文字顏色：始終優先，不被深色模式覆蓋 */
@@ -601,16 +601,16 @@
         .mark-badge {
             display: inline-block;
             font-size: 0.65rem;
-            padding: 2px 6px;
-            border-radius: 4px;
-            margin-top: 4px;
+            padding: 0.125rem 0.375rem;
+            border-radius: 0.25rem;
+            margin-top: 0.25rem;
             font-weight: 500;
             cursor: pointer;
             transition: all 0.2s ease;
             user-select: none;
-            min-width: 32px;
-            min-height: 18px;
-            line-height: 14px;
+            min-width: 2rem;
+            min-height: 1.125rem;
+            line-height: 0.875rem;
         }
 
         .mark-badge:hover {
@@ -648,8 +648,8 @@
             left: 0;
             right: 0;
             z-index: 1000;
-            border-top-left-radius: 30px;
-            border-top-right-radius: 30px;
+            border-top-left-radius: 1.875rem;
+            border-top-right-radius: 1.875rem;
             background: var(--card-bg);
             border-top: 2px solid var(--border);
             box-shadow: 0 -4px 20px rgba(0,0,0,0.12);
@@ -667,19 +667,19 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            gap: 8px;
-            padding: 8px 20px;
+            gap: 0.5rem;
+            padding: 0.5rem 1.25rem;
             cursor: pointer;
             user-select: none;
             flex-shrink: 0;
-            min-height: 38px;
+            min-height: 2.375rem;
             border-bottom: 1px solid var(--border);
         }
 
         .recent-panel-header:hover {
             background: var(--container-bg);
-            border-top-left-radius: 30px;
-            border-top-right-radius: 30px;
+            border-top-left-radius: 1.875rem;
+            border-top-right-radius: 1.875rem;
         }
 
         .recent-panel-title {
@@ -699,24 +699,24 @@
         }
 
         .recent-panel-body {
-            padding: 10px 20px 14px;
+            padding: 0.625rem 1.25rem 0.875rem;
             overflow-y: auto;
             flex: 1;
-            min-height: 80px;
+            min-height: 5rem;
         }
 
         .recent-clicks-container {
             display: flex;
             flex-wrap: wrap;
-            gap: 8px;
-            min-height: 32px;
+            gap: 0.5rem;
+            min-height: 2rem;
         }
 
         .recent-char {
             background: var(--container-bg);
             border: 1px solid var(--border);
-            padding: 6px 12px;
-            border-radius: 6px;
+            padding: 0.375rem 0.75rem;
+            border-radius: 0.375rem;
             font-size: 1.2rem;
             color: var(--text-primary);
         }
