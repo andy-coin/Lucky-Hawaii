@@ -163,7 +163,7 @@
             gap: 15px;
         }
         
-        .theme-toggle, .zoom-control {
+        .theme-toggle {
             background: rgba(255, 255, 255, 0.2);
             backdrop-filter: blur(10px);
             border: none;
@@ -176,8 +176,6 @@
         }
         
         /* 縮放：桌面與手機都用 +/- 按鈕（在 header 左上） */
-        .zoom-control { display: none; }
-
         .m-zoomOut-button, .m-zoomIn-button {
             display: block;
             position: absolute;

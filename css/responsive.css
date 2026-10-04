@@ -369,9 +369,6 @@
             
             .controls { margin-top: 10px; gap: 10px; }
 
-            /* 放大控制面板 */
-            .zoom-control { display: none; }
-
             .m-zoomOut-button, .m-zoomIn-button{
                 display: block;
                 position: absolute;

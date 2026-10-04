@@ -46,15 +46,10 @@
             <!-- 控制面板 -->
             <div class="controls">
                 <button class="theme-toggle" id="themeToggle" data-long=" ☀️ 淺色模式" data-short = "☀️" ></button>
-                <div class="zoom-control">
-                    <span>🔍</span>
-                    <input type="range" id="zoomSlider" min="50" max="150" value="100" step="5">
-                    <span id="zoomValue">100%</span>
-                </div>
             </div>
 
-            <button class="m-zoomIn-button" id="MzoomIn" onclick="zoomIn()">➕</button>
-            <button class="m-zoomOut-button" id="MzoomOut" onclick="zoomOut()">➖</button>
+            <button class="m-zoomIn-button" id="MzoomIn" aria-label="放大介面" onclick="zoomIn()">➕</button>
+            <button class="m-zoomOut-button" id="MzoomOut" aria-label="縮小介面" onclick="zoomOut()">➖</button>
             <div class="m-zoom-value">🔎 <span id="MzoomValue">100%</span> </div>
             
             <h1>韻腳查詢器 📝 <span class="about-btn about-btn-mobile" onclick="toggleAbout()">i</span></h1>

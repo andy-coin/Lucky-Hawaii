@@ -44,24 +44,6 @@
             }
         });
 
-        // 電腦縮放功能（影響整個主容器：header + 搜尋 + 字卡）
-        const zoomSlider = document.getElementById('zoomSlider');
-        const zoomValue =  document.getElementById('zoomValue');
-        const zoomTarget = document.querySelector('.container');
-        const resultsSection = zoomTarget; // 保留別名給 mobile zoomIn/Out 用
-
-        zoomSlider.addEventListener('input', (e) => {
-            zoomValue.textContent = e.target.value + '%';
-        });
-
-        zoomSlider.addEventListener('change', (e) => {
-            const value = parseInt(e.target.value);
-            const scale = value / 100;
-            zoomTarget.style.zoom = scale;
-            zoomTarget.style.transform = 'none';
-        });
-
-
         // 顏色自定義
         function loadColors() {
             const rawColors = {

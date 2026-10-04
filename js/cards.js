@@ -1,6 +1,4 @@
         let phone = window.innerWidth <= 440;
-        let MzoomScale = 100;
-        let MzoomBaseRatio = 1.0;
 
         // 創建字卡 (highlightTarget: 'initial'=標記子音, 'rhyme'=標記母音, null=自動)
         function createCharCard(item, showPinyin, highlightTarget) {

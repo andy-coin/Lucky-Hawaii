@@ -19,17 +19,31 @@ function lhNormalizeScale(v) {
     return Math.min(LH_UI_SCALE_MAX, Math.max(LH_UI_SCALE_MIN, stepped));
 }
 
-// 套用縮放：寫 --ui-scale（只寫數字字串，不拼接任何外來文字進 CSS）、更新百分比標籤、需要時存檔
+// 同步百分比標籤與 ➖／➕ 的停用狀態（到 50% 不能再縮、到 150% 不能再放）
+function _lhSyncScaleControls() {
+    const label = document.getElementById('MzoomValue');
+    if (label) label.textContent = lhUiScale + '%';
+    const limits = [['MzoomOut', LH_UI_SCALE_MIN], ['MzoomIn', LH_UI_SCALE_MAX]];
+    for (const [id, limit] of limits) {
+        const btn = document.getElementById(id);
+        if (!btn) continue;
+        const atLimit = lhUiScale === limit;
+        btn.disabled = atLimit;
+        if (atLimit) btn.setAttribute('aria-disabled', 'true');
+        else btn.removeAttribute('aria-disabled');
+    }
+}
+
+// 套用縮放：寫 --ui-scale（只寫數字字串，不拼接任何外來文字進 CSS）、同步控制項、需要時存檔
 function setUiScale(pct, save = true) {
     const n = lhNormalizeScale(pct);
     lhUiScale = n;
     document.documentElement.style.setProperty('--ui-scale', String(n / 100));
-    const label = document.getElementById('MzoomValue');
-    if (label) label.textContent = n + '%';
+    _lhSyncScaleControls();
     if (save) lhSet(LH_UI_SCALE_KEY, String(n));
     return n;
 }
 
 // head 執行時 #MzoomValue 還不存在，所以先套值、等 DOM 好了再補一次標籤
 setUiScale(lhGet(LH_UI_SCALE_KEY), false);
-document.addEventListener('DOMContentLoaded', () => setUiScale(lhUiScale, false));
+document.addEventListener('DOMContentLoaded', _lhSyncScaleControls);
