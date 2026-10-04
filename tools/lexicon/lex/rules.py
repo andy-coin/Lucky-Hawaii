@@ -1,7 +1,8 @@
 """內容規則（R1 簡體、R2 罕用字、R3 中國用語、K0 保留清單、G 灰色）與規則輸入的載入。
 
 規則順序固定（對應 C2）：
-    K0 保留清單（格式合格才算）→ R0 格式 → R1 簡體字 → R2 罕用字 → R3 中國用語 → G 灰色 → K1 通過
+    K0 保留清單（格式合格才算）→ R0 格式 → R1 簡體字 → R2 罕用字 → R3 中國用語（r3-gray 清單內的改成灰色）
+    → G 灰色 → K1 通過
 
 鐵則：
 - 只有「規則」能刪詞；只有一個來源收錄的詞最多變灰色（保留、待 AI 判斷），絕不因此被刪。
@@ -149,6 +150,20 @@ def load_char_allow(path):
     return out
 
 
+def load_r3_gray(path):
+    """r3-gray.json：R3 命中時「不刪、改標灰色（待 AI 判斷）」的詞清單。
+
+    這些是「可能是中國用語，但我們拿不準」的電腦／技術詞（創建、兼容、運行…）。
+    C2/C3：拿不準就灰色，之後交給 AI 判斷；放進 keep.json 等於永久保留、AI 不會再看它，
+    所以只有「明確是台灣日常用語」的詞才放 keep.json。
+    """
+    with open(path, encoding='utf-8') as fh:
+        data = json.load(fh)
+    if not isinstance(data, list):
+        raise LexError('r3-gray.json 必須是詞的清單')
+    return {unicodedata.normalize('NFC', w) for w in data if isinstance(w, str) and w}
+
+
 def load_keep_allow(keep_path=None, overrides_path=None):
     """救回清單：keep.json（字串清單）∪ data/wordlist-overrides.json 的 added[].w。"""
     words = set()
@@ -175,7 +190,7 @@ class RuleContext:
     """規則需要的所有資料；classify 只讀它。"""
 
     def __init__(self, taiwan_chars, simp_only, char_allow, china_terms=None, keep_allow=None,
-                 china_freq_min=CHINA_FREQ_MIN, gray_policy='p1'):
+                 china_freq_min=CHINA_FREQ_MIN, gray_policy='p1', r3_gray=None):
         if gray_policy not in GRAY_POLICIES:
             raise LexError('--gray-policy 只能是 %s' % ' 或 '.join(GRAY_POLICIES))
         self.taiwan_chars = taiwan_chars
@@ -183,6 +198,7 @@ class RuleContext:
         self.char_allow = char_allow
         self.china_terms = china_terms or {}
         self.keep_allow = keep_allow or set()
+        self.r3_gray = r3_gray or set()
         self.china_freq_min = china_freq_min
         self.gray_policy = gray_policy
 
@@ -191,7 +207,7 @@ def load_rule_context(paths, check_counts=True, gray_policy='p1'):
     """從明確的檔案路徑建 RuleContext（測試傳小型範本，build.py 傳快取裡的鎖定檔）。
 
     paths 的鍵：st、ts、twphrases、moe_common、moe_secondary、char_allow（必要）；
-    china_extra、keep、overrides（選用）。
+    china_extra、keep、r3_gray、overrides（選用）。
     check_counts=True 時做自我檢查：教育部常用字 4,808、次常用字 6,300–6,400；
     Big5 第一、二級字數永遠檢查（那是 Python 編碼表，與範本無關）。
     """
@@ -218,7 +234,8 @@ def load_rule_context(paths, check_counts=True, gray_policy='p1'):
     if paths.get('china_extra'):
         china.update(load_china_extra(paths['china_extra']))
     keep = load_keep_allow(paths.get('keep'), paths.get('overrides'))
-    return RuleContext(taiwan, simp_only, char_allow, china, keep, CHINA_FREQ_MIN, gray_policy)
+    r3_gray = load_r3_gray(paths['r3_gray']) if paths.get('r3_gray') else set()
+    return RuleContext(taiwan, simp_only, char_allow, china, keep, CHINA_FREQ_MIN, gray_policy, r3_gray)
 
 
 def reason_for(rule, detail=None):
@@ -256,7 +273,7 @@ def classify(w, z, ev, ctx):
     """回傳 (decision, rule, detail)；decision ∈ keep | delete | gray（單字另回 skip）。
 
     ev = {'n': 收錄這個詞的來源數, 'freq': 本來源詞頻, 'freqs': [所有來源的詞頻]}。
-    detail：R1/R2 是那個字、R3 是台灣說法，其餘 None。
+    detail：R1/R2 是那個字、R3 與 G-china-term 是台灣說法，其餘 None。
     """
     w, verdict = normalise(w, z)
     if verdict == SKIP_SINGLE:
@@ -272,6 +289,9 @@ def classify(w, z, ev, ctx):
     tw = ctx.china_terms.get(w)
     # 完全吻合才算（不用包含比對：…循環、…方程式 之類幾乎都是誤判）
     if tw is not None and ev.get('freq', 0) < ctx.china_freq_min:
+        if w in ctx.r3_gray:
+            # 拿不準的中國用語：先保留並標灰色，之後交給 AI 判斷（C2/C3），不是直接刪
+            return 'gray', 'G-china-term', tw
         return 'delete', 'R3-china-term', tw
     n = ev.get('n', 1)
     if n == 1:
@@ -300,6 +320,7 @@ def apply_rules(parsed, ctx):
         removed = []
         counts = {}
         gray = 0
+        china_gray = 0
         china_kept = 0
         keep_allow_n = 0
         for r in r0_removed:
@@ -319,6 +340,8 @@ def apply_rules(parsed, ctx):
             kept.append(e)
             if decision == 'gray':
                 gray += 1
+                if rule == 'G-china-term':
+                    china_gray += 1
             if rule == 'K0-allowlist':
                 keep_allow_n += 1
             if e['w'] in ctx.china_terms and e['p'] >= ctx.china_freq_min:
@@ -329,7 +352,8 @@ def apply_rules(parsed, ctx):
                            % (pid, len(kept), len(removed), stats['in_scope']))
         out[pid] = {'entries': kept, 'removed': removed, 'gray': gray,
                     'stats': dict(stats, kept=len(kept), removed=len(removed), rules=dict(sorted(counts.items())),
-                                  gray=gray, china_kept=china_kept, keep_allow=keep_allow_n)}
+                                  gray=gray, china_gray=china_gray, china_kept=china_kept,
+                                  keep_allow=keep_allow_n)}
     return out
 
 
@@ -346,7 +370,7 @@ def shipped_text_problems(texts, ctx):
 def china_term_problem(w, p, ctx):
     """嚴格驗證用：詞庫裡殘留「完全吻合的中國用語且詞頻低、又不在救回清單」就回傳說明。"""
     tw = ctx.china_terms.get(w)
-    if tw is not None and p < ctx.china_freq_min and w not in ctx.keep_allow:
+    if tw is not None and p < ctx.china_freq_min and w not in ctx.keep_allow and w not in ctx.r3_gray:
         return '「%s」是中國用語（台灣多作「%s」）且詞頻 %d 低於 %d' % (w, tw, p, ctx.china_freq_min)
     return None
 

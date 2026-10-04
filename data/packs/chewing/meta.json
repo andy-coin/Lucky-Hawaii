@@ -39,11 +39,12 @@
       "R2-rare-char": 18,
       "R3-china-term": 114
     },
-    "gray": 13359,
+    "gray": 13365,
+    "china_gray": 6,
     "china_kept": 79,
-    "keep_allow": 25
+    "keep_allow": 15
   },
-  "gray": 13359,
-  "gray_pending": 13359,
+  "gray": 13365,
+  "gray_pending": 13365,
   "gray_policy": "p1"
 }

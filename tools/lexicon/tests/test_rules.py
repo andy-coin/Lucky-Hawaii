@@ -14,7 +14,7 @@ FIX = Path(__file__).resolve().parent / 'fixtures' / 'rule-inputs'
 POLY = {}
 
 
-def make_paths(tmp, allow='祢\t詩歌中稱呼神的「祢」\n', keep=None, overrides_added=None, extra=None):
+def make_paths(tmp, allow='祢\t詩歌中稱呼神的「祢」\n', keep=None, overrides_added=None, extra=None, r3_gray=None):
     """把規則輸入的路徑湊齊；需要的可變檔案寫到暫存資料夾。"""
     tmp = Path(tmp)
     (tmp / 'char-allow.txt').write_text('# 測試\n' + allow, encoding='utf-8')
@@ -26,6 +26,9 @@ def make_paths(tmp, allow='祢\t詩歌中稱呼神的「祢」\n', keep=None, ov
              'twphrases': FIX / 'TWPhrases.txt', 'moe_common': FIX / 'moe-common.txt',
              'moe_secondary': FIX / 'moe-secondary.txt', 'char_allow': tmp / 'char-allow.txt',
              'keep': tmp / 'keep.json', 'overrides': tmp / 'overrides.json'}
+    if r3_gray is not None:
+        (tmp / 'r3-gray.json').write_text(json.dumps(r3_gray, ensure_ascii=False), encoding='utf-8')
+        paths['r3_gray'] = tmp / 'r3-gray.json'
     if extra is not None:
         (tmp / 'china-extra.txt').write_text(extra, encoding='utf-8')
         paths['china_extra'] = tmp / 'china-extra.txt'
@@ -173,6 +176,66 @@ class ChinaTermTest(RuleTestBase):
         ctx = self.ctx(extra='# 補充\n你好嗎\t你好\n')
         self.assertEqual(rules.classify('你好嗎', 'ㄋㄧˇ ㄏㄠˇ ㄇㄚ', ev(freq=3), ctx),
                          ('delete', 'R3-china-term', '你好'))
+
+
+class R3GrayTest(RuleTestBase):
+    """拿不準的中國用語（r3-gray.json）：保留並標灰色，等 AI 判斷；明確的台灣用語在 keep.json。"""
+
+    def test_r3_gray_word_is_kept_as_gray_instead_of_deleted(self):
+        ctx = self.ctx(r3_gray=['創建'])
+        self.assertEqual(rules.classify('創建', 'ㄔㄨㄤˋ ㄐㄧㄢˋ', ev(n=2, freq=3), ctx),
+                         ('gray', 'G-china-term', '建立'))
+        # 沒列進 r3-gray 的 R3 詞照刪
+        self.assertEqual(rules.classify('打印機', 'ㄉㄚˇ ㄧㄣˋ ㄐㄧ', ev(freq=3), ctx)[:2],
+                         ('delete', 'R3-china-term'))
+
+    def test_r3_gray_still_obeys_the_frequency_guard_and_keep_json(self):
+        ctx = self.ctx(r3_gray=['創建'], keep=['創建'])
+        self.assertEqual(rules.classify('創建', 'ㄔㄨㄤˋ ㄐㄧㄢˋ', ev(freq=3), ctx)[:2], ('keep', 'K0-allowlist'))
+        ctx = self.ctx(r3_gray=['創建'])
+        self.assertEqual(rules.classify('創建', 'ㄔㄨㄤˋ ㄐㄧㄢˋ', ev(freq=500), ctx)[:2], ('keep', 'K1-pass'))
+
+    def test_without_the_list_the_same_word_is_deleted(self):
+        self.assertEqual(rules.classify('創建', 'ㄔㄨㄤˋ ㄐㄧㄢˋ', ev(freq=3), self.ctx())[:2],
+                         ('delete', 'R3-china-term'))
+
+    def test_shipped_split_keeps_benchi_and_grays_chuangjian(self):
+        """真正提交的兩份清單：奔馳（台灣日常）在 keep.json、創建（拿不準）在 r3-gray.json，互不重疊。"""
+        keep = rules.load_keep_allow(build.HERE / 'rules' / 'keep.json')
+        gray = rules.load_r3_gray(build.HERE / 'rules' / 'r3-gray.json')
+        self.assertIn('奔馳', keep)
+        self.assertNotIn('奔馳', gray)
+        self.assertIn('創建', gray)
+        self.assertNotIn('創建', keep)
+        self.assertEqual(keep & gray, set())
+        paths = make_paths(self.tmp)
+        paths['keep'] = build.HERE / 'rules' / 'keep.json'
+        paths['r3_gray'] = build.HERE / 'rules' / 'r3-gray.json'
+        ctx = rules.load_rule_context(paths, check_counts=False)
+        self.assertEqual(rules.classify('奔馳', 'ㄅㄣ ㄔˊ', ev(freq=2), ctx)[:2], ('keep', 'K0-allowlist'))
+        self.assertEqual(rules.classify('創建', 'ㄔㄨㄤˋ ㄐㄧㄢˋ', ev(freq=2), ctx)[:2], ('gray', 'G-china-term'))
+
+    def test_r3_gray_must_be_a_list(self):
+        p = self.tmp / 'bad.json'
+        p.write_text('{}', encoding='utf-8')
+        with self.assertRaises(LexError):
+            rules.load_r3_gray(p)
+
+    def test_gray_china_term_is_counted_stays_in_the_pack_and_is_not_removed(self):
+        ctx = self.ctx(r3_gray=['創建'])
+        parsed = {'a': parse.collect(rows_for([('創建', 'ㄔㄨㄤˋ ㄐㄧㄢˋ', 2), ('打印機', 'ㄉㄚˇ ㄧㄣˋ ㄐㄧ', 2),
+                                                ('你好', 'ㄋㄧˇ ㄏㄠˇ', 50)]), POLY, {}, 'a'),
+                  'b': parse.collect(rows_for([('你好', 'ㄋㄧˇ ㄏㄠˇ', 9)]), POLY, {}, 'b')}
+        res = rules.apply_rules(parsed, ctx)['a']
+        self.assertEqual({e['w'] for e in res['entries']}, {'創建', '你好'})
+        self.assertEqual([r['w'] for r in res['removed']], ['打印機'])
+        self.assertEqual(res['gray'], 1)
+        self.assertEqual(res['stats']['china_gray'], 1)
+
+    def test_strict_verify_does_not_flag_an_r3_gray_word(self):
+        ctx = self.ctx(r3_gray=['創建'])
+        self.assertIsNone(rules.china_term_problem('創建', 2, ctx))
+        self.assertIsNotNone(rules.china_term_problem('創建', 2, self.ctx()))
 
 
 class GrayAndKeepTest(RuleTestBase):

@@ -57,6 +57,7 @@ def rule_paths(lock, base):
     paths['char_allow'] = HERE / 'rules' / 'char-allow.txt'
     paths['china_extra'] = HERE / 'rules' / 'china-terms-extra.txt'
     paths['keep'] = HERE / 'rules' / 'keep.json'
+    paths['r3_gray'] = HERE / 'rules' / 'r3-gray.json'
     paths['overrides'] = OVERRIDES_WORDS_PATH
     return paths
 
