@@ -80,9 +80,13 @@ export async function stubWordlist(context, ndjson) {
 // wordlist: 'real'（預設，golden 用）或 'stub'（讀 tests/fixtures/wordlist-stub.ndjson）
 // waitWordlist: false 時不等詞庫載完（測慢速載入用）
 // beforeGoto: async ({ context, page }) => {}，在收集器掛好之後、導航之前執行（例如 page.clock.install()）
-export async function bootPage(browser, { storage = {}, init = null, wordlist = 'real', aiReply, aiFail, models, beforeGoto = null, waitWordlist = true } = {}) {
+// device: 任何 newContext 選項（viewport、isMobile、hasTouch、deviceScaleFactor、reducedMotion…），蓋過預設的桌機
+// colorScheme: 給了就蓋過預設的 'light'
+export async function bootPage(browser, { storage = {}, init = null, wordlist = 'real', aiReply, aiFail, models, beforeGoto = null, waitWordlist = true, device = {}, colorScheme } = {}) {
     const context = await browser.newContext({
         ...CONTEXT_OPTS,
+        ...device,
+        ...(colorScheme ? { colorScheme } : {}),
         storageState: {
             cookies: [],
             origins: [{
@@ -104,7 +108,13 @@ export async function bootPage(browser, { storage = {}, init = null, wordlist = 
     return { context, page, errors, warnings, offOrigin };
 }
 
-// 等一個 requestAnimationFrame 再加 setTimeout 0，讓 DOM 更新完
-export function settle(page) {
-    return page.evaluate(() => new Promise(r => requestAnimationFrame(() => setTimeout(r, 0))));
+// 等一個 requestAnimationFrame 再加 setTimeout 0，讓 DOM 更新完；
+// 之後若字卡還在分批渲染（#resultsContainer 的 data-render 不是 idle／done），再等到畫完（OD-4）
+export async function settle(page) {
+    await page.evaluate(() => new Promise(r => requestAnimationFrame(() => setTimeout(r, 0))));
+    await page.waitForFunction(() => {
+        const r = document.getElementById('resultsContainer');
+        const s = r && r.getAttribute('data-render');
+        return !s || s === 'idle' || s === 'done';
+    });
 }
