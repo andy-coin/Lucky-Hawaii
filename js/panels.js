@@ -2,6 +2,7 @@
             suggestedPool.clear();
             sentCandidatesSet.clear();
             cumulativeCandidates = [];
+            _aiEpoch++;
             const c = document.getElementById('aiWordsContainer');
             if (c) c.innerHTML = '';
         }

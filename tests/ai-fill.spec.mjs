@@ -487,3 +487,74 @@ test('用完與重置：池子用完顯示已推薦所有…，重置後又能�
         expect(offOrigin).toEqual([]);
     } finally { await context.close(); }
 });
+
+// ==================== 等 AI 回覆期間（最久 35 秒）換了搜尋／篩選／重置，舊回覆作廢（CR-01）====================
+// 攔住 /ai，等「動作」做完才放行；放行後面板要是空的、池子要是空的
+// 挑詞路徑：舊回覆一到，面板必須是空的；造詞路徑：面板可留著舊候選卡，但不可出現 AI 卡、造詞狀態列，池子要是空的
+async function staleCase(browser, { wordlist, first, replyOf, actions, emptyPanel }) {
+    const { context, page, errors, offOrigin } = await bootPage(browser, { wordlist });
+    try {
+        let gate = null;
+        await page.route('**/ai', async route => {
+            const g = gate;
+            g.hit();
+            await g.held;
+            return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, text: replyOf(route.request().postDataJSON().prompt), model: MODEL, tried: [] }) });
+        });
+        for (const [name, act] of Object.entries(actions)) {
+            await page.fill('#searchInput', first);
+            await settle(page);
+            await page.evaluate(() => resetSuggestedPool());
+            let hit, release;
+            const hitP = new Promise(r => { hit = r; });
+            gate = { hit, held: new Promise(r => { release = r; }) };
+            await clickGenerate(page);
+            await hitP;                                          // /ai 已送出、卡在等回覆
+            await act(page);
+            release();
+            await expect(page.locator('#generateBtn'), name).toBeEnabled();
+            await expect(page.locator('#aiLoading'), name).toBeHidden();
+            const st = await page.evaluate(emptyPanelWanted => {
+                const box = document.getElementById('aiWordsContainer');
+                return {
+                    children: emptyPanelWanted ? box.children.length : 0,
+                    aiBadges: box.querySelectorAll('.ai-badge').length,
+                    status: box.textContent.includes('AI 生成補充詞'),
+                    pool: suggestedPool.size, sent: sentCandidatesSet.size,
+                };
+            }, !!emptyPanel);
+            expect(st, `${name}：舊回覆不可寫進畫面或池子`).toEqual({ children: 0, aiBadges: 0, status: false, pool: 0, sent: 0 });
+        }
+        expect(errors).toEqual([]);
+        expect(offOrigin).toEqual([]);
+    } finally { await context.close(); }
+}
+const changeSearch = async page => {
+    await page.fill('#searchInput', '心');
+    await settle(page);
+};
+const staleActions = {
+    換搜尋: changeSearch,
+    切篩選: page => page.evaluate(() => toggleFilter('sameTone')),
+    換字數: page => page.evaluate(() => cycleFilterWordLen()),
+    重置: page => page.evaluate(() => resetSuggestedPool()),
+};
+
+test('舊回覆作廢：挑詞（候選 ≥ 24）等 AI 期間換搜尋／篩選／字數／重置', async ({ browser }) => {
+    test.setTimeout(90_000);
+    await staleCase(browser, {
+        wordlist: 'real', first: '安',
+        replyOf: p => /候選詞：([^\n]*)/.exec(p)[1].split('、').slice(0, 3).join('、'),
+        actions: staleActions, emptyPanel: true,
+    });
+});
+
+test('舊回覆作廢：造詞（候選 < 24）等 AI 期間換搜尋／篩選／字數／重置', async ({ browser }) => {
+    test.setTimeout(90_000);
+    // 回覆給的詞對「心」都合格，若沒作廢就會被塞進畫面與池子；造詞路徑的「換搜尋」要換成別的字
+    await staleCase(browser, {
+        wordlist: 'stub', first: '心',
+        replyOf: () => '開心、傷心、真心',
+        actions: { ...staleActions, 換搜尋: async page => { await page.fill('#searchInput', '安'); await settle(page); } },
+    });
+});

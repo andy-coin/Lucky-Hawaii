@@ -26,6 +26,8 @@
         let suggestedPool = new Set();
         let sentCandidatesSet = new Set();
         let cumulativeCandidates = [];
+        // 池子被清空（換搜尋／篩選／重置）就 +1；進行中的 AI 按鈕比對它，過期就作廢
+        let _aiEpoch = 0;
         let filterSameTone = false;
         let filterSameChar = false;
         let filterNoExtRhyme = false;

@@ -116,7 +116,7 @@
         function searchRhyme(input) {
             if (!input) { searchedTerms = []; return []; }
             input = input.trim();
-            if (input !== lastSearchInput) { suggestedPool.clear(); sentCandidatesSet.clear(); cumulativeCandidates = []; }
+            if (input !== lastSearchInput) { suggestedPool.clear(); sentCandidatesSet.clear(); cumulativeCandidates = []; _aiEpoch++; }
             lastSearchInput = input;
             const isBopomofo = /[ㄅ-ㄩ]/.test(input);
             const hasChinese = /[\u4e00-\u9fff]/.test(input);

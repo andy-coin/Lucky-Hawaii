@@ -4,7 +4,7 @@
         }
 
         // AI 生成補足詞（AI 造詞，不從詞庫選），驗證後顯示並標 "AI" 徽章
-        async function generateAIWords(remaining, container, excludeSet) {
+        async function generateAIWords(remaining, container, excludeSet, stale = () => false) {
             const statusDiv = document.createElement('div');
             statusDiv.style.cssText = 'text-align:center;font-size:0.8rem;color:var(--text-secondary);padding:6px 0;width:100%;';
             statusDiv.textContent = 'AI 生成補充詞…';
@@ -31,11 +31,13 @@
             } catch (e) {
                 lhWarn('AI 造詞失敗', e);
                 statusDiv.remove();
+                if (stale()) return null;   // 這次按鈕已作廢，不在新面板留訊息
                 // AI 根本沒答成（連線、額度、全部忙碌）時顯示原因
                 showMsg(e.plain ? e.message : AI_FALLBACK_MSG);
                 return null;
             }
             statusDiv.remove();
+            if (stale()) return null;   // 等 AI 期間換了搜尋／篩選／重置：不動畫面、不進池子
 
             // 每個詞都要先過 generatedWordOk 才能進樣板；不合格的只記 log，不顯示（D-08）
             const raw = parseAiWords(text);
@@ -82,14 +84,17 @@
             loading.style.display = 'block';
             container.innerHTML = '';
 
+            // 這次按鈕的快照：任何 await 之後只要搜尋、韻腳模式、篩選或重置變了就作廢（不碰畫面與池子）
+            const snapEpoch = _aiEpoch, snapRhymes = currentRhymes, snapMode = rhymeMode;
+            const stale = () => _aiEpoch !== snapEpoch || currentRhymes !== snapRhymes || rhymeMode !== snapMode;
+
             try {
                 // 詞庫還在載入就等同一個載入；等完才算候選，絕不把「還沒載好」當成候選太少而造詞
                 if (wordlistData === null) {
-                    const snapRhymes = currentRhymes, snapMode = rhymeMode;
                     loading.textContent = '詞庫載入中…';
                     await loadWordlist();
                     loading.textContent = 'AI 思考中…';
-                    if (currentRhymes !== snapRhymes || rhymeMode !== snapMode) return;   // 等待期間換了搜尋，這次作廢
+                    if (stale()) return;   // 等待期間換了搜尋，這次作廢
                     if (wordlistData === null) { showToast('詞庫載入失敗，請重新整理頁面'); return; }
                 }
                 // 候選來源：選字 → 單字（非萬用）→ 押母音 → 押子音
@@ -131,6 +136,7 @@
                         lhWarn('AI 排序失敗，改依常用度補滿', e);
                         aiErr = e;
                     }
+                    if (stale()) return;   // callLLM 最久等 35 秒，期間換了搜尋就丟掉這次結果
                     const { words } = fillToTarget(pool, picks, AI_TARGET, w => wordPriorityMap.get(w) ?? 0);
                     words.forEach(w => { suggestedPool.add(w); sentCandidatesSet.add(w); });
                     container.innerHTML = words.map(w => aiWordCardHtml(w, false)).join('')
@@ -152,7 +158,8 @@
                         + `<div class="candidate-report">共 ${pool.length} 個候選詞，已全數列出</div>`;
                 }
                 loading.style.display = 'none';
-                const added = await generateAIWords(AI_TARGET - pool.length, container, new Set([...suggestedPool, ...savedWords]));
+                const added = await generateAIWords(AI_TARGET - pool.length, container, new Set([...suggestedPool, ...savedWords]), stale);
+                if (stale()) return;
                 if (pool.length === 0 && added === 0) {
                     const what = selectedChars.size > 0 ? '含選字' : '符合';
                     container.innerHTML = `<div class="ai-exhausted">已推薦所有${what}的詞彙<button class="reset-pool-btn" onclick="resetSuggestedPool()">↺ 重置</button></div>`;
