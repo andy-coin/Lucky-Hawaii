@@ -226,7 +226,32 @@ Plans:
   5. 產出刪除報告：每個被刪的詞都有原因，附原因統計與樣本；被誤刪的詞可透過回報流程加回〔自動〕
 
 **Human check**: 提供灰色地帶判斷用的免費 AI API key（若 Worker 不代理）；Andy 抽查刪除報告樣本；Andy 切換不同詞庫包實際寫詞比較手感（供 Phase 12 決定）
-**Plans**: TBD
+**Plans**: 8 plans
+
+Plans:
+**Wave 1**
+- [ ] 06-01-PLAN.md — Tracer（清洗流程）：釘選來源＋授權檢查 → 解析與格式規則 → 一個指令產出「新酷音詞庫」包、NOTICE、詞庫包清單（v0.96 為預設、原檔不動）；Python 單元測試進 npm test
+
+**Wave 2** *(blocked on Wave 1 completion)*
+- [ ] 06-02-PLAN.md — Tracer（網站）：依清單載入使用者選的包（每包自己的版本與快取鍵）、偏好設定「詞庫包」清單、切換後重跑搜尋與 AI 建議、連點不混包；版號 0.96.8
+
+**Wave 3** *(blocked on Wave 2 completion)*
+- [ ] 06-03-PLAN.md — 快取只留目前＋上一個包、新版只換該包快取、修正檔加回不重複且每包生效、「關於」顯示目前詞庫來源
+
+**Wave 4** *(blocked on Wave 3 completion)*
+- [ ] 06-04-PLAN.md — 小麥注音詞庫、唯音台灣詞庫（精簡版，不含教育部部分）兩個包＋各自授權全文；網站列出四個包
+
+**Wave 5** *(blocked on Wave 4 completion)*
+- [ ] 06-05-PLAN.md — 規則層：簡體／罕用字刪除（台灣異體字白名單）、中國用語（完全吻合＋本來源少用）刪除、單一來源轉灰色保留、救回名單；嚴格驗證
+
+**Wave 6** *(blocked on Wave 5 completion)*
+- [ ] 06-06-PLAN.md — 每包刪除報告（原因統計＋樣本＋待 AI 判斷數與估算 token）、一個指令救回誤刪的詞
+
+**Wave 7** *(blocked on Wave 6 completion)*
+- [ ] 06-07-PLAN.md — 灰色詞 AI 判斷流程（估算、上限、分批存檔續跑、Gemini 直連為預設／Worker 備用、金鑰不外洩），離線測試；真正執行留給 Andy
+
+**Wave 8** *(blocked on Wave 7 completion)*
+- [ ] 06-08-PLAN.md — 範例詞表驗證「可理解性」（三酸甘油酯留、聚乙烯醇縮丁醛／分散式雜湊表刪）、AI 校準指令、Phase gate、Andy 測試清單
 
 ### Phase 7: Feedback & Correction Layer 回報與修正層
 
