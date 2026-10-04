@@ -9,6 +9,33 @@
         _syncSearchPlaceholder();
         LH_MQ_PHONE.addEventListener('change', _syncSearchPlaceholder);
 
+        // 「關於」：顯示目前詞庫包的名稱與來源說明（NOTICE.txt）。名稱與內文一律用 textContent，不會被當成 HTML（T-06-11）
+        let _aboutNoticeSeq = 0;   // 連續開關時只有最新一次的結果會寫進畫面
+        async function renderAboutPackNotice() {
+            const nameEl = document.getElementById('aboutPackName');
+            const noticeEl = document.getElementById('aboutPackNotice');
+            if (!nameEl || !noticeEl) return;
+            const seq = ++_aboutNoticeSeq;
+            let desc = activeLexiconPack;
+            if (!desc) {
+                try { desc = await resolveLexiconPack(); } catch (e) { lhWarn('詞庫來源說明讀取失敗', e); }
+            }
+            if (seq !== _aboutNoticeSeq) return;
+            nameEl.textContent = desc ? (desc.name ?? desc.id) : '';
+            let text = '詞庫來源說明暫時讀不到';
+            try {
+                // 路徑檢查和載入詞庫時一樣：只准 data/ 底下的簡單路徑
+                const path = desc && desc.notice;
+                if (typeof path !== 'string' || !LH_PACK_PATH_RE.test(path) || path.includes('..')) throw new Error('NOTICE 路徑不合格');
+                const r = await fetch(path, { cache: 'no-cache' });
+                if (!r.ok) throw new Error('HTTP ' + r.status);
+                text = await r.text();
+            } catch (e) { lhWarn('詞庫來源說明讀取失敗', e); }
+            if (seq !== _aboutNoticeSeq) return;
+            noticeEl.textContent = text;
+            noticeEl.scrollTop = 0;
+        }
+
         // 偏好設定面板
         function toggleSettings() {
             const overlay = document.getElementById('settingsOverlay');
@@ -86,7 +113,10 @@
         }
 
         function toggleAbout() {
-            document.getElementById('aboutOverlay').classList.toggle('show');
+            const overlay = document.getElementById('aboutOverlay');
+            overlay.classList.toggle('show');
+            // 每次打開都重讀：換包之後看到的永遠是目前這一包的來源說明
+            if (overlay.classList.contains('show')) renderAboutPackNotice();
         }
 
         function closeAbout(event) {

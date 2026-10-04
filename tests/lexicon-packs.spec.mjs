@@ -488,3 +488,39 @@ test('詞庫包：修正檔加回的詞不重複、刪除與改音在別的包�
         expect(warnings.filter(m => m.includes('詞庫修正檔'))).toEqual([]);
     } finally { await context.close(); }
 });
+
+// ===== 「關於」視窗顯示目前詞庫包的來源（A2）=====
+test('詞庫包：關於視窗顯示目前詞庫的來源', async ({ browser }) => {
+    test.setTimeout(60_000);
+    const { context, page, errors, warnings } = await bootPage(browser, { wordlist: 'stub' });
+    try {
+        const openAbout = async () => { await page.evaluate(() => toggleAbout()); await expect(page.locator('#aboutOverlay')).toHaveClass(/show/); };
+        const closeAbout = () => page.evaluate(() => toggleAbout());
+        // v0.96：照實說明（含教育部衍生成分的授權限制）
+        await openAbout();
+        await expect(page.locator('#aboutPackName')).toHaveText('v0.96 現行詞庫');
+        await expect(page.locator('#aboutPackNotice')).toContainText('重編國語辭典修訂本');
+        await expect(page.locator('.about-pack-title')).toHaveText('目前使用的詞庫：v0.96 現行詞庫');
+        // 內容太長時區塊自己捲動，不撐破視窗
+        const box = await page.locator('#aboutPackNotice').evaluate(el => ({ over: getComputedStyle(el).overflowY, max: getComputedStyle(el).maxHeight, size: parseFloat(getComputedStyle(el).fontSize) }));
+        expect(box.over).toBe('auto');
+        expect(box.size).toBeGreaterThanOrEqual(12);
+        await closeAbout();
+
+        // 換成新酷音：重開「關於」看到新包的說明（含上游 commit）
+        expect(await page.evaluate(() => switchLexiconPack('chewing'))).toBe(true);
+        await openAbout();
+        await expect(page.locator('#aboutPackName')).toHaveText('新酷音詞庫');
+        await expect(page.locator('#aboutPackNotice')).toContainText('c44e81aef24b06f1509f19e1be54c99812d0c43f');
+        await expect(page.locator('#aboutPackNotice')).not.toContainText('重編國語辭典修訂本》 https://dict.revised.moe.edu.tw');
+        await closeAbout();
+
+        // 說明檔讀不到（500）：照實顯示，不留空白也不丟錯
+        await context.route(/\/data\/packs\/chewing\/NOTICE\.txt(\?.*)?$/, route => route.fulfill({ status: 500, body: 'x' }));
+        await openAbout();
+        await expect(page.locator('#aboutPackNotice')).toHaveText('詞庫來源說明暫時讀不到');
+        await expect(page.locator('#aboutPackName')).toHaveText('新酷音詞庫');
+        expect(warnings.some(m => m.includes('詞庫來源說明讀取失敗'))).toBe(true);
+        expect(realErrors(errors)).toEqual([]);
+    } finally { await context.close(); }
+});
