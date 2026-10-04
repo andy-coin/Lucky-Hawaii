@@ -313,3 +313,70 @@ for (const mode of ['throw', 'abort']) {
         } finally { await context.close(); }
     });
 }
+
+// ==================== 兩個分頁同時換版（04-05 backstop truth）====================
+// 同一個 profile 先放好 V1 快取，伺服器換成新版，兩個分頁同一瞬間載入。
+// 分段回應卡在閘門，等兩邊的 20 個請求都到齊才放行，兩個分頁的整套換新就會真的重疊。
+// 兩個分頁拿到的版號不同（V2 與 V3，模擬兩次部署剛好夾在兩個分頁之間）：如果寫入不是整套一個交易，
+// 兩邊的分段會交錯，快取就會出現「ver 是 V2、分段混著 V3」。
+test('版本：兩個分頁同時換版不會看到混合的詞庫', async ({ browser }) => {
+    test.setTimeout(60_000);
+    const state = { vers: ['V1'] };   // meta 依序回這份清單，用完就一直回最後一個
+    const context = await browser.newContext(CONTEXT_OPTS);
+    await routeExternal(context, { aiReply: '' });
+    await context.route(/\/data\/wordlist-meta\.json$/, r => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ version: state.vers.length > 1 ? state.vers.shift() : state.vers[0], chunks: 10, total: 10 }) }));
+    const MARK = { V1: '舊', V2: '新', V3: '甲' };
+    let gateOn = false, arrived = 0, openGate;
+    const gate = new Promise(r => { openGate = r; });
+    await context.route(/\/data\/wordlist-c0(\d)\.json(\?.*)?$/, async r => {
+        const i = Number(/c0(\d)\.json/.exec(r.request().url())[1]);
+        if (gateOn) {
+            if (++arrived === 20) openGate();
+            await Promise.race([gate, new Promise(res => setTimeout(res, 3000))]);   // 保險：請求沒到齊也不會卡死
+        }
+        const ch = MARK[new URL(r.request().url()).searchParams.get('v')];
+        return r.fulfill({ status: 200, contentType: 'application/json', body: `{"w":"${ch}${i}","z":"ㄒㄧㄣ ㄌㄧㄥˊ","p":1}\n` });
+    });
+    await context.route(/\/data\/wordlist-overrides\.json$/, r => r.fulfill({ status: 200, contentType: 'application/json', body: '{}' }));
+
+    const ready = page => page.evaluate(() => Promise.all([window.__hoyunReady, window.__hoyunWordlistReady, window.__hoyunSafetyReady, window.__hoyunModelsReady]));
+    const dump = page => page.evaluate(async () => {
+        const db = await lhIdbOpen();
+        return new Promise(res => {
+            const st = db.transaction('wl', 'readonly').objectStore('wl');
+            const out = { ver: null, chunks: [] };
+            st.get('ver').onsuccess = e => { out.ver = e.target.result?.v ?? null; };
+            for (let i = 0; i < 10; i++) st.get(i).onsuccess = e => { const c = e.target.result?.v; out.chunks[i] = c ? c.map(x => x.w).join() : null; };
+            st.transaction.oncomplete = () => res(out);
+        });
+    });
+    const words = page => page.evaluate(() => wordlistData && wordlistData.map(e => e.w));
+    const seq = ch => Array.from({ length: 10 }, (_, i) => ch + i);
+    try {
+        // V1 放進快取
+        const seed = await context.newPage();
+        await seed.goto('/index.html');
+        await ready(seed);
+        expect(await dump(seed)).toEqual({ ver: 'V1', chunks: seq('舊') });
+        await seed.close();
+
+        // 同一瞬間開兩個分頁，伺服器已換版
+        state.vers = ['V2', 'V3']; gateOn = true;
+        const [a, b] = await Promise.all([context.newPage(), context.newPage()]);
+        const ea = collectErrors(a), eb = collectErrors(b);
+        await Promise.all([a.goto('/index.html'), b.goto('/index.html')]);
+        await Promise.all([ready(a), ready(b)]);
+        expect(arrived, '兩個分頁各抓了整套新版（換版真的重疊）').toBe(20);
+
+        // 每個分頁的記憶體：完整十段、單一版本（V2 或 V3），沒有 V1 殘留
+        const mem = [await words(a), await words(b)];
+        for (const w of mem) expect([seq('新'), seq('甲')]).toContainEqual(w);
+        expect(mem[0], '兩邊各拿到不同版（競爭是真的）').not.toEqual(mem[1]);
+        // 快取：ver 與十段屬於同一版
+        const d = await dump(a);
+        expect(d).toEqual(await dump(b));
+        expect([{ ver: 'V2', chunks: seq('新') }, { ver: 'V3', chunks: seq('甲') }]).toContainEqual(d);
+        expect(ea.errors).toEqual([]);
+        expect(eb.errors).toEqual([]);
+    } finally { await context.close(); }
+});
