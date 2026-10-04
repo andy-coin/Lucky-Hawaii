@@ -4,16 +4,16 @@ milestone: v0.96
 current_phase: 05
 current_phase_name: Multi-Device Layout 多裝置版面與流暢度
 status: executing
-stopped_at: Completed 05-06-PLAN.md
-last_updated: "2026-10-04T11:54:16.128Z"
+stopped_at: Completed 05-07-PLAN.md
+last_updated: "2026-10-04T12:13:09.005Z"
 last_activity: 2026-10-04
 last_activity_desc: Phase 05 execution started
-state_head: 9957321d8fdf6ef4a036eec86117fb0d335cf8f1
+state_head: 2c9c70a5f8789b9d5c599a1de008ec8b456d72fe
 progress:
   total_phases: 12
   completed_phases: 2
   total_plans: 33
-  completed_plans: 28
+  completed_plans: 29
 ---
 
 # Project State
@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-10-03)
 ## Current Position
 
 Phase: 05 (Multi-Device Layout 多裝置版面與流暢度) — EXECUTING
-Plan: 7 of 11
+Plan: 8 of 11
 Status: Ready to execute
 Last activity: 2026-10-04 — Phase 05 execution started
 
@@ -85,6 +85,7 @@ Progress: [██░░░░░░░░] 17%
 | Phase 05 P04 | 30min | 2 tasks | 7 files |
 | Phase 05 P05 | 25 min | 2 tasks | 11 files |
 | Phase 05 P06 | 75 min | 2 tasks | 7 files |
+| Phase 05 P07 | 50 min | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -130,6 +131,7 @@ Recent decisions affecting current work:
 - [Phase 05]: 分頁列上緣線改用內陰影，避免 48px 分頁按鈕被框線擠出視窗
 - [Phase 05]: 沒開面板時亮「查韻」；Esc 只在 900 以下收起底部面板
 - [Phase 05]: AI 按鈕用 order 排到詞卡後再 sticky 貼底（DOM 不動，桌機不變）
+- [Phase 05]: 05-07: keyboard = text field focused and stable height minus visualViewport height >= 150; kb-short below 600; input floor max(16px, 1rem) for <=900 or coarse
 
 ### Pending Todos
 
@@ -167,6 +169,6 @@ Items acknowledged and deferred at milestone close, most recent first:
 
 ## Session Continuity
 
-Last session: 2026-10-04T11:54:16.041Z
-Stopped at: Completed 05-06-PLAN.md
+Last session: 2026-10-04T12:13:08.925Z
+Stopped at: Completed 05-07-PLAN.md
 Resume file: None

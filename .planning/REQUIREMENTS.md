@@ -45,7 +45,7 @@
 
 - [ ] **UI-01**: 電腦、平板、手機三種版面都可完整使用（查韻、寫詞、AI 建議）
 - [ ] **UI-02**: 整體視覺一致、美觀，保留晝夜模式與客製顏色
-- [ ] **UI-03**: 行動端輸入不被虛擬鍵盤遮擋、不觸發自動放大
+- [x] **UI-03**: 行動端輸入不被虛擬鍵盤遮擋、不觸發自動放大
 
 ### Feedback & Admin（回報與後台）
 
@@ -143,7 +143,7 @@
 | LEX-06 | Phase 6 | Pending |
 | UI-01 | Phase 5 | Pending |
 | UI-02 | Phase 5 | Pending |
-| UI-03 | Phase 5 | Pending |
+| UI-03 | Phase 5 | Complete |
 | FB-01 | Phase 7 | Pending |
 | FB-02 | Phase 7 | Pending |
 | FB-03 | Phase 7 | Pending |
