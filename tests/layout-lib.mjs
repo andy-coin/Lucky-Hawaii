@@ -74,3 +74,20 @@ export function auditVisibleControls(page, rootSelector) {
         return out;
     }, rootSelector);
 }
+
+// 真的點得到：捲進可視範圍後，整個框在視窗內，而且框中心最上面的就是它自己（或它的子元素），沒被別的東西蓋住。
+// （click() 只管中心點在畫面內；被分頁列、遮罩或釘住的按鈕蓋住時，用 evaluate 點或強制點都看不出來）
+export async function expectReallyClickable(page, locator, label = '') {
+    await locator.scrollIntoViewIfNeeded();
+    // 只露出一小截的元素（例如橫拿手機裡很矮的歌詞區）Playwright 會當成「已經看得到」不捲；
+    // 像使用者一樣把它捲到捲動區正中間，才量得到中心有沒有被擋住
+    await locator.evaluate(el => el.scrollIntoView({ block: 'center', inline: 'center' }));
+    await expectFullyInViewport(page, locator);
+    const hit = await locator.evaluate(el => {
+        const r = el.getBoundingClientRect();
+        const top = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2);
+        const name = n => n ? n.tagName.toLowerCase() + (n.id ? '#' + n.id : '') + (typeof n.className === 'string' && n.className.trim() ? '.' + n.className.trim().split(/\s+/).join('.') : '') : '（空）';
+        return { ok: !!top && (top === el || el.contains(top)), top: name(top) };
+    });
+    expect(hit.ok, `${label} 中心被 ${hit.top} 蓋住`).toBe(true);
+}

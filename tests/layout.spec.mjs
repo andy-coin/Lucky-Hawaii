@@ -2,8 +2,8 @@
 // 每個測試名稱開頭是主題標籤（縮放：…），之後各 plan 依標籤加入 flow／面板／鍵盤等測試
 import { test, expect } from '@playwright/test';
 import { readFileSync, readdirSync } from 'node:fs';
-import { bootPage } from './helpers.mjs';
-import { DEVICES, setScale, waitStill, noPageScroll, expectFullyInViewport, rectsOverlap, auditVisibleControls } from './layout-lib.mjs';
+import { bootPage, settle } from './helpers.mjs';
+import { DEVICES, setScale, waitStill, noPageScroll, expectFullyInViewport, expectReallyClickable, rectsOverlap, auditVisibleControls } from './layout-lib.mjs';
 
 const SCALE_KEY = 'lh:uiScale';
 
@@ -925,3 +925,280 @@ test('縮放：手機 150% 分頁標籤放得下', async ({ browser }) => {
         }
     } finally { await context.close(); }
 });
+
+// ===== 05-06 任務二：面板裡面也好用（歌詞可捲、AI 按鈕固定底部、長字不撐破、五種視窗走完整流程） =====
+const isWide = device => device.viewport.width > 900;
+const pointerOf = device => device.hasTouch ? l => l.tap() : l => l.click();
+// 打開／收起歌詞（which = 'lyrics'）或 AI 建議（'ai'）：窄螢幕按底部分頁，寬螢幕按側邊分頁（桌機同一個分頁再按一次就收起）
+async function toggleSide(page, device, which) {
+    const loc = isWide(device)
+        ? page.locator(`.${which === 'lyrics' ? 'left' : 'right'}-panel .side-panel-tab`)
+        : page.locator('#mtab-' + which);
+    await expectReallyClickable(page, loc, `${which} 分頁`);
+    await pointerOf(device)(loc);
+    await waitStill(page);
+}
+const closeSheet = async (page, device) => {
+    if (isWide(device)) return;
+    await pointerOf(device)(page.locator('#mtab-search'));
+    await waitStill(page);
+};
+const SIX_SECTIONS = Array.from({ length: 6 }, (_, i) => ({ label: `段落${i + 1}`, text: `第${i + 1}段的歌詞`, collapsed: false }));
+
+test('底部面板：六段歌詞可捲動、每段夠高', async ({ browser }) => {
+    const { context, page } = await bootPage(browser, { device: DEVICES.phone, storage: { haiku_lyrics: JSON.stringify(SIX_SECTIONS) } });
+    try {
+        await toggleSide(page, DEVICES.phone, 'lyrics');
+        const m = await page.evaluate(() => {
+            const area = document.getElementById('lyricsSections');
+            const before = area.scrollTop;
+            area.scrollTop = area.scrollHeight;
+            return {
+                overflowY: getComputedStyle(area).overflowY,
+                sh: area.scrollHeight, ch: area.clientHeight, sw: area.scrollWidth, cw: area.clientWidth,
+                moved: area.scrollTop - before,
+                tas: [...area.querySelectorAll('.lyrics-section:not(.collapsed) .section-textarea')].map(t => Math.round(t.getBoundingClientRect().height)),
+            };
+        });
+        expect(m.overflowY).toBe('auto');
+        expect(m.sh, `歌詞區內容 ${m.sh} 要比可見高度 ${m.ch} 高才需要捲`).toBeGreaterThan(m.ch);
+        expect(m.moved, '歌詞區真的能往下捲').toBeGreaterThan(0);
+        expect(m.sw, '歌詞區不能左右捲').toBeLessThanOrEqual(m.cw + 1);
+        expect(m.tas.length).toBe(6);
+        for (const h of m.tas) expect(h, `每段輸入框高度 ${m.tas}`).toBeGreaterThanOrEqual(112);
+        // 捲到最底的最後一段、以及「+ 新增段落」都點得到
+        await expectReallyClickable(page, page.locator('#lyricsSections .section-textarea').last(), '最後一段輸入框');
+        await expectReallyClickable(page, page.locator('#leftPanel .panel-add-btn'), '新增段落');
+    } finally { await context.close(); }
+});
+
+for (const [name, device] of [['手機', DEVICES.phone], ['平板', DEVICES.tablet]]) {
+    test(`底部面板：重要按鈕都在面板與畫面內、點得到（${name}）`, async ({ browser }) => {
+        const { context, page } = await bootPage(browser, { device });
+        try {
+            const inside = async (panelSel, loc, label) => {
+                const p = await rectOf(page, panelSel);
+                const b = await loc.boundingBox();
+                expect(b, `${label} 沒有版面框`).not.toBeNull();
+                expect(b.x, `${label} 左緣在面板外`).toBeGreaterThanOrEqual(p.x - 0.5);
+                expect(b.x + b.width, `${label} 右緣在面板外`).toBeLessThanOrEqual(p.x + p.width + 0.5);
+                expect(b.y, `${label} 上緣在面板外`).toBeGreaterThanOrEqual(p.y - 0.5);
+                expect(b.y + b.height, `${label} 下緣在面板外`).toBeLessThanOrEqual(p.y + p.height + 0.5);
+                await expectReallyClickable(page, loc, label);
+            };
+            await toggleSide(page, device, 'lyrics');
+            await inside('#leftPanel', page.locator('#leftPanel .panel-add-btn'), '「+ 新增段落」');
+            await inside('#leftPanel', page.locator('#lyricsSections .section-textarea').first(), '第一個歌詞輸入框');
+            await closeSheet(page, device);
+            await toggleSide(page, device, 'ai');
+            await inside('#rightPanel', page.locator('#generateBtn'), '「✨提供詞語建議」');
+            await inside('#rightPanel', page.locator('#savedPoolSection .saved-pool-title'), '「📌 保留」標題');
+        } finally { await context.close(); }
+    });
+}
+
+// 三種視窗 × 三種縮放：四個會捲動的區塊都不能左右捲
+for (const [name, device] of [['手機', DEVICES.phone], ['平板', DEVICES.tablet], ['桌機', DEVICES.desktop]]) {
+    test(`底部面板：各捲動區不會左右捲（3 視窗 × 50/100/150）— ${name}`, async ({ browser }) => {
+        const { context, page } = await bootPage(browser, { device, storage: { haiku_lyrics: JSON.stringify(SIX_SECTIONS), haiku_hashtags: JSON.stringify(['abcdefghij'.repeat(4), '超長標籤'.repeat(10)]) } });
+        try {
+            const read = () => page.evaluate(() => Object.fromEntries(['.lyrics-area', '.ai-scroll-area', '.side-panel-body', '.results-section'].map(sel =>
+                [sel, [...document.querySelectorAll(sel)].map(e => e.scrollWidth - e.clientWidth)])));
+            for (const pct of [100, 50, 150]) {
+                await setScale(page, pct);
+                await waitStill(page);
+                for (const which of ['lyrics', 'ai']) {
+                    await toggleSide(page, device, which);
+                    const over = await read();
+                    for (const [sel, list] of Object.entries(over)) {
+                        for (const d of list) expect(d, `${name} ${pct}% ${which} 開著：${sel} 多出 ${d}px`).toBeLessThanOrEqual(1);
+                    }
+                    // 桌機側邊面板同一個分頁再按一次就收起；窄螢幕回到查韻
+                    if (isWide(device)) await toggleSide(page, device, which);
+                    else await closeSheet(page, device);
+                }
+            }
+        } finally { await context.close(); }
+    });
+}
+
+test('底部面板：AI 產生中按鈕停用、提示在捲動區內、按鈕固定在底部', async ({ browser }) => {
+    const { context, page } = await bootPage(browser, { device: DEVICES.phone, aiReply: '安全、平安、晚安' });
+    try {
+        await page.route('**/ai', async route => { await new Promise(r => setTimeout(r, 1200)); await route.fallback(); });
+        await page.fill('#searchInput', 'ㄢ');
+        await settle(page);
+        await toggleSide(page, DEVICES.phone, 'ai');
+        // 進度列放一段很長的字：不能比面板寬
+        await page.evaluate(() => {
+            const p = document.getElementById('wordlistProgress');
+            p.style.display = 'block';
+            p.textContent = '詞庫載入中' + '很長的進度說明'.repeat(30);
+        });
+        const sheetW = (await rectOf(page, '#rightPanel')).width;
+        expect((await rectOf(page, '#wordlistProgress')).width, '進度列寬度').toBeLessThanOrEqual(sheetW);
+        await page.evaluate(() => { document.getElementById('wordlistProgress').style.display = 'none'; });
+
+        await expectReallyClickable(page, page.locator('#generateBtn'), '提供詞語建議');
+        await page.locator('#generateBtn').tap();
+        // 產生中：按鈕停用、提示看得到、而且在捲動區裡
+        await expect(page.locator('#generateBtn')).toBeDisabled();
+        await expect(page.locator('#aiLoading')).toBeVisible();
+        expect(await page.evaluate(() => !!document.getElementById('aiLoading').closest('.ai-scroll-area')), '提示在捲動區內').toBe(true);
+        await expect(page.locator('#aiWordsContainer .ai-word-card').first()).toBeVisible({ timeout: 15000 });
+        await expect(page.locator('#generateBtn')).toBeEnabled();
+
+        // 詞很多、捲動區要捲：往下捲到各個位置，按鈕都貼在捲動區底部、沒掉出面板
+        const pinned = await page.evaluate(async () => {
+            const area = document.querySelector('.ai-scroll-area');
+            const btn = document.getElementById('generateBtn');
+            const sheet = document.getElementById('rightPanel');
+            const out = { scrollable: area.scrollHeight - area.clientHeight, rows: [] };
+            for (const f of [0, 0.5, 1]) {
+                area.scrollTop = (area.scrollHeight - area.clientHeight) * f;
+                await new Promise(r => requestAnimationFrame(r));
+                const b = btn.getBoundingClientRect(), a = area.getBoundingClientRect(), s = sheet.getBoundingClientRect();
+                out.rows.push({ f, btnTop: b.top - a.top, btnBottom: a.bottom - b.bottom, sheetGap: s.bottom - b.bottom });
+            }
+            return out;
+        });
+        expect(pinned.scrollable, '24 個詞要讓捲動區真的能捲').toBeGreaterThan(50);
+        for (const r of pinned.rows) {
+            expect(r.btnTop, `捲到 ${r.f}：按鈕上緣在捲動區內 ${JSON.stringify(r)}`).toBeGreaterThanOrEqual(-1);
+            expect(r.btnBottom, `捲到 ${r.f}：按鈕下緣在捲動區內 ${JSON.stringify(r)}`).toBeGreaterThanOrEqual(-1);
+            expect(r.sheetGap, `捲到 ${r.f}：按鈕下緣不超出面板 ${JSON.stringify(r)}`).toBeGreaterThanOrEqual(-1);
+        }
+        // 釘在底部時仍然是真的點得到（沒被分頁列蓋住）
+        await expectReallyClickable(page, page.locator('#generateBtn'), '捲動中的提供詞語建議');
+    } finally { await context.close(); }
+});
+
+test('底部面板：單一 AI 詞卡不撐滿、保留數 0 隱藏', async ({ browser }) => {
+    for (const [name, device] of [['手機', DEVICES.phone], ['平板', DEVICES.tablet]]) {
+        const { context, page } = await bootPage(browser, { device });
+        try {
+            await toggleSide(page, device, 'ai');
+            await page.evaluate(() => { document.getElementById('aiWordsContainer').innerHTML = aiWordCardHtml('平安', false); });
+            const w = await page.evaluate(() => ({
+                card: document.querySelector('#aiWordsContainer .ai-word-card').getBoundingClientRect().width,
+                grid: document.getElementById('aiWordsContainer').getBoundingClientRect().width,
+            }));
+            expect(w.card, `${name}：一張卡 ${w.card}px 佔整排 ${w.grid}px`).toBeLessThan(w.grid * 0.6);
+            // 保留數：0 個隱藏，1 個以上顯示
+            const badge = () => page.evaluate(() => ({ shown: document.getElementById('savedCount').getClientRects().length > 0, text: document.getElementById('savedCount').textContent }));
+            expect(await badge(), `${name} 0 個`).toEqual({ shown: false, text: '0' });
+            const card = page.locator('#aiWordsContainer .ai-word-card');
+            await expectReallyClickable(page, card, 'AI 詞卡');
+            await pointerOf(device)(card);
+            await expect(page.locator('.copy-toast')).toContainText('「平安」已保留');
+            expect(await badge(), `${name} 1 個`).toEqual({ shown: true, text: '1' });
+        } finally { await context.close(); }
+    }
+});
+
+test('底部面板：長段落名、長標籤、長模型名不撐破', async ({ browser }) => {
+    const LONG_LABEL = '很長很長的段落名稱'.repeat(5).slice(0, 40);
+    const LONG_TAG = 'abcdefghij'.repeat(4);   // 英文連續 40 字不會自己斷行，最容易撐破
+    const LONG_MODEL = '一個名字非常非常長的模型'.repeat(5).slice(0, 60);
+    for (const [name, device] of [['手機', DEVICES.phone], ['平板', DEVICES.tablet]]) {
+        const { context, page } = await bootPage(browser, {
+            device,
+            storage: {
+                haiku_lyrics: JSON.stringify([{ label: LONG_LABEL, text: '歌詞', collapsed: false }, { label: LONG_LABEL, text: '歌詞二', collapsed: false }]),
+                haiku_hashtags: JSON.stringify([LONG_TAG]),
+            },
+            models: [{ id: 'long-model', label: LONG_MODEL, provider: 'gemini' }],
+        });
+        try {
+            // 面板裡每個看得見的元素，左右都不能超出面板
+            const wideOnes = sel => page.evaluate(s => {
+                const p = document.querySelector(s).getBoundingClientRect();
+                return [...document.querySelectorAll(s + ' *')].filter(e => e.getClientRects().length > 0 && getComputedStyle(e).visibility !== 'hidden').map(e => {
+                    const r = e.getBoundingClientRect();
+                    return { n: e.tagName.toLowerCase() + (e.id ? '#' + e.id : '') + (typeof e.className === 'string' && e.className ? '.' + e.className.split(/\s+/)[0] : ''), l: r.left - p.left, r: p.right - r.right, w: r.width };
+                }).filter(o => o.w > 0 && (o.l < -1 || o.r < -1)).map(o => `${o.n} 左${Math.round(o.l)} 右${Math.round(o.r)}`);
+            }, sel);
+            await toggleSide(page, device, 'lyrics');
+            expect(await wideOnes('#leftPanel'), `${name}：歌詞面板有元素超出`).toEqual([]);
+            const chip = await page.evaluate(() => {
+                const c = document.querySelector('.hashtag-chip').getBoundingClientRect();
+                const b = document.getElementById('contextBody').getBoundingClientRect();
+                return { over: c.right - b.right, h: c.height };
+            });
+            expect(chip.over, `${name}：長標籤右緣超出情境區 ${chip.over}px`).toBeLessThanOrEqual(1);
+            await closeSheet(page, device);
+            await toggleSide(page, device, 'ai');
+            expect(await wideOnes('#rightPanel'), `${name}：AI 面板有元素超出`).toEqual([]);
+            const sel = await page.evaluate(() => {
+                const s = document.getElementById('modelSelect');
+                return { w: s.getBoundingClientRect().width, max: 10 * parseFloat(getComputedStyle(document.documentElement).fontSize), label: s.options[s.options.length - 1].text.length };
+            });
+            expect(sel.label, '模型選單真的放進長名字').toBe(60);
+            expect(sel.w, `${name}：模型選單寬 ${sel.w}px，上限 10rem = ${sel.max}px`).toBeLessThanOrEqual(sel.max + 1);
+        } finally { await context.close(); }
+    }
+});
+
+test('底部面板：AI 失敗訊息可以捲到按鈕上方', async ({ browser }) => {
+    // backstop：釘在底部的按鈕不能永遠蓋住最後一則訊息
+    const longMsg = 'AI 現在都在忙，請稍後再試一次。'.repeat(6);
+    const { context, page } = await bootPage(browser, { device: DEVICES.phone, aiFail: { status: 503, body: { ok: false, code: 'ALL_BUSY', message: longMsg, tried: [] } } });
+    try {
+        await page.fill('#searchInput', 'ㄢ');
+        await settle(page);
+        await toggleSide(page, DEVICES.phone, 'ai');
+        await expectReallyClickable(page, page.locator('#generateBtn'), '提供詞語建議');
+        await page.locator('#generateBtn').tap();
+        await expect(page.locator('#aiWordsContainer .candidate-report').last()).toContainText('AI 暫時無法排序', { timeout: 15000 });
+        const r = await page.evaluate(async () => {
+            const area = document.querySelector('.ai-scroll-area');
+            area.scrollTop = area.scrollHeight;
+            await new Promise(res => requestAnimationFrame(res));
+            const msgs = document.querySelectorAll('#aiWordsContainer .candidate-report');
+            const msg = msgs[msgs.length - 1].getBoundingClientRect();
+            const btn = document.getElementById('generateBtn').getBoundingClientRect();
+            const a = area.getBoundingClientRect();
+            return { msgBottom: msg.bottom, btnTop: btn.top, msgTop: msg.top, areaTop: a.top };
+        });
+        expect(r.msgBottom, `訊息下緣 ${r.msgBottom} 要在按鈕上緣 ${r.btnTop} 之上`).toBeLessThanOrEqual(r.btnTop + 0.5);
+        expect(r.msgTop, '訊息整則看得到（上緣沒掉出捲動區）').toBeGreaterThanOrEqual(r.areaTop - 0.5);
+    } finally { await context.close(); }
+});
+
+// 五種視窗用真的點擊／觸碰走完整個流程；每個目標點下去之前都要整個在視窗內、中心沒被蓋住
+for (const [name, device] of Object.entries(DEVICES)) {
+    test(`流程：五種視窗用真的點擊走完查韻→選字→歌詞→AI 建議→保留（${name}）`, async ({ browser }) => {
+        const { context, page, errors } = await bootPage(browser, { device, aiReply: '安全、平安、晚安' });
+        try {
+            const act = pointerOf(device);
+            const hit = async (loc, label) => { await expectReallyClickable(page, loc, label); await act(loc); };
+            // 1. 查韻：點搜尋框、打 ㄢ
+            await hit(page.locator('#searchInput'), '搜尋框');
+            await page.keyboard.type('ㄢ');
+            await settle(page);
+            await expect(page.locator('#resultsContainer .char-card').first()).toBeVisible();
+            // 2. 選字：點第一張字卡 → 變成選取
+            const firstCard = page.locator('#resultsContainer .char-card').first();
+            await hit(firstCard.locator('.char-main'), '第一張字卡');
+            await expect(firstCard).toHaveClass(/selected/);
+            // 3. 歌詞：打開歌詞、在第一段輸入
+            await toggleSide(page, device, 'lyrics');
+            const ta = page.locator('#lyricsSections .section-textarea').first();
+            await hit(ta, '第一個歌詞輸入框');
+            await page.keyboard.type('月光下');
+            expect(await ta.inputValue()).toContain('月光下');
+            await closeSheet(page, device);
+            // 4. AI 建議：打開、按提供詞語建議
+            await toggleSide(page, device, 'ai');
+            await hit(page.locator('#generateBtn'), '提供詞語建議');
+            await expect(page.locator('#aiWordsContainer .ai-word-card').first()).toBeVisible({ timeout: 15000 });
+            // 5. 保留：點第一張 AI 詞卡
+            const word = page.locator('#aiWordsContainer .ai-word-card').first();
+            const text = (await word.getAttribute('data-word'));
+            await hit(word, 'AI 詞卡');
+            await expect(page.locator('.copy-toast')).toContainText(`「${text}」已保留`);
+            expect(await page.evaluate(() => savedWords.length)).toBe(1);
+            expect(errors).toEqual([]);
+        } finally { await context.close(); }
+    });
+}

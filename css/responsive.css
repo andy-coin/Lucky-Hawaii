@@ -58,6 +58,37 @@
                 background: var(--border);
                 border-radius: 0.125rem;
             }
+            /* ---- 歌詞 sheet（UI-SPEC §5.3）：段落多時整區往下捲，每段輸入框至少 7rem 高 ---- */
+            .lyrics-area { overflow-y: auto; overscroll-behavior: contain; }
+            .lyrics-section { flex: 0 0 auto; min-height: 9rem; }
+            .lyrics-section[data-index="0"] { flex: 1 0 12rem; }
+            .lyrics-section.collapsed { flex: 0 0 var(--hit); min-height: 0; }
+            .lyrics-section .section-body { display: flex; flex-direction: column; flex: 1 1 auto; }
+            .lyrics-section .section-textarea { flex: 1 1 auto; min-height: 7rem; }
+            .section-label { min-width: 0; text-overflow: ellipsis; }
+            .context-section { flex: 0 0 33%; }
+            .context-section.collapsed { flex: 0 0 var(--hit); }
+            .context-section-header { min-height: var(--hit); }
+            .hashtag-chip { min-width: 0; max-width: 100%; overflow-wrap: anywhere; }
+
+            /* ---- AI 建議 sheet（UI-SPEC §5.4）----
+               「提供詞語建議」用 order 排到詞卡後面（DOM 不動，桌機順序不變）再 sticky 貼底：
+               sticky 只會釘住「原本在可視範圍下方」的元素，按鈕若排在詞卡前面，往下捲時就不會一直在 */
+            .ai-scroll-area { overscroll-behavior: contain; scroll-padding-bottom: 4rem; }
+            .generate-btn {
+                order: 1;
+                position: sticky;
+                bottom: 0;
+                min-height: 3rem;
+                box-shadow: 0 0 0 0.5rem var(--card-bg);
+            }
+            .ai-words-grid { grid-template-columns: repeat(auto-fill, minmax(8.5rem, 1fr)); gap: var(--sp-2); }
+            .model-select { min-width: 0; max-width: 10rem; text-overflow: ellipsis; }
+            .ai-exhausted { max-width: 100%; overflow-wrap: anywhere; }
+            .saved-pool-title { min-height: var(--hit); }
+            .saved-pool-section { flex: 0 0 28%; }
+            .saved-pool-section.collapsed { flex: 0 0 var(--hit); }
+
             /* 顯示底部 tab 列 */
             .mobile-tab-bar { display: flex; }
             /* footer 讓位給 tab 列 */

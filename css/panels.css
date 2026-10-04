@@ -29,8 +29,9 @@
                 border-radius: 1.125rem 0 0 1.125rem;
                 flex-direction: row-reverse;
             }
-            .left-panel.collapsed { transform: translateX(calc(-100% + var(--tab-w))); }
-            .right-panel.collapsed { transform: translateX(calc(100% - var(--tab-w))); }
+            /* 多推 1px（面板的邊框佔 1px）：不然收合時分頁有 1px 跑到視窗外，量起來「沒有整個在畫面內」 */
+            .left-panel.collapsed { transform: translateX(calc(-100% + var(--tab-w) + 1px)); }
+            .right-panel.collapsed { transform: translateX(calc(100% - var(--tab-w) - 1px)); }
             .left-panel:not(.collapsed), .right-panel:not(.collapsed) { transform: none; }
             .side-panel-tab { width: var(--tab-w); }
 
