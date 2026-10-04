@@ -1073,6 +1073,43 @@ test('底部面板：AI 產生中按鈕停用、提示在捲動區內、按鈕�
     } finally { await context.close(); }
 });
 
+// 05-11 截圖基準時發現：釘在底部的按鈕被後面的詞卡畫在上面（DOM 順序），只露出一條縫。
+// 舊測試只探按鈕中心點，剛好落在兩張詞卡之間的縫，所以沒抓到；這裡沿著整條按鈕取 5 個點，在三種捲動位置都要是按鈕自己
+test('底部面板：釘在底部的「提供詞語建議」整條都在詞卡上面', async ({ browser }) => {
+    for (const [name, device] of [['手機', DEVICES.phone], ['平板', DEVICES.tablet]]) {
+        const { context, page } = await bootPage(browser, { device });
+        try {
+            await page.fill('#searchInput', 'ㄢ');
+            await settle(page);
+            await toggleSide(page, device, 'ai');
+            await page.evaluate(() => document.getElementById('generateBtn').click());
+            await page.waitForSelector('.ai-word-card');
+            await page.waitForFunction(() => !document.getElementById('generateBtn').disabled);
+            await waitStill(page);
+            const rows = await page.evaluate(async () => {
+                const area = document.querySelector('.ai-scroll-area');
+                const btn = document.getElementById('generateBtn');
+                const out = [];
+                for (const f of [0, 0.5, 1]) {
+                    area.scrollTop = (area.scrollHeight - area.clientHeight) * f;
+                    await new Promise(r => requestAnimationFrame(r));
+                    const b = btn.getBoundingClientRect();
+                    const bad = [];
+                    for (const fx of [0.1, 0.3, 0.5, 0.7, 0.9]) {
+                        for (const fy of [0.25, 0.75]) {
+                            const top = document.elementFromPoint(b.x + b.width * fx, b.y + b.height * fy);
+                            if (!top || !(top === btn || btn.contains(top))) bad.push(`${fx},${fy} 被 ${top && (top.className || top.tagName)} 蓋住`);
+                        }
+                    }
+                    out.push({ f, bad });
+                }
+                return out;
+            });
+            for (const r of rows) expect(r.bad, `${name} 捲到 ${r.f}：按鈕被蓋住`).toEqual([]);
+        } finally { await context.close(); }
+    }
+});
+
 test('底部面板：單一 AI 詞卡不撐滿、保留數 0 隱藏', async ({ browser }) => {
     for (const [name, device] of [['手機', DEVICES.phone], ['平板', DEVICES.tablet]]) {
         const { context, page } = await bootPage(browser, { device });

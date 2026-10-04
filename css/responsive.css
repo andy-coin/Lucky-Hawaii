@@ -80,6 +80,7 @@
                 order: 1;
                 position: sticky;
                 bottom: 0;
+                z-index: 2;   /* 詞卡是 position: relative 且在 DOM 後面，不加的話會畫在按鈕上面把它蓋住（05-11 截圖基準發現） */
                 min-height: max(3rem, var(--hit));
                 box-shadow: 0 0 0 0.5rem var(--card-bg);
             }
