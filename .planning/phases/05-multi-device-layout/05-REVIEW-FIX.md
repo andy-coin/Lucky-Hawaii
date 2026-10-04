@@ -74,6 +74,41 @@ Info findings (IN-01 to IN-03) were out of scope and not touched.
 
 ---
 
+## Iteration 3 (fix of 05-REVIEW.md iteration 2 finding WR-01)
+
+**Fixed at:** 2026-10-04
+**Source review:** /home/user/Lucky-Hawaii/.planning/phases/05-multi-device-layout/05-REVIEW.md
+**Iteration:** 3
+
+**Summary:**
+- Findings in scope: 1 (WR-01 of the second review; Info excluded)
+- Fixed: 1
+- Skipped: 0
+
+**Verification environment:** `workflow.use_worktrees` is `false`, so edits, commits and the full `npm test` ran in the main checkout on `gsd/v0.96-stabilize` (no worktree, no sentinel). Full run: 400 passed (396 + 4 new), 27 skipped, 1 failed. The failure is the known cloud-only `tests/worker-config.spec.mjs:53`, untouched. No visual or golden baselines changed.
+
+### WR-01: The WR-04 fix leaves the results area as a 30-50px sliver on common landscape phones
+
+**Files modified:** `css/responsive.css`, `tests/layout.spec.mjs`
+**Commit:** 898ba3a
+**Status:** fixed: requires human verification (layout judgment call)
+**Applied fix:** Chose the "scroll the main container" option, the most conservative one. Inside `@media (max-width: 900px) and (max-height: 600px)`: `.container` gets `overflow-y: auto` (plus `overflow-x: hidden`, `overscroll-behavior-y: contain`), `.header` and `.search-section` get `flex-shrink: 0`, and `.results-section` becomes `flex: 0 0 auto; height: 100%`. The toolbar (theme, zoom) and batch buttons keep their full size and stay clickable. After scrolling past them, the results area fills the whole visible container. `html.kb-short .results-section` goes back to `flex: 1 1 0; height: auto`, so with the keyboard open the results area still takes the remaining height and there is no extra scroll. Portrait and desktop layouts are untouched. The results area's own scrolling, and the scroll-position memory in `js/results.js`, are unchanged.
+
+Measured `.results-section` height (before, then after): 844x390 111px then 302px; 812x375 97px then 287px; 667x375 46px then 287px; 740x360 31px then 272px; 640x360 32px then 272px; 568x320 28px then 232px. A card row is 118px. The page itself still does not scroll (scrollHeight equals innerHeight).
+
+**Regression test:** four tests in `tests/layout.spec.mjs`, at 844x390, 667x375, 740x360 and 568x320. Each one:
+1. Checks the page does not scroll.
+2. Scrolls the results area into view and requires its height to be at least a card row plus 8px.
+3. Requires the first card to be fully inside the results area, inside the container clip and inside the viewport.
+4. Scrolls back to the top and requires the theme toggle, the three zoom controls and the three batch buttons to be really clickable.
+5. Taps zoom-in and checks it reads 105%.
+
+The 667x375, 740x360 and 568x320 tests, plus the 844x390 one, fail on the pre-fix CSS (results area 28 to 111px against the required 126px). The existing 844x390 first-card test and WR-04 clickable test still pass.
+
+**Judgment call (logged as `05-RF-9` and `05-RF-10` in `.planning/TEST-CHECKLIST.md`, commit 37a3069):** I did not add a JS "auto-scroll to results after search". A just-searched page shows the controls and only a sliver of the results, so the user scrolls once to see a full card row. Auto-scrolling would bury the search box while the user types, and it would add risk for little gain.
+
+---
+
 _Fixed: 2026-10-04_
 _Fixer: Claude (gsd-code-fixer)_
 _Iteration: 1_
