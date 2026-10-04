@@ -1,0 +1,25 @@
+{
+  "schema": 1,
+  "default": "v096",
+  "packs": [
+    {
+      "id": "v096",
+      "name": "v0.96 現行詞庫",
+      "description": "目前網站使用的詞庫（詞最多，含較多文言與冷僻詞）",
+      "entries": 233713,
+      "meta": "data/wordlist-meta.json",
+      "chunkPattern": "data/wordlist-c{NN}.json",
+      "notice": "data/packs/v096/NOTICE.txt",
+      "legacyCache": true
+    },
+    {
+      "id": "chewing",
+      "name": "新酷音詞庫",
+      "description": "輸入法常用詞，偏日常口語",
+      "entries": 128973,
+      "meta": "data/packs/chewing/meta.json",
+      "chunkPattern": "data/packs/chewing/c{NN}.json",
+      "notice": "data/packs/chewing/NOTICE.txt"
+    }
+  ]
+}

@@ -1,0 +1,37 @@
+{
+  "id": "chewing",
+  "name": "新酷音詞庫",
+  "description": "輸入法常用詞，偏日常口語",
+  "version": "1.b04c2ee8bd",
+  "hash": "b04c2ee8bd0c1dd4946a7d8c8690bd5afa3155d061c6c057a53e1adafb59bf4a",
+  "entries": 128973,
+  "chunks": 6,
+  "sources": [
+    {
+      "id": "libchewing-data",
+      "repo": "https://github.com/chewing/libchewing-data",
+      "commit": "c44e81aef24b06f1509f19e1be54c99812d0c43f",
+      "licence_spdx": "LGPL-2.1-or-later"
+    }
+  ],
+  "licence": "LGPL-2.1-or-later",
+  "licence_files": [
+    {
+      "file": "LICENSE.LGPL-2.1.txt",
+      "sha256": "dc626520dcd53a22f727af3ee42c770e56c97a64fe3adb063799d8ab032fe551"
+    },
+    {
+      "file": "LICENSE.TaBE-BSD-3-Clause.txt",
+      "sha256": "edbaad40848bdeb5a3863a07784087cf58bed2ce592b6bdcc0ac70b055737b54"
+    }
+  ],
+  "rules_version": "1",
+  "built": "2026-10-04",
+  "stats": {
+    "lines": 160458,
+    "skipped_single": 26073,
+    "merged_lines": 5412,
+    "removed": 0,
+    "kept": 128973
+  }
+}

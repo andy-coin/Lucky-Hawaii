@@ -1,0 +1,28 @@
+{
+  "schema": 1,
+  "default": "v096",
+  "packs": [
+    {
+      "id": "v096",
+      "name": "v0.96 現行詞庫",
+      "description": "目前網站使用的詞庫（詞最多，含較多文言與冷僻詞）",
+      "legacy": true,
+      "meta": "data/wordlist-meta.json",
+      "chunkPattern": "data/wordlist-c{NN}.json"
+    },
+    {
+      "id": "chewing",
+      "name": "新酷音詞庫",
+      "description": "輸入法常用詞，偏日常口語",
+      "sources": ["libchewing-data"],
+      "parser": "tsi",
+      "licence_spdx": "LGPL-2.1-or-later",
+      "copyright": ["Copyright (c) 2025 libchewing Core Team"],
+      "licence_texts": [
+        {"source": "libchewing-licence", "file": "COPYING", "as": "LICENSE.LGPL-2.1.txt"},
+        {"source": "tabe-notice", "extract": true, "as": "LICENSE.TaBE-BSD-3-Clause.txt"}
+      ],
+      "upstream_version_from": "dc:identifier"
+    }
+  ]
+}

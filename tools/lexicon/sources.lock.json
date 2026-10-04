@@ -1,0 +1,105 @@
+{
+  "schema": 1,
+  "sources": [
+    {
+      "id": "libchewing-data",
+      "role": "pack",
+      "redistribute": true,
+      "repo": "https://github.com/chewing/libchewing-data",
+      "upstream_note": "archived 2026-03-24, moved to codeberg.org/chewing/libchewing-data",
+      "commit": "c44e81aef24b06f1509f19e1be54c99812d0c43f",
+      "licence_spdx": "LGPL-2.1-or-later",
+      "licence_evidence": {"file": "dict/chewing/tsi.csv", "contains": "# dc:license,LGPL-2.1-or-later,"},
+      "files": [
+        {"path": "dict/chewing/tsi.csv", "bytes": 5244487, "sha256": "c889a1ac3ae1901b3f8f62748bc41b958f010bf995f7f88dbaf9e3494f341428"}
+      ]
+    },
+    {
+      "id": "mcbopomofo",
+      "role": "pack",
+      "redistribute": true,
+      "repo": "https://github.com/openvanilla/McBopomofo",
+      "commit": "be6564acad6c4d3265c34a2e1a872d80f9db6068",
+      "licence_spdx": "MIT",
+      "licence_evidence": {"file": "LICENSE.txt", "contains": "MIT License"},
+      "files": [
+        {"path": "Source/Data/BPMFMappings.txt", "bytes": 5019395, "sha256": "394f3946754ebdd9d5e503f0f94c6977e5e19bd7cab21b4b18a6ea0167e00171"},
+        {"path": "Source/Data/phrase.occ", "bytes": 1768276, "sha256": "dcd11597090b2bef88fb385bdd567e235ccd916728c84b8d0d3f8069ccfc7b8d"},
+        {"path": "LICENSE.txt", "bytes": 1083, "sha256": "72ed32193b0c629def66df63791b2fb125946b593a3251380e6b949488f47b72"}
+      ]
+    },
+    {
+      "id": "vanguard-tw",
+      "role": "pack",
+      "redistribute": true,
+      "repo": "https://github.com/vChewing/libvchewing-data",
+      "commit": "d41f2fc244eadf94c37df50ef98e716fdc28146d",
+      "licence_spdx": "MulanPSL-2.0 AND BSD-3-Clause",
+      "licence_evidence": {"file": "LICENSE.txt", "contains": "Mulan Permissive Software License，Version 2"},
+      "files": [
+        {"path": "Sources/LibVanguardChewingData/Resources/components/cht/phrases-vchewing-cht.txt", "bytes": 266746, "sha256": "b614361675d400fdb4b9a65763c1cfd474fa9004c5a050641b4823adaa2fdd86"},
+        {"path": "Sources/LibVanguardChewingData/Resources/components/cht/phrases-tabe-cht.txt", "bytes": 2135027, "sha256": "39a3f9af670c83c4fc02b8c0a222176d802964d0a88918bb2df1d78b5eba8d1b"},
+        {"path": "LICENSE.txt", "bytes": 3891, "sha256": "8283312c5c0951db2ace072eabf2ca7a11eafb1828472019d2ff597c23fd5d04"}
+      ]
+    },
+    {
+      "id": "opencc",
+      "role": "rule-input",
+      "redistribute": false,
+      "repo": "https://github.com/BYVoid/OpenCC",
+      "commit": "3ac34aa439a9908dd49fa92b5174b46314787ac2",
+      "licence_spdx": "Apache-2.0",
+      "licence_evidence": {"file": "data/dictionary/TWPhrases.txt", "contains": "# License: Apache-2.0"},
+      "files": [
+        {"path": "data/dictionary/STCharacters.txt", "bytes": 36026, "sha256": "a0ca1601c70648cf48b33c3c6210ccbecc5c7eead4b4c3daf76587ba2c03582b"},
+        {"path": "data/dictionary/TSCharacters.txt", "bytes": 104520, "sha256": "9ff46a7d30e5765375eb13d33f2b03a34d298913caf2b120380679f33ae1642d"},
+        {"path": "data/dictionary/TWPhrases.txt", "bytes": 19429, "sha256": "bcb435b744ee3e522beb9b18fcc5486a36ed4763c6aa642ce18112fb5d604e31"}
+      ]
+    },
+    {
+      "id": "tw-charlists",
+      "role": "rule-input",
+      "redistribute": false,
+      "repo": "https://github.com/zispace/hanzi-chars",
+      "commit": "6970aa7e4030253e22accfa5297d7e292d75a597",
+      "licence_spdx": "NONE-DECLARED",
+      "licence_evidence": null,
+      "files": [
+        {"path": "data-charlist/臺灣《常用國字表》（1982年）.txt", "bytes": 19675, "sha256": "d5247938cdb37a89ce2dc6f940342a8d1414dcd70e6fa65d51ebf5151cbc8058"},
+        {"path": "data-charlist/臺灣《次常用國字表》（1982年）.txt", "bytes": 26690, "sha256": "23491aa6b46b8a2a150c9e1a55773897415e69bb57a5dc6e4b8af7d512093d37"}
+      ]
+    },
+    {
+      "id": "libchewing-licence",
+      "role": "licence-text",
+      "redistribute": true,
+      "repo": "https://github.com/chewing/libchewing",
+      "commit": "3c4a93aa03d574c7f011ff84e8a2437c2f79b2cf",
+      "licence_spdx": "LGPL-2.1-or-later",
+      "licence_evidence": null,
+      "files": [
+        {"path": "COPYING", "bytes": 26530, "sha256": "dc626520dcd53a22f727af3ee42c770e56c97a64fe3adb063799d8ab032fe551"}
+      ]
+    },
+    {
+      "id": "tabe-notice",
+      "role": "licence-text",
+      "redistribute": true,
+      "repo": "https://github.com/nodejs/node",
+      "commit": "7e39b8781aa25d4c3477f5add9d31a00b50e2802",
+      "licence_spdx": "BSD-3-Clause",
+      "licence_evidence": null,
+      "files": [
+        {"path": "LICENSE", "bytes": 154607, "sha256": "37110192cd7621a80510e2f2630ae08f0420f97257d4ae1c4d51c11261f1f4b7"}
+      ],
+      "extract": {
+        "file": "LICENSE",
+        "begin": "COPYING.libtabe ---- BEGIN",
+        "end": "COPYING.libtabe-----END",
+        "strip_regex": "^\\s*# ?",
+        "bytes": 3534,
+        "sha256": "edbaad40848bdeb5a3863a07784087cf58bed2ce592b6bdcc0ac70b055737b54"
+      }
+    }
+  ]
+}

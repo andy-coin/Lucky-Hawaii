@@ -2,3 +2,6 @@ data/wordlist*.json linguist-generated=true
 data/wordlist*.json diff=false
 data/rhyme-dict.js linguist-generated=true
 data/rhyme-dict.js diff=false
+data/packs/** linguist-generated=true
+data/packs/** diff=false
+tools/lexicon/reports/** linguist-generated=true

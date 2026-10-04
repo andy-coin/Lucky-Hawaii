@@ -1,0 +1,18 @@
+v0.96 現行詞庫（id: v096）
+說明：這是好韻器目前網站使用的詞庫，檔案是 data/wordlist-c00.json 到 wordlist-c09.json，詞庫版本見 data/wordlist-meta.json。
+
+來源與授權（照實說明）：
+本詞庫衍生自 vChewing 專案的 VanguardLexicon 與 libchewing-data。其中各部分的授權如下：
+  - vChewing 自己維護的部分：MulanPSL-2.0（木蘭寬鬆許可證第 2 版）。
+  - libtabe（TaBE 專案）詞條：BSD-3-Clause。
+  - 教育部《重編國語辭典修訂本》詞條：CC BY-ND 3.0（創用 CC 姓名標示－禁止改作）。
+  - CNS11643 中文標準交換碼的字元資料：政府資料開放授權條款第 1 版（OGDv1）。
+  - libchewing-data（新酷音詞庫）：LGPL-2.1-or-later。
+
+已知授權限制：上列 CC BY-ND 3.0 的重編國語辭典修訂本成分不允許改作後再散布，而本詞庫已把它和其他來源合併過，嚴格來說可能不符合該授權。第 12 階段的官方詞庫將不再沿用教育部衍生的部分；在那之前，v0.96 照舊作為預設詞庫，並在此老實標示。
+
+姓名標示（CC BY 要求的出處）：教育部《重編國語辭典修訂本》 https://dict.revised.moe.edu.tw/
+
+改作說明：本詞庫是上述資料經過整理、合併與格式轉換後的結果，內容與上游並不完全相同。
+
+其他可切換的詞庫包各自附有 NOTICE 與授權全文，且不含教育部衍生內容。
