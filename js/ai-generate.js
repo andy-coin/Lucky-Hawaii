@@ -1,3 +1,8 @@
+        // AI 字卡（isAI 時加 AI 徽章）；保留字串樣板，smoke 掃原始碼找 onclick="saveWord(" 的處理器名
+        function aiWordCardHtml(w, isAI) {
+            return `<div class="ai-word-card" data-word="${w}" onclick="saveWord('${w.replace(/'/g, "\\'")}')">${w}${isAI ? '<span class="ai-badge">AI</span>' : ''}</div>`;
+        }
+
         // AI 生成補足詞（AI 造詞，不從詞庫選），驗證後顯示並標 "AI" 徽章
         async function generateAIWords(remaining, container, excludeSet) {
             const statusDiv = document.createElement('div');
@@ -52,9 +57,7 @@
                 return 0;
             }
             kept.forEach(w => { suggestedPool.add(w); sentCandidatesSet.add(w); });
-            const html = kept.map(w =>
-                `<div class="ai-word-card" data-word="${w}" onclick="saveWord('${w.replace(/'/g, "\\'")}')">${w}<span class="ai-badge">AI</span></div>`
-            ).join('');
+            const html = kept.map(w => aiWordCardHtml(w, true)).join('');
             const r = report();
             if (r) r.insertAdjacentHTML('beforebegin', html);
             else container.insertAdjacentHTML('beforeend', html);
@@ -67,21 +70,9 @@
             const contextText = document.getElementById('contextDescription').value.trim();
             const hashtagStr = hashtags.length > 0 ? hashtags.map(t => '#' + t).join(' ') : '';
             const contextFull = [contextText, hashtagStr].filter(Boolean).join('　');
-            const contextLine = contextFull ? `\n情境／風格：${contextFull}` : '';
-
-            const searchVal = document.getElementById('searchInput').value.trim();
-            const isSingleChineseChar = /^[一-鿿]$/.test(searchVal);
-
-            const savedWordsLine = savedWords.length > 0
-                ? `\n已保留詞（不可重複出現）：${savedWords.slice(-40).join('、')}`
-                : '';
-            const flexRule = '\n鼓勵天馬行空加入「發音上」押韻的英文、日文、韓文詞彙。';
-
             const lyricsText = lastLyricsSelection ||
                 Array.from(document.querySelectorAll('.section-textarea'))
                     .map(ta => ta.value.trim()).filter(Boolean).join('\n');
-            const lyricsLine = lyricsText ? `\n參考整篇歌詞風格：\n${lyricsText.slice(0, 600)}` : '';
-            const hasContext = !!(contextFull || lyricsText);
 
             const btn = document.getElementById('generateBtn');
             const loading = document.getElementById('aiLoading');
@@ -91,147 +82,81 @@
             loading.style.display = 'block';
             container.innerHTML = '';
 
-            let prompt;
-            let usingWordlist = false;
-
-            // 重建活躍累積池：移除已被 AI 選出或已保留的詞
-            const _savedSet = new Set(savedWords);
-            const activePool = cumulativeCandidates.filter(w => !suggestedPool.has(w) && !_savedSet.has(w));
-
-            if (selectedChars.size > 0) {
-                const newBatch = getWordlistCandidatesSelected(); // 詞庫未載入時回傳 null
-                if (newBatch === null) {
-                    showToast(wordlistLoading ? '詞庫載入中，請稍後再試' : '詞庫載入失敗，請重新整理頁面');
-                    btn.disabled = false; loading.style.display = 'none'; return;
-                }
-                newBatch.forEach(w => sentCandidatesSet.add(w));
-                cumulativeCandidates = [...activePool, ...newBatch];
-                if (cumulativeCandidates.length === 0) {
-                    if (_aiExtraRoundDone) {
-                        container.innerHTML = `<div class="ai-exhausted">已推薦所有含選字的詞彙<button class="reset-pool-btn" onclick="resetSuggestedPool()">↺ 重置</button></div>`;
-                        btn.disabled = false; loading.style.display = 'none'; return;
-                    }
-                    _aiExtraRoundDone = true;
-                    btn.disabled = false; loading.style.display = 'none'; loading.textContent = 'AI 思考中…';
-                    await generateAIWords(AI_TARGET, container, new Set([...suggestedPool, ...savedWords]));
-                    return;
-                }
-                usingWordlist = true;
-                lastCandidatesTotal = cumulativeCandidates.length;
-                const posStr = rhymeMode === 'rhyme' ? '字尾' : '字首';
-                const selectedCharsList = [...selectedChars].join('、');
-                const ctxBlock = contextFull ? `\n【情境與#標籤】（請重點優先參考）：${contextFull}` : '';
-                const lyricsBlock = lyricsText ? `\n【歌詞風格參考】：${lyricsText.slice(0, 200)}` : '';
-                const savedBlock = savedWords.length > 0 ? `\n已保留（不可重複）：${savedWords.slice(-30).join('、')}` : '';
-                prompt = `你是歌詞創作助手。以下詞語的${posStr}含有指定字，請挑選最適合此創作情境的詞語（必須挑滿 ${AI_TARGET} 個，候選詞充足時絕對不可少於 ${AI_TARGET}，少於即視為失敗）：
-
-                候選詞：${cumulativeCandidates.join('、')}
-                【指定${posStr}字】：${selectedCharsList}
-                ${ctxBlock}${lyricsBlock}${savedBlock}
-                直接輸出詞語，頓號「、」分隔，不要說明或編號。`;
-
-            } else if (rhymeMode === 'rhyme') {
-                const newBatch = (currentRhymes.length === 1 && !currentRhymes[0]?.isWild)
-                    ? getWordlistCandidatesSingle()
-                    : getWordlistCandidates(currentRhymes, currentRhymes.length);
-                if (newBatch === null) {
-                    showToast(wordlistLoading ? '詞庫載入中，請稍後再試' : '詞庫載入失敗，請重新整理頁面');
-                    btn.disabled = false; loading.style.display = 'none'; return;
-                }
-                newBatch.forEach(w => sentCandidatesSet.add(w));
-                cumulativeCandidates = [...activePool, ...newBatch];
-                if (cumulativeCandidates.length === 0) {
-                    if (_aiExtraRoundDone) {
-                        container.innerHTML = `<div class="ai-exhausted">已推薦所有符合的詞彙<button class="reset-pool-btn" onclick="resetSuggestedPool()">↺ 重置</button></div>`;
-                        btn.disabled = false; loading.style.display = 'none'; return;
-                    }
-                    _aiExtraRoundDone = true;
-                    btn.disabled = false; loading.style.display = 'none'; loading.textContent = 'AI 思考中…';
-                    await generateAIWords(AI_TARGET, container, new Set([...suggestedPool, ...savedWords]));
-                    return;
-                }
-                usingWordlist = true;
-                lastCandidatesTotal = cumulativeCandidates.length;
-                const ctxBlock = contextFull ? `\n【情境與#標籤】（請重點優先參考）：${contextFull}` : '';
-                const lyricsBlock = lyricsText ? `\n【歌詞風格參考】：${lyricsText.slice(0, 200)}` : '';
-                const savedBlock = savedWords.length > 0 ? `\n已保留（不可重複）：${savedWords.slice(-30).join('、')}` : '';
-                prompt = `你是歌詞創作助手。以下詞語的押韻符合要求，請挑選最適合此創作情境的詞語（必須挑滿 ${AI_TARGET} 個，候選詞充足時絕對不可少於 ${AI_TARGET}，少於即視為失敗）：
-
-                候選詞：${cumulativeCandidates.join('、')}
-                ${ctxBlock}${lyricsBlock}${savedBlock}
-                直接輸出詞語，頓號「、」分隔，不要說明或編號。`;
-
-            } else {
-                // 子音押
-                const newBatch = (currentRhymes.length === 1 && !currentRhymes[0]?.isWild)
-                    ? getWordlistCandidatesSingle()
+            try {
+                // 候選來源：選字 → 單字（非萬用）→ 押母音 → 押子音；詞庫未載入時回傳 null
+                const newBatch = selectedChars.size > 0 ? getWordlistCandidatesSelected()
+                    : (currentRhymes.length === 1 && !currentRhymes[0]?.isWild) ? getWordlistCandidatesSingle()
+                    : rhymeMode === 'rhyme' ? getWordlistCandidates(currentRhymes, currentRhymes.length)
                     : getWordlistCandidatesInitial(currentRhymes, currentRhymes.length);
                 if (newBatch === null) {
                     showToast(wordlistLoading ? '詞庫載入中，請稍後再試' : '詞庫載入失敗，請重新整理頁面');
-                    btn.disabled = false; loading.style.display = 'none'; return;
-                }
-                newBatch.forEach(w => sentCandidatesSet.add(w));
-                cumulativeCandidates = [...activePool, ...newBatch];
-                if (cumulativeCandidates.length === 0) {
-                    if (_aiExtraRoundDone) {
-                        container.innerHTML = `<div class="ai-exhausted">已推薦所有符合的詞彙<button class="reset-pool-btn" onclick="resetSuggestedPool()">↺ 重置</button></div>`;
-                        btn.disabled = false; loading.style.display = 'none'; return;
-                    }
-                    _aiExtraRoundDone = true;
-                    btn.disabled = false; loading.style.display = 'none'; loading.textContent = 'AI 思考中…';
-                    await generateAIWords(AI_TARGET, container, new Set([...suggestedPool, ...savedWords]));
                     return;
                 }
-                usingWordlist = true;
-                lastCandidatesTotal = cumulativeCandidates.length;
-                const ctxBlock = contextFull ? `\n【情境與#標籤】（請重點優先參考）：${contextFull}` : '';
-                const lyricsBlock = lyricsText ? `\n【歌詞風格參考】：${lyricsText.slice(0, 200)}` : '';
-                const savedBlock = savedWords.length > 0 ? `\n已保留（不可重複）：${savedWords.slice(-30).join('、')}` : '';
-                prompt = `你是歌詞創作助手。以下詞語的聲母（字首）符合要求，請挑選最適合此創作情境的詞語（必須挑滿 ${AI_TARGET} 個，候選詞充足時絕對不可少於 ${AI_TARGET}，少於即視為失敗）：
 
-                候選詞：${cumulativeCandidates.join('、')}
-                ${ctxBlock}${lyricsBlock}${savedBlock}
-                直接輸出詞語，頓號「、」分隔，不要說明或編號。`;
-            }
+                // 活躍累積池：移除已被推薦或已保留的詞，新候選排前面
+                const savedSet = new Set(savedWords);
+                const activePool = cumulativeCandidates.filter(w => !suggestedPool.has(w) && !savedSet.has(w));
+                newBatch.forEach(w => sentCandidatesSet.add(w));
+                const pool = [...new Set([...newBatch, ...activePool])];
+                cumulativeCandidates = pool;
+                lastCandidatesTotal = pool.length;
 
-            // 候選詞不足 AI_TARGET → 直接全數列出，再由 AI 補足
-            if (usingWordlist && cumulativeCandidates.length > 0 && cumulativeCandidates.length < AI_TARGET) {
-                const directWords = [...cumulativeCandidates];
-                directWords.forEach(w => { suggestedPool.add(w); sentCandidatesSet.add(w); });
-                const shownSet = new Set(directWords);
-                container.innerHTML = directWords.map(w =>
-                    `<div class="ai-word-card" data-word="${w}" onclick="saveWord('${w.replace(/'/g, "\\'")}')">${w}</div>`
-                ).join('') + `<div class="candidate-report">共 ${directWords.length} 個候選詞，已全數列出</div>`;
-                btn.disabled = false; loading.style.display = 'none'; loading.textContent = 'AI 思考中…';
-                if (directWords.length < AI_TARGET) await generateAIWords(AI_TARGET - directWords.length, container, shownSet);
-                return;
-            }
+                // 填滿或造詞只差這一個比較：造詞只在池子不夠時才走到（D-03）
+                if (pool.length >= AI_TARGET) {
+                    const posStr = rhymeMode === 'rhyme' ? '字尾' : '字首';
+                    const lead = selectedChars.size > 0 ? `以下詞語的${posStr}含有指定字`
+                        : rhymeMode === 'rhyme' ? '以下詞語的押韻符合要求' : '以下詞語的聲母（字首）符合要求';
+                    const selectedLine = selectedChars.size > 0 ? `\n【指定${posStr}字】：${[...selectedChars].join('、')}` : '';
+                    const ctxBlock = contextFull ? `\n【情境與#標籤】（請重點優先參考）：${contextFull}` : '';
+                    const lyricsBlock = lyricsText ? `\n【歌詞風格參考】：${lyricsText.slice(0, 200)}` : '';
+                    const savedBlock = savedWords.length > 0 ? `\n已保留（不可重複）：${savedWords.slice(-30).join('、')}` : '';
+                    // 只限制送給 AI 的清單；補滿仍用整個候選池（AI_POOL_MAX）
+                    const prompt = `你是歌詞創作助手。${lead}，請挑出最適合此創作情境的 ${AI_TARGET} 個詞語，最適合的排前面。
+候選詞：${pool.slice(0, AI_POOL_MAX).join('、')}${selectedLine}${ctxBlock}${lyricsBlock}${savedBlock}
+直接輸出詞語，頓號「、」分隔，不要說明或編號。`;
 
-            // 候選 >= AI_TARGET：只呼叫一次 AI 排序，數量由程式補滿（AI 亂回、少回、失敗都一樣給滿）
-            const m = aiTryList()[0];
-            let picks = [], aiErr = null;
-            try {
-                loading.textContent = `AI 思考中…（${m.label}）`;
-                picks = parseAiWords(await callLLM(m, prompt));
-            } catch (e) {
-                lhWarn('AI 排序失敗，改依常用度補滿', e);
-                aiErr = e;
+                    // 只呼叫一次 AI 排序，數量由程式補滿（AI 亂回、少回、失敗都一樣給滿）
+                    const m = aiTryList()[0];
+                    let picks = [], aiErr = null;
+                    try {
+                        loading.textContent = `AI 思考中…（${m.label}）`;
+                        picks = parseAiWords(await callLLM(m, prompt));
+                    } catch (e) {
+                        lhWarn('AI 排序失敗，改依常用度補滿', e);
+                        aiErr = e;
+                    }
+                    const { words } = fillToTarget(pool, picks, AI_TARGET, w => wordPriorityMap.get(w) ?? 0);
+                    words.forEach(w => { suggestedPool.add(w); sentCandidatesSet.add(w); });
+                    container.innerHTML = words.map(w => aiWordCardHtml(w, false)).join('')
+                        + `<div class="candidate-report">從 ${lastCandidatesTotal} 個候選詞中，挑出 ${words.length} 個</div>`;
+                    if (aiErr) {
+                        // AI 沒排成就不假裝是正常結果；原因只在 Worker 白話訊息（e.plain）時附上，用 textContent 塞，不拼 HTML
+                        const hint = document.createElement('div');
+                        hint.className = 'candidate-report';
+                        hint.textContent = 'AI 暫時無法排序，先依常用度列出' + (aiErr.plain ? '（' + aiErr.message + '）' : '');
+                        container.appendChild(hint);
+                    }
+                    return;
+                }
+
+                // 候選不足：全數列出，再造一輪補足（一次按鈕只造一次，D-05）
+                if (pool.length > 0) {
+                    pool.forEach(w => { suggestedPool.add(w); sentCandidatesSet.add(w); });
+                    container.innerHTML = pool.map(w => aiWordCardHtml(w, false)).join('')
+                        + `<div class="candidate-report">共 ${pool.length} 個候選詞，已全數列出</div>`;
+                }
+                loading.style.display = 'none';
+                const added = await generateAIWords(AI_TARGET - pool.length, container, new Set([...suggestedPool, ...savedWords]));
+                if (pool.length === 0 && added === 0) {
+                    const what = selectedChars.size > 0 ? '含選字' : '符合';
+                    container.innerHTML = `<div class="ai-exhausted">已推薦所有${what}的詞彙<button class="reset-pool-btn" onclick="resetSuggestedPool()">↺ 重置</button></div>`;
+                }
+            } finally {
+                // 任何出口（含提早 return、例外）都在這裡解鎖，不要在別處手動解鎖
+                btn.toggleAttribute('disabled', false);
+                loading.style.display = 'none';
+                loading.textContent = 'AI 思考中…';
             }
-            const { words } = fillToTarget(cumulativeCandidates, picks, AI_TARGET, w => wordPriorityMap.get(w) ?? 0);
-            words.forEach(w => { suggestedPool.add(w); sentCandidatesSet.add(w); });
-            container.innerHTML = words.map(w =>
-                `<div class="ai-word-card" data-word="${w}" onclick="saveWord('${w.replace(/'/g, "\\'")}')">${w}</div>`
-            ).join('') + `<div class="candidate-report">從 ${lastCandidatesTotal} 個候選詞中，挑出 ${words.length} 個</div>`;
-            if (aiErr) {
-                // AI 沒排成就不假裝是正常結果；原因只在 Worker 白話訊息（e.plain）時附上，用 textContent 塞，不拼 HTML
-                const hint = document.createElement('div');
-                hint.className = 'candidate-report';
-                hint.textContent = 'AI 暫時無法排序，先依常用度列出' + (aiErr.plain ? '（' + aiErr.message + '）' : '');
-                container.appendChild(hint);
-            }
-            btn.disabled = false;
-            loading.style.display = 'none';
-            loading.textContent = 'AI 思考中…';
         }
 
         // ===== 從歌詞自動生成情境與標籤 =====

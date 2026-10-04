@@ -22,6 +22,8 @@
         const WORDLIST_CHUNKS = 10;
         // AI 建議目標數；數量由程式保證，不是 UI 設定
         const AI_TARGET = 24;
+        // 送給 AI 挑選的候選上限，只限制 prompt；補滿仍用整個候選池
+        const AI_POOL_MAX = 1000;
         let suggestedPool = new Set();
         let sentCandidatesSet = new Set();
         let cumulativeCandidates = [];

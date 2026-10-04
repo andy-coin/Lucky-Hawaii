@@ -1,6 +1,6 @@
 // Phase 4 AI 挑詞填滿與造詞驗證：AI 只負責排序，數量由程式保證
 import { test, expect } from '@playwright/test';
-import { bootPage, settle } from './helpers.mjs';
+import { bootPage, settle, stubWordlist } from './helpers.mjs';
 import { readFileSync } from 'node:fs';
 import { loadCore } from './node-core.mjs';
 
@@ -362,4 +362,128 @@ test('buildGenPrompt：押字首看韻部、純聲母、字數、同聲調、選
     const fifty = Array.from({ length: 50 }, (_, i) => `詞${i}`);
     const line = prompt([REQ.心], {}, 12, fifty).split('\n').find(l => l.startsWith('禁止重複'));
     expect(line.split('：')[1].split('、')).toEqual(fifty.slice(0, 40));
+});
+
+// ==================== 一條流程：夠就挑、不夠才造一次（D-03、D-05）====================
+// 真詞庫裡前 n 個「兩字、末字心、兩個音節」的詞，做成 stub NDJSON
+function xinWords(n) {
+    const out = [];
+    for (let i = 0; i < 10 && out.length < n; i++) {
+        for (const line of readFileSync(`data/wordlist-c0${i}.json`, 'utf8').split('\n').filter(Boolean)) {
+            const o = JSON.parse(line);
+            if (o.w.length === 2 && o.w.endsWith('心') && o.z.split(' ').length === 2 && o.p >= 1) {
+                out.push(line);
+                if (out.length >= n) break;
+            }
+        }
+    }
+    expect(out.length, '真詞庫要有足夠的 X心 詞').toBe(n);
+    return out.join('\n') + '\n';
+}
+
+// 用 stub 詞庫搜 心、按一次生成；回傳 prompts 與卡片
+async function pressOnStub(browser, ndjson) {
+    const { context, page, errors, offOrigin } = await bootPage(browser, { beforeGoto: ({ context }) => stubWordlist(context, ndjson) });
+    const prompts = [];
+    await page.route('**/ai', route => {
+        prompts.push(route.request().postDataJSON().prompt);
+        return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, text: '', model: MODEL, tried: [] }) });
+    });
+    await page.fill('#searchInput', '心');
+    await settle(page);
+    await clickGenerate(page);
+    await expect.poll(() => prompts.length).toBe(1);
+    await expect(page.locator('#generateBtn')).toBeEnabled();
+    await page.waitForTimeout(300);
+    return { context, page, errors, offOrigin, prompts, cards: await page.locator('#aiWordsContainer .ai-word-card').count() };
+}
+
+test('邊界：候選剛好 24 不造詞、23 才造詞', async ({ browser }) => {
+    let r = await pressOnStub(browser, xinWords(24));
+    try {
+        expect(r.cards).toBe(24);
+        expect(r.prompts.length).toBe(1);
+        expect(r.prompts[0]).not.toContain('直接生成');
+        expect(/候選詞：([^\n]*)/.exec(r.prompts[0])[1].split('、').length).toBe(24);
+        expect(r.errors).toEqual([]);
+        expect(r.offOrigin).toEqual([]);
+    } finally { await r.context.close(); }
+
+    r = await pressOnStub(browser, xinWords(23));
+    try {
+        expect(r.cards, '23 個候選全列出，造詞回空').toBe(23);
+        expect(r.prompts.length, '只造一次').toBe(1);
+        expect(r.prompts[0]).toContain('直接生成');
+        expect(r.errors).toEqual([]);
+        expect(r.offOrigin).toEqual([]);
+    } finally { await r.context.close(); }
+});
+
+test('連按：候選池再大，送給 AI 的清單也有上限', async ({ browser }) => {
+    test.setTimeout(90_000);
+    const { context, page, errors, offOrigin } = await bootPage(browser);
+    try {
+        const prompts = [];
+        await page.route('**/ai', route => {
+            prompts.push(route.request().postDataJSON().prompt);
+            return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, text: '', model: MODEL, tried: [] }) });
+        });
+        const poolMax = await page.evaluate(() => AI_POOL_MAX);
+        expect(poolMax).toBe(1000);
+        await page.fill('#searchInput', '安');
+        await settle(page);
+        const seen = new Set();
+        for (let i = 1; i <= 10; i++) {
+            await clickGenerate(page);   // 同步鎖住按鈕，所以下面等到解鎖就是這一次做完
+            await expect(page.locator('#generateBtn')).toBeEnabled({ timeout: 15_000 });
+            await expect(page.locator('#aiWordsContainer .ai-word-card')).toHaveCount(24);
+            expect(prompts.length, `第 ${i} 次只打一次 /ai`).toBe(i);
+            for (const w of await page.locator('#aiWordsContainer .ai-word-card').allTextContents()) {
+                expect(seen.has(w), `第 ${i} 次出現重複詞 ${w}`).toBe(false);
+                seen.add(w);
+            }
+        }
+        expect(seen.size).toBe(240);
+        let longest = 0;
+        for (const p of prompts) {
+            expect(p).not.toContain('直接生成');
+            expect(/候選詞：([^\n]*)/.exec(p)[1].split('、').length).toBeLessThanOrEqual(poolMax);
+            expect(p.length).toBeLessThan(24000);
+            longest = Math.max(longest, p.length);
+        }
+        console.log(`連按：最長 prompt ${longest} 字，候選池 ${await page.evaluate(() => cumulativeCandidates.length)} 個`);
+        expect(errors).toEqual([]);
+        expect(offOrigin).toEqual([]);
+    } finally { await context.close(); }
+});
+
+test('用完與重置：池子用完顯示已推薦所有…，重置後又能拿到', async ({ browser }) => {
+    const { context, page, errors, offOrigin } = await bootPage(browser, { wordlist: 'stub' });
+    try {
+        let aiCalls = 0;
+        await page.route('**/ai', route => {
+            aiCalls++;
+            return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, text: '美音、原因、光陰', model: MODEL, tried: [] }) });
+        });
+        const cards = page.locator('#aiWordsContainer .ai-word-card');
+        const press = async () => {
+            await clickGenerate(page);
+            await expect(page.locator('#generateBtn')).toBeEnabled();
+            await expect(page.locator('#aiLoading')).toBeHidden();
+        };
+        await page.fill('#searchInput', '心');
+        await settle(page);
+        await press();
+        await expect(cards).toHaveCount(15);   // 12 候選 + 3 AI
+        await press();
+        await expect(page.locator('#aiWordsContainer .ai-exhausted')).toContainText('已推薦所有符合的詞彙');
+        await expect(page.locator('.reset-pool-btn')).toBeVisible();
+        await expect(cards).toHaveCount(0);
+        await page.evaluate(() => document.querySelector('.reset-pool-btn').click());
+        await press();
+        await expect(cards).toHaveCount(15);
+        expect(aiCalls, '三次按鈕各一次 /ai').toBe(3);
+        expect(errors).toEqual([]);
+        expect(offOrigin).toEqual([]);
+    } finally { await context.close(); }
 });
