@@ -186,5 +186,41 @@ class ParseMcBopomofoTest(unittest.TestCase):
         self.assertEqual(stats['merged_lines'], 1)
 
 
+class ParseVanguardTest(unittest.TestCase):
+    def setUp(self):
+        self.header, self.rows = parse.parse_vanguard({
+            'vanguard-tw/Sources/x/components/cht/phrases-vchewing-cht.txt': FIXDIR / 'phrases-vchewing-mini.txt',
+            'vanguard-tw/Sources/x/components/cht/phrases-tabe-cht.txt': FIXDIR / 'phrases-tabe-mini.txt'})
+
+    def test_registered_and_header_is_empty(self):
+        self.assertIs(parse.PARSERS['vanguard'], parse.parse_vanguard)
+        self.assertEqual(self.header, {})
+
+    def test_comments_blank_short_and_bad_frequency_lines_are_skipped(self):
+        words = [r[0] for r in self.rows]
+        self.assertNotIn('只有兩欄', words)
+        self.assertNotIn('壞頻次', words)
+        self.assertEqual(len(self.rows), 6)
+
+    def test_fields_are_word_frequency_then_syllables(self):
+        self.assertIn(('你好', 'ㄋㄧˇ ㄏㄠˇ', 50), self.rows)
+        self.assertIn(('好了', 'ㄏㄠˇ ㄌㄜ˙', 8), self.rows)
+
+    def test_word_in_both_files_takes_max_frequency_and_considers_both_readings(self):
+        entries, removed, stats = parse.collect(self.rows, POLY, {}, 'vanguard-tw')
+        by = {e['w']: e for e in entries}
+        self.assertEqual(by['你好']['p'], 120)
+        self.assertEqual(by['一下'], {'w': '一下', 'z': 'ㄧˊ ㄒㄧㄚˋ', 'p': 30})
+        self.assertEqual(stats['merged_lines'], 2)
+
+    def test_short_reading_is_r0_syllables(self):
+        _, removed, _ = parse.collect(self.rows, POLY, {}, 'vanguard-tw')
+        self.assertEqual([(r['w'], r['rule']) for r in removed], [('倒三角形', 'R0-syllables')])
+
+    def test_needs_exactly_the_two_expected_files(self):
+        with self.assertRaises(ValueError):
+            parse.parse_vanguard({'x/phrases-tabe-cht.txt': FIXDIR / 'phrases-tabe-mini.txt'})
+
+
 if __name__ == '__main__':
     unittest.main()

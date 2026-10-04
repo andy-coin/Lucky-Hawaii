@@ -1,0 +1,37 @@
+{
+  "id": "vanguard-tw",
+  "name": "唯音台灣詞庫（精簡版）",
+  "description": "唯音詞庫中不含教育部辭典的部分，詞比較少",
+  "version": "1.fffafbac8b",
+  "hash": "fffafbac8b44b65f5011c351236aca01ecfae3ffcdd7156a3270cd2c12ac738d",
+  "entries": 64781,
+  "chunks": 3,
+  "sources": [
+    {
+      "id": "vanguard-tw",
+      "repo": "https://github.com/vChewing/libvchewing-data",
+      "commit": "d41f2fc244eadf94c37df50ef98e716fdc28146d",
+      "licence_spdx": "MulanPSL-2.0 AND BSD-3-Clause"
+    }
+  ],
+  "licence": "MulanPSL-2.0 AND BSD-3-Clause",
+  "licence_files": [
+    {
+      "file": "LICENSE.MulanPSL-2.0.txt",
+      "sha256": "8283312c5c0951db2ace072eabf2ca7a11eafb1828472019d2ff597c23fd5d04"
+    },
+    {
+      "file": "LICENSE.TaBE-BSD-3-Clause.txt",
+      "sha256": "edbaad40848bdeb5a3863a07784087cf58bed2ce592b6bdcc0ac70b055737b54"
+    }
+  ],
+  "rules_version": "1",
+  "built": "2026-10-04",
+  "stats": {
+    "lines": 68706,
+    "skipped_single": 0,
+    "merged_lines": 3913,
+    "removed": 12,
+    "kept": 64781
+  }
+}

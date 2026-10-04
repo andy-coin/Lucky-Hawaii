@@ -113,8 +113,34 @@ def parse_mcbopomofo(src):
     return {}, rows
 
 
+def parse_vanguard(src):
+    """唯音（vChewing 先鋒詞語音韻庫格式）：詞 頻次 注音1 注音2 …，單一空格分隔。
+
+    只讀 phrases-vchewing-cht.txt 與 phrases-tabe-cht.txt 兩個檔（A1：不碰教育部成分）。
+    `#` 開頭與空白行略過；欄位不足 3 或頻次不是整數的行略過。
+    同一個詞可以出現在兩個檔，原樣回傳，由 collect() 取最大頻率並合併讀音。
+    """
+    paths = [_pick(src, 'phrases-vchewing-cht.txt'), _pick(src, 'phrases-tabe-cht.txt')]
+    rows = []
+    for path in paths:
+        with open(path, encoding='utf-8', newline='') as fh:
+            for raw in fh:
+                line = raw.rstrip('\r\n')
+                if not line.strip() or line.startswith('#'):
+                    continue
+                parts = line.split(' ')
+                if len(parts) < 3:
+                    continue
+                try:
+                    freq = int(parts[1])
+                except ValueError:
+                    continue
+                rows.append((parts[0], ' '.join(parts[2:]), max(freq, 0)))
+    return {}, rows
+
+
 # 解析器登錄表：packs.json 的 parser 欄位對應到這裡（新增來源只要在這裡登記，不必改 build.py）
-PARSERS = {'tsi': parse_tsi, 'mcbopomofo': parse_mcbopomofo}
+PARSERS = {'tsi': parse_tsi, 'mcbopomofo': parse_mcbopomofo, 'vanguard': parse_vanguard}
 
 
 def normalise(w, z):

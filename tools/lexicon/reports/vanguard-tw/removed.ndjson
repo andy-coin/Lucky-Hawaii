@@ -1,0 +1,12 @@
+{"w":"エロ禁止","z":"ㄝ ㄌㄛ ㄐㄧㄣˋ ㄓˇ","p":4,"rule":"R0-nonhan","reason":"含非漢字字元","src":["vanguard-tw"],"n":1}
+{"w":"一四〇","z":"ㄧ ㄙˋ ㄌㄧㄥˊ","p":0,"rule":"R0-nonhan","reason":"含非漢字字元","src":["vanguard-tw"],"n":1}
+{"w":"二〇二","z":"ㄦˋ ㄌㄧㄥˊ ㄦˋ","p":0,"rule":"R0-nonhan","reason":"含非漢字字元","src":["vanguard-tw"],"n":1}
+{"w":"倒三角形","z":"ㄉㄠˋ ㄙㄢ ㄐㄧㄠˇ","p":0,"rule":"R0-syllables","reason":"注音音節數與字數不符","src":["vanguard-tw"],"n":1}
+{"w":"哆啦Ａ夢","z":"ㄉㄨㄛ ㄌㄚ ㄟ ㄇㄥˋ","p":4,"rule":"R0-nonhan","reason":"含非漢字字元","src":["vanguard-tw"],"n":1}
+{"w":"擸𢶍","z":"ㄌㄜˋ ㄙㄜˋ #MACOS","p":114,"rule":"R0-nonbmp","reason":"含擴充區字元（網頁算不出正確字數）","src":["vanguard-tw"],"n":1}
+{"w":"泰ㄖ天","z":"ㄊㄞˋ ㄖ ㄊㄧㄢ","p":19,"rule":"R0-nonhan","reason":"含非漢字字元","src":["vanguard-tw"],"n":1}
+{"w":"腳𧿹趾","z":"ㄐㄧㄠˇ ㄇㄨˇ ㄓˇ","p":4,"rule":"R0-nonbmp","reason":"含擴充區字元（網頁算不出正確字數）","src":["vanguard-tw"],"n":1}
+{"w":"花Ｑ","z":"ㄏㄨㄚ ㄎㄧㄡ","p":1,"rule":"R0-nonhan","reason":"含非漢字字元","src":["vanguard-tw"],"n":1}
+{"w":"Ｑ彈","z":"ㄎㄧㄡ ㄊㄢˊ","p":4,"rule":"R0-nonhan","reason":"含非漢字字元","src":["vanguard-tw"],"n":1}
+{"w":"𨑨迌","z":"ㄓˋ ㄊㄨˋ","p":0,"rule":"R0-nonbmp","reason":"含擴充區字元（網頁算不出正確字數）","src":["vanguard-tw"],"n":1}
+{"w":"𰻞𰻞麵","z":"ㄅㄧㄤˊ ㄅㄧㄤˊ ㄇㄧㄢˋ","p":19,"rule":"R0-nonbmp","reason":"含擴充區字元（網頁算不出正確字數）","src":["vanguard-tw"],"n":1}

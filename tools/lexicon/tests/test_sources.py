@@ -74,6 +74,39 @@ class RealLockTest(unittest.TestCase):
         chewing = [p for p in packs['packs'] if p['id'] == 'chewing'][0]
         sources.assert_pack_sources(chewing, self.lock)
 
+    def test_all_real_packs_pass_gate_with_only_their_own_sources(self):
+        packs = json.loads(PACKS.read_text(encoding='utf-8'))
+        self.assertEqual([p['id'] for p in packs['packs']], ['v096', 'chewing', 'mcbopomofo', 'vanguard-tw'])
+        by_id = {s['id']: s for s in self.lock['sources']}
+        for p in packs['packs']:
+            if p.get('legacy'):
+                continue
+            sources.assert_pack_sources(p, self.lock)
+            for sid in p['sources']:
+                self.assertEqual(by_id[sid]['role'], 'pack', sid)
+                self.assertIs(by_id[sid]['redistribute'], True, sid)
+
+    def test_vanguard_uses_only_the_two_non_moe_phrase_files(self):
+        # T-06-13：唯音只取 vchewing 與 tabe 兩個檔；教育部（moe）與自訂（custom）成分絕不出現
+        vg = [s for s in self.lock['sources'] if s['id'] == 'vanguard-tw'][0]
+        names = sorted(f['path'].rsplit('/', 1)[-1] for f in vg['files'])
+        self.assertEqual(names, ['LICENSE.txt', 'phrases-tabe-cht.txt', 'phrases-vchewing-cht.txt'])
+        for f in vg['files']:
+            for bad in ('moe', 'custom', 'revised'):
+                self.assertNotIn(bad, f['path'].lower())
+        packs = json.loads(PACKS.read_text(encoding='utf-8'))
+        cfg = [p for p in packs['packs'] if p['id'] == 'vanguard-tw'][0]
+        self.assertEqual(cfg['sources'], ['vanguard-tw'])
+        self.assertEqual(cfg['parser'], 'vanguard')
+
+    def test_vanguard_and_mcbopomofo_licence_tokens(self):
+        packs = {p['id']: p for p in json.loads(PACKS.read_text(encoding='utf-8'))['packs']}
+        self.assertEqual(sources._spdx_tokens(packs['vanguard-tw']['licence_spdx']),
+                         ['MulanPSL-2.0', 'BSD-3-Clause'])
+        self.assertEqual(sources._spdx_tokens(packs['mcbopomofo']['licence_spdx']),
+                         ['MIT', 'BSD-3-Clause'])
+        self.assertIn('教育部', packs['vanguard-tw']['notice_extra'])
+
     def test_raw_url_pins_commit_and_quotes_path(self):
         src = fake_source()
         url = sources.raw_url(src, 'dir/臺灣 a.txt')

@@ -40,6 +40,23 @@
         {"source": "tabe-notice", "extract": true, "as": "LICENSE.TaBE-BSD-3-Clause.txt"}
       ],
       "notice_extra": "McBopomofo 的詞表最初由 libtabe 的 tsi.src 精簡而來（BSD 授權）"
+    },
+    {
+      "id": "vanguard-tw",
+      "name": "唯音台灣詞庫（精簡版）",
+      "description": "唯音詞庫中不含教育部辭典的部分，詞比較少",
+      "sources": ["vanguard-tw"],
+      "parser": "vanguard",
+      "licence_spdx": "MulanPSL-2.0 AND BSD-3-Clause",
+      "copyright": [
+        "© 2021-2022 vChewing Project, Maintained by Shiki Suen.",
+        "Copyright (c) 1999 TaBE Project. Copyright (c) 1999 Pai-Hsiang Hsiao."
+      ],
+      "licence_texts": [
+        {"source": "vanguard-tw", "file": "LICENSE.txt", "as": "LICENSE.MulanPSL-2.0.txt"},
+        {"source": "tabe-notice", "extract": true, "as": "LICENSE.TaBE-BSD-3-Clause.txt"}
+      ],
+      "notice_extra": "本包只取唯音專案自行維護的詞（MulanPSL-2.0）與 libtabe 詞（BSD-3-Clause），不含唯音收錄的教育部《重編國語辭典修訂本》部分（CC BY-ND，不可改作）"
     }
   ]
 }
