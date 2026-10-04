@@ -15,13 +15,15 @@
         function applyTheme(dark, save = true) {
             isDark = !!dark;
             document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
-            if (!phone) {
+            if (!lhIsPhone()) {
                 themeToggle.textContent = isDark ? '🌙 深色模式' : '☀️ 淺色模式';
-            } else{
-                themeToggle.textContent = isDark ? '🌙 ' : '☀️ ';
+            } else {
+                themeToggle.textContent = isDark ? '🌙' : '☀️';
             }
             if (save) lhSet(THEME_KEY, isDark ? 'dark' : 'light');
         }
+        // 轉向／調整視窗跨過 440 時，圖示與文字跟著換（不存檔）
+        LH_MQ_PHONE.addEventListener('change', () => applyTheme(isDark, false));
 
         // 初始：記憶 > 系統偏好 > 預設淺色
         const savedTheme = lhGet(THEME_KEY);

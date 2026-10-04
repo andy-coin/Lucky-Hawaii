@@ -43,14 +43,17 @@
                 </div>
             </div>
             
-            <!-- 控制面板 -->
-            <div class="controls">
-                <button class="theme-toggle" id="themeToggle" data-long=" ☀️ 淺色模式" data-short = "☀️" ></button>
+            <!-- 工具列：縮放（➖ 百分比 ➕）＋主題；窄時換行，不會疊在標題上 -->
+            <div class="header-toolbar">
+                <div class="zoom-cluster" role="group" aria-label="介面縮放">
+                    <button class="m-zoomOut-button" id="MzoomOut" aria-label="縮小介面" onclick="zoomOut()">➖</button>
+                    <button type="button" class="zoom-reset" onclick="setUiScale(100)" title="點一下恢復 100%" aria-label="點一下恢復 100%">🔎 <span id="MzoomValue">100%</span></button>
+                    <button class="m-zoomIn-button" id="MzoomIn" aria-label="放大介面" onclick="zoomIn()">➕</button>
+                </div>
+                <div class="controls">
+                    <button class="theme-toggle" id="themeToggle" data-long=" ☀️ 淺色模式" data-short = "☀️" ></button>
+                </div>
             </div>
-
-            <button class="m-zoomIn-button" id="MzoomIn" aria-label="放大介面" onclick="zoomIn()">➕</button>
-            <button class="m-zoomOut-button" id="MzoomOut" aria-label="縮小介面" onclick="zoomOut()">➖</button>
-            <div class="m-zoom-value">🔎 <span id="MzoomValue">100%</span> </div>
             
             <h1>韻腳查詢器 📝 <span class="about-btn about-btn-mobile" onclick="toggleAbout()">i</span></h1>
             <p>寫歌詞...不簡單...甘巴爹...早點睡...</p>

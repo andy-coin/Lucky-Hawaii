@@ -1,6 +1,14 @@
         // 事件監聽器
         const searchInputEl = document.getElementById('searchInput');
 
+        // 手機寬度用短提示字，其餘沿用 HTML 裡的完整說明；轉向／調整視窗時跟著換
+        const _SEARCH_PLACEHOLDER_LONG = searchInputEl.placeholder;
+        function _syncSearchPlaceholder() {
+            searchInputEl.placeholder = lhIsPhone() ? '輸入注音、拼音或漢字' : _SEARCH_PLACEHOLDER_LONG;
+        }
+        _syncSearchPlaceholder();
+        LH_MQ_PHONE.addEventListener('change', _syncSearchPlaceholder);
+
         // 偏好設定面板
         function toggleSettings() {
             const overlay = document.getElementById('settingsOverlay');

@@ -48,3 +48,29 @@ export function noPageScroll(page) {
         iw: window.innerWidth,
     }));
 }
+
+// 兩個框是否重疊（超過 tol px 才算；剛好貼邊不算）。a、b 為 { x, y, width, height }
+export function rectsOverlap(a, b, tol = 0.5) {
+    return a.x < b.x + b.width - tol && b.x < a.x + a.width - tol
+        && a.y < b.y + b.height - tol && b.y < a.y + a.height - tol;
+}
+
+// 在頁面內列出 rootSelector（可用逗號接多個區塊）底下所有看得見的可互動元素與它們的框
+export function auditVisibleControls(page, rootSelector) {
+    return page.evaluate(root => {
+        const out = [];
+        const seen = new Set();
+        for (const area of document.querySelectorAll(root)) {
+            for (const el of area.querySelectorAll('button, a, input, select, textarea, [onclick]')) {
+                if (seen.has(el) || el.getClientRects().length === 0) continue;
+                if (getComputedStyle(el).visibility === 'hidden') continue;
+                const b = el.getBoundingClientRect();
+                if (b.width === 0 || b.height === 0) continue;
+                seen.add(el);
+                const cls = typeof el.className === 'string' && el.className.trim() ? '.' + el.className.trim().split(/\s+/).join('.') : '';
+                out.push({ name: el.tagName.toLowerCase() + (el.id ? '#' + el.id : '') + cls, x: b.x, y: b.y, width: b.width, height: b.height });
+            }
+        }
+        return out;
+    }, rootSelector);
+}

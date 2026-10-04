@@ -3,7 +3,7 @@
 import { test, expect } from '@playwright/test';
 import { readFileSync, readdirSync } from 'node:fs';
 import { bootPage } from './helpers.mjs';
-import { DEVICES, setScale, waitStill, noPageScroll, expectFullyInViewport } from './layout-lib.mjs';
+import { DEVICES, setScale, waitStill, noPageScroll, expectFullyInViewport, rectsOverlap, auditVisibleControls } from './layout-lib.mjs';
 
 const SCALE_KEY = 'lh:uiScale';
 
@@ -247,5 +247,130 @@ test('輸入：viewport 設定保留縮放手勢', async ({ browser }) => {
         const content = await page.locator('meta[name="viewport"]').getAttribute('content');
         expect(content).toBe('width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content');
         expect(content).not.toMatch(/maximum-scale|user-scalable/);
+    } finally { await context.close(); }
+});
+
+// ---- Pass B-1：頂部工具列與縮放不吃邊 ----
+const PHONE_PLACEHOLDER = '輸入注音、拼音或漢字';
+const DESKTOP_PLACEHOLDER = '輸入注音/拼音/單字或詞彙，例如：ㄢ/an/安/安打';
+
+// 標題／搜尋／分頁列裡，框超出視窗的可互動元素（名稱加位置）
+async function controlsOutside(page) {
+    const vp = page.viewportSize();
+    return (await auditVisibleControls(page, '.header, .search-section, .mobile-tab-bar')).filter(c =>
+        c.x < -0.5 || c.y < -0.5 || c.x + c.width > vp.width + 0.5 || c.y + c.height > vp.height + 0.5)
+        .map(c => `${c.name} [${Math.round(c.x)},${Math.round(c.y)} ${Math.round(c.width)}×${Math.round(c.height)}]`);
+}
+
+// 一個畫面狀態的完整檢查：整頁不捲動、沒有 zoom、標題／搜尋／分頁列的每個可互動元素都在視窗內
+async function expectScaleFits(page, label) {
+    const m = await noPageScroll(page);
+    expect(m.sw, `${label}：scrollWidth ${m.sw} > innerWidth ${m.iw}`).toBeLessThanOrEqual(m.iw);
+    expect(m.sh, `${label}：scrollHeight ${m.sh} > innerHeight ${m.ih}`).toBeLessThanOrEqual(m.ih + 1);
+    const zoomed = await page.evaluate(() => [...document.querySelectorAll('*')].filter(e => getComputedStyle(e).zoom !== '1').length);
+    expect(zoomed, `${label}：有元素的計算 zoom 不是 1`).toBe(0);
+    expect(await controlsOutside(page), `${label}：這些控制鈕超出視窗`).toEqual([]);
+}
+
+// 三種裝置各一個測試（各自平行，單一測試不會逼近逾時）
+for (const name of ['phone', 'tablet', 'desktop']) {
+    test(`縮放：50／100／150 都不吃邊（${name}，閒置／搜尋後）`, async ({ browser }) => {
+        const { context, page } = await bootPage(browser, { device: DEVICES[name] });
+        try {
+            await waitStill(page);
+            // 負向對照：量測要抓得到跑出視窗的控制鈕，否則「0 個」沒有意義
+            await page.evaluate(() => {
+                const b = document.createElement('button');
+                b.id = 'probeOut'; b.textContent = 'x'; b.style.cssText = 'position:fixed;left:-200px;top:0';
+                document.querySelector('.header').appendChild(b);
+            });
+            expect((await controlsOutside(page)).some(n => n.startsWith('button#probeOut'))).toBe(true);
+            await page.evaluate(() => document.getElementById('probeOut').remove());
+
+            // 閒置：空的搜尋框，「開始搜尋」提示要在結果區內、不橫向溢出
+            for (const pct of [100, 50, 150]) {
+                await setScale(page, pct);
+                await waitStill(page);
+                await expectScaleFits(page, `${name} ${pct}% 閒置`);
+                const empty = await page.evaluate(() => {
+                    const e = document.querySelector('#resultsContainer .empty-state');
+                    const c = document.getElementById('mainContainer').getBoundingClientRect();
+                    if (!e) return null;
+                    const b = e.getBoundingClientRect();
+                    return { over: e.scrollWidth - e.clientWidth, left: b.left - c.left, right: c.right - b.right };
+                });
+                expect(empty, `${name} ${pct}%：找不到 .empty-state`).not.toBeNull();
+                expect(empty.over, `${name} ${pct}%：開始搜尋提示橫向溢出`).toBeLessThanOrEqual(0);
+                expect(empty.left, `${name} ${pct}%：開始搜尋提示超出容器左邊`).toBeGreaterThanOrEqual(-0.5);
+                expect(empty.right, `${name} ${pct}%：開始搜尋提示超出容器右邊`).toBeGreaterThanOrEqual(-0.5);
+            }
+            // 搜尋後（目前在 150%，再走 100、50）
+            await page.fill('#searchInput', 'ㄢ');
+            for (const pct of [150, 100, 50]) {
+                await setScale(page, pct);
+                await waitStill(page);
+                await expectScaleFits(page, `${name} ${pct}% 搜尋後`);
+            }
+        } finally { await context.close(); }
+    });
+}
+
+test('縮放：手機 150% 工具列不重疊、控制鈕都點得到、點百分比回 100%', async ({ browser }) => {
+    const { context, page } = await bootPage(browser, { device: DEVICES.phone });
+    try {
+        await setScale(page, 150);
+        await waitStill(page);
+        const items = ['#MzoomOut', '.zoom-reset', '#MzoomIn', '#themeToggle', '.header h1'];
+        const boxes = [];
+        for (const sel of items) {
+            const b = await page.locator(sel).first().boundingBox();
+            expect(b, `${sel} 沒有版面框`).not.toBeNull();
+            boxes.push([sel, b]);
+        }
+        for (let i = 0; i < boxes.length; i++) {
+            for (let j = i + 1; j < boxes.length; j++) {
+                expect(rectsOverlap(boxes[i][1], boxes[j][1]), `${boxes[i][0]} 和 ${boxes[j][0]} 重疊`).toBe(false);
+            }
+        }
+        // 全部要在視窗內，不必捲動就點得到（含設定齒輪）
+        for (const sel of ['#MzoomOut', '.zoom-reset', '#MzoomIn', '#themeToggle', '#settingsTrigger', '.header h1']) {
+            await expectFullyInViewport(page, page.locator(sel).first());
+        }
+        await page.locator('.zoom-reset').click();
+        expect(await readScale(page)).toMatchObject({ current: 100, label: '100%', stored: '100', rootFont: '16px' });
+    } finally { await context.close(); }
+});
+
+test('版面：標題區高度', async ({ browser }) => {
+    for (const [name, device, max] of [['手機', DEVICES.phone, 124], ['平板', DEVICES.tablet, 150]]) {
+        const { context, page } = await bootPage(browser, { device });
+        try {
+            await waitStill(page);
+            const h = await page.locator('.header').evaluate(e => e.getBoundingClientRect().height);
+            expect(h, `${name}標題區 ${h}px，上限 ${max}px`).toBeLessThanOrEqual(max);
+        } finally { await context.close(); }
+    }
+});
+
+test('版面：轉向時主題按鈕與提示字跟著換', async ({ browser }) => {
+    const { context, page } = await bootPage(browser, { device: DEVICES.phone });
+    try {
+        const read = () => page.evaluate(() => ({
+            theme: document.getElementById('themeToggle').textContent.trim(),
+            placeholder: document.getElementById('searchInput').placeholder,
+        }));
+        const PHONE = { theme: '☀️', placeholder: PHONE_PLACEHOLDER };
+        const WIDE = { theme: '☀️ 淺色模式', placeholder: DESKTOP_PLACEHOLDER };
+        expect(await read()).toEqual(PHONE);
+        // 440／441 是分界；不重新載入就要跟著變
+        for (const [w, h, want] of [[820, 1180, WIDE], [440, 844, PHONE], [441, 844, WIDE], [390, 844, PHONE]]) {
+            await page.setViewportSize({ width: w, height: h });
+            await expect.poll(read, { message: `寬 ${w}px` }).toEqual(want);
+        }
+        // 深色模式下轉向，圖示與文字也要對
+        await page.locator('#themeToggle').click();
+        expect(await read()).toMatchObject({ theme: '🌙' });
+        await page.setViewportSize({ width: 820, height: 1180 });
+        await expect.poll(read).toMatchObject({ theme: '🌙 深色模式' });
     } finally { await context.close(); }
 });

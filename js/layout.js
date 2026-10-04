@@ -47,3 +47,10 @@ function setUiScale(pct, save = true) {
 // head 執行時 #MzoomValue 還不存在，所以先套值、等 DOM 好了再補一次標籤
 setUiScale(lhGet(LH_UI_SCALE_KEY), false);
 document.addEventListener('DOMContentLoaded', _lhSyncScaleControls);
+
+// ==================== 斷點（D-02）：只在這裡讀，其他檔案一律用 helper ====================
+// ≤ 440 手機、≤ 900 底部 sheet 模式；MQL 物件讓各處可掛 change 監聽，轉向／調整視窗不用重新載入
+const LH_MQ_PHONE = matchMedia('(max-width: 440px)');
+const LH_MQ_SHEET = matchMedia('(max-width: 900px)');
+function lhIsPhone() { return LH_MQ_PHONE.matches; }
+function lhIsSheetMode() { return LH_MQ_SHEET.matches; }
