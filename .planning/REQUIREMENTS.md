@@ -43,7 +43,7 @@
 
 ### UI / UX & Devices（介面與多裝置）
 
-- [ ] **UI-01**: 電腦、平板、手機三種版面都可完整使用（查韻、寫詞、AI 建議）
+- [x] **UI-01**: 電腦、平板、手機三種版面都可完整使用（查韻、寫詞、AI 建議）
 - [ ] **UI-02**: 整體視覺一致、美觀，保留晝夜模式與客製顏色
 - [x] **UI-03**: 行動端輸入不被虛擬鍵盤遮擋、不觸發自動放大
 
@@ -141,7 +141,7 @@
 | LEX-04 | Phase 6 | Pending |
 | LEX-05 | Phase 6 | Pending |
 | LEX-06 | Phase 6 | Pending |
-| UI-01 | Phase 5 | Pending |
+| UI-01 | Phase 5 | Complete |
 | UI-02 | Phase 5 | Pending |
 | UI-03 | Phase 5 | Complete |
 | FB-01 | Phase 7 | Pending |
