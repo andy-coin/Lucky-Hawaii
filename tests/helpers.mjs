@@ -70,8 +70,8 @@ export function collectErrors(page) {
 // 詞庫換成小型 stub（回 404／空字串會被當成錯誤或讓 JSON.parse 丟例外，所以每塊都要是合法的 200 NDJSON）
 export async function stubWordlist(context, ndjson) {
     const filler = '{"w":"測試","z":"ㄘㄜˋ ㄕˋ","p":0}\n';
-    await context.route(/\/data\/wordlist-c0\d\.json$/, route => {
-        const isFirst = route.request().url().endsWith('wordlist-c00.json');
+    await context.route(/\/data\/wordlist-c0\d\.json(\?.*)?$/, route => {
+        const isFirst = new URL(route.request().url()).pathname.endsWith('wordlist-c00.json');   // 網址可能帶 ?v=
         return route.fulfill({ status: 200, contentType: 'application/json', body: isFirst ? ndjson : filler });
     });
 }

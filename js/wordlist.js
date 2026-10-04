@@ -4,13 +4,6 @@
             // 全站只有 js/safety.js 的 lhIdbOpen 一個開啟入口：詞庫快取與備份共用，版本才不會打架
             return lhIdbOpen();
         }
-        function _idbGet(db, k) {
-            return new Promise(res => {
-                const req = db.transaction('wl', 'readonly').objectStore('wl').get(k);
-                req.onsuccess = () => res(req.result?.v ?? null);
-                req.onerror = () => res(null);
-            });
-        }
         // 詞庫快取只是加速用，不是使用者資料：寫入失敗只提示一次（不跳存檔失敗橫幅），並留 [好韻器] 記錄
         let _wlCacheToastShown = false;
         function _wlCacheWriteFailed(err) {
@@ -19,8 +12,26 @@
             _wlCacheToastShown = true;
             showToast('詞庫快取沒存成功，下次開啟會比較慢，不影響使用', 4000);
         }
+        // 一個交易讀 ver 與全部分段：別的分頁換版時，這裡不可能讀到一半新一半舊
+        // 回傳 { ver, chunks }；任何錯誤回 null（改走網路）
+        function _idbReadCache(db) {
+            return new Promise(res => {
+                try {
+                    const tx = db.transaction('wl', 'readonly');
+                    const st = tx.objectStore('wl');
+                    const out = { ver: null, chunks: [] };
+                    st.get('ver').onsuccess = e => { out.ver = e.target.result?.v ?? null; };
+                    for (let i = 0; i < WORDLIST_CHUNKS; i++) st.get(i).onsuccess = e => { out.chunks[i] = e.target.result?.v ?? null; };
+                    tx.oncomplete = () => res(out);
+                    tx.onerror = () => { lhWarn('詞庫快取讀取失敗', tx.error); res(null); };
+                    tx.onabort = () => { lhWarn('詞庫快取讀取中止', tx.error); res(null); };
+                } catch (e) { lhWarn('詞庫快取讀取失敗', e); res(null); }
+            });
+        }
+        // 一個交易：刪舊分段 → 寫全部新分段 → 寫版本。交易 abort 會整筆還原，不可能留下「新版號配舊分段」
+        // 只刪數字鍵（分段）；字串鍵（'ver' 等）與 backups store 一律不碰，所以不用 clear()
         // 只結算一次：complete → true；error / abort / 同步例外 → false 並通報
-        function _idbPut(db, k, v) {
+        function _idbReplaceAll(db, ver, chunks) {
             return new Promise(res => {
                 let settled = false;
                 const fin = (ok, err) => {
@@ -31,10 +42,13 @@
                 };
                 try {
                     const tx = db.transaction('wl', 'readwrite');
-                    tx.objectStore('wl').put({ k, v });
                     tx.oncomplete = () => fin(true);
                     tx.onerror = e => fin(false, tx.error || e.target.error);
                     tx.onabort = () => fin(false, tx.error);
+                    const st = tx.objectStore('wl');
+                    st.delete(IDBKeyRange.bound(0, 1e9));
+                    chunks.forEach((c, i) => st.put({ k: i, v: c }));
+                    st.put({ k: 'ver', v: ver });
                 } catch (e) { fin(false, e); }
             });
         }
@@ -62,47 +76,60 @@
             let db = null;
             try { db = await _idbOpen(); } catch(e) { lhWarn('IndexedDB 開啟失敗，詞庫改走網路', e); }
 
-            // 從 meta 取當前版本號，與 IDB 快取比對
+            // 從 meta 取當前版本號（no-cache：部署後立刻看得到新版）
             let currentVer = null;
             try {
-                const metaRes = await fetch('data/wordlist-meta.json');
+                const metaRes = await fetch('data/wordlist-meta.json', { cache: 'no-cache' });
                 if (metaRes.ok) currentVer = (await metaRes.json()).version;
             } catch(e) { lhWarn('詞庫版本檔讀取失敗', e); }
 
-            const cachedVer = db ? await _idbGet(db, 'ver') : null;
-            const useCache = currentVer && cachedVer === currentVer;
+            // 快取要「版本相同且十段齊全」才用，否則整套重抓，不混用
+            const cache = db ? await _idbReadCache(db) : null;
+            const useCache = !!(currentVer && cache && cache.ver === currentVer
+                && Array.from({ length: WORDLIST_CHUNKS }, (_, i) => Array.isArray(cache.chunks[i])).every(Boolean));
 
-            let loaded = 0;
+            let chunks, fromNet = false;
+            if (useCache) {
+                chunks = cache.chunks;
+            } else {
+                fromNet = true;
+                // 網址帶版本：HTTP 快取不可能把舊版本文配給新版本號
+                const suffix = currentVer ? '?v=' + encodeURIComponent(currentVer) : '';
+                let loaded = 0;
+                chunks = await Promise.all(Array.from({ length: WORDLIST_CHUNKS }, async (_, i) => {
+                    let chunk = null;
+                    try {
+                        const res = await fetch(`data/wordlist-c${String(i).padStart(2,'0')}.json${suffix}`);
+                        if (!res.ok) throw new Error('HTTP ' + res.status);
+                        chunk = (await res.text()).trim().split('\n').map(l => JSON.parse(l));
+                    } catch(e) { lhWarn('詞庫分段 ' + i + ' 載入失敗', e); }
+                    loaded++;
+                    updateWordlistProgress(loaded, WORDLIST_CHUNKS);
+                    return chunk;
+                }));
+                // 缺任何一段就整份丟棄：wordlistData 維持 null、不寫快取，下次呼叫會重抓
+                if (chunks.some(c => c === null)) {
+                    updateWordlistProgress(WORDLIST_CHUNKS, WORDLIST_CHUNKS);
+                    return;
+                }
+            }
+
+            // 必須在套 overrides 之前寫快取（put 當下就複製），快取才會是原始內容
+            const cacheP = fromNet && db && currentVer ? _idbReplaceAll(db, currentVer, chunks) : Promise.resolve(true);
+
+            // 依分段編號順序組裝，不受抓取完成先後影響
             const buf = [];
-
-            await Promise.all(Array.from({ length: WORDLIST_CHUNKS }, async (_, i) => {
-                try {
-                    let chunk = useCache && db ? await _idbGet(db, i) : null;
-                    if (!chunk) {
-                        const res = await fetch(`data/wordlist-c${String(i).padStart(2,'0')}.json`);
-                        if (res.ok) {
-                            const text = await res.text();
-                            chunk = text.trim().split('\n').map(l => JSON.parse(l));
-                            if (db) _idbPut(db, i, chunk); // 非同步存，不等
-                        }
-                    }
-                    if (chunk) {
-                        for (const e of chunk) {
-                            buf.push(e);
-                            wordPriorityMap.set(e.w, e.p);
-                            wordPhoneticMap.set(e.w, e.z);
-                        }
-                    }
-                } catch(e) { lhWarn('詞庫分段 ' + i + ' 載入失敗', e); }
-                loaded++;
-                updateWordlistProgress(loaded, WORDLIST_CHUNKS);
-            }));
-
-            if (!useCache && db && buf.length > 0 && currentVer) _idbPut(db, 'ver', currentVer);
-
+            for (const chunk of chunks) {
+                for (const e of chunk) {
+                    buf.push(e);
+                    wordPriorityMap.set(e.w, e.p);
+                    wordPhoneticMap.set(e.w, e.z);
+                }
+            }
             // 套完 overrides 才公開，wordlistData 不會出現「還沒套修正」的中間狀態
             wordlistData = buf.length > 0 ? await applyWordlistOverrides(buf) : null;
             updateWordlistProgress(WORDLIST_CHUNKS, WORDLIST_CHUNKS);
+            await cacheP;
         }
 
         // ── 後台匯出的詞庫 overrides（data/wordlist-overrides.json）──
