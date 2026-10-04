@@ -126,3 +126,81 @@ test('AI 失敗仍填滿：候選 ≥ 24 時 AI 503 仍給 24 張並附原因', 
         expect(errors.filter(e => !/status of 503/.test(e))).toEqual([]);
     } finally { await context.close(); }
 });
+
+// ==================== validateWordRhyme：與候選篩選同一套規則 ====================
+// 各字位的 request 與 js/rhyme-display.js 建出的 currentRhymes 同形
+const REQ = {
+    心: { char: '心', zhuyin: 'ㄒㄧㄣ', initial: 'ㄒ', rhyme: 'ㄧㄣ', familyLabel: '' },
+    安: { char: '安', zhuyin: 'ㄢ', initial: 'ㄢ', rhyme: 'ㄢ', familyLabel: '' },
+    衣: { char: '衣', zhuyin: 'ㄧ', initial: 'ㄧ', rhyme: 'ㄧ', familyLabel: '' },
+    愛: { char: '愛', zhuyin: 'ㄞ', initial: 'ㄞ', rhyme: 'ㄞ', familyLabel: '' },
+    唐: { char: '唐', zhuyin: 'ㄊㄤ', initial: 'ㄊ', rhyme: 'ㄤ', familyLabel: '' },
+    月: { char: '月', zhuyin: 'ㄩㄝ', initial: 'ㄩ', rhyme: 'ㄩㄝ', familyLabel: '' },
+    行: { char: '行', zhuyin: 'ㄏㄤ', initial: 'ㄏ', rhyme: 'ㄤ', familyLabel: '' },
+    ㄅ: { char: 'ㄅ', zhuyin: 'ㄅ', initial: 'ㄅ', rhyme: '', familyLabel: 'ㄅ' },
+    萬用: { char: '*', isWild: true, zhuyin: '', initial: '', rhyme: '', familyLabel: '' },
+    查無: { char: '丂', notFound: true, zhuyin: '', initial: '', rhyme: '', familyLabel: '' },
+};
+
+// 設定一組狀態（每組都先把篩選與模式重設），回傳 (詞) => boolean
+function rhymeJudge(ev, reqs, { mode = 'rhyme', sameChar = false, sameTone = false, noExt = false, len = 0 } = {}) {
+    ev(`currentRhymes = ${JSON.stringify(reqs)}; rhymeMode = '${mode}'; filterSameChar = ${sameChar}; filterSameTone = ${sameTone}; filterNoExtRhyme = ${noExt}; filterWordLen = ${len}`);
+    return w => ev(`validateWordRhyme(${JSON.stringify(w)})`);
+}
+const verdicts = (judge, words) => Object.fromEntries(words.map(w => [w, judge(w)]));
+const allOf = (words, v) => Object.fromEntries(words.map(w => [w, v]));
+
+test('validateWordRhyme：心押字尾（開心、傷心對「心」通過，非韻腳與查無字不過）', () => {
+    const { ev } = loadCore();
+    const ok = ['開心', '傷心', '信心', '真心', '美音', '原因', '光陰', '列印', '人群'];
+    const bad = ['朋友', '天空', '開門', '開丂', '心'];
+    const judge = rhymeJudge(ev, [REQ.心]);
+    expect(verdicts(judge, [...ok, ...bad])).toEqual({ ...allOf(ok, true), ...allOf(bad, false) });
+});
+
+test('validateWordRhyme：心押字首（首字韻部相同，沿用候選篩選；OD-2）', () => {
+    const { ev } = loadCore();
+    const ok = ['音樂', '心情', '星期'];
+    const bad = ['小心', '鄉村'];
+    const judge = rhymeJudge(ev, [REQ.心], { mode: 'initial' });
+    expect(verdicts(judge, [...ok, ...bad])).toEqual({ ...allOf(ok, true), ...allOf(bad, false) });
+});
+
+test('validateWordRhyme：純聲母ㄅ押字尾看末字聲母、押字首看首字聲母', () => {
+    const { ev } = loadCore();
+    const tail = rhymeJudge(ev, [REQ.ㄅ]);
+    expect(verdicts(tail, ['爸爸', '天邊', '寶貝', '不要'])).toEqual({ 爸爸: true, 天邊: true, 寶貝: true, 不要: false });
+    const head = rhymeJudge(ev, [REQ.ㄅ], { mode: 'initial' });
+    expect(verdicts(head, ['爸爸', '不要', '寶貝', '天邊'])).toEqual({ 爸爸: true, 不要: true, 寶貝: true, 天邊: false });
+});
+
+test('validateWordRhyme：篩選鏡射（同字／同聲調／排除借韻／字數）', () => {
+    const { ev } = loadCore();
+    expect(verdicts(rhymeJudge(ev, [REQ.心], { sameChar: true }), ['開心', '美音'])).toEqual({ 開心: true, 美音: false });
+    expect(verdicts(rhymeJudge(ev, [REQ.心], { sameTone: true }), ['開心', '原因', '光陰', '列印', '手印']))
+        .toEqual({ 開心: true, 原因: true, 光陰: true, 列印: false, 手印: false });
+    expect(rhymeJudge(ev, [REQ.心])('人群'), '沒開排除借韻時人群通過').toBe(true);
+    expect(rhymeJudge(ev, [REQ.心], { noExt: true })('人群'), '排除借韻後人群不過').toBe(false);
+    expect(verdicts(rhymeJudge(ev, [REQ.心], { len: 3 }), ['開心', '好開心'])).toEqual({ 開心: false, 好開心: true });
+});
+
+test('validateWordRhyme：破音字任一讀音通過', () => {
+    const { ev } = loadCore();
+    const judge = rhymeJudge(ev, [REQ.唐]);
+    expect(verdicts(judge, ['銀行', '排行', '朋友'])).toEqual({ 銀行: true, 排行: true, 朋友: false });
+});
+
+test('validateWordRhyme：多字（押母音／押子音）、萬用字、查無字', () => {
+    const { ev } = loadCore();
+    expect(verdicts(rhymeJudge(ev, [REQ.愛, REQ.心]), ['開心', '買新', '朋友', '開心果']))
+        .toEqual({ 開心: true, 買新: true, 朋友: false, 開心果: false });
+    expect(verdicts(rhymeJudge(ev, [REQ.心, REQ.衣], { mode: 'initial' }), ['相依', '喜宴', '新衣', '小雨', '朋友']))
+        .toEqual({ 相依: true, 喜宴: true, 新衣: true, 小雨: false, 朋友: false });
+    expect(verdicts(rhymeJudge(ev, [REQ.萬用, REQ.心]), ['開心', '朋友'])).toEqual({ 開心: true, 朋友: false });
+    expect(verdicts(rhymeJudge(ev, [REQ.查無, REQ.心]), ['開心', '朋友'])).toEqual({ 開心: true, 朋友: false });
+});
+
+test('validateWordRhyme：沒有搜尋韻腳一律不過', () => {
+    const { ev } = loadCore();
+    expect(rhymeJudge(ev, [])('開心')).toBe(false);
+});
