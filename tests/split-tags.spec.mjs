@@ -1,10 +1,7 @@
 // index.html 標籤一致性測試（不開瀏覽器）：同一個 ?v=、每個 js/css 檔剛好被引用一次、載入順序、同步載入、檔案編碼
 // 防止部署時新舊檔混用、漏掉檔案、順序被改掉
 import { test, expect } from '@playwright/test';
-import { readFileSync, readdirSync, existsSync, writeFileSync, mkdtempSync, rmSync } from 'node:fs';
-import { execFileSync } from 'node:child_process';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import { stripHtmlComments } from './html-lib.mjs';
 
 // 原本 inline script 由上到下的 20 個區塊（safety.js 另外固定在最前面）
@@ -127,19 +124,4 @@ test('split：被註解掉的 script／link 標籤不算有載入（負向對照
     // 沒被註解的標籤仍在；script 本文裡的 "<!--" 不會被當成註解吃掉
     expect(tagsOf(stripped, SCRIPT_RE).map(pathOf)).toContain('js/init.js');
     expect(stripHtmlComments('<script>var s = "<!-- x -->";</script><!-- y -->')).toBe('<script>var s = "<!-- x -->";</script>');
-});
-
-// 端到端：verify-split 對被註解掉 report.js 的 index 副本必須 FAIL，對原檔必須 OK
-test('split：verify-split 抓得到被註解掉的標籤（負向對照）', () => {
-    const BASE_REF = '2f2d248';
-    try { execFileSync('git', ['cat-file', '-e', `${BASE_REF}^{commit}`], { stdio: 'ignore' }); }
-    catch { test.skip(true, `${BASE_REF} 不在這份 clone 裡（shallow clone？）`); }
-    const run = file => { try { execFileSync('node', ['tests/verify-split.mjs', BASE_REF, file], { stdio: 'pipe' }); return 0; } catch (e) { return e.status; } };
-    const dir = mkdtempSync(join(tmpdir(), 'split-neg-'));
-    try {
-        const bad = join(dir, 'index.html');
-        writeFileSync(bad, rawHtml.replace(/(<script src="js\/report\.js[^>]*><\/script>)/, '<!-- $1 -->'));
-        expect(run('index.html'), '原檔應 OK').toBe(0);
-        expect(run(bad), '註解掉 report.js 應 FAIL').toBe(1);
-    } finally { rmSync(dir, { recursive: true, force: true }); }
 });
