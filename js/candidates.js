@@ -298,6 +298,17 @@
             return true;
         }
 
+        // 造出的詞要每個字都在字典裡（擋掉 < > 引號 & 與非字典字），並用與候選相同的規則判定
+        // 選字模式（selectedChars 非空）鏡射 filterWordsBySelectedChars：固定字位的字 ∈ selectedChars 即可
+        function generatedWordOk(w) {
+            if (typeof w !== 'string') return false;
+            const cs = [...w];
+            if (cs.length < 2 || cs.length > 8) return false;
+            if (!cs.every(c => (charInfo[c] || []).length > 0)) return false;
+            if (selectedChars.size > 0) return selectedChars.has(rhymeMode === 'rhyme' ? cs[cs.length - 1] : cs[0]);
+            return validateWordRhyme(w);
+        }
+
         // 取得詞語的注音（或拼音）加聲調，供 hover tooltip 顯示
         // 統一格式化：根據目前顯示模式（lastSearchType）輸出含聲調的注音或拼音
         // baseZhuyin: 不含聲調的注音音節（例 ㄔㄤ），tone: 1-5

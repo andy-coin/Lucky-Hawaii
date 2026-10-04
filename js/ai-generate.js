@@ -32,40 +32,58 @@
 禁止重複以下詞語：${excludeStr}
 直接輸出詞語，頓號「、」分隔，不要說明或編號。`;
 
-            const tryList = aiTryList();
-
-            let aiWordsAdded = false, lastErr = null;
-            for (const m of tryList) {
-                try {
-                    statusDiv.textContent = `AI 生成補充詞…（${m.label}）`;
-                    const text = await callLLM(m, prompt);
-                    const raw = text.split(/[，,、\n\s]+/).map(w => w.trim()).filter(w => w.length >= 2 && w.length <= 8);
-                    const valid = raw.filter(w => !excludeSet.has(w) && !suggestedPool.has(w) && validateWordRhyme(w)).slice(0, remaining);
-                    statusDiv.remove();
-                    if (valid.length > 0) {
-                        valid.forEach(w => suggestedPool.add(w));
-                        const html = valid.map(w =>
-                            `<div class="ai-word-card" data-word="${w}" onclick="saveWord('${w.replace(/'/g, "\\'")}')">${w}<span class="ai-badge">AI</span></div>`
-                        ).join('');
-                        const report = container.querySelector('.candidate-report');
-                        if (report) report.insertAdjacentHTML('beforebegin', html);
-                        else container.insertAdjacentHTML('beforeend', html);
-                        aiWordsAdded = true;
-                    }
-                    break;
-                } catch (e) { lhWarn('AI 造詞模型失敗，換下一個', e); lastErr = e; }
-            }
-            if (statusDiv.isConnected) statusDiv.remove();
-            if (!aiWordsAdded) {
+            // 一次按鈕只問一次（D-05）；換模型由 Worker 負責，這裡只取一個
+            const m = aiTryList()[0];
+            const report = () => container.querySelector('.candidate-report');
+            const showMsg = text => {
                 const msg = document.createElement('div');
                 msg.className = 'candidate-report';
                 msg.style.fontStyle = 'italic';
-                // AI 根本沒答成（連線、額度、全部忙碌）時顯示原因；AI 有答但沒有詞通過驗證才是「想不到」
-                msg.textContent = lastErr ? (lastErr.plain ? lastErr.message : AI_FALLBACK_MSG) : '唉...ai也想不到更多符合的詞彙，你自己想吧...';
-                const report = container.querySelector('.candidate-report');
-                if (report) report.before(msg);
+                msg.textContent = text;
+                const r = report();
+                if (r) r.before(msg);
                 else container.appendChild(msg);
+            };
+            let text;
+            try {
+                statusDiv.textContent = `AI 生成補充詞…（${m.label}）`;
+                text = await callLLM(m, prompt);
+            } catch (e) {
+                lhWarn('AI 造詞失敗', e);
+                statusDiv.remove();
+                // AI 根本沒答成（連線、額度、全部忙碌）時顯示原因
+                showMsg(e.plain ? e.message : AI_FALLBACK_MSG);
+                return null;
             }
+            statusDiv.remove();
+
+            // 每個詞都要先過 generatedWordOk 才能進樣板；不合格的只記 log，不顯示（D-08）
+            const raw = parseAiWords(text);
+            const seen = new Set();
+            const kept = [];
+            for (const w of raw) {
+                if (seen.has(w)) continue;
+                seen.add(w);
+                if (excludeSet.has(w) || suggestedPool.has(w) || savedWords.includes(w)) continue;
+                if (!generatedWordOk(w)) continue;
+                kept.push(w);
+                if (kept.length >= remaining) break;
+            }
+            if (raw.length > kept.length) lhWarn(`AI 造詞：丟棄 ${raw.length - kept.length} 個不合格、重複或超出數量的詞`);
+
+            if (kept.length === 0) {
+                // AI 有答但沒有詞通過驗證才是「想不到」
+                showMsg('唉...ai也想不到更多符合的詞彙，你自己想吧...');
+                return 0;
+            }
+            kept.forEach(w => { suggestedPool.add(w); sentCandidatesSet.add(w); });
+            const html = kept.map(w =>
+                `<div class="ai-word-card" data-word="${w}" onclick="saveWord('${w.replace(/'/g, "\\'")}')">${w}<span class="ai-badge">AI</span></div>`
+            ).join('');
+            const r = report();
+            if (r) r.insertAdjacentHTML('beforebegin', html);
+            else container.insertAdjacentHTML('beforeend', html);
+            return kept.length;
         }
 
         async function generateAISuggestions() {
