@@ -1297,6 +1297,35 @@ test('鍵盤：差 149 不算、150 才算鍵盤', async ({ browser }) => {
     } finally { await context.close(); }
 });
 
+// WR-02：兩指放大（visualViewport.scale > 1）與電腦視窗拉矮，都不能被當成鍵盤
+test('鍵盤：放大中不算鍵盤', async ({ browser }) => {
+    const { context, page } = await bootPage(browser, { device: DEVICES.phone });
+    try {
+        await page.locator('#searchInput').tap();
+        // Chromium 的 pinch 無法在測試裡真的做：在 visualViewport 實例上把 scale 蓋成 1.5
+        await page.evaluate(() => Object.defineProperty(window.visualViewport, 'scale', { configurable: true, get: () => 1.5 }));
+        const size = await emulateKeyboard(page, 336);
+        const kb = await readKeyboard(page);
+        expect([kb.vvHeight, kb.open, kb.appH], '放大中視覺視窗變矮不算鍵盤').toEqual([844 - 336, false, '']);
+        // 放大回 1 倍後，同樣的高度才算鍵盤
+        await page.evaluate(() => { delete window.visualViewport.scale; });
+        await restoreViewport(page, size);
+        await emulateKeyboard(page, 336);
+        await expect.poll(async () => (await readKeyboard(page)).open, { message: '沒放大時照常算鍵盤' }).toBe(true);
+    } finally { await context.close(); }
+});
+
+test('鍵盤：電腦視窗被拉矮（滑鼠、≥ 901）不算鍵盤', async ({ browser }) => {
+    const { context, page } = await bootPage(browser, { device: DEVICES.desktop });
+    try {
+        await page.locator('#searchInput').focus();
+        expect(await page.evaluate(() => matchMedia('(pointer: coarse)').matches || lhIsSheetMode())).toBe(false);
+        await emulateKeyboard(page, 336);
+        const kb = await readKeyboard(page);
+        expect([kb.open, kb.short, kb.appH, kb.vvTop, kb.kbInset], '桌機搜尋框自動聚焦時拉矮視窗，不能寫 --app-h').toEqual([false, false, '', '', '']);
+    } finally { await context.close(); }
+});
+
 test('鍵盤：沒有聚焦輸入框時不算鍵盤', async ({ browser }) => {
     const { context, page } = await bootPage(browser, { device: DEVICES.phone });
     try {

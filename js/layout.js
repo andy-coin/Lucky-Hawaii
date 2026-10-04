@@ -58,7 +58,7 @@ function lhIsSheetMode() { return LH_MQ_SHEET.matches; }
 // ==================== 虛擬鍵盤（D-09）：打字的地方一定看得到 ====================
 // iOS Safari 跳出鍵盤時只縮「視覺視窗」（visualViewport），版面視窗不變，所以 100dvh 不會變矮；
 // Android Chrome 加了 interactive-widget=resizes-content 後版面視窗也會跟著縮。
-// 兩種都靠 visualViewport 的高度判斷：高度比「穩定高度」矮 150px 以上、而且正有文字欄位被聚焦，才算鍵盤。
+// 兩種都靠 visualViewport 的高度判斷：高度比「穩定高度」矮 150px 以上、正有文字欄位被聚焦、沒有被兩指放大、而且是手機／平板（sheet 模式或觸控）才算鍵盤。
 // （只有網址列伸縮不會矮到 150px，沒聚焦輸入框時更不算，所以不會誤判。）
 const LH_KB_THRESHOLD = 150;   // 矮多少以上才算鍵盤
 const LH_KB_SHORT_H = 600;     // 可見高度低於這個值，標題區先讓位給結果
@@ -96,7 +96,11 @@ function _lhKbUpdate() {
     } else if (window.innerHeight > lhStableH) {
         lhStableH = window.innerHeight;
     }
-    const open = _lhTextFieldFocused() && (lhStableH - vvH >= LH_KB_THRESHOLD);
+    // 兩指放大時 visualViewport 也會變矮（scale > 1），電腦視窗被拉矮也一樣——這兩種都不是鍵盤：
+    // 只在「沒放大」且「底部 sheet 模式或觸控裝置」時才認（WR-02）
+    const zoomed = vv ? vv.scale > 1.01 : false;
+    const touchish = lhIsSheetMode() || matchMedia('(pointer: coarse)').matches;
+    const open = !zoomed && touchish && _lhTextFieldFocused() && (lhStableH - vvH >= LH_KB_THRESHOLD);
     if (!open) {
         lhKbOpen = false;
         _lhKbClear(root);
