@@ -113,28 +113,7 @@ const LH_BANNER_TEXT = {
 };
 const _lhBannerShownAt = {};
 
-function _lhBannerStyle() {
-    if (document.getElementById('lhSafetyStyle')) return;
-    const style = document.createElement('style');
-    style.id = 'lhSafetyStyle';
-    // 自帶樣式，之後 CSS 搬家也不會壞；顏色全用既有變數，晝夜都看得清楚
-    style.textContent = [
-        '.lh-save-banner { position: fixed; top: 12px; left: 50%; transform: translateX(-50%);',
-        '  max-width: min(92vw, 560px); z-index: 10000; box-sizing: border-box;',
-        '  background: var(--card-bg); color: var(--text-primary); border: 1px solid var(--border);',
-        '  border-left: 4px solid #e53e3e; border-radius: 10px; padding: 12px 14px;',
-        '  box-shadow: 0 4px 16px var(--shadow); font-size: 0.9rem; line-height: 1.5; }',
-        '.lh-save-banner[hidden] { display: none; }',
-        '.lh-save-banner-actions { display: flex; gap: 8px; margin-top: 8px; justify-content: flex-end; }',
-        '.lh-save-banner button { font: inherit; cursor: pointer; padding: 4px 12px; border-radius: 6px;',
-        '  background: var(--card-bg); color: var(--text-primary); border: 1px solid var(--border); }',
-        '.lh-save-banner button:hover { border-color: #e53e3e; }'
-    ].join('\n');
-    document.head.appendChild(style);
-}
-
 function _lhBannerShow(text) {
-    _lhBannerStyle();
     let el = document.getElementById('lhSaveBanner');
     if (!el) {
         el = document.createElement('div');
@@ -160,7 +139,23 @@ function _lhBannerShow(text) {
         closeBtn.addEventListener('click', () => { el.hidden = true; });
         actions.append(exportBtn, closeBtn);
         el.append(msg, actions);
-        document.body.appendChild(el);
+        // 排在 .container 最上方、把內容往下推，不蓋住搜尋框與按鈕（D-05）；
+        // .container 還沒生出來就先固定顯示（自帶最小樣式），DOMContentLoaded 再搬進去
+        const container = document.querySelector('.container');
+        if (container) container.prepend(el);
+        else {
+            el.classList.add('lh-save-banner--fixed');
+            el.style.cssText = 'position:fixed;top:12px;left:12px;right:12px;z-index:10000;box-sizing:border-box;'
+                + 'background:var(--card-bg);color:var(--text-primary);border-left:4px solid #e53e3e;padding:12px 14px;';
+            document.body.appendChild(el);
+            document.addEventListener('DOMContentLoaded', () => {
+                const c = document.querySelector('.container');
+                if (!c) return;
+                el.classList.remove('lh-save-banner--fixed');
+                el.removeAttribute('style');
+                c.prepend(el);
+            }, { once: true });
+        }
     }
     el.querySelector('.lh-save-banner-text').textContent = text;
     el.hidden = false;

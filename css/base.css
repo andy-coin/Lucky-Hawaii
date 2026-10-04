@@ -93,6 +93,45 @@
             transition: background 0.3s ease, box-shadow 0.3s ease;
         }
         
+        /* 存檔失敗橫幅：排在 .container 最上方的正常流程裡，把內容往下推（js/safety.js） */
+        .lh-save-banner {
+            flex-shrink: 0;
+            box-sizing: border-box;
+            width: 100%;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: space-between;
+            gap: var(--sp-2);
+            padding: 0.75rem 1rem;
+            font-size: 0.875rem;
+            line-height: 1.5;
+            background: var(--card-bg);
+            color: var(--text-primary);
+            border-left: 4px solid #e53e3e;
+            border-bottom: 1px solid var(--border);
+            /* flex 子項不用 position 也吃 z-index：高於側邊面板(800)、低於手機底部面板的遮罩(840)，面板疊在主畫面上時按鈕仍點得到（05-05 讓面板推開主畫面後可拿掉） */
+            z-index: 820;
+        }
+        .lh-save-banner[hidden] { display: none; }
+        .lh-save-banner-actions { display: flex; gap: var(--sp-2); margin-left: auto; }
+        .lh-save-banner button {
+            font: inherit;
+            cursor: pointer;
+            padding: 0.25rem 0.75rem;
+            border-radius: 0.375rem;
+            background: var(--card-bg);
+            color: var(--text-primary);
+            border: 1px solid var(--border);
+            min-height: 2.25rem;
+        }
+        @media (max-width: 900px), (pointer: coarse) {
+            .lh-save-banner button { min-height: var(--hit); }
+        }
+        @media (hover: hover) and (pointer: fine) {
+            .lh-save-banner button:hover { border-color: #e53e3e; }
+        }
+
         @keyframes slideIn {
             from {
                 opacity: 0;

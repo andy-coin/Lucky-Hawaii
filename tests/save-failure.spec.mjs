@@ -3,6 +3,7 @@
 import { test, expect } from '@playwright/test';
 import { readFileSync } from 'node:fs';
 import { bootPage, settle } from './helpers.mjs';
+import { DEVICES, setScale, rectsOverlap, auditVisibleControls } from './layout-lib.mjs';
 
 const FIXTURE = JSON.parse(readFileSync(new URL('./fixtures/v096-localStorage.json', import.meta.url), 'utf8'));
 
@@ -104,6 +105,61 @@ test('localStorage: 使用者操作存檔失敗時不再出現程式錯誤', asy
         ta.dispatchEvent(new Event('input', { bubbles: true }));
     });
     await expect(page.locator(BANNER)).toContainText('存檔失敗');
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+// D-05：橫幅排在 .container 最上方的正常流程，把內容往下推，不蓋住任何按鈕
+for (const [name, device] of [['phone', DEVICES.phone], ['tablet', DEVICES.tablet], ['desktop', DEVICES.desktop]]) {
+    test(`localStorage: 橫幅排在主畫面最上方、不擋任何按鈕（${name}）`, async ({ browser }) => {
+        // 兩個側欄收合：桌機側欄展開時會疊在主畫面邊緣（05-05 改成推開主畫面，之後可拿掉這個覆寫並驗證展開狀態）
+        const storage = { ...FIXTURE, leftPanelCollapsed: 'true', rightPanelCollapsed: 'true' };
+        const { context, page, errors } = await bootPage(browser, { storage, init: injectQuota, device });
+        const touch = !!device.hasTouch;
+        for (const scale of [100, 150]) {
+            await setScale(page, scale);
+            // 清掉上一輪的橫幅與節流記錄，每個倍率都重新觸發一次
+            await page.evaluate(() => { document.getElementById('lhSaveBanner')?.remove(); delete _lhBannerShownAt.save; window.__failLS = true; lhSet('haiku_lyrics', '[]'); window.__failLS = false; });
+            const banner = page.locator(BANNER);
+            await expect(banner).toBeVisible();
+            const info = await page.evaluate(() => {
+                const el = document.getElementById('lhSaveBanner');
+                return { first: document.querySelector('.container').firstElementChild === el, pos: getComputedStyle(el).position };
+            });
+            expect(info, `${name}@${scale}`).toEqual({ first: true, pos: 'static' });
+            const bb = await banner.boundingBox();
+            const hits = (await auditVisibleControls(page, 'body'))
+                .filter(c => !c.name.includes('lh-save-banner') && rectsOverlap(bb, c));
+            expect(hits, `${name}@${scale} 橫幅蓋住的控制項`).toEqual([]);
+            if (touch) {
+                for (const sel of ['.lh-save-banner-export', '.lh-save-banner-close']) {
+                    expect((await page.locator(sel).boundingBox()).height, `${name}@${scale} ${sel}`).toBeGreaterThanOrEqual(44);
+                }
+            }
+        }
+        expect(errors).toEqual([]);
+        await context.close();
+    });
+}
+
+test('localStorage: 太早失敗時先固定顯示，載入後移進主畫面', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, {
+        storage: FIXTURE,
+        init: injectQuota,
+        // 在 <body> 開頭、.container 還沒生出來時就讓一次寫入失敗
+        beforeGoto: ({ page }) => page.route('**/index.html', async route => {
+            const res = await route.fetch();
+            const html = (await res.text()).replace('<body>', '<body><script>window.__failLS = true; lhSet("haiku_lyrics", "[]"); window.__failLS = false; window.__earlyBanner = (function () { const e = document.getElementById("lhSaveBanner"); return !!e && e.parentNode === document.body && e.classList.contains("lh-save-banner--fixed") && getComputedStyle(e).position === "fixed"; })();</script>');
+            await route.fulfill({ response: res, body: html });
+        }),
+    });
+    expect(await page.evaluate(() => window.__earlyBanner)).toBe(true);
+    const end = await page.evaluate(() => {
+        const el = document.getElementById('lhSaveBanner');
+        return { first: document.querySelector('.container').firstElementChild === el, fixed: el.classList.contains('lh-save-banner--fixed'), style: el.style.cssText };
+    });
+    expect(end).toEqual({ first: true, fixed: false, style: '' });
+    await expect(page.locator(BANNER)).toBeVisible();
     expect(errors).toEqual([]);
     await context.close();
 });
