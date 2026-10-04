@@ -35,13 +35,16 @@ const findPycache = (dir) => {
 };
 
 test('詞庫工具：Python 單元測試全過（離線、不需金鑰）', () => {
-    const r = py(['-m', 'unittest', 'discover', '-s', 'tools/lexicon/tests', '-t', 'tools/lexicon']);
+    const r = py(['-m', 'unittest', 'discover', '-s', 'tools/lexicon/tests', '-t', 'tools/lexicon', '-v']);
     const out = `${r.stdout}\n${r.stderr}`;
     expect(r.status, out).toBe(0);
     const ran = /Ran (\d+) tests?/.exec(r.stderr);
     expect(ran, out).not.toBeNull();
     expect(Number(ran[1]), out).toBeGreaterThanOrEqual(20);
     expect(r.stderr, out).toMatch(/\nOK/);
+    // 範例詞表（可理解性標準）一定要跟著跑，不能被悄悄略過
+    expect(r.stderr, out).toContain('test_samples');
+    expect(r.stderr, out).toContain('test_every_sample_gets_the_expected_outcome_and_rule');
     expect(findPycache('tools'), '工具不可留下 __pycache__').toEqual([]);
 });
 
