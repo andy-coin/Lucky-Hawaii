@@ -118,3 +118,50 @@ export async function settle(page) {
         return !s || s === 'idle' || s === 'done';
     });
 }
+
+// ===== Phase 6 詞庫包測試工具 =====
+// 詞庫包清單換成測試用的 JSON（manifest 形狀同 data/packs/index.json）
+export async function stubManifest(context, manifest) {
+    await context.route(/\/data\/packs\/index\.json(\?.*)?$/, route => route.fulfill({
+        status: 200, contentType: 'application/json', body: JSON.stringify(manifest),
+    }));
+}
+
+// 組一筆清單項目：路徑都在 data/packs/<id>/ 底下，跟 stubPack 對得起來
+export function packEntry(id, name, extra = {}) {
+    return {
+        id, name,
+        description: extra.description ?? (name + '的說明'),
+        entries: extra.entries ?? 0,
+        meta: `data/packs/${id}/meta.json`,
+        chunkPattern: `data/packs/${id}/c{NN}.json`,
+        notice: `data/packs/${id}/NOTICE.txt`,
+        ...Object.fromEntries(Object.entries(extra).filter(([k]) => !['description', 'entries'].includes(k))),
+    };
+}
+
+// 一包的假檔案。state = { version, chunks: [ndjson 字串…], fail: null|分段編號, notice, gate: null|Promise, requests: [] }
+// state 在「請求到的當下」才讀，測試可以隨時改版本、讓某段失敗、用 gate 把分段請求卡住（放行就 resolve 它）
+export async function stubPack(context, id, state) {
+    state.requests ??= [];
+    const base = `/data/packs/${id}/`;
+    await context.route(new RegExp(`/data/packs/${id}/meta\\.json(\\?.*)?$`), route => route.fulfill({
+        status: 200, contentType: 'application/json',
+        body: JSON.stringify({
+            id, version: state.version, chunks: state.chunks.length,
+            entries: state.chunks.reduce((n, c) => n + c.split('\n').filter(Boolean).length, 0),
+        }),
+    }));
+    await context.route(new RegExp(`/data/packs/${id}/c(\\d\\d)\\.json(\\?.*)?$`), async route => {
+        const url = route.request().url();
+        state.requests.push(url);
+        const i = Number(new RegExp(`/c(\\d\\d)\\.json`).exec(new URL(url).pathname)[1]);
+        if (state.gate) await state.gate;
+        if (state.fail === i) return route.fulfill({ status: 500, body: 'x' });
+        return route.fulfill({ status: 200, contentType: 'application/json', body: state.chunks[i] ?? '' });
+    });
+    await context.route(new RegExp(`/data/packs/${id}/NOTICE\\.txt(\\?.*)?$`), route => route.fulfill({
+        status: 200, contentType: 'text/plain; charset=utf-8', body: state.notice ?? 'NOTICE ' + id,
+    }));
+    return base;
+}
