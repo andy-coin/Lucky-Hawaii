@@ -3,7 +3,7 @@
             --bg-gradient-2: #001e3b;
             --container-bg: #eee3ce;
             --text-primary: #2d3748;
-            --text-secondary: #6b778a;
+            --text-secondary: #5a6577;
             --border: #e2e8f0;
             --card-bg: #f7fafc;
             --highlight-border: #ed8936;
@@ -47,7 +47,6 @@
         [data-theme="dark"] {
             --bg-gradient-1: #1a202c;
             --bg-gradient-2: #2d3748;
-            --container-bg: #d5d5d5;
             --container-bg: #ffffff;
             --text-primary: #f98628;
             --text-secondary: #a0aec0;
@@ -64,6 +63,13 @@
             margin: 0;
             padding: 0;
             box-sizing: border-box;
+        }
+
+        /* 鍵盤焦點框（D-19）：只在用鍵盤 Tab 到時出現，顏色跟著客製的強調色；
+           輸入框自己有 outline: none 加焦點邊框，排在這條之後所以不受影響 */
+        :focus-visible {
+            outline: 2px solid var(--highlight-border);
+            outline-offset: 2px;
         }
 
         body {
@@ -181,13 +187,17 @@
             cursor: pointer;
             transition: all 0.2s;
         }
-        .save-load-btn:hover { background: rgba(255,255,255,0.32); }
+        @media (hover: hover) and (pointer: fine) {
+            .save-load-btn:hover { background: rgba(255,255,255,0.32); }
+        }
         .settings-saveload .save-load-btn {
             background: var(--container-bg);
             color: var(--text-primary);
             border: 1px solid var(--border);
         }
-        .settings-saveload .save-load-btn:hover { background: var(--border); }
+        @media (hover: hover) and (pointer: fine) {
+            .settings-saveload .save-load-btn:hover { background: var(--border); }
+        }
         
         /* 顏色自定義面板：已整合到偏好設定 modal，header 上不再顯示 */
         .color-panel {
@@ -261,8 +271,10 @@
             cursor: pointer;
         }
         .zoom-reset { white-space: nowrap; }
-        .m-zoomIn-button:hover, .m-zoomOut-button:hover, .zoom-reset:hover {
-            background: rgba(255, 255, 255, 0.35);
+        @media (hover: hover) and (pointer: fine) {
+            .m-zoomIn-button:hover, .m-zoomOut-button:hover, .zoom-reset:hover {
+                background: rgba(255, 255, 255, 0.35);
+            }
         }
 
         /* ≤ 900 或觸控：實體 44px 下限，縮到 50% 也一樣點得到（不跟著縮放變小） */
@@ -284,8 +296,10 @@
             .header-toolbar > * { pointer-events: auto; }
         }
 
-        .theme-toggle:hover {
-            background: rgba(255, 255, 255, 0.3);
+        @media (hover: hover) and (pointer: fine) {
+            .theme-toggle:hover {
+                background: rgba(255, 255, 255, 0.3);
+            }
         }
 
         .search-section {
@@ -319,7 +333,9 @@
             white-space: nowrap;
             user-select: none;
         }
-        .input-mode-btn:hover { border-color: #667eea; color: #667eea; }
+        @media (hover: hover) and (pointer: fine) {
+            .input-mode-btn:hover { border-color: #667eea; color: #667eea; }
+        }
         .input-mode-btn.mode-zhuyin { background: #667eea; border-color: #667eea; color: white; }
         .input-mode-btn.mode-pinyin { background: #764ba2; border-color: #764ba2; color: white; }
 
@@ -371,7 +387,9 @@
             transition: border-color 0.15s, background 0.15s, color 0.15s;
             -webkit-tap-highlight-color: transparent;
         }
-        .poly-chip:hover { background: rgba(102, 126, 234, 0.18); border-color: #667eea; }
+        @media (hover: hover) and (pointer: fine) {
+            .poly-chip:hover { background: rgba(102, 126, 234, 0.18); border-color: #667eea; }
+        }
         .poly-chip.active { background: #667eea; border-color: #667eea; color: #fff; }
         .poly-chip.rare { opacity: 0.62; border-style: dashed; }
         .poly-chip.rare.active { opacity: 1; }
@@ -428,10 +446,12 @@
             cursor:pointer;
         }
         
-        .reset-color:hover{
-            background: #ff3d3d;
-            border-color:  #000000;
-            color: rgb(255, 255, 255);
+        @media (hover: hover) and (pointer: fine) {
+            .reset-color:hover{
+                background: #ff3d3d;
+                border-color:  #000000;
+                color: rgb(255, 255, 255);
+            }
         }
         
         .mode-button.active::before{
@@ -460,8 +480,10 @@
             color: rgb(255, 255, 255);
         }
         
-        .mode-button:hover:not(.active) {
-            background: var(--border);
+        @media (hover: hover) and (pointer: fine) {
+            .mode-button:hover:not(.active) {
+                background: var(--border);
+            }
         }
         
         /* 偏好設定面板 */
@@ -481,8 +503,10 @@
             user-select: none;
         }
 
-        .settings-trigger:hover {
-            background: var(--border);
+        @media (hover: hover) and (pointer: fine) {
+            .settings-trigger:hover {
+                background: var(--border);
+            }
         }
 
         .gear-icon::before {
@@ -552,7 +576,9 @@
             color: var(--text-primary);
             border: 1px solid var(--border);
         }
-        .settings-feedback-btn.save-load-btn:hover { background: var(--border); }
+        @media (hover: hover) and (pointer: fine) {
+            .settings-feedback-btn.save-load-btn:hover { background: var(--border); }
+        }
         /* 重設顏色（破壞性）與前後按鈕至少隔 1rem */
         .reset-color { margin-top: var(--sp-4); }
         .reset-color + .reset-color { margin-top: var(--sp-4); }
@@ -650,7 +676,7 @@
             border-radius: 0.5rem;
             padding: 0.75rem;
             text-align: center;
-            transition: all 0.2s ease;
+            transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
             cursor: pointer;
             user-select: none;
             -webkit-user-select: none;
@@ -660,10 +686,12 @@
             touch-action: manipulation;
         }
         
-        .char-card:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px var(--shadow);
-            border-color: #667eea;
+        @media (hover: hover) and (pointer: fine) {
+            .char-card:hover {
+                transform: translateY(-2px);
+                box-shadow: 0 4px 12px var(--shadow);
+                border-color: #667eea;
+            }
         }
         
         .char-card.selected {
@@ -718,9 +746,11 @@
             line-height: 0.875rem;
         }
 
-        .mark-badge:hover {
-            transform: scale(1.1);
-            filter: brightness(1.1);
+        @media (hover: hover) and (pointer: fine) {
+            .mark-badge:hover {
+                transform: scale(1.1);
+                filter: brightness(1.1);
+            }
         }
         
         .mark-badge.common {
@@ -781,10 +811,12 @@
             border-bottom: 1px solid var(--border);
         }
 
-        .recent-panel-header:hover {
-            background: var(--container-bg);
-            border-top-left-radius: 1.875rem;
-            border-top-right-radius: 1.875rem;
+        @media (hover: hover) and (pointer: fine) {
+            .recent-panel-header:hover {
+                background: var(--container-bg);
+                border-top-left-radius: 1.875rem;
+                border-top-right-radius: 1.875rem;
+            }
         }
 
         .recent-panel-title {
@@ -830,10 +862,12 @@
             color: var(--custom-text-color) !important;
         }
 
-        .recent-char:hover {
-            background: #667eea;
-            color: white;
-            transform: scale(1.05);
+        @media (hover: hover) and (pointer: fine) {
+            .recent-char:hover {
+                background: #667eea;
+                color: white;
+                transform: scale(1.05);
+            }
         }
 
 

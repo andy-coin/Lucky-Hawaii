@@ -133,9 +133,11 @@
             box-shadow: 0 2px 8px var(--shadow);
         }
 
-        .batch-btn:hover {
-            transform: scale(1.05);
-            border-color: #667eea;
+        @media (hover: hover) and (pointer: fine) {
+            .batch-btn:hover {
+                transform: scale(1.05);
+                border-color: #667eea;
+            }
         }
 
         .batch-btn .batch-icon {
@@ -213,10 +215,12 @@
             transition: all 0.2s ease;
         }
 
-        .about-btn:hover {
-            border-color: #667eea;
-            color: #667eea;
-            background: rgba(102, 126, 234, 0.1);
+        @media (hover: hover) and (pointer: fine) {
+            .about-btn:hover {
+                border-color: #667eea;
+                color: #667eea;
+                background: rgba(102, 126, 234, 0.1);
+            }
         }
 
         .about-btn-mobile { display: none; }
@@ -240,7 +244,9 @@
             font-family: 'Noto Sans TC', sans-serif;
             transition: all 0.2s ease;
         }
-        .feedback-btn:hover { border-color: #667eea; color: #667eea; }
+        @media (hover: hover) and (pointer: fine) {
+            .feedback-btn:hover { border-color: #667eea; color: #667eea; }
+        }
 
         .candidate-report {
             width: 100%;
@@ -284,7 +290,9 @@
             line-height: 1;
             opacity: 0.7;
         }
-        .selected-chars-hint .hint-clear:hover { opacity: 1; }
+        @media (hover: hover) and (pointer: fine) {
+            .selected-chars-hint .hint-clear:hover { opacity: 1; }
+        }
 
         .about-overlay {
             display: none;
@@ -344,7 +352,9 @@
             line-height: 1;
             padding: 0;
         }
-        .hashtag-add-btn:hover { background: #c97422; }
+        @media (hover: hover) and (pointer: fine) {
+            .hashtag-add-btn:hover { background: #c97422; }
+        }
 
         /* 情境 textarea 填滿剩餘空間 */
         .context-textarea { flex: 1; min-height: 3.75rem; }
@@ -407,9 +417,13 @@
             transition: all 0.2s;
         }
         .hashtag-popup-cancel { background: var(--container-bg); color: var(--text-secondary); }
-        .hashtag-popup-cancel:hover { background: var(--border); }
+        @media (hover: hover) and (pointer: fine) {
+            .hashtag-popup-cancel:hover { background: var(--border); }
+        }
         .hashtag-popup-confirm { background: var(--highlight-border); color: white; border-color: transparent; }
-        .hashtag-popup-confirm:hover { background: #c97422; }
+        @media (hover: hover) and (pointer: fine) {
+            .hashtag-popup-confirm:hover { background: #c97422; }
+        }
 
         @media (max-width: 440px) {
 
@@ -492,9 +506,11 @@
                 padding: 0.25rem 0.625rem;
                 font-size: 0.8rem;
             }
-            .m-batch-btn:hover {
-                transform: scale(1.05);
-                border-color: #667eea;
+            @media (hover: hover) and (pointer: fine) {
+                .m-batch-btn:hover {
+                    transform: scale(1.05);
+                    border-color: #667eea;
+                }
             }
             .m-batch-btn .batch-icon {
                 font-size: 1rem;
@@ -713,4 +729,11 @@
                 padding: 0;
             }
             .hashtag-popup-input, .feedback-modal input, .search-input { min-height: max(3rem, var(--hit)); }
+        }
+
+        /* 系統要求減少動態（D-19）：進場、淡入、面板滑動、算圖提示都不播；放在最後一個樣式檔的最後，蓋過前面的動畫與過渡 */
+        @media (prefers-reduced-motion: reduce) {
+            .container, .results-grid { animation: none; }
+            .side-panel, .mobile-backdrop { transition-duration: 0.01ms !important; }
+            .render-status { animation: none; }
         }

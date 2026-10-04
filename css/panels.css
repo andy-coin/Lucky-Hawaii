@@ -69,9 +69,11 @@
             border-left: 3px solid var(--border);
             border-radius: 0.75rem 0 0 0.75rem;
         }
-        .side-panel-tab:hover {
-            background: var(--border);
-            color: var(--text-primary);
+        @media (hover: hover) and (pointer: fine) {
+            .side-panel-tab:hover {
+                background: var(--border);
+                color: var(--text-primary);
+            }
         }
 
         .side-panel-body {
@@ -135,7 +137,9 @@
             border-radius: 0.375rem;
             transition: background 0.15s;
         }
-        .context-section-header:hover { background: var(--border); }
+        @media (hover: hover) and (pointer: fine) {
+            .context-section-header:hover { background: var(--border); }
+        }
         .context-chevron {
             margin-left: auto;
             font-size: 0.75rem;
@@ -209,7 +213,9 @@
             transition: background 0.2s;
             flex-shrink: 0;
         }
-        .panel-add-btn:hover { background: #c97422; }
+        @media (hover: hover) and (pointer: fine) {
+            .panel-add-btn:hover { background: #c97422; }
+        }
 
         .word-chips {
             display: flex;
@@ -231,9 +237,11 @@
             cursor: pointer;
             transition: all 0.2s;
         }
-        .word-chip:hover {
-            border-color: #667eea;
-            background: rgba(102,126,234,0.08);
+        @media (hover: hover) and (pointer: fine) {
+            .word-chip:hover {
+                border-color: #667eea;
+                background: rgba(102,126,234,0.08);
+            }
         }
         .chip-remove {
             color: var(--text-secondary);
@@ -242,7 +250,9 @@
             line-height: 1;
             padding: 0.0625rem 0.125rem;
         }
-        .chip-remove:hover { color: #e53e3e; }
+        @media (hover: hover) and (pointer: fine) {
+            .chip-remove:hover { color: #e53e3e; }
+        }
 
         /* AI 建議面板 */
         .ai-rhyme-display {
@@ -278,7 +288,9 @@
             font-family: 'Noto Sans TC', sans-serif;
             line-height: 1.4;
         }
-        .report-char-btn:hover { border-color: #667eea; color: #667eea; }
+        @media (hover: hover) and (pointer: fine) {
+            .report-char-btn:hover { border-color: #667eea; color: #667eea; }
+        }
         .model-select {
             font-size: 0.75rem;
             padding: 0.125rem 0.25rem;
@@ -290,7 +302,9 @@
             max-width: 10rem;
             cursor: pointer;
         }
-        .model-select:hover { border-color: #667eea; }
+        @media (hover: hover) and (pointer: fine) {
+            .model-select:hover { border-color: #667eea; }
+        }
 
         .generate-btn {
             width: 100%;
@@ -306,7 +320,9 @@
             transition: opacity 0.2s;
             flex-shrink: 0;
         }
-        .generate-btn:hover:not(:disabled) { opacity: 0.85; }
+        @media (hover: hover) and (pointer: fine) {
+            .generate-btn:hover:not(:disabled) { opacity: 0.85; }
+        }
         .generate-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
         .ai-loading {
@@ -333,10 +349,12 @@
             -webkit-tap-highlight-color: transparent;
             touch-action: manipulation;
         }
-        .ai-word-card:hover {
-            border-color: #8d51c9;
-            background: rgba(141,81,201,0.08);
-            transform: translateY(-1px);
+        @media (hover: hover) and (pointer: fine) {
+            .ai-word-card:hover {
+                border-color: #8d51c9;
+                background: rgba(141,81,201,0.08);
+                transform: translateY(-1px);
+            }
         }
         .ai-word-card.wt-hot  { background: rgba(210,45,40,0.11); border-color: rgba(210,45,40,0.4); }
         .ai-word-card.wt-warm { background: rgba(225,115,15,0.11); border-color: rgba(225,115,15,0.4); }
@@ -418,7 +436,9 @@
             cursor: pointer;
             transition: background 0.15s;
         }
-        .word-ctx-item:hover { background: rgba(141,81,201,0.08); }
+        @media (hover: hover) and (pointer: fine) {
+            .word-ctx-item:hover { background: rgba(141,81,201,0.08); }
+        }
         .word-ctx-divider { height: 0.0625rem; background: var(--border); margin: 0.1875rem 0; }
 
         .feedback-modal-overlay {
@@ -469,9 +489,13 @@
             transition: all 0.2s;
         }
         .feedback-send-btn { background: #667eea; color: #fff; border-color: #667eea; }
-        .feedback-send-btn:hover { background: #5a67d8; }
+        @media (hover: hover) and (pointer: fine) {
+            .feedback-send-btn:hover { background: #5a67d8; }
+        }
         .feedback-cancel-btn { background: none; color: var(--text-secondary); }
-        .feedback-cancel-btn:hover { border-color: #667eea; color: #667eea; }
+        @media (hover: hover) and (pointer: fine) {
+            .feedback-cancel-btn:hover { border-color: #667eea; color: #667eea; }
+        }
         .ai-exhausted {
             text-align: center;
             padding: 1.375rem 0.625rem 0.875rem;
@@ -490,7 +514,9 @@
             font-size: 0.82rem;
             transition: all 0.2s;
         }
-        .reset-pool-btn:hover { background: rgba(141,81,201,0.1); color: var(--text-primary); border-color: #8d51c9; }
+        @media (hover: hover) and (pointer: fine) {
+            .reset-pool-btn:hover { background: rgba(141,81,201,0.1); color: var(--text-primary); border-color: #8d51c9; }
+        }
         .ai-filter-row {
             display: none;
             flex-wrap: wrap;
@@ -508,7 +534,9 @@
             transition: all 0.18s;
         }
         .filter-chip.active { background: rgba(141,81,201,0.15); border-color: #8d51c9; color: var(--text-primary); }
-        .filter-chip:hover { border-color: #8d51c9; color: var(--text-primary); }
+        @media (hover: hover) and (pointer: fine) {
+            .filter-chip:hover { border-color: #8d51c9; color: var(--text-primary); }
+        }
 
         /* 複製提示 toast */
         .copy-toast {
@@ -540,7 +568,9 @@
             transition: all 0.2s;
             flex-shrink: 0;
         }
-        .context-refresh-btn:hover { color: #8d51c9; border-color: #8d51c9; }
+        @media (hover: hover) and (pointer: fine) {
+            .context-refresh-btn:hover { color: #8d51c9; border-color: #8d51c9; }
+        }
         .context-refresh-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
         /* 主編輯區（無標籤大格，佔 2/3 空間）*/
@@ -648,7 +678,9 @@
             cursor: pointer;
             user-select: none;
         }
-        .lyrics-section-header:hover { background: var(--border); }
+        @media (hover: hover) and (pointer: fine) {
+            .lyrics-section-header:hover { background: var(--border); }
+        }
         .section-chevron {
             font-size: 0.75rem;
             color: var(--text-secondary);
@@ -693,7 +725,9 @@
             transition: opacity 0.15s, color 0.15s;
             flex-shrink: 0;
         }
-        .section-remove:hover { opacity: 1; color: #fc8181; }
+        @media (hover: hover) and (pointer: fine) {
+            .section-remove:hover { opacity: 1; color: #fc8181; }
+        }
         .section-textarea {
             width: 100%;
             padding: 0.625rem 0.75rem;
@@ -715,10 +749,12 @@
             gap: 0.375rem;
             align-content: flex-start;
         }
-        .ai-word-card:hover::after {
-            content: ' +';
-            font-size: 0.75rem;
-            opacity: 0.6;
+        @media (hover: hover) and (pointer: fine) {
+            .ai-word-card:hover::after {
+                content: ' +';
+                font-size: 0.75rem;
+                opacity: 0.6;
+            }
         }
 
         /* 保留池 */
@@ -746,7 +782,9 @@
             transition: background 0.15s;
             flex-shrink: 0;
         }
-        .saved-pool-title:hover { background: var(--border); color: var(--text-primary); }
+        @media (hover: hover) and (pointer: fine) {
+            .saved-pool-title:hover { background: var(--border); color: var(--text-primary); }
+        }
         .saved-pool-chevron {
             font-size: 0.75rem;
             opacity: 0.6;
