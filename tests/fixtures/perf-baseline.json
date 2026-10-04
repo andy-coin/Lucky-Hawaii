@@ -1,0 +1,27 @@
+{
+  "recordedAt": "2026-10-04T13:16:22.795Z",
+  "commit": "f0abf9634dfb46ab8dd9f9041532374534ff2831",
+  "cpu": "Intel(R) Xeon(R) Processor @ 2.10GHz",
+  "cases": {
+    "bpm-off@4": {
+      "maxLongTask": 1936,
+      "tbt": 2027,
+      "firstCardMs": 190.3
+    },
+    "bpm-off@6": {
+      "maxLongTask": 2889,
+      "tbt": 3059,
+      "firstCardMs": 270.4
+    },
+    "golden-max@4": {
+      "maxLongTask": 802,
+      "tbt": 808,
+      "firstCardMs": 111.9
+    },
+    "golden-max@6": {
+      "maxLongTask": 1232,
+      "tbt": 1315,
+      "firstCardMs": 187.7
+    }
+  }
+}

@@ -3,6 +3,8 @@
   "private": true,
   "scripts": {
     "test": "playwright test",
+    "perf": "LH_PERF=1 playwright test tests/perf.spec.mjs --workers=1",
+    "perf:record": "LH_PERF=record playwright test tests/perf.spec.mjs --workers=1",
     "golden:update": "UPDATE_GOLDEN=1 playwright test tests/golden.spec.mjs",
     "worker:dev": "wrangler dev --config worker/wrangler.toml --var ALLOW_LOCAL_ORIGIN:1",
     "worker:check": "wrangler deploy --dry-run --outdir worker/.wrangler/dryrun --config worker/wrangler.toml",
