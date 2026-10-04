@@ -5,32 +5,7 @@
             statusDiv.textContent = 'AI 生成補充詞…';
             container.appendChild(statusDiv);
 
-            const r0 = currentRhymes[0];
-            let rhymeDesc, lenDesc;
-            if (currentRhymes.length === 1) {
-                lenDesc = '2～4字';
-                if (filterSameChar) {
-                    // 同字 filter：固定字位為搜尋字本身
-                    const pos = rhymeMode === 'rhyme' ? '字尾' : '字首';
-                    rhymeDesc = `請以「${r0.char || ''}」這個字為${pos}發想造詞（${pos}必須剛好是「${r0.char || ''}」這一個字）`;
-                } else if (rhymeMode === 'rhyme') {
-                    rhymeDesc = `末字押「${r0.char || ''}」的韻腳（韻部：${r0.familyLabel || ''}，韻母：${r0.rhyme || r0.zhuyin}）`;
-                } else {
-                    rhymeDesc = `首字聲母為「${r0.initial}」`;
-                }
-            } else {
-                lenDesc = `${currentRhymes.length}字`;
-                rhymeDesc = currentRhymes.map((r, i) =>
-                    `第${i+1}字${rhymeMode === 'rhyme' ? '韻母' : '聲母'}：${rhymeMode === 'rhyme' ? (r.rhyme || r.zhuyin) : r.initial}`
-                ).join('、');
-            }
-
-            const excludeStr = [...excludeSet].slice(0, 40).join('、') || '（無）';
-            const prompt = `你是歌詞創作助手。請直接生成${remaining + 4}個押韻的中文詞語（多給幾個備篩選）：
-字數：${lenDesc}
-韻腳要求：${rhymeDesc}
-禁止重複以下詞語：${excludeStr}
-直接輸出詞語，頓號「、」分隔，不要說明或編號。`;
+            const prompt = buildGenPrompt(remaining, excludeSet);
 
             // 一次按鈕只問一次（D-05）；換模型由 Worker 負責，這裡只取一個
             const m = aiTryList()[0];

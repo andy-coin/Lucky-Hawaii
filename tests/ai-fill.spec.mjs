@@ -292,6 +292,7 @@ test('造詞一輪：候選不足只造一次、不合格丟掉、不足不追�
     try {
         expect(r.prompts.length, '之後沒有第二次 /ai').toBe(1);
         expect(r.prompts[0]).toContain('直接生成');
+        for (const t of ['末字押「心」的韻腳', '生成28個', '只用台灣日常會用的繁體中文詞語']) expect(r.prompts[0]).toContain(t);
         expect(r.aiCards).toEqual(['開心', '傷心', '真心']);
         expect(r.total).toBe(15);
         expect(await r.page.locator('#aiWordsContainer i').count(), '沒有被注入的元素').toBe(0);
@@ -320,4 +321,45 @@ test('造詞一輪：候選不足只造一次、不合格丟掉、不足不追�
         expect(r.text).toContain('唉...ai也想不到更多符合的詞彙，你自己想吧...');
         expect(r.errors).toEqual([]);
     } finally { await r.context.close(); }
+});
+
+// ==================== buildGenPrompt：提示與判定說同一件事 ====================
+test('buildGenPrompt：押字首看韻部、純聲母、字數、同聲調、選字、多字', () => {
+    const { ctx, ev } = loadCore();
+    const reset = () => ev('selectedChars.clear()');
+    const prompt = (reqs, opts, remaining = 12, exclude = []) => {
+        reset();
+        rhymeJudge(ev, reqs, opts);
+        ctx.__ex = new Set(exclude);
+        return ev(`buildGenPrompt(${remaining}, __ex)`);
+    };
+    const has = (p, ...ts) => ts.forEach(t => expect(p, t).toContain(t));
+    const hasNot = (p, ...ts) => ts.forEach(t => expect(p, t).not.toContain(t));
+
+    has(prompt([REQ.心]), '直接生成', '生成28個', '字數：2～4字', '末字押「心」的韻腳', '韻母：ㄧㄣ', '禁止重複以下詞語：（無）', '只用台灣日常會用的繁體中文詞語');
+    has(prompt([REQ.心], {}, 24), '生成40個');
+    has(prompt([REQ.心], { mode: 'initial' }), '首字押「心」的韻腳');
+    hasNot(prompt([REQ.心], { mode: 'initial' }), '聲母為「ㄒ」');
+    has(prompt([REQ.ㄅ]), '末字聲母為「ㄅ」');
+    has(prompt([REQ.ㄅ], { mode: 'initial' }), '首字聲母為「ㄅ」');
+    has(prompt([REQ.心], { len: 3 }), '字數：3字');
+    has(prompt([REQ.心], { len: 4 }), '字數：4字以上');
+    has(prompt([REQ.心], { sameTone: true }), '聲調與「心」相同');
+    has(prompt([REQ.心], { noExt: true }), '韻母需完全相同');
+    has(prompt([REQ.心], { sameChar: true }), '字尾必須剛好是「心」');
+    // 選字模式
+    reset();
+    rhymeJudge(ev, [REQ.心]);
+    ev('selectedChars.add("心"); selectedChars.add("音")');
+    ctx.__ex = new Set();
+    has(ev('buildGenPrompt(12, __ex)'), '字尾必須是這些字之一：心、音', '字數：2～4字');
+    reset();
+    // 多字
+    has(prompt([REQ.愛, REQ.心]), '字數：2字', '第1字韻母：ㄞ', '第2字韻母：ㄧㄣ');
+    has(prompt([REQ.萬用, REQ.心]), '第1字不限', '第2字韻母：ㄧㄣ');
+    has(prompt([REQ.心, REQ.衣], { mode: 'initial' }), '第1字聲母：ㄒ', '第2字聲母：ㄧ');
+    // 排除清單最多 40 個
+    const fifty = Array.from({ length: 50 }, (_, i) => `詞${i}`);
+    const line = prompt([REQ.心], {}, 12, fifty).split('\n').find(l => l.startsWith('禁止重複'));
+    expect(line.split('：')[1].split('、')).toEqual(fifty.slice(0, 40));
 });

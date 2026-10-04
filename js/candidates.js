@@ -309,6 +309,51 @@
             return validateWordRhyme(w);
         }
 
+        // 造詞提示：要求的內容必須和 validateWordRhyme／generatedWordOk 的判定一致，一輪才夠用
+        // 讀全域（currentRhymes、rhymeMode、篩選旗標、selectedChars），其餘由參數帶入
+        function buildGenPrompt(remaining, excludeSet) {
+            const n = Math.min(remaining * 2 + 4, 40);
+            const isTail = rhymeMode === 'rhyme';
+            const pos = isTail ? '字尾' : '字首';
+            const multi = currentRhymes.length > 1;
+            const selMode = selectedChars.size > 0;
+            let lenDesc, rhymeDesc;
+            if (selMode) {
+                lenDesc = '2～4字';
+                rhymeDesc = `${pos}必須是這些字之一：${[...selectedChars].join('、')}`;
+            } else if (multi) {
+                lenDesc = `${currentRhymes.length}字`;
+                rhymeDesc = currentRhymes.map((r, i) => {
+                    if (r.isWild || r.notFound) return `第${i + 1}字不限`;
+                    return isTail ? `第${i + 1}字韻母：${r.rhyme || r.zhuyin}` : `第${i + 1}字聲母：${r.initial || r.rhyme}`;
+                }).join('、');
+            } else {
+                lenDesc = ({ 2: '2字', 3: '3字', 4: '4字以上' })[filterWordLen] || '2～4字';
+                const r0 = currentRhymes[0] || {};
+                const ch = r0.char || '';
+                const pureInitial = !r0.rhyme && !!r0.initial;
+                if (filterSameChar) {
+                    rhymeDesc = `請以「${ch}」這個字為${pos}發想造詞（${pos}必須剛好是「${ch}」這一個字）`;
+                } else if (pureInitial) {
+                    rhymeDesc = `${isTail ? '末字' : '首字'}聲母為「${r0.initial}」`;
+                } else if (isTail) {
+                    const detail = [r0.familyLabel && `韻部：${r0.familyLabel}`, `韻母：${r0.rhyme || r0.zhuyin}`].filter(Boolean).join('，');
+                    rhymeDesc = `末字押「${ch}」的韻腳（${detail}）`;
+                } else {
+                    rhymeDesc = `首字押「${ch}」的韻腳` + (r0.familyLabel ? `（韻部：${r0.familyLabel}）` : '');
+                }
+                if (filterSameTone && (charInfo[ch] || []).length) rhymeDesc += `，聲調與「${ch}」相同`;
+                if (isTail && filterNoExtRhyme && !pureInitial) rhymeDesc += '，韻母需完全相同';
+            }
+            const excludeStr = [...excludeSet].slice(0, 40).join('、') || '（無）';
+            return `你是歌詞創作助手。請直接生成${n}個押韻的中文詞語（多給幾個備篩選）：
+字數：${lenDesc}
+韻腳要求：${rhymeDesc}
+禁止重複以下詞語：${excludeStr}
+只用台灣日常會用的繁體中文詞語。
+直接輸出詞語，頓號「、」分隔，不要說明或編號。`;
+        }
+
         // 取得詞語的注音（或拼音）加聲調，供 hover tooltip 顯示
         // 統一格式化：根據目前顯示模式（lastSearchType）輸出含聲調的注音或拼音
         // baseZhuyin: 不含聲調的注音音節（例 ㄔㄤ），tone: 1-5
