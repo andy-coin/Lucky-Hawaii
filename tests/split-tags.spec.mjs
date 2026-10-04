@@ -4,7 +4,7 @@ import { test, expect } from '@playwright/test';
 import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import { stripHtmlComments } from './html-lib.mjs';
 
-// 原本 inline script 由上到下的 20 個區塊（safety.js 另外固定在最前面）
+// 原本 inline script 由上到下的 20 個區塊（safety.js、layout.js 另外固定在最前面）
 const JS_ORDER = [
     'phonetic-tables', 'dict', 'search', 'state', 'polyphonic', 'cards', 'lyrics', 'wordlist', 'panels', 'rhyme-display',
     'ai-client', 'candidates', 'ai-generate', 'ui-common', 'results', 'search-ui', 'theme', 'init', 'report', 'ai-word-events',
@@ -48,10 +48,11 @@ test('split：data/ 兩支 script 都在、且先於所有 js/ 載入', () => {
     expect(all.filter(p => p.startsWith('data/')), '不可有其他或重複的 data/ script').toEqual(DATA_JS);
 });
 
-test('split：safety.js 最先、其餘照原本順序', () => {
+test('split：safety.js 最先、layout.js 緊接其後、其餘照原本順序', () => {
     const js = scriptTags.filter(isLocal).filter(r => r.src.startsWith('js/')).map(pathOf);
     expect(js[0]).toBe('js/safety.js');
-    const rest = js.slice(1);
+    expect(js[1], 'layout.js 要在 head 緊接 safety.js，第一次繪製前就套用縮放').toBe('js/layout.js');
+    const rest = js.slice(2);
     expect(rest).toEqual(JS_ORDER.slice(0, rest.length));   // 前綴比對：每個中間 commit 都成立
     const css = linkTags.filter(isLocal).map(pathOf);
     expect(css).toEqual(CSS_ORDER.slice(0, css.length));
@@ -59,7 +60,7 @@ test('split：safety.js 最先、其餘照原本順序', () => {
 
 test('split：拆檔完成，index.html 只剩骨架', () => {
     const js = scriptTags.filter(isLocal).filter(r => r.src.startsWith('js/')).map(pathOf);
-    expect(js.slice(1), '完整 20 個 js 依序').toEqual(JS_ORDER);
+    expect(js.slice(2), '完整 20 個 js 依序（safety.js、layout.js 之後）').toEqual(JS_ORDER);
     expect(linkTags.filter(isLocal).map(pathOf), '完整 3 個 css 依序').toEqual(CSS_ORDER);
     const inline = [...html.matchAll(/<script\b([^>]*)>/g)].filter(m => !/\bsrc\s*=/.test(m[1]));
     expect(inline.length, '不可有沒有 src 的 script').toBe(0);

@@ -66,8 +66,8 @@ test('registry: 後台金鑰被排除且不在清單內', async ({ browser }) =>
     expect(reg.LH_EXCLUDED_KEYS).toEqual(expect.arrayContaining(['haoYunQi_admin_key', 'haoYunQi_admin_theme']));
     const keys = reg.LH_KEYS.map(k => k.key);
     for (const k of reg.LH_EXCLUDED_KEYS) expect(keys).not.toContain(k);
-    expect(keys).toHaveLength(16);
-    expect(new Set(keys).size).toBe(16);
+    expect(keys).toHaveLength(17);
+    expect(new Set(keys).size).toBe(17);
 });
 
 test('registry: 掃描器自我檢查', () => {

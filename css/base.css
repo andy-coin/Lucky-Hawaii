@@ -13,6 +13,13 @@
             --header-gradient-1: #b8865d;
             --header-gradient-2: #8d51c9;
             --custom-text-color: none;
+            --ui-scale: 1;
+        }
+
+        /* 縮放走根字級：用 % 才會尊重瀏覽器的文字大小設定 */
+        html {
+            font-size: calc(100% * var(--ui-scale));
+            -webkit-text-size-adjust: 100%;
         }
         
         [data-theme="dark"] {

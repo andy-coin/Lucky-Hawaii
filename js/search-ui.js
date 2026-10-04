@@ -14,16 +14,13 @@
             }
         }
 
+        // 上下限與步進由 js/layout.js 的 setUiScale 夾住
         function zoomIn(){
-            MzoomScale = Math.min(MzoomScale + 5, 150); // 最大放大到 150%
-            resultsSection.style.zoom = MzoomScale / 100 * MzoomBaseRatio;
-            document.getElementById('MzoomValue').textContent = (MzoomScale) + '%';
+            setUiScale(lhUiScale + LH_UI_SCALE_STEP);
         }
 
         function zoomOut(){
-            MzoomScale = Math.max(MzoomScale - 5, 50); // 最小縮小到 50%
-            resultsSection.style.zoom = MzoomScale / 100 * MzoomBaseRatio;
-            document.getElementById('MzoomValue').textContent = (MzoomScale) + '%';
+            setUiScale(lhUiScale - LH_UI_SCALE_STEP);
         }
 
         function toggleAbout() {
