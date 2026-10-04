@@ -1,4 +1,7 @@
 // Pass A 閘門：改版前拍照存證，之後每個 commit 都要和「改版前」一模一樣（100% 畫面不變）
+// 歷史說明：Pass A 在 05-02 已完成；05-03 之後的計畫是刻意改版面，所以 LH_PARITY=check 從 05-03 起預期會失敗，
+// 這份檔案只留作紀錄與「重新拍改版前」的工具（改版前的圖在 baseline-before 資料夾，供 Andy 對照）。
+// 現在守住新版長相的是 tests/visual.spec.mjs（npm run visual:update 更新）。
 // 平常 npm test 會整份略過；要跑時：
 //   LH_PARITY=capture npx playwright test tests/parity.spec.mjs   拍「改版前」（只在動 css/js 之前跑一次）
 //   LH_PARITY=check   npx playwright test tests/parity.spec.mjs   和改版前比對
@@ -87,7 +90,7 @@ async function drive(page, state) {
 for (const dev of DEVICE_NAMES) {
     for (const state of STATES) {
         test(`parity：${dev} ${state.name}`, async ({ browser }) => {
-            test.skip(!MODE, 'Pass A 專用：設 LH_PARITY=capture 或 check 才執行');
+            test.skip(!MODE, 'Pass A 已在 05-02 完成，05-03 起版面刻意改過，check 預期會失敗；只在重新拍照存證時設 LH_PARITY=capture 才執行');
             const { context, page } = await bootPage(browser, {
                 device: DEVICES[dev],
                 colorScheme: state.colorScheme,
