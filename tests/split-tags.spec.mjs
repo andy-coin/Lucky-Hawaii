@@ -83,10 +83,25 @@ test('split：檔案編碼 UTF-8 無 BOM、只用 LF', () => {
     }
 });
 
-test('split：css/base.css 第一條規則是 Google Fonts @import', () => {
-    // @import 若排在任何規則之後，瀏覽器會直接忽略（字型就不會載入）
-    const text = readFileSync('css/base.css', 'utf8').replace(/^(\s|\/\*[\s\S]*?\*\/)+/, '');
-    expect(text.startsWith("@import url('https://fonts.googleapis.com/")).toBe(true);
+test('split：字型由 head 連結載入（preconnect＋400/700），base.css 不再 import', () => {
+    // @import 要等 base.css 下載完才會開始抓字型；改成 head 連結，瀏覽器可以一開始就預先連線、平行下載
+    const base = readFileSync('css/base.css', 'utf8');
+    expect(base.includes('@import'), 'css/base.css 不可再有 @import').toBe(false);
+    const head = html.slice(html.indexOf('<head'), html.indexOf('</head>'));
+    const hrefs = [...head.matchAll(/<link\b[^>]*\brel="preconnect"[^>]*\bhref="([^"]+)"[^>]*>/g)].map(m => m[1]);
+    expect(hrefs, '要有兩個 preconnect').toEqual(['https://fonts.googleapis.com', 'https://fonts.gstatic.com']);
+    expect(head.match(/<link\b[^>]*\brel="preconnect"[^>]*href="https:\/\/fonts\.gstatic\.com"[^>]*>/)[0], 'gstatic 要帶 crossorigin').toMatch(/\bcrossorigin\b/);
+    const fontLinks = [...head.matchAll(/<link\b[^>]*\brel="stylesheet"[^>]*\bhref="(https:\/\/fonts\.googleapis\.com\/[^"]+)"[^>]*>/g)];
+    expect(fontLinks, '剛好一條 Google Fonts 樣式表連結').toHaveLength(1);
+    expect(fontLinks[0][1]).toContain('wght@400;700');
+    expect(fontLinks[0][1]).toContain('Noto+Sans+TC');
+    expect(fontLinks[0][1]).toContain('JetBrains+Mono:wght@400');
+    const firstLocalCss = head.indexOf(linkTags.find(isLocal).tag);
+    expect(head.indexOf(fontLinks[0][0]), '字型連結要在第一條本機樣式表之前').toBeLessThan(firstLocalCss);
+    expect(head.lastIndexOf('rel="preconnect"'), 'preconnect 要在第一條本機樣式表之前').toBeLessThan(firstLocalCss);
+    // 沒有新增第三方來源（T-05-20）
+    const origins = new Set([...head.matchAll(/(?:href|src)="(https?:\/\/[^"/]+)/g)].map(m => m[1]));
+    expect([...origins].sort()).toEqual(['https://fonts.googleapis.com', 'https://fonts.gstatic.com']);
 });
 
 test('split：樣式表都在 <head>、排在所有 script 前', () => {

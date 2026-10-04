@@ -52,7 +52,7 @@
             cursor: pointer;
             writing-mode: vertical-rl;
             font-size: 0.78rem;
-            font-weight: 600;
+            font-weight: 700;
             color: var(--text-secondary);
             padding: 1rem 0;
             user-select: none;
@@ -138,7 +138,7 @@
         .context-section-header:hover { background: var(--border); }
         .context-chevron {
             margin-left: auto;
-            font-size: 0.65rem;
+            font-size: 0.75rem;
             color: var(--text-secondary);
             opacity: 0.6;
             flex-shrink: 0;
@@ -157,7 +157,7 @@
         }
         .context-section-subtitle {
             flex: 1;
-            font-size: 0.68rem;
+            font-size: 0.75rem;
             color: var(--text-secondary);
             opacity: 0.75;
             overflow: hidden;
@@ -166,13 +166,13 @@
         }
         .context-section-title {
             font-size: 0.8rem;
-            font-weight: 600;
+            font-weight: 700;
             color: var(--text-secondary);
         }
 
         .side-panel-title {
             font-size: 0.88rem;
-            font-weight: 600;
+            font-weight: 700;
             color: var(--text-primary);
             padding-bottom: 0.375rem;
             border-bottom: 1px solid var(--border);
@@ -237,7 +237,7 @@
         }
         .chip-remove {
             color: var(--text-secondary);
-            font-size: 0.72rem;
+            font-size: 0.75rem;
             cursor: pointer;
             line-height: 1;
             padding: 0.0625rem 0.125rem;
@@ -268,7 +268,7 @@
             font-size: 0.9rem;
         }
         .report-char-btn {
-            font-size: 0.68rem;
+            font-size: 0.75rem;
             padding: 0.0625rem 0.3125rem;
             border: 1px solid var(--border);
             border-radius: 0.25rem;
@@ -280,7 +280,7 @@
         }
         .report-char-btn:hover { border-color: #667eea; color: #667eea; }
         .model-select {
-            font-size: 0.72rem;
+            font-size: 0.75rem;
             padding: 0.125rem 0.25rem;
             border: 1px solid var(--border);
             border-radius: 0.375rem;
@@ -300,7 +300,7 @@
             border: none;
             border-radius: 0.625rem;
             font-size: 0.88rem;
-            font-weight: 600;
+            font-weight: 700;
             cursor: pointer;
             font-family: 'Noto Sans TC', sans-serif;
             transition: opacity 0.2s;
@@ -346,7 +346,7 @@
             position: absolute;
             bottom: 0.125rem;
             right: 0.25rem;
-            font-size: 0.52rem;
+            font-size: 0.75rem;
             color: var(--text-secondary);
             opacity: 0.6;
             font-weight: 700;
@@ -389,7 +389,7 @@
         .word-ctx-menu-title {
             font-size: 1.05rem;
             color: var(--text-primary);
-            font-weight: 600;
+            font-weight: 700;
             padding: 0.4375rem 0.875rem 0.375rem;
             border-bottom: 1px solid var(--border);
             margin-bottom: 0.1875rem;
@@ -569,7 +569,7 @@
             background: linear-gradient(120deg, #b8865d, #8d51c9);
             color: white;
             border-color: transparent;
-            font-weight: 600;
+            font-weight: 700;
         }
 
         /* 情境標籤（底部面板升級）*/
@@ -650,7 +650,7 @@
         }
         .lyrics-section-header:hover { background: var(--border); }
         .section-chevron {
-            font-size: 0.65rem;
+            font-size: 0.75rem;
             color: var(--text-secondary);
             opacity: 0.6;
             flex-shrink: 0;
@@ -734,7 +734,7 @@
         .saved-pool-section.collapsed { flex-basis: 2.125rem; }
         .saved-pool-title {
             font-size: 0.82rem;
-            font-weight: 600;
+            font-weight: 700;
             color: var(--text-secondary);
             display: flex;
             align-items: center;
@@ -748,7 +748,7 @@
         }
         .saved-pool-title:hover { background: var(--border); color: var(--text-primary); }
         .saved-pool-chevron {
-            font-size: 0.65rem;
+            font-size: 0.75rem;
             opacity: 0.6;
             flex-shrink: 0;
             margin-left: auto;
@@ -769,7 +769,7 @@
             color: white;
             border-radius: 0.625rem;
             padding: 0.0625rem 0.4375rem;
-            font-size: 0.72rem;
+            font-size: 0.75rem;
         }
 
         /* 給桌面主內容留出底部空間（側邊面板 tab 可見） */
@@ -816,7 +816,7 @@
             text-overflow: ellipsis;
             white-space: nowrap;
         }
-        .mtab-btn.active { color: #8d51c9; font-weight: 600; }
+        .mtab-btn.active { color: #8d51c9; font-weight: 700; }
         .mtab-btn.active .mtab-icon { transform: scale(1.1); }
         /* 桌機沒有底部 sheet，也就沒有把手（≤ 900 在 responsive.css 才顯示） */
         .sheet-handle { display: none; }
