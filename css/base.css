@@ -14,6 +14,30 @@
             --header-gradient-2: #8d51c9;
             --custom-text-color: none;
             --ui-scale: 1;
+            /* 版面外殼（Phase 5 B-1）：頁面高度＝實際可見高度，扣掉安全區與底部分頁列 */
+            --app-h: 100dvh;
+            --page-pad: 20px;
+            --tabbar-h: max(3.5rem, 48px);
+            --kb-inset: 0px;
+            --vv-top: 0px;
+            --tab-w: 2.5rem;
+            --panel-w: min(clamp(20rem, 30vw, 25rem), 45vw);
+            --hit: max(44px, 2.75rem);
+            /* 宣告在 :root：--pad-b 在 :root 解析，看不到 body 上才宣告的變數 */
+            --body-extra: 0px;
+            --pad-t: max(var(--page-pad), env(safe-area-inset-top));
+            --pad-b: calc(max(var(--page-pad), env(safe-area-inset-bottom)) + var(--body-extra));
+            --sp-1: 0.25rem;
+            --sp-2: 0.5rem;
+            --sp-3: 0.75rem;
+            --sp-4: 1rem;
+            --sp-5: 1.5rem;
+            --sp-6: 2rem;
+            --sp-7: 3rem;
+        }
+
+        @supports not (height: 100dvh) {
+            :root { --app-h: 100vh; }
         }
 
         /* 縮放走根字級：用 % 才會尊重瀏覽器的文字大小設定 */
@@ -47,20 +71,22 @@
         body {
             font-family: 'Noto Sans TC', sans-serif;
             background: linear-gradient(135deg, var(--bg-gradient-1) 0%, var(--bg-gradient-2) 100%);
-            min-height: 100vh;
-            padding: 1.25rem;
+            min-height: var(--app-h);
+            padding: var(--pad-t) max(var(--page-pad), env(safe-area-inset-right)) var(--pad-b) max(var(--page-pad), env(safe-area-inset-left));
+            overscroll-behavior: none;
             color: var(--text-primary);
             transition: background 0.3s ease;
         }
         
         .container {
-            max-width: 56.25rem;
+            width: 100%;
+            max-width: min(56.25rem, 100%);
             margin: 0 auto;
             background: var(--container-bg);
             border-radius: 1.25rem;
             box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
             overflow: hidden;
-            height: calc(100vh - 2.5rem);
+            height: calc(var(--app-h) - var(--pad-t) - var(--pad-b));
             display: flex;
             flex-direction: column;
             animation: slideIn 0.5s ease-out;
@@ -586,6 +612,8 @@
             color: var(--text-secondary);
             font-family: 'JetBrains Mono', monospace;
             text-align: center;
+            min-width: 0;
+            overflow-wrap: anywhere;
         }
 
         .tone-mark {

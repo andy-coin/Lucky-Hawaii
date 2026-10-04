@@ -755,7 +755,7 @@
 
         /* 給桌面主內容留出底部空間（側邊面板 tab 可見） */
         .results-section {
-            padding-bottom: 6.25rem;
+            padding-bottom: 1.875rem;
         }
 
         /* ===== 手機底部 Tab 導覽列 ===== */
@@ -763,7 +763,7 @@
             display: none;
             position: fixed;
             bottom: 0; left: 0; right: 0;
-            height: 3.5rem;
+            height: var(--tabbar-h);
             background: var(--card-bg);
             border-top: 2px solid var(--border);
             z-index: 870;

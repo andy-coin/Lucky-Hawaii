@@ -38,3 +38,13 @@ export async function expectFullyInViewport(page, locator, tol = 0.5) {
     expect(b.y, '上邊超出視窗').toBeGreaterThanOrEqual(-tol);
     expect(b.y + b.height, '下邊超出視窗').toBeLessThanOrEqual(vp.height + tol);
 }
+
+// 整頁有沒有被撐出捲動：回傳量到的四個數字，讓測試訊息看得到實際差多少
+export function noPageScroll(page) {
+    return page.evaluate(() => ({
+        sh: document.documentElement.scrollHeight,
+        ih: window.innerHeight,
+        sw: document.documentElement.scrollWidth,
+        iw: window.innerWidth,
+    }));
+}

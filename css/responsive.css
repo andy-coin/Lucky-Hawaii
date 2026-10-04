@@ -1,4 +1,15 @@
         /* ===== ≤ 900px：側邊面板改為底部 sheet ===== */
+        /* 版面外殼的間距與底部預留（D-02 斷點 440／900） */
+        @media (max-width: 900px) {
+            :root { --page-pad: 16px; --body-extra: var(--tabbar-h); }
+        }
+        @media (max-width: 440px) {
+            :root { --page-pad: 12px; }
+        }
+        @media (pointer: coarse) {
+            :root { --tab-w: 2.75rem; }
+        }
+
         @media (max-width: 900px) {
             .side-panel {
                 top: auto !important;
@@ -41,8 +52,8 @@
             /* footer 讓位給 tab 列 */
             .footer { display: none; }
             .about-btn-mobile { display: inline-flex; }
-            /* 主內容底部預留 tab 列高度 */
-            .results-section { padding-bottom: 4.375rem; }
+            /* 主內容底部的 tab 列高度由 body 預留（--body-extra），這裡只留一點呼吸空間 */
+            .results-section { padding-bottom: 1rem; }
         }
         
         /* 批量標記浮動面板 */
@@ -349,10 +360,9 @@
 
         @media (max-width: 440px) {
 
-            body { padding: 1.5rem; }
             .save-load-text { display: none; }
             
-            .container { height: calc(100vh - 1.25rem); border-radius: 1rem; }
+            .container { border-radius: 1rem; }
 
             .header { padding: 0.875rem 0.625rem 1rem; }
             .header h1 { font-size: 1.25rem; margin-bottom: 0.375rem; }
@@ -515,7 +525,6 @@
 
             .options {
                 position: relative;
-                flex-wrap: nowrap;
             }
 
             .settings-color-section {
@@ -543,6 +552,7 @@
             }
 
             .settings-trigger {
+                margin-left: auto;
                 align-self: flex-end;
                 font-size: 1.25rem;
                 padding: 0.375rem 0.375rem;
@@ -625,3 +635,10 @@
 
         } 
 
+        /* 矮視窗（橫拿手機；Android 鍵盤收起前的可見高度）：標題區與手機批次列讓位給結果（Pitfall 8） */
+        @media (max-width: 900px) and (max-height: 600px) {
+            .header, .mobile-batch-area { display: none !important; }
+            .results-section { min-height: 0; }
+            /* 只藏說明文字（不是控制項）：橫拿時多換 30 多 px 給字卡 */
+            .search-hint { display: none; }
+        }

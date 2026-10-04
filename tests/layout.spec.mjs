@@ -3,7 +3,7 @@
 import { test, expect } from '@playwright/test';
 import { readFileSync, readdirSync } from 'node:fs';
 import { bootPage } from './helpers.mjs';
-import { DEVICES, setScale } from './layout-lib.mjs';
+import { DEVICES, setScale, waitStill, noPageScroll, expectFullyInViewport } from './layout-lib.mjs';
 
 const SCALE_KEY = 'lh:uiScale';
 
@@ -205,5 +205,47 @@ test('縮放：整個介面一起放大（側邊面板、分頁列、提示）',
         for (const k of ['panel', 'tab', 'toast']) {
             expect(big[k], `${k}：100% 是 ${base[k]}px，150% 是 ${big[k]}px`).toBeCloseTo(base[k] * 1.5, 0);
         }
+    } finally { await context.close(); }
+});
+
+// ---- Pass B-1：版面外殼（頁面高度＝實際可見高度）----
+test('版面：整頁不捲動（5 種視窗 × 閒置／搜尋後）', async ({ browser }) => {
+    for (const [name, device] of Object.entries(DEVICES)) {
+        const { context, page } = await bootPage(browser, { device });
+        try {
+            await waitStill(page);
+            for (const state of ['閒置', '搜尋後']) {
+                if (state === '搜尋後') {
+                    await page.fill('#searchInput', 'ㄢ');
+                    await waitStill(page);
+                }
+                const m = await noPageScroll(page);
+                expect(m.sh, `${name} ${state}：scrollHeight ${m.sh} 超過 innerHeight ${m.ih}`).toBeLessThanOrEqual(m.ih + 1);
+                expect(m.sw, `${name} ${state}：scrollWidth ${m.sw} 超過 innerWidth ${m.iw}`).toBeLessThanOrEqual(m.iw);
+            }
+        } finally { await context.close(); }
+    }
+});
+
+test('版面：橫拿手機搜尋後看得到第一張字卡', async ({ browser }) => {
+    const { context, page } = await bootPage(browser, { device: DEVICES.phoneLandscape });
+    try {
+        await page.fill('#searchInput', 'ㄢ');
+        await waitStill(page);
+        const card = page.locator('.char-card').first();
+        await expectFullyInViewport(page, card);
+        // 字卡在 .results-section 裡面捲動：只在視窗內還不夠，卡片頂端也要落在結果區可見範圍內，不是被裁掉
+        const [c, r] = await Promise.all([card.boundingBox(), page.locator('.results-section').boundingBox()]);
+        expect(c.y, '字卡頂端在結果區之上').toBeGreaterThanOrEqual(r.y - 0.5);
+        expect(c.y, '字卡頂端在結果區之下（被裁掉）').toBeLessThan(r.y + r.height);
+    } finally { await context.close(); }
+});
+
+test('輸入：viewport 設定保留縮放手勢', async ({ browser }) => {
+    const { context, page } = await bootPage(browser, {});
+    try {
+        const content = await page.locator('meta[name="viewport"]').getAttribute('content');
+        expect(content).toBe('width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content');
+        expect(content).not.toMatch(/maximum-scale|user-scalable/);
     } finally { await context.close(); }
 });
