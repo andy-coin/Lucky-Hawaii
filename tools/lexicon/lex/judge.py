@@ -497,3 +497,89 @@ def select_provider(name, model, env, recorded=None):
     if name in ('auto', 'worker') and url:
         return WorkerProvider(_checked_url(url, 'LEX_AI_URL'))
     return None
+
+
+# ==================== 校準（先確認 AI 懂 LEX-03 標準，再花額度判斷灰色詞）====================
+
+CALIBRATION_BATCH = 60
+
+
+def load_calibration(path):
+    """讀校準詞表：回傳 [(詞, K|D, 類別, 說明)]（依檔案順序）。
+
+    # 開頭與空行略過；每行至少「詞<TAB>K|D」，標籤不是 K／D、詞格式不合、詞重複都直接停下來
+    （校準表是標準本身，寫錯要看得到，不能默默略過）。
+    """
+    rows = []
+    seen = set()
+    with open(path, encoding='utf-8') as fh:
+        for no, raw in enumerate(fh, 1):
+            line = raw.rstrip('\r\n')
+            if not line.strip() or line.startswith('#'):
+                continue
+            parts = line.split('\t')
+            if len(parts) < 2:
+                raise LexError('校準詞表第 %d 行格式不對（要「詞<TAB>K|D」）：%r' % (no, line))
+            w, label = parts[0].strip(), parts[1].strip()
+            if label not in ('K', 'D'):
+                raise LexError('校準詞表第 %d 行的標籤要是 K 或 D：%r' % (no, line))
+            if not _valid_word(w):
+                raise LexError('校準詞表第 %d 行的詞要是 2～11 個漢字：%r' % (no, w))
+            if w in seen:
+                raise LexError('校準詞表第 %d 行的詞重複：%s' % (no, w))
+            seen.add(w)
+            rows.append((w, label, parts[2].strip() if len(parts) > 2 else '',
+                         parts[3].strip() if len(parts) > 3 else ''))
+    return rows
+
+
+def run_eval(rows, provider, min_agree=0.9, out=print):
+    """拿校準詞表問 AI，印出一致率與每個不一致的詞；回傳結束代碼。
+
+    0 一致率達標、1 低於 min_agree、2 沒有 AI、4 AI 中斷。完全不碰判斷快取（judgments.tsv），
+    沒回答的詞算不一致、另外計數。詞是公開的，但仍只送詞，不送任何環境資訊。
+    """
+    if provider is None:
+        out(NO_PROVIDER_MESSAGE)
+        return 2
+    if not rows:
+        raise LexError('校準詞表是空的')
+    total = len(rows)
+    n_k = sum(1 for r in rows if r[1] == 'K')
+    out('校準：共 %d 個詞（標準 K %d、D %d），批次 %d' % (total, n_k, total - n_k, CALIBRATION_BATCH))
+    words = [r[0] for r in rows]
+    if hasattr(provider, 'request_cap'):
+        provider.request_cap = (total + CALIBRATION_BATCH - 1) // CALIBRATION_BATCH + 4
+    answers = {}
+    for start in range(0, total, CALIBRATION_BATCH):
+        batch = words[start:start + CALIBRATION_BATCH]
+        try:
+            got = provider.judge(batch)
+        except Exception as exc:  # AI 端的任何錯誤都停下來；校準沒有存檔，重跑即可
+            out('AI 服務中斷：%s；校準沒有完成，稍後再跑一次' % _redact(provider, exc))
+            return 4
+        answers.update(got)
+    agree = 0
+    unanswered = 0
+    wrong = []
+    for w, label, _cat, _note in rows:
+        v = answers.get(w)
+        if v is None:
+            unanswered += 1
+            wrong.append('  %s：標準 %s，AI 沒有回答' % (w, label))
+        elif v == label:
+            agree += 1
+        else:
+            wrong.append('  %s：標準 %s，AI 回答 %s' % (w, label, v))
+    pct = round(100.0 * agree / total, 1)
+    if wrong:
+        out('不一致的詞：')
+        for line in wrong:
+            out(line)
+    out('一致 %d 個、不一致 %d 個（其中沒回答 %d 個），一致率 %g%%（要求 %g%% 以上）' % (
+        agree, total - agree, unanswered, pct, round(min_agree * 100, 1)))
+    if agree / total + 1e-9 >= min_agree:
+        out('校準通過：可以執行 npm run lexicon:judge')
+        return 0
+    out('校準未通過：先不要判斷灰色詞，把上面不一致的詞告訴 Claude（提示詞可能要調整，調整會換提示詞版本）')
+    return 1

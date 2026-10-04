@@ -64,6 +64,20 @@ npm run lexicon:build
 
 **在 AI 看過之前，灰色詞一律保留在詞庫包裡**，報告和 `meta.json` 都標成「待 AI 判斷」（`gray_pending`）。沒有判斷就不刪，所以現在（還沒有金鑰）的詞庫包是完整可用的；AI 之後只會「刪掉判為一般讀者難以理解的詞」，不會增加新詞。
 
+### 先校準再判斷（正式跑之前，建議一定做）
+
+`tools/lexicon/judgments/calibration.tsv` 是約 60 個依「可理解性」標準標好留（K）或刪（D）的詞（例如「三酸甘油酯」留，「聚乙烯醇縮丁醛」「分散式雜湊表」刪；由 Claude 依文字標準擬的，你可以自己增刪改）。正式判斷幾萬個灰色詞之前，先問 AI 這 60 個，看它和標準一致幾成：
+
+```
+GEMINI_API_KEY=你的金鑰 npm run lexicon:eval
+```
+
+- 只送 1 次請求（60 個詞），不會寫任何檔案（不會動 `judgments.tsv`），印出一致率和每一個不一致的詞（「詞：標準 K，AI 回答 D」）。
+- **一致率 90% 以上**（結束代碼 0）：接著執行下一節的 `npm run lexicon:judge`。
+- **低於 90%**（結束代碼 1）：先不要判斷，把印出來的不一致詞告訴 Claude；提示詞可能要調整，調整會換「提示詞版本」（`lex03-v1` 之後的版本），已存的判斷不受影響。
+- 沒有金鑰也沒有 `LEX_AI_URL`：結束代碼 2，什麼都不做。AI 服務中斷：結束代碼 4（校準沒有存檔，稍後重跑）。
+- `--min-agree 0.85` 可調整門檻、`--calibration 路徑` 可換別份詞表、`--provider worker`（搭配 `LEX_AI_URL`）走 Worker。
+
 ### 你要做的（在你自己的 Mac 上，一個指令）
 
 1. 到 Google AI Studio（https://aistudio.google.com/）用你的 Google 帳號免費申請一把 Gemini API 金鑰。
@@ -126,10 +140,11 @@ LEX_AI_URL=https://lucky-hawaii.is3000dollar.workers.dev npm run lexicon:judge
 | `npm run lexicon:verify` | `python3 -B tools/lexicon/build.py verify` | 只驗證已提交的詞庫包（離線） |
 | （沒有捷徑） | `python3 -B tools/lexicon/build.py verify --strict` | 嚴格驗證：另外確認沒有簡體字、罕用字、中國用語殘留（要有規則輸入的快取） |
 | （沒有捷徑） | `python3 -B tools/lexicon/build.py rescue 詞 [詞 …] [--rebuild]` | 救回被誤刪的詞（見下面「誤刪了怎麼救回」） |
+| `npm run lexicon:eval` | `python3 -B tools/lexicon/build.py eval` | 校準：用約 60 個標好的詞檢查 AI 的判斷標準（要金鑰，不寫任何檔案；一致率 90% 以上才建議跑 judge） |
 | `npm run lexicon:judge` | `python3 -B tools/lexicon/build.py judge --rebuild` | 用 AI 判斷灰色詞，判完重建詞庫包（要金鑰，見下面「灰色地帶 AI 判斷」） |
 | `npm run lexicon:test` | `python3 -B -m unittest discover -s tools/lexicon/tests -t tools/lexicon` | 跑 Python 單元測試 |
 
-另外有 `build.py fetch`（只下載）與 `build.py build`（只用快取建包）。結束代碼：0 成功、1 驗證有問題（逐行列出）、2 工具停止。
+另外有 `build.py fetch`（只下載）與 `build.py build`（只用快取建包）。結束代碼：0 成功、1 驗證有問題（逐行列出；eval 則是一致率不足）、2 工具停止。
 
 `npm test` 也會跑這些單元測試與離線驗證。
 

@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 """好韻器詞庫清洗工具：fetch（下載）| build（建包）| verify（離線驗證）| rescue（救回誤刪的詞）
-| judge（灰色詞 AI 判斷）| all（全部）。
+| judge（灰色詞 AI 判斷）| eval（AI 校準）| all（全部）。
 
 用法（一律加 -B，不寫 __pycache__）：
     python3 -B tools/lexicon/build.py all
 結束代碼：0 成功、1 驗證有問題（逐行列出）、2 工具停止（訊息在 stderr）、
-judge 另有 3（估計用量超過上限）、4（AI 服務中斷，已判斷的已存檔）。
+judge 另有 3（估計用量超過上限）、4（AI 服務中斷，已判斷的已存檔）；
+eval：0 一致率達標、1 低於標準、2 沒有 AI、4 AI 中斷。
 """
 import argparse
 import json
@@ -32,6 +33,7 @@ POLY_PATH = REPO / 'data' / 'polyphonic-order.json'
 OVERRIDES_WORDS_PATH = REPO / 'data' / 'wordlist-overrides.json'
 KEEP_PATH = HERE / 'rules' / 'keep.json'      # rescue 寫入的救回清單（測試會換成暫存檔）
 REPORTS_ROOT = HERE / 'reports'               # rescue 查刪除清單的位置（測試會換成暫存資料夾）
+CALIBRATION_PATH = HERE / 'judgments' / 'calibration.tsv'   # LEX-03 校準詞表（eval 用）
 JUDGMENTS_PATH = HERE / 'judgments' / 'judgments.tsv'   # 灰色詞 AI 判斷快取（測試會換成暫存檔）
 
 
@@ -337,6 +339,25 @@ def cmd_judge(args, lock=None):
     return rc
 
 
+def cmd_eval(args):
+    """校準：用約 60 個依 LEX-03 標準標好的詞問 AI，看一致率；不寫任何檔案（尤其不碰 judgments.tsv）。"""
+    provider = judgelib.select_provider(args.provider, args.model, os.environ, recorded=args.recorded)
+    if provider is None:
+        raise LexError(judgelib.NO_PROVIDER_MESSAGE)
+    rows = judgelib.load_calibration(args.calibration)
+    return judgelib.run_eval(rows, provider, min_agree=args.min_agree)
+
+
+def _fraction(text):
+    try:
+        x = float(text)
+    except ValueError:
+        raise argparse.ArgumentTypeError('要是 0 到 1 之間的小數：%s' % text)
+    if not 0 < x <= 1:
+        raise argparse.ArgumentTypeError('要是大於 0、至多 1 的小數：%s' % text)
+    return x
+
+
 def _int_between(lo, hi):
     def conv(text):
         try:
@@ -376,6 +397,13 @@ def main(argv=None):
     j.add_argument('--rejudge', action='store_true', help='已判斷過的詞也重新問一次')
     j.add_argument('--rebuild', action='store_true', help='判斷完立刻重建詞庫包並嚴格驗證')
     j.add_argument('--gray-policy', choices=('p1', 'p2'), default='p1', help='灰色策略（同 build）')
+    e = sub.add_parser('eval', help='校準：用標好的詞檢查 AI 的判斷標準（要金鑰；不寫任何檔案）')
+    e.add_argument('--provider', choices=('auto', 'gemini', 'worker', 'recorded'), default='auto',
+                   help='同 judge；recorded 只給測試用（要 --recorded）')
+    e.add_argument('--recorded', metavar='PATH', help='recorded 用的判斷檔')
+    e.add_argument('--model', default=judgelib.DEFAULT_MODEL, help='Gemini 模型（預設 %(default)s）')
+    e.add_argument('--min-agree', type=_fraction, default=0.9, help='一致率低於這個數字就回傳 1（預設 %(default)s）')
+    e.add_argument('--calibration', type=Path, default=CALIBRATION_PATH, help='校準詞表（預設 %(default)s）')
     a = sub.add_parser('all', help='fetch + build + verify --strict')
     for sp in (b, a):
         sp.add_argument('--gray-policy', choices=('p1', 'p2'), default='p1',
@@ -391,6 +419,8 @@ def main(argv=None):
             return cmd_rescue(args.words, args.rebuild)
         if args.cmd == 'judge':
             return cmd_judge(args)
+        if args.cmd == 'eval':
+            return cmd_eval(args)
         lock = sources.load_lock(LOCK_PATH)
         if args.cmd in ('fetch', 'all'):
             cmd_fetch(lock)

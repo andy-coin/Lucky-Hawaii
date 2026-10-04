@@ -13,6 +13,7 @@
     "worker:smoke": "node worker/test/dev-smoke.mjs",
     "lexicon:build": "python3 -B tools/lexicon/build.py all",
     "lexicon:verify": "python3 -B tools/lexicon/build.py verify",
+    "lexicon:eval": "python3 -B tools/lexicon/build.py eval",
     "lexicon:judge": "python3 -B tools/lexicon/build.py judge --rebuild",
     "lexicon:test": "python3 -B -m unittest discover -s tools/lexicon/tests -t tools/lexicon"
   },
