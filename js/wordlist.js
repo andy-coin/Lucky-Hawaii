@@ -142,40 +142,43 @@
                 if (!r.ok) return list;
                 ovr = await r.json();
             } catch(e) { lhWarn('詞庫修正檔載入失敗', e); return list; }
-            const removedSet = new Set(ovr.removed || []);
-            const hiddenSet  = new Set(ovr.hidden  || []);
-            const fixedMap   = ovr.fixed  || {};
-            const added      = ovr.added  || [];
-            const before  = list.length;
-            const filtered = [];
-            let removed = 0, fixed = 0;
-            for (const e of list) {
-                if (removedSet.has(e.w) || hiddenSet.has(e.w)) {
-                    wordPriorityMap.delete(e.w);
-                    wordPhoneticMap.delete(e.w);
-                    removed++;
-                    continue;
+            // 全部先算在暫存裡，成功才一次寫進兩張對照表；中途任何例外就原樣回傳詞庫（修正檔壞了不能讓整份詞庫變成載入失敗）
+            try {
+                const removedSet = new Set(ovr.removed || []);
+                const hiddenSet  = new Set(ovr.hidden  || []);
+                const fixedMap   = ovr.fixed  || {};
+                const added      = ovr.added  || [];
+                const before  = list.length;
+                const filtered = [];
+                const mapDel = [], mapSet = [];   // 待套用：[詞] 與 [詞, 注音, 優先度]
+                let removed = 0, fixed = 0;
+                for (const e of list) {
+                    if (removedSet.has(e.w) || hiddenSet.has(e.w)) {
+                        mapDel.push(e.w);
+                        removed++;
+                        continue;
+                    }
+                    if (fixedMap[e.w]) {
+                        filtered.push({ ...e, z: fixedMap[e.w] });   // 不改原物件，失敗時原詞庫維持原樣
+                        mapSet.push([e.w, fixedMap[e.w], null]);
+                        fixed++;
+                    } else filtered.push(e);
                 }
-                if (fixedMap[e.w]) {
-                    e.z = fixedMap[e.w];
-                    wordPhoneticMap.set(e.w, e.z);
-                    fixed++;
+                let addedCount = 0;
+                for (const a of added) {
+                    if (typeof a?.w !== 'string' || typeof a.z !== 'string' || !a.w || !a.z || a.z.includes('?')) continue;  // 缺注音或格式不對的跳過
+                    const entry = { w: a.w, z: a.z, p: a.p ?? 1 };
+                    filtered.push(entry);
+                    mapSet.push([a.w, entry.z, entry.p]);
+                    addedCount++;
                 }
-                filtered.push(e);
-            }
-            let addedCount = 0;
-            for (const a of added) {
-                if (!a.w || !a.z || a.z.includes('?')) continue;  // 缺注音的跳過
-                const entry = { w: a.w, z: a.z, p: a.p ?? 1 };
-                filtered.push(entry);
-                wordPriorityMap.set(a.w, entry.p);
-                wordPhoneticMap.set(a.w, entry.z);
-                addedCount++;
-            }
-            if (removed || fixed || addedCount) {
-                console.log(`[wordlist overrides] before=${before} → after=${filtered.length} (removed=${removed}, fixed=${fixed}, added=${addedCount})`);
-            }
-            return filtered;
+                mapDel.forEach(w => { wordPriorityMap.delete(w); wordPhoneticMap.delete(w); });
+                mapSet.forEach(([w, z, p]) => { wordPhoneticMap.set(w, z); if (p !== null) wordPriorityMap.set(w, p); });
+                if (removed || fixed || addedCount) {
+                    console.log(`[wordlist overrides] before=${before} → after=${filtered.length} (removed=${removed}, fixed=${fixed}, added=${addedCount})`);
+                }
+                return filtered;
+            } catch(e) { lhWarn('詞庫修正檔套用失敗，改用未修正的詞庫', e); return list; }
         }
 
         // rhymes: currentRhymes 陣列, targetLen: 目標詞長, minPriority: 本輪門檻

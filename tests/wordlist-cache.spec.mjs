@@ -1,5 +1,6 @@
 // Phase 4 詞庫載入：慢速載入與 AI 建議的競態、版本更新整套換新、非 200 留記錄
 import { test, expect } from '@playwright/test';
+import { readFileSync } from 'node:fs';
 import { bootPage, settle, CONTEXT_OPTS, routeExternal, collectErrors } from './helpers.mjs';
 
 const clickGenerate = page => page.evaluate(() => document.getElementById('generateBtn').click());
@@ -210,4 +211,31 @@ test('非 200：詞庫分段回 500 會留下記錄、AI 不會用殘缺詞庫',
         expect(aiPrompts).toHaveLength(0);
         expect(realErrors(errors)).toEqual([]);
     } finally { await context.close(); }
+});
+
+// ==================== 修正檔壞掉：詞庫照樣可用（WR-02）====================
+test('修正檔格式壞掉：詞庫照樣載入（原樣、不套修正），只留記錄', async ({ browser }) => {
+    test.setTimeout(60_000);
+    const firstWord = JSON.parse(readFileSync('data/wordlist-c00.json', 'utf8').split('\n').find(Boolean)).w;
+    const bodies = {
+        'null': 'null',
+        'removed 不是陣列': JSON.stringify({ removed: 5 }),
+        // 刪除要在「added 才爆」之前就算過一輪：失敗後被刪的詞必須還在詞庫與對照表裡
+        '算到一半才爆': JSON.stringify({ removed: [firstWord], added: 5 }),
+    };
+    for (const [name, body] of Object.entries(bodies)) {
+        const { context, page, errors, warnings } = await bootPage(browser, {
+            beforeGoto: ({ context }) => context.route(/\/data\/wordlist-overrides\.json$/, r => r.fulfill({ status: 200, contentType: 'application/json', body })),
+        });
+        try {
+            const st = await page.evaluate(w => ({
+                loaded: wordlistData !== null && wordlistData.length > 1000,
+                hasWord: wordlistData !== null && wordlistData.some(e => e.w === w),
+                inMaps: wordPriorityMap.has(w) && wordPhoneticMap.has(w),
+            }), firstWord);
+            expect(st, name).toEqual({ loaded: true, hasWord: true, inMaps: true });
+            expect(warnings.some(m => m.includes('詞庫修正檔套用失敗')), `${name}：要留 [好韻器] 記錄`).toBe(true);
+            expect(errors, name).toEqual([]);
+        } finally { await context.close(); }
+    }
 });
