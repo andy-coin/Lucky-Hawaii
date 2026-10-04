@@ -54,3 +54,90 @@ const LH_MQ_PHONE = matchMedia('(max-width: 440px)');
 const LH_MQ_SHEET = matchMedia('(max-width: 900px)');
 function lhIsPhone() { return LH_MQ_PHONE.matches; }
 function lhIsSheetMode() { return LH_MQ_SHEET.matches; }
+
+// ==================== 虛擬鍵盤（D-09）：打字的地方一定看得到 ====================
+// iOS Safari 跳出鍵盤時只縮「視覺視窗」（visualViewport），版面視窗不變，所以 100dvh 不會變矮；
+// Android Chrome 加了 interactive-widget=resizes-content 後版面視窗也會跟著縮。
+// 兩種都靠 visualViewport 的高度判斷：高度比「穩定高度」矮 150px 以上、而且正有文字欄位被聚焦，才算鍵盤。
+// （只有網址列伸縮不會矮到 150px，沒聚焦輸入框時更不算，所以不會誤判。）
+const LH_KB_THRESHOLD = 150;   // 矮多少以上才算鍵盤
+const LH_KB_SHORT_H = 600;     // 可見高度低於這個值，標題區先讓位給結果
+let lhStableH = window.innerHeight;   // 自載入以來看過最高的視窗高度
+let lhStableW = window.innerWidth;
+let lhKbRaf = 0;
+let lhKbOpen = false;
+
+// 會叫出鍵盤的欄位：文字框、多行框、下拉選單；勾選、色票、拉桿、檔案、按鈕不算
+function _lhTextFieldFocused() {
+    const el = document.activeElement;
+    if (!el) return false;
+    const tag = el.tagName;
+    if (tag === 'TEXTAREA' || tag === 'SELECT') return true;
+    if (tag !== 'INPUT') return false;
+    return !/^(checkbox|radio|color|range|file|button|submit|reset|image)$/i.test(el.type);
+}
+
+function _lhKbClear(root) {
+    root.classList.remove('kb-open', 'kb-short');
+    for (const p of ['--app-h', '--vv-top', '--kb-inset']) root.style.removeProperty(p);
+}
+
+// 一次更新：算穩定高度 → 判斷鍵盤 → 寫 class 與三個變數（只寫 visualViewport／innerHeight 的數字加 px，不經手任何使用者文字）
+function _lhKbUpdate() {
+    lhKbRaf = 0;
+    const root = document.documentElement;
+    const vv = window.visualViewport;
+    const vvH = vv ? vv.height : window.innerHeight;
+    const vvTop = vv ? vv.offsetTop : 0;
+    // 轉向或調整視窗寬度：重新量穩定高度；只有高度變（鍵盤、網址列）則保留最高值
+    if (window.innerWidth !== lhStableW) {
+        lhStableW = window.innerWidth;
+        lhStableH = window.innerHeight;
+    } else if (window.innerHeight > lhStableH) {
+        lhStableH = window.innerHeight;
+    }
+    const open = _lhTextFieldFocused() && (lhStableH - vvH >= LH_KB_THRESHOLD);
+    if (!open) {
+        lhKbOpen = false;
+        _lhKbClear(root);
+        return;
+    }
+    // 不四捨五入：iOS 的 visualViewport 常是小數，湊整會讓面板差 0.5px 露出一條縫
+    root.style.setProperty('--app-h', vvH + 'px');
+    root.style.setProperty('--vv-top', vvTop + 'px');
+    root.style.setProperty('--kb-inset', Math.max(0, window.innerHeight - vvH - vvTop) + 'px');
+    root.classList.add('kb-open');
+    root.classList.toggle('kb-short', vvH < LH_KB_SHORT_H);
+    // 剛從沒鍵盤變成有鍵盤（Android 是先聚焦、過一下才縮）：把正在打字的欄位捲進可見範圍
+    if (!lhKbOpen) _lhKbReveal();
+    lhKbOpen = true;
+}
+
+function _lhKbSchedule() {
+    if (lhKbRaf) return;
+    // 分頁在背景時 rAF 會暫停，改用 setTimeout 才不會卡在舊狀態
+    if (document.hidden) { lhKbRaf = -1; setTimeout(_lhKbUpdate, 0); return; }
+    lhKbRaf = requestAnimationFrame(_lhKbUpdate);
+}
+
+// 把聚焦中的文字欄位捲進可見範圍（block: 'nearest'：已經看得到就不動，免得頁面亂跳）
+function _lhKbReveal() {
+    if (!lhKbOpen && !document.documentElement.classList.contains('kb-open')) return;
+    const el = document.activeElement;
+    if (el && _lhTextFieldFocused() && el.scrollIntoView) el.scrollIntoView({ block: 'nearest' });
+}
+
+if (window.visualViewport) {
+    window.visualViewport.addEventListener('resize', _lhKbSchedule);
+    window.visualViewport.addEventListener('scroll', _lhKbSchedule);
+}
+window.addEventListener('resize', _lhKbSchedule);
+document.addEventListener('focusin', () => {
+    _lhKbSchedule();
+    if (_lhTextFieldFocused()) {
+        // 鍵盤的動畫要 200–300ms：聚焦當下與 250ms 後各捲一次
+        _lhKbReveal();
+        setTimeout(() => { _lhKbUpdate(); _lhKbReveal(); }, 250);
+    }
+});
+document.addEventListener('focusout', _lhKbSchedule);

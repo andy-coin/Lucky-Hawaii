@@ -638,3 +638,36 @@
             /* 只藏說明文字（不是控制項）：橫拿時多換 30 多 px 給字卡 */
             .search-hint { display: none; }
         }
+
+        /* ===== 虛擬鍵盤（D-09，UI-SPEC §4）：js/layout.js 在「有文字欄位聚焦、可見高度矮 150px 以上」時加 html.kb-open，
+           並把 --app-h／--vv-top／--kb-inset 寫成鍵盤上方的可見範圍。下面的規則只負責讓位，不自己量尺寸。 ===== */
+        @media (max-width: 900px) {
+            /* 輸入框被捲進可見範圍時，離底邊多留一點，不貼著鍵盤 */
+            input, textarea, select { scroll-margin-bottom: 1rem; }
+            /* 鍵盤出現：分頁列藏起來（按鈕在鍵盤下方也按不到），底部預留一併取消 */
+            html.kb-open { --body-extra: 0px; }
+            html.kb-open .mobile-tab-bar { display: none; }
+            html.kb-open .copy-toast { bottom: calc(var(--kb-inset) + 1rem); }
+            /* 開著的面板撐滿可見高度：輸入框不可能落在鍵盤下面 */
+            html.kb-open .side-panel:not(.collapsed) {
+                top: var(--vv-top);
+                bottom: auto;
+                height: var(--app-h);
+                border-radius: 0;
+            }
+            html.kb-open .side-panel .side-panel-body { padding-bottom: 0.5rem; }
+            /* 對話框遮罩只蓋可見範圍，置中的對話框才會置中在鍵盤上方 */
+            html.kb-open .settings-overlay,
+            html.kb-open .about-overlay,
+            html.kb-open .hashtag-popup-overlay,
+            html.kb-open .feedback-modal-overlay {
+                top: var(--vv-top);
+                bottom: auto;
+                height: var(--app-h);
+            }
+            /* 可見高度不到 600px：標題區先讓位，字卡留在鍵盤上方（與矮視窗規則同樣的宣告） */
+            html.kb-short .header, html.kb-short .mobile-batch-area { display: none !important; }
+            html.kb-short .results-section { min-height: 0; }
+            /* 寫歌詞時把「情境 ＆ 標籤」收到只剩標題列，讓出高度給歌詞框 */
+            .side-panel:has(.section-textarea:focus) .context-section { flex-basis: var(--hit); }
+        }

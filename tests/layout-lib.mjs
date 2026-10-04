@@ -91,3 +91,78 @@ export async function expectReallyClickable(page, locator, label = '') {
     });
     expect(hit.ok, `${label} 中心被 ${hit.top} 蓋住`).toBe(true);
 }
+
+// 模擬虛擬鍵盤：Chromium 沒有真鍵盤，縮小視窗高度時 innerHeight 與 visualViewport.height 一起變矮，
+// 寬度不變，剛好是 js/layout.js 判斷「鍵盤出現」的條件。回傳縮之前的視窗大小，給 restoreViewport 用。
+export async function emulateKeyboard(page, px) {
+    const before = page.viewportSize();
+    await page.setViewportSize({ width: before.width, height: before.height - px });
+    await twoFrames(page);
+    return before;
+}
+
+// 把視窗還原成縮之前的大小（鍵盤收起）
+export async function restoreViewport(page, size) {
+    await page.setViewportSize(size);
+    await twoFrames(page);
+}
+
+// 等兩個 requestAnimationFrame：visualViewport 事件 → rAF 節流的更新 → 套用，需要這麼久
+async function twoFrames(page) {
+    await page.evaluate(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(r, 0)))));
+}
+
+// 鍵盤狀態一次讀出：class、三個變數的原始字串，以及視覺視窗的原始數字（不四捨五入）
+export function readKeyboard(page) {
+    return page.evaluate(() => {
+        const root = document.documentElement;
+        const vv = window.visualViewport;
+        return {
+            open: root.classList.contains('kb-open'),
+            short: root.classList.contains('kb-short'),
+            appH: root.style.getPropertyValue('--app-h'),
+            vvTop: root.style.getPropertyValue('--vv-top'),
+            kbInset: root.style.getPropertyValue('--kb-inset'),
+            vvHeight: vv.height,
+            vvOffsetTop: vv.offsetTop,
+            innerHeight: window.innerHeight,
+        };
+    });
+}
+
+// 框是否完整落在「可見範圍」（visualViewport 的上緣到下緣）內，容許 0.5px
+export function insideVisible(box, kb, tol = 0.5) {
+    return box.y >= kb.vvOffsetTop - tol && box.y + box.height <= kb.vvOffsetTop + kb.vvHeight + tol;
+}
+
+// ===== 輸入框字級下限（D-08）=====
+// 比較器獨立匯出，邊界測試直接拿它驗 16 剛好過、15.99 不過
+export function meetsInputFloor(px) { return px >= 16; }
+
+// 掃整頁所有看得見的文字輸入控制項（input 排除勾選／色票／拉桿／檔案／按鈕類、textarea、select），
+// 回傳字級不到下限的清單；量的是每個元素自己的計算字級（CSS px），跟 --ui-scale、裝置像素比都無關
+export function scanInputFonts(page) {
+    // 比較器原始碼送進頁面執行，掃描與邊界測試用的是同一個函式
+    return page.evaluate(src => {
+        const meets = new Function('return ' + src)();
+        const skip = /^(checkbox|radio|color|range|file|button|submit|reset|image|hidden)$/i;
+        const bad = [];
+        let count = 0;
+        for (const el of document.querySelectorAll('input, textarea, select')) {
+            if (el.tagName === 'INPUT' && skip.test(el.type)) continue;
+            // 看不見的不算：沒有版面框（display:none）、visibility 隱藏、整個透明（例如複製用的隱形 textarea）
+            if (el.getClientRects().length === 0) continue;
+            const cs = getComputedStyle(el);
+            if (cs.visibility === 'hidden' || Number(cs.opacity) === 0) continue;
+            const r = el.getBoundingClientRect();
+            if (r.width === 0 || r.height === 0) continue;
+            count++;
+            const px = parseFloat(cs.fontSize);
+            if (!meets(px)) {
+                const cls = typeof el.className === 'string' && el.className.trim() ? '.' + el.className.trim().split(/\s+/).join('.') : '';
+                bad.push(`${el.tagName.toLowerCase()}${el.id ? '#' + el.id : ''}${cls} ${px}px`);
+            }
+        }
+        return { bad, count };
+    }, meetsInputFloor.toString());
+}

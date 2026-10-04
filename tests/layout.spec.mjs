@@ -3,7 +3,7 @@
 import { test, expect } from '@playwright/test';
 import { readFileSync, readdirSync } from 'node:fs';
 import { bootPage, settle } from './helpers.mjs';
-import { DEVICES, setScale, waitStill, noPageScroll, expectFullyInViewport, expectReallyClickable, rectsOverlap, auditVisibleControls } from './layout-lib.mjs';
+import { DEVICES, setScale, waitStill, noPageScroll, expectFullyInViewport, expectReallyClickable, rectsOverlap, auditVisibleControls, emulateKeyboard, restoreViewport, readKeyboard, insideVisible, meetsInputFloor, scanInputFonts } from './layout-lib.mjs';
 
 const SCALE_KEY = 'lh:uiScale';
 
@@ -1202,3 +1202,130 @@ for (const [name, device] of Object.entries(DEVICES)) {
         } finally { await context.close(); }
     });
 }
+
+// ===== 05-07 任務一：虛擬鍵盤跳出來時，正在打字的地方一定看得到 =====
+// Chromium 沒有真鍵盤：縮小視窗高度＝innerHeight 與 visualViewport.height 一起變矮（寬度不變），
+// 剛好踩中 layout.js 的判斷。iOS「只縮視覺視窗、版面不動」的行為要真機才看得到（05-11 清單）。
+const KB_PROPS = ['appH', 'vvTop', 'kbInset'];
+const focusFirstLyrics = page => page.locator('#lyricsSections .section-textarea').first().tap();
+
+test('鍵盤：歌詞輸入時鍵盤不擋、面板撐滿可見高度', async ({ browser }) => {
+    const device = DEVICES.phone;
+    const { context, page } = await bootPage(browser, { device });
+    try {
+        await toggleSide(page, device, 'lyrics');
+        await focusFirstLyrics(page);
+        const size = await emulateKeyboard(page, 336);
+        await expect.poll(async () => (await readKeyboard(page)).open, { message: '縮 336px 後應進入 kb-open' }).toBe(true);
+        await waitStill(page);
+        const kb = await readKeyboard(page);
+        expect(kb.vvHeight, '視覺視窗高度').toBe(844 - 336);
+        // 變數直接取自 visualViewport 的原始數字，不四捨五入
+        expect(kb.appH).toBe(kb.vvHeight + 'px');
+        expect(kb.vvTop).toBe(kb.vvOffsetTop + 'px');
+        expect(kb.kbInset).toBe(Math.max(0, kb.innerHeight - kb.vvHeight - kb.vvOffsetTop) + 'px');
+        expect(await page.locator('.mobile-tab-bar').evaluate(el => getComputedStyle(el).display), '鍵盤出現時分頁列藏起來').toBe('none');
+        const ta = await page.locator('#lyricsSections .section-textarea').first().boundingBox();
+        expect(insideVisible(ta, kb), `歌詞輸入框 ${JSON.stringify(ta)} 要完整在可見範圍內`).toBe(true);
+        const sheet = await page.locator('#leftPanel').boundingBox();
+        expect(Math.abs(sheet.height - kb.vvHeight), `面板高度 ${sheet.height} 要等於可見高度 ${kb.vvHeight}`).toBeLessThanOrEqual(1);
+        expect(Math.abs(sheet.y - kb.vvOffsetTop), '面板貼齊可見範圍上緣').toBeLessThanOrEqual(1);
+        expect((await noPageScroll(page)).sh, '頁面本身不捲動').toBeLessThanOrEqual(kb.innerHeight + 1);
+        // 鍵盤收起：class 與三個變數都清掉
+        await restoreViewport(page, size);
+        await expect.poll(async () => (await readKeyboard(page)).open, { message: '還原後 kb-open 要拿掉' }).toBe(false);
+        const after = await readKeyboard(page);
+        expect([after.short, after.appH, after.vvTop, after.kbInset]).toEqual([false, '', '', '']);
+        expect(await page.locator('.mobile-tab-bar').evaluate(el => getComputedStyle(el).display), '收起後分頁列回來').toBe('flex');
+    } finally { await context.close(); }
+});
+
+test('鍵盤：差 149 不算、150 才算鍵盤', async ({ browser }) => {
+    const { context, page } = await bootPage(browser, { device: DEVICES.phone });
+    try {
+        await page.locator('#searchInput').tap();
+        let size = await emulateKeyboard(page, 149);
+        let kb = await readKeyboard(page);
+        expect([kb.vvHeight, kb.open, kb.appH], '差 149：不算鍵盤').toEqual([844 - 149, false, '']);
+        await restoreViewport(page, size);
+        size = await emulateKeyboard(page, 150);
+        await expect.poll(async () => (await readKeyboard(page)).open, { message: '差 150：算鍵盤' }).toBe(true);
+        kb = await readKeyboard(page);
+        expect([kb.vvHeight, kb.appH]).toEqual([844 - 150, (844 - 150) + 'px']);
+        // 694px 高：還不到 600，標題區仍在
+        expect(kb.short, '可見高度 694 ≥ 600 不用藏標題區').toBe(false);
+        // 只改高度時「穩定高度」要保留：再縮 1px 仍是鍵盤，不會因為高度變了就重新量基準
+        await emulateKeyboard(page, 1);
+        expect((await readKeyboard(page)).open, '再多縮 1px 仍是鍵盤').toBe(true);
+    } finally { await context.close(); }
+});
+
+test('鍵盤：沒有聚焦輸入框時不算鍵盤', async ({ browser }) => {
+    const { context, page } = await bootPage(browser, { device: DEVICES.phone });
+    try {
+        expect(await page.evaluate(() => document.activeElement === document.body)).toBe(true);
+        const size = await emulateKeyboard(page, 336);
+        let kb = await readKeyboard(page);
+        expect([kb.vvHeight, kb.open, kb.appH], '沒聚焦：網址列之類的高度變化不算鍵盤').toEqual([844 - 336, false, '']);
+        await restoreViewport(page, size);
+        // 聚焦的是按鈕（不是文字欄位）也不算
+        await page.locator('#mtab-lyrics').focus();
+        await emulateKeyboard(page, 336);
+        kb = await readKeyboard(page);
+        expect(kb.open, '按鈕聚焦不算鍵盤').toBe(false);
+    } finally { await context.close(); }
+});
+
+test('鍵盤：搜尋時太矮先藏標題區、字卡看得到', async ({ browser }) => {
+    const { context, page } = await bootPage(browser, { device: DEVICES.phone });
+    try {
+        await page.locator('#searchInput').tap();
+        await emulateKeyboard(page, 336);
+        await expect.poll(async () => (await readKeyboard(page)).short).toBe(true);
+        await page.fill('#searchInput', 'ㄢ');
+        await waitStill(page);
+        const kb = await readKeyboard(page);
+        expect(kb.open).toBe(true);
+        const m = await page.evaluate(() => ({
+            header: getComputedStyle(document.querySelector('.header')).display,
+            batch: getComputedStyle(document.getElementById('mobileBatchArea')).display,
+            minH: getComputedStyle(document.querySelector('.results-section')).minHeight,
+        }));
+        expect(m, '可見高度不到 600：標題區與批次列藏起來、結果區可以縮').toEqual({ header: 'none', batch: 'none', minH: '0px' });
+        const card = await page.locator('.char-card').first().boundingBox();
+        expect(insideVisible(card, kb), `第一張字卡 ${JSON.stringify(card)} 要在鍵盤上方的可見範圍`).toBe(true);
+        // 搜尋框本身也還在可見範圍內
+        expect(insideVisible(await page.locator('#searchInput').boundingBox(), kb)).toBe(true);
+    } finally { await context.close(); }
+});
+
+test('鍵盤：寫歌詞時情境區自動收起、回報視窗輸入框看得到', async ({ browser }) => {
+    const device = DEVICES.phone;
+    const { context, page } = await bootPage(browser, { device });
+    try {
+        await toggleSide(page, device, 'lyrics');
+        const ctxH = () => page.locator('#contextSection').evaluate(el => el.getBoundingClientRect().height);
+        const idle = await ctxH();
+        expect(idle, '沒在寫歌詞時情境區是正常高度').toBeGreaterThan(80);
+        await focusFirstLyrics(page);
+        await expect.poll(ctxH, { message: '聚焦歌詞框：情境區收到標題列高度' }).toBeLessThanOrEqual(44.5);
+        expect(await ctxH()).toBeGreaterThanOrEqual(43.5);
+        await page.locator('#lyricsSections .section-textarea').first().blur();
+        await expect.poll(ctxH, { message: '離開歌詞框：情境區回來' }).toBeGreaterThan(80);
+        await closeSheet(page, device);
+
+        // 回報視窗：開啟後自動聚焦主旨，鍵盤出現後主旨輸入框與整個對話框都在可見範圍
+        await page.locator('#settingsTrigger').tap();
+        await page.locator('.settings-feedback-btn').tap();
+        await expect(page.locator('#feedbackSubject')).toBeFocused();
+        await emulateKeyboard(page, 336);
+        await expect.poll(async () => (await readKeyboard(page)).open).toBe(true);
+        await waitStill(page);
+        const kb = await readKeyboard(page);
+        expect(insideVisible(await page.locator('#feedbackSubject').boundingBox(), kb), '主旨輸入框在可見範圍內').toBe(true);
+        const ov = await page.locator('#feedbackModalOverlay').boundingBox();
+        expect(Math.abs(ov.y - kb.vvOffsetTop), '遮罩上緣貼可見範圍').toBeLessThanOrEqual(1);
+        expect(Math.abs(ov.height - kb.vvHeight), '遮罩高度＝可見高度').toBeLessThanOrEqual(1);
+        expect(insideVisible(await page.locator('#feedbackModalOverlay .feedback-modal').boundingBox(), kb), '對話框整個在可見範圍內').toBe(true);
+    } finally { await context.close(); }
+});
