@@ -13,7 +13,61 @@
         function toggleSettings() {
             const overlay = document.getElementById('settingsOverlay');
             overlay.classList.toggle('show');
+            // 每次打開都重畫詞庫包清單：勾選永遠對得上目前真正在用的包
+            if (overlay.classList.contains('show')) renderLexiconPackList();
         }
+
+        // 詞庫包清單（偏好設定）：只用 createElement + textContent 組畫面，清單文字不會被當成 HTML（T-06-07）
+        let _packSwitchSeq = 0;   // 每次點選 +1；連點時只有最後一次的結果會顯示
+        async function renderLexiconPackList() {
+            const list = document.getElementById('lexiconPackList');
+            const status = document.getElementById('lexiconPackStatus');
+            if (!list || !status) return;
+            status.textContent = '讀取中…';
+            const m = await loadLexiconManifest();
+            list.replaceChildren();
+            if (!m) { status.textContent = '詞庫包清單暫時讀不到，先使用 v0.96 現行詞庫'; return; }
+            const activeId = (activeLexiconPack || {}).id ?? m.default;
+            for (const p of m.packs) {
+                const label = document.createElement('label');
+                label.className = 'checkbox-label pack-option';
+                const radio = document.createElement('input');
+                radio.type = 'radio';
+                radio.name = 'lexiconPack';
+                radio.value = p.id;
+                radio.checked = p.id === activeId;
+                const text = document.createElement('span');
+                text.className = 'pack-option-text';
+                const nameEl = document.createElement('span');
+                nameEl.className = 'pack-option-name';
+                nameEl.textContent = p.name;
+                const metaEl = document.createElement('span');
+                metaEl.className = 'pack-option-meta';
+                metaEl.textContent = Number(p.entries).toLocaleString('zh-TW') + ' 詞・' + p.description;
+                text.append(nameEl, metaEl);
+                label.append(radio, text);
+                list.append(label);
+            }
+            status.textContent = '';
+        }
+
+        document.getElementById('lexiconPackList').addEventListener('change', async e => {
+            const radio = e.target;
+            if (!radio || radio.name !== 'lexiconPack') return;
+            const status = document.getElementById('lexiconPackStatus');
+            const seq = ++_packSwitchSeq;
+            status.textContent = '詞庫載入中…';
+            const m = await loadLexiconManifest();
+            const pack = m && m.packs.find(p => p.id === radio.value);
+            const ok = await switchLexiconPack(radio.value);
+            if (seq !== _packSwitchSeq) return;   // 後面又選了別的包，以那次為準
+            if (ok) { status.textContent = '已改用：' + (pack ? pack.name : radio.value); return; }
+            status.textContent = '詞庫載入失敗，請稍後再試';
+            showToast('詞庫載入失敗，請稍後再試');
+            // 退回原本的包：勾選要跟真正在用的一致
+            const activeId = (activeLexiconPack || {}).id ?? (m ? m.default : null);
+            document.querySelectorAll('#lexiconPackList input[name="lexiconPack"]').forEach(r => { r.checked = r.value === activeId; });
+        });
 
         function closeSettingsOverlay(event) {
             // 點擊遮罩本身才關閉（內容區已 stopPropagation）

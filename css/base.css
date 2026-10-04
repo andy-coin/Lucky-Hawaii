@@ -414,7 +414,8 @@
             color: var(--text-secondary);
         }
         
-        .checkbox-label input[type="checkbox"] {
+        .checkbox-label input[type="checkbox"],
+        .checkbox-label input[type="radio"] {
             width: 1.125rem;
             height: 1.125rem;
             cursor: pointer;
@@ -565,6 +566,15 @@
             margin-bottom: 0.25rem;
             text-align: center;
         }
+
+        /* 詞庫包清單（Phase 6）：單選列，名稱一行、詞數與說明一行 */
+        .settings-pack-section { display: flex; flex-direction: column; gap: 0.25rem; }
+        .settings-pack-title { font-size: 0.9rem; color: var(--text-primary); }
+        .pack-option { align-items: flex-start; }
+        .pack-option-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 0.125rem; }
+        .pack-option-name { font-size: 0.95rem; color: var(--text-primary); }
+        .pack-option-meta { font-size: 0.8rem; color: var(--text-secondary); line-height: 1.4; }
+        .settings-pack-status { font-size: 0.8rem; color: var(--text-secondary); min-height: 1.2em; }
 
         /* 偏好設定在每種裝置都完整：客製顏色、存檔讀取、回報（D-11） */
         .settings-color-section { color: var(--text-secondary); }
@@ -912,7 +922,8 @@
             .char-card { min-height: var(--hit); }
             /* 勾選框：整列 44 高，勾選框本身視覺 20×20 */
             .checkbox-label { min-height: var(--hit); }
-            .checkbox-label input[type="checkbox"] { width: 1.25rem; height: 1.25rem; flex-shrink: 0; }
+            .checkbox-label input[type="checkbox"],
+            .checkbox-label input[type="radio"] { width: 1.25rem; height: 1.25rem; flex-shrink: 0; }
             /* 常用／冷僻徽章：視覺還是小小一顆，點擊範圍 ≥ 44 寬 × 32 高（刻意不做到 44 高：會吃掉字卡 40% 又容易誤改等級） */
             .mark-badge { position: relative; font-size: 0.75rem; min-height: 1.25rem; }
             .mark-badge::after { content: ''; position: absolute; inset: -0.375rem -0.5rem; }
