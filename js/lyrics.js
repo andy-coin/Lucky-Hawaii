@@ -226,6 +226,14 @@
         }
 
         function removeLyricsSection(index) {
+            // 手機上刪除鈕變大了（44px），一次點錯不能就把寫好的歌詞弄丟：段落有內容時先確認，取消就什麼都不動（D-12）。
+            // 段落名稱當純文字塞進 confirm 訊息（不是 HTML，T-05-17）。第 9 階段會改成可復原，到時這個確認再拿掉。
+            const sec = lyricsSections[index];
+            if (!sec) return;
+            if ((sec.text || '').trim()) {
+                const name = sec.label || (index === 0 ? '歌詞' : '新段落');
+                if (!confirm('刪除「' + name + '」？段落內的歌詞會一併刪除，無法復原。')) return;
+            }
             lyricsSections.splice(index, 1);
             lhSet('haiku_lyrics', JSON.stringify(lyricsSections));
             renderLyricsSections();

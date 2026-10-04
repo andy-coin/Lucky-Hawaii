@@ -21,9 +21,7 @@
                 displayReading = fmtPhonetic(base, tone);
             }
             document.getElementById('polyChipCtxTitle').textContent = `「${char}」${displayReading}`;
-            _polyCtxMenu.style.left = Math.min(x, window.innerWidth - 160) + 'px';
-            _polyCtxMenu.style.top = Math.min(y, window.innerHeight - 100) + 'px';
-            _polyCtxMenu.classList.add('show');
+            lhPlaceMenu(_polyCtxMenu, x, y);
         }
 
         // 桌機改視窗寬度時重新檢查「兩個面板同時開、主畫面會不夠寬」；用箭頭函式，避免把 resize 事件當成參數傳進去
@@ -93,9 +91,7 @@
             document.getElementById('wordCtxItems').innerHTML =
                 readingRows +
                 `<div class="word-ctx-item" onclick="charSuggestReading()">🔤 建議讀音</div>`;
-            _ctxMenu.style.left = Math.min(x, window.innerWidth - 220) + 'px';
-            _ctxMenu.style.top = Math.min(y, window.innerHeight - 100) + 'px';
-            _ctxMenu.classList.add('show');
+            lhPlaceMenu(_ctxMenu, x, y);
         }
         function charSuggestReading() {
             _hideCtxMenu();

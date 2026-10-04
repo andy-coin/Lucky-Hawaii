@@ -16,11 +16,7 @@
             document.getElementById('wordCtxTitle').innerHTML =
                 _ctxWord + (_ph ? `<span class="ctx-phonetic">${_ph}</span>` : '') + _pSuffix(_ctxWord);
             _setCtxMenuFor(card);
-            const x = Math.min(e.clientX, window.innerWidth - 160);
-            const y = Math.min(e.clientY, window.innerHeight - 140);
-            _ctxMenu.style.left = x + 'px';
-            _ctxMenu.style.top = y + 'px';
-            _ctxMenu.classList.add('show');
+            lhPlaceMenu(_ctxMenu, e.clientX, e.clientY);
         });
 
         // 手機長按觸發回報選單
@@ -36,11 +32,7 @@
                 document.getElementById('wordCtxTitle').textContent = `「${_ctxWord}」` + _pSuffix(_ctxWord);
                 _setCtxMenuFor(card);
                 const touch = e.touches[0];
-                const x = Math.min(touch.clientX, window.innerWidth - 160);
-                const y = Math.min(touch.clientY, window.innerHeight - 140);
-                _ctxMenu.style.left = x + 'px';
-                _ctxMenu.style.top = y + 'px';
-                _ctxMenu.classList.add('show');
+                lhPlaceMenu(_ctxMenu, touch.clientX, touch.clientY);
             }, 500);
         }, { passive: true });
         _aiWordsCt.addEventListener('touchmove', () => {

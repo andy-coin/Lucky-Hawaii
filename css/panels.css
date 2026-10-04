@@ -379,7 +379,10 @@
             box-shadow: 0 4px 16px rgba(0,0,0,0.18);
             padding: 0.25rem 0;
             z-index: 10000;
-            min-width: 8.75rem;
+            min-width: 9rem;
+            /* 極端縮放（150% 的橫放手機）選單比畫面還高時，在選單內捲動，不整個切掉 */
+            max-height: calc(var(--app-h) - 1rem);
+            overflow-y: auto;
             display: none;
         }
         .word-ctx-menu.show { display: block; }

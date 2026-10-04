@@ -141,3 +141,26 @@ document.addEventListener('focusin', () => {
     }
 });
 document.addEventListener('focusout', _lhKbSchedule);
+
+// ==================== 右鍵／長按選單定位（05-08，UI-SPEC §6） ====================
+// 以前用固定的 160／220／100／140 px 估選單大小，放大到 150% 時選單比估的大，右下角會被切掉。
+// 現在先顯示、量真正的大小，再把 left／top 夾進「可見範圍」（visualViewport；沒有就用視窗）四邊各留 4px。
+// 只寫兩個數字加 px，不經手任何使用者文字（T-05-19）。
+function lhPlaceMenu(el, x, y) {
+    // 先放到左上角再量：fixed 元素的寬度會被「離右邊還剩多少」限制，從上次的位置量會被擠窄
+    el.style.left = '0px';
+    el.style.top = '0px';
+    el.classList.add('show');
+    const vv = window.visualViewport;
+    const vx = vv ? vv.offsetLeft : 0;
+    const vy = vv ? vv.offsetTop : 0;
+    const vw = vv ? vv.width : window.innerWidth;
+    const vh = vv ? vv.height : window.innerHeight;
+    const r = el.getBoundingClientRect();
+    const M = 4;
+    // 選單比可見範圍還大時（極端縮放）貼左上角：max 在外面，上緣／左緣優先看得到
+    const left = Math.max(vx + M, Math.min(x, vx + vw - r.width - M));
+    const top = Math.max(vy + M, Math.min(y, vy + vh - r.height - M));
+    el.style.left = left + 'px';
+    el.style.top = top + 'px';
+}

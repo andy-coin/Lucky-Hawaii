@@ -1607,3 +1607,142 @@ test('觸控：還沒搜尋時 AI 面板按鈕夠大、按建議會提示先搜�
         await expect(page.locator('.copy-toast')).toContainText('請先在上方搜尋要押韻的字');
     } finally { await context.close(); }
 });
+
+// ===== 05-08 任務二：有內容的段落刪除前先確認；放大到 150% 右鍵／長按選單不跑出畫面 =====
+const DELETE_SECTIONS = [
+    { label: '主歌', text: '寫了很久的主歌', collapsed: false },
+    { label: '副歌', text: '寫了很久的副歌', collapsed: false },
+    { label: '空白段', text: '', collapsed: false },
+];
+const savedLyrics = page => page.evaluate(() => JSON.parse(localStorage.getItem('haiku_lyrics') || 'null'));
+const sectionCount = page => page.locator('#lyricsSections .lyrics-section').count();
+// bootPage 掛了一個自動按「確定」的處理器；這個測試要自己決定按取消或確定，所以先全部拿掉再掛自己的
+function takeOverDialogs(page) {
+    page.removeAllListeners('dialog');
+    const log = { messages: [], answer: 'dismiss' };
+    page.on('dialog', d => { log.messages.push(d.message()); return log.answer === 'accept' ? d.accept() : d.dismiss(); });
+    return log;
+}
+
+test('刪除：有歌詞的段落要先確認、空段落直接刪', async ({ browser }) => {
+    const device = DEVICES.phone;
+    const { context, page } = await bootPage(browser, { device, storage: { haiku_lyrics: JSON.stringify(DELETE_SECTIONS) } });
+    try {
+        const log = takeOverDialogs(page);
+        await toggleSide(page, device, 'lyrics');
+        expect(await sectionCount(page)).toBe(3);
+        const removeBtn = i => page.locator(`#lyricsSections .lyrics-section[data-index="${i}"] .section-remove`);
+
+        // 有內容、按取消：段落與文字都在，存檔也沒變
+        await expectReallyClickable(page, removeBtn(1), '副歌的刪除鈕');
+        await removeBtn(1).tap();
+        expect(log.messages, '只問一次、文字完全照規格').toEqual(['刪除「副歌」？段落內的歌詞會一併刪除，無法復原。']);
+        expect(await sectionCount(page), '取消後段落還在').toBe(3);
+        expect(await page.locator('#lyricsSections .section-textarea').nth(1).inputValue(), '取消後文字還在').toBe('寫了很久的副歌');
+        expect(await savedLyrics(page), '取消後存檔沒變').toEqual(DELETE_SECTIONS);
+
+        // 有內容、按確定：刪掉，存檔跟著更新
+        log.answer = 'accept';
+        await removeBtn(1).tap();
+        expect(log.messages.length, '又問了一次').toBe(2);
+        expect(await sectionCount(page)).toBe(2);
+        expect((await savedLyrics(page)).map(s => s.label)).toEqual(['主歌', '空白段']);
+
+        // 空段落：不問直接刪
+        log.answer = 'dismiss';   // 就算被問了也會按取消 → 段落還在就能抓到「不該問卻問了」
+        await removeBtn(1).tap();
+        expect(log.messages.length, '空段落不跳確認').toBe(2);
+        expect(await sectionCount(page), '空段落直接刪掉').toBe(1);
+        expect((await savedLyrics(page)).map(s => s.label)).toEqual(['主歌']);
+    } finally { await context.close(); }
+});
+
+test('刪除：段落名稱只當純文字顯示', async ({ browser }) => {
+    const device = DEVICES.phone;
+    const sections = [
+        { label: '歌詞', text: '第一段', collapsed: false },
+        { label: '<b>x</b>', text: '有字', collapsed: false },
+        { label: '', text: '沒取名但有字', collapsed: false },
+    ];
+    const { context, page } = await bootPage(browser, { device, storage: { haiku_lyrics: JSON.stringify(sections) } });
+    try {
+        const log = takeOverDialogs(page);
+        await toggleSide(page, device, 'lyrics');
+        await page.locator('#lyricsSections .lyrics-section[data-index="1"] .section-remove').tap();
+        await page.locator('#lyricsSections .lyrics-section[data-index="2"] .section-remove').tap();
+        expect(log.messages).toEqual([
+            '刪除「<b>x</b>」？段落內的歌詞會一併刪除，無法復原。',   // 標籤符號原樣出現，沒有被當成 HTML
+            '刪除「新段落」？段落內的歌詞會一併刪除，無法復原。',     // 沒取名的用預設名稱
+        ]);
+        expect(await sectionCount(page), '兩次都取消，三段都在').toBe(3);
+        expect(await page.evaluate(() => document.querySelectorAll('#lyricsSections b').length), '沒有被塞進頁面的標籤').toBe(0);
+    } finally { await context.close(); }
+});
+
+// 在頁面內送出一個觸控事件（touchstart／touchend），座標用 clientX／clientY
+const fireTouch = (page, sel, type, x, y) => page.evaluate(({ sel, type, x, y }) => {
+    const el = document.querySelector(sel);
+    const t = new Touch({ identifier: 7, target: el, clientX: x, clientY: y });
+    el.dispatchEvent(new TouchEvent(type, { bubbles: true, cancelable: true, touches: type === 'touchend' ? [] : [t], targetTouches: type === 'touchend' ? [] : [t], changedTouches: [t] }));
+}, { sel, type, x, y });
+const fireContext = (page, sel, x, y) => page.evaluate(({ sel, x, y }) => {
+    document.querySelector(sel).dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: x, clientY: y }));
+}, { sel, x, y });
+// 量目前顯示的選單：框、可見範圍、1rem 的實際像素、每個選項的高度
+const readMenu = (page, id) => page.evaluate(id => {
+    const m = document.getElementById(id);
+    const r = m.getBoundingClientRect();
+    const vv = window.visualViewport;
+    return {
+        shown: m.classList.contains('show'),
+        l: r.left, t: r.top, r: r.right, b: r.bottom, w: r.width,
+        vl: vv.offsetLeft, vt: vv.offsetTop, vr: vv.offsetLeft + vv.width, vb: vv.offsetTop + vv.height,
+        rem: parseFloat(getComputedStyle(document.documentElement).fontSize),
+        minW: parseFloat(getComputedStyle(m).minWidth),
+        items: [...m.querySelectorAll('.word-ctx-item')].map(e => e.getBoundingClientRect().height),
+    };
+}, id);
+const hideMenus = page => page.evaluate(() => { _hideCtxMenu(); _hidePolyCtxMenu(); });
+
+test('選單：放大 150% 時右鍵／長按選單不跑出畫面', async ({ browser }) => {
+    const MENUS = [
+        // [說明, 要觸發的元素, 選單 id]
+        ['字卡選單', '#resultsContainer .char-card', 'wordCtxMenu'],
+        ['AI 詞卡選單', '#aiWordsContainer .ai-word-card', 'wordCtxMenu'],
+        ['破音字選單', '.poly-chip', 'polyChipCtxMenu'],
+    ];
+    for (const [dname, device, touch] of [['桌機 1440×900（右鍵）', DEVICES.desktop, false], ['手機 390×844（長按 500ms）', DEVICES.phone, true]]) {
+        const { context, page } = await bootPage(browser, { device, storage: { 'lh:uiScale': '150' } });
+        try {
+            await page.fill('#searchInput', '樂');
+            await settle(page);
+            await waitStill(page);
+            await page.evaluate(() => { document.getElementById('aiWordsContainer').innerHTML = aiWordCardHtml('平安', false); });
+            const vp = await page.evaluate(() => ({ w: visualViewport.width, h: visualViewport.height }));
+            // 右下角、左上角、右上角、左下角：四個角落都不能跑出去
+            const corners = [['右下', vp.w - 2, vp.h - 2], ['左上', 1, 1], ['右上', vp.w - 2, 1], ['左下', 1, vp.h - 2]];
+            for (const [mname, sel, id] of MENUS) {
+                for (const [cname, x, y] of corners) {
+                    await hideMenus(page);
+                    if (touch) {
+                        await fireTouch(page, sel, 'touchstart', x, y);
+                        await page.waitForTimeout(650);
+                        await fireTouch(page, sel, 'touchend', x, y);
+                    } else {
+                        await fireContext(page, sel, x, y);
+                    }
+                    const m = await readMenu(page, id);
+                    const tag = `${dname} ${mname} ${cname}`;
+                    expect(m.shown, `${tag}：選單有出現`).toBe(true);
+                    expect(m.l, `${tag}：左邊在可見範圍內 ${JSON.stringify(m)}`).toBeGreaterThanOrEqual(m.vl - 0.5);
+                    expect(m.t, `${tag}：上邊在可見範圍內`).toBeGreaterThanOrEqual(m.vt - 0.5);
+                    expect(m.r, `${tag}：右邊在可見範圍內`).toBeLessThanOrEqual(m.vr + 0.5);
+                    expect(m.b, `${tag}：下邊在可見範圍內`).toBeLessThanOrEqual(m.vb + 0.5);
+                    expect(m.minW, `${tag}：最小寬度 9rem`).toBeCloseTo(9 * m.rem, 0);
+                    expect(m.w, `${tag}：實際寬度不小於 9rem`).toBeGreaterThanOrEqual(9 * m.rem - 0.5);
+                    if (touch) for (const h of m.items) expect(h, `${tag}：觸控選項高度 ${h}`).toBeGreaterThanOrEqual(43.5);
+                }
+            }
+        } finally { await context.close(); }
+    }
+});
