@@ -176,9 +176,9 @@
                     <button class="save-load-btn" style="flex:1;text-align:center" onclick="exportSession();closeSettingsOverlay({target:document.getElementById('settingsOverlay')})" title="匯出">💾 存檔</button>
                     <button class="save-load-btn" style="flex:1;text-align:center" onclick="document.getElementById('importFileInput').click();closeSettingsOverlay({target:document.getElementById('settingsOverlay')})" title="讀取">📂 讀取</button>
                 </div>
-                <button class="settings-feedback-btn save-load-btn" style="width:100%;text-align:center;margin-top:0.25rem;" onclick="closeSettingsOverlay({target:document.getElementById('settingsOverlay')});openFeedbackModal()">✉️ 回報 / 意見</button>
+                <button class="settings-feedback-btn save-load-btn" style="width:100%;text-align:center;" onclick="closeSettingsOverlay({target:document.getElementById('settingsOverlay')});openFeedbackModal()">✉️ 回報 / 意見</button>
                 <button class="reset-color" onclick="resetColors()" >重設顏色!</button>
-                <button class="reset-color" onclick="clearDictOverrides()" title="清除瀏覽器中暫存的字庫修改（不影響檔案）" style="margin-top:0.375rem">清除字庫 local 覆寫</button>
+                <button class="reset-color" onclick="clearDictOverrides()" title="清除瀏覽器中暫存的字庫修改（不影響檔案）">清除字庫 local 覆寫</button>
             </div>
         </div>
 

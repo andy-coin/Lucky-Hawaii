@@ -524,8 +524,10 @@
             border-radius: 0.875rem;
             padding: 1.5rem 1.75rem;
             box-shadow: 0 12px 40px rgba(0,0,0,0.2);
-            min-width: 13.75rem;
-            max-width: 20rem;
+            width: min(22rem, 92vw);
+            max-height: calc(var(--app-h) - 2rem);
+            overflow-y: auto;
+            overscroll-behavior: contain;
         }
 
         .settings-dropdown.show {
@@ -533,6 +535,8 @@
             flex-direction: column;
             gap: 0.75rem;
         }
+        /* 內容比視窗高時整個對話框捲動，子項不要被壓扁 */
+        .settings-dropdown > * { flex-shrink: 0; }
         
         .settings-dropdown-title {
             font-size: 1rem;
@@ -542,14 +546,32 @@
             text-align: center;
         }
 
-        /* 桌面：隱藏設定面板內的顏色區塊（已在 header 顯示） */
-        .settings-color-section {
-            display: none;
+        /* 偏好設定在每種裝置都完整：客製顏色、存檔讀取、回報（D-11） */
+        .settings-color-section { color: var(--text-secondary); }
+        .settings-color-section .color-item { color: var(--text-secondary); font-size: 0.8rem; }
+        .settings-saveload { display: flex; }
+        .settings-feedback-btn { display: block; }
+        .settings-feedback-btn.save-load-btn {
+            background: var(--container-bg);
+            color: var(--text-primary);
+            border: 1px solid var(--border);
         }
-        /* 桌面：隱藏設定面板內的存檔讀取（已在 header 顯示）*/
-        .settings-saveload { display: none; }
-        /* 桌面：隱藏設定面板內的回報按鈕 */
-        .settings-feedback-btn { display: none; }
+        .settings-feedback-btn.save-load-btn:hover { background: var(--border); }
+        /* 重設顏色（破壞性）與前後按鈕至少隔 1rem */
+        .reset-color { margin-top: var(--sp-4); }
+        .reset-color + .reset-color { margin-top: var(--sp-4); }
+
+        /* 對話框內的按鈕與色票：窄螢幕或觸控時至少 44px（D-07） */
+        @media (max-width: 900px), (pointer: coarse) {
+            .settings-saveload .save-load-btn,
+            .settings-feedback-btn,
+            .reset-color,
+            .feedback-modal-actions button,
+            .hashtag-popup-cancel,
+            .hashtag-popup-confirm { min-height: var(--hit); }
+            .settings-color-section .color-item { min-height: var(--hit); }
+            .color-item input[type="color"] { min-width: var(--hit); min-height: var(--hit); }
+        }
 
         .results-section {
             padding: 1.875rem;

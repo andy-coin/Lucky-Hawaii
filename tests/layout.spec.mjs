@@ -374,3 +374,93 @@ test('版面：轉向時主題按鈕與提示字跟著換', async ({ browser }) 
         await expect.poll(read).toMatchObject({ theme: '🌙 深色模式' });
     } finally { await context.close(); }
 });
+
+// ===== 05-04：偏好設定與對話框（D-11、UI-SPEC §6） =====
+const openSettings = page => page.locator('#settingsTrigger').click();
+
+test('設定：電腦與平板也有顏色、存讀檔、回報', async ({ browser }) => {
+    for (const [name, device] of [['desktop', DEVICES.desktop], ['tablet', DEVICES.tablet], ['phone', DEVICES.phone]]) {
+        const { context, page } = await bootPage(browser, { device });
+        try {
+            await openSettings(page);
+            const dlg = page.locator('#settingsOverlay .settings-dropdown');
+            await expect(dlg, name).toBeVisible();
+            for (const sel of ['#sBgColor1', '#sContainerBg', '#sTextColor', '#sHighlightColor', '.settings-saveload .save-load-btn >> nth=0', '.settings-saveload .save-load-btn >> nth=1', '.settings-feedback-btn']) {
+                await expect(dlg.locator(sel), `${name} ${sel}`).toBeVisible();
+            }
+        } finally { await context.close(); }
+    }
+});
+
+test('設定：矮螢幕上對話框不超出、可以捲', async ({ browser }) => {
+    const { context, page } = await bootPage(browser, { device: DEVICES.phoneLandscape });
+    try {
+        const dialogs = [
+            ['設定', '#settingsOverlay', '.settings-dropdown', 'toggleSettings()'],
+            ['關於', '#aboutOverlay', '.about-content', 'toggleAbout()'],
+            ['回報', '#feedbackModalOverlay', '.feedback-modal', 'openFeedbackModal()'],
+            ['標籤', '#hashtagPopupOverlay', '.hashtag-popup', 'openHashtagPopup()'],
+        ];
+        for (const [name, overlay, box, open] of dialogs) {
+            await page.evaluate(open);
+            await expect(page.locator(overlay)).toHaveClass(/show/);
+            const m = await page.evaluate(sel => {
+                const el = document.querySelector(sel);
+                const r = el.getBoundingClientRect();
+                const cs = getComputedStyle(el);
+                const before = el.scrollTop;
+                el.scrollTop = el.scrollHeight;
+                return { top: r.top, bottom: r.bottom, h: r.height, ih: innerHeight, overflowY: cs.overflowY, tall: el.scrollHeight > el.clientHeight, moved: el.scrollTop > before };
+            }, `${overlay} ${box}`);
+            expect(m.h, `${name} 高度`).toBeLessThanOrEqual(m.ih - 32 + 0.5);
+            expect(m.top, `${name} 上緣`).toBeGreaterThanOrEqual(0);
+            expect(m.bottom, `${name} 下緣`).toBeLessThanOrEqual(m.ih + 0.5);
+            expect(['auto', 'scroll'], `${name} overflow-y`).toContain(m.overflowY);
+            if (m.tall) expect(m.moved, `${name} 內容比對話框高但捲不動`).toBe(true);
+            if (name === '設定') expect(m.tall, '設定內容在矮螢幕上應該比對話框高').toBe(true);
+            await page.evaluate(o => document.querySelector(o).classList.remove('show'), overlay);
+        }
+    } finally { await context.close(); }
+});
+
+test('設定：重設顏色與旁邊按鈕至少隔 1rem', async ({ browser }) => {
+    for (const [name, device] of [['desktop', DEVICES.desktop], ['phone', DEVICES.phone]]) {
+        const { context, page } = await bootPage(browser, { device });
+        try {
+            await openSettings(page);
+            const gaps = await page.evaluate(() => {
+                const btns = [...document.querySelectorAll('#settingsOverlay .settings-dropdown button')].filter(b => b.getClientRects().length);
+                const reset = btns.find(b => b.textContent.trim() === '重設顏色!');
+                const a = reset.getBoundingClientRect();
+                return btns.filter(b => b !== reset).map(b => {
+                    const r = b.getBoundingClientRect();
+                    const dx = Math.max(r.left - a.right, a.left - r.right, 0);
+                    const dy = Math.max(r.top - a.bottom, a.top - r.bottom, 0);
+                    return { name: b.textContent.trim(), gap: Math.max(dx, dy) };
+                });
+            });
+            expect(gaps.length, name).toBeGreaterThanOrEqual(3);
+            for (const g of gaps) expect(g.gap, `${name}：重設顏色! 與 ${g.name}`).toBeGreaterThanOrEqual(16);
+        } finally { await context.close(); }
+    }
+});
+
+test('設定：文字色與底色相同時仍按得到重設顏色', async ({ browser }) => {
+    // 文字色 = 底色：畫面上看不到字，但設定對話框要能捲到、重設鈕要按得到也真的有效（UI-02、T-05-10）
+    const { context, page } = await bootPage(browser, {
+        device: DEVICES.phone,
+        storage: { containerBg: '#eee3ce', textColor: '#eee3ce' },
+    });
+    try {
+        await setScale(page, 150);
+        await waitStill(page);
+        expect(await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--text-primary').trim())).toBe('#eee3ce');
+        await openSettings(page);
+        const reset = page.getByRole('button', { name: '重設顏色!' });
+        await reset.scrollIntoViewIfNeeded();
+        await expectFullyInViewport(page, reset);
+        await reset.click();
+        expect(await page.evaluate(() => ({ stored: lhGet('textColor'), bg: lhGet('containerBg'), tp: getComputedStyle(document.documentElement).getPropertyValue('--text-primary').trim() })))
+            .toEqual({ stored: null, bg: null, tp: '#2d3748' });
+    } finally { await context.close(); }
+});
