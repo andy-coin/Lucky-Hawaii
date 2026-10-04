@@ -138,3 +138,72 @@ test('縮放：50% 與 150% 停用按鈕、再按也不超出', async ({ browser
         expect(await state()).toMatchObject({ ...enabled, scale: 55 });
     } finally { await context.close(); }
 });
+
+// ---- 尺寸一律用 rem（Pass A 之後的守門；Pass B 各 plan 新寫的尺寸也要過這關）----
+// 只看「尺寸類」屬性；陰影、模糊、letter-spacing、transform、@media 斷點本來就不在清單內
+const SIZE_PROP = /^(padding(-[a-z]+)?|margin(-[a-z]+)?|gap|row-gap|column-gap|width|height|min-width|min-height|max-width|max-height|top|right|bottom|left|inset|flex|flex-basis|grid-template-columns|grid-template-rows|grid-auto-rows|border(-top|-right|-bottom|-left)?|border-radius|border-[a-z-]+-radius|font-size|line-height)$/;
+const PX_RE = /(?<![\w.])(-?\d*\.?\d+)px\b/g;
+
+// 一段宣告文字（一行樣式表，或一個 style 屬性）裡不合規的 px：> 4px 且不是 max() 的第一個參數
+function badPxIn(text) {
+    const bad = [];
+    for (const [, , prop, val] of text.matchAll(/(^|[{;\s])([a-z-]+)\s*:\s*([^;{}]+)/g)) {
+        if (!SIZE_PROP.test(prop)) continue;
+        for (const m of val.matchAll(PX_RE)) {
+            const n = Math.abs(parseFloat(m[1]));
+            if (n <= 4) continue;   // 細線與 0
+            if (/max\(\s*$/.test(val.slice(0, m.index))) continue;   // 實體下限 max(44px, 2.75rem)
+            bad.push(`${prop}: ${val.trim()}`);
+            break;
+        }
+    }
+    return bad;
+}
+
+// 回傳 `檔名:行號 宣告` 清單；樣式表跳過 @media/@import/@supports 行與註解，index.html 只看 style="…" 屬性
+function scanPxSources(files) {
+    const hits = [];
+    for (const [file, src] of files) {
+        const text = src.replace(/\/\*[\s\S]*?\*\//g, c => c.replace(/[^\n]/g, ' '));
+        text.split('\n').forEach((line, i) => {
+            if (/^\s*@(media|import|supports)/.test(line)) return;
+            const parts = file.endsWith('.css') ? [line] : [...line.matchAll(/style="([^"]*)"/g)].map(m => m[1]);
+            for (const p of parts) for (const d of badPxIn(p)) hits.push(`${file}:${i + 1} ${d}`);
+        });
+    }
+    return hits;
+}
+
+test('縮放：尺寸一律用 rem（px 只留 ≤4px 細線與 max() 下限）', () => {
+    // 負向對照：掃描器要抓得到，也要放得過，否則「0 筆」沒有意義
+    expect(scanPxSources([['x.css', '.x { padding: 12px; }']])).toEqual(['x.css:1 padding: 12px']);
+    expect(scanPxSources([['x.css', '.x { min-height: max(44px, 2.75rem); border-left: 4px solid red; height: 4px; margin: 0px; }']])).toEqual([]);
+    expect(scanPxSources([['x.css', '@media (max-width: 900px) {\n/* padding: 12px; */\n.x { box-shadow: 0 8px 20px #000; }']])).toEqual([]);
+    expect(scanPxSources([['x.html', '<div style="gap:10px">']])).toEqual(['x.html:1 gap: 10px']);
+
+    const files = [
+        ...readdirSync('css').filter(f => f.endsWith('.css')).map(f => `css/${f}`),
+        'index.html',
+    ].map(f => [f, readFileSync(f, 'utf8')]);
+    // js 裡用 style.cssText 寫的尺寸另外盯：ai-generate.js 的狀態列
+    expect(readFileSync('js/ai-generate.js', 'utf8')).toContain('padding:0.375rem 0');
+    expect(scanPxSources(files), '這些宣告還在用 px').toEqual([]);
+});
+
+test('縮放：整個介面一起放大（側邊面板、分頁列、提示）', async ({ browser }) => {
+    const { context, page } = await bootPage(browser, { device: DEVICES.desktop });
+    try {
+        const read = () => page.evaluate(() => {
+            showToast('測試');
+            const px = (sel, prop) => parseFloat(getComputedStyle(document.querySelector(sel))[prop]);
+            return { panel: px('.side-panel', 'width'), tab: px('.mtab-btn', 'fontSize'), toast: px('.copy-toast', 'fontSize') };
+        });
+        const base = await read();
+        expect(base.panel).toBeGreaterThan(0);
+        await setScale(page, 150);
+        const big = await read();
+        for (const k of ['panel', 'tab', 'toast']) {
+            expect(big[k], `${k}：100% 是 ${base[k]}px，150% 是 ${big[k]}px`).toBeCloseTo(base[k] * 1.5, 0);
+        }
+    } finally { await context.close(); }
+});

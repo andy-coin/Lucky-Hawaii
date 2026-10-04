@@ -11,7 +11,7 @@
         // AI 生成補足詞（AI 造詞，不從詞庫選），驗證後顯示並標 "AI" 徽章
         async function generateAIWords(remaining, container, excludeSet, stale = () => false) {
             const statusDiv = document.createElement('div');
-            statusDiv.style.cssText = 'text-align:center;font-size:0.8rem;color:var(--text-secondary);padding:6px 0;width:100%;';
+            statusDiv.style.cssText = 'text-align:center;font-size:0.8rem;color:var(--text-secondary);padding:0.375rem 0;width:100%;';
             statusDiv.textContent = 'AI 生成補充詞…';
             container.appendChild(statusDiv);
 
