@@ -4,16 +4,16 @@ milestone: v0.96
 current_phase: 06
 current_phase_name: Lexicon Packs 台灣詞庫包
 status: executing
-stopped_at: Completed 06-04-PLAN.md
-last_updated: "2026-10-04T18:00:41.759Z"
+stopped_at: Completed 06-05-PLAN.md
+last_updated: "2026-10-04T18:17:57.608Z"
 last_activity: 2026-10-04
 last_activity_desc: Phase 06 execution started
-state_head: f387026b1fe99c943e985386c92fcad532adfb51
+state_head: b9d63d7d01a1d18764bf80fcdf03fb116308746e
 progress:
   total_phases: 12
   completed_phases: 2
   total_plans: 41
-  completed_plans: 37
+  completed_plans: 38
 ---
 
 # Project State
@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-10-03)
 ## Current Position
 
 Phase: 06 (Lexicon Packs 台灣詞庫包) — EXECUTING
-Plan: 5 of 8
+Plan: 6 of 8
 Status: Ready to execute
 Last activity: 2026-10-04 — Phase 06 execution started
 
@@ -94,6 +94,7 @@ Progress: [██░░░░░░░░] 17%
 | Phase 06 P02 | 27min | 2 tasks | 9 files |
 | Phase 06 P03 | 70min | 3 tasks | 8 files |
 | Phase 06 P04 | 35min | 2 tasks | 24 files |
+| Phase 06 P05 | 70min | 2 tasks | 40 files |
 
 ## Accumulated Context
 
@@ -148,6 +149,9 @@ Recent decisions affecting current work:
 - [Phase 06]: Overrides added-word de-dup by word; removed/hidden/fixed apply to every pack
 - [Phase 06]: About NOTICE re-read with no-cache on every open, textContent only
 - [Phase 06]: 06-04: notice_extra config field prints a 補充說明 line in NOTICE (absent for chewing, its NOTICE unchanged); vanguard-tw uses only the two non-MOE phrase files
+- [Phase 06]: 06-05: 倒三角形 被 R0 刪除是唯音來源注音只有 3 個音節的資料錯誤（小麥注音版本完整、仍保留），R0 不改
+- [Phase 06]: 06-05: R3 中國用語只看本來源詞頻（<100 才刪）；keep.json 放 27 個台灣日常詞、char-allow.txt 多加 9 個人名／小吃用字
+- [Phase 06]: 06-05: Big5 字數只數統一漢字範圍（5,401／7,650）；規則層上線後詞庫包 rules_version 2
 
 ### Pending Todos
 
@@ -186,6 +190,6 @@ Items acknowledged and deferred at milestone close, most recent first:
 
 ## Session Continuity
 
-Last session: 2026-10-04T18:00:41.664Z
-Stopped at: Completed 06-04-PLAN.md
+Last session: 2026-10-04T18:17:51.693Z
+Stopped at: Completed 06-05-PLAN.md
 Resume file: None
