@@ -780,6 +780,32 @@ for (const [name, device] of [['手機', DEVICES.phone], ['平板', DEVICES.tabl
     });
 }
 
+// WR-03：注音／拼音輸入法組字中按 Esc 是取消組字，不能把整個面板收掉；對話框開著時 Esc 也不歸底下的面板管
+test('底部面板：輸入法組字中按 Esc 不收面板、對話框開著時 Esc 不收面板', async ({ browser }) => {
+    const { context, page } = await bootPage(browser, { device: DEVICES.phone });
+    try {
+        await page.locator('#mtab-lyrics').tap();
+        await waitStill(page);
+        expect(await isCollapsed(page, 'left')).toBe(false);
+        // 組字中的 Esc（isComposing）：面板留著
+        await page.locator('#lyricsSections .section-textarea').first().focus();
+        await page.evaluate(() => document.activeElement.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', isComposing: true, bubbles: true })));
+        await page.evaluate(() => document.activeElement.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', keyCode: 229, bubbles: true })));
+        await waitStill(page);
+        expect(await isCollapsed(page, 'left'), '組字中按 Esc 不該收起面板').toBe(false);
+        // 對話框蓋在面板上：Esc 不收底下的面板
+        await page.evaluate(() => document.getElementById('settingsOverlay').classList.add('show'));
+        await page.keyboard.press('Escape');
+        await waitStill(page);
+        expect(await isCollapsed(page, 'left'), '對話框開著時 Esc 不該收起底下的面板').toBe(false);
+        await page.evaluate(() => document.getElementById('settingsOverlay').classList.remove('show'));
+        // 沒有組字、沒有對話框：Esc 照常收起
+        await page.keyboard.press('Escape');
+        await waitStill(page);
+        expect(await isCollapsed(page, 'left'), '一般 Esc 仍然收起面板').toBe(true);
+    } finally { await context.close(); }
+});
+
 test('底部面板：桌機按 Esc 不會收起側邊面板', async ({ browser }) => {
     const { context, page } = await bootPage(browser, { device: DEVICES.desktop });
     try {
