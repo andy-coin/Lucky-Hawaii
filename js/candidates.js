@@ -253,41 +253,49 @@
             return { words: [...picked, ...filled], picked: picked.length, filled: filled.length };
         }
 
+        // 有聲母取聲母；ㄧㄨㄩ 開頭取介音；其餘取韻母 — 與 filterWordsByInitial 同一規則
+        function _effInitial(zy) {
+            return getZhuyinInitial(zy) || (zy[0] === 'ㄩ' ? 'ㄩ' : zy[0] === 'ㄧ' ? 'ㄧ' : zy[0] === 'ㄨ' ? 'ㄨ' : getZhuyinRhyme(zy));
+        }
+
         // 驗證 AI 生成詞是否符合當前韻腳要求
+        // 與詞庫篩選（上方 filterWordsBy*Single、wordlist.js 的 filterWordsByRhyme/Initial）同一套規則，
+        // 差別只在讀音來自 charInfo（造詞沒有詞庫注音）；破音字任一讀音通過即可
         function validateWordRhyme(word) {
-            if (currentRhymes.length === 0) return false;
+            const L = word.length;
+            if (currentRhymes.length === 0 || L < 2 || L > 8) return false;
             if (currentRhymes.length === 1) {
-                if (word.length < 2 || word.length > 8) return false;
-                const checkChar = rhymeMode === 'rhyme' ? word[word.length - 1] : word[0];
+                if (!_wordLenPass(L)) return false;
                 const req = currentRhymes[0];
-                // 同字 filter：固定字位必須剛好等於搜尋字
-                if (filterSameChar && req.char && checkChar !== req.char) return false;
-                const infos = charInfo[checkChar] || [];
-                if (!infos.length) return false;
-                if (rhymeMode === 'rhyme') {
-                    const reqFamilyId = RHYME_TO_FAMILY[req.rhyme];
-                    if (reqFamilyId === undefined) return false;
-                    return infos.some(info => RHYME_TO_FAMILY[info.zhuyin] === reqFamilyId);
-                } else {
-                    if (!req.initial) return false;
-                    return infos.some(info => getZhuyinInitial(info.zhuyin) === req.initial);
+                const pureInitial = !req.rhyme && !!req.initial;
+                const key = rhymeMode === 'rhyme' ? word[L - 1] : word[0];
+                if (filterSameChar && key !== req.char) return false;
+                const infos = charInfo[key] || [];
+                if (!infos.length) return false;   // 字典查不到 → 丟棄
+                if (filterSameTone) {
+                    const t = (charInfo[req.char] || [])[0]?.tone;
+                    if (!infos.some(i => i.tone === t)) return false;
                 }
-            } else {
-                if (word.length !== currentRhymes.length) return false;
-                for (let i = 0; i < word.length; i++) {
-                    if (currentRhymes[i]?.isWild) continue;
-                    const infos = charInfo[word[i]] || [];
-                    if (!infos.length) return false;
-                    const req = currentRhymes[i];
-                    if (rhymeMode === 'rhyme') {
-                        const reqFamilyId = RHYME_TO_FAMILY[req.rhyme];
-                        if (!infos.some(info => RHYME_TO_FAMILY[getZhuyinRhyme(info.zhuyin)] === reqFamilyId)) return false;
-                    } else {
-                        if (!infos.some(info => getZhuyinInitial(info.zhuyin) === req.initial)) return false;
-                    }
-                }
-                return true;
+                if (pureInitial) return infos.some(i => getZhuyinInitial(i.zhuyin) === req.initial);
+                const fam = RHYME_TO_FAMILY[req.rhyme];
+                if (fam === undefined) return false;
+                return infos.some(i => {
+                    const r = getZhuyinRhyme(i.zhuyin);   // 先取韻母再查家族（整個音節不在家族表裡）
+                    return rhymeMode === 'rhyme' && filterNoExtRhyme ? r === req.rhyme : RHYME_TO_FAMILY[r] === fam;
+                });
             }
+            if (L !== currentRhymes.length) return false;
+            for (let i = 0; i < L; i++) {
+                const req = currentRhymes[i];
+                if (req.isWild || req.notFound) continue;
+                const infos = charInfo[word[i]] || [];
+                if (!infos.length) return false;
+                const ok = rhymeMode === 'rhyme'
+                    ? infos.some(x => RHYME_TO_FAMILY[getZhuyinRhyme(x.zhuyin)] === RHYME_TO_FAMILY[req.rhyme])
+                    : infos.some(x => _effInitial(x.zhuyin) === (req.initial || req.rhyme));
+                if (!ok) return false;
+            }
+            return true;
         }
 
         // 取得詞語的注音（或拼音）加聲調，供 hover tooltip 顯示
