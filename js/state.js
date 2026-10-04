@@ -41,4 +41,5 @@
         let searchedTerms = [];
         let hasCustomTextColor = false;
         let lastTarget = '';
+        let colorClass = '';   // createCharCard 的高亮顏色 class；每次 displayResults 開頭歸零（WR-01）
 

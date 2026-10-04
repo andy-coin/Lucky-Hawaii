@@ -2,7 +2,7 @@
         // 一次畫上千張字卡會讓手機凍結，所以第一屏（FIRST_BATCH 張）當場畫完，其餘每個動畫格畫 SLICE 張。
         // 鐵則：最後的 DOM 要和「一次畫完」的舊版一字不差（golden 比對）——
         //   1. 字卡、群組、標題的標記都不能多加屬性或 class；狀態只放在 #resultsContainer 本身與它的最後一個子元素（.render-status，畫完就移除）。
-        //   2. createCharCard 會讀寫全域的 colorClass、lastTarget，呼叫順序必須等於文件順序，兩次渲染不可交錯。
+        //   2. createCharCard 會讀寫全域的 colorClass、lastTarget，呼叫順序必須等於文件順序，兩次渲染不可交錯；displayResults 一開始會把這兩個全域歸零，渲染才不受前一次（可能被中途作廢）影響。
         //   3. 群組標題的「（k）」一開始就是最終數字；群組的外殼（標題＋空的 grid）只在它的第一張字卡要畫時才加進去。
         let _renderEpoch = 0;          // 每次 displayResults 加一；舊的分批看到不一致就自己停掉
         const FIRST_BATCH = 48;
@@ -134,6 +134,10 @@
         // 顯示結果
         function displayResults(results) {
             _renderEpoch++;   // 先作廢任何還在跑的分批
+            // 每次重畫都從乾淨的高亮顏色狀態開始：被中途作廢的舊渲染會把 colorClass／lastTarget 留在半途，
+            // 不重設的話，同一個查詢的第一組顏色會跟打字速度有關（WR-01）
+            colorClass = '';
+            lastTarget = '';
 
             // 搜尋欄為空時恢復初始畫面
             const currentInput = document.getElementById('searchInput').value.trim();

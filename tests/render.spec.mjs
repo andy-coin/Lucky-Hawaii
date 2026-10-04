@@ -439,4 +439,29 @@ test.describe('分批', () => {
             await context.close();
         }
     });
+    // WR-01：前一次渲染（可能被中途作廢）留下的 colorClass／lastTarget 不能影響下一次渲染
+    test('分批：高亮顏色不受前一次渲染殘留狀態影響', async ({ browser }) => {
+        const { context, page, errors } = await bootPage(browser);
+        try {
+            await page.fill('#searchInput', 'ㄢ');
+            await settle(page);
+            const clean = await snapshot(page);
+            // 直接把全域弄成「畫到一半被作廢」的樣子：顏色是別的、lastTarget 剛好等於第一張字卡的標記對象
+            const poisoned = await page.evaluate(async () => {
+                const probe = searchRhyme('ㄢ');
+                colorClass = 'search-highlight-5';
+                lastTarget = 'ㄢ';
+                document.getElementById('searchInput').dispatchEvent(new Event('input', { bubbles: true }));
+                await new Promise(r => setTimeout(r, 0));
+                return probe.length;
+            });
+            expect(poisoned).toBeGreaterThan(0);
+            await settle(page);
+            const again = await snapshot(page);
+            expect(again.html).toBe(clean.html);
+            expect(errors).toEqual([]);
+        } finally {
+            await context.close();
+        }
+    });
 });
