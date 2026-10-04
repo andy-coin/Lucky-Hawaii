@@ -52,10 +52,15 @@
                     }
                     const n = Math.min(budget, job.items.length - st.ci);
                     let html = '';
-                    for (let k = 0; k < n; k++) html += createCharCard(job.items[st.ci + k], showPinyin, job.hl);
-                    st.grid.insertAdjacentHTML('beforeend', html);
-                    st.ci += n;
-                    st.shown += n;
+                    let made = 0;
+                    try {
+                        for (; made < n; made++) html += createCharCard(job.items[st.ci + made], showPinyin, job.hl);
+                    } finally {
+                        // 中途丟例外時，已經做好的字卡照樣放進畫面（WR-05）
+                        st.grid.insertAdjacentHTML('beforeend', html);
+                        st.ci += made;
+                        st.shown += made;
+                    }
                     budget -= n;
                     if (st.ci >= job.items.length) {
                         if (job.wsAfter) st.grid.appendChild(document.createTextNode(job.wsAfter));
@@ -84,16 +89,27 @@
                 st.status.textContent = `載入中… 已顯示 ${st.shown.toLocaleString('zh-TW')} / ${total.toLocaleString('zh-TW')} 字`;
             }
 
+            // 畫字卡的過程如果丟出例外（例如某個使用者覆寫缺注音／拼音），不能讓畫面卡在「載入中」：
+            // 把錯誤記下來、放棄剩下的字卡，照常收尾（狀態列移除、aria-busy 拿掉、發 lh:render-done）（WR-05）
+            function safeSlice(budget) {
+                try {
+                    slice(budget);
+                } catch (err) {
+                    console.error('[好韻器] 字卡分批渲染失敗，已停止顯示剩下的字卡', err);
+                    st.ji = jobs.length;
+                }
+            }
+
             function flushAll() {
                 if (epoch !== _renderEpoch) return;
-                slice(Infinity);
+                safeSlice(Infinity);
                 finish();
             }
 
             function step() {
                 if (epoch !== _renderEpoch) return;     // 已被新的搜尋／重畫取代：不再加任何舊卡
                 if (document.hidden) { flushAll(); return; }
-                slice(SLICE);
+                safeSlice(SLICE);
                 if (st.ji >= jobs.length) { finish(); return; }
                 updateStatus();
                 requestAnimationFrame(step);
@@ -108,14 +124,14 @@
                 if (!section) return;
                 if (!scroll.same) { if (scroll.top > 0) section.scrollTop = 0; return; }   // 本來就在最上面就不用動（寫入捲動位置會強迫立刻排版）
                 if (scroll.top <= 0) return;
-                while (st.ji < jobs.length && (total <= 300 || section.scrollHeight < scroll.top + 2 * scroll.height)) slice(SLICE);
+                while (st.ji < jobs.length && (total <= 300 || section.scrollHeight < scroll.top + 2 * scroll.height)) safeSlice(SLICE);
                 section.scrollTop = scroll.top;
             }
 
             container.dataset.render = 'first';
             container.setAttribute('aria-busy', 'true');
             _setRenderLive('');
-            slice(FIRST_BATCH);
+            safeSlice(FIRST_BATCH);
             _applyScroll();
             if (st.ji >= jobs.length) { finish(); return; }
             // 背景分頁的動畫格會被暫停，剩下的一次畫完，絕不少於標題的字數

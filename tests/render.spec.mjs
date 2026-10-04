@@ -464,4 +464,42 @@ test.describe('分批', () => {
             await context.close();
         }
     });
+
+    // WR-05：分批中途某張字卡畫不出來（丟例外），畫面不能卡在「載入中」
+    test('分批：畫到一半丟例外也會收尾，不卡在載入中', async ({ browser }) => {
+        const { context, page, errors } = await bootPage(browser);
+        try {
+            await showAllRare(page);
+            await installProbe(page);
+            // 第 100 張開始丟例外：第一批（48）與第一個動畫格（64）都正常，第二個動畫格才出事
+            await page.evaluate(() => {
+                const orig = createCharCard;
+                let n = 0;
+                createCharCard = (...a) => { if (++n > 100) throw new Error('boom'); return orig(...a); };
+            });
+            await page.fill('#searchInput', 'ㄢ');
+            await settle(page);                                   // 卡在 more 的話這裡會逾時
+            const end = await page.evaluate(() => {
+                const root = document.getElementById('resultsContainer');
+                return {
+                    state: root.getAttribute('data-render'),
+                    busy: root.hasAttribute('aria-busy'),
+                    status: !!root.querySelector('.render-status'),
+                    cards: root.querySelectorAll('.char-card').length,
+                    done: window.__probe.done,
+                    live: document.getElementById('renderLive').textContent,
+                };
+            });
+            expect(end.state).toBe('done');
+            expect(end.busy).toBe(false);
+            expect(end.status).toBe(false);
+            expect(end.cards).toBe(100);                          // 出事前畫好的都留著
+            expect(end.done).toBe(1);
+            expect(end.live).not.toBe('');
+            // 錯誤有被記下來，沒有被吞掉
+            expect(errors.some(e => e.includes('字卡分批渲染失敗'))).toBe(true);
+        } finally {
+            await context.close();
+        }
+    });
 });
