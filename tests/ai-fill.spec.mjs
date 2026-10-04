@@ -1,6 +1,7 @@
 // Phase 4 AI 挑詞填滿與造詞驗證：AI 只負責排序，數量由程式保證
 import { test, expect } from '@playwright/test';
 import { bootPage, settle } from './helpers.mjs';
+import { readFileSync } from 'node:fs';
 import { loadCore } from './node-core.mjs';
 
 const MODEL = { id: 'gemini-3.5-flash-lite', label: 'Gemini 3.5 Flash-Lite' };
@@ -174,7 +175,7 @@ test('validateWordRhyme：純聲母ㄅ押字尾看末字聲母、押字首看首
     expect(verdicts(head, ['爸爸', '不要', '寶貝', '天邊'])).toEqual({ 爸爸: true, 不要: true, 寶貝: true, 天邊: false });
 });
 
-test('validateWordRhyme：篩選鏡射（同字／同聲調／排除借韻／字數）', () => {
+test('validateWordRhyme：篩選對照（同字／同聲調／排除借韻／字數）', () => {
     const { ev } = loadCore();
     expect(verdicts(rhymeJudge(ev, [REQ.心], { sameChar: true }), ['開心', '美音'])).toEqual({ 開心: true, 美音: false });
     expect(verdicts(rhymeJudge(ev, [REQ.心], { sameTone: true }), ['開心', '原因', '光陰', '列印', '手印']))
@@ -203,4 +204,44 @@ test('validateWordRhyme：多字（押母音／押子音）、萬用字、查無
 test('validateWordRhyme：沒有搜尋韻腳一律不過', () => {
     const { ev } = loadCore();
     expect(rhymeJudge(ev, [])('開心')).toBe(false);
+});
+
+test('鏡射：validateWordRhyme 與詞庫篩選同一套規則（真詞庫）', () => {
+    test.setTimeout(30_000);
+    const { ctx, ev } = loadCore();
+    // 詞庫是 NDJSON（每行一個物件），十個 chunk 合起來交給 vm
+    ctx.__wl = Array.from({ length: 10 }, (_, i) =>
+        readFileSync(`data/wordlist-c0${i}.json`, 'utf8').split('\n').filter(Boolean).map(l => JSON.parse(l))).flat();
+    ev('wordlistData = __wl; sentCandidatesSet = new Set(); savedWords = [];');
+
+    // 與 rhyme-display.js 同樣：request 由字典第一個讀音建出（ㄅ 是純聲母字面值）
+    const buildReq = c => JSON.parse(JSON.stringify(ev(`(() => {
+        const c = ${JSON.stringify(c)};
+        if (c === 'ㄅ') return { char: 'ㄅ', zhuyin: 'ㄅ', initial: 'ㄅ', rhyme: '', familyLabel: 'ㄅ' };
+        const zy = chineseDict[c][0];
+        return { char: c, zhuyin: zy, initial: _effInitial(zy), rhyme: getZhuyinRhyme(zy), familyLabel: '' };
+    })()`)));
+    const reset = (reqs, mode, noExt = false) =>
+        ev(`currentRhymes = ${JSON.stringify(reqs)}; rhymeMode = '${mode}'; filterSameChar = false; filterSameTone = false; filterNoExtRhyme = ${noExt}; filterWordLen = 0`);
+
+    const cases = [];
+    for (const c of ['心', '安', '愛', '衣', '月', '行', 'ㄅ']) {
+        cases.push([`${c} 押字尾 寬`, [c], 'rhyme', false, () => ev(`filterWordsByRhymeSingle(${JSON.stringify(c)}, 1)`)]);
+        cases.push([`${c} 押字尾 嚴`, [c], 'rhyme', true, () => ev(`filterWordsByRhymeSingle(${JSON.stringify(c)}, 1)`)]);
+        cases.push([`${c} 押字首`, [c], 'initial', false, () => ev(`filterWordsByInitialSingle(${JSON.stringify(c)}, 1)`)]);
+    }
+    cases.push(['愛心 押母音', ['愛', '心'], 'rhyme', false, () => ev('filterWordsByRhyme(currentRhymes, 2, 1)')]);
+    cases.push(['心衣 押子音', ['心', '衣'], 'initial', false, () => ev('filterWordsByInitial(currentRhymes, 2, 1)')]);
+    cases.push(['心衣 押母音', ['心', '衣'], 'rhyme', false, () => ev('filterWordsByRhyme(currentRhymes, 2, 1)')]);
+
+    const rates = [];
+    for (const [name, chars, mode, noExt, candidates] of cases) {
+        reset(chars.map(buildReq), mode, noExt);
+        const words = [...candidates()].slice(0, 2000);
+        expect(words.length, `${name} 候選太少，測不出東西`).toBeGreaterThanOrEqual(10);
+        const pass = words.filter(w => ev(`validateWordRhyme(${JSON.stringify(w)})`)).length;
+        rates.push(`${name}: ${pass}/${words.length}`);
+        expect(pass / words.length, `${name} 通過率 ${pass}/${words.length}`).toBeGreaterThanOrEqual(0.97);
+    }
+    console.log('鏡射通過率\n' + rates.join('\n'));
 });

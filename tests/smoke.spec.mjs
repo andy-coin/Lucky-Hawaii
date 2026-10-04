@@ -5,7 +5,7 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { bootPage, settle } from './helpers.mjs';
 
 const FIXTURE = JSON.parse(readFileSync(new URL('./fixtures/v096-localStorage.json', import.meta.url), 'utf8'));
-// 都不在 stub 詞庫裡才會被當成 AI 補充詞；末字刻意選無聲母的字（音／因／陰）：v0.96 的 validateWordRhyme 對有聲母的字（如 開心）一律判不合格
+// 都不在 stub 詞庫裡才會被當成 AI 補充詞
 const AI_REPLY = '美音、原因、光陰';
 
 const HANDLER_ATTRS = ['onclick', 'onchange', 'oninput', 'ondrop', 'ondragstart', 'ondragover',
