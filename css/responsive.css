@@ -11,13 +11,15 @@
         }
 
         @media (max-width: 900px) {
+            /* 底部 sheet（UI-SPEC §6）：手機整個寬度；平板最寬 44rem 並置中；高度取可見高度的 78%（最高 52rem），上方至少留 22% 讓人看到背景、知道可以點掉 */
             .side-panel {
                 top: auto;
                 bottom: 0;
                 left: 0;
                 right: 0;
-                width: 100%;
-                height: 78vh;
+                margin-inline: auto;
+                width: min(100%, 44rem);
+                height: min(calc(var(--app-h) * 0.78), 52rem);
                 border-radius: 1.25rem 1.25rem 0 0;
                 flex-direction: column;
                 transform: translateY(105%);
@@ -27,25 +29,34 @@
             }
             /* header 上的 save/load 在窄視窗讓位給 settings */
             .save-load-controls { display: none; }
-            .side-panel:not(.collapsed) { transform: translateY(0); }
+            .side-panel:not(.collapsed) { transform: none; }
             .left-panel.collapsed, .right-panel.collapsed { transform: translateY(105%); }
             /* 隱藏側邊豎排 tab（改由底部 tab 列控制） */
             .side-panel-tab { display: none; }
-            /* 面板內容區全寬，底部留空給 tab 列 */
+            /* 面板內容區全寬，底部留空給 tab 列（含 iPhone 底部安全區） */
             .side-panel .side-panel-body {
                 width: 100%;
-                padding-bottom: 3.75rem;
+                padding-bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom) + 0.5rem);
             }
-            /* 拖曳把手 */
-            .side-panel::before {
-                content: '';
-                display: block;
-                width: 2.25rem;
-                height: 0.25rem;
-                background: rgba(0,0,0,0.18);
-                border-radius: 0.125rem;
-                margin: 0.625rem auto 0.125rem;
+            /* 把手：整條都是「關閉面板」按鈕，高度滿足觸控目標；中間畫一條小橫槓當視覺提示 */
+            .sheet-handle {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                width: 100%;
+                height: var(--hit);
                 flex-shrink: 0;
+                border: 0;
+                background: none;
+                cursor: pointer;
+                -webkit-tap-highlight-color: transparent;
+            }
+            .sheet-handle::before {
+                content: '';
+                width: 2.25rem;
+                height: 4px;
+                background: var(--border);
+                border-radius: 0.125rem;
             }
             /* 顯示底部 tab 列 */
             .mobile-tab-bar { display: flex; }

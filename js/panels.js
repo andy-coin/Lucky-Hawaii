@@ -66,6 +66,18 @@
             }
         }
 
+        // 底部三個分頁的亮起與 aria-pressed：開著哪個 sheet 就亮哪個；都沒開就亮「查韻」
+        function _lhSyncMobileTabs(open) {
+            const current = open === 'lyrics' || open === 'ai' ? open : 'search';
+            for (const t of ['search', 'lyrics', 'ai']) {
+                const btn = document.getElementById(`mtab-${t}`);
+                if (!btn) continue;
+                btn.classList.toggle('active', t === current);
+                btn.setAttribute('aria-pressed', t === current ? 'true' : 'false');
+            }
+        }
+
+        // 三個分頁：'search'（或任何別的值）= 收起所有 sheet 回到查韻；'lyrics'／'ai' = 開那一個、關另一個，再按一次同一個 = 收起
         function mobileTab(tab) {
             const lp = document.getElementById('leftPanel');
             const rp = document.getElementById('rightPanel');
@@ -85,13 +97,19 @@
                 if (bd) bd.classList.add('show');
                 //loadWordlist();
             }
-            ['lyrics','ai'].forEach(t => {
-                const btn = document.getElementById(`mtab-${t}`);
-                if (btn) btn.classList.toggle('active', t === tab);
-            });
+            _lhSyncMobileTabs(tab);
             // 開關狀態變了：一併更新 inert 與 body 類別
             syncCenterPanel();
         }
+
+        // Esc 收起底部 sheet（只在 ≤ 900；桌機的側邊面板不吃 Esc，免得打字時誤收）
+        document.addEventListener('keydown', e => {
+            if (e.key !== 'Escape' || !lhIsSheetMode()) return;
+            const lp = document.getElementById('leftPanel');
+            const rp = document.getElementById('rightPanel');
+            if (!lp || !rp || (lp.classList.contains('collapsed') && rp.classList.contains('collapsed'))) return;
+            mobileTab('search');
+        });
 
         // ===== 右側：保留池 =====
         function saveWord(word) {
@@ -126,4 +144,3 @@
                 `${w}<span class="chip-remove" onclick="event.stopPropagation();removeSavedWord('${w.replace(/'/g, "\\'")}')">×</span></div>`
             ).join('');
         }
-

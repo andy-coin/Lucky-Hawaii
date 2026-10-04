@@ -186,13 +186,17 @@
 
     <!-- 手機底部 Tab 導覽列 -->
     <div class="mobile-tab-bar" id="mobileTabBar">
-        <button class="mtab-btn" id="mtab-lyrics" onclick="mobileTab('lyrics')">
-            <span class="mtab-icon">📝</span>
-            <span>歌詞</span>
+        <button type="button" class="mtab-btn active" id="mtab-search" onclick="mobileTab('search')" aria-pressed="true">
+            <span class="mtab-icon">🔍</span>
+            <span class="mtab-label">查韻</span>
         </button>
-        <button class="mtab-btn" id="mtab-ai" onclick="mobileTab('ai')">
+        <button type="button" class="mtab-btn" id="mtab-lyrics" onclick="mobileTab('lyrics')" aria-pressed="false">
+            <span class="mtab-icon">📝</span>
+            <span class="mtab-label">歌詞</span>
+        </button>
+        <button type="button" class="mtab-btn" id="mtab-ai" onclick="mobileTab('ai')" aria-pressed="false">
             <span class="mtab-icon">✨</span>
-            <span>AI</span>
+            <span class="mtab-label">AI 建議</span>
         </button>
     </div>
 
@@ -243,6 +247,7 @@
 
     <!-- 左側面板：歌詞段落 + 情境標籤 -->
     <div class="side-panel left-panel collapsed" id="leftPanel">
+        <button type="button" class="sheet-handle" aria-label="關閉面板" onclick="mobileTab('search')"></button>
         <div class="side-panel-tab" onclick="toggleLeftPanel()">歌詞</div>
         <div class="side-panel-body">
             <div class="side-panel-title" style="display:flex;justify-content:space-between;align-items:center;flex-shrink:0">
@@ -270,6 +275,7 @@
 
     <!-- 右側面板：AI 建議 -->
     <div class="side-panel right-panel collapsed" id="rightPanel">
+        <button type="button" class="sheet-handle" aria-label="關閉面板" onclick="mobileTab('search')"></button>
         <div class="side-panel-tab" onclick="toggleRightPanel()">AI建議</div>
         <div class="side-panel-body">
             <div class="side-panel-title" style="flex-shrink:0;display:flex;align-items:center;justify-content:space-between;gap:0.5rem">

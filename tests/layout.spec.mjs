@@ -647,8 +647,8 @@ test('面板：開著底部面板時轉成寬螢幕，遮罩不會殘留擋住�
         await page.setViewportSize({ width: 1180, height: 820 });
         await expect.poll(() => page.evaluate(() => ({
             backdrop: document.getElementById('mobileBackdrop').classList.contains('show'),
-            active: document.querySelectorAll('.mtab-btn.active').length,
-        }))).toEqual({ backdrop: false, active: 0 });
+            active: [...document.querySelectorAll('.mtab-btn.active')].map(b => b.id),
+        }))).toEqual({ backdrop: false, active: ['mtab-search'] });   // 沒開任何面板時亮的是「查韻」（05-06）
         // 搜尋框點得到（沒有東西蓋在上面）
         expect(await hitsItself(page, '#searchInput')).toBe(true);
     } finally { await context.close(); }
@@ -711,4 +711,217 @@ test('面板：程式不再用 innerWidth 判斷版型', () => {
         });
     }
     expect(hits, '這些行還在用寬度數字判斷版型或宣告 phone 全域').toEqual([]);
+});
+
+// ===== 05-06 任務一：底部三分頁（查韻・歌詞・AI 建議）、把手、Esc、收起不可聚焦（D-06、D-17、UI-SPEC §6、§14.2） =====
+// 一次讀出三個分頁的按下狀態、兩個面板是否展開、遮罩有沒有顯示
+const readSheets = page => page.evaluate(() => ({
+    pressed: ['search', 'lyrics', 'ai'].map(t => document.getElementById('mtab-' + t).getAttribute('aria-pressed')).join(','),
+    active: [...document.querySelectorAll('.mtab-btn.active')].map(b => b.id.replace('mtab-', '')).join(','),
+    open: ['left', 'right'].filter(s => !document.getElementById(s + 'Panel').classList.contains('collapsed')).join(','),
+    backdrop: document.getElementById('mobileBackdrop').classList.contains('show'),
+}));
+const NONE_OPEN = { pressed: 'true,false,false', active: 'search', open: '', backdrop: false };
+const LYRICS_OPEN = { pressed: 'false,true,false', active: 'lyrics', open: 'left', backdrop: true };
+const AI_OPEN = { pressed: 'false,false,true', active: 'ai', open: 'right', backdrop: true };
+
+for (const [name, device] of [['手機', DEVICES.phone], ['平板', DEVICES.tablet]]) {
+    test(`底部面板：三個分頁開關、把手、背景、Esc（${name}）`, async ({ browser }) => {
+        const { context, page, errors } = await bootPage(browser, { device });
+        try {
+            await waitStill(page);
+            // 三個分頁：文字、type、一開始「查韻」被按下
+            expect(await page.evaluate(() => [...document.querySelectorAll('.mobile-tab-bar .mtab-btn')].map(b => ({ id: b.id, text: b.textContent.replace(/\s+/g, ' ').trim(), type: b.type }))))
+                .toEqual([
+                    { id: 'mtab-search', text: '🔍 查韻', type: 'button' },
+                    { id: 'mtab-lyrics', text: '📝 歌詞', type: 'button' },
+                    { id: 'mtab-ai', text: '✨ AI 建議', type: 'button' },
+                ]);
+            expect(await readSheets(page)).toEqual(NONE_OPEN);
+
+            // 開歌詞 → 開 AI 建議（歌詞自動關）→ 再按 AI 建議（關）
+            await page.locator('#mtab-lyrics').tap();
+            await waitStill(page);
+            expect(await readSheets(page)).toEqual(LYRICS_OPEN);
+            await page.locator('#mtab-ai').tap();
+            await waitStill(page);
+            expect(await readSheets(page), '一次只開一個').toEqual(AI_OPEN);
+            await page.locator('#mtab-ai').tap();
+            await waitStill(page);
+            expect(await readSheets(page)).toEqual(NONE_OPEN);
+
+            // 四種關法：把手、背景、Esc、查韻分頁。每一種都先開、再關，兩個面板各做一次
+            for (const [tab, state] of [['lyrics', LYRICS_OPEN], ['ai', AI_OPEN]]) {
+                const side = tab === 'lyrics' ? 'left' : 'right';
+                const closers = {
+                    把手: () => page.locator(`#${side}Panel .sheet-handle`).tap(),
+                    // 背景只露出面板上緣以上的部分，點最左上角
+                    背景: () => page.locator('#mobileBackdrop').tap({ position: { x: 8, y: 8 } }),
+                    Esc: () => page.keyboard.press('Escape'),
+                    查韻分頁: () => page.locator('#mtab-search').tap(),
+                };
+                for (const [how, close] of Object.entries(closers)) {
+                    await page.locator('#mtab-' + tab).tap();
+                    await waitStill(page);
+                    expect(await readSheets(page), `${tab} 開啟`).toEqual(state);
+                    await close();
+                    await waitStill(page);
+                    expect(await readSheets(page), `${tab} 用「${how}」關閉`).toEqual(NONE_OPEN);
+                }
+            }
+            // 把手的讀屏名稱
+            expect(await page.evaluate(() => [...document.querySelectorAll('.sheet-handle')].map(b => [b.tagName, b.type, b.getAttribute('aria-label')])))
+                .toEqual([['BUTTON', 'button', '關閉面板'], ['BUTTON', 'button', '關閉面板']]);
+            // 面板收起時按 Esc 不會出事（沒東西可關）
+            await page.keyboard.press('Escape');
+            expect(await readSheets(page)).toEqual(NONE_OPEN);
+            expect(errors).toEqual([]);
+        } finally { await context.close(); }
+    });
+}
+
+test('底部面板：桌機按 Esc 不會收起側邊面板', async ({ browser }) => {
+    const { context, page } = await bootPage(browser, { device: DEVICES.desktop });
+    try {
+        await clickTab(page, 'left');
+        await waitStill(page);
+        await page.keyboard.press('Escape');
+        expect(await isCollapsed(page, 'left'), '桌機的 Esc 不歸面板管').toBe(false);
+        // 桌機沒有把手
+        expect(await page.evaluate(() => [...document.querySelectorAll('.sheet-handle')].map(b => getComputedStyle(b).display))).toEqual(['none', 'none']);
+    } finally { await context.close(); }
+});
+
+test('底部面板：收起時 inert、Tab 選不到', async ({ browser }) => {
+    const { context, page } = await bootPage(browser, { device: DEVICES.phone });
+    try {
+        await waitStill(page);
+        const state = () => page.evaluate(() => Object.fromEntries(['leftPanel', 'rightPanel'].map(id => {
+            const p = document.getElementById(id);
+            return [id, { inert: p.inert, aria: p.getAttribute('aria-hidden') }];
+        })));
+        const HIDDEN = { inert: true, aria: 'true' };
+        const SHOWN = { inert: false, aria: null };
+        expect(await state()).toEqual({ leftPanel: HIDDEN, rightPanel: HIDDEN });
+        // 每個狀態都連按 Tab 一圈：焦點永遠不在收起的面板裡
+        const walk = async label => {
+            await page.focus('#searchInput');
+            const seen = new Set();
+            for (let i = 0; i < 70; i++) {
+                await page.keyboard.press('Tab');
+                const at = await page.evaluate(() => {
+                    const a = document.activeElement;
+                    const p = a && a.closest && a.closest('.side-panel');
+                    return { id: a.id || a.className || a.tagName, hidden: p ? p.classList.contains('collapsed') : false, inPanel: p ? p.id : '' };
+                });
+                expect(at.hidden, `${label}：第 ${i + 1} 下 Tab 跑進收起的面板（${at.id}）`).toBe(false);
+                if (at.inPanel) seen.add(at.inPanel);
+            }
+            return seen;
+        };
+        expect([...await walk('全部收起')]).toEqual([]);
+        await page.locator('#mtab-lyrics').tap();
+        await waitStill(page);
+        expect(await state()).toEqual({ leftPanel: SHOWN, rightPanel: HIDDEN });
+        expect([...await walk('歌詞打開')], '打開的歌詞面板要選得到').toEqual(['leftPanel']);
+        await page.locator('#mtab-ai').tap();
+        await waitStill(page);
+        expect(await state()).toEqual({ leftPanel: HIDDEN, rightPanel: SHOWN });
+        expect([...await walk('AI 建議打開')], '打開的 AI 建議面板要選得到').toEqual(['rightPanel']);
+        await page.keyboard.press('Escape');
+        await waitStill(page);
+        expect(await state()).toEqual({ leftPanel: HIDDEN, rightPanel: HIDDEN });
+    } finally { await context.close(); }
+});
+
+// 面板大小：手機整個寬度；平板最寬 44rem 並置中；高度 = min(可見高度的 78%, 52rem)，上緣至少 22% 看得到背景
+test('底部面板：尺寸與置中', async ({ browser }) => {
+    for (const [name, device, wantW, wantH] of [
+        ['手機 390×844', DEVICES.phone, 390, 844 * 0.78],
+        ['平板 820×1180', DEVICES.tablet, 704, 832],
+        ['橫放手機 844×390', DEVICES.phoneLandscape, 704, 390 * 0.78],
+    ]) {
+        const { context, page } = await bootPage(browser, { device });
+        try {
+            const vp = page.viewportSize();
+            for (const side of ['left', 'right']) {
+                await page.locator(side === 'left' ? '#mtab-lyrics' : '#mtab-ai').tap();
+                await waitStill(page);
+                const r = await rectOf(page, `#${side}Panel`);
+                expect(r.width, `${name} ${side} 寬`).toBeCloseTo(Math.min(wantW, vp.width), 0);
+                expect(r.height, `${name} ${side} 高`).toBeCloseTo(wantH, 0);
+                expect(r.x + r.width / 2, `${name} ${side} 水平置中`).toBeCloseTo(vp.width / 2, 0);
+                expect(r.y + r.height, `${name} ${side} 貼底`).toBeCloseTo(vp.height, 0);
+                expect(r.y, `${name} ${side} 上方至少留 22%`).toBeGreaterThanOrEqual(vp.height * 0.22 - 1);
+                await page.locator('#mtab-search').tap();
+                await waitStill(page);
+            }
+        } finally { await context.close(); }
+    }
+});
+
+test('版面：圖層順序', async ({ browser }) => {
+    const z = (page, sel) => page.evaluate(s => {
+        const v = getComputedStyle(document.querySelector(s)).zIndex;
+        return v === 'auto' ? 0 : Number(v);
+    }, sel);
+    // 桌機看得到側邊面板（800）；手機看得到底部面板（860）、遮罩、分頁列
+    const desk = await bootPage(browser, { device: DEVICES.desktop });
+    let side, container;
+    try {
+        await clickTab(desk.page, 'left');
+        side = await z(desk.page, '#leftPanel');
+        container = await z(desk.page, '.container');
+    } finally { await desk.context.close(); }
+    const { context, page } = await bootPage(browser, { device: DEVICES.phone });
+    try {
+        await page.locator('#mtab-lyrics').tap();
+        await page.evaluate(() => showToast('測試'));   // 複製提示是第一次用到才建立
+        await waitStill(page);
+        const ordered = [
+            ['主畫面', container],
+            ['側邊面板', side],
+            ['遮罩', await z(page, '#mobileBackdrop')],
+            ['底部面板', await z(page, '#leftPanel')],
+            ['分頁列', await z(page, '#mobileTabBar')],
+            ['標籤視窗', await z(page, '#hashtagPopupOverlay')],
+            ['設定／關於', await z(page, '#settingsOverlay')],
+            ['關於', await z(page, '#aboutOverlay')],
+            ['複製提示', await z(page, '.copy-toast')],
+            ['字詞選單', await z(page, '#wordCtxMenu')],
+            ['意見回饋', await z(page, '#feedbackModalOverlay')],
+        ];
+        expect(Object.fromEntries(ordered.slice(1))).toEqual({
+            側邊面板: 800, 遮罩: 840, 底部面板: 860, 分頁列: 870, 標籤視窗: 960, '設定／關於': 999, 關於: 999, 複製提示: 9999, 字詞選單: 10000, 意見回饋: 12000,
+        });
+        expect(container, '主畫面不能高過側邊面板').toBeLessThan(800);
+        for (let i = 1; i < ordered.length; i++) {
+            if (ordered[i][0] === '關於') continue;   // 和設定同一層
+            const prev = ordered[i - 1][0] === '關於' ? ordered[i - 2] : ordered[i - 1];
+            expect(ordered[i][1], `${ordered[i][0]} 要高過 ${prev[0]}`).toBeGreaterThan(prev[1]);
+        }
+    } finally { await context.close(); }
+});
+
+test('縮放：手機 150% 分頁標籤放得下', async ({ browser }) => {
+    const { context, page } = await bootPage(browser, { device: DEVICES.phone });
+    try {
+        for (const pct of [100, 150]) {
+            await setScale(page, pct);
+            await waitStill(page);
+            const fit = await page.evaluate(() => [...document.querySelectorAll('.mtab-btn')].map(b => ({
+                id: b.id,
+                btn: b.scrollWidth - b.clientWidth,
+                labels: [...b.querySelectorAll('span')].map(s => s.scrollWidth - s.clientWidth),
+                w: b.getBoundingClientRect().width,
+            })));
+            for (const f of fit) {
+                expect(f.btn, `${pct}% ${f.id} 整個分頁`).toBeLessThanOrEqual(1);
+                for (const l of f.labels) expect(l, `${pct}% ${f.id} 標籤`).toBeLessThanOrEqual(1);
+                expect(f.w, `${pct}% ${f.id} 寬`).toBeGreaterThan(0);
+            }
+            await expectFullyInViewport(page, page.locator('#mobileTabBar'));
+            for (const id of ['mtab-search', 'mtab-lyrics', 'mtab-ai']) await expectFullyInViewport(page, page.locator('#' + id));
+        }
+    } finally { await context.close(); }
 });

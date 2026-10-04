@@ -69,10 +69,7 @@
             // 底部 sheet 專用的遮罩與分頁高亮：跨過斷點後不能殘留（否則桌機上會有一層看不見的遮罩擋住點擊）
             const bd = document.getElementById('mobileBackdrop');
             if (bd) bd.classList.remove('show');
-            for (const t of ['lyrics', 'ai']) {
-                const btn = document.getElementById('mtab-' + t);
-                if (btn) btn.classList.remove('active');
-            }
+            _lhSyncMobileTabs('search');
             syncCenterPanel();
         }
         LH_MQ_SHEET.addEventListener('change', _lhApplyPanelTier);
