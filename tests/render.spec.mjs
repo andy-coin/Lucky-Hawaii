@@ -27,6 +27,30 @@ async function installProbe(page) {
     });
 }
 
+// 送出 input 事件後等一個 macrotask：第一批已同步畫完、其餘還在排隊（狀態必須是 more）
+async function startMore(page, query) {
+    const state = await page.evaluate(async q => {
+        const input = document.getElementById('searchInput');
+        input.value = q;
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+        await new Promise(r => setTimeout(r, 0));
+        return document.getElementById('resultsContainer').getAttribute('data-render');
+    }, query);
+    expect(state, `${query}：應該還在分批中`).toBe('more');
+}
+
+// 目前結果區的整體樣子（html 把空白縮成一格，跟 golden 的算法一樣）
+const snapshot = page => page.evaluate(() => {
+    const root = document.getElementById('resultsContainer');
+    return {
+        state: root.getAttribute('data-render'),
+        cards: root.querySelectorAll('.char-card').length,
+        total: Number((root.querySelector('.results-count')?.textContent.match(/\d+/) ?? [0])[0]),
+        status: !!root.querySelector('.render-status'),
+        html: root.innerHTML.replace(/\s+/g, ' ').trim(),
+    };
+});
+
 const renderState = page => page.evaluate(() => document.getElementById('resultsContainer').getAttribute('data-render'));
 const waitState = (page, s) => page.waitForFunction(v => document.getElementById('resultsContainer').getAttribute('data-render') === v, s);
 
@@ -242,6 +266,174 @@ test.describe('分批', () => {
                 };
             });
             expect(r).toEqual({ state: 'done', cards: 1, status: false, header: '找到 1 個字', busy: false, done: 1 });
+            expect(errors).toEqual([]);
+        } finally {
+            await context.close();
+        }
+    });
+
+    test('分批：載入中也能點選，畫完仍保留', async ({ browser }) => {
+        const { context, page, errors } = await bootPage(browser);
+        try {
+            await showAllRare(page);
+            await startMore(page, 'ㄢ');
+            // 還在載入時，真的點第 3 張字卡
+            const card = page.locator('#resultsContainer .char-card').nth(2);
+            const char = await card.getAttribute('data-char');
+            await card.click();
+            expect(await renderState(page)).toBe('more');                  // 點的當下確實還在分批
+            await expect(card).toHaveClass(/selected/);
+            // 批量標記也要能用在已經畫好的字卡上（按「冷僻」鈕）
+            await page.evaluate(() => batchMark('rare'));
+            await expect(card.locator('.mark-badge')).toHaveText('冷僻');
+
+            await settle(page);
+            // 畫完後選取還在，而且同一個字後面才畫出來的卡（破音字的其他讀音）也是選取狀態
+            const after = await page.evaluate(c => {
+                const cards = [...document.querySelectorAll(`#resultsContainer .char-card[data-char="${c}"]`)];
+                return { n: cards.length, selected: cards.filter(x => x.classList.contains('selected')).length, size: selectedChars.size };
+            }, char);
+            expect(after.n).toBeGreaterThanOrEqual(1);
+            expect(after.selected).toBe(after.n);
+            expect(after.size).toBe(1);
+            await expect(page.locator('#resultsContainer .char-card').nth(2)).toHaveClass(/selected/);
+            expect(errors).toEqual([]);
+        } finally {
+            await context.close();
+        }
+    });
+
+    test('分批：換搜尋不會混入舊字卡', async ({ browser }) => {
+        const { context, page, errors } = await bootPage(browser);
+        try {
+            await showAllRare(page);
+            // 每一種「畫到一半被打斷」的方式：打斷後的最後畫面要和乾淨重畫一次完全相同，且字卡數等於標題
+            const interrupts = {
+                '換查詢': async () => { await page.evaluate(() => { const i = document.getElementById('searchInput'); i.value = '心'; i.dispatchEvent(new Event('input', { bubbles: true })); }); },
+                '換模式（同聲韻並列）': async () => { await page.evaluate(() => document.querySelector('.mode-button[data-mode="initial"]').click()); },
+                '換模式（同聲調並列）': async () => { await page.evaluate(() => document.querySelector('.mode-button[data-mode="tone"]').click()); },
+                '切換隱藏冷僻字': async () => { await page.evaluate(() => { const el = document.getElementById('hideRare'); el.checked = true; el.dispatchEvent(new Event('change', { bubbles: true })); }); },
+                '切換不顯示破音': async () => { await page.evaluate(() => { const el = document.getElementById('filterDuplicate'); el.checked = true; el.dispatchEvent(new Event('change', { bubbles: true })); }); },
+            };
+            for (const [name, interrupt] of Object.entries(interrupts)) {
+                await page.evaluate(() => document.querySelector('.mode-button[data-mode="common"]').click());
+                await page.evaluate(() => {
+                    const h = document.getElementById('hideRare'); h.checked = false; h.dispatchEvent(new Event('change', { bubbles: true }));
+                    const d = document.getElementById('filterDuplicate'); d.checked = false; d.dispatchEvent(new Event('change', { bubbles: true }));
+                });
+                await settle(page);
+                await startMore(page, 'ㄢ');
+                await interrupt();
+                await settle(page);
+                const interrupted = await snapshot(page);
+                expect(interrupted.cards, `${name}：字卡數要等於標題`).toBe(interrupted.total);
+                expect(interrupted.status, `${name}：不該留下載入中提示`).toBe(false);
+                // 乾淨重畫（同樣的畫面狀態，同一個輸入再送一次）
+                await page.evaluate(() => { const i = document.getElementById('searchInput'); i.dispatchEvent(new Event('input', { bubbles: true })); });
+                await settle(page);
+                const clean = await snapshot(page);
+                expect(interrupted.html, `${name}：打斷後的畫面要和乾淨重畫相同`).toBe(clean.html);
+            }
+            // 換查詢時，畫面上的字卡都屬於新查詢的結果（不含舊查詢獨有的字）
+            await page.evaluate(() => document.querySelector('.mode-button[data-mode="common"]').click());
+            await page.evaluate(() => { const d = document.getElementById('filterDuplicate'); d.checked = false; d.dispatchEvent(new Event('change', { bubbles: true })); });
+            await page.evaluate(() => { const h = document.getElementById('hideRare'); h.checked = false; h.dispatchEvent(new Event('change', { bubbles: true })); });
+            await settle(page);
+            await startMore(page, 'ㄢ');
+            const oldOnly = await page.evaluate(() => {
+                const next = new Set(searchRhyme('心').map(r => r.char));
+                const old = searchRhyme('ㄢ').map(r => r.char);
+                return [...new Set(old.filter(c => !next.has(c)))].slice(0, 50);
+            });
+            expect(oldOnly.length).toBeGreaterThan(0);
+            await page.evaluate(() => { const i = document.getElementById('searchInput'); i.value = '心'; i.dispatchEvent(new Event('input', { bubbles: true })); });
+            await settle(page);
+            await page.waitForTimeout(200);                                  // 取消失敗的話，舊卡會在之後的動畫格冒出來
+            const leaked = await page.evaluate(only => [...document.querySelectorAll('#resultsContainer .char-card')].map(c => c.dataset.char).filter(c => only.includes(c)), oldOnly);
+            expect(leaked).toEqual([]);
+            expect(errors).toEqual([]);
+        } finally {
+            await context.close();
+        }
+    });
+
+    test('分批：同一查詢重畫保持捲動位置、新查詢回到頂端', async ({ browser }) => {
+        const { context, page, errors } = await bootPage(browser);
+        try {
+            await showAllRare(page);
+            await page.fill('#searchInput', 'ㄢ');
+            await settle(page);
+            const scrollTo = y => page.evaluate(y => { const s = document.querySelector('.results-section'); s.scrollTop = y; return s.scrollTop; }, y);
+            const top = () => page.evaluate(() => document.querySelector('.results-section').scrollTop);
+            expect(await scrollTo(3000)).toBeGreaterThan(2990);              // 內容夠長才捲得到這裡
+            const before = await top();
+
+            // 換主題（重畫同一查詢）
+            await page.click('#themeToggle');
+            await settle(page);
+            expect(Math.abs((await top()) - before)).toBeLessThanOrEqual(2);
+            // 勾選項（重畫同一查詢）
+            await page.evaluate(() => { const el = document.getElementById('highlightSearch'); el.checked = !el.checked; el.dispatchEvent(new Event('change', { bubbles: true })); });
+            await settle(page);
+            expect(Math.abs((await top()) - before)).toBeLessThanOrEqual(2);
+            // 畫完之後字卡數仍然完整
+            const done = await snapshot(page);
+            expect(done.cards).toBe(done.total);
+
+            // 新查詢 → 回到最上面
+            await page.fill('#searchInput', '安');
+            await settle(page);
+            expect(await top()).toBe(0);
+            // 換模式也是新的畫面 → 回到最上面
+            await page.fill('#searchInput', 'ㄢ');
+            await settle(page);
+            await scrollTo(1500);
+            await page.evaluate(() => document.querySelector('.mode-button[data-mode="tone"]').click());
+            await settle(page);
+            expect(await top()).toBe(0);
+            expect(errors).toEqual([]);
+        } finally {
+            await context.close();
+        }
+    });
+
+    test('分批：背景分頁一次畫完', async ({ browser }) => {
+        const { context, page, errors } = await bootPage(browser, {
+            init: () => { Object.defineProperty(document, 'hidden', { get: () => window.__fakeHidden !== false, configurable: true }); },
+        });
+        try {
+            await showAllRare(page);
+            // 分頁在背景：displayResults 還沒回來，所有字卡就已經在畫面上
+            const r = await page.evaluate(() => {
+                document.getElementById('searchInput').value = 'ㄢ';
+                displayResults(searchRhyme('ㄢ'));
+                const root = document.getElementById('resultsContainer');
+                return {
+                    state: root.getAttribute('data-render'),
+                    cards: root.querySelectorAll('.char-card').length,
+                    total: Number(root.querySelector('.results-count').textContent.match(/\d+/)[0]),
+                    status: !!root.querySelector('.render-status'),
+                };
+            });
+            expect(r.total).toBeGreaterThan(300);
+            expect(r.state).toBe('done');
+            expect(r.cards).toBe(r.total);
+            expect(r.status).toBe(false);
+
+            // 真的從輸入框搜尋也一樣（不靠動畫格）
+            await page.fill('#searchInput', '安');
+            await settle(page);
+            const s = await snapshot(page);
+            expect(s.cards).toBe(s.total);
+
+            // 畫到一半分頁才被藏起來：收到 visibilitychange 就把剩下的一次畫完
+            await page.evaluate(() => { window.__fakeHidden = false; });          // 先當作可見
+            await startMore(page, 'ㄢ');
+            await page.evaluate(() => { window.__fakeHidden = true; document.dispatchEvent(new Event('visibilitychange')); });
+            const mid = await snapshot(page);
+            expect(mid.state).toBe('done');
+            expect(mid.cards).toBe(mid.total);
+            expect(mid.status).toBe(false);
             expect(errors).toEqual([]);
         } finally {
             await context.close();

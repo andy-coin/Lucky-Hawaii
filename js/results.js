@@ -9,6 +9,7 @@
         const SLICE = 64;
         const _CARD_SLOT = '\u0001';   // 模板裡「字卡清單」的位置標記，只在 _makeJob 內被拆掉
         let _flushRender = null;       // 目前這一輪「把剩下的一次畫完」的函式（分頁被藏起來時用）
+        let _lastRenderKey = '';       // 上一輪畫的是哪個查詢（輸入文字＋模式）；一樣就是「同一查詢重畫」，要保留捲動位置
 
         // 把原本的模板字串拆成「外殼」與「字卡清單」：
         // 外殼 = 模板去掉字卡清單，且保留 grid 開頭的空白；grid 結尾的空白等這一組字卡畫完再補回去，
@@ -28,6 +29,7 @@
 
         // 回到「沒有分批在跑」的狀態（空白畫面、無結果）
         function _renderIdle(container) {
+            _lastRenderKey = '';   // 空白／無結果：下一次任何查詢都算新查詢
             container.dataset.render = 'idle';
             container.removeAttribute('aria-busy');
             _flushRender = null;
@@ -35,7 +37,7 @@
         }
 
         // 依序把 jobs 裡的字卡畫出來：第一批同步，其餘每個動畫格一批
-        function _startRender(container, jobs, total, epoch, showPinyin) {
+        function _startRender(container, jobs, total, epoch, showPinyin, scroll) {
             const st = { ji: 0, ci: 0, shown: 0, grid: null, status: null };
 
             function slice(budget) {
@@ -97,10 +99,24 @@
                 requestAnimationFrame(step);
             }
 
+            // 捲動規則（UI-SPEC §12 規則 3）：
+            //   新查詢 → 回到最上面；
+            //   同一查詢重畫（換主題、勾選項、改字的分級）→ 先同步畫到「蓋住原本捲動位置再多兩個畫面高」（結果 ≤ 300 張就全畫），
+            //   把捲動位置放回去，剩下的再分批補。只往下長，所以不會跳。
+            function _applyScroll() {
+                const section = scroll && scroll.section;
+                if (!section) return;
+                if (!scroll.same) { if (scroll.top > 0) section.scrollTop = 0; return; }   // 本來就在最上面就不用動（寫入捲動位置會強迫立刻排版）
+                if (scroll.top <= 0) return;
+                while (st.ji < jobs.length && (total <= 300 || section.scrollHeight < scroll.top + 2 * scroll.height)) slice(SLICE);
+                section.scrollTop = scroll.top;
+            }
+
             container.dataset.render = 'first';
             container.setAttribute('aria-busy', 'true');
             _setRenderLive('');
             slice(FIRST_BATCH);
+            _applyScroll();
             if (st.ji >= jobs.length) { finish(); return; }
             // 背景分頁的動畫格會被暫停，剩下的一次畫完，絕不少於標題的字數
             if (document.hidden) { flushAll(); return; }
@@ -118,9 +134,20 @@
         // 顯示結果
         function displayResults(results) {
             _renderEpoch++;   // 先作廢任何還在跑的分批
-            
+
             // 搜尋欄為空時恢復初始畫面
             const currentInput = document.getElementById('searchInput').value.trim();
+
+            // 重畫會把內容清掉、捲動位置跟著被夾短，所以要在動手前先記下來
+            const section = document.querySelector('.results-section');
+            const renderKey = currentInput + '|' + currentMode;
+            const scroll = {
+                section,
+                same: renderKey === _lastRenderKey,
+                top: section ? section.scrollTop : 0,
+                height: section ? section.clientHeight : 0,
+            };
+            _lastRenderKey = renderKey;
             if (!currentInput) {
                 const container = document.getElementById('resultsContainer');
                 container.innerHTML = `
@@ -395,6 +422,6 @@
                 }
             };
 
-            _startRender(container, jobs, results.length, _renderEpoch, showPinyin);
+            _startRender(container, jobs, results.length, _renderEpoch, showPinyin, scroll);
         }
 
