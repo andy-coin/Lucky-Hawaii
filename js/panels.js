@@ -2,7 +2,6 @@
             suggestedPool.clear();
             sentCandidatesSet.clear();
             cumulativeCandidates = [];
-            _aiExtraRoundDone = false;
             const c = document.getElementById('aiWordsContainer');
             if (c) c.innerHTML = '';
         }

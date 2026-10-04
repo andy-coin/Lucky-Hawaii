@@ -46,7 +46,7 @@ const SCENARIOS = {
         await searchAndGenerate(page);
         await contextMenuOn(page, '.ai-word-card:has(.ai-badge)');
     },
-    // 再按兩次產生：第一次 AI 補一輪沒有新詞，第二次出現「已推薦所有符合的詞彙」＋重置鈕
+    // 再按兩次產生：第二次候選池已空、唯一一輪造詞沒有新詞，出現「已推薦所有符合的詞彙」＋重置鈕
     resetPool: async page => {
         await searchAndGenerate(page);
         await clickGenerate(page);

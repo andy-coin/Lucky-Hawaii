@@ -27,7 +27,6 @@
         let suggestedPool = new Set();
         let sentCandidatesSet = new Set();
         let cumulativeCandidates = [];
-        let _aiExtraRoundDone = false;
         let filterSameTone = false;
         let filterSameChar = false;
         let filterNoExtRhyme = false;
