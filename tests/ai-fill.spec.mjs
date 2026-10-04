@@ -221,27 +221,43 @@ test('鏡射：validateWordRhyme 與詞庫篩選同一套規則（真詞庫）',
         const zy = chineseDict[c][0];
         return { char: c, zhuyin: zy, initial: _effInitial(zy), rhyme: getZhuyinRhyme(zy), familyLabel: '' };
     })()`)));
-    const reset = (reqs, mode, noExt = false) =>
-        ev(`currentRhymes = ${JSON.stringify(reqs)}; rhymeMode = '${mode}'; filterSameChar = false; filterSameTone = false; filterNoExtRhyme = ${noExt}; filterWordLen = 0`);
+    const reset = (reqs, mode, noExt = false, f = {}) =>
+        ev(`currentRhymes = ${JSON.stringify(reqs)}; rhymeMode = '${mode}'; filterSameChar = ${!!f.sameChar}; filterSameTone = ${!!f.sameTone}; filterNoExtRhyme = ${noExt}; filterWordLen = ${f.len ?? 0}`);
 
     const cases = [];
     for (const c of ['心', '安', '愛', '衣', '月', '行', 'ㄅ']) {
-        cases.push([`${c} 押字尾 寬`, [c], 'rhyme', false, () => ev(`filterWordsByRhymeSingle(${JSON.stringify(c)}, 1)`)]);
-        cases.push([`${c} 押字尾 嚴`, [c], 'rhyme', true, () => ev(`filterWordsByRhymeSingle(${JSON.stringify(c)}, 1)`)]);
-        cases.push([`${c} 押字首`, [c], 'initial', false, () => ev(`filterWordsByInitialSingle(${JSON.stringify(c)}, 1)`)]);
+        cases.push([`${c} 押字尾 寬`, [c], 'rhyme', false, {}, () => ev(`filterWordsByRhymeSingle(${JSON.stringify(c)}, 1)`)]);
+        cases.push([`${c} 押字尾 嚴`, [c], 'rhyme', true, {}, () => ev(`filterWordsByRhymeSingle(${JSON.stringify(c)}, 1)`)]);
+        cases.push([`${c} 押字首`, [c], 'initial', false, {}, () => ev(`filterWordsByInitialSingle(${JSON.stringify(c)}, 1)`)]);
     }
-    cases.push(['愛心 押母音', ['愛', '心'], 'rhyme', false, () => ev('filterWordsByRhyme(currentRhymes, 2, 1)')]);
-    cases.push(['心衣 押子音', ['心', '衣'], 'initial', false, () => ev('filterWordsByInitial(currentRhymes, 2, 1)')]);
-    cases.push(['心衣 押母音', ['心', '衣'], 'rhyme', false, () => ev('filterWordsByRhyme(currentRhymes, 2, 1)')]);
+    // 篩選旗標：同字、同聲調、字數
+    for (const [label, f] of [['同字', { sameChar: true }], ['同聲調', { sameTone: true }], ['限 2 字', { len: 2 }], ['限 4 字+', { len: 4 }]]) {
+        cases.push([`心 押字尾 ${label}`, ['心'], 'rhyme', false, f, () => ev('filterWordsByRhymeSingle("心", 1)')]);
+        cases.push([`心 押字首 ${label}`, ['心'], 'initial', false, f, () => ev('filterWordsByInitialSingle("心", 1)')]);
+    }
+    cases.push(['愛心 押母音', ['愛', '心'], 'rhyme', false, {}, () => ev('filterWordsByRhyme(currentRhymes, 2, 1)')]);
+    cases.push(['心衣 押子音', ['心', '衣'], 'initial', false, {}, () => ev('filterWordsByInitial(currentRhymes, 2, 1)')]);
+    cases.push(['心衣 押母音', ['心', '衣'], 'rhyme', false, {}, () => ev('filterWordsByRhyme(currentRhymes, 2, 1)')]);
 
+    // 詞庫裡真正會被篩選看的詞：音節數要等於字數（篩選第一關就丟掉不合的）
+    const entries = ev('wordlistData').filter(e => e.w.length >= 2 && e.w.length <= 8 && e.z.split(' ').length === e.w.length);
     const rates = [];
-    for (const [name, chars, mode, noExt, candidates] of cases) {
-        reset(chars.map(buildReq), mode, noExt);
-        const words = [...candidates()].slice(0, 2000);
+    for (const [name, chars, mode, noExt, f, candidates] of cases) {
+        reset(chars.map(buildReq), mode, noExt, f);
+        const all = [...candidates()];
+        const words = all.slice(0, 2000);
         expect(words.length, `${name} 候選太少，測不出東西`).toBeGreaterThanOrEqual(10);
         const pass = words.filter(w => ev(`validateWordRhyme(${JSON.stringify(w)})`)).length;
-        rates.push(`${name}: ${pass}/${words.length}`);
-        expect(pass / words.length, `${name} 通過率 ${pass}/${words.length}`).toBeGreaterThanOrEqual(0.97);
+        // 反方向：validate 說可以、篩選卻沒給的詞。這個方向「不能」要求接近 100%：
+        //   篩選吃詞庫給的實際讀音（同聲調只看字典第一讀音），validate 只拿到文字所以吃字典任一讀音，
+        //   破音字（行、樂、愛的「ㄞ／ㄧ」類借韻）會讓 validate 較寬——這是設計（AI 造詞沒有讀音可看）。
+        //   所以這裡只設一個粗界線（實測最高約 30%），抓整體規則壞掉，不當精準對照。
+        const inFilter = new Set(all);
+        const accepted = entries.filter(e => ev(`validateWordRhyme(${JSON.stringify(e.w)})`));
+        const missed = accepted.filter(e => !inFilter.has(e.w));
+        expect(pass / words.length, `${name} 正向通過率 ${pass}/${words.length}`).toBeGreaterThanOrEqual(0.99);
+        expect(missed.length / accepted.length, `${name} 反向漏掉 ${missed.length}/${accepted.length}`).toBeLessThanOrEqual(0.4);
+        rates.push(`${name}: 正向 ${pass}/${words.length}；反向 validate 通過 ${accepted.length}、篩選沒給 ${missed.length}（${accepted.length ? (100 * missed.length / accepted.length).toFixed(1) : 0}%）`);
     }
     console.log('鏡射通過率\n' + rates.join('\n'));
 });
@@ -275,8 +291,10 @@ async function genRound(browser, reply) {
     await settle(page);
     await clickGenerate(page);
     await expect.poll(() => prompts.length).toBe(1);
+    // 按鈕解鎖＋載入列收起＝這次按鈕做完了（finally 才解鎖，之後 DOM 不會再變）
+    await expect(page.locator('#generateBtn')).toBeEnabled();
+    await expect(page.locator('#aiLoading')).toBeHidden();
     await expect(page.locator('#aiWordsContainer')).not.toContainText('AI 生成補充詞');
-    await page.waitForTimeout(300);
     const box = page.locator('#aiWordsContainer');
     return {
         context, page, errors, warnings, offOrigin, prompts,
@@ -394,7 +412,7 @@ async function pressOnStub(browser, ndjson) {
     await clickGenerate(page);
     await expect.poll(() => prompts.length).toBe(1);
     await expect(page.locator('#generateBtn')).toBeEnabled();
-    await page.waitForTimeout(300);
+    await expect(page.locator('#aiLoading')).toBeHidden();
     return { context, page, errors, offOrigin, prompts, cards: await page.locator('#aiWordsContainer .ai-word-card').count() };
 }
 

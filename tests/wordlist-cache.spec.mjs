@@ -239,3 +239,77 @@ test('修正檔格式壞掉：詞庫照樣載入（原樣、不套修正），�
         } finally { await context.close(); }
     }
 });
+
+// ==================== 快取寫入失敗：換版不能留下半套（WR-04 / IN-01）====================
+// 在第 5 段（k=4）的 put 注入失敗，驗證舊版整套（ver 與十段）原封不動，且下次載入會自己補好
+// throw：put 同步丟 DataCloneError（走 catch → 必須 abort，否則 delete 與前 4 段 put 會被提交）
+// abort：put 當下中止交易（走 onabort）
+for (const mode of ['throw', 'abort']) {
+    test(`快取寫入失敗（${mode}）：舊版整套完好、記憶體照用新詞庫、下次載入補好`, async ({ browser }) => {
+        test.setTimeout(60_000);
+        const state = { ver: 'V1' };
+        const context = await browser.newContext(CONTEXT_OPTS);
+        await routeExternal(context, { aiReply: '' });
+        await context.route(/\/data\/wordlist-meta\.json$/, r => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ version: state.ver, chunks: 10, total: 10 }) }));
+        await context.route(/\/data\/wordlist-c0(\d)\.json(\?.*)?$/, r => {
+            const i = Number(/c0(\d)\.json/.exec(r.request().url())[1]);
+            const old = state.ver === 'V1';
+            return r.fulfill({ status: 200, contentType: 'application/json', body: `{"w":"${old ? '舊' : '新'}${i}","z":"ㄒㄧㄣ ㄌㄧㄥˊ","p":1}\n` });
+        });
+        await context.route(/\/data\/wordlist-overrides\.json$/, r => r.fulfill({ status: 200, contentType: 'application/json', body: '{}' }));
+        // 只有網址帶 ?failput=模式 的頁面才注入；其他頁面行為不變
+        await context.addInitScript(() => {
+            const m = new URLSearchParams(location.search).get('failput');
+            if (!m) return;
+            const orig = IDBObjectStore.prototype.put;
+            IDBObjectStore.prototype.put = function (v, k) {
+                if (this.name === 'wl' && v && v.k === 4) {
+                    if (m === 'throw') throw new DOMException('注入的寫入失敗', 'DataCloneError');
+                    this.transaction.abort();
+                    return;
+                }
+                return orig.call(this, v, k);
+            };
+        });
+        const open = async query => {
+            const page = await context.newPage();
+            const { errors, warnings } = collectErrors(page);
+            await page.goto('/index.html' + query);
+            await page.evaluate(() => Promise.all([window.__hoyunReady, window.__hoyunWordlistReady, window.__hoyunSafetyReady, window.__hoyunModelsReady]));
+            return { page, errors, warnings };
+        };
+        const dump = page => page.evaluate(async () => {
+            const db = await lhIdbOpen();
+            return new Promise(res => {
+                const st = db.transaction('wl', 'readonly').objectStore('wl');
+                const out = { ver: null, chunks: [] };
+                st.get('ver').onsuccess = e => { out.ver = e.target.result?.v ?? null; };
+                for (let i = 0; i < 10; i++) st.get(i).onsuccess = e => { out.chunks[i] = e.target.result?.v?.[0]?.w ?? null; };
+                st.transaction.oncomplete = () => res(out);
+            });
+        });
+        const seq = ch => Array.from({ length: 10 }, (_, i) => ch + i);
+        try {
+            // V1 正常寫入
+            let t = await open('');
+            expect(await dump(t.page)).toEqual({ ver: 'V1', chunks: seq('舊') });
+            await t.page.close();
+
+            // V2 在第 5 段寫入失敗：快取整套仍是 V1（交易整筆還原）
+            state.ver = 'V2';
+            t = await open('?failput=' + mode);
+            expect(await dump(t.page), '舊版整套（ver 與十段）原封不動').toEqual({ ver: 'V1', chunks: seq('舊') });
+            expect(await t.page.evaluate(() => wordlistData.map(e => e.w)), '這次的詞庫仍用剛抓到的新版').toEqual(seq('新'));
+            expect(t.warnings.some(w => w.includes('[好韻器] 詞庫快取寫入失敗')), '要留記錄').toBe(true);
+            await expect(t.page.locator('#copyToast')).toContainText('詞庫快取沒存成功');
+            expect(realErrors(t.errors)).toEqual([]);
+            await t.page.close();
+
+            // 下次正常開：V1 版號與 V2 不符 → 重抓整套 → 快取換成 V2
+            t = await open('');
+            expect(await dump(t.page)).toEqual({ ver: 'V2', chunks: seq('新') });
+            expect(await t.page.evaluate(() => wordlistData.map(e => e.w))).toEqual(seq('新'));
+            await t.page.close();
+        } finally { await context.close(); }
+    });
+}
