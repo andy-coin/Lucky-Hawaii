@@ -175,7 +175,7 @@ Plans:
   5. 晝夜模式與客製顏色在新版面下都正常，整體視覺一致〔自動：截圖比對〕
 
 **Human check**: iPhone／Android 實機的鍵盤遮擋與縮放手感；整體美觀判斷
-**Plans**: 9/11 plans executed
+**Plans**: 10/11 plans executed
 **UI hint**: yes
 
 Plans:
@@ -207,7 +207,7 @@ Plans:
 - [x] 05-09-PLAN.md — 視覺一致：字型 link 預載、400/700、對比、hover 只給滑鼠、焦點框、減少動態
 
 **Wave 10** *(blocked on Wave 9 completion)*
-- [ ] 05-10-PLAN.md — 字卡分批渲染（首批 48、每格 64），golden 不變；4×/6× 降速長任務量測
+- [x] 05-10-PLAN.md — 字卡分批渲染（首批 48、每格 64），golden 不變；4×/6× 降速長任務量測
 
 **Wave 11** *(blocked on Wave 10 completion)*
 - [ ] 05-11-PLAN.md — 截圖基準（晝夜、客製顏色 × 三種裝置）、版號 0.96.7、Phase gate、Andy 實機清單
@@ -334,7 +334,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 2. AI Service Hotfix AI 服務不斷線 | 6/6 | In Progress|  |
 | 3. Split index.html 拆檔 | 5/5 | Complete    | 2026-10-04 |
 | 4. AI Fill & Validate AI 挑詞填滿與造詞驗證 | 5/5 | In Progress|  |
-| 5. Multi-Device Layout 多裝置版面與流暢度 | 9/11 | In Progress|  |
+| 5. Multi-Device Layout 多裝置版面與流暢度 | 10/11 | In Progress|  |
 | 6. Lexicon Packs 台灣詞庫包 | 0/TBD | Not started | - |
 | 7. Feedback & Correction Layer 回報與修正層 | 0/TBD | Not started | - |
 | 8. Songs & Editor Model 歌曲管理與資料模型 | 0/TBD | Not started | - |

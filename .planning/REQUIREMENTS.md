@@ -26,7 +26,7 @@
 ### Performance & Stability（效能與穩定）
 
 - [ ] **PERF-01**: 修正 UI 縮放 bug：預設 100% 正確、使用者放大時靠近邊框的內容不被吃掉（以根字級縮放取代 CSS `zoom`）
-- [ ] **PERF-02**: 首次搜尋與大量字卡不卡頓：結果分批渲染，手機上首次搜尋不凍結畫面
+- [x] **PERF-02**: 首次搜尋與大量字卡不卡頓：結果分批渲染，手機上首次搜尋不凍結畫面
 - [x] **PERF-03**: 詞庫快取版本正確更新，不會新舊 chunk 混用；詞庫載入與 AI 建議之間無競態
 - [x] **PERF-04**: 存檔失敗（容量爆滿、IndexedDB 失敗）時使用者看到提示
 
@@ -130,7 +130,7 @@
 | AI-06 | Phase 9 | Pending |
 | AI-07 | Phase 2 | Complete |
 | PERF-01 | Phase 5 | Pending |
-| PERF-02 | Phase 5 | Pending |
+| PERF-02 | Phase 5 | Complete |
 | PERF-03 | Phase 4 | Complete |
 | PERF-04 | Phase 1 | Complete |
 | LEX-01 | Phase 6 | Pending |

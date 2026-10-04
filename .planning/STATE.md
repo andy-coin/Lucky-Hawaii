@@ -4,16 +4,16 @@ milestone: v0.96
 current_phase: 05
 current_phase_name: Multi-Device Layout 多裝置版面與流暢度
 status: executing
-stopped_at: Completed 05-09-PLAN.md
-last_updated: "2026-10-04T13:13:41.448Z"
+stopped_at: Completed 05-10-PLAN.md
+last_updated: "2026-10-04T14:10:29.039Z"
 last_activity: 2026-10-04
 last_activity_desc: Phase 05 execution started
-state_head: 4c6927a5b94accb4beefa1f83d7de7e949d4bac5
+state_head: ffd1ae1faec7bb4434badfe9b72a722d682615ef
 progress:
   total_phases: 12
   completed_phases: 2
   total_plans: 33
-  completed_plans: 31
+  completed_plans: 32
 ---
 
 # Project State
@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-10-03)
 ## Current Position
 
 Phase: 05 (Multi-Device Layout 多裝置版面與流暢度) — EXECUTING
-Plan: 10 of 11
+Plan: 11 of 11
 Status: Ready to execute
 Last activity: 2026-10-04 — Phase 05 execution started
 
@@ -88,6 +88,7 @@ Progress: [██░░░░░░░░] 17%
 | Phase 05 P07 | 50 min | 2 tasks | 4 files |
 | Phase 05 P08 | 32 min | 2 tasks | 10 files |
 | Phase 05 P09 | 35 min | 2 tasks | 6 files |
+| Phase 05 P10 | 95 min | 3 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -135,6 +136,7 @@ Recent decisions affecting current work:
 - [Phase 05]: AI 按鈕用 order 排到詞卡後再 sticky 貼底（DOM 不動，桌機不變）
 - [Phase 05]: 05-07: keyboard = text field focused and stable height minus visualViewport height >= 150; kb-short below 600; input floor max(16px, 1rem) for <=900 or coarse
 - [Phase 05]: 05-08: chip x, section minus, hint clear and context refresh are real 44x44 (not ::after) so neighbouring chips and section names are never overlapped; deleting a non-empty lyrics section confirms first; context menus placed by lhPlaceMenu from measured size
+- [Phase 05]: 05-10: fixed SLICE 64 (adaptive per-frame budget measured and dropped); perf absolute thresholds scaled by machine speedFactor 7.35 stored in perf-baseline.json
 
 ### Pending Todos
 
@@ -172,6 +174,6 @@ Items acknowledged and deferred at milestone close, most recent first:
 
 ## Session Continuity
 
-Last session: 2026-10-04T13:13:41.355Z
-Stopped at: Completed 05-09-PLAN.md
+Last session: 2026-10-04T14:10:28.954Z
+Stopped at: Completed 05-10-PLAN.md
 Resume file: None
