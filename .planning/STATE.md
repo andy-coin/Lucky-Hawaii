@@ -4,16 +4,16 @@ milestone: v0.96
 current_phase: 07
 current_phase_name: Feedback & Correction Layer 回報與修正層
 status: executing
-stopped_at: Completed 07-07-PLAN.md
-last_updated: "2026-10-09T22:36:41.276Z"
+stopped_at: Completed 07-08-PLAN.md
+last_updated: "2026-10-09T22:45:11.388Z"
 last_activity: 2026-10-10
 last_activity_desc: Phase 07 execution started
-state_head: 15cb0557fb2a88e377d7bfaa9032750857807a33
+state_head: e3e43873e480f2224365c3b0fb64c5048bfecb00
 progress:
   total_phases: 12
   completed_phases: 2
   total_plans: 51
-  completed_plans: 48
+  completed_plans: 49
 ---
 
 # Project State
@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-10-03)
 ## Current Position
 
 Phase: 07 (Feedback & Correction Layer 回報與修正層) — EXECUTING
-Plan: 8 of 10
+Plan: 9 of 10
 Status: Ready to execute
 Last activity: 2026-10-10 — Phase 07 execution started
 
@@ -105,6 +105,7 @@ Progress: [██░░░░░░░░] 17%
 | Phase 07 P05 | 21 min | 3 tasks | 3 files |
 | Phase 07 P06 | 20 min | 2 tasks | 8 files |
 | Phase 07 P07 | 45 min | 2 tasks | 2 files |
+| Phase 07 P08 | 40 min | 2 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -178,6 +179,8 @@ Recent decisions affecting current work:
 - [Phase 07]: 07-05: 換篩選時看不見的列自動取消選取，批次動作只作用在畫面上的列；已上線列一律被 isLocked 擋住（07-07 補撤回）
 - [Phase 07]: 07-06: AI 詞卡回報模式只活在 #aiWordsContainer.report-mode class（捕獲階段攔點擊，不存保留區）；字卡與 AI 詞卡長按移除、破音字 chip 長按保留；選單 🚩 回報… 的 handler 只帶常數 'char'／'word' — D-03/D-04/D-05：手機不靠長按回報，長按留給 Phase 8/9 拖曳；T-07-19/T-07-20
 - [Phase 07]: 07-07: 列內只要有一筆在線上就顯示撤回；Worker 不收的項目留在等待套用並說明；修正層讀取失敗保留舊資料只改狀態
+- [Phase 07]: 07-08：--push／--confirm-only 在寫檔版暫時明確拒絕（exit 3），07-09 補實作時再放行
+- [Phase 07]: 07-08：寫回腳本預覽與 --apply 都先整批驗證；只有 --apply 才檢查三個目標檔是否未 commit；非 main 訊息以 --live-branch 取代 main
 
 ### Pending Todos
 
@@ -219,6 +222,6 @@ Items acknowledged and deferred at milestone close, most recent first:
 
 ## Session Continuity
 
-Last session: 2026-10-09T22:36:41.228Z
-Stopped at: Completed 07-07-PLAN.md
+Last session: 2026-10-09T22:45:11.335Z
+Stopped at: Completed 07-08-PLAN.md
 Resume file: None
