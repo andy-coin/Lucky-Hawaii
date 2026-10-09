@@ -661,16 +661,21 @@ async function fetchReports() {
 async function postDecision(kvKey, status, action) {
   const r = reports.find(x => x.kvKey === kvKey);
   if (!r) return false;
-  const prev = { status: r.status, decided_at: r.decided_at, action: r.action };
+  const prev = { status: r.status, decided_at: r.decided_at, action: r.action, decided_by: r.decided_by };
   const rollback = () => {
-    if (prev.status === undefined) { delete r.status; delete r.decided_at; delete r.action; }
-    else { r.status = prev.status; r.decided_at = prev.decided_at; if (prev.action) r.action = prev.action; else delete r.action; }
+    if (prev.status === undefined) { delete r.status; delete r.decided_at; delete r.action; delete r.decided_by; }
+    else {
+      r.status = prev.status; r.decided_at = prev.decided_at; if (prev.action) r.action = prev.action; else delete r.action;
+      if (prev.decided_by) r.decided_by = prev.decided_by; else delete r.decided_by;
+    }
   };
-  if (status === 'pending') { delete r.status; delete r.decided_at; delete r.action; }
+  // decided_by 和 Worker 的 /reports/decision 一致：只有「核准」會留下，Worker 套用時認它（CR-01）
+  if (status === 'pending') { delete r.status; delete r.decided_at; delete r.action; delete r.decided_by; }
   else {
     r.status = status;
     r.decided_at = new Date().toISOString();
     if (action) r.action = action; else delete r.action;
+    if (status === 'agreed') r.decided_by = 'admin'; else delete r.decided_by;
   }
   try {
     const res = await adminFetch('/reports/decision', {
@@ -756,7 +761,7 @@ async function applyApproved() {
   render();
 }
 
-// 撤回：依來源回報找出這一列在修正層裡的項目，一次送出；成功後回到「已核准、未套用」
+// 撤回：依來源回報找出這一列在修正層裡的項目，一次送出；Worker 會同時把來源回報改回「待審」，要重新核准才會再套用（WR-02）
 async function revokeGroup(groupKey) {
   const g = findGroup(groupKey);
   if (!g || layerBusy || batchBusy) return;
@@ -766,7 +771,16 @@ async function revokeGroup(groupKey) {
   let msg;
   try {
     const res = await adminFetch('/corrections/revoke', jsonPost({ ids, baseRev: layer.rev }));
-    if (res.ok) { await loadLayer(true); msg = { kind: 'neutral', text: `已撤回「${subjectLabel(g)}」，約 1～2 分鐘內從線上移除` }; }
+    if (res.ok) {
+      const d = await res.json().catch(() => ({}));
+      const reset = new Set(d.reset || []);
+      for (const r of reports) if (reset.has(r.kvKey)) { delete r.status; delete r.decided_at; delete r.action; delete r.decided_by; }
+      await loadLayer(true);
+      const bad = (d.resetFailed || []).length;
+      msg = bad
+        ? { kind: 'err', text: `已撤回「${subjectLabel(g)}」，但有 ${bad} 筆沒能改回待審。請在該列按「改回待審」，否則下一次「套用到線上」會把它再放回去。` }
+        : { kind: 'neutral', text: `已撤回「${subjectLabel(g)}」，約 1～2 分鐘內從線上移除。這筆已改回待審，要重新核准才會再套用。` };
+    }
     else if (res.status === 404) msg = { kind: 'err', text: '這筆修正已不在線上（可能已撤回或已寫入資料檔），請重新載入' };
     else if (res.status === 409) msg = { kind: 'err', text: MSG_409 + '試' };
     else msg = { kind: 'err', text: `撤回沒有成功：${failReason(res.status)}。可以再按一次。` };
@@ -815,10 +829,12 @@ const STATUS_NAME = { pending: '待審', approved: '已核准', live: '已上線
 const STATUS_RANK = { pending: 0, approved: 1, live: 2, written: 3, done: 4, dismissed: 5, archived: 6 };
 
 // 已上線／已寫入由修正層推出來（C2），不另外寫進回報：byKey 對得到 = 在線上，writtenSet 對得到 = 已寫進資料檔
+// 在線上優先判斷：不管回報現在是什麼狀態，只要修正層裡有它就是「已上線」，要先撤回才能動它（WR-01）。
+// 核准一定要有 Worker 寫的 decided_by；只有 status:'agreed' 沒有它的（舊資料或偽造的）當作待審，Worker 套用時也不會收。
 function memberStatus(r, lay = layer) {
+  if (lay.byKey && lay.byKey.has(r.kvKey)) return 'live';
   const s = r.status || 'pending';
-  if (s === 'agreed') {
-    if (lay.byKey && lay.byKey.has(r.kvKey)) return 'live';
+  if (s === 'agreed' && r.decided_by === 'admin') {
     if (lay.writtenSet && lay.writtenSet.has(r.kvKey)) return 'written';
     if (r.action && r.action.type === 'note') return 'done';
     return 'approved';
@@ -842,6 +858,9 @@ function cmpGroups(a, b) {
 }
 // 已上線或已寫入的回報不能再被核准／駁回／封存（要先撤回，07-07）
 const isLocked = m => ['live', 'written'].includes(memberStatus(m));
+// 讀不到修正層就不知道哪些已經上線：這時候不讓核准、駁回、封存、刪除，免得動到已上線的項目（WR-01）
+const layerDown = () => layer.state !== 'ok';
+const LAYER_DOWN = '讀不到線上修正層，暫時不能核准、駁回、封存或刪除（避免動到已上線的項目）。請先按上方「重試」。';
 const findGroup = key => _groupMap.get(key);
 
 // D-12：太冷僻 → 隱藏、不該出現 → 移除；讀音錯誤、其他等沒有預設動作，要手動
@@ -1001,6 +1020,7 @@ async function decideMembers(g, decide, conc) {
 async function runGroup(groupKey, decide) {
   const g = findGroup(groupKey);
   if (!g || busyGroups.has(groupKey) || batchBusy) return false;
+  if (layerDown()) { applyMsg = { kind: 'err', text: LAYER_DOWN }; render(); return false; }
   busyGroups.add(groupKey); rowErrors.delete(groupKey); applyMsg = null; render();
   const ok = await decideMembers(g, decide, 4);
   busyGroups.delete(groupKey);
@@ -1075,6 +1095,7 @@ async function deleteMembers(members) {
   }
 }
 function deleteGroups(keys) {
+  if (layerDown()) { applyMsg = { kind: 'err', text: LAYER_DOWN }; render(); return; }
   const groups = keys.map(findGroup).filter(Boolean);
   const members = groups.flatMap(g => g.members.filter(m => !isLocked(m)));
   if (!members.length) return;
@@ -1269,7 +1290,7 @@ const subjectLabel = g => g.type === 'feedback' ? (g.members[0].subject || '（�
 
 // 按鈕一律用 data-* 屬性＋下面的事件委派，不把任何使用者字串拼進 on* 屬性（B5）
 function bt(g, cls, label, act, extra = '', aria = '') {
-  const dis = busyGroups.has(g.key) || batchBusy || layerBusy ? ' disabled' : '';
+  const dis = busyGroups.has(g.key) || batchBusy || layerBusy || layerDown() ? ' disabled' : '';
   const a = aria ? ` aria-label="${esc(aria)}" title="${esc(aria)}"` : '';
   return `<button type="button" class="btn ${cls}"${dis}${a} data-act="${act}" data-group="${esc(g.key)}"${extra}>${label}</button>`;
 }
@@ -1634,8 +1655,14 @@ async function batchDecide(groups, decideOf) {
 const failText = r => `已處理 ${r.ok} 列，${r.failed} 列失敗，失敗的仍保持選取，可以再按一次`;
 const selectedRows = () => Array.from(selectedGroups).map(findGroup).filter(Boolean);
 
+// 批次動作的共同入口檢查：忙碌中或讀不到修正層都不做
+function batchBlocked() {
+  if (batchBusy) return true;
+  if (layerDown()) { showBatchResult(LAYER_DOWN); return true; }
+  return false;
+}
 async function batchApprove() {
-  if (batchBusy) return;
+  if (batchBlocked()) return;
   const groups = selectedRows();
   const manual = groups.filter(g => !fullyLocked(g) && !approveOpFor(g));
   const doable = groups.filter(g => approveOpFor(g) && !fullyLocked(g));
@@ -1653,7 +1680,7 @@ async function batchApprove() {
     + (r.locked ? `，${LOCKED_NOTE(r.locked)}` : ''));
 }
 async function batchDismiss() {
-  if (batchBusy) return;
+  if (batchBlocked()) return;
   const groups = selectedRows();
   if (!groups.length) return;
   const r = await batchDecide(groups, () => decideFor('dismiss'));
@@ -1661,6 +1688,7 @@ async function batchDismiss() {
   showBatchResult(r.todo ? `已駁回 ${r.ok} 列` + (r.locked ? `，${LOCKED_NOTE(r.locked)}` : '') : LOCKED_NOTE(r.locked));
 }
 async function batchArchive() {
+  if (batchBlocked()) return;
   const groups = selectedRows().filter(g => g.st.status !== 'archived');
   if (!groups.filter(g => !fullyLocked(g)).length) { alert('沒有可封存的項目'); return; }
   if (!confirm(`封存 ${groups.filter(g => !fullyLocked(g)).length} 列？`)) return;
@@ -1668,6 +1696,7 @@ async function batchArchive() {
   showBatchResult(r.failed ? failText(r) : `已封存 ${r.ok} 列` + (r.locked ? `，${LOCKED_NOTE(r.locked)}` : ''));
 }
 async function batchRestore() {
+  if (batchBlocked()) return;
   const groups = selectedRows().filter(g => g.st.status !== 'pending');
   if (!groups.filter(g => !fullyLocked(g)).length) { alert('沒有可還原的項目（已是待審狀態）'); return; }
   if (!confirm(`還原 ${groups.filter(g => !fullyLocked(g)).length} 列為待審？`)) return;
@@ -1675,6 +1704,7 @@ async function batchRestore() {
   showBatchResult(r.failed ? failText(r) : `已還原 ${r.ok} 列` + (r.locked ? `，${LOCKED_NOTE(r.locked)}` : ''));
 }
 function batchDelete() {
+  if (batchBlocked()) return;
   const groups = selectedRows();
   const locked = groups.filter(fullyLocked).length;
   const p = groups.length ? deleteGroups(groups.map(g => g.key)) : null;   // 確認通過後 deleteMembers 會立刻重畫，被刪的列自然從選取清單剔掉

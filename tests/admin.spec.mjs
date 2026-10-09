@@ -649,23 +649,56 @@ test('後台：套用 — 一次送出全部已核准的四筆（只有 kvKey �
     await context.close();
 });
 
-test('後台：撤回 — 一鍵撤回二心，列回到已核准未套用，等待套用變 3，線上不再隱藏', async ({ browser }) => {
-    const { context, page, env, calls } = await bootAdmin(browser, { reports: approvedFour() });
+test('後台：撤回 — 一鍵撤回二心，來源回報改回待審（不會被下一次套用放回去），線上不再隱藏', async ({ browser }) => {
+    const { context, page, env, calls, kv } = await bootAdmin(browser, { reports: approvedFour() });
     await page.locator('#applyBtn').click();
     await expect(page.locator('.apply-line.ok')).toBeVisible();
     const id = layerDoc(env).entries.find(e => e.target === 'wordlist').id;
 
     const row = rowOf(page, '二心', '極度冷僻');
     await row.getByRole('button', { name: /^從線上撤回「/ }).click();
-    await expect(page.locator('.apply-line.neutral')).toHaveText('已撤回「二心」，約 1～2 分鐘內從線上移除');
+    await expect(page.locator('.apply-line.neutral')).toHaveText('已撤回「二心」，約 1～2 分鐘內從線上移除。這筆已改回待審，要重新核准才會再套用。');
     const revokes = calls.filter(c => c.path === '/corrections/revoke');
     expect(revokes).toHaveLength(1);
     expect(JSON.parse(revokes[0].body)).toEqual({ ids: [id], baseRev: 1 });
-    await expect(row.locator('.action-preview')).toContainText('（等待套用）');
-    await expect(row.getByRole('button', { name: '改回待審' })).toBeVisible();
-    await expect(page.locator('.apply-summary')).toHaveText('線上修正層：1 筆 · 等待套用：3 筆');
-    await expect(page.locator('#applyBtn')).toHaveText('🚀 套用到線上（3）');
+    await expect(row.locator('.action-preview')).toHaveText('待審');
+    await expect(row.getByRole('button', { name: /^核准「/ })).toBeVisible();
+    await expect(page.locator('.apply-summary')).toHaveText('線上修正層：1 筆 · 等待套用：0 筆');
+    await expect(page.locator('#applyBtn')).toHaveText('🚀 套用到線上（0）');
+    await expect(page.locator('#applyBtn')).toBeDisabled();
+    // 存在 KV 的三筆二心也真的回到待審，沒有核准標記
+    const twoHearts = kvValues(kv).filter(v => v.word === '二心');
+    expect(twoHearts).toHaveLength(3);
+    for (const v of twoHearts) for (const k of ['status', 'decided_at', 'decided_by', 'action']) expect(v, k).not.toHaveProperty(k);
     expect((await publicView(env)).wordlist.hidden).toEqual([]);
+    // 重新核准之後才會再進等待套用
+    await row.getByRole('button', { name: /^核准「/ }).click();
+    await expect(page.locator('.apply-summary')).toHaveText('線上修正層：1 筆 · 等待套用：3 筆');
+    await context.close();
+});
+
+test('WR-01／CR-01：後台讀不到修正層時，核准／駁回／封存／刪除全部停用；只有 status 沒有 decided_by 的核准當作待審', async ({ browser }) => {
+    const forged = { ...word('偽', '不該出現', T2), status: 'agreed', action: { type: 'remove_word', word: '偽' } };
+    const { context, page } = await bootAdmin(browser, {
+        reports: [word('甲', '極度冷僻', T1), forged],
+        hook: except('/corrections/admin.json', fakeRes(503, { ok: false })),
+    });
+    await expect(page.locator('.apply-line.err')).toContainText('讀不到線上修正層');
+    const row = rowOf(page, '甲', '極度冷僻');
+    for (const name of [/^核准「/, /^駁回「/]) await expect(row.getByRole('button', { name })).toBeDisabled();
+    await expect(row.getByRole('button', { name: /Archive/ })).toBeDisabled();
+    // 偽造的 agreed：沒有 decided_by，不算核准，也不會進「等待套用」
+    await expect(rowOf(page, '偽', '不該出現').locator('.action-preview')).toHaveText('待審');
+    await expect(page.locator('#applyBtn')).toBeDisabled();
+    await context.close();
+});
+
+test('WR-01：回報已經在線上時，不管它現在的狀態是什麼都算「已上線」，要有撤回鈕、不能被駁回', async ({ browser }) => {
+    const r = { ...word('二心', '極度冷僻', T1), status: 'dismissed', decided_at: '2026-10-09T00:00:00.000Z' };
+    const { context, page } = await bootAdmin(browser, { reports: [r], env: seedLayer([entryFor(1, kvKeyOf(0))]) });
+    const row = rowOf(page, '二心', '極度冷僻');
+    await expect(row.getByRole('button', { name: /^從線上撤回「/ })).toBeVisible();
+    await expect(row.getByRole('button', { name: /^駁回「/ })).toHaveCount(0);
     await context.close();
 });
 
