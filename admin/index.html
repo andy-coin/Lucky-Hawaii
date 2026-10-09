@@ -831,11 +831,13 @@ const STATUS_RANK = { pending: 0, approved: 1, live: 2, written: 3, done: 4, dis
 // 已上線／已寫入由修正層推出來（C2），不另外寫進回報：byKey 對得到 = 在線上，writtenSet 對得到 = 已寫進資料檔
 // 在線上優先判斷：不管回報現在是什麼狀態，只要修正層裡有它就是「已上線」，要先撤回才能動它（WR-01）。
 // 核准一定要有 Worker 寫的 decided_by；只有 status:'agreed' 沒有它的（舊資料或偽造的）當作待審，Worker 套用時也不會收。
+// 已寫進資料檔（Worker 的 written 清單，只有 /corrections/clear 會寫）的也先判斷、不看 decided_by：舊 Worker 核准過、已經寫進 data/ 的回報不能掉回待審，
+// 否則全選核准會把它們再套用一次（WR-01）。駁回與封存是 Andy 自己的決定，照原樣顯示。
 function memberStatus(r, lay = layer) {
   if (lay.byKey && lay.byKey.has(r.kvKey)) return 'live';
   const s = r.status || 'pending';
+  if (lay.writtenSet && lay.writtenSet.has(r.kvKey) && s !== 'dismissed' && s !== 'archived') return 'written';
   if (s === 'agreed' && r.decided_by === 'admin') {
-    if (lay.writtenSet && lay.writtenSet.has(r.kvKey)) return 'written';
     if (r.action && r.action.type === 'note') return 'done';
     return 'approved';
   }

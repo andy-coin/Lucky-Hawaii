@@ -856,6 +856,29 @@ test('後台：已寫入資料檔 — 在 written 清單裡的列顯示已寫入
     await context.close();
 });
 
+test('WR-01：舊 Worker 核准過、沒有 decided_by 的回報——已寫進資料檔的維持已寫入，沒寫進去的回待審，全選核准與套用都不會把前者再套用', async ({ browser }) => {
+    const legacy = r => ({ ...r, status: 'agreed', decided_at: '2026-10-01T00:00:00.000Z', action: hideWord(r.word) });   // 沒有 decided_by
+    const { context, page, calls } = await bootAdmin(browser, {
+        reports: [legacy(word('二心', '極度冷僻', T1)), legacy(word('三心', '極度冷僻', T2))],
+        env: seedLayer([], { written: [kvKeyOf(0)] }),
+    });
+    await expect(rowOf(page, '二心', '極度冷僻').locator('.action-preview')).toHaveText('✓ 已寫入資料檔');
+    await expect(rowOf(page, '三心', '極度冷僻').locator('.action-preview')).toHaveText('待審');   // 需要重新核准（預期行為）
+    await expect(page.locator('.apply-summary')).toHaveText('線上修正層：0 筆 · 等待套用：0 筆');
+    await expect(applyBtn(page)).toBeDisabled();
+    // 待審篩選下全選、批次核准：只動沒寫入的那一列；寫入過的不在待審裡，也不會被送去套用
+    await chip(page, '待審').click();
+    expect(await visibleWords(page)).toEqual(['三心']);
+    await page.locator('#selectAll').check();
+    await batchBtn(page, '核准').click();
+    await expect(page.locator('.apply-summary')).toHaveText('線上修正層：0 筆 · 等待套用：1 筆');
+    await applyBtn(page).click();
+    await expect(page.locator('.apply-line.ok')).toBeVisible();
+    const sent = applyCalls(calls).flatMap(c => JSON.parse(c.body).kvKeys);
+    expect(sent).toEqual([kvKeyOf(1)]);
+    await context.close();
+});
+
 test('後台：備註 — 核准的備註是已處理，不算等待套用', async ({ browser }) => {
     const { context, page } = await bootAdmin(browser, {
         reports: [agreed(feedback('想法', '內容', T1), { type: 'note', text: '之後再看' })],
