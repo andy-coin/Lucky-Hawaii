@@ -5,6 +5,19 @@
 - Pi Agent 預設連 ToshLLM (Qwen3.6)，profile: IQ50
 - `.devcontainer/docker-compose.yml` 的 ports 預設註解，web server 專案需取消註解
 
+## ▶ 本機接續中（2026-10-09）
+
+- 已 pull 雲端進度到本機（HEAD 與 origin/gsd/v0.96-stabilize 一致；Mac 鑰匙圈在 SSH 下不能用，pull 要在終端機輸入 token）
+- Mac 截圖基準已建（05ebcce，15 張 -darwin.png）；`tests/layout.spec.mjs:1559` 搜尋框單行檢查改成比填字前後高度（2291d09，Mac 字型行高較高誤判）
+- 本機 `npm test`：421 過／27 跳過，修完那 1 項後應全過；`lexicon:test` OK
+- Phase 6 程式碼審查完成（06-REVIEW.md／06-REVIEW-FIX.md，.planning 本機不 commit）：WR-01～06 全修
+  - WR-01 `tools/lexicon/lex/judge.py` `_checked_url` 改用解析後主機（56e1c94）；WR-06 同函式不合法網址改白話錯誤（1648db5）
+  - WR-02 `js/wordlist.js` 換包失敗退回「最後真的載好」的包＋重跑搜尋，`?v=` 升 0.96.9（52fe5d4）
+  - WR-03 judge 補問失敗保留已拿到的判斷（3b9d678）；WR-04 白名單補 裏銹鐧獴菓肽＋歐拉，詞庫包已重建（fca098d）；WR-05 校準詞表換掉與提示範例重複的 4 詞（69113b6）
+  - 剩 IN-01～08 為 Info，未修
+- 回歸關卡：`npm test` 423 過／27 跳過／0 失敗（注意：python 一律加 `-B`，tools/ 留 __pycache__ 會讓 lexicon-build 測試失敗）
+- 進行中：Phase 6 verifier → 之後 `/gsd-autonomous --from 7`
+
 ## ⏸ 雲端接力結束（2026-10-04，接回本機繼續）
 
 - 分支 `gsd/v0.96-stabilize` 已全部 push；`main`（線上網站）沒動
