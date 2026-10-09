@@ -8,6 +8,9 @@ export const CORRECTIONS_KEY = 'corrections:v1';
 const MAX_APPLY_BODY = 16384;       // 套用請求只有幾個 kvKey，16 KB 綽綽有餘
 const MAX_APPLY_KEYS = 100;
 const KVKEY_RE = /^[\w.-]{1,64}$/;
+const ID_RE = /^c_[\w-]{1,64}$/;
+const MAX_ENTRIES = 2000;           // 修正層上限；滿了就請 Andy 跑寫回腳本
+const MAX_WRITTEN = 5000;           // 已寫入清單只留最新這麼多筆（避免文件無限長大）
 // 詞要能原樣進網站：1–20 字、不含空白／引號／角括號／反斜線／&／控制字元（使用者打的字不能夾帶標記）
 const WORD_RE = /^[^\s<>"'`\\&\p{Cc}]+$/u;
 
@@ -197,19 +200,86 @@ export function buildView(doc) {
 
 // 回傳 null 代表這個路徑不歸這裡管。h = { json, readBodyCapped, adminKeyOk, originAllowed }
 export async function handleCorrections(request, env, url, h) {
+    try {
+        return await route(request, env, url, h);
+    } catch (e) {
+        // 任何一條路徑讀到壞掉的文件都一樣：回 500，而且不寫入（不會蓋掉）
+        if (e.code === 'LAYER_CORRUPT') return h.json(500, { ok: false, code: 'LAYER_CORRUPT', message: '修正層資料損毀' });
+        throw e;
+    }
+}
+
+// 存檔：put 失敗（例如一秒內寫兩次）回 503 Response，成功回 null
+async function trySave(env, doc, h) {
+    try { await saveDoc(env, doc); return null; } catch (e) {
+        console.error('[好韻器] 修正層寫入失敗', e?.message);
+        return h.json(503, { ok: false, code: 'KV_BUSY', message: '儲存太快了，請等一秒再試' });
+    }
+}
+
+// 讀 { ids, baseRev } 這種請求（撤回、清空共用）；格式不對回 { res }
+async function readIdsRequest(request, h) {
+    const body = await h.readBodyCapped(request, MAX_APPLY_BODY);
+    if (!body.ok) return { res: h.json(413, { ok: false, code: 'TOO_LARGE', message: '內容太大' }) };
+    let req;
+    try { req = JSON.parse(body.text); } catch (e) { req = null; }
+    if (!req || !Array.isArray(req.ids) || req.ids.length < 1 || req.ids.length > MAX_APPLY_KEYS
+        || !req.ids.every(id => typeof id === 'string' && ID_RE.test(id))
+        || !Number.isInteger(req.baseRev) || req.baseRev < 0) {
+        return { res: h.json(400, { ok: false, code: 'BAD_REQUEST', message: '請求格式不對' }) };
+    }
+    return { ids: [...new Set(req.ids)], baseRev: req.baseRev };
+}
+
+async function route(request, env, url, h) {
     const path = url.pathname;
 
     // 公開讀取：給網站抓；只認允許的來源
     if (path === '/corrections.json') {
         if (!h.originAllowed()) return h.json(403, { ok: false, code: 'FORBIDDEN', message: '來源不被允許' });
         if (request.method !== 'GET') return h.json(405, { ok: false, code: 'METHOD', message: '不支援這個操作' });
-        try {
-            const doc = await loadDoc(env, { cacheTtl: 30 });
-            return h.json(200, buildView(doc), { 'Cache-Control': 'public, max-age=60' });
-        } catch (e) {
-            if (e.code === 'LAYER_CORRUPT') return h.json(500, { ok: false, code: 'LAYER_CORRUPT', message: '修正層資料損毀' });
-            throw e;
+        const doc = await loadDoc(env, { cacheTtl: 30 });
+        return h.json(200, buildView(doc), { 'Cache-Control': 'public, max-age=60' });
+    }
+
+    // 後台讀整份修正層（含 id、來源、已寫入清單）：給後台列表與寫回腳本，要金鑰
+    if (path === '/corrections/admin.json') {
+        if (!h.adminKeyOk()) return h.json(403, { ok: false, code: 'FORBIDDEN', message: '金鑰不對' });
+        if (request.method !== 'GET') return h.json(405, { ok: false, code: 'METHOD', message: '不支援這個操作' });
+        const doc = await loadDoc(env);
+        const { version, rev, ...pub } = buildView(doc);
+        return h.json(200, { ok: true, version: doc.version ?? 1, rev: doc.rev, updated_at: doc.updated_at ?? null, entries: doc.entries, written: doc.written, view: pub });
+    }
+
+    // 撤回／清空：依 id 動單一文件，一次只 put 一次。撤回 = 純粹拿掉（來源回報會自動回到「已核准、未套用」）；
+    // 清空 = 寫回資料檔之後拿掉，並把來源 kvKey 記進 written，之後不會再被套用
+    if (path === '/corrections/revoke' || path === '/corrections/clear') {
+        if (!h.adminKeyOk()) return h.json(403, { ok: false, code: 'FORBIDDEN', message: '金鑰不對' });
+        if (request.method !== 'POST') return h.json(405, { ok: false, code: 'METHOD', message: '不支援這個操作' });
+        const req = await readIdsRequest(request, h);
+        if (req.res) return req.res;
+        const doc = await loadDoc(env);
+        if (req.baseRev !== doc.rev) {
+            return h.json(409, { ok: false, code: 'REV_MISMATCH', rev: doc.rev, message: '線上修正層剛剛有變動，請重新載入後再試' });
         }
+        const isRevoke = path === '/corrections/revoke';
+        const byId = new Map(doc.entries.map(e => [e.id, e]));
+        const found = req.ids.filter(id => byId.has(id));
+        const missing = req.ids.filter(id => !byId.has(id));
+        if (!found.length) {
+            if (isRevoke) return h.json(404, { ok: false, code: 'NOT_FOUND', missing, rev: doc.rev, message: '這筆修正已不在線上（可能已撤回或已寫入資料檔），請重新載入' });
+            return h.json(200, { ok: true, rev: doc.rev, cleared: [], missing });
+        }
+        const gone = new Set(found);
+        if (!isRevoke) {
+            const written = new Set(doc.written);
+            for (const id of found) for (const k of byId.get(id).source_kvKeys ?? []) written.add(k);
+            doc.written = [...written].slice(-MAX_WRITTEN);
+        }
+        doc.entries = doc.entries.filter(e => !gone.has(e.id));
+        const busy = await trySave(env, doc, h);
+        if (busy) return busy;
+        return h.json(200, isRevoke ? { ok: true, rev: doc.rev, revoked: found, missing } : { ok: true, rev: doc.rev, cleared: found, missing });
     }
 
     // 套用：後台把「已核准」的回報轉成修正層的條目。client 只送 kvKey，內容一律由 Worker 讀回報 KV 自己轉
@@ -225,11 +295,7 @@ export async function handleCorrections(request, env, url, h) {
             || !req.kvKeys.every(k => typeof k === 'string' && KVKEY_RE.test(k))
             || !Number.isInteger(req.baseRev) || req.baseRev < 0) return bad();
 
-        let doc;
-        try { doc = await loadDoc(env); } catch (e) {
-            if (e.code === 'LAYER_CORRUPT') return h.json(500, { ok: false, code: 'LAYER_CORRUPT', message: '修正層資料損毀' });
-            throw e;
-        }
+        const doc = await loadDoc(env);
         if (req.baseRev !== doc.rev) {
             return h.json(409, { ok: false, code: 'REV_MISMATCH', rev: doc.rev, message: '線上修正層剛剛有變動，請重新載入後再套用' });
         }
@@ -262,11 +328,12 @@ export async function handleCorrections(request, env, url, h) {
 
         const added = [...fresh.values()];
         if (added.length) {
-            doc.entries.push(...added);
-            try { await saveDoc(env, doc); } catch (e) {
-                console.error('[好韻器] 修正層寫入失敗', e?.message);
-                return h.json(503, { ok: false, code: 'KV_BUSY', message: '儲存太快了，請等一秒再試' });
+            if (doc.entries.length + added.length > MAX_ENTRIES) {
+                return h.json(400, { ok: false, code: 'LAYER_FULL', message: '修正層已滿 2000 筆，請先跑寫回腳本' });
             }
+            doc.entries.push(...added);
+            const busy = await trySave(env, doc, h);
+            if (busy) return busy;
         }
         return h.json(200, {
             ok: true, rev: doc.rev,
