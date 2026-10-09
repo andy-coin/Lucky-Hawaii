@@ -4,7 +4,7 @@
     "R0-nonhan": 7,
     "R0-syllables": 1,
     "R1-simplified": 2,
-    "R2-rare-char": 86,
+    "R2-rare-char": 79,
     "R3-china-term": 56
   },
   "china_kept": 64,
@@ -25,10 +25,10 @@
   "id": "vanguard-tw",
   "in_scope": 64793,
   "judged_with": [],
-  "kept": 64637,
+  "kept": 64644,
   "merged_lines": 3913,
   "multi_reading": 3525,
-  "removed": 156,
+  "removed": 149,
   "rules_version": "2",
   "skipped_single": 0,
   "top_chars": [
@@ -93,14 +93,6 @@
       2
     ],
     [
-      "獴",
-      2
-    ],
-    [
-      "菓",
-      2
-    ],
-    [
       "萘",
       2
     ],
@@ -111,7 +103,15 @@
     [
       "鑔",
       2
+    ],
+    [
+      "閪",
+      2
+    ],
+    [
+      "㑚",
+      1
     ]
   ],
-  "version": "2.3f0521dcc1"
+  "version": "2.8bfc3167c8"
 }

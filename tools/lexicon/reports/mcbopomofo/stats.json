@@ -3,41 +3,37 @@
     "R0-nonbmp": 2,
     "R0-nonhan": 5,
     "R1-simplified": 5,
-    "R2-rare-char": 74,
+    "R2-rare-char": 62,
     "R3-china-term": 66
   },
   "china_kept": 42,
   "est": {
     "batch": 150,
-    "in_tokens": 147793,
-    "out_tokens": 40197,
+    "in_tokens": 147800,
+    "out_tokens": 40200,
     "requests": 90
   },
-  "gray": 13399,
+  "gray": 13400,
   "gray_by_rule": {
     "G-china-term": 10,
-    "G-single-source": 13389
+    "G-single-source": 13390
   },
   "gray_deleted": 0,
   "gray_keep": 0,
-  "gray_pending": 13399,
+  "gray_pending": 13400,
   "id": "mcbopomofo",
   "in_scope": 140017,
   "judged_with": [],
-  "kept": 139865,
+  "kept": 139877,
   "merged_lines": 5586,
   "multi_reading": 5168,
-  "removed": 152,
+  "removed": 140,
   "rules_version": "2",
   "skipped_single": 0,
   "top_chars": [
     [
       "酶",
       23
-    ],
-    [
-      "裏",
-      6
     ],
     [
       "萜",
@@ -68,19 +64,11 @@
       2
     ],
     [
-      "獴",
-      2
-    ],
-    [
       "罇",
       2
     ],
     [
       "羣",
-      2
-    ],
-    [
-      "菓",
       2
     ],
     [
@@ -110,7 +98,19 @@
     [
       "攧",
       1
+    ],
+    [
+      "渋",
+      1
+    ],
+    [
+      "砈",
+      1
+    ],
+    [
+      "稲",
+      1
     ]
   ],
-  "version": "2.89e6dcffac"
+  "version": "2.3cdbb7f546"
 }

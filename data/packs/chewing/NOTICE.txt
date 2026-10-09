@@ -1,10 +1,10 @@
-新酷音詞庫（id: chewing，版本 2.c1553b706b）
+新酷音詞庫（id: chewing，版本 2.61c5b37bff）
 來源：libchewing-data — https://github.com/chewing/libchewing-data（commit c44e81aef24b06f1509f19e1be54c99812d0c43f，上游版本標示 2025.11.17）
 授權：LGPL-2.1-or-later（全文見同資料夾 LICENSE.LGPL-2.1.txt、LICENSE.TaBE-BSD-3-Clause.txt）
 著作權：Copyright (c) 2025 libchewing Core Team
 改作說明：本詞庫包由上述資料經自動清洗產生——刪除格式不合的詞條（含非漢字或擴充區字元、詞長超過 11 字、注音符號錯誤或音節數與字數不符），刪除含簡體字或罕用字的詞條，以及中國用語（與對照表完全吻合、且在該來源很少出現者），略過單字，並轉換為 JSON Lines 格式；只有單一來源收錄的詞予以保留，另行標記留待後續判斷。
-          共刪除 132 筆，刪除清單與原因見 tools/lexicon/reports/chewing/removed.ndjson。
-改作日期：2026-10-04
+          共刪除 121 筆，刪除清單與原因見 tools/lexicon/reports/chewing/removed.ndjson。
+改作日期：2026-10-09
 清洗規則使用：OpenCC 字表（Apache-2.0）；教育部常用／次常用國字表僅作比對，不重新散布。
 
 ---- libtabe（TaBE）著作權與授權聲明（原文）----

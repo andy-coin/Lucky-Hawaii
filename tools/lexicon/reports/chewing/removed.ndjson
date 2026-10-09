@@ -32,8 +32,6 @@
 {"w":"奶酪","z":"ㄋㄞˇ ㄌㄠˋ","p":1,"rule":"R3-china-term","reason":"中國用語（台灣多作「乳酪」）","src":["chewing","mcbopomofo"],"n":2}
 {"w":"字符","z":"ㄗˋ ㄈㄨˊ","p":49,"rule":"R3-china-term","reason":"中國用語（台灣多作「字元」）","src":["chewing","mcbopomofo"],"n":2}
 {"w":"存儲","z":"ㄘㄨㄣˊ ㄔㄨˊ","p":38,"rule":"R3-china-term","reason":"中國用語（台灣多作「儲存」）","src":["chewing","mcbopomofo","vanguard-tw"],"n":3}
-{"w":"家裏","z":"ㄐㄧㄚ ㄌㄧˇ","p":2044,"rule":"R2-rare-char","reason":"含罕用字「裏」（不在教育部常用／次常用字與 Big5 內）","src":["chewing"],"n":1}
-{"w":"家裏蹲","z":"ㄐㄧㄚ ㄌㄧˇ ㄉㄨㄣ","p":10,"rule":"R2-rare-char","reason":"含罕用字「裏」（不在教育部常用／次常用字與 Big5 內）","src":["chewing"],"n":1}
 {"w":"寄存器","z":"ㄐㄧˋ ㄘㄨㄣˊ ㄑㄧˋ","p":0,"rule":"R3-china-term","reason":"中國用語（台灣多作「暫存器」）","src":["chewing","mcbopomofo","vanguard-tw"],"n":3}
 {"w":"尼日利亞","z":"ㄋㄧˊ ㄖˋ ㄌㄧˋ ㄧㄚˇ","p":2,"rule":"R3-china-term","reason":"中國用語（台灣多作「奈及利亞」）","src":["chewing"],"n":1}
 {"w":"尼日爾","z":"ㄋㄧˊ ㄖˋ ㄦˇ","p":1,"rule":"R3-china-term","reason":"中國用語（台灣多作「尼日」）","src":["chewing"],"n":1}
@@ -49,7 +47,6 @@
 {"w":"持久性","z":"ㄔˊ ㄐㄧㄡˇ ㄒㄧㄥˋ","p":24,"rule":"R3-china-term","reason":"中國用語（台灣多作「永續性」）","src":["chewing","mcbopomofo","vanguard-tw"],"n":3}
 {"w":"掂倈","z":"ㄉㄧㄢ ㄌㄞˊ","p":1,"rule":"R2-rare-char","reason":"含罕用字「倈」（不在教育部常用／次常用字與 Big5 內）","src":["chewing"],"n":1}
 {"w":"接口","z":"ㄐㄧㄝ ㄎㄡˇ","p":86,"rule":"R3-china-term","reason":"中國用語（台灣多作「介面」）","src":["chewing","mcbopomofo"],"n":2}
-{"w":"撒手鐧","z":"ㄙㄚ ㄕㄡˇ ㄐㄧㄢˇ","p":0,"rule":"R2-rare-char","reason":"含罕用字「鐧」（不在教育部常用／次常用字與 Big5 內）","src":["chewing"],"n":1}
 {"w":"操作系統","z":"ㄘㄠ ㄗㄨㄛˋ ㄒㄧˋ ㄊㄨㄥˇ","p":77,"rule":"R3-china-term","reason":"中國用語（台灣多作「作業系統」）","src":["chewing"],"n":1}
 {"w":"文萊","z":"ㄨㄣˊ ㄌㄞˊ","p":12,"rule":"R3-china-term","reason":"中國用語（台灣多作「汶萊」）","src":["chewing"],"n":1}
 {"w":"新西蘭","z":"ㄒㄧㄣ ㄒㄧ ㄌㄢˊ","p":10,"rule":"R3-china-term","reason":"中國用語（台灣多作「紐西蘭」）","src":["chewing"],"n":1}
@@ -60,9 +57,7 @@
 {"w":"榴蓮","z":"ㄌㄧㄡˊ ㄌㄧㄢˊ","p":0,"rule":"R3-china-term","reason":"中國用語（台灣多作「榴槤」）","src":["chewing","mcbopomofo"],"n":2}
 {"w":"標識符","z":"ㄅㄧㄠ ㄕˋ ㄈㄨˊ","p":0,"rule":"R3-china-term","reason":"中國用語（台灣多作「識別符號」）","src":["chewing"],"n":1}
 {"w":"模塊","z":"ㄇㄛˊ ㄎㄨㄞˋ","p":11,"rule":"R3-china-term","reason":"中國用語（台灣多作「模組」）","src":["chewing","vanguard-tw"],"n":2}
-{"w":"歐拉","z":"ㄡ ㄌㄚ","p":22,"rule":"R3-china-term","reason":"中國用語（台灣多作「尤拉」）","src":["chewing"],"n":1}
 {"w":"正電子","z":"ㄓㄥˋ ㄉㄧㄢˋ ㄗˇ","p":26,"rule":"R3-china-term","reason":"中國用語（台灣多作「正子」）","src":["chewing","mcbopomofo"],"n":2}
-{"w":"殺手鐧","z":"ㄕㄚ ㄕㄡˇ ㄐㄧㄢˇ","p":1,"rule":"R2-rare-char","reason":"含罕用字「鐧」（不在教育部常用／次常用字與 Big5 內）","src":["chewing"],"n":1}
 {"w":"毛里塔尼亞","z":"ㄇㄠˊ ㄌㄧˇ ㄊㄚˇ ㄋㄧˊ ㄧㄚˇ","p":0,"rule":"R3-china-term","reason":"中國用語（台灣多作「茅利塔尼亞」）","src":["chewing"],"n":1}
 {"w":"沙特阿拉伯","z":"ㄕㄚ ㄊㄜˋ ㄚ ㄌㄚ ㄅㄛˊ","p":0,"rule":"R3-china-term","reason":"中國用語（台灣多作「沙烏地阿拉伯」）","src":["chewing"],"n":1}
 {"w":"津巴布韋","z":"ㄐㄧㄣ ㄅㄚ ㄅㄨˋ ㄨㄟˊ","p":3,"rule":"R3-china-term","reason":"中國用語（台灣多作「辛巴威」）","src":["chewing","vanguard-tw"],"n":2}
@@ -71,11 +66,9 @@
 {"w":"激光","z":"ㄐㄧ ㄍㄨㄤ","p":51,"rule":"R3-china-term","reason":"中國用語（台灣多作「雷射」）","src":["chewing","mcbopomofo"],"n":2}
 {"w":"激活","z":"ㄐㄧ ㄏㄨㄛˊ","p":11,"rule":"R3-china-term","reason":"中國用語（台灣多作「啟用」）","src":["chewing","vanguard-tw"],"n":2}
 {"w":"濃粧","z":"ㄋㄨㄥˊ ㄓㄨㄤ","p":1,"rule":"R2-rare-char","reason":"含罕用字「粧」（不在教育部常用／次常用字與 Big5 內）","src":["chewing","mcbopomofo"],"n":2}
-{"w":"生銹","z":"ㄕㄥ ㄒㄧㄡˋ","p":1,"rule":"R2-rare-char","reason":"含罕用字「銹」（不在教育部常用／次常用字與 Big5 內）","src":["chewing"],"n":1}
 {"w":"異步","z":"ㄧˋ ㄅㄨˋ","p":2,"rule":"R3-china-term","reason":"中國用語（台灣多作「非同步」）","src":["chewing","vanguard-tw"],"n":2}
 {"w":"癡呆症","z":"ㄔ ㄉㄞ ㄓㄥˋ","p":64,"rule":"R3-china-term","reason":"中國用語（台灣多作「失智症」）","src":["chewing","mcbopomofo"],"n":2}
 {"w":"白細胞","z":"ㄅㄞˊ ㄒㄧˋ ㄅㄠ","p":3,"rule":"R3-china-term","reason":"中國用語（台灣多作「白血球」）","src":["chewing"],"n":1}
-{"w":"皮裏陽秋","z":"ㄆㄧˊ ㄌㄧˇ ㄧㄤˊ ㄑㄧㄡ","p":0,"rule":"R2-rare-char","reason":"含罕用字「裏」（不在教育部常用／次常用字與 Big5 內）","src":["chewing","mcbopomofo"],"n":2}
 {"w":"矢量","z":"ㄕˇ ㄌㄧㄤˋ","p":4,"rule":"R3-china-term","reason":"中國用語（台灣多作「向量」）","src":["chewing"],"n":1}
 {"w":"硬件","z":"ㄧㄥˋ ㄐㄧㄢˋ","p":23,"rule":"R3-china-term","reason":"中國用語（台灣多作「硬體」）","src":["chewing","vanguard-tw"],"n":2}
 {"w":"硬盤","z":"ㄧㄥˋ ㄆㄢˊ","p":20,"rule":"R3-china-term","reason":"中國用語（台灣多作「硬碟」）","src":["chewing","vanguard-tw"],"n":2}
@@ -93,16 +86,13 @@
 {"w":"聖馬力諾","z":"ㄕㄥˋ ㄇㄚˇ ㄌㄧˋ ㄋㄨㄛˋ","p":0,"rule":"R3-china-term","reason":"中國用語（台灣多作「聖馬利諾」）","src":["chewing"],"n":1}
 {"w":"肖邦","z":"ㄒㄧㄠˋ ㄅㄤ","p":0,"rule":"R3-china-term","reason":"中國用語（台灣多作「蕭邦」）","src":["chewing"],"n":1}
 {"w":"肯尼亞","z":"ㄎㄣˇ ㄋㄧˊ ㄧㄚˇ","p":3,"rule":"R3-china-term","reason":"中國用語（台灣多作「肯亞」）","src":["chewing"],"n":1}
-{"w":"胜肽","z":"ㄒㄧㄥ ㄊㄞˋ","p":1,"rule":"R2-rare-char","reason":"含罕用字「肽」（不在教育部常用／次常用字與 Big5 內）","src":["chewing","mcbopomofo","vanguard-tw"],"n":3}
 {"w":"胰腺","z":"ㄧˊ ㄒㄧㄢˋ","p":3,"rule":"R3-china-term","reason":"中國用語（台灣多作「胰臟」）","src":["chewing","mcbopomofo","vanguard-tw"],"n":3}
 {"w":"胱氨酸","z":"ㄍㄨㄤ ㄢ ㄙㄨㄢ","p":2,"rule":"R3-china-term","reason":"中國用語（台灣多作「胱胺酸」）","src":["chewing","mcbopomofo","vanguard-tw"],"n":3}
-{"w":"苦裏","z":"ㄎㄨˇ ㄌㄧˇ","p":0,"rule":"R2-rare-char","reason":"含罕用字「裏」（不在教育部常用／次常用字與 Big5 內）","src":["chewing","mcbopomofo"],"n":2}
 {"w":"莫扎特","z":"ㄇㄛˋ ㄓㄚ ㄊㄜˋ","p":11,"rule":"R3-china-term","reason":"中國用語（台灣多作「莫札特」）","src":["chewing","mcbopomofo","vanguard-tw"],"n":3}
 {"w":"莫桑比克","z":"ㄇㄛˋ ㄙㄤ ㄅㄧˇ ㄎㄜˋ","p":0,"rule":"R3-china-term","reason":"中國用語（台灣多作「莫三比克」）","src":["chewing"],"n":1}
 {"w":"蘇里南","z":"ㄙㄨ ㄌㄧˇ ㄋㄢˊ","p":3,"rule":"R3-china-term","reason":"中國用語（台灣多作「蘇利南」）","src":["chewing"],"n":1}
 {"w":"蠭起","z":"ㄈㄥ ㄑㄧˇ","p":0,"rule":"R2-rare-char","reason":"含罕用字「蠭」（不在教育部常用／次常用字與 Big5 內）","src":["chewing"],"n":1}
 {"w":"血紅蛋白","z":"ㄒㄧㄝˇ ㄏㄨㄥˊ ㄉㄢˋ ㄅㄞˊ","p":11,"rule":"R3-china-term","reason":"中國用語（台灣多作「血紅素」）","src":["chewing","mcbopomofo"],"n":2}
-{"w":"裏面","z":"ㄌㄧˇ ㄇㄧㄢˋ","p":382,"rule":"R2-rare-char","reason":"含罕用字「裏」（不在教育部常用／次常用字與 Big5 內）","src":["chewing","mcbopomofo"],"n":2}
 {"w":"視圖","z":"ㄕˋ ㄊㄨˊ","p":88,"rule":"R3-china-term","reason":"中國用語（台灣多作「檢視」）","src":["chewing"],"n":1}
 {"w":"視頻","z":"ㄕˋ ㄆㄧㄣˊ","p":45,"rule":"R3-china-term","reason":"中國用語（台灣多作「影片」）","src":["chewing","mcbopomofo"],"n":2}
 {"w":"詞組","z":"ㄘˊ ㄗㄨˇ","p":21,"rule":"R3-china-term","reason":"中國用語（台灣多作「片語」）","src":["chewing"],"n":1}
@@ -112,7 +102,6 @@
 {"w":"賴氨酸","z":"ㄌㄞˋ ㄢ ㄙㄨㄢ","p":0,"rule":"R3-china-term","reason":"中國用語（台灣多作「離胺酸」）","src":["chewing"],"n":1}
 {"w":"超聲波","z":"ㄔㄠ ㄕㄥ ㄆㄛ","p":23,"rule":"R3-china-term","reason":"中國用語（台灣多作「超音波」）","src":["chewing"],"n":1}
 {"w":"輔音","z":"ㄈㄨˇ ㄧㄣ","p":0,"rule":"R3-china-term","reason":"中國用語（台灣多作「子音」）","src":["chewing","mcbopomofo"],"n":2}
-{"w":"這裏","z":"ㄓㄜˋ ㄌㄧˇ","p":966,"rule":"R2-rare-char","reason":"含罕用字「裏」（不在教育部常用／次常用字與 Big5 內）","src":["chewing","mcbopomofo"],"n":2}
 {"w":"遞歸","z":"ㄉㄧˋ ㄍㄨㄟ","p":0,"rule":"R3-china-term","reason":"中國用語（台灣多作「遞迴」）","src":["chewing","vanguard-tw"],"n":2}
 {"w":"酪氨酸","z":"ㄌㄨㄛˋ ㄢ ㄙㄨㄢ","p":2,"rule":"R3-china-term","reason":"中國用語（台灣多作「酪胺酸」）","src":["chewing","vanguard-tw"],"n":2}
 {"w":"重載","z":"ㄓㄨㄥˋ ㄗㄞˋ","p":10,"rule":"R3-china-term","reason":"中國用語（台灣多作「過載」）","src":["chewing","vanguard-tw"],"n":2}

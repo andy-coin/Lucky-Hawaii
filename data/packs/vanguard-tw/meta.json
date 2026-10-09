@@ -2,9 +2,9 @@
   "id": "vanguard-tw",
   "name": "唯音台灣詞庫（精簡版）",
   "description": "唯音詞庫中不含教育部辭典的部分，詞比較少",
-  "version": "2.3f0521dcc1",
-  "hash": "3f0521dcc1bfd77a68e2653e6aa0e6e2c9b4cf4cb0ce41cce9b9baf2e249ba64",
-  "entries": 64637,
+  "version": "2.8bfc3167c8",
+  "hash": "8bfc3167c8b20c7e4830040c7409bd8ee822c0f900a9c3e1a9730798de37a57d",
+  "entries": 64644,
   "chunks": 3,
   "sources": [
     {
@@ -26,13 +26,13 @@
     }
   ],
   "rules_version": "2",
-  "built": "2026-10-04",
+  "built": "2026-10-09",
   "stats": {
     "lines": 68706,
     "skipped_single": 0,
     "merged_lines": 3913,
-    "removed": 156,
-    "kept": 64637,
+    "removed": 149,
+    "kept": 64644,
     "in_scope": 64793,
     "dropped_readings": 0,
     "rules": {
@@ -40,7 +40,7 @@
       "R0-nonhan": 7,
       "R0-syllables": 1,
       "R1-simplified": 2,
-      "R2-rare-char": 86,
+      "R2-rare-char": 79,
       "R3-china-term": 56
     },
     "gray": 6867,
