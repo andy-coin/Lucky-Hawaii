@@ -132,15 +132,17 @@ async function handleLegacy(request, env, origin) {
 }
 
 // ==================== 回報與後台路徑（從舊的後台 Worker 原封不動搬過來） ====================
-// admin/index.html 依賴這些路徑與回應格式，所以狀態碼、回應內容、檢查順序都和舊版一樣；
-// 強化（金鑰改走 header、防注入）在 Phase 7。GITHUB_API_KEY 已不再使用（GitHub Models 已下架）。
+// admin/index.html 依賴這些路徑與回應格式，所以狀態碼、回應內容、檢查順序都和舊版一樣。
+// Phase 7 強化已完成：金鑰改走 X-Admin-Key header、全部後台路徑共用 adminKeyOk；舊的 ?key= 先留著（舊後台還在用），v2 移除。
+// 403 仍是純文字 Forbidden，但現在帶 CORS 標頭，跨來源的後台才讀得到。GITHUB_API_KEY 已不再使用（GitHub Models 已下架）。
 const FEEDBACK_JSON = { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': ALLOWED_ORIGIN };
 const feedbackJson = (obj, status = 200) => new Response(JSON.stringify(obj), { status, headers: FEEDBACK_JSON });
 
 // 回傳 null 代表這個路徑不歸這裡管，交給後面的 /ai、/models
-async function handleFeedbackAdmin(request, env, url) {
+async function handleFeedbackAdmin(request, env, url, origin) {
     const path = url.pathname;
-    const keyOk = () => url.searchParams.get('key') === env.USER_REPORT_KEY;
+    const keyOk = () => adminKeyOk(request, url, env);
+    const forbidden = () => new Response('Forbidden', { status: 403, headers: corsHeaders(origin, env) });
 
     // /feedback：儲存回報到 KV（先判斷方法，再判斷來源；只認正式網站，不受本機開關影響）
     if (path === '/feedback') {
@@ -162,7 +164,7 @@ async function handleFeedbackAdmin(request, env, url) {
 
     // /reports.json：給 admin 後台的列表（需密鑰），新到舊，壞掉的值直接丟掉
     if (path === '/reports.json') {
-        if (!keyOk()) return new Response('Forbidden', { status: 403 });
+        if (!keyOk()) return forbidden();
         try {
             const list = await env.USER_FEEDBACK_KV.list();
             const items = (await Promise.all(list.keys.map(async k => {
@@ -183,7 +185,7 @@ async function handleFeedbackAdmin(request, env, url) {
     // /reports/decision：寫回決定狀態（需密鑰；先判斷密鑰，再判斷方法）
     // body: { kvKey, status: 'pending'|'agreed'|'dismissed'|'archived', action?: {...} }
     if (path === '/reports/decision') {
-        if (!keyOk()) return new Response('Forbidden', { status: 403 });
+        if (!keyOk()) return forbidden();
         if (request.method !== 'POST') return new Response('Method Not Allowed', { status: 405 });
         try {
             const { kvKey, status, action } = await request.json();
@@ -207,7 +209,7 @@ async function handleFeedbackAdmin(request, env, url) {
 
     // /reports/delete：永久刪除一筆（需密鑰）
     if (path === '/reports/delete') {
-        if (!keyOk()) return new Response('Forbidden', { status: 403 });
+        if (!keyOk()) return forbidden();
         if (request.method !== 'POST') return new Response('Method Not Allowed', { status: 405 });
         try {
             const { kvKey } = await request.json();
@@ -249,7 +251,7 @@ async function route(request, env) {
     const url = new URL(request.url);
     const { pathname } = url;
     if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: corsHeaders(origin, env) });
-    const admin = await handleFeedbackAdmin(request, env, url);
+    const admin = await handleFeedbackAdmin(request, env, url, origin);
     if (admin) return admin;
     const corr = await handleCorrections(request, env, url, {
         json: (status, obj, extra) => json(status, obj, origin, env, extra),
@@ -277,8 +279,7 @@ async function route(request, env) {
     // 給 Andy 部署後立刻確認線上模型狀態，不必等凌晨排程；/health/run 會花 6 次模型呼叫，所以要後台金鑰（金鑰不可為空）
     const isRun = pathname === '/health/run';
     if (pathname === '/health.json' || isRun) {
-        const key = url.searchParams.get('key');
-        if (!key || key !== env.USER_REPORT_KEY) return new Response('Forbidden', { status: 403 });
+        if (!adminKeyOk(request, url, env)) return new Response('Forbidden', { status: 403, headers: corsHeaders(origin, env) });
         if (isRun) {
             if (request.method !== 'POST') return new Response('Method Not Allowed', { status: 405 });
             return json(200, await runHealthCheck(env), origin, env);

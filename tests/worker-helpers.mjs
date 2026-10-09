@@ -2,12 +2,29 @@
 import worker from '../worker/src/index.js';
 import { BASE } from './helpers.mjs';
 
+// 失敗模式（給 Phase 7 的寫入測試）：failPut = true → 下一次 put 丟「一秒一次」錯誤後復原；
+// staleOnce(key, 舊值) → 下一次 get 讀到舊值（模擬 KV 邊緣快取）；list 支援 cursor／limit 分頁，pageSize 可改預設頁大小
 export class FakeKV {
-    constructor(init = {}) { this.m = new Map(Object.entries(init)); this.gets = 0; this.puts = 0; }
-    async get(k, opts) { this.gets++; this.lastGetOpts = opts; return this.m.has(k) ? this.m.get(k) : null; }
-    async put(k, v) { this.puts++; this.m.set(k, typeof v === 'string' ? v : String(v)); }
+    constructor(init = {}) { this.m = new Map(Object.entries(init)); this.gets = 0; this.puts = 0; this.stale = new Map(); this.failPut = false; }
+    async get(k, opts) {
+        this.gets++; this.lastGetOpts = opts;
+        if (this.stale.has(k)) { const v = this.stale.get(k); this.stale.delete(k); return v; }
+        return this.m.has(k) ? this.m.get(k) : null;
+    }
+    async put(k, v) {
+        if (this.failPut) { this.failPut = false; throw new Error('KV PUT failed: 1 write per second'); }
+        this.puts++; this.m.set(k, typeof v === 'string' ? v : String(v));
+    }
     async delete(k) { this.m.delete(k); }
-    async list() { return { keys: [...this.m.keys()].map(name => ({ name })) }; }
+    staleOnce(k, v) { this.stale.set(k, v); }
+    async list({ cursor, limit } = {}) {
+        const names = [...this.m.keys()].sort();
+        const size = limit ?? this.pageSize ?? 1000;
+        const from = cursor ? Number(cursor) : 0;
+        const keys = names.slice(from, from + size).map(name => ({ name }));
+        const complete = from + size >= names.length;
+        return complete ? { keys, list_complete: true } : { keys, list_complete: false, cursor: String(from + size) };
+    }
 }
 
 export const makeEnv = (over = {}) => ({
