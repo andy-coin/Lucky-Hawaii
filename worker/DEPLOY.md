@@ -160,11 +160,14 @@ npm run worker:deploy
 
 ## 步驟 8　確認線上的 Worker 真的好了
 
-1. 叫它現在就檢查一次所有模型（把「你的後台金鑰」換成真的金鑰）：
+1. 叫它現在就檢查一次所有模型。金鑰用「輸入」的方式放進這個終端機視窗（輸入時畫面不會顯示字；這樣金鑰不會留在指令歷史紀錄裡），再用標頭帶給 Worker：
 
    ```
-   curl -X POST "https://lucky-hawaii.is3000dollar.workers.dev/health/run?key=你的後台金鑰"
+   read -rs LH_ADMIN_KEY; export LH_ADMIN_KEY
+   curl -X POST -H "X-Admin-Key: $LH_ADMIN_KEY" "https://lucky-hawaii.is3000dollar.workers.dev/health/run"
    ```
+
+   （貼上金鑰、按 Enter；之後 7-4 的寫回指令也沿用這個視窗裡的金鑰，不必再輸入。）
 
 2. 會回一大段文字。裡面六個模型每一個都應該有 `"ok":true`，最後的 `active` 會列出六個 id。
    - 如果 Gemini 3.7 或 3.8 顯示 `bad-request`，代表思考設定的寫法要調一下，請告訴 Claude。（Worker 遇到這個會自動改用不帶思考設定的方式再試一次，所以 AI 建議照樣能用，不急。）
@@ -219,13 +222,16 @@ git push
 | `POST /corrections/clear` | 寫回腳本確認線上生效後，清空「這一批」 | 要 |
 
 - **不需要新的 KV、也不需要新的密鑰。** 修正層就存在步驟 4 建的 `AI_STATE_KV` 裡，鍵名是 `corrections:v1`（單一文件）；回報還是存在原本的 `USER_FEEDBACK_KV`。`worker/wrangler.toml` 這一階段完全沒改。
-- 後台金鑰現在有兩種給法：標頭 `X-Admin-Key`（新版後台用這個）和網址 `?key=`（舊版後台用這個）。兩種都收，金鑰是空的一律拒絕。**網址帶金鑰的方式只是暫時保留，v2 才會移除。**
+- 後台金鑰有兩種給法：標頭 `X-Admin-Key`（新版後台用這個）和網址 `?key=`（舊版後台用這個）。**網址帶金鑰只有舊版後台還在用的三條回報路徑收**（`/reports.json`、`/reports/decision`、`/reports/delete`），而且只是暫時保留，v2 才會移除。**新的 `/corrections/*` 和 `/health*` 一律只收標頭**，因為金鑰放在網址上會留在 Cloudflare 日誌、瀏覽器歷史和來源網址裡。金鑰是空的一律拒絕，比對時間也不會因為猜對幾個字而變長。
+- **金鑰猜錯的人會被限流**：同一個 IP 金鑰不對的請求會算進限流額度（前綴 `adm:`），超過就回「操作太頻繁」；金鑰對的請求不吃這份額度。**這要靠 `wrangler.toml` 裡的 `[[ratelimits]]` 才有效**，步驟 7 如果因為免費方案刪掉了那一段，就沒有這層保護。
+- 「撤回」會同時把那幾筆來源回報改回**待審**（拿掉核准）。要再上線得重新核准、再按套用，所以撤回之後下一次「套用到線上」不會把它又放回去。
+- 後台的「匯出 agreed（備援）」按鈕和它產生的 `apply_changes_*.py` 腳本已經移除（它有安全疑慮、寫死的專案路徑也不存在），一律改用 7-4 的寫回腳本。
 
 ### 7-2　部署順序（很重要）
 
 **先部署 Worker（步驟 6、7、8），確認沒問題，再把網站合併到 main（步驟 9）。**
 
-原因：線上現在的舊後台還在用網址帶金鑰；新 Worker 兩種都聽得懂，所以 Worker 先上線不會讓舊後台壞掉。反過來，如果先合併、Worker 還是舊的，新網站抓不到 `/corrections.json`（網站只會悄悄略過，不影響使用），但新後台的「套用」會失敗。另外，瀏覽器裡還快取著舊後台頁面的人，在 Worker 更新後仍然可以用，所以也不用急著移除舊方式。
+原因：線上現在的舊後台還在用網址帶金鑰；新 Worker 在舊的回報路徑上兩種都聽得懂，所以 Worker 先上線不會讓舊後台壞掉。反過來，如果先合併、Worker 還是舊的，新網站抓不到 `/corrections.json`（網站只會悄悄略過，不影響使用），但新後台的「套用」會失敗。另外，瀏覽器裡還快取著舊後台頁面的人，在 Worker 更新後仍然可以用，所以也不用急著移除舊方式。
 
 ### 7-3　免費額度（Cloudflare KV，每天，UTC 午夜歸零）
 
@@ -238,26 +244,32 @@ git push
 | 後台核准或駁回 1 筆回報 | 1 | 1 | |
 | 後台核准一個「×5」的合併列 | 5 | 5 | 列內每一筆各存一次決定 |
 | 套用 N 筆回報 | 1 | N + 1 | 不論 N 多少，修正層只寫一次 |
-| 撤回或清空 | 1 | 1 | |
+| 清空 | 1 | 1 | |
+| 撤回（含把 N 筆來源回報改回待審） | 1 + N | 1 + N | 改回待審的寫入是回報那一邊 |
 | 每次有人開網站 | 0 | 1 | 瀏覽器快取 60 秒，實際更少 |
 | 後台重新載入 | 0 | 1 次列出鍵名＋讀最新 800 筆 | |
 
 估計：每天 3,000 次開站，大約多 3,000 次讀取，離 100,000 還很遠；真正要小心的是**寫入**：一天回報加核准加套用合計別超過 1,000 次。
 
+**還沒解決的風險（免費方案的取捨）**：每一筆回報都是一次寫入，而且寫入額度是整個帳號共用的一份。有人拿腳本狂送回報，每分鐘 20 次的限流（每個 IP）擋得住單一來源，擋不住很多個 IP；真被灌滿一天的 1,000 次，當天後台的核准、套用、撤回、清空都會暫時失敗（回 503 或「儲存太快了」），UTC 午夜（台灣早上 8 點）歸零後恢復。公開讀取 `/corrections.json` 也沒有限流（它只是讀，會吃 Worker 請求額度，不吃寫入額度）。要完全擋住就得付費或加驗證，這個專案選擇接受這個風險。看到後台一直失敗、又不是金鑰問題時，先想到這個。
+
 ### 7-4　寫回資料檔（把修正層累積的內容變成永久的）
 
 修正層是暫時的，累積後用寫回腳本把內容寫進 `data/wordlist-overrides.json`、`data/rhyme-dict-overrides.json`，推上去，等線上真的換新再清空修正層。**修正層超過 500 筆時，後台會提醒你先跑這個。**
 
-先設後台金鑰（只放在這個終端機視窗，不會印出、不會存檔），再進專案資料夾：
+先設後台金鑰（只放在這個終端機視窗，不會印出、不會存檔、也不會留在指令歷史紀錄），再進專案資料夾：
 
 ```
+read -rs LH_ADMIN_KEY; export LH_ADMIN_KEY
 cd "/Users/Shared/Coding Projects/Lucky Hawaii"
 ```
+
+（輸入時畫面不會顯示字，貼上金鑰按 Enter 即可。步驟 8 已經輸入過的話，同一個視窗不必再輸入。）
 
 1. **先看差異（不改任何東西）**
 
    ```
-   LH_ADMIN_KEY=你的後台金鑰 npm run corrections:writeback
+   npm run corrections:writeback
    ```
 
    會印出這一批要寫進哪些檔案、各加減幾筆。沒問題再往下。
@@ -265,7 +277,7 @@ cd "/Users/Shared/Coding Projects/Lucky Hawaii"
 2. **寫檔並 commit**
 
    ```
-   LH_ADMIN_KEY=你的後台金鑰 npm run corrections:writeback -- --apply
+   npm run corrections:writeback -- --apply
    ```
 
    只會寫那兩個修正檔和寫回紀錄、做一個 commit。如果這三個檔案有尚未 commit 的修改，腳本會停下來，不會動。
@@ -273,7 +285,7 @@ cd "/Users/Shared/Coding Projects/Lucky Hawaii"
 3. **推上去、等線上生效、清空這一批（要在 main 分支上）**
 
    ```
-   LH_ADMIN_KEY=你的後台金鑰 npm run corrections:writeback -- --apply --push
+   npm run corrections:writeback -- --apply --push
    ```
 
    會 push，然後每 30 秒查一次線上網站，**最多等 20 分鐘**（GitHub Pages 的快取最久約 10 分鐘，加上建置時間）。確認線上資料檔真的包含這批修正之後，才只清空「這一批」；寫回期間新套用的不會被清。
@@ -283,7 +295,7 @@ cd "/Users/Shared/Coding Projects/Lucky Hawaii"
 4. **不在 main 分支，或 push 之後逾時：只做確認與清空**
 
    ```
-   LH_ADMIN_KEY=你的後台金鑰 npm run corrections:writeback -- --confirm-only
+   npm run corrections:writeback -- --confirm-only
    ```
 
    不寫檔、不 commit、不 push；只確認線上已經更新，然後清空已經寫入的那一批。任何分支都能執行。目前不在 main 時，腳本只會寫檔加 commit，不 push、不清空，並提醒你「合併到 main 之後用 `--confirm-only`」。
@@ -322,4 +334,4 @@ Cloudflare 的限流是各地點分開算、最後才一致，所以短時間連
 - 步驟 8 的結果裡，Gemini 3.7 和 3.8 有沒有 `ok:true`，可以確認思考設定的寫法（`LOW`）是對的。
 - 步驟 5：`wrangler secret put` 能不能直接蓋掉同名的純文字變數；不行的話就是照步驟 5 的失敗處理，先刪掉再重做。
 - 免費方案接不接受限流那一段（步驟 7）。
-- 隔天凌晨 03:17（台灣時間）之後，用 `curl "https://lucky-hawaii.is3000dollar.workers.dev/health.json?key=你的後台金鑰"` 可以看到排程有沒有自己跑過（`checkedAt` 有日期就是有）。
+- 隔天凌晨 03:17（台灣時間）之後，用 `curl -H "X-Admin-Key: $LH_ADMIN_KEY" "https://lucky-hawaii.is3000dollar.workers.dev/health.json"` 可以看到排程有沒有自己跑過（`checkedAt` 有日期就是有）。（`LH_ADMIN_KEY` 用步驟 8 的 `read -rs` 先放進視窗。）
