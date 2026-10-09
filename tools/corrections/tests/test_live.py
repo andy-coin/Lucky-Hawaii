@@ -252,5 +252,104 @@ class PushPollClear(LiveCase):
         self.assertEqual(w.clears(), [])
 
 
+class WaitUntilLive(unittest.TestCase):
+    def test_gives_up_on_the_injected_clock_without_real_sleeping(self):
+        clock = iter([0, 0, 10, 10, 20, 20, 30, 30])
+        slept = []
+        with mock.patch.object(writeback, 'fetch_live', side_effect=OSError('down')):
+            ok = writeback.wait_until_live('http://x/', [], 25, 10, now=lambda: next(clock), sleep=slept.append)
+        self.assertFalse(ok)
+        self.assertTrue(slept)
+
+
+class Interruptions(LiveCase):
+    def test_confirm_only_works_on_any_branch_and_clears_only_logged_ids(self):
+        repo = make_repo(self.tmp)
+        git(repo, 'checkout', '-b', 'gsd/test')
+        w = self.layer([ONE])
+        self.assertEqual(self.run_main(['--worker', w.url, '--repo', str(repo), '--apply'])[0], 0)
+        head, files = self.head(repo), self.files(repo)
+        w.add(LATE)                                                     # 之後才套用的，日誌裡沒有
+        code, out, err = self.go(repo, w, self.site(repo, 'gsd/test'), '--confirm-only')
+        self.assertEqual(code, 0, err)
+        self.assertEqual([c['ids'] for c in w.clears()], [['c_one']])
+        self.assertEqual(w.ids(), ['c_late'])
+        self.assertEqual((self.head(repo), self.files(repo)), (head, files))
+
+    def test_confirm_only_with_nothing_logged_says_so_and_sends_nothing(self):
+        repo = make_repo(self.tmp)
+        head, files = self.head(repo), self.files(repo)
+        w = self.layer([ONE])
+        code, out, err = self.go(repo, w, self.site(repo, 'main'), '--confirm-only')
+        self.assertEqual(code, 0, err)
+        self.assertIn('沒有需要確認的修正', out)
+        self.assertEqual([m for m, p, b in w.requests if m == 'POST'], [])
+        self.assertEqual((self.head(repo), self.files(repo)), (head, files))
+
+    def test_rerun_after_commit_does_not_commit_twice_and_pushes_once(self):
+        repo = make_repo(self.tmp)
+        bare = self.remote(repo)
+        w = self.layer([ONE])
+        self.assertEqual(self.run_main(['--worker', w.url, '--repo', str(repo), '--apply'])[0], 0)   # 中斷在 commit 之後
+        head = self.head(repo)
+        code, out, err = self.go(repo, w, self.site(bare, 'main'), '--apply', '--push')
+        self.assertEqual(code, 0, err)
+        self.assertEqual(self.head(repo), head)
+        self.assertEqual(self.commits_since_init(repo), 1)
+        self.assertEqual(git(bare, 'rev-parse', 'main').strip(), head)
+        self.assertEqual(len(w.clears()), 1)
+        self.assertEqual(w.ids(), [])
+
+    def test_rerun_after_push_then_timeout_is_finished_by_confirm_only(self):
+        repo = make_repo(self.tmp)
+        bare = self.remote(repo)
+        w = self.layer([ONE])
+        site = self.site(bare, 'main', live_after=10 ** 9)
+        code = self.go(repo, w, site, '--apply', '--push', '--timeout', '0.2', '--poll-interval', '0.05')[0]
+        self.assertEqual(code, 4)
+        head, files = self.head(repo), self.files(repo)
+        site.live_after = 0                                             # CDN 終於更新
+        code, out, err = self.go(repo, w, site, '--confirm-only')
+        self.assertEqual(code, 0, err)
+        self.assertEqual(w.ids(), [])
+        self.assertEqual((self.head(repo), self.files(repo)), (head, files))
+
+    def test_rerun_after_timeout_with_a_new_entry_writes_it_and_clears_both_once_live(self):
+        repo = make_repo(self.tmp)
+        bare = self.remote(repo)
+        w = self.layer([ONE])
+        site = self.site(bare, 'main', live_after=10 ** 9)
+        site.on_poll = lambda n: w.add(LATE) if n == 1 else None
+        code = self.go(repo, w, site, '--apply', '--push', '--timeout', '0.2', '--poll-interval', '0.05')[0]
+        self.assertEqual(code, 4)
+        self.assertEqual(w.ids(), ['c_one', 'c_late'])
+        self.assertEqual(w.clears(), [])
+        site.live_after = 0
+        code, out, err = self.go(repo, w, site, '--apply', '--push')
+        self.assertEqual(code, 0, err)
+        self.assertEqual(self.commits_since_init(repo), 2)
+        self.assertEqual(git(bare, 'rev-parse', 'main').strip(), self.head(repo))
+        self.assertEqual([c['ids'] for c in w.clears()], [['c_one', 'c_late']])
+        self.assertEqual(w.ids(), [])
+        text = self.read(repo, 'wordlist-overrides.json')
+        self.assertEqual(text.count('"測試詞"'), 1)                     # 沒有重複寫入
+        self.assertEqual(text.count('"後來詞"'), 1)
+
+    def test_live_branch_release_pushes_that_branch(self):
+        repo = make_repo(self.tmp, branch='release')
+        bare = self.remote(repo, push=False)
+        w = self.layer([ONE])
+        code, out, err = self.go(repo, w, self.site(bare, 'release'), '--apply', '--push', '--live-branch', 'release')
+        self.assertEqual(code, 0, err)
+        self.assertEqual(git(bare, 'for-each-ref', '--format=%(refname)').split(), ['refs/heads/release'])
+        self.assertEqual(w.ids(), [])
+
+    def test_help_shows_the_defaults(self):
+        text = writeback.build_parser().format_help()
+        self.assertIn('1200', text)
+        self.assertIn('30', text)
+        self.assertEqual((writeback.build_parser().parse_args([]).timeout, writeback.build_parser().parse_args([]).poll_interval), (1200, 30))
+
+
 if __name__ == '__main__':
     unittest.main()
