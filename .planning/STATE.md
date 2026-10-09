@@ -4,16 +4,16 @@ milestone: v0.96
 current_phase: 07
 current_phase_name: Feedback & Correction Layer 回報與修正層
 status: executing
-stopped_at: Completed 07-03-PLAN.md
-last_updated: "2026-10-09T18:11:17.517Z"
+stopped_at: Completed 07-04-PLAN.md
+last_updated: "2026-10-09T18:38:17.751Z"
 last_activity: 2026-10-10
 last_activity_desc: Phase 07 execution started
-state_head: 68562b526109b8b51d323f767deaf259f676a031
+state_head: f64f4f326968875817f69b72f04a8535fad30b13
 progress:
   total_phases: 12
   completed_phases: 2
   total_plans: 51
-  completed_plans: 44
+  completed_plans: 45
 ---
 
 # Project State
@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-10-03)
 ## Current Position
 
 Phase: 07 (Feedback & Correction Layer 回報與修正層) — EXECUTING
-Plan: 4 of 10
+Plan: 5 of 10
 Status: Ready to execute
 Last activity: 2026-10-10 — Phase 07 execution started
 
@@ -101,6 +101,7 @@ Progress: [██░░░░░░░░] 17%
 | Phase 07 P01 | 25 min | 2 tasks | 10 files |
 | Phase 07 P02 | 30min | 3 tasks | 5 files |
 | Phase 07 P03 | 25 min | 2 tasks | 2 files |
+| Phase 07 P04 | 25 min | 3 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -167,6 +168,8 @@ Recent decisions affecting current work:
 - [Phase 07]: 07-02: wordlist added 的 z 為空時不蓋既有 fixed[w]；手動新增詞可無注音，AI 收錄必須有注音
 - [Phase 07]: 07-03: 字庫修正層與 data 修正檔共用 applyRhymeDictOverrideDoc，先 data 後修正層，兩段各自可缺、各自 try/catch
 - [Phase 07]: 07-03: 修正層『不繞過瀏覽器快取』在 Playwright 內不可觀測（攔截路由關閉 HTTP 快取），以 loadCorrections 原始碼檢查代替標頭斷言
+- [Phase 07]: 07-04: 手機批次列左右內距收到 0.5rem、900px 以下桌機批次列收緊，才能在 390／820／844 都排下第 4 顆 🚩 回報而不換行
+- [Phase 07]: 07-04: 本頁已回報過只存記憶體 _reportedSet，不新增儲存鍵；一次最多 10 個、遇失敗或 429 即停
 
 ### Pending Todos
 
@@ -208,6 +211,6 @@ Items acknowledged and deferred at milestone close, most recent first:
 
 ## Session Continuity
 
-Last session: 2026-10-09T18:11:17.446Z
-Stopped at: Completed 07-03-PLAN.md
+Last session: 2026-10-09T18:38:17.688Z
+Stopped at: Completed 07-04-PLAN.md
 Resume file: None
