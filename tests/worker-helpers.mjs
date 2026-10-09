@@ -61,7 +61,9 @@ export const byProvider = (gen, groq) => (url, init, n) => url.includes('generat
 export const makeCtx = () => ({ promises: [], waitUntil(p) { this.promises.push(p); } });
 
 // 瀏覽器測試用這個把 Worker 網址的請求交給 worker/src/index.js 在測試程序內真的跑一遍（不是 mock 回覆）
-export async function bridgeWorker(context, env) {
+// reflectOrigin：回報／後台路徑的 ACAO 固定是正式網站，測試頁面在 127.0.0.1 會被瀏覽器的 CORS 擋掉，
+// 後台測試要把 ACAO 換成請求來源才讀得到（只換測試用的回應，Worker 本身的 CORS 另有 worker-admin 測試守）
+export async function bridgeWorker(context, env, { reflectOrigin = false } = {}) {
     await context.route(url => new URL(url).hostname === 'lucky-hawaii.is3000dollar.workers.dev', async route => {
         const r = route.request();
         const headers = await r.allHeaders();
@@ -70,6 +72,8 @@ export async function bridgeWorker(context, env) {
         const res = await worker.fetch(
             new Request(r.url(), { method: r.method(), headers, body: hasBody ? r.postDataBuffer() : undefined }),
             env, { waitUntil() {} });
-        await route.fulfill({ status: res.status, headers: Object.fromEntries(res.headers), body: Buffer.from(await res.arrayBuffer()) });
+        const out = Object.fromEntries(res.headers);
+        if (reflectOrigin && out['access-control-allow-origin']) out['access-control-allow-origin'] = headers.origin;
+        await route.fulfill({ status: res.status, headers: out, body: Buffer.from(await res.arrayBuffer()) });
     });
 }

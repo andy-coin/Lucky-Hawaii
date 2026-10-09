@@ -26,6 +26,13 @@
   --input-border: rgba(255,255,255,.3);
   --action-preview-bg: rgba(45,55,72,.05);
   --action-preview-border: rgba(45,55,72,.1);
+  /* Phase 7：行動色與文字色（亮暗各一份，皆 ≥ 4.5:1） */
+  --action-bg: #5a67d8;
+  --action-bg-hover: #4c51bf;
+  --info-text: #4c51bf;
+  --ok-text: #276749;
+  --err-text: #9b2c2c;
+  --warn-text: #92400e;
 }
 
 [data-theme="dark"] {
@@ -44,6 +51,12 @@
   --section-badge-bg: rgba(255,255,255,.08);
   --action-preview-bg: rgba(255,255,255,.04);
   --action-preview-border: rgba(255,255,255,.08);
+  --action-bg: #5a67d8;
+  --action-bg-hover: #4c51bf;
+  --info-text: #a3bffa;
+  --ok-text: #68d391;
+  --err-text: #fc8181;
+  --warn-text: #f6ad55;
 }
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -176,8 +189,8 @@ body {
 .empty .hint { font-size: 0.78rem; color: var(--text-muted); margin-top: 8px; opacity: .8; }
 
 /* ── 多選 ── */
-.card[data-kvkey] { cursor: default; user-select: none; }
-.card[data-kvkey] *::selection { background: transparent; }
+.card[data-group] { cursor: default; user-select: none; }
+.card[data-group] *::selection { background: transparent; }
 .card.selected {
   outline: 2px solid #d4a017;
   outline-offset: 0;
@@ -215,7 +228,7 @@ body {
   <input type="password" class="key-input" id="keyInput" placeholder="USER_REPORT_KEY">
   <label class="toggle"><input type="checkbox" id="showArchived"> 顯示已封存 (<span id="archivedCount">0</span>)</label>
   <button class="btn btn-theme" onclick="toggleTheme()" title="切換亮/暗">🌓</button>
-  <button class="btn btn-reload" onclick="reload()">🔄 重新載入</button>
+  <button class="btn btn-reload" id="reloadBtn" onclick="reload()">🔄 重新載入</button>
   <button class="btn btn-export" id="exportBtn" disabled onclick="exportChanges()">💾 匯出 agreed</button>
 </div>
 
@@ -253,6 +266,54 @@ body {
 .btn-delete { background: rgba(229,62,62,.22); color: #c53030; padding: 5px 12px; border-radius: 8px; font-size: 0.82rem; font-weight: 600; }
 .action-preview.note { color: #7c3aed; border-color: rgba(124,58,237,.3); background: rgba(124,58,237,.08); }
 .modify-arrow { color: var(--text-muted); margin: 0 6px; }
+
+/* ── Phase 7：合併列、展開原文、核准按鈕（新規則只用 0.75 / 0.875 / 1.125 / 1.5rem 與 400 / 700）── */
+.card-text { color: var(--text-primary); overflow-wrap: anywhere; }
+.card-text.no-note { color: var(--text-muted); }
+.card-word, .card-char, .card-reading, .card-subject, .card-reason { overflow-wrap: anywhere; min-width: 0; }
+.card-word { font-size: 1.125rem; }
+.card-char { font-size: 1.5rem; }
+.card-reading { font-size: 1.125rem; }
+.card-subject { font-size: 0.875rem; font-weight: 700; }
+.card.live { border-left-color: var(--action-bg); opacity: 1; }
+.action-preview.live { color: var(--info-text); border-color: rgba(90,103,216,.4); background: rgba(90,103,216,.12); }
+.count-pill {
+  display: inline-block; flex-shrink: 0; white-space: nowrap;
+  padding: 4px 8px; border-radius: 20px; font-size: 0.75rem; font-weight: 700;
+  background: var(--section-badge-bg); color: var(--text-primary);
+}
+.count-pill.many { background: rgba(217,119,6,.18); color: var(--warn-text); }
+.row-check-wrap { display: inline-flex; align-items: center; justify-content: center; cursor: pointer; }
+.row-check { width: 20px; height: 20px; accent-color: var(--action-bg); cursor: pointer; }
+.row-toggle {
+  display: inline-flex; align-items: center; background: none; border: none; cursor: pointer;
+  padding: 4px 0; margin-top: 4px; font-family: inherit; font-size: 0.75rem; font-weight: 700;
+  color: var(--text-primary);
+}
+.row-originals { margin-top: 8px; padding: 8px 12px; background: var(--section-badge-bg); border-radius: 8px; }
+.row-originals[hidden] { display: none; }
+.row-originals.scroll { max-height: 20rem; overflow-y: auto; }
+.orig { padding: 8px 0; border-bottom: 1px solid var(--border); }
+.orig:last-child { border-bottom: none; }
+.orig-meta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.orig .card-time { margin-left: 0; font-size: 0.75rem; }
+.mini-badge {
+  padding: 4px 8px; border-radius: 20px; font-size: 0.75rem; font-weight: 700;
+  background: var(--section-badge-bg); color: var(--text-primary);
+}
+.btn-approve { background: #2f855a; color: #fff; padding: 5px 14px; border-radius: 8px; font-size: 0.875rem; font-weight: 700; }
+.btn-approve:hover { background: #276749; }
+.manual-note { font-size: 0.75rem; font-weight: 700; color: var(--text-primary); padding: 4px 8px; }
+.row-error { margin-top: 8px; font-size: 0.75rem; color: var(--err-text); overflow-wrap: anywhere; }
+.notice { font-size: 0.875rem; padding: 8px 12px; border-radius: 8px; overflow-wrap: anywhere; }
+.notice.warn {
+  color: var(--warn-text); border-left: 4px solid #d97706;
+  background: linear-gradient(rgba(217,119,6,.12), rgba(217,119,6,.12)), var(--container-bg);
+}
+.ai-z-label { font-size: 0.75rem; color: var(--text-muted); white-space: nowrap; }
+.ai-z-warn { font-size: 0.75rem; color: var(--warn-text); }
+.edit-panel input.warn-input { border-color: #ed8936; }
+.locked .card, .locked .row-check-wrap { pointer-events: none; }
 </style>
 
 <!-- 通用「人工新增」modal（缺字 / 缺少讀音）-->
@@ -432,12 +493,23 @@ applyTheme(localStorage.getItem(THEME_LS) || 'light');
 
 // ── State ──
 let reports = [];          // [{kvKey, type, status, action, ...}]
-let busyKeys = new Set();  // kvKey 進行中
-let _editing = null;       // {kvKey, op, label, placeholder, defaultValue}
-let _addModalCtx = null;   // {kvKey, op}（add modal 的目標）
-let selectedKeys = new Set();
+let layer = { entries: [], written: [] };   // 線上修正層：07-07 載入後填入，現在永遠是空的（所以還不會有「已上線」）
+let loadState = 'idle';    // idle | loading | ok | error
+let loadError = null;      // { msg, hint }
+let truncated = false;     // Worker 說列表被截短（X-Reports-Truncated）
+let expanded = new Set();  // 已展開原文的列（group key）
+let busyGroups = new Set();// 正在送出的列
+let rowErrors = new Map(); // group key → 這一列的錯誤文字
+let batchBusy = false;     // 批次進行中：鎖住選取與按鈕
+let batchResult = '';      // 批次結果行（4 秒後消失）
+let _batchResultTimer = null;
+let _editing = null;       // {groupKey, op, label, placeholder, defaultValue}
+let _addModalCtx = null;   // {groupKey, op}（add modal 的目標）
+let selectedGroups = new Set();
 let _lastClickedKey = null;
 let _marquee = null;       // {x0,y0,x1,y1,moved,additive}
+let _groups = [];          // 最近一次 render 的分組結果
+let _groupMap = new Map();
 
 const TONE_MARK_TO_DIGIT = { 'ˊ': '2', 'ˇ': '3', 'ˋ': '4', '˙': '5' };
 function readingToDictKey(reading) {
@@ -458,16 +530,31 @@ function getKey() {
   return k;
 }
 
-// ── Worker fetch ──
+// ── Worker fetch：金鑰只放在 X-Admin-Key header，網址上不帶（B4）──
+function adminFetch(path, opts = {}) {
+  return fetch(WORKER_URL + path, { ...opts, headers: { 'X-Admin-Key': getKey(), ...(opts.headers || {}) } });
+}
+
+const MSG_KEY  = '金鑰不對或還沒填，請確認後再按「重新載入」';
+const MSG_LOAD = '讀不到回報，請檢查網路後再按「重新載入」';
+const MSG_ROW  = '這一列沒有存成功，請再試一次';
+
+function setLoadError(msg, hint) {
+  loadState = 'error'; loadError = { msg, hint: hint || '' };
+  render();
+}
+
 async function fetchReports() {
-  const key = getKey();
-  if (!key) { showError('請先輸入 USER_REPORT_KEY'); return; }
-  setStats('載入中…');
+  if (!getKey()) { setLoadError(MSG_KEY); return; }
+  loadState = 'loading'; render();
   try {
-    const res = await fetch(`${WORKER_URL}/reports.json?key=${encodeURIComponent(key)}`);
-    if (res.status === 403) { showError('密鑰錯誤（403）'); return; }
-    if (!res.ok) { showError(`載入失敗：HTTP ${res.status}`); return; }
-    reports = await res.json();
+    const res = await adminFetch('/reports.json');
+    if (res.status === 401 || res.status === 403) { setLoadError(MSG_KEY); return; }
+    if (!res.ok) { setLoadError(MSG_LOAD, `(${res.status})`); return; }
+    const list = await res.json();
+    if (!Array.isArray(list)) { setLoadError(MSG_LOAD, '(回應格式不對)'); return; }
+    truncated = res.headers.get('X-Reports-Truncated') === '1';
+    reports = list.filter(r => r && typeof r === 'object');
     reports.forEach((r, i) => {
       if (!r.kvKey) r.kvKey = `__no_key_${i}`;
       normalizeAISuggest(r);
@@ -475,61 +562,122 @@ async function fetchReports() {
       if (r.reading)   r.reading   = dispRead(r.reading);
       if (r.suggested) r.suggested = dispRead(r.suggested);
     });
-    selectedKeys.clear(); _lastClickedKey = null;
+    selectedGroups.clear(); _lastClickedKey = null; expanded.clear(); rowErrors.clear();
+    loadState = 'ok'; loadError = null;
     render();
   } catch(e) {
-    showError(`網路錯誤：${e.message}`);
+    setLoadError(MSG_LOAD, `(${e.message})`);
   }
 }
 
-// 樂觀更新：先改本地 state + render，背景送 worker；失敗才回滾 + alert
-function postDecision(kvKey, status, action) {
-  const key = getKey();
-  if (!key) { alert('密鑰遺失'); return Promise.resolve(false); }
+// 樂觀更新：先改本地 state，背景送 worker；失敗就回滾並回 false（錯誤文字由呼叫端顯示在那一列）
+async function postDecision(kvKey, status, action) {
   const r = reports.find(x => x.kvKey === kvKey);
-  if (!r) return Promise.resolve(false);
-  // snapshot 回滾用
+  if (!r) return false;
   const prev = { status: r.status, decided_at: r.decided_at, action: r.action };
-  // 立即套用
-  if (status === 'pending') {
-    delete r.status; delete r.decided_at; delete r.action;
-  } else {
+  const rollback = () => {
+    if (prev.status === undefined) { delete r.status; delete r.decided_at; delete r.action; }
+    else { r.status = prev.status; r.decided_at = prev.decided_at; if (prev.action) r.action = prev.action; else delete r.action; }
+  };
+  if (status === 'pending') { delete r.status; delete r.decided_at; delete r.action; }
+  else {
     r.status = status;
     r.decided_at = new Date().toISOString();
     if (action) r.action = action; else delete r.action;
   }
-  render();
-  return fetch(`${WORKER_URL}/reports/decision?key=${encodeURIComponent(key)}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ kvKey, status, action })
-  }).then(async res => {
-    if (!res.ok) {
-      const t = await res.text();
-      // 回滾
-      if (prev.status === undefined) { delete r.status; delete r.decided_at; delete r.action; }
-      else { r.status = prev.status; r.decided_at = prev.decided_at; if (prev.action) r.action = prev.action; else delete r.action; }
-      render();
-      alert(`寫入失敗 (${res.status})：${t}`);
-      return false;
-    }
+  try {
+    const res = await adminFetch('/reports/decision', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ kvKey, status, action })
+    });
+    if (!res.ok) { rollback(); return false; }
     return true;
-  }).catch(e => {
-    if (prev.status === undefined) { delete r.status; delete r.decided_at; delete r.action; }
-    else { r.status = prev.status; r.decided_at = prev.decided_at; if (prev.action) r.action = prev.action; else delete r.action; }
-    render();
-    alert(`網路錯誤：${e.message}`);
+  } catch(e) {
+    rollback();
     return false;
-  });
+  }
 }
+
+// 最多 n 個同時進行
+async function pool(items, n, fn) {
+  const out = new Array(items.length);
+  let i = 0;
+  await Promise.all(Array.from({ length: Math.min(n, items.length) }, async () => {
+    while (i < items.length) { const k = i++; out[k] = await fn(items[k]); }
+  }));
+  return out;
+}
+
+// ── 分組（B1、D-11）：同一個詞（或字＋讀音）＋同一個回報類型合成一列；feedback 與 AI 建議各自一列 ──
+const MERGED_TYPES = ['word-report', 'char-reading-report'];
+const KNOWN_TYPES = ['ai-word-suggest', 'char-reading-report', 'word-report', 'feedback'];
+const tsNum = r => { const t = Date.parse(r.ts); return isNaN(t) ? 0 : t; };
+
+// 字串完全相等才算同一組，不做任何正規化
+function groupKeyOf(r) {
+  if (r.type === 'word-report') return `w\u0001${r.word ?? ''}\u0001${r.reportType ?? ''}`;
+  if (r.type === 'char-reading-report') return `c\u0001${r.char ?? ''}\u0001${r.reading ?? ''}\u0001${r.reportType ?? ''}`;
+  return `k\u0001${r.kvKey}`;
+}
+
+function groupReports(list) {
+  const map = new Map();
+  for (const r of list) {
+    if (!KNOWN_TYPES.includes(r.type)) continue;
+    const key = groupKeyOf(r);
+    if (!map.has(key)) map.set(key, { key, type: r.type, members: [] });
+    map.get(key).members.push(r);
+  }
+  const out = [...map.values()];
+  for (const g of out) {
+    // 列內最新的在前
+    g.members.sort((a, b) => tsNum(b) - tsNum(a) || (a.kvKey < b.kvKey ? 1 : a.kvKey > b.kvKey ? -1 : 0));
+    const rep = g.members[0];
+    g.reportType = rep.reportType || '';
+    g.subject = g.type === 'word-report' ? String(rep.word ?? '')
+              : g.type === 'char-reading-report' ? String(rep.char ?? '') + String(rep.reading ?? '')
+              : String(rep.subject || rep.word || '');
+    g.latest = rep.ts; g.latestNum = tsNum(rep);
+    g.earliest = g.members[g.members.length - 1].ts;
+  }
+  return out;
+}
+
+const STATUS_NAME = { pending: '待審', approved: '已核准', live: '已上線', written: '已寫入', done: '已處理', dismissed: '已駁回', archived: '已封存' };
+// 待審 > 已核准未套用 > 已上線 > 已駁回 > 已封存
+const STATUS_RANK = { pending: 0, approved: 1, live: 2, written: 3, done: 4, dismissed: 5, archived: 6 };
+
+// layer = { entries: [...修正層項目], written: [...已寫入資料檔的回報 kvKey] }（07-07 才會有內容）
+function memberStatus(r, lay = layer) {
+  const s = r.status || 'pending';
+  if (s === 'agreed') {
+    if (lay.entries.some(e => (e.source_kvKeys || []).includes(r.kvKey))) return 'live';
+    if (lay.written.includes(r.kvKey)) return 'written';
+    if (r.action && r.action.type === 'note') return 'done';
+    return 'approved';
+  }
+  return s === 'dismissed' || s === 'archived' ? s : 'pending';
+}
+function groupStatus(g) {
+  const counts = {};
+  for (const m of g.members) { const s = memberStatus(m); counts[s] = (counts[s] || 0) + 1; }
+  const present = Object.keys(counts).sort((a, b) => STATUS_RANK[a] - STATUS_RANK[b]);
+  return { status: present[0], counts, present };
+}
+// 已上線或已寫入的回報不能再被核准／駁回／封存（要先撤回，07-07）
+const isLocked = m => ['live', 'written'].includes(memberStatus(m));
+const findGroup = key => _groupMap.get(key);
+
+// D-12：太冷僻 → 隱藏、不該出現 → 移除；讀音錯誤、其他等沒有預設動作，要手動
+const APPROVE_DEFAULT = {
+  'word-report':         { '極度冷僻': 'hideWord',    '不該出現': 'removeWord' },
+  'char-reading-report': { '極度冷僻': 'hideReading', '不該出現': 'removeReading' },
+};
+function approveOpFor(g) { return (APPROVE_DEFAULT[g.type] || {})[g.reportType] || null; }
 
 // ── UI helpers ──
 function setStats(text) { document.getElementById('statsLabel').textContent = text; }
-function showError(msg) {
-  document.getElementById('main').innerHTML = `<div class="empty error">${esc(msg)}<div class="hint">填入正確的 USER_REPORT_KEY 後按「重新載入」</div></div>`;
-  setStats('—');
-}
-
 function reload() { fetchReports(); }
 document.getElementById('showArchived').addEventListener('change', render);
 keyInputEl.addEventListener('keydown', e => { if (e.key === 'Enter') reload(); });
@@ -537,79 +685,125 @@ keyInputEl.addEventListener('keydown', e => { if (e.key === 'Enter') reload(); }
 // ── Rendering ──
 function render() {
   const main = document.getElementById('main');
-  const showArchived = document.getElementById('showArchived').checked;
-  const archivedTotal = reports.filter(r => r.status === 'archived').length;
-  document.getElementById('archivedCount').textContent = archivedTotal;
+  main.dataset.state = loadState;
+  main.classList.toggle('locked', batchBusy);
+  document.getElementById('reloadBtn').disabled = loadState === 'loading';
+  document.getElementById('exportBtn').disabled = !reports.some(r => r.status === 'agreed');
 
-  const visible = reports.filter(r => showArchived || r.status !== 'archived');
-
-  if (reports.length === 0) {
-    main.innerHTML = '<div class="empty">沒有回報資料</div>';
-    setStats('共 0 筆');
-    document.getElementById('exportBtn').disabled = true;
-    return;
+  if (loadState === 'idle') {
+    main.innerHTML = '<div class="empty">輸入 USER_REPORT_KEY 後按「重新載入」</div>';
+    setStats('尚未載入'); return;
+  }
+  if (loadState === 'loading') {
+    main.innerHTML = '<div class="empty">載入中…</div>';
+    setStats('載入中…'); return;
+  }
+  if (loadState === 'error') {
+    main.innerHTML = `<div class="empty error">${esc(loadError.msg)}${loadError.hint ? `<div class="hint">${esc(loadError.hint)}</div>` : ''}</div>`;
+    setStats('—'); return;
   }
 
-  const total   = reports.length;
-  const agreed  = reports.filter(r => r.status === 'agreed').length;
-  const pending = reports.filter(r => !r.status).length;
-  setStats(`共 ${total} 筆 · 待審 ${pending} · 已確認 ${agreed} · 已封存 ${archivedTotal}`);
-  document.getElementById('exportBtn').disabled = agreed === 0;
+  _groups = groupReports(reports);
+  _groupMap = new Map(_groups.map(g => [g.key, g]));
+  _groups.forEach(g => { g.st = groupStatus(g); });
 
-  const aiSugg    = visible.filter(r => r.type === 'ai-word-suggest');
-  const readReps  = visible.filter(r => r.type === 'char-reading-report');
-  const wordReps  = visible.filter(r => r.type === 'word-report');
-  const feedbacks = visible.filter(r => r.type === 'feedback');
+  const showArchived = document.getElementById('showArchived').checked;
+  document.getElementById('archivedCount').textContent = _groups.filter(g => g.st.status === 'archived').length;
+  const visible = _groups.filter(g => showArchived || g.st.status !== 'archived')
+                         .sort((a, b) => b.latestNum - a.latestNum);
+  setStats(`共 ${_groups.length} 組（${reports.length} 筆）`);
 
   let html = '';
-  if (aiSugg.length)    html += section('🌟 AI 建議收錄', aiSugg, renderAISuggestCard);
-  if (readReps.length)  html += section('🔤 讀音回報', readReps, renderReadingCard);
-  if (wordReps.length)  html += section('🃏 字卡回報', wordReps, renderWordCard);
-  if (feedbacks.length) html += section('📬 一般回饋', feedbacks, renderFeedbackCard);
-  if (!html) html = '<div class="empty">沒有符合條件的回報（archived 已隱藏）</div>';
-
+  if (truncated) html += '<div class="notice warn">只載入最新 800 筆</div>';
+  const part = type => visible.filter(g => g.type === type);
+  const ai = part('ai-word-suggest'), rd = part('char-reading-report'), wd = part('word-report'), fb = part('feedback');
+  if (ai.length) html += section('🌟 AI 建議收錄', ai);
+  if (rd.length) html += section('🔤 讀音回報', rd);
+  if (wd.length) html += section('🃏 字卡回報', wd);
+  if (fb.length) html += section('📬 一般回饋', fb);
+  if (!html) html = '<div class="empty">沒有回報資料</div>';
   main.innerHTML = html;
   updateBatchBar();
 }
 
-function section(title, items, cardFn) {
-  const pending = items.filter(r => !r.status).length;
+function section(title, items) {
+  const pending = items.filter(g => g.st.status === 'pending').length;
   return `<div>
-      <div class="section-title">${title}<span class="section-badge">${items.length} 筆 · 待審 ${pending}</span></div>
-      ${items.map(cardFn).join('')}
+      <div class="section-title">${title}<span class="section-badge">${items.length} 列 · 待審 ${pending}</span></div>
+      ${items.map(renderGroupRow).join('')}
     </div>`;
 }
 
+// 本機時間，到分鐘：YYYY-MM-DD HH:mm
 function fmtTime(ts) {
   if (!ts) return '';
-  try { return new Date(ts).toLocaleString('zh-TW', { month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit' }); }
-  catch { return ts; }
+  const d = new Date(ts);
+  if (isNaN(d)) return String(ts);
+  const p = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
 }
 
 // ── Action preview 文字 ──
-function previewFor(r) {
-  const status = r.status || 'pending';
-  if (status === 'agreed' && r.action) {
-    const fn = ACTION_LABEL[r.action.type];
-    return fn ? '✓ ' + fn(r.action) : '✓ ' + r.action.type;
-  }
-  if (status === 'dismissed') return '× 忽略';
-  if (status === 'archived')  return '📦 已封存';
-  return '';
+function actionText(r) {
+  const a = r && r.action;
+  if (!a) return '';
+  const fn = ACTION_LABEL[a.type];
+  return fn ? fn(a) : a.type;
 }
+function previewForGroup(g) {
+  const st = g.st;
+  if (busyGroups.has(g.key)) return '處理中…';
+  if (st.present.length > 1) return st.present.map(s => `${STATUS_NAME[s]} ${st.counts[s]}`).join(' · ');
+  const rep = g.members[0];
+  switch (st.status) {
+    case 'approved': return `✓ ${actionText(rep)}（等待套用）`;
+    case 'live':     return `🚀 已上線 · ${actionText(rep)}`;
+    case 'written':  return '✓ 已寫入資料檔';
+    case 'done':     return `✓ ${actionText(rep)}`;
+    case 'dismissed':return '× 駁回';
+    case 'archived': return '📦 已封存';
+    default:         return '待審';
+  }
+}
+const PREVIEW_CLASS = { pending: '', approved: 'agreed', live: 'live', written: 'agreed', done: 'agreed', dismissed: 'dismissed', archived: 'archived' };
 
 // ── 通用 dispatch ──
 // op: hide / remove / fix(需要 input) / dismiss / archive / undo / addModal(缺字、缺少讀音) / accept / modify / note
-function exec(kvKey, op, payload) {
-  const r = reports.find(x => x.kvKey === kvKey);
-  if (!r) return;
-  if (op === 'dismiss') return postDecision(kvKey, 'dismissed', null);
-  if (op === 'archive') return postDecision(kvKey, 'archived', null);
-  if (op === 'undo')    return postDecision(kvKey, 'pending', null);
-  if (op === 'delete')  return deleteReport(kvKey);
-  const a = buildAction(r, op, payload);
-  if (!a) return;
-  postDecision(kvKey, 'agreed', a);
+// 每個動作對列內「每一筆」各寫一次同樣的決定（B2），最多同時 4 筆
+async function decideMembers(g, decide, conc) {
+  const targets = g.members.filter(m => !isLocked(m));
+  const res = await pool(targets, conc, async m => {
+    const d = decide(m);
+    return d ? postDecision(m.kvKey, d[0], d[1]) : false;
+  });
+  return res.every(Boolean);
+}
+
+async function runGroup(groupKey, decide) {
+  const g = findGroup(groupKey);
+  if (!g || busyGroups.has(groupKey) || batchBusy) return false;
+  busyGroups.add(groupKey); rowErrors.delete(groupKey); render();
+  const ok = await decideMembers(g, decide, 4);
+  busyGroups.delete(groupKey);
+  if (!ok) rowErrors.set(groupKey, MSG_ROW);
+  render();
+  return ok;
+}
+
+function decideFor(op, payload) {
+  if (op === 'dismiss') return () => ['dismissed', null];
+  if (op === 'archive') return () => ['archived', null];
+  if (op === 'undo')    return () => ['pending', null];
+  return m => { const a = buildAction(m, op, payload); return a ? ['agreed', a] : null; };
+}
+function execGroup(groupKey, op, payload) {
+  if (op === 'delete') return deleteGroups([groupKey]);
+  return runGroup(groupKey, decideFor(op, payload));
+}
+function approveGroup(groupKey) {
+  const g = findGroup(groupKey);
+  const op = g && approveOpFor(g);
+  return op ? execGroup(groupKey, op) : false;
 }
 
 function buildAction(r, op, payload) {
@@ -640,36 +834,52 @@ function buildAction(r, op, payload) {
 }
 
 // ── 永久刪除 ──
-function deleteReport(kvKey) {
-  if (!confirm('永久刪除這筆回報？此操作無法還原。')) return;
-  const key = getKey();
-  if (!key) { alert('密鑰遺失'); return; }
-  const idx = reports.findIndex(x => x.kvKey === kvKey);
-  if (idx < 0) return;
-  const snapshot = reports[idx];
-  reports.splice(idx, 1);
+async function deleteMembers(members) {
+  if (!getKey()) { alert('密鑰遺失'); return; }
+  const ids = new Set(members.map(m => m.kvKey));
+  const removed = reports.filter(r => ids.has(r.kvKey));
+  reports = reports.filter(r => !ids.has(r.kvKey));
   render();
-  fetch(`${WORKER_URL}/reports/delete?key=${encodeURIComponent(key)}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ kvKey })
-  }).then(async res => {
-    if (!res.ok) {
-      const t = await res.text();
-      reports.splice(idx, 0, snapshot); render();
-      alert(`刪除失敗 (${res.status})：${t}`);
-    }
-  }).catch(e => {
-    reports.splice(idx, 0, snapshot); render();
-    alert(`網路錯誤：${e.message}`);
+  const results = await pool(removed, 4, async r => {
+    try {
+      const res = await adminFetch('/reports/delete', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ kvKey: r.kvKey })
+      });
+      return res.ok ? null : { r, t: await res.text(), status: res.status };
+    } catch(e) { return { r, t: e.message, status: 0 }; }
   });
+  const errs = results.filter(Boolean);
+  if (errs.length) {
+    reports.push(...errs.map(e => e.r)); render();
+    alert(`${errs.length} 筆刪除失敗：\n` + errs.slice(0, 5).map(e => `${e.r.kvKey}: (${e.status}) ${e.t}`).join('\n'));
+  }
+}
+function deleteGroups(keys) {
+  const groups = keys.map(findGroup).filter(Boolean);
+  const members = groups.flatMap(g => g.members.filter(m => !isLocked(m)));
+  if (!members.length) return;
+  const msg = groups.length === 1 && members.length === 1 ? '永久刪除這筆回報？此操作無法還原。'
+            : `永久刪除 ${groups.length} 列（共 ${members.length} 筆）？此操作無法還原。`;
+  if (!confirm(msg)) return;
+  return deleteMembers(members);
+}
+
+// ── 編輯面板需要的預設值（從列的資料算，不放進 HTML 屬性）──
+function editOpts(g, op) {
+  const sugg = (g.members.find(m => m.suggested) || {}).suggested || '';
+  if (op === 'fixReading') return { placeholder: '新注音(含聲調) 例：ㄏㄜˊ', defaultValue: sugg || g.members[0].reading || '' };
+  if (op === 'fixWord')    return { placeholder: '每字注音空格分隔 例：ㄏㄠˇ ㄩㄣˋ', defaultValue: sugg };
+  if (op === 'note')       return { placeholder: '寫一句備註（會存進 KV，匯出時帶出來）' };
+  return {};
 }
 
 // ── 建議讀音：新增為新讀音（直接開 addModal 預填） ──
-function openAddReadingFromSuggest(kvKey) {
-  const r = reports.find(x => x.kvKey === kvKey);
-  if (!r) return;
-  _addModalCtx = { kvKey, op: 'addReading' };
+function openAddReadingFromSuggest(groupKey) {
+  const g = findGroup(groupKey);
+  if (!g) return;
+  const r = g.members[0];
+  _addModalCtx = { groupKey, op: 'addReading' };
   document.getElementById('addModalTitle').textContent = '➕ 新增讀音';
   const subjectLabelEl = document.getElementById('addModalSubjectLabel');
   const subjectEl = document.getElementById('addSubject');
@@ -678,15 +888,16 @@ function openAddReadingFromSuggest(kvKey) {
   subjectLabelEl.textContent = '字';
   subjectEl.value = r.char || ''; subjectEl.readOnly = true;
   contentLabelEl.textContent = '注音（含聲調，例：ㄏㄜˊ）';
-  contentEl.value = r.suggested || ''; contentEl.placeholder = 'ㄏㄜˊ';
+  contentEl.value = (g.members.find(m => m.suggested) || {}).suggested || ''; contentEl.placeholder = 'ㄏㄜˊ';
   document.getElementById('addModal').classList.add('show');
   setTimeout(() => contentEl.focus(), 30);
 }
 
 // ── 建議讀音：取代某個舊讀音 ──
-async function openReplaceReading(kvKey) {
-  const r = reports.find(x => x.kvKey === kvKey);
-  if (!r) return;
+async function openReplaceReading(groupKey) {
+  const g = findGroup(groupKey);
+  if (!g) return;
+  const r = g.members[0];
   await _loadRhymeOvr();
   const existingKeys = getEffectiveReadings(r.char);
   if (existingKeys.length === 0) {
@@ -695,31 +906,37 @@ async function openReplaceReading(kvKey) {
   }
   const existingReadings = existingKeys.map(k => dispRead(k));
   _editing = {
-    kvKey, op: 'replaceReading',
+    groupKey, op: 'replaceReading',
     selectOptions: existingReadings,
     selectLabel: '取代哪個舊讀音',
     placeholder: '新注音（含聲調）例：ㄏㄜˊ',
-    defaultValue: r.suggested || ''
+    defaultValue: (g.members.find(m => m.suggested) || {}).suggested || ''
   };
   render();
   setTimeout(()=>document.getElementById('editInput')?.focus(), 30);
 }
 
 // ── Edit panel（inline 輸入） ──
-function openEdit(kvKey, op, opts) { _editing = { kvKey, op, ...(opts||{}) }; render(); setTimeout(()=>document.getElementById('editInput')?.focus(), 30); }
+function openEdit(groupKey, op) {
+  const g = findGroup(groupKey);
+  if (!g) return;
+  _editing = { groupKey, op, ...editOpts(g, op) };
+  render(); setTimeout(()=>document.getElementById('editInput')?.focus(), 30);
+}
 function closeEdit() { _editing = null; render(); }
 function confirmEdit() {
   const inp = document.getElementById('editInput');
   const raw = inp.value.trim();
   if (!raw) { alert('請輸入內容'); return; }
-  const { kvKey, op } = _editing;
+  const { groupKey, op } = _editing;
   // 讀音類動作要校驗
   const NEEDS_ZHUYIN = { fixReading: 1, fixWord: 'word', replaceReading: 1 };
   if (op in NEEDS_ZHUYIN) {
     const norm = normalizeReading(raw);
     let expected = NEEDS_ZHUYIN[op];
     if (expected === 'word') {
-      const r = reports.find(x => x.kvKey === kvKey);
+      const g = findGroup(groupKey);
+      const r = g && g.members[0];
       expected = r && r.word ? Array.from(r.word).length : null;
     }
     if (!isValidZhuyin(norm, expected)) {
@@ -733,15 +950,15 @@ function confirmEdit() {
     if (op === 'replaceReading') {
       const oldReading = document.getElementById('editSelect')?.value || '';
       _editing = null;
-      exec(kvKey, op, { old_reading: oldReading, new_reading: norm });
+      execGroup(groupKey, op, { old_reading: oldReading, new_reading: norm });
       return;
     }
     _editing = null;
-    exec(kvKey, op, norm);
+    execGroup(groupKey, op, norm);
     return;
   }
   _editing = null;
-  exec(kvKey, op, raw);
+  execGroup(groupKey, op, raw);
 }
 function editPanelHTML() {
   const sel = _editing.selectOptions
@@ -761,10 +978,11 @@ function editPanelHTML() {
 }
 
 // ── Add modal（缺字 / 缺少讀音 同意新增）──
-function openAddModal(kvKey, op) {
-  _addModalCtx = { kvKey, op };
-  const r = reports.find(x => x.kvKey === kvKey);
-  if (!r) return;
+function openAddModal(groupKey, op) {
+  const g = findGroup(groupKey);
+  if (!g) return;
+  _addModalCtx = { groupKey, op };
+  const r = g.members[0];
   const titleEl = document.getElementById('addModalTitle');
   const subjectLabelEl = document.getElementById('addModalSubjectLabel');
   const subjectEl = document.getElementById('addSubject');
@@ -795,7 +1013,7 @@ function closeAddModal() {
 }
 async function confirmAdd() {
   if (!_addModalCtx) return;
-  const { kvKey, op } = _addModalCtx;
+  const { groupKey, op } = _addModalCtx;
   const subj = document.getElementById('addSubject').value.trim();
   const content = document.getElementById('addContent').value.trim();
   const tier = document.getElementById('addTier').value;
@@ -824,190 +1042,182 @@ async function confirmAdd() {
     action = { type: 'manual_add_word', word: subj, z: norm, tier };
   }
   closeAddModal();
-  await postDecision(kvKey, 'agreed', action);
+  await runGroup(groupKey, () => ['agreed', action]);
 }
 
-// ── 各類 card ──
-function btn(cls, label, onclick, dis) {
-  return `<button class="btn ${cls}" ${dis?'disabled':''} onclick="${onclick}">${label}</button>`;
+// ── 列（卡片）──
+const subjectLabel = g => g.type === 'feedback' ? (g.members[0].subject || '（無主旨）') : g.subject;
+
+// 按鈕一律用 data-* 屬性＋下面的事件委派，不把任何使用者字串拼進 on* 屬性（B5）
+function bt(g, cls, label, act, extra = '', aria = '') {
+  const dis = busyGroups.has(g.key) || batchBusy ? ' disabled' : '';
+  const a = aria ? ` aria-label="${esc(aria)}" title="${esc(aria)}"` : '';
+  return `<button type="button" class="btn ${cls}"${dis}${a} data-act="${act}" data-group="${esc(g.key)}"${extra}>${label}</button>`;
 }
-function commonTrailing(r) {
-  const dis = busyKeys.has(r.kvKey);
-  return btn('btn-archive', '📦 Archive', `exec('${r.kvKey}','archive')`, dis);
-}
-function postActions(r) {
-  const dis = busyKeys.has(r.kvKey);
-  const undoBtn = btn('btn-undo', '↩ 還原', `exec('${r.kvKey}','undo')`, dis);
-  if (r.status === 'archived') {
-    return undoBtn + btn('btn-delete', '🗑 永久刪除', `exec('${r.kvKey}','delete')`, dis);
+const opAttr = op => ` data-op="${op}"`;
+
+// 各回報類型除了「核准／駁回」之外的專用按鈕：[樣式, 文字, 動作, op]
+function typeExtras(g) {
+  const rt = g.reportType;
+  if (g.type === 'char-reading-report') {
+    if (rt === '讀音錯誤') return [['btn-hide', '🙈 隱藏', 'op', 'hideReading'], ['btn-remove', '🗑 移除', 'op', 'removeReading'], ['btn-fix', '✏️ 修正', 'edit', 'fixReading']];
+    if (rt === '建議讀音') return [['btn-add', '✓ 新增為新讀音', 'add-from-suggest'], ['btn-fix', '✏️ 取代舊讀音', 'replace-reading']];
+    if (rt === '極度冷僻') return [['btn-remove', '🗑 完全移除', 'op', 'removeReading']];
+    if (rt === '不該出現') return [['btn-hide', '🙈 隱藏', 'op', 'hideReading']];
+    return [];
   }
-  return undoBtn + commonTrailing(r);
+  if (rt === '押韻錯誤' || rt === '詞不存在') return [['btn-hide', '🙈 隱藏', 'op', 'hideWord'], ['btn-remove', '🗑 移除', 'op', 'removeWord'], ['btn-fix', '✏️ 修正注音', 'edit', 'fixWord']];
+  if (rt === '建議讀音') return [['btn-add', '✓ 採用建議', 'edit', 'fixWord']];
+  if (rt === '讀音錯誤') return [['btn-fix', '✏️ 修正注音', 'edit', 'fixWord']];
+  if (rt === '極度冷僻') return [['btn-remove', '🗑 完全移除', 'op', 'removeWord']];
+  if (rt === '不該出現') return [['btn-hide', '🙈 隱藏', 'op', 'hideWord']];
+  if (rt === '重複出現') return [['btn-remove', '🗑 移除', 'op', 'removeWord']];
+  if (rt === '缺字')     return [['btn-add', '✓ 新增（可編輯）', 'add-modal', 'addWord']];
+  if (rt === '其他')     return [['btn-note', '📝 備註', 'edit', 'note']];
+  return [];
 }
 
-function cardShell(r, headerHtml, bodyHtml, actionsHtml) {
-  const status = r.status || 'pending';
-  const editing = _editing && _editing.kvKey === r.kvKey;
-  const sel = selectedKeys.has(r.kvKey) ? ' selected' : '';
-  return `<div class="card ${status}${sel}" data-kvkey="${esc(r.kvKey)}">
-    <div class="card-header">${headerHtml}<span class="card-time">${fmtTime(r.ts)}</span></div>
-    ${bodyHtml || ''}
-    <div class="card-actions">
-      <span class="action-preview ${status}">${esc(previewFor(r))}</span>
-      ${editing ? '' : actionsHtml}
-    </div>
-    ${editing ? editPanelHTML() : ''}
-  </div>`;
-}
-function actionPlaceholder(r) {
-  if (r.type === 'feedback') return '→ 已讀 / 備註';
-  if (r.type === 'ai-word-suggest') return r.action_kind === 'modify' ? '→ 同意修改後收錄 / 忽略' : '→ 同意收錄 / 忽略';
-  return '→ 選擇處理方式';
-}
-
-function renderReadingCard(r) {
-  const status = r.status || 'pending';
-  const dis = busyKeys.has(r.kvKey);
-  const k = r.kvKey;
-  let actions;
-  if (status !== 'pending') {
-    actions = postActions(r);
-  } else if (r.reportType === '讀音錯誤') {
-    actions = btn('btn-hide','🙈 隱藏',`exec('${k}','hideReading')`,dis)
-            + btn('btn-remove','🗑 移除',`exec('${k}','removeReading')`,dis)
-            + btn('btn-fix','✏️ 修正',`openEdit('${k}','fixReading',{placeholder:'新注音(含聲調) 例：ㄏㄜˊ',defaultValue:'${esc(r.reading||'')}'})`,dis)
-            + btn('btn-dismiss','忽略',`exec('${k}','dismiss')`,dis)
-            + commonTrailing(r);
-  } else if (r.reportType === '建議讀音') {
-    actions = btn('btn-add','✓ 新增為新讀音',`openAddReadingFromSuggest('${k}')`,dis)
-            + btn('btn-fix','✏️ 取代舊讀音',`openReplaceReading('${k}')`,dis)
-            + btn('btn-dismiss','忽略',`exec('${k}','dismiss')`,dis)
-            + commonTrailing(r);
-  } else if (r.reportType === '極度冷僻') {
-    actions = btn('btn-hide','🙈 隱藏',`exec('${k}','hideReading')`,dis)
-            + btn('btn-remove','🗑 完全移除',`exec('${k}','removeReading')`,dis)
-            + btn('btn-dismiss','忽略',`exec('${k}','dismiss')`,dis)
-            + commonTrailing(r);
-  } else {
-    actions = btn('btn-dismiss','忽略',`exec('${k}','dismiss')`,dis) + commonTrailing(r);
-  }
-  const suggText = r.suggested ? `<div class="card-text">建議：<b>${esc(r.suggested)}</b></div>` : '';
-  const noteText = (r.body ? `<div class="card-text">${esc(r.body)}</div>` : '') + suggText;
-  const header = `<span class="card-type-badge reading">讀音回報</span>
-      <span class="card-char">${esc(r.char || '')}</span>
-      <span class="card-reading">${esc(r.reading || '')}</span>
-      <span class="card-reason">${esc(r.reportType || '')}</span>`;
-  return cardShell(r, header, noteText, actions);
-}
-
-function renderWordCard(r) {
-  const status = r.status || 'pending';
-  const dis = busyKeys.has(r.kvKey);
-  const k = r.kvKey;
-  const rt = r.reportType || '';
-  let actions;
-  if (status !== 'pending') {
-    actions = postActions(r);
-  } else if (rt === '押韻錯誤' || rt === '詞不存在') {
-    actions = btn('btn-hide','🙈 隱藏',`exec('${k}','hideWord')`,dis)
-            + btn('btn-remove','🗑 移除',`exec('${k}','removeWord')`,dis)
-            + btn('btn-fix','✏️ 修正注音',`openEdit('${k}','fixWord',{placeholder:'每字注音空格分隔 例：ㄏㄠˇ ㄩㄣˋ'})`,dis)
-            + btn('btn-dismiss','忽略',`exec('${k}','dismiss')`,dis)
-            + commonTrailing(r);
-  } else if (rt === '建議讀音') {
-    actions = btn('btn-add','✓ 採用建議',`openEdit('${k}','fixWord',{placeholder:'每字注音空格分隔 例：ㄏㄠˇ ㄩㄣˋ',defaultValue:'${esc(r.suggested||'')}'})`,dis)
-            + btn('btn-dismiss','忽略',`exec('${k}','dismiss')`,dis)
-            + commonTrailing(r);
-  } else if (rt === '極度冷僻') {
-    actions = btn('btn-hide','🙈 隱藏',`exec('${k}','hideWord')`,dis)
-            + btn('btn-remove','🗑 完全移除',`exec('${k}','removeWord')`,dis)
-            + btn('btn-dismiss','忽略',`exec('${k}','dismiss')`,dis)
-            + commonTrailing(r);
-  } else if (rt === '重複出現') {
-    actions = btn('btn-remove','🗑 移除',`exec('${k}','removeWord')`,dis)
-            + btn('btn-dismiss','忽略',`exec('${k}','dismiss')`,dis)
-            + commonTrailing(r);
-  } else if (rt === '缺字') {
-    // modal 中可編輯詞 + 注音 + 分級，「同意」與「更改」視為同一動作
-    actions = btn('btn-add','✓ 新增（可編輯）',`openAddModal('${k}','addWord')`,dis)
-            + btn('btn-dismiss','忽略',`exec('${k}','dismiss')`,dis)
-            + commonTrailing(r);
-  } else {
-    actions = btn('btn-dismiss','忽略',`exec('${k}','dismiss')`,dis) + commonTrailing(r);
-  }
-  const header = `<span class="card-type-badge word">字卡回報</span>
-      <span class="card-word">${esc(r.word || '')}</span>
-      <span class="card-reason">${esc(r.reportType || '')}</span>`;
-  const sugg = r.suggested ? `<div class="card-text">建議：<b>${esc(r.suggested)}</b></div>` : '';
-  return cardShell(r, header, sugg, actions);
-}
-
-function renderFeedbackCard(r) {
-  const status = r.status || 'pending';
-  const dis = busyKeys.has(r.kvKey);
-  const k = r.kvKey;
-  const isMissingReading = (r.subject || '').includes('缺少讀音');
-  let actions;
-  if (status !== 'pending') {
-    actions = postActions(r);
-  } else if (isMissingReading) {
-    actions = btn('btn-add','✓ 同意（新增）',`openAddModal('${k}','addReading')`,dis)
-            + btn('btn-dismiss','忽略',`exec('${k}','dismiss')`,dis)
-            + commonTrailing(r);
-  } else {
-    actions = btn('btn-dismiss','✓ 已讀',`exec('${k}','dismiss')`,dis)
-            + btn('btn-note','📝 備註',`openEdit('${k}','note',{placeholder:'寫一句備註（會存進 KV，匯出時帶出來）'})`,dis)
-            + commonTrailing(r);
-  }
-  const body = r.body ? `<div class="card-text">${esc(r.body)}</div>` : '';
-  const header = `<span class="card-type-badge feedback">一般回饋</span>
-      <span style="font-weight:600;font-size:.9rem">${esc(r.subject || '（無主旨）')}</span>`;
-  return cardShell(r, header, body, actions);
-}
-
-function renderAISuggestCard(r) {
-  const status = r.status || 'pending';
-  const dis = busyKeys.has(r.kvKey);
-  const k = r.kvKey;
+function aiInfo(r) {
   const isModify = r.action_kind === 'modify' || (r.modified && r.modified !== r.word);
   // 收錄目標詞：modify 用 modified，否則用原詞
   const targetWord = isModify ? (r.modified || r.word || '') : (r.word || '');
   const autoZ = lookupWordZhuyin(targetWord);
-  const hasMissing = autoZ.includes('?');
-
-  let actions, body = '';
-  if (status !== 'pending') {
-    actions = postActions(r);
-  } else {
-    const inputId = `aiZ-${k}`;
-    const mode = isModify ? 'modify' : 'accept';
-    const label = isModify ? '✓ 同意修改後收錄' : '✓ 同意收錄';
-    body = `<div class="edit-panel" style="margin-top:10px">
-      <span style="font-size:.78rem;color:var(--text-muted);white-space:nowrap">注音</span>
-      <input id="${inputId}" value="${esc(autoZ)}" placeholder="ㄔㄣˊ ㄒㄧ ㄨㄟˊ ㄌㄧㄤˋ"
-        ${hasMissing ? 'style="border-color:#ed8936"' : ''}
-        onkeydown="if(event.key==='Enter')execAI('${k}','${mode}')">
-      ${hasMissing ? '<span style="font-size:.72rem;color:#c05621">⚠ 含未知字</span>' : ''}
-    </div>`;
-    actions = btn('btn-add', label, `execAI('${k}','${mode}')`, dis)
-            + btn('btn-dismiss','忽略',`exec('${k}','dismiss')`,dis)
-            + commonTrailing(r);
-  }
-  const arrow = isModify ? `<span class="modify-arrow">→</span><span class="card-word">${esc(r.modified || '')}</span>` : '';
-  const header = `<span class="card-type-badge feedback">AI 建議收錄</span>
-      <span class="card-word">${esc(r.word || '')}</span>${arrow}
-      <span class="card-reason">${isModify ? '修改後收錄' : '直接收錄'}</span>`;
-  return cardShell(r, header, body, actions);
+  return { isModify, autoZ, hasMissing: autoZ.includes('?') };
 }
 
-// 從字卡內嵌的輸入框取注音，再走 exec
-function execAI(kvKey, mode) {
-  const inp = document.getElementById(`aiZ-${kvKey}`);
+function rowActions(g) {
+  const st = g.st, rep = g.members[0], n = g.members.length, name = subjectLabel(g);
+  const ar = verb => `${verb}「${name}」的回報（${n} 筆）`;
+  const archive = bt(g, 'btn-archive', '📦 Archive', 'archive');
+  if (st.status === 'pending') {
+    if (MERGED_TYPES.includes(g.type)) {
+      const op = approveOpFor(g);
+      return (op ? bt(g, 'btn-approve', '核准', 'approve', '', ar('核准')) : '<span class="manual-note">需手動</span>')
+           + bt(g, 'btn-dismiss', '駁回', 'dismiss', '', ar('駁回'))
+           + typeExtras(g).map(([cls, label, act, op2]) => bt(g, cls, label, act, op2 ? opAttr(op2) : '')).join('')
+           + archive;
+    }
+    if (g.type === 'ai-word-suggest') {
+      const { isModify } = aiInfo(rep);
+      return bt(g, 'btn-add', isModify ? '✓ 同意修改後收錄' : '✓ 同意收錄', 'ai', ` data-mode="${isModify ? 'modify' : 'accept'}"`)
+           + bt(g, 'btn-dismiss', '忽略', 'dismiss') + archive;
+    }
+    if ((rep.subject || '').includes('缺少讀音')) {
+      return bt(g, 'btn-add', '✓ 同意（新增）', 'add-modal', opAttr('addReading'))
+           + bt(g, 'btn-dismiss', '忽略', 'dismiss') + archive;
+    }
+    return bt(g, 'btn-dismiss', '✓ 已讀', 'dismiss')
+         + bt(g, 'btn-note', '📝 備註', 'edit', opAttr('note')) + archive;
+  }
+  if (st.status === 'live' || st.status === 'written') return '';   // 撤回在 07-07
+  if (st.status === 'archived') {
+    return bt(g, 'btn-undo', '↩ 還原', 'undo') + bt(g, 'btn-delete', '🗑 永久刪除', 'delete');
+  }
+  return bt(g, 'btn-undo', st.status === 'approved' ? '改回待審' : '↩ 還原', 'undo') + archive;
+}
+
+// 展開後列出的每一筆原文：時間・狀態・說明（note 與 suggested 都顯示），最新的在前
+function originalsHtml(g) {
+  return g.members.map(m => {
+    const text = (m.note ? `<div class="card-text">${esc(m.note)}</div>` : '')
+               + (m.body ? `<div class="card-text">${esc(m.body)}</div>` : '')
+               + (m.suggested ? `<div class="card-text">建議：<b>${esc(m.suggested)}</b></div>` : '');
+    return `<div class="orig">
+        <div class="orig-meta"><span class="card-time">${esc(fmtTime(m.ts))}</span><span class="mini-badge">${esc(STATUS_NAME[memberStatus(m)])}</span></div>
+        ${text || '<div class="card-text no-note">（沒有說明）</div>'}
+      </div>`;
+  }).join('');
+}
+function toggleLabels(g, open) {
+  const n = g.members.length, name = subjectLabel(g);
+  return open ? { text: '▾ 收合', aria: `收合「${name}」的 ${n} 筆原文` }
+              : { text: `▸ 展開 ${n} 筆原文`, aria: `展開「${name}」的 ${n} 筆原文` };
+}
+function toggleOriginals(groupKey, btnEl) {
+  const g = findGroup(groupKey);
+  if (!g) return;
+  const open = !expanded.has(groupKey);
+  if (open) expanded.add(groupKey); else expanded.delete(groupKey);
+  const card = btnEl.closest('.card');
+  card.querySelector('.row-originals').hidden = !open;
+  const l = toggleLabels(g, open);
+  btnEl.textContent = l.text;
+  btnEl.setAttribute('aria-expanded', String(open));
+  btnEl.setAttribute('aria-label', l.aria);
+}
+
+function renderGroupRow(g) {
+  const st = g.st, rep = g.members[0], n = g.members.length, name = subjectLabel(g);
+  const merged = MERGED_TYPES.includes(g.type);
+  const editing = _editing && _editing.groupKey === g.key;
+  const sel = selectedGroups.has(g.key);
+  const open = expanded.has(g.key);
+  const cls = PREVIEW_CLASS[st.status] || '';
+
+  let badge, headline, body = '';
+  if (g.type === 'char-reading-report') {
+    badge = '<span class="card-type-badge reading">讀音回報</span>';
+    headline = `<span class="card-char">${esc(rep.char || '')}</span><span class="card-reading">${esc(rep.reading || '')}</span>
+      <span class="card-reason">${esc(g.reportType)}</span>`;
+  } else if (g.type === 'word-report') {
+    badge = '<span class="card-type-badge word">字卡回報</span>';
+    headline = `<span class="card-word">${esc(rep.word || '')}</span><span class="card-reason">${esc(g.reportType)}</span>`;
+  } else if (g.type === 'ai-word-suggest') {
+    const { isModify, autoZ, hasMissing } = aiInfo(rep);
+    badge = '<span class="card-type-badge feedback">AI 建議收錄</span>';
+    const arrow = isModify ? `<span class="modify-arrow">→</span><span class="card-word">${esc(rep.modified || '')}</span>` : '';
+    headline = `<span class="card-word">${esc(rep.word || '')}</span>${arrow}
+      <span class="card-reason">${isModify ? '修改後收錄' : '直接收錄'}</span>`;
+    if (st.status === 'pending') {
+      body = `<div class="edit-panel" style="margin-top:10px">
+        <span class="ai-z-label">注音</span>
+        <input data-act="ai-input" data-group="${esc(g.key)}" data-mode="${isModify ? 'modify' : 'accept'}" value="${esc(autoZ)}" placeholder="ㄔㄣˊ ㄒㄧ ㄨㄟˊ ㄌㄧㄤˋ"${hasMissing ? ' class="warn-input"' : ''}>
+        ${hasMissing ? '<span class="ai-z-warn">⚠ 含未知字</span>' : ''}
+      </div>`;
+    }
+  } else {
+    badge = '<span class="card-type-badge feedback">一般回饋</span>';
+    headline = `<span class="card-subject">${esc(rep.subject || '（無主旨）')}</span>`;
+    body = rep.body ? `<div class="card-text">${esc(rep.body)}</div>` : '';
+  }
+
+  let mergedHtml = '', times = esc(fmtTime(g.latest));
+  if (merged) {
+    const l = toggleLabels(g, open);
+    times = n > 1 ? `${esc(fmtTime(g.earliest))} → ${esc(fmtTime(g.latest))}` : esc(fmtTime(g.latest));
+    mergedHtml = `<button type="button" class="row-toggle" data-act="toggle" data-group="${esc(g.key)}" aria-expanded="${open}" aria-label="${esc(l.aria)}">${l.text}</button>
+      <div class="row-originals${n > 20 ? ' scroll' : ''}"${open ? '' : ' hidden'}>${originalsHtml(g)}</div>`;
+  }
+  const pill = merged ? `<span class="count-pill${n >= 3 ? ' many' : ''}">×${n}</span>` : '';
+  const err = rowErrors.get(g.key);
+
+  return `<div class="card group ${esc(cls || 'pending')}${sel ? ' selected' : ''}" data-group="${esc(g.key)}">
+    <div class="card-header">
+      <label class="row-check-wrap"><input type="checkbox" class="row-check" data-act="check" data-group="${esc(g.key)}" aria-label="${esc('選取 ' + name + ' 的回報')}"${sel ? ' checked' : ''}></label>
+      ${badge}${headline}${pill}<span class="card-time">${times}</span>
+    </div>
+    ${mergedHtml}
+    ${body}
+    <div class="card-actions">
+      <span class="action-preview ${esc(cls)}">${esc(previewForGroup(g))}</span>
+      ${editing ? '' : rowActions(g)}
+    </div>
+    ${err ? `<div class="row-error" role="alert">${esc(err)}</div>` : ''}
+    ${editing ? editPanelHTML() : ''}
+  </div>`;
+}
+
+// 從列內的輸入框取注音，再走 execGroup
+function execAI(groupKey, mode) {
+  const inp = Array.from(document.querySelectorAll('input[data-act="ai-input"]')).find(i => i.dataset.group === groupKey);
+  const g = findGroup(groupKey);
   const raw = (inp?.value || '').trim();
+  if (!g) return;
   if (!raw) { alert('請填注音'); inp?.focus(); return; }
   // 含「?」的缺字 placeholder 允許保留，但其它部分仍要正規化成注音
   const hasQ = raw.includes('?');
-  const r = reports.find(x => x.kvKey === kvKey);
-  const targetWord = r ? (mode === 'accept' ? r.word : (r.modified || r.word)) : '';
+  const r = g.members[0];
+  const targetWord = mode === 'accept' ? r.word : (r.modified || r.word);
   const expected = targetWord ? Array.from(targetWord).length : null;
   let z;
   if (hasQ) {
@@ -1032,7 +1242,7 @@ function execAI(kvKey, mode) {
     }
   }
   inp.value = z;
-  exec(kvKey, mode === 'accept' ? 'acceptAI' : 'modifyAI', z);
+  execGroup(groupKey, mode === 'accept' ? 'acceptAI' : 'modifyAI', z);
 }
 
 // 補相容：reports 中可能有 r.action_kind 或 r.action='accept'/'modify'（從前端送的 schema）
@@ -1627,47 +1837,51 @@ function esc(s) {
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/'/g,'&#39;').replace(/"/g,'&quot;');
 }
 
-// ── 多選互動 ──
+// ── 多選互動（以「列」為單位）──
 function updateBatchBar() {
-  // 先把已不存在的 key 從選取清單剔掉
-  const live = new Set(reports.map(r => r.kvKey));
-  for (const k of Array.from(selectedKeys)) if (!live.has(k)) selectedKeys.delete(k);
-  document.querySelectorAll('.card[data-kvkey]').forEach(c => {
-    c.classList.toggle('selected', selectedKeys.has(c.dataset.kvkey));
+  // 先把已不存在的列從選取清單剔掉
+  const live = new Set(_groups.map(g => g.key));
+  for (const k of Array.from(selectedGroups)) if (!live.has(k)) selectedGroups.delete(k);
+  document.querySelectorAll('.card[data-group]').forEach(c => {
+    const on = selectedGroups.has(c.dataset.group);
+    c.classList.toggle('selected', on);
+    const cb = c.querySelector('.row-check');
+    if (cb) cb.checked = on;
   });
   const bar = document.getElementById('batchBar');
-  bar.classList.toggle('show', selectedKeys.size > 0);
-  document.getElementById('batchCount').textContent = selectedKeys.size;
+  bar.classList.toggle('show', selectedGroups.size > 0);
+  document.getElementById('batchCount').textContent = selectedGroups.size;
 }
 function clearSelection() {
-  selectedKeys.clear(); _lastClickedKey = null; updateBatchBar();
+  if (batchBusy) return;
+  selectedGroups.clear(); _lastClickedKey = null; updateBatchBar();
 }
 function selectRange(fromKey, toKey) {
-  const keys = Array.from(document.querySelectorAll('.card[data-kvkey]')).map(c => c.dataset.kvkey);
+  const keys = Array.from(document.querySelectorAll('.card[data-group]')).map(c => c.dataset.group);
   const i = keys.indexOf(fromKey), j = keys.indexOf(toKey);
-  if (i < 0 || j < 0) { selectedKeys.add(toKey); return; }
+  if (i < 0 || j < 0) { selectedGroups.add(toKey); return; }
   const [a, b] = i < j ? [i, j] : [j, i];
-  for (let k = a; k <= b; k++) selectedKeys.add(keys[k]);
+  for (let k = a; k <= b; k++) selectedGroups.add(keys[k]);
 }
 
 document.addEventListener('mousedown', e => {
-  if (e.button !== 0) return;
+  if (e.button !== 0 || batchBusy) return;
   // 點到互動元素 → 完全不介入（按鈕、輸入框、modal 內部）
   if (e.target.closest('button, input, textarea, select, a, label, .modal, .modal-overlay, .batch-bar, .topbar')) return;
   // modal 開啟時整個畫面凍結，不啟動框選
   if (document.querySelector('.modal-overlay.show')) return;
-  const card = e.target.closest('.card[data-kvkey]');
+  const card = e.target.closest('.card[data-group]');
   if (card) {
-    const k = card.dataset.kvkey;
+    const k = card.dataset.group;
     if (e.shiftKey && _lastClickedKey) {
-      if (!(e.metaKey || e.ctrlKey)) selectedKeys.clear();
+      if (!(e.metaKey || e.ctrlKey)) selectedGroups.clear();
       selectRange(_lastClickedKey, k);
     } else if (e.metaKey || e.ctrlKey) {
-      if (selectedKeys.has(k)) selectedKeys.delete(k); else selectedKeys.add(k);
+      if (selectedGroups.has(k)) selectedGroups.delete(k); else selectedGroups.add(k);
     } else {
-      const alreadyOnly = selectedKeys.has(k) && selectedKeys.size === 1;
-      selectedKeys.clear();
-      if (!alreadyOnly) selectedKeys.add(k);
+      const alreadyOnly = selectedGroups.has(k) && selectedGroups.size === 1;
+      selectedGroups.clear();
+      if (!alreadyOnly) selectedGroups.add(k);
     }
     _lastClickedKey = k;
     e.preventDefault();
@@ -1699,12 +1913,12 @@ function onMarqueeMove(e) {
     box.style.width  = Math.abs(_marquee.x1 - _marquee.x0) + 'px';
     box.style.height = Math.abs(_marquee.y1 - _marquee.y0) + 'px';
     // 即時預覽：相交即選
-    if (!_marquee.additive) selectedKeys.clear();
-    document.querySelectorAll('.card[data-kvkey]').forEach(c => {
+    if (!_marquee.additive) selectedGroups.clear();
+    document.querySelectorAll('.card[data-group]').forEach(c => {
       const r = c.getBoundingClientRect();
       const hit = !(r.right < x || r.left > x + parseFloat(box.style.width) ||
                     r.bottom < y || r.top > y + parseFloat(box.style.height));
-      if (hit) selectedKeys.add(c.dataset.kvkey);
+      if (hit) selectedGroups.add(c.dataset.group);
     });
     updateBatchBar();
   }
@@ -1715,63 +1929,78 @@ function onMarqueeUp() {
   document.getElementById('marqueeBox').style.display = 'none';
   if (_marquee && !_marquee.moved && !_marquee.additive) {
     // 純空白點擊 → 清除
-    selectedKeys.clear(); _lastClickedKey = null; updateBatchBar();
+    selectedGroups.clear(); _lastClickedKey = null; updateBatchBar();
   }
   _marquee = null;
 }
 
-// 批次動作
+// 批次動作：對選到的每一列各跑一次（列與列最多 4 列同時，列內依序），失敗的列留著選取
+async function batchRun(keys, decide) {
+  batchBusy = true;
+  keys.forEach(k => { busyGroups.add(k); rowErrors.delete(k); });
+  render();
+  const failed = [];
+  await pool(keys, 4, async k => {
+    const g = findGroup(k);
+    const ok = g ? await decideMembers(g, decide, 1) : false;
+    if (!ok) failed.push(k);
+  });
+  batchBusy = false;
+  keys.forEach(k => busyGroups.delete(k));
+  failed.forEach(k => rowErrors.set(k, MSG_ROW));
+  keys.forEach(k => { if (!failed.includes(k)) selectedGroups.delete(k); });
+  _lastClickedKey = null;
+  render();
+  return failed;
+}
+const fullyLocked = g => g.members.every(isLocked);
 function batchArchive() {
-  const keys = Array.from(selectedKeys);
-  const targets = keys.map(k => reports.find(r => r.kvKey === k)).filter(r => r && r.status !== 'archived');
-  if (!targets.length) { alert('沒有可封存的項目'); return; }
-  if (!confirm(`封存 ${targets.length} 筆？`)) return;
-  targets.forEach(r => postDecision(r.kvKey, 'archived', null));
-  selectedKeys.clear(); _lastClickedKey = null; updateBatchBar();
+  const keys = Array.from(selectedGroups).filter(k => { const g = findGroup(k); return g && g.st.status !== 'archived' && !fullyLocked(g); });
+  if (!keys.length) { alert('沒有可封存的項目'); return; }
+  if (!confirm(`封存 ${keys.length} 列？`)) return;
+  return batchRun(keys, decideFor('archive'));
 }
 function batchRestore() {
-  const keys = Array.from(selectedKeys);
-  const targets = keys.map(k => reports.find(r => r.kvKey === k)).filter(r => r && r.status);
-  if (!targets.length) { alert('沒有可還原的項目（已是待審狀態）'); return; }
-  if (!confirm(`還原 ${targets.length} 筆為待審？`)) return;
-  targets.forEach(r => postDecision(r.kvKey, 'pending', null));
-  selectedKeys.clear(); _lastClickedKey = null; updateBatchBar();
+  const keys = Array.from(selectedGroups).filter(k => { const g = findGroup(k); return g && g.st.status !== 'pending' && !fullyLocked(g); });
+  if (!keys.length) { alert('沒有可還原的項目（已是待審狀態）'); return; }
+  if (!confirm(`還原 ${keys.length} 列為待審？`)) return;
+  return batchRun(keys, decideFor('undo'));
 }
 function batchDelete() {
-  const keys = Array.from(selectedKeys);
+  const keys = Array.from(selectedGroups).filter(k => findGroup(k));
   if (!keys.length) return;
-  if (!confirm(`永久刪除 ${keys.length} 筆？此操作無法還原。`)) return;
-  const key = getKey();
-  if (!key) { alert('密鑰遺失'); return; }
-  // 立即從本地移除（保留快照供失敗回滾）
-  const snapshots = keys.map(k => {
-    const idx = reports.findIndex(x => x.kvKey === k);
-    return idx >= 0 ? { idx, item: reports[idx] } : null;
-  }).filter(Boolean);
-  reports = reports.filter(x => !keys.includes(x.kvKey));
-  selectedKeys.clear(); _lastClickedKey = null;
-  render();
-  // 平行送 worker
-  let failed = 0;
-  Promise.all(keys.map(k =>
-    fetch(`${WORKER_URL}/reports/delete?key=${encodeURIComponent(key)}`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ kvKey: k })
-    }).then(res => { if (!res.ok) { failed++; return res.text().then(t => ({ k, t, status: res.status })); } return null; })
-      .catch(e => { failed++; return { k, t: e.message, status: 0 }; })
-  )).then(results => {
-    const errs = results.filter(Boolean);
-    if (errs.length) {
-      // 回滾失敗的項目
-      errs.forEach(e => {
-        const snap = snapshots.find(s => s.item.kvKey === e.k);
-        if (snap) reports.push(snap.item);
-      });
-      render();
-      alert(`${errs.length} 筆刪除失敗：\n` + errs.slice(0, 5).map(e => `${e.k}: (${e.status}) ${e.t}`).join('\n'));
-    }
-  });
+  return deleteGroups(keys);   // 確認通過後 deleteMembers 會立刻重畫，被刪的列自然從選取清單剔掉
 }
+
+// ── 事件委派（B5）：所有列內按鈕都是 data-act，不在 HTML 屬性裡放程式 ──
+const mainEl = document.getElementById('main');
+mainEl.addEventListener('click', e => {
+  const el = e.target.closest('[data-act]');
+  if (!el || el.disabled) return;
+  const act = el.dataset.act, gk = el.dataset.group;
+  switch (act) {
+    case 'check':
+      if (batchBusy) { e.preventDefault(); return; }
+      if (el.checked && e.shiftKey && _lastClickedKey) selectRange(_lastClickedKey, gk);
+      else if (el.checked) selectedGroups.add(gk); else selectedGroups.delete(gk);
+      _lastClickedKey = gk; updateBatchBar(); return;
+    case 'approve':          return approveGroup(gk);
+    case 'dismiss':          return execGroup(gk, 'dismiss');
+    case 'archive':          return execGroup(gk, 'archive');
+    case 'undo':             return execGroup(gk, 'undo');
+    case 'delete':           return execGroup(gk, 'delete');
+    case 'op':               return execGroup(gk, el.dataset.op);
+    case 'edit':             return openEdit(gk, el.dataset.op);
+    case 'toggle':           return toggleOriginals(gk, el);
+    case 'add-modal':        return openAddModal(gk, el.dataset.op);
+    case 'replace-reading':  return openReplaceReading(gk);
+    case 'add-from-suggest': return openAddReadingFromSuggest(gk);
+    case 'ai':               return execAI(gk, el.dataset.mode);
+  }
+});
+mainEl.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && e.target.matches('[data-act="ai-input"]')) execAI(e.target.dataset.group, e.target.dataset.mode);
+});
 
 // ── 開啟即載入（若已有 key）──
 if (savedKey) fetchReports();
