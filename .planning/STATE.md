@@ -4,16 +4,16 @@ milestone: v0.96
 current_phase: 07
 current_phase_name: Feedback & Correction Layer 回報與修正層
 status: executing
-stopped_at: Completed 07-04-PLAN.md
-last_updated: "2026-10-09T18:38:17.751Z"
+stopped_at: Completed 07-05-PLAN.md
+last_updated: "2026-10-09T19:01:47.497Z"
 last_activity: 2026-10-10
 last_activity_desc: Phase 07 execution started
-state_head: f64f4f326968875817f69b72f04a8535fad30b13
+state_head: 58e08796036cdaa23ee212924d5a55a9f0bd3fa7
 progress:
   total_phases: 12
   completed_phases: 2
   total_plans: 51
-  completed_plans: 45
+  completed_plans: 46
 ---
 
 # Project State
@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-10-03)
 ## Current Position
 
 Phase: 07 (Feedback & Correction Layer 回報與修正層) — EXECUTING
-Plan: 5 of 10
+Plan: 6 of 10
 Status: Ready to execute
 Last activity: 2026-10-10 — Phase 07 execution started
 
@@ -102,6 +102,7 @@ Progress: [██░░░░░░░░] 17%
 | Phase 07 P02 | 30min | 3 tasks | 5 files |
 | Phase 07 P03 | 25 min | 2 tasks | 2 files |
 | Phase 07 P04 | 25 min | 3 tasks | 8 files |
+| Phase 07 P05 | 21 min | 3 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -170,6 +171,9 @@ Recent decisions affecting current work:
 - [Phase 07]: 07-03: 修正層『不繞過瀏覽器快取』在 Playwright 內不可觀測（攔截路由關閉 HTTP 快取），以 loadCorrections 原始碼檢查代替標頭斷言
 - [Phase 07]: 07-04: 手機批次列左右內距收到 0.5rem、900px 以下桌機批次列收緊，才能在 390／820／844 都排下第 4 顆 🚩 回報而不換行
 - [Phase 07]: 07-04: 本頁已回報過只存記憶體 _reportedSet，不新增儲存鍵；一次最多 10 個、遇失敗或 429 即停
+- [Phase 07]: 07-05: 後台「×1」照 UI-SPEC 一律顯示（≥3 才用警示色），不採「只有 n≥2 才顯示」
+- [Phase 07]: 07-05: 亮色主題下展開鈕／篩選晶片／備註文字改用 --text-primary，「（沒有說明）」改斜體（原色對比 3.6／1.8 低於 4.5）
+- [Phase 07]: 07-05: 換篩選時看不見的列自動取消選取，批次動作只作用在畫面上的列；已上線列一律被 isLocked 擋住（07-07 補撤回）
 
 ### Pending Todos
 
@@ -211,6 +215,6 @@ Items acknowledged and deferred at milestone close, most recent first:
 
 ## Session Continuity
 
-Last session: 2026-10-09T18:38:17.688Z
-Stopped at: Completed 07-04-PLAN.md
+Last session: 2026-10-09T19:01:47.430Z
+Stopped at: Completed 07-05-PLAN.md
 Resume file: None
