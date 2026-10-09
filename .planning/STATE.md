@@ -4,16 +4,16 @@ milestone: v0.96
 current_phase: 07
 current_phase_name: Feedback & Correction Layer 回報與修正層
 status: executing
-stopped_at: Completed 07-05-PLAN.md
-last_updated: "2026-10-09T19:01:47.497Z"
+stopped_at: Completed 07-06-PLAN.md
+last_updated: "2026-10-09T19:13:14.822Z"
 last_activity: 2026-10-10
 last_activity_desc: Phase 07 execution started
-state_head: 58e08796036cdaa23ee212924d5a55a9f0bd3fa7
+state_head: c45cf762ad6f65a21b6873ad5cf339b55095d8b4
 progress:
   total_phases: 12
   completed_phases: 2
   total_plans: 51
-  completed_plans: 46
+  completed_plans: 47
 ---
 
 # Project State
@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-10-03)
 ## Current Position
 
 Phase: 07 (Feedback & Correction Layer 回報與修正層) — EXECUTING
-Plan: 6 of 10
+Plan: 7 of 10
 Status: Ready to execute
 Last activity: 2026-10-10 — Phase 07 execution started
 
@@ -103,6 +103,7 @@ Progress: [██░░░░░░░░] 17%
 | Phase 07 P03 | 25 min | 2 tasks | 2 files |
 | Phase 07 P04 | 25 min | 3 tasks | 8 files |
 | Phase 07 P05 | 21 min | 3 tasks | 3 files |
+| Phase 07 P06 | 20 min | 2 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -174,6 +175,7 @@ Recent decisions affecting current work:
 - [Phase 07]: 07-05: 後台「×1」照 UI-SPEC 一律顯示（≥3 才用警示色），不採「只有 n≥2 才顯示」
 - [Phase 07]: 07-05: 亮色主題下展開鈕／篩選晶片／備註文字改用 --text-primary，「（沒有說明）」改斜體（原色對比 3.6／1.8 低於 4.5）
 - [Phase 07]: 07-05: 換篩選時看不見的列自動取消選取，批次動作只作用在畫面上的列；已上線列一律被 isLocked 擋住（07-07 補撤回）
+- [Phase 07]: 07-06: AI 詞卡回報模式只活在 #aiWordsContainer.report-mode class（捕獲階段攔點擊，不存保留區）；字卡與 AI 詞卡長按移除、破音字 chip 長按保留；選單 🚩 回報… 的 handler 只帶常數 'char'／'word' — D-03/D-04/D-05：手機不靠長按回報，長按留給 Phase 8/9 拖曳；T-07-19/T-07-20
 
 ### Pending Todos
 
@@ -215,6 +217,6 @@ Items acknowledged and deferred at milestone close, most recent first:
 
 ## Session Continuity
 
-Last session: 2026-10-09T19:01:47.430Z
-Stopped at: Completed 07-05-PLAN.md
+Last session: 2026-10-09T19:13:08.306Z
+Stopped at: Completed 07-06-PLAN.md
 Resume file: None

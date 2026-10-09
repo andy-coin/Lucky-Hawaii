@@ -266,7 +266,7 @@ Plans:
   4. 執行寫回腳本會把修正層寫進 `data/` 並 push；確認線上已生效後才清空修正層，重跑不會重複套用也不會遺失修正〔自動：本機模擬〕
 
 **Human check**: 正式環境實際走一次「核准 → 套用 → 寫回 push → 清空」
-**Plans**: 5/10 plans executed
+**Plans**: 6/10 plans executed
 
 Plans:
 **Wave 1**
@@ -279,7 +279,7 @@ Plans:
 - [x] 07-05-PLAN.md — 後台 Tracer：同詞同因合併成列、整列／批次核准駁回（D-12 預設）、篩選與全選、防注入、手機版
 
 **Wave 3** *(blocked on Wave 2 completion)*
-- [ ] 07-06-PLAN.md — AI 詞卡「🚩 回報詞語」模式、右鍵「🚩 回報…」、拿掉字卡／AI 詞卡長按（破音字保留）
+- [x] 07-06-PLAN.md — AI 詞卡「🚩 回報詞語」模式、右鍵「🚩 回報…」、拿掉字卡／AI 詞卡長按（破音字保留）
 - [ ] 07-07-PLAN.md — 後台「🚀 套用到線上」與撤回、已上線／已寫入資料檔狀態、失敗與 >500 提示、有效讀音併入修正層
 - [ ] 07-08-PLAN.md — 寫回腳本 Tracer：讀修正層、預覽差異、--apply 寫檔＋commit（排版逐字相同、重跑不重複、安全停下）
 
@@ -383,7 +383,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 4. AI Fill & Validate AI 挑詞填滿與造詞驗證 | 5/5 | In Progress|  |
 | 5. Multi-Device Layout 多裝置版面與流暢度 | 11/11 | In Progress|  |
 | 6. Lexicon Packs 台灣詞庫包 | 8/8 | In Progress|  |
-| 7. Feedback & Correction Layer 回報與修正層 | 5/10 | In Progress|  |
+| 7. Feedback & Correction Layer 回報與修正層 | 6/10 | In Progress|  |
 | 8. Songs & Editor Model 歌曲管理與資料模型 | 0/TBD | Not started | - |
 | 9. Section Modules 段落模組 | 0/TBD | Not started | - |
 | 10. Rhyme Map 韻腳地圖 | 0/TBD | Not started | - |
