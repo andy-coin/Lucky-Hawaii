@@ -4,6 +4,7 @@ import { CONTEXT_OPTS, BASE, routeExternal, collectErrors } from './helpers.mjs'
 import { FakeKV, makeEnv, bridgeWorker } from './worker-helpers.mjs';
 import { DEVICES, auditTouchTargets, auditVisibleControls, rectsOverlap } from './layout-lib.mjs';
 import { readFileSync } from 'node:fs';
+import worker from '../worker/src/index.js';
 
 const WORKER_HOST = 'lucky-hawaii.is3000dollar.workers.dev';
 const KEY = 'admin-test';
@@ -105,7 +106,7 @@ test('後台：金鑰標頭 — 每個打到 Worker 的請求都帶 X-Admin-Key�
     await expect.poll(() => calls.filter(c => c.path === '/reports/delete').length).toBe(1);
 
     const paths = new Set(calls.map(c => c.path));
-    expect([...paths].sort()).toEqual(['/reports.json', '/reports/decision', '/reports/delete']);
+    expect([...paths].sort()).toEqual(['/corrections/admin.json', '/reports.json', '/reports/decision', '/reports/delete']);
     for (const c of calls) {
         expect(c.headers['x-admin-key'], `${c.method} ${c.path}`).toBe(KEY);
         expect(c.url, `${c.method} ${c.path} 網址不該帶金鑰`).not.toContain('key=');
@@ -528,9 +529,9 @@ test('後台：手機 — 390 寬不橫向捲動，標題列換行、時間在�
     const pageH = await page.evaluate(() => document.documentElement.scrollHeight);
     for (let y = 0; y < pageH; y += 500) {
         await page.evaluate(v => window.scrollTo(0, v), y);
-        // 貼底的批次列蓋在內容上面，是另一層：頁面控制項彼此比、批次列按鈕彼此比
-        for (const root of ['.topbar, #main', '#batchBar']) {
-            const boxes = await auditVisibleControls(page, root);
+        // 貼底的批次列、黏在上面的套用列都蓋在內容上面，各是一層：頁面控制項彼此比、批次列按鈕彼此比、套用列按鈕彼此比
+        for (const root of ['.topbar, #main', '#batchBar', '.apply-bar']) {
+            const boxes = (await auditVisibleControls(page, root)).filter(b => (root === '.apply-bar') === /apply/.test(b.name));
             const grow = b => ({ x: b.x - 2, y: b.y - 2, width: b.width + 4, height: b.height + 4 });
             for (let i = 0; i < boxes.length; i++) for (let j = i + 1; j < boxes.length; j++) {
                 expect(rectsOverlap(grow(boxes[i]), grow(boxes[j])), `捲到 ${y}：${boxes[i].name} 與 ${boxes[j].name} 間距不到 4px`).toBe(false);
@@ -602,5 +603,68 @@ test('後台：顏色 — 新變數在亮暗兩個主題都有，文字對比 �
             expect(r.ratio, `${theme} ${sel}`).toBeGreaterThanOrEqual(4.5);
         }
     }
+    await context.close();
+});
+
+// ===== 07-07 Task 1：套用到線上、撤回 =====
+const hideChar = (c, reading) => ({ type: 'remove_char_reading', char: c, dict_key: reading.replace('ˊ', '2'), reading });
+// 已核准、還沒套用的四筆：二心 ×3（隱藏詞）＋ 長 ×1（移除讀音）
+const approvedFour = () => [
+    agreed(word('二心', '極度冷僻', T1), hideWord('二心')), agreed(word('二心', '極度冷僻', T2), hideWord('二心')), agreed(word('二心', '極度冷僻', T3), hideWord('二心')),
+    agreed(char('長', 'ㄔㄤˊ', '不該出現', T3), hideChar('長', 'ㄔㄤˊ')),
+];
+const layerDoc = env => JSON.parse(env.AI_STATE_KV.m.get('corrections:v1'));
+const applyCalls = calls => calls.filter(c => c.path === '/corrections/apply');
+const publicView = async env => (await worker.fetch(new Request('https://lucky-hawaii.is3000dollar.workers.dev/corrections.json', { headers: { Origin: BASE } }), env, { waitUntil() {} })).json();
+
+test('後台：套用 — 一次送出全部已核准的四筆（只有 kvKey 和 rev），三筆二心合成一條，列變已上線，線上公開讀得到', async ({ browser }) => {
+    const { context, page, env, calls, errors } = await bootAdmin(browser, { reports: approvedFour() });
+    await expect(page.locator('.apply-summary')).toHaveText('線上修正層：0 筆 · 等待套用：4 筆');
+    await expect(page.locator('.apply-note')).toHaveText('按下後約 1～2 分鐘內生效（網站重新整理就會看到）');
+    await expect(page.locator('#applyBtn')).toHaveText('🚀 套用到線上（4）');
+    await expect(page.locator('#applyBtn')).toBeEnabled();
+
+    await page.locator('#applyBtn').click();
+    await expect(page.locator('.apply-line.ok')).toHaveText('已套用 4 筆。約 1～2 分鐘內生效，網站重新整理就會看到。');
+    // 只送一次；內容只有 kvKey 和 baseRev，沒有 action 之類的欄位（不能用 client 的內容改線上）
+    expect(applyCalls(calls)).toHaveLength(1);
+    const body = JSON.parse(applyCalls(calls)[0].body);
+    expect(Object.keys(body).sort()).toEqual(['baseRev', 'kvKeys']);
+    expect(body.baseRev).toBe(0);
+    expect([...body.kvKeys].sort()).toEqual([0, 1, 2, 3].map(kvKeyOf));
+    // 修正層：兩條（三筆二心合成一條）
+    const doc = layerDoc(env);
+    expect(doc.entries).toHaveLength(2);
+    expect(doc.entries.map(e => e.source_kvKeys.length).sort()).toEqual([1, 3]);
+
+    await expect(page.locator('.apply-summary')).toHaveText('線上修正層：2 筆 · 等待套用：0 筆');
+    await expect(page.locator('#applyBtn')).toBeDisabled();
+    const row = rowOf(page, '二心', '極度冷僻');
+    await expect(row.locator('.action-preview')).toContainText('🚀 已上線 · 🙈 隱藏「二心」 · 套用於 ');
+    await expect(row.getByRole('button', { name: /^從線上撤回「/ })).toHaveText('撤回');
+    await expect(row.getByRole('button', { name: '改回待審' })).toHaveCount(0);
+    // 網站讀得到
+    expect((await publicView(env)).wordlist.hidden).toEqual(['二心']);
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('後台：撤回 — 一鍵撤回二心，列回到已核准未套用，等待套用變 3，線上不再隱藏', async ({ browser }) => {
+    const { context, page, env, calls } = await bootAdmin(browser, { reports: approvedFour() });
+    await page.locator('#applyBtn').click();
+    await expect(page.locator('.apply-line.ok')).toBeVisible();
+    const id = layerDoc(env).entries.find(e => e.target === 'wordlist').id;
+
+    const row = rowOf(page, '二心', '極度冷僻');
+    await row.getByRole('button', { name: /^從線上撤回「/ }).click();
+    await expect(page.locator('.apply-line.neutral')).toHaveText('已撤回「二心」，約 1～2 分鐘內從線上移除');
+    const revokes = calls.filter(c => c.path === '/corrections/revoke');
+    expect(revokes).toHaveLength(1);
+    expect(JSON.parse(revokes[0].body)).toEqual({ ids: [id], baseRev: 1 });
+    await expect(row.locator('.action-preview')).toContainText('（等待套用）');
+    await expect(row.getByRole('button', { name: '改回待審' })).toBeVisible();
+    await expect(page.locator('.apply-summary')).toHaveText('線上修正層：1 筆 · 等待套用：3 筆');
+    await expect(page.locator('#applyBtn')).toHaveText('🚀 套用到線上（3）');
+    expect((await publicView(env)).wordlist.hidden).toEqual([]);
     await context.close();
 });

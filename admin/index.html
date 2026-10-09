@@ -326,6 +326,25 @@ body {
   padding: 8px 12px; font-size: 0.75rem; font-weight: 700; overflow-wrap: anywhere;
 }
 .batch-result[hidden] { display: none; }
+/* ── 套用列（黏在最上面）── */
+.apply-bar {
+  position: sticky; top: 0; z-index: 940;
+  display: flex; flex-wrap: wrap; align-items: center; gap: 12px;
+  background: var(--container-bg); color: var(--text-primary);
+  border: 1px solid var(--border); border-radius: 12px; padding: 12px 16px; box-shadow: var(--shadow);
+}
+.apply-text { flex: 1 1 240px; min-width: 0; }
+.apply-summary { font-size: 0.875rem; font-weight: 400; }
+.apply-summary b { font-weight: 700; }
+.apply-note { font-size: 0.75rem; font-weight: 400; }
+.btn-apply { margin-left: auto; background: var(--action-bg); color: #fff; padding: 8px 16px; border-radius: 8px; font-size: 0.875rem; font-weight: 700; }
+.btn-apply:hover:not(:disabled) { background: var(--action-bg-hover); opacity: 1; }
+.apply-line { flex-basis: 100%; font-size: 0.875rem; padding: 8px 12px; border-radius: 8px; overflow-wrap: anywhere; }
+.apply-line.ok { color: var(--ok-text); background: rgba(72,187,120,.12); }
+.apply-line.err { color: var(--err-text); background: rgba(229,62,62,.12); }
+.apply-line.warn { color: var(--warn-text); background: rgba(217,119,6,.12); }
+.apply-line.neutral { color: var(--text-primary); background: var(--section-badge-bg); }
+.btn-undo.btn-revoke { color: var(--warn-text); font-size: 0.875rem; font-weight: 700; }
 /* ── 篩選列 ── */
 .filter-row {
   display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
@@ -352,6 +371,9 @@ body {
   .main { padding-bottom: 24px; }
   body:has(.batch-bar.show) .main { padding-bottom: 200px; }
   .filter-row { padding: 12px; }
+  .apply-bar { padding: 12px; }
+  .apply-text { flex-basis: 100%; }
+  .btn-apply { flex: 1 1 100%; margin-left: 0; }
   .select-all { min-height: 44px; flex-basis: 100%; }
   .card-header { gap: 8px; }
   .card-header .card-time { flex-basis: 100%; margin-left: 0; }
@@ -547,7 +569,12 @@ applyTheme(localStorage.getItem(THEME_LS) || 'light');
 
 // ── State ──
 let reports = [];          // [{kvKey, type, status, action, ...}]
-let layer = { entries: [], written: [] };   // 線上修正層：07-07 載入後填入，現在永遠是空的（所以還不會有「已上線」）
+// 線上修正層（GET /corrections/admin.json）：state = unknown | loading | ok | error；byKey = 來源回報 kvKey → 修正層項目
+let layer = { rev: null, entries: [], written: [], view: null, state: 'unknown', byKey: new Map(), writtenSet: new Set() };
+let layerBusy = false;     // 套用或撤回進行中：停用套用與所有列內按鈕，重按不會再送一次
+let applying = false;      // 正在套用：按鈕顯示「套用中…」
+let applyMsg = null;       // 套用列下面那一行結果 { kind: 'ok' | 'err' | 'neutral', text }，下一次動作才清掉
+let _layerP = null;        // 這一輪 reload 的修正層讀取（fetchReports 等它讀完才畫列，狀態才不會閃一下）
 let loadState = 'idle';    // idle | loading | ok | error
 let loadError = null;      // { msg, hint }
 let truncated = false;     // Worker 說列表被截短（X-Reports-Truncated）
@@ -619,6 +646,7 @@ async function fetchReports() {
       if (r.suggested) r.suggested = dispRead(r.suggested);
     });
     selectedGroups.clear(); _lastClickedKey = null; expanded.clear(); rowErrors.clear();
+    if (_layerP) await _layerP;   // 修正層讀完再畫，列的「已上線」才不會先顯示成「已核准」又跳掉
     loadState = 'ok'; loadError = null;
     render();
   } catch(e) {
@@ -665,6 +693,75 @@ async function pool(items, n, fn) {
   return out;
 }
 
+// ── 線上修正層（FB-03／FB-04）：套用、撤回、讀取 ──
+const MSG_409 = '線上修正層剛剛有變動，請按「重新載入」後再';
+const pendingKeys = () => reports.filter(r => memberStatus(r) === 'approved').map(r => r.kvKey);
+const groupEntries = g => [...new Set(g.members.map(m => layer.byKey.get(m.kvKey)).filter(Boolean))];
+const jsonPost = body => ({ method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+
+function setLayer(d) {
+  const written = Array.isArray(d.written) ? d.written : [];
+  const byKey = new Map();
+  for (const e of d.entries) for (const k of e.source_kvKeys || []) byKey.set(k, e);
+  layer = { rev: d.rev, entries: d.entries, written, view: d.view || null, state: 'ok', byKey, writtenSet: new Set(written) };
+}
+// 讀整份修正層；quiet = 呼叫端自己會重畫。失敗不丟錯，只把狀態改成 error（套用因此停用）
+async function loadLayer(quiet) {
+  try {
+    if (!getKey()) throw new Error('no key');
+    const res = await adminFetch('/corrections/admin.json');
+    if (!res.ok) throw new Error(String(res.status));
+    const d = await res.json();
+    if (!d || !Array.isArray(d.entries)) throw new Error('shape');
+    setLayer(d);
+  } catch (e) { layer.state = 'error'; }
+  if (!quiet && loadState === 'ok') render();
+}
+
+const failReason = status => status === 401 || status === 403 ? '金鑰不對' : `伺服器回應 ${status}`;
+const applyFail = reason => ({ kind: 'err', text: `套用沒有成功：${reason}。已核准的內容都還在，可以直接再按一次。` });
+
+// 🚀 套用到線上：只送 kvKey 和目前的 rev（內容由 Worker 自己從回報讀），每 100 筆一批，沒有確認視窗（可以撤回）
+async function applyApproved() {
+  if (layerBusy || batchBusy || layer.state !== 'ok') return;
+  const keys = pendingKeys();
+  if (!keys.length) return;
+  layerBusy = applying = batchBusy = true; applyMsg = null;
+  const rows = _groups.filter(g => g.st.counts.approved).map(g => g.key);
+  rows.forEach(k => { busyGroups.add(k); rowErrors.delete(k); });
+  render();
+  let msg = null, any = false;
+  try {
+    for (let i = 0; i < keys.length; i += 100) {
+      const res = await adminFetch('/corrections/apply', jsonPost({ kvKeys: keys.slice(i, i + 100), baseRev: layer.rev }));
+      if (!res.ok) { msg = applyFail(failReason(res.status)); break; }
+      layer.rev = (await res.json()).rev; any = true;
+    }
+  } catch (e) { msg = applyFail('網路不通'); }
+  if (any) await loadLayer(true);
+  layerBusy = applying = batchBusy = false;
+  rows.forEach(k => busyGroups.delete(k));
+  applyMsg = msg || { kind: 'ok', text: `已套用 ${keys.length} 筆。約 1～2 分鐘內生效，網站重新整理就會看到。` };
+  render();
+}
+
+// 撤回：依來源回報找出這一列在修正層裡的項目，一次送出；成功後回到「已核准、未套用」
+async function revokeGroup(groupKey) {
+  const g = findGroup(groupKey);
+  if (!g || layerBusy || batchBusy) return;
+  const ids = groupEntries(g).map(e => e.id);
+  if (!ids.length) return;
+  layerBusy = true; applyMsg = null; busyGroups.add(groupKey); rowErrors.delete(groupKey); render();
+  let msg;
+  try {
+    const res = await adminFetch('/corrections/revoke', jsonPost({ ids, baseRev: layer.rev }));
+    if (res.ok) { await loadLayer(true); msg = { kind: 'neutral', text: `已撤回「${subjectLabel(g)}」，約 1～2 分鐘內從線上移除` }; }
+    else msg = { kind: 'err', text: `撤回沒有成功：${failReason(res.status)}。可以再按一次。` };
+  } catch (e) { msg = { kind: 'err', text: '撤回沒有成功：網路不通。可以再按一次。' }; }
+  layerBusy = false; busyGroups.delete(groupKey);
+  applyMsg = msg; render();
+}
+
 // ── 分組（B1、D-11）：同一個詞（或字＋讀音）＋同一個回報類型合成一列；feedback 與 AI 建議各自一列 ──
 const MERGED_TYPES = ['word-report', 'char-reading-report'];
 const KNOWN_TYPES = ['ai-word-suggest', 'char-reading-report', 'word-report', 'feedback'];
@@ -704,12 +801,12 @@ const STATUS_NAME = { pending: '待審', approved: '已核准', live: '已上線
 // 待審 > 已核准未套用 > 已上線 > 已駁回 > 已封存
 const STATUS_RANK = { pending: 0, approved: 1, live: 2, written: 3, done: 4, dismissed: 5, archived: 6 };
 
-// layer = { entries: [...修正層項目], written: [...已寫入資料檔的回報 kvKey] }（07-07 才會有內容）
+// 已上線／已寫入由修正層推出來（C2），不另外寫進回報：byKey 對得到 = 在線上，writtenSet 對得到 = 已寫進資料檔
 function memberStatus(r, lay = layer) {
   const s = r.status || 'pending';
   if (s === 'agreed') {
-    if (lay.entries.some(e => (e.source_kvKeys || []).includes(r.kvKey))) return 'live';
-    if (lay.written.includes(r.kvKey)) return 'written';
+    if (lay.byKey && lay.byKey.has(r.kvKey)) return 'live';
+    if (lay.writtenSet && lay.writtenSet.has(r.kvKey)) return 'written';
     if (r.action && r.action.type === 'note') return 'done';
     return 'approved';
   }
@@ -743,7 +840,7 @@ function approveOpFor(g) { return (APPROVE_DEFAULT[g.type] || {})[g.reportType] 
 
 // ── UI helpers ──
 function setStats(text) { document.getElementById('statsLabel').textContent = text; }
-function reload() { fetchReports(); }
+function reload() { applyMsg = null; layer.state = 'loading'; _layerP = loadLayer(true); fetchReports(); }
 document.getElementById('showArchived').addEventListener('change', render);
 keyInputEl.addEventListener('keydown', e => { if (e.key === 'Enter') reload(); });
 
@@ -787,7 +884,7 @@ function render() {
   const visible = pool.filter(g => filter === 'all' || BUCKET[g.st.status] === filter).sort(cmpGroups);
   visibleKeys = visible.map(g => g.key);
 
-  let html = '';
+  let html = applyBarHtml();
   if (truncated) html += '<div class="notice warn">只載入最新 800 筆</div>';
   if (!_groups.length) {
     html += '<div class="empty">目前沒有回報。<div class="hint">有新的回報時會顯示在這裡；也可以按「重新載入」。</div></div>';
@@ -810,6 +907,19 @@ function render() {
   }
   main.innerHTML = html;
   updateBatchBar();
+}
+
+// 黏在最上面的套用列：修正層筆數、等待套用幾筆、🚀 按鈕，以及最近一次套用／撤回的結果
+function applyBarHtml() {
+  const ok = layer.state === 'ok', m = pendingKeys().length;
+  const summary = ok ? `線上修正層：<b>${layer.entries.length}</b> 筆 · 等待套用：<b>${m}</b> 筆` : '線上修正層：讀取中…';
+  const note = ok ? (m ? '按下後約 1～2 分鐘內生效（網站重新整理就會看到）' : '沒有等待套用的核准項目') : '';
+  const line = applyMsg ? `<div class="apply-line ${applyMsg.kind}" role="${applyMsg.kind === 'err' ? 'alert' : 'status'}">${esc(applyMsg.text)}</div>` : '';
+  return `<div class="apply-bar" id="applyBar">
+    <div class="apply-text"><div class="apply-summary">${summary}</div><div class="apply-note">${note}</div></div>
+    <button type="button" class="btn btn-apply" id="applyBtn" data-act="apply"${ok && m && !layerBusy ? '' : ' disabled'}>${applying ? '套用中…' : `🚀 套用到線上（${m}）`}</button>
+    ${line}
+  </div>`;
 }
 
 function section(title, items) {
@@ -843,7 +953,10 @@ function previewForGroup(g) {
   const rep = g.members[0];
   switch (st.status) {
     case 'approved': return `✓ ${actionText(rep)}（等待套用）`;
-    case 'live':     return `🚀 已上線 · ${actionText(rep)}`;
+    case 'live': {
+      const t = groupEntries(g).map(e => e.applied_at).filter(Boolean).sort().pop();
+      return `🚀 已上線 · ${actionText(rep)}` + (t ? ` · 套用於 ${fmtTime(t)}` : '');
+    }
     case 'written':  return '✓ 已寫入資料檔';
     case 'done':     return `✓ ${actionText(rep)}`;
     case 'dismissed':return '× 駁回';
@@ -868,7 +981,7 @@ async function decideMembers(g, decide, conc) {
 async function runGroup(groupKey, decide) {
   const g = findGroup(groupKey);
   if (!g || busyGroups.has(groupKey) || batchBusy) return false;
-  busyGroups.add(groupKey); rowErrors.delete(groupKey); render();
+  busyGroups.add(groupKey); rowErrors.delete(groupKey); applyMsg = null; render();
   const ok = await decideMembers(g, decide, 4);
   busyGroups.delete(groupKey);
   if (!ok) rowErrors.set(groupKey, MSG_ROW);
@@ -1136,7 +1249,7 @@ const subjectLabel = g => g.type === 'feedback' ? (g.members[0].subject || '（�
 
 // 按鈕一律用 data-* 屬性＋下面的事件委派，不把任何使用者字串拼進 on* 屬性（B5）
 function bt(g, cls, label, act, extra = '', aria = '') {
-  const dis = busyGroups.has(g.key) || batchBusy ? ' disabled' : '';
+  const dis = busyGroups.has(g.key) || batchBusy || layerBusy ? ' disabled' : '';
   const a = aria ? ` aria-label="${esc(aria)}" title="${esc(aria)}"` : '';
   return `<button type="button" class="btn ${cls}"${dis}${a} data-act="${act}" data-group="${esc(g.key)}"${extra}>${label}</button>`;
 }
@@ -1171,7 +1284,12 @@ function aiInfo(r) {
   return { isModify, autoZ, hasMissing: autoZ.includes('?') };
 }
 
+// 列內只要有一筆在線上就有「撤回」（例如已上線的三筆之後又來一筆新回報）；撤回只動線上的那幾筆
 function rowActions(g) {
+  const live = g.st.counts.live ? bt(g, 'btn-undo btn-revoke', '撤回', 'revoke', '', `從線上撤回「${subjectLabel(g)}」的修正`) : '';
+  return baseActions(g) + live;
+}
+function baseActions(g) {
   const st = g.st, rep = g.members[0], n = g.members.length, name = subjectLabel(g);
   const ar = verb => `${verb}「${name}」的回報（${n} 筆）`;
   const archive = bt(g, 'btn-archive', '📦 Archive', 'archive');
@@ -1195,7 +1313,7 @@ function rowActions(g) {
     return bt(g, 'btn-dismiss', '✓ 已讀', 'dismiss')
          + bt(g, 'btn-note', '📝 備註', 'edit', opAttr('note')) + archive;
   }
-  if (st.status === 'live' || st.status === 'written') return '';   // 撤回在 07-07
+  if (st.status === 'live' || st.status === 'written') return '';   // 已寫進資料檔的不在修正層裡，沒有東西可撤回
   if (st.status === 'archived') {
     return bt(g, 'btn-undo', '↩ 還原', 'undo') + bt(g, 'btn-delete', '🗑 永久刪除', 'delete');
   }
@@ -1964,7 +2082,7 @@ function selectRange(fromKey, toKey) {
 document.addEventListener('mousedown', e => {
   if (e.button !== 0 || batchBusy) return;
   // 點到互動元素 → 完全不介入（按鈕、輸入框、modal 內部）
-  if (e.target.closest('button, input, textarea, select, a, label, .modal, .modal-overlay, .batch-bar, .topbar')) return;
+  if (e.target.closest('button, input, textarea, select, a, label, .modal, .modal-overlay, .batch-bar, .topbar, .apply-bar')) return;
   // modal 開啟時整個畫面凍結，不啟動框選
   if (document.querySelector('.modal-overlay.show')) return;
   const card = e.target.closest('.card[data-group]');
@@ -2033,7 +2151,7 @@ function onMarqueeUp() {
 
 // 批次動作：對選到的每一列各跑一次（列與列最多 4 列同時，列內依序），失敗的列留著選取
 async function batchRun(keys, decideOf) {
-  batchBusy = true;
+  batchBusy = true; applyMsg = null;
   keys.forEach(k => { busyGroups.add(k); rowErrors.delete(k); });
   render();
   const failed = [];
@@ -2147,6 +2265,8 @@ mainEl.addEventListener('click', e => {
     case 'replace-reading':  return openReplaceReading(gk);
     case 'add-from-suggest': return openAddReadingFromSuggest(gk);
     case 'ai':               return execAI(gk, el.dataset.mode);
+    case 'apply':            return applyApproved();
+    case 'revoke':           return revokeGroup(gk);
   }
 });
 mainEl.addEventListener('keydown', e => {
@@ -2154,7 +2274,7 @@ mainEl.addEventListener('keydown', e => {
 });
 
 // ── 開啟即載入（若已有 key）──
-if (savedKey) fetchReports();
+if (savedKey) reload();
 </script>
 </body>
 </html>
