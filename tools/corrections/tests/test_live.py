@@ -51,6 +51,9 @@ class LayerWorker(object):
                     return self._send(409, {'ok': False, 'code': 'REV_MISMATCH', 'rev': outer.rev})
                 found = [e['id'] for e in outer.entries if e['id'] in body['ids']]
                 if found:
+                    for e in outer.entries:
+                        if e['id'] in found:
+                            outer.written.extend(e.get('source_kvKeys') or [])   # 真的 Worker 清空時會把來源記進 written
                     outer.entries = [e for e in outer.entries if e['id'] not in found]
                     outer.rev += 1
                 self._send(200, {'ok': True, 'rev': outer.rev, 'cleared': found,
@@ -206,6 +209,64 @@ class PushPollClear(LiveCase):
         self.assertEqual(code, 6)
         self.assertIn('c_one', err)
         self.assertEqual(w.ids(), [])
+
+    def revoke(self, w, eid):
+        w.entries = [e for e in w.entries if e['id'] != eid]
+        w.rev += 1
+
+    def test_revoked_after_a_timeout_is_found_by_the_later_confirm_only(self):
+        repo = make_repo(self.tmp)
+        bare = self.remote(repo)
+        w = self.layer([ONE, TWO])
+        code, out, err = self.go(repo, w, self.site(bare, 'main', live_after=10 ** 9), '--apply', '--push', '--timeout', '0.2', '--poll-interval', '0.05')
+        self.assertEqual(code, 4)
+        self.revoke(w, 'c_one')                                          # CDN 還沒更新的時候，後台撤回了 ONE
+        code, out, err = self.go(repo, w, self.site(bare, 'main'), '--confirm-only')
+        self.assertEqual(code, 6)
+        self.assertIn('c_one', err)
+        self.assertIn('wordlist/removed', err)
+        self.assertIn('網站上', err)
+        self.assertNotIn('c_two', err)
+        self.assertEqual([c['ids'] for c in w.clears()], [['c_two']])     # 只清還在的 TWO，沒有為 ONE 清任何東西
+        self.assertNotIn(KEY, out + err)
+
+    def test_revoked_between_a_non_live_branch_commit_and_the_merge_is_found(self):
+        repo = make_repo(self.tmp)
+        git(repo, 'checkout', '-b', 'gsd/test')
+        w = self.layer([ONE])
+        self.assertEqual(self.run_main(['--worker', w.url, '--repo', str(repo), '--apply'])[0], 0)
+        self.revoke(w, 'c_one')                                          # 修正層變空了，但日誌還記著 ONE
+        code, out, err = self.go(repo, w, self.site(repo, 'gsd/test'), '--confirm-only')
+        self.assertEqual(code, 6)
+        self.assertIn('c_one', err)
+        self.assertEqual(w.clears(), [])
+        # 預覽也一樣提醒；把日誌裡那一行刪掉之後就安靜了
+        code, out, err = self.run_main(['--worker', w.url, '--repo', str(repo)])
+        self.assertEqual(code, 6)
+        log = repo / 'data' / 'applied-changes.log'
+        log.write_text(''.join(l for l in log.read_text(encoding='utf-8').splitlines(True) if 'c_one' not in l), encoding='utf-8')
+        code, out, err = self.run_main(['--worker', w.url, '--repo', str(repo)])
+        self.assertEqual(code, 0, err)
+        self.assertNotIn('c_one', err)
+
+    def test_normal_clear_and_revoke_then_reapply_are_not_flagged(self):
+        repo = make_repo(self.tmp)
+        bare = self.remote(repo)
+        w = self.layer([ONE])
+        self.assertEqual(self.go(repo, w, self.site(bare, 'main'), '--apply', '--push')[0], 0)   # 清空成功：來源進 written
+        self.assertEqual(w.written, ['k_c_one'])
+        code, out, err = self.go(repo, w, self.site(bare, 'main'), '--confirm-only')
+        self.assertEqual(code, 0, err)
+        self.assertEqual(err, '')
+        # 另一筆寫入後被撤回，但同一份回報重新核准、套用成新的條目（來源相同）→ 有人接手，不算遺失
+        repo2 = make_repo(Path(self.tmp) / 'two')
+        w2 = self.layer([TWO])
+        self.assertEqual(self.run_main(['--worker', w2.url, '--repo', str(repo2), '--apply'])[0], 0)
+        self.revoke(w2, 'c_two')
+        w2.add(entry('c_two_again', 'wordlist', 'hidden', '隱藏詞'))
+        w2.entries[-1]['source_kvKeys'] = ['k_c_two']
+        code, out, err = self.run_main(['--worker', w2.url, '--repo', str(repo2)])
+        self.assertEqual(code, 0, err)
 
     def test_timeout_exits_4_keeps_the_push_and_clears_nothing(self):
         repo = make_repo(self.tmp)

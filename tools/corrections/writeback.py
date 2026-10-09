@@ -16,7 +16,8 @@
                                                             日誌裡已記過 id 的那幾筆（合併到 main 之後，或逾時之後用這個）
 
 退出碼：0 成功或沒事可做 · 2 讀不到修正層或沒有金鑰 · 3 資料不合格（修正層的資料、或 data/ 兩個修正檔缺少／壞掉）或 git／寫檔失敗
-        · 4 線上確認逾時 · 5 清空失敗 · 6 寫回完成，但等待期間有幾筆在後台被撤回、而它們已經寫進資料檔並上線（要手動處理，訊息裡有清單）
+        · 4 線上確認逾時 · 5 清空失敗 · 6 有修正「已寫進資料檔、之後卻在後台被撤回」（等待期間，或事後才發現）：它們仍在網站上有效，
+          要手動處理，訊息裡有清單。每次執行（含預覽與 --confirm-only）開頭都會用日誌比對修正層，所以事後也找得到
 
 不支援同時跑兩個：請一次只開一個寫回，避免兩邊同時改 data/ 與 git（腳本沒有鎖）。
 重跑是安全的：已寫入的修正不會重複寫、不會重複記日誌、不會重複 commit；任何一步中斷都直接重跑
@@ -425,6 +426,41 @@ def read_logged_ids(log_path):
     return set(re.findall(r'"id": "(c_[\w-]+)"', p.read_text(encoding='utf-8')))
 
 
+def read_logged_entries(log_path):
+    """日誌裡每一行「時間 | corrections:目標/區 | JSON」的 JSON，依 id 收成 dict；舊格式或壞掉的行略過。"""
+    p = Path(str(log_path))
+    out = {}
+    if not p.exists():
+        return out
+    for line in p.read_text(encoding='utf-8').splitlines():
+        parts = line.split(' | ', 2)
+        if len(parts) != 3 or not parts[1].startswith('corrections:'):
+            continue
+        try:
+            e = json.loads(parts[2])
+        except ValueError:
+            continue
+        if isinstance(e, dict) and isinstance(e.get('id'), str) and _ENTRY_ID_RE.fullmatch(e['id']):
+            out[e['id']] = e
+    return out
+
+
+def find_revoked(log_path, layer):
+    """日誌記著「已寫進資料檔」的修正，現在既不在修正層、來源回報也沒被標成已寫入（written）、也沒有別的上線條目接手
+    → 寫入之後在後台被撤回了。資料檔和網站還留著它的效果。回傳這些條目（日誌順序）。
+    ponytail: written 清單只留最新 5000 筆，更舊的被擠掉時會誤報；真遇到再改成日誌也記 written。"""
+    now_ids = set(e.get('id') for e in layer['entries'] if isinstance(e, dict))
+    live_keys = set(k for e in layer['entries'] if isinstance(e, dict) for k in e.get('source_kvKeys') or [])
+    covered = live_keys | set(k for k in layer.get('written') or [] if isinstance(k, str))
+    lost = []
+    for eid, e in read_logged_entries(log_path).items():
+        keys = e.get('source_kvKeys') or []
+        if eid in now_ids or (keys and all(k in covered for k in keys)):
+            continue
+        lost.append(e)
+    return lost
+
+
 def _replace_all(items):
     """items = [(路徑, bytes)]：全部先寫成同一個資料夾的暫存檔，都成功才一個一個換上去。
     排版或寫暫存檔失敗時一個檔都不動；暫存檔不論成敗都會清掉。"""
@@ -596,6 +632,14 @@ def describe_entry(e):
     return '%s  %s/%s  %s' % (e.get('id'), e.get('target'), e.get('bucket'), v if len(v) <= 80 else v[:77] + '…')
 
 
+def earlier_revoked_warning(lost):
+    return ('注意：下面 %d 筆修正，日誌記著已經寫進 data/，但現在既不在線上修正層、也沒有被標成已寫入，代表寫入之後在後台被撤回了。'
+            '它們的效果還留在 data/ 和網站上（這支腳本沒有為它們清空任何東西）：\n  %s\n'
+            '要讓網站也拿掉，請手動編輯 data/wordlist-overrides.json、data/rhyme-dict-overrides.json 拿掉這幾筆的效果，commit 後推上去；'
+            '處理完把 data/applied-changes.log 裡這幾個編號的行刪掉並 commit，這個提醒才會消失。'
+            % (len(lost), '\n  '.join(describe_entry(e) for e in lost)))
+
+
 def revoked_warning(lost):
     return ('注意：寫回期間，下面 %d 筆修正在後台被撤回了，但它們已經寫進 data/ 並推上線，網站上仍然有效：\n  %s\n'
             '要讓網站也拿掉它們，請手動編輯 data/wordlist-overrides.json、data/rhyme-dict-overrides.json 拿掉這幾筆的效果，'
@@ -649,6 +693,16 @@ def run(args):
         raise Stop(2, '請先設定環境變數 %s' % KEY_ENV)
     repo = Path(args.repo)
     layer = fetch_layer(args.worker, key)
+    # 每次執行（預覽、--apply、--confirm-only 都一樣）先用日誌找「寫進資料檔之後才被撤回」的修正，先警告再往下做；
+    # 其餘流程成功時結束代碼改成 6，失敗時照原本的代碼（警告已經印出）
+    lost = find_revoked(repo / LOG_FILE, layer)
+    if lost:
+        print(earlier_revoked_warning(lost), file=sys.stderr, flush=True)
+    code = _run_layer(args, key, repo, layer)
+    return 6 if (lost and code == 0) else code
+
+
+def _run_layer(args, key, repo, layer):
     entries = layer['entries']
     if args.confirm_only:
         # 不碰資料檔、不 commit、不 push，任何分支都可以：只處理日誌裡已記過 id 的那幾筆
