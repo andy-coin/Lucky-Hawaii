@@ -136,7 +136,14 @@ async function handleLegacy(request, env, origin) {
 // Phase 7 強化已完成：金鑰改走 X-Admin-Key header、全部後台路徑共用 adminKeyOk；舊的 ?key= 先留著（舊後台還在用），v2 移除。
 // 403 仍是純文字 Forbidden，但現在帶 CORS 標頭，跨來源的後台才讀得到。GITHUB_API_KEY 已不再使用（GitHub Models 已下架）。
 const FEEDBACK_JSON = { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': ALLOWED_ORIGIN };
-const feedbackJson = (obj, status = 200) => new Response(JSON.stringify(obj), { status, headers: FEEDBACK_JSON });
+const feedbackJson = (obj, status = 200, extra) => new Response(JSON.stringify(obj), { status, headers: extra ? { ...FEEDBACK_JSON, ...extra } : FEEDBACK_JSON });
+// 一次最多讀 800 筆，避免撞到單次請求 1000 個內部操作的上限（E5）
+const REPORTS_READ_MAX = 800;
+// 超過時告訴後台「列表被截短了」；跨來源要靠 Expose-Headers 才讀得到這個標頭
+const REPORTS_TRUNCATED_HEADERS = {
+    'X-Reports-Truncated': '1',
+    'Access-Control-Expose-Headers': 'X-Reports-Truncated',
+};
 
 // 回傳 null 代表這個路徑不歸這裡管，交給後面的 /ai、/models
 async function handleFeedbackAdmin(request, env, url, origin) {
@@ -166,17 +173,27 @@ async function handleFeedbackAdmin(request, env, url, origin) {
     if (path === '/reports.json') {
         if (!keyOk()) return forbidden();
         try {
-            const list = await env.USER_FEEDBACK_KV.list();
-            const items = (await Promise.all(list.keys.map(async k => {
-                const val = await env.USER_FEEDBACK_KV.get(k.name);
+            // list() 一次最多回 1000 個鍵：用 cursor 列完全部鍵名，鍵名開頭是 Date.now()，倒序就是新到舊，只讀最新的 REPORTS_READ_MAX 筆
+            const names = [];
+            let cursor;
+            for (;;) {
+                const page = await env.USER_FEEDBACK_KV.list(cursor ? { cursor } : undefined);
+                names.push(...page.keys.map(k => k.name));
+                if (page.list_complete || !page.cursor) break;
+                cursor = page.cursor;
+            }
+            names.sort().reverse();
+            const items = (await Promise.all(names.slice(0, REPORTS_READ_MAX).map(async name => {
+                const val = await env.USER_FEEDBACK_KV.get(name);
                 try {
                     const obj = val ? JSON.parse(val) : null;
-                    if (obj) obj.kvKey = k.name;
+                    if (obj) obj.kvKey = name;
                     return obj;
                 } catch (e) { return null; } // 舊版就是這樣丟掉壞資料；Worker 內沒有 showToast 可用
             }))).filter(Boolean);
             items.sort((a, b) => new Date(b.ts) - new Date(a.ts));
-            return feedbackJson(items);
+            const truncated = names.length > REPORTS_READ_MAX;
+            return feedbackJson(items, 200, truncated ? REPORTS_TRUNCATED_HEADERS : undefined);
         } catch (e) {
             return feedbackJson({ error: e.message }, 500);
         }
