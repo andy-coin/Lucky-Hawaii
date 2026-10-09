@@ -1563,6 +1563,8 @@ test('輸入：20 個中文字的查詢不換行不撐破', async ({ browser }) 
     for (const [name, device] of [['手機', DEVICES.phone], ['平板', DEVICES.tablet]]) {
         const { context, page } = await bootPage(browser, { device });
         try {
+            // 單行＝填字前後高度不變（不用字級倍數門檻：Mac 與 Linux 中文字型行高不同）
+            const h0 = await page.locator('#searchInput').evaluate(e => e.getBoundingClientRect().height);
             await page.locator('#searchInput').fill(long20);
             await waitStill(page);
             const m = await page.evaluate(() => {
@@ -1574,7 +1576,7 @@ test('輸入：20 個中文字的查詢不換行不撐破', async ({ browser }) 
             });
             expect(m.tag).toBe('INPUT');
             expect(m.w, `${name}：搜尋框 ${m.w} 不比容器 ${m.wrapW} 寬`).toBeLessThanOrEqual(m.wrapW + 0.5);
-            expect(m.h, `${name}：搜尋框高度 ${m.h} 是單行`).toBeLessThan(m.fs * 3.2);
+            expect(m.h, `${name}：搜尋框高度 ${m.h} 跟空白時 ${h0} 一樣（單行）`).toBeCloseTo(h0, 0);
             expect(m.right, `${name}：搜尋框右緣在視窗內`).toBeLessThanOrEqual(m.iw + 0.5);
             expect(m.sw, `${name}：整頁不橫向捲動`).toBeLessThanOrEqual(m.iw);
             expect(m.ellipsis).toBe('ellipsis');
