@@ -154,7 +154,7 @@ test('後台：駁回 — 列內每一筆都記為 dismissed，可以還原', as
 
 // ===== Task 2：篩選、全選、批次核准／駁回、各種空白／載入／錯誤畫面 =====
 const kvKeyOf = i => `${1760000000000 + i}_t${String(i).padStart(2, '0')}`;
-const agreed = (r, action) => ({ ...r, status: 'agreed', decided_at: '2026-10-09T00:00:00.000Z', action });
+const agreed = (r, action) => ({ ...r, status: 'agreed', decided_at: '2026-10-09T00:00:00.000Z', decided_by: 'admin', action });
 const hideWord = w => ({ type: 'hide_word', word: w });
 // 攔截 Worker 路徑：handler(route, request) 回 true 表示自己處理了，否則放行給 Worker
 const intercept = (pathname, handler) => async ({ context }) => {

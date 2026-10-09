@@ -163,7 +163,7 @@ test('admin：/reports/decision agreed 帶 action → 寫入 status、decided_at
     expect(await res.json()).toEqual({ ok: true });
     expect(res.headers.get('Access-Control-Allow-Origin')).toBe(ORIGIN);
     const obj = JSON.parse(env.USER_FEEDBACK_KV.m.get('k1'));
-    expect(obj).toMatchObject({ status: 'agreed', action, char: '心' });
+    expect(obj).toMatchObject({ status: 'agreed', decided_by: 'admin', action, char: '心' });
     expect(new Date(obj.decided_at).toISOString()).toBe(obj.decided_at);
 });
 
@@ -174,6 +174,7 @@ test('admin：/reports/decision agreed 沒帶 action → 舊的 action 被移除
     const obj = JSON.parse(env.USER_FEEDBACK_KV.m.get('k1'));
     expect(obj.status).toBe('dismissed');
     expect(obj).not.toHaveProperty('action');
+    expect(obj).not.toHaveProperty('decided_by');
     expect(obj).toHaveProperty('decided_at');
 });
 
@@ -185,6 +186,7 @@ test('admin：/reports/decision pending → 清掉 status、decided_at、action'
     expect(obj).not.toHaveProperty('status');
     expect(obj).not.toHaveProperty('decided_at');
     expect(obj).not.toHaveProperty('action');
+    expect(obj).not.toHaveProperty('decided_by');
     expect(obj.char).toBe('心');
 });
 
@@ -275,10 +277,10 @@ test('admin：/reports/decision 與 /reports/delete 用 header 的結果和網�
     expect(JSON.parse(env.USER_FEEDBACK_KV.m.get('k1')).status).toBe('agreed');
 });
 
-test('admin：/health.json 用 header → 和網址金鑰一樣（沒有紀錄 404）；錯 header → 403', async () => {
+test('admin：/health.json 用 header → 沒有紀錄 404；網址金鑰不再收（WR-04）；錯 header → 403', async () => {
     const env = makeEnv();
     expect((await withHeaders('/health.json', { headers: H(), env })).status).toBe(404);
-    expect((await withHeaders('/health.json?key=admin-test', { env })).status).toBe(404);
+    expect((await withHeaders('/health.json?key=admin-test', { env })).status).toBe(403);
     const bad = await withHeaders('/health.json', { headers: H('wrong'), env });
     expect(bad.status).toBe(403);
     expect(await bad.text()).toBe('Forbidden');

@@ -2,7 +2,11 @@
 // 後台「套用」過的修正放在 AI_STATE_KV 的單一文件 'corrections:v1'（和使用者回報的 USER_FEEDBACK_KV 分開），
 // 網站載入時抓公開 view（GET /corrections.json），套在 data/ 的修正檔之後，所以套用後重新整理就生效。
 // 這支檔案不 import index.js：共用的小工具（json、金鑰檢查…）由 index.js 注入，避免循環引用。
-// KV 同一個 key 每秒只能寫一次：每次操作只 put 一次，並用 rev 樂觀鎖擋掉兩個分頁同時改。
+// KV 同一個 key 每秒只能寫一次：每次操作只 put 一次。
+// rev 不是原子鎖：KV 沒有 compare-and-swap，它只擋得住「一前一後」的過期分頁（先讀 rev、對方已寫入、再送出），
+// 擋不住兩個請求同時進來（兩邊都讀到同一個 rev，後寫的蓋掉先寫的，兩邊都收到 200）；
+// 寫入路徑讀的也是 KV 邊緣快取（最久約 60 秒），別的地點剛寫入的內容可能還沒傳到。
+// 這是單人後台，實務上很少遇到；真的懷疑有操作被蓋掉時，重新載入後台看「線上修正層」的筆數與內容再補做（WR-03）。
 
 export const CORRECTIONS_KEY = 'corrections:v1';
 const MAX_APPLY_BODY = 16384;       // 套用請求只有幾個 kvKey，16 KB 綽綽有餘
@@ -41,6 +45,24 @@ export async function saveDoc(env, doc) {
     doc.rev += 1;
     doc.updated_at = new Date().toISOString();
     await env.AI_STATE_KV.put(CORRECTIONS_KEY, JSON.stringify(doc));
+}
+
+// 目前在線上的來源回報 kvKey（修改／刪除回報之前先查，已上線的不能動）
+export async function liveKeySet(env) {
+    const doc = await loadDoc(env);
+    return new Set(doc.entries.flatMap(e => e.source_kvKeys ?? []));
+}
+
+// 撤回之後把來源回報改回待審（拿掉核准與決定內容），下一次「套用」才不會又把剛撤回的修正放回去；
+// 回 true = 已改回待審，false = 這筆已不是核准狀態或不存在（不用動）
+async function resetReport(env, kvKey) {
+    const raw = await env.USER_FEEDBACK_KV.get(kvKey);
+    if (!raw) return false;
+    const obj = JSON.parse(raw);
+    if (obj.status !== 'agreed') return false;
+    delete obj.status; delete obj.decided_at; delete obj.action; delete obj.decided_by;
+    await env.USER_FEEDBACK_KV.put(kvKey, JSON.stringify(obj));
+    return true;
 }
 
 // ==================== 驗證（進修正層之前一律在 Worker 重驗，T-07-06） ====================
@@ -251,7 +273,7 @@ async function route(request, env, url, h) {
         return h.json(200, { ok: true, version: doc.version ?? 1, rev: doc.rev, updated_at: doc.updated_at ?? null, entries: doc.entries, written: doc.written, view: pub });
     }
 
-    // 撤回／清空：依 id 動單一文件，一次只 put 一次。撤回 = 純粹拿掉（來源回報會自動回到「已核准、未套用」）；
+    // 撤回／清空：依 id 動單一文件，一次只 put 一次。撤回 = 拿掉修正，並把來源回報改回待審（要 Andy 重新核准才會再套用）；
     // 清空 = 寫回資料檔之後拿掉，並把來源 kvKey 記進 written，之後不會再被套用
     if (path === '/corrections/revoke' || path === '/corrections/clear') {
         if (!h.adminKeyOk()) return h.json(403, { ok: false, code: 'FORBIDDEN', message: '金鑰不對' });
@@ -279,7 +301,13 @@ async function route(request, env, url, h) {
         doc.entries = doc.entries.filter(e => !gone.has(e.id));
         const busy = await trySave(env, doc, h);
         if (busy) return busy;
-        return h.json(200, isRevoke ? { ok: true, rev: doc.rev, revoked: found, missing } : { ok: true, rev: doc.rev, cleared: found, missing });
+        if (!isRevoke) return h.json(200, { ok: true, rev: doc.rev, cleared: found, missing });
+        // 撤回已經生效；來源回報改回待審是補強，失敗不影響撤回，只告訴後台哪幾筆沒改成（WR-02）
+        const reset = [], resetFailed = [];
+        for (const k of new Set(found.flatMap(id => byId.get(id).source_kvKeys ?? []))) {
+            try { if (await resetReport(env, k)) reset.push(k); } catch (e) { resetFailed.push(k); }
+        }
+        return h.json(200, { ok: true, rev: doc.rev, revoked: found, missing, reset, resetFailed });
     }
 
     // 套用：後台把「已核准」的回報轉成修正層的條目。client 只送 kvKey，內容一律由 Worker 讀回報 KV 自己轉
@@ -311,7 +339,8 @@ async function route(request, env, url, h) {
             if (raw === null || raw === undefined) { skipped.push({ kvKey, reason: 'not_found' }); continue; }
             let report;
             try { report = JSON.parse(raw); } catch (e) { skipped.push({ kvKey, reason: 'invalid' }); continue; }
-            if (!report || report.status !== 'agreed' || !report.action || typeof report.action !== 'object') {
+            // 要同時有後台寫的 decided_by（只有 /reports/decision 會寫）：光有 status:'agreed' 不算數，/feedback 偽造的過不了（CR-01）
+            if (!report || report.status !== 'agreed' || report.decided_by !== 'admin' || !report.action || typeof report.action !== 'object') {
                 skipped.push({ kvKey, reason: 'not_agreed' });
                 continue;
             }

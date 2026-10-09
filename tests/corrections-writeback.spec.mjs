@@ -41,7 +41,7 @@ test('寫回腳本：Python 單元測試全過（離線、不需金鑰、不留 
 // 所有伺服器都開在測試程序裡，所以 Python 子程序必須用非同步 spawn（spawnSync 會卡死事件迴圈）。
 // 遠端是暫存的 bare repo，絕不 push 真正的專案。
 const git = (cwd, ...args) => execFileSync('git', args, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], env: { ...process.env, GIT_CONFIG_GLOBAL: '/dev/null', GIT_CONFIG_NOSYSTEM: '1' } });
-const report = (action) => JSON.stringify({ status: 'agreed', decided_at: '2026-10-10T00:00:00.000Z', action });
+const report = (action) => JSON.stringify({ status: 'agreed', decided_by: 'admin', decided_at: '2026-10-10T00:00:00.000Z', action });
 const listen = (server) => new Promise(r => server.listen(0, '127.0.0.1', () => r(`http://127.0.0.1:${server.address().port}`)));
 
 test('寫回腳本：端到端（真 Worker＋push＋等線上生效＋只清這一批）', async () => {

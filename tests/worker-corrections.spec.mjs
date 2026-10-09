@@ -14,7 +14,7 @@ const call = (path, { method = 'GET', body, origin, env, headers = {} } = {}) =>
         body: body === undefined ? undefined : (typeof body === 'string' ? body : JSON.stringify(body)),
     }), env, { waitUntil() {} });
 const apply = (env, kvKeys, baseRev = 0, headers = KEY) => call('/corrections/apply', { method: 'POST', body: { kvKeys, baseRev }, env, headers, origin: ORIGIN });
-const report = (extra = {}) => JSON.stringify({ type: 'word-report', word: '二心', reportType: 'remove', ts: '2026-01-01T00:00:00.000Z', status: 'agreed', decided_at: '2026-01-02T00:00:00.000Z', action: { type: 'remove_word', word: '二心', reason: '怪' }, ...extra });
+const report = (extra = {}) => JSON.stringify({ type: 'word-report', word: '二心', reportType: 'remove', ts: '2026-01-01T00:00:00.000Z', status: 'agreed', decided_by: 'admin', decided_at: '2026-01-02T00:00:00.000Z', action: { type: 'remove_word', word: '二心', reason: '怪' }, ...extra });
 const seeded = init => makeEnv({ USER_FEEDBACK_KV: new FakeKV(init) });
 
 test('修正層 Worker：套用「移除詞」→ 200，AI_STATE_KV 恰好寫一次，報告 KV 不動', async () => {
@@ -78,9 +78,11 @@ test('修正層 Worker：套用沒帶金鑰 → 403 JSON（帶 CORS），不寫�
     expect(await res.json()).toMatchObject({ ok: false, code: 'FORBIDDEN' });
     expect(res.headers.get('Access-Control-Allow-Origin')).toBe(ORIGIN);
     expect(env.AI_STATE_KV.puts).toBe(0);
-    // 舊的 ?key= 還能用
+    // 新的 /corrections/* 不收網址上的 ?key=（WR-04）；只有舊後台還在用的 /reports* 才保留
     const legacy = await call('/corrections/apply?key=admin-test', { method: 'POST', body: { kvKeys: ['k1'], baseRev: 0 }, env, origin: ORIGIN });
-    expect(legacy.status).toBe(200);
+    expect(legacy.status).toBe(403);
+    expect(await legacy.json()).toMatchObject({ ok: false, code: 'FORBIDDEN' });
+    expect(env.AI_STATE_KV.puts).toBe(0);
 });
 
 test('修正層 Worker：還沒核准的回報 → skipped not_agreed，不寫入', async () => {
@@ -343,7 +345,7 @@ test('修正層 Worker：撤回——依 id 移除那一筆，written 不動，v
     const [e1, e2] = doc(env).entries;
     const res = await revoke(env, [e1.id], 1);
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ ok: true, rev: 2, revoked: [e1.id], missing: [] });
+    expect(await res.json()).toEqual({ ok: true, rev: 2, revoked: [e1.id], missing: [], reset: ['k1'], resetFailed: [] });
     expect(doc(env).entries.map(e => e.id)).toEqual([e2.id]);
     expect(doc(env).written).toEqual([]);
     expect(env.AI_STATE_KV.puts).toBe(2);
@@ -375,7 +377,7 @@ test('修正層 Worker：撤回——一部分已不在、或全部不在（404�
     expect((await post(env, '/corrections/revoke', { ids: [id], baseRev: 1 }, {})).status).toBe(403);
     expect((await call('/corrections/revoke', { env, headers: KEY, origin: ORIGIN })).status).toBe(405);
     const part = await revoke(env, [id, 'c_gone'], 1);
-    expect(await part.json()).toEqual({ ok: true, rev: 2, revoked: [id], missing: ['c_gone'] });
+    expect(await part.json()).toEqual({ ok: true, rev: 2, revoked: [id], missing: ['c_gone'], reset: ['k1'], resetFailed: [] });
 });
 
 test('修正層 Worker：清空——只移除指定 id，來源 kvKey 進 written（不重複），找不到的列在 missing，全找不到就不寫入', async () => {
@@ -469,4 +471,130 @@ test('修正層 Worker：只有已核准的回報進得了修正層（用戶端�
     const body = await res.json();
     expect(body.skipped.map(s => s.reason)).toEqual(['not_agreed', 'not_agreed', 'not_agreed']);
     expect(doc(env).entries.map(e => e.value)).toEqual(['三心']);
+});
+
+
+// ---------- Phase 7 審查修正：CR-01 偽造核准、WR-01 已上線鎖、WR-02 撤回後不再被套用 ----------
+const feedback = (env, body) => call('/feedback', { method: 'POST', origin: ORIGIN, body, env });
+
+test('CR-01：陌生人 POST /feedback 偽造 status:agreed＋action，不會被套用到線上', async () => {
+    const env = makeEnv();
+    const res = await feedback(env, { type: 'word-report', word: '愛', reportType: 'x', status: 'agreed', decided_at: '2026-01-01T00:00:00.000Z', decided_by: 'admin', kvKey: 'zzz', action: { type: 'remove_word', word: '愛' } });
+    expect(res.status).toBe(200);
+    const [kvKey] = [...env.USER_FEEDBACK_KV.m.keys()];
+    const stored = JSON.parse(env.USER_FEEDBACK_KV.m.get(kvKey));
+    for (const k of ['status', 'decided_at', 'decided_by', 'kvKey', 'action']) expect(stored, k).not.toHaveProperty(k);
+    expect(stored).toMatchObject({ type: 'word-report', word: '愛', reportType: 'x' });
+    const applied = await (await apply(env, [kvKey])).json();
+    expect(applied.applied).toEqual([]);
+    expect(applied.skipped).toEqual([{ kvKey, reason: 'not_agreed' }]);
+    expect((await view(env)).wordlist.removed).toEqual([]);
+    expect(env.AI_STATE_KV.puts).toBe(0);
+});
+
+test('CR-01：就算偽造的 status:agreed 已經在 KV 裡，沒有後台寫的 decided_by 也不會被套用', async () => {
+    const env = seeded({ k1: report({ decided_by: undefined }), k2: report({ decided_by: 'someone' }) });
+    const body = await (await apply(env, ['k1', 'k2'])).json();
+    expect(body.applied).toEqual([]);
+    expect(body.skipped).toEqual([{ kvKey: 'k1', reason: 'not_agreed' }, { kvKey: 'k2', reason: 'not_agreed' }]);
+    expect(env.AI_STATE_KV.puts).toBe(0);
+});
+
+test('CR-01：/reports/decision 核准時才寫 decided_by；改回待審或駁回就拿掉；/feedback 仍保留字串欄位（ai-word-suggest 的 action）', async () => {
+    const env = makeEnv();
+    await feedback(env, { type: 'ai-word-suggest', word: '星河', action: 'accept', modified: '星辰', note: { x: 1 }, extra: 'drop' });
+    const [kvKey] = [...env.USER_FEEDBACK_KV.m.keys()];
+    expect(JSON.parse(env.USER_FEEDBACK_KV.m.get(kvKey))).toMatchObject({ type: 'ai-word-suggest', word: '星河', action: 'accept', modified: '星辰' });
+    expect(JSON.parse(env.USER_FEEDBACK_KV.m.get(kvKey))).not.toHaveProperty('extra');
+    expect(JSON.parse(env.USER_FEEDBACK_KV.m.get(kvKey))).not.toHaveProperty('note');   // 物件欄位不收
+    const decide = (status, action) => post(env, '/reports/decision', { kvKey, status, action });
+    await decide('agreed', { type: 'accept_ai_word', word: '星河', z: 'ㄒㄧㄥ ㄏㄜˊ' });
+    expect(JSON.parse(env.USER_FEEDBACK_KV.m.get(kvKey))).toMatchObject({ status: 'agreed', decided_by: 'admin' });
+    const ok = await (await apply(env, [kvKey])).json();
+    expect(ok.applied).toHaveLength(1);
+    await decide('dismissed');   // 已上線，不能直接駁回（WR-01）
+    expect(JSON.parse(env.USER_FEEDBACK_KV.m.get(kvKey)).status).toBe('agreed');
+    const env2 = seeded({ k1: report() });
+    await post(env2, '/reports/decision', { kvKey: 'k1', status: 'dismissed' });
+    expect(JSON.parse(env2.USER_FEEDBACK_KV.m.get('k1'))).not.toHaveProperty('decided_by');
+    await post(env2, '/reports/decision', { kvKey: 'k1', status: 'pending' });
+    expect(JSON.parse(env2.USER_FEEDBACK_KV.m.get('k1'))).not.toHaveProperty('decided_by');
+});
+
+test('WR-01：已上線的回報不能改成別的狀態、不能刪除（409），要先撤回；撤回之後可以', async () => {
+    const env = seeded({ k1: report() });
+    await apply(env, ['k1'], 0);
+    for (const status of ['dismissed', 'archived', 'pending']) {
+        const r = await post(env, '/reports/decision', { kvKey: 'k1', status });
+        expect(r.status, status).toBe(409);
+        expect(await r.json()).toMatchObject({ error: 'live' });
+    }
+    expect((await post(env, '/reports/delete', { kvKey: 'k1' })).status).toBe(409);
+    expect(JSON.parse(env.USER_FEEDBACK_KV.m.get('k1')).status).toBe('agreed');
+    // 重新核准（agreed）不受影響
+    expect((await post(env, '/reports/decision', { kvKey: 'k1', status: 'agreed', action: { type: 'remove_word', word: '二心' } })).status).toBe(200);
+    await revoke(env, [doc(env).entries[0].id], 1);
+    expect((await post(env, '/reports/delete', { kvKey: 'k1' })).status).toBe(200);
+});
+
+test('WR-02：撤回之後，來源回報改回待審，下一次套用不會把它又放回線上', async () => {
+    const env = seeded({ k1: report(), k2: report({ action: { type: 'hide_word', word: '三心' } }) });
+    await apply(env, ['k1', 'k2'], 0);
+    const e1 = doc(env).entries.find(e => e.source_kvKeys[0] === 'k1');
+    const res = await revoke(env, [e1.id], 1);
+    expect((await res.json()).reset).toEqual(['k1']);
+    const k1 = JSON.parse(env.USER_FEEDBACK_KV.m.get('k1'));
+    for (const k of ['status', 'decided_at', 'decided_by', 'action']) expect(k1, k).not.toHaveProperty(k);
+    expect(k1).toMatchObject({ type: 'word-report', word: '二心' });
+    // 全部「套用」（模擬後台把還沒套用的一併送出）：被撤回的那筆被略過
+    const again = await (await apply(env, ['k1', 'k2'], 2)).json();
+    expect(again.applied).toEqual([]);
+    expect(again.skipped).toEqual([{ kvKey: 'k1', reason: 'not_agreed' }, { kvKey: 'k2', reason: 'already_applied' }]);
+    expect((await view(env)).wordlist).toEqual({ removed: [], hidden: ['三心'], fixed: {}, added: [] });
+    // 清空（寫回之後）不動回報
+    const e2 = doc(env).entries[0];
+    await clear(env, [e2.id], 2);
+    expect(JSON.parse(env.USER_FEEDBACK_KV.m.get('k2')).status).toBe('agreed');
+});
+
+test('WR-02：撤回時改回待審失敗，撤回照樣生效，回應告訴後台哪幾筆沒改成', async () => {
+    const env = seeded({ k1: report() });
+    await apply(env, ['k1'], 0);
+    env.USER_FEEDBACK_KV.put = async () => { throw new Error('boom'); };
+    const res = await revoke(env, [doc(env).entries[0].id], 1);
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({ ok: true, revoked: [expect.any(String)], reset: [], resetFailed: ['k1'] });
+    expect(doc(env).entries).toEqual([]);
+});
+
+test('WR-04：新的 /corrections/* 與 /health* 不收網址金鑰；舊的 /reports* 還收；錯長度的金鑰也是 403', async () => {
+    const env = seeded({ k1: report() });
+    for (const [path, method] of [['/corrections/admin.json', 'GET'], ['/corrections/apply', 'POST'], ['/corrections/revoke', 'POST'], ['/corrections/clear', 'POST'], ['/health.json', 'GET'], ['/health/run', 'POST']]) {
+        const r = await call(path + '?key=admin-test', { method, body: method === 'POST' ? {} : undefined, env, origin: ORIGIN });
+        expect(r.status, path).toBe(403);
+    }
+    expect((await call('/reports.json?key=admin-test', { env, origin: ORIGIN })).status).toBe(200);
+    for (const key of ['admin-tes', 'admin-test-', 'x', 'Admin-test']) {
+        expect((await call('/corrections/admin.json', { env, origin: ORIGIN, headers: { 'X-Admin-Key': key } })).status, key).toBe(403);
+    }
+    expect((await call('/corrections/admin.json', { env, origin: ORIGIN, headers: KEY })).status).toBe(200);
+});
+
+test('WR-05：金鑰不對才吃 adm: 限流額度（對的金鑰不吃）；被限流回 429；沒有限流器就只回 403', async () => {
+    const keys = [];
+    let allow = true;
+    const env = seeded({ k1: report() });
+    env.AI_LIMITER = { limit: async ({ key }) => { keys.push(key); return { success: allow }; } };
+    await call('/corrections/admin.json', { env, origin: ORIGIN, headers: KEY });
+    await call('/reports.json', { env, origin: ORIGIN, headers: KEY });
+    expect(keys).toEqual([]);
+    expect((await call('/corrections/admin.json', { env, origin: ORIGIN, headers: { 'X-Admin-Key': 'bad' } })).status).toBe(403);
+    expect(keys).toEqual(['adm:unknown']);
+    allow = false;
+    for (const [path, method] of [['/corrections/apply', 'POST'], ['/reports.json?key=bad', 'GET'], ['/health.json', 'GET']]) {
+        const r = await call(path, { method, body: method === 'POST' ? {} : undefined, env, origin: ORIGIN });
+        expect(r.status, path).toBe(429);
+    }
+    expect(env.AI_STATE_KV.puts).toBe(0);
+    expect((await call('/corrections/admin.json', { env: seeded({}), origin: ORIGIN, headers: { 'X-Admin-Key': 'bad' } })).status).toBe(403);
 });

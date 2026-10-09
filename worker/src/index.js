@@ -3,7 +3,7 @@
 // 回報與後台路徑已在 plan 02-02 搬進來；舊版相容路由在 plan 02-03。
 import { runChain, toLegacy, parseAiBody, parseLegacyBody, BAD_REQUEST_ERROR, TOO_LARGE_ERROR } from './ai.js';
 import { runHealthCheck, readHealth, activeModels, HEALTH_KEY } from './health.js';
-import { handleCorrections } from './corrections.js';
+import { handleCorrections, liveKeySet } from './corrections.js';
 
 const ALLOWED_ORIGIN = 'https://andy-coin.github.io';
 
@@ -38,13 +38,24 @@ export function json(status, obj, origin, env = {}, extra = {}) {
     });
 }
 
-// 後台金鑰檢查：所有後台路徑共用這一個。X-Admin-Key header 優先，舊的 ?key= 第二（B4）。
+// 逐位元組比較，長度不同也走完整個迴圈，不會因為前幾個字就對／錯而提早結束（防計時猜金鑰）
+function safeEqual(a, b) {
+    const x = new TextEncoder().encode(a), y = new TextEncoder().encode(b);
+    let d = x.length ^ y.length;
+    for (let i = 0; i < Math.max(x.length, y.length); i++) d |= (x[i] ?? 0) ^ (y[i] ?? 0);
+    return d === 0;
+}
+
+// 後台金鑰檢查：所有後台路徑共用這一個。X-Admin-Key header 優先；舊的 ?key= 只有舊後台還在用的三條 /reports* 路徑允許（allowQuery），
+// 新的 /corrections/* 與 /health* 一律只收 header，金鑰才不會出現在網址、瀏覽器歷史與日誌裡（B4、WR-04）。
 // 空金鑰一律拒絕，連 USER_REPORT_KEY 沒設定（空字串）時也一樣，不會變成「空對空」放行。
 // ?key= 舊版後台還在用（Worker 會先於 main 部署），v2 移除
-export function adminKeyOk(request, url, env) {
-    const key = request.headers.get('X-Admin-Key') ?? url.searchParams.get('key');
-    return typeof key === 'string' && key !== '' && !!env.USER_REPORT_KEY && key === env.USER_REPORT_KEY;
+export function adminKeyOk(request, url, env, { allowQuery = false } = {}) {
+    const key = request.headers.get('X-Admin-Key') ?? (allowQuery ? url.searchParams.get('key') : null);
+    return typeof key === 'string' && key !== '' && !!env.USER_REPORT_KEY && safeEqual(key, env.USER_REPORT_KEY);
 }
+const LEGACY_ADMIN_PATHS = new Set(['/reports.json', '/reports/decision', '/reports/delete']);
+const ADMIN_PATHS = new Set([...LEGACY_ADMIN_PATHS, '/corrections/admin.json', '/corrections/apply', '/corrections/revoke', '/corrections/clear', '/health.json', '/health/run']);
 
 // 請求本文上限 64 KB，以位元組計（中文一字 3 bytes）。Content-Length 只是宣告、不可信，所以一律邊讀邊數，超過就停止讀取。
 const MAX_BODY_BYTES = 65536;
@@ -138,6 +149,7 @@ async function handleLegacy(request, env, origin) {
 const FEEDBACK_JSON = { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': ALLOWED_ORIGIN };
 const feedbackJson = (obj, status = 200, extra) => new Response(JSON.stringify(obj), { status, headers: extra ? { ...FEEDBACK_JSON, ...extra } : FEEDBACK_JSON });
 // 一次最多讀 800 筆，避免撞到單次請求 1000 個內部操作的上限（E5）
+const LIVE_CONFLICT = { error: 'live', message: '這筆修正已經在線上，請先撤回再處理' };
 const REPORTS_READ_MAX = 800;
 // 超過時告訴後台「列表被截短了」；跨來源要靠 Expose-Headers 才讀得到這個標頭
 const REPORTS_TRUNCATED_HEADERS = {
@@ -145,10 +157,13 @@ const REPORTS_TRUNCATED_HEADERS = {
     'Access-Control-Expose-Headers': 'X-Reports-Truncated',
 };
 
+// 使用者端 /feedback 會送的欄位（js/report.js）；全部是字串。ai-word-suggest 的 action 是字串 'accept'|'modify'，後台決定後才會換成物件
+const FEEDBACK_FIELDS = ['type', 'word', 'char', 'reading', 'reportType', 'note', 'suggested', 'modified', 'subject', 'body', 'action'];
+
 // 回傳 null 代表這個路徑不歸這裡管，交給後面的 /ai、/models
 async function handleFeedbackAdmin(request, env, url, origin) {
     const path = url.pathname;
-    const keyOk = () => adminKeyOk(request, url, env);
+    const keyOk = () => adminKeyOk(request, url, env, { allowQuery: true });
     const forbidden = () => new Response('Forbidden', { status: 403, headers: corsHeaders(origin, env) });
 
     // /feedback：儲存回報到 KV（先判斷方法，再判斷來源；只認正式網站，不受本機開關影響）
@@ -160,7 +175,11 @@ async function handleFeedbackAdmin(request, env, url, origin) {
         try {
             const body = await readBodyCapped(request, MAX_FEEDBACK_BYTES);
             if (!body.ok) return feedbackJson({ error: TOO_LARGE_ERROR.message }, 413);
-            const data = JSON.parse(body.text);
+            const raw = JSON.parse(body.text);
+            if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return feedbackJson({ error: 'bad request' }, 400);
+            // 只收回報會用到的字串欄位。status／decided_at／decided_by／action 物件／kvKey 是後台才能寫的，陌生人送來的一律丟掉（CR-01）
+            const data = {};
+            for (const k of FEEDBACK_FIELDS) if (typeof raw[k] === 'string') data[k] = raw[k];
             const key = `${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
             await env.USER_FEEDBACK_KV.put(key, JSON.stringify({ ...data, ts: new Date().toISOString() }));
             return feedbackJson({ ok: true });
@@ -207,15 +226,19 @@ async function handleFeedbackAdmin(request, env, url, origin) {
         try {
             const { kvKey, status, action } = await request.json();
             if (!kvKey || !status) return feedbackJson({ error: 'kvKey and status required' }, 400);
+            // 已經在線上的回報不能改成別的狀態（要先撤回）：就算後台那頭沒讀到修正層、或另一個分頁沒更新，Worker 也擋得住（WR-01）
+            if (status !== 'agreed' && (await liveKeySet(env)).has(kvKey)) return feedbackJson(LIVE_CONFLICT, 409);
             const val = await env.USER_FEEDBACK_KV.get(kvKey);
             if (!val) return feedbackJson({ error: 'Not Found' }, 404);
             const obj = JSON.parse(val);
             if (status === 'pending') {
-                delete obj.status; delete obj.decided_at; delete obj.action;
+                delete obj.status; delete obj.decided_at; delete obj.action; delete obj.decided_by;
             } else {
                 obj.status = status;
                 obj.decided_at = new Date().toISOString();
                 if (action) obj.action = action; else delete obj.action;
+                // decided_by 只有這裡（通過金鑰檢查的後台）寫得進去；套用時認這個，不認 status，所以 /feedback 偽造不了（CR-01）
+                if (status === 'agreed') obj.decided_by = 'admin'; else delete obj.decided_by;
             }
             await env.USER_FEEDBACK_KV.put(kvKey, JSON.stringify(obj));
             return feedbackJson({ ok: true });
@@ -231,6 +254,7 @@ async function handleFeedbackAdmin(request, env, url, origin) {
         try {
             const { kvKey } = await request.json();
             if (!kvKey) return feedbackJson({ error: 'kvKey required' }, 400);
+            if ((await liveKeySet(env)).has(kvKey)) return feedbackJson(LIVE_CONFLICT, 409);
             await env.USER_FEEDBACK_KV.delete(kvKey);
             return feedbackJson({ ok: true });
         } catch (e) {
@@ -268,12 +292,18 @@ async function route(request, env) {
     const url = new URL(request.url);
     const { pathname } = url;
     if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: corsHeaders(origin, env) });
+    // 後台路徑金鑰不對：先過一道每 IP 限流（只算失敗的，金鑰對的人不吃額度），擋住拿腳本猜金鑰；沒有限流器綁定就只回 403（WR-05）
+    if (ADMIN_PATHS.has(pathname) && !adminKeyOk(request, url, env, { allowQuery: LEGACY_ADMIN_PATHS.has(pathname) })) {
+        if (await isRateLimited(request, env, 'adm:')) return json(429, { ok: false, code: 'RATE_LIMITED', message: RATE_LIMITED_MESSAGE }, origin, env);
+        if (pathname.startsWith('/corrections/')) return json(403, { ok: false, code: 'FORBIDDEN', message: '金鑰不對' }, origin, env);
+        return new Response('Forbidden', { status: 403, headers: corsHeaders(origin, env) });
+    }
     const admin = await handleFeedbackAdmin(request, env, url, origin);
     if (admin) return admin;
     const corr = await handleCorrections(request, env, url, {
         json: (status, obj, extra) => json(status, obj, origin, env, extra),
         readBodyCapped,
-        adminKeyOk: () => adminKeyOk(request, url, env),
+        adminKeyOk: () => adminKeyOk(request, url, env),   // 新的 /corrections/* 只收 header
         originAllowed: () => originAllowed(origin, env),
     });
     if (corr) return corr;

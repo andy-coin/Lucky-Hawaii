@@ -163,7 +163,7 @@ async function main() {
     // (7) 排程寫入的健康文件（排程在背景執行，輪詢最多 10 秒）
     let doc = null;
     for (let i = 0; i < 20 && !doc; i++) {
-        r = await call(`/health.json?key=${ADMIN}`);
+        r = await call('/health.json', { headers: AK });
         if (r.status === 200) { const d = await r.json(); if (d.checkedAt && d.active?.length === 6) doc = d; }
         if (!doc) await sleep(500);
     }
@@ -171,7 +171,7 @@ async function main() {
 
     // (8) 把一個模型弄壞，手動重跑後選單跟著變
     deadModels.add('gemini-3.8-flash');
-    r = await call(`/health/run?key=${ADMIN}`, { method: 'POST' });
+    r = await call('/health/run', { method: 'POST', headers: AK });
     j = await r.json();
     must(r.status === 200 && Array.isArray(j.active) && !j.active.includes('gemini-3.8-flash') && j.active.length === 5, 'POST /health/run 反映壞掉的模型', j);
     r = await call('/models');

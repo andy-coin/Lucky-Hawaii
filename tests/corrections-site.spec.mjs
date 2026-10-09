@@ -5,7 +5,7 @@ import { readFileSync } from 'node:fs';
 import { bootPage, settle, EMPTY_CORRECTIONS, stubManifest, stubPack, packEntry } from './helpers.mjs';
 import { FakeKV, makeEnv, bridgeWorker } from './worker-helpers.mjs';
 
-const report = JSON.stringify({ type: 'word-report', word: '二心', ts: '2026-01-01T00:00:00.000Z', status: 'agreed', action: { type: 'remove_word', word: '二心' } });
+const report = JSON.stringify({ type: 'word-report', word: '二心', ts: '2026-01-01T00:00:00.000Z', status: 'agreed', decided_by: 'admin', action: { type: 'remove_word', word: '二心' } });
 const probe = page => page.evaluate(() => ({
     data: (wordlistData || []).map(e => e.w),
     phon: ['一心', '二心'].map(w => wordPhoneticMap.has(w)),

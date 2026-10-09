@@ -293,6 +293,7 @@ test('排程：scheduled 用 waitUntil 跑健康檢查，KV 裡出現 health 紀
 
 // ==================== 清單（AI 鏈與網站選單跟著每日結果走；後台可查看與重跑） ====================
 const ORIGIN = 'https://andy-coin.github.io';
+const HK = { 'X-Admin-Key': 'admin-test' };
 const call = (env, path, init = {}) => worker.fetch(new Request('https://w' + path, init), env, makeCtx());
 const getModels = async env => (await call(env, '/models', { headers: { Origin: ORIGIN } })).json();
 const postAi = async (env, body) => {
@@ -390,11 +391,11 @@ test('清單：後台——沒有 USER_REPORT_KEY 設定時，空金鑰也進不
 
 test('清單：後台——/health.json 有金鑰回存起來的紀錄，沒有紀錄回 404', async () => {
     const env = makeEnv();
-    let res = await call(env, '/health.json?key=admin-test');
+    let res = await call(env, '/health.json', { headers: HK });
     expect(res.status).toBe(404);
     expect((await res.json()).ok).toBe(false);
     await seedWithG2Dead(env);
-    res = await call(env, '/health.json?key=admin-test');
+    res = await call(env, '/health.json', { headers: HK });
     expect(res.status).toBe(200);
     const doc = await res.json();
     expect(doc.v).toBe(1);
@@ -407,9 +408,9 @@ test('清單：後台——POST /health/run 立刻探測六個模型並回新紀
     const env = makeEnv();
     const f = allOk();
     try {
-        expect((await call(env, '/health/run?key=admin-test')).status).toBe(405);
+        expect((await call(env, '/health/run', { headers: HK })).status).toBe(405);
         expect(f.calls.length).toBe(0);
-        const res = await call(env, '/health/run?key=admin-test', { method: 'POST' });
+        const res = await call(env, '/health/run', { method: 'POST', headers: HK });
         expect(res.status).toBe(200);
         const doc = await res.json();
         expect(f.calls.length).toBe(6);
@@ -418,4 +419,10 @@ test('清單：後台——POST /health/run 立刻探測六個模型並回新紀
         expect(JSON.parse(env.AI_STATE_KV.m.get('health')).checkedAt).toBe(doc.checkedAt);
         expect((await getModels(env)).checkedAt).toBe(doc.checkedAt);  // /models 立刻跟上
     } finally { f.restore(); }
+});
+
+test('清單：後台——/health* 不收網址上的 ?key=，只認 X-Admin-Key header（WR-04）', async () => {
+    const env = makeEnv();
+    expect((await call(env, '/health.json?key=admin-test')).status).toBe(403);
+    expect((await call(env, '/health/run?key=admin-test', { method: 'POST' })).status).toBe(403);
 });
