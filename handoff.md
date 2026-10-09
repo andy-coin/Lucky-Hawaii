@@ -16,7 +16,11 @@
   - WR-03 judge 補問失敗保留已拿到的判斷（3b9d678）；WR-04 白名單補 裏銹鐧獴菓肽＋歐拉，詞庫包已重建（fca098d）；WR-05 校準詞表換掉與提示範例重複的 4 詞（69113b6）
   - 剩 IN-01～08 為 Info，未修
 - 回歸關卡：`npm test` 423 過／27 跳過／0 失敗（注意：python 一律加 `-B`，tools/ 留 __pycache__ 會讓 lexicon-build 測試失敗）
-- 進行中：Phase 6 verifier → 之後 `/gsd-autonomous --from 7`
+- Phase 6 驗證：human_needed（3/5 自動過、2 項需真 AI），06-UAT.md 4 項；驗收清單更正 5-42／5-43、新增 3-15（高頻中國用語）；commit 952d24f
+- 進行中：`/gsd-autonomous --from 7`
+  - Phase 7 CONTEXT 已寫（`.planning/phases/07-feedback-correction-layer/07-CONTEXT.md`，A～D 全為自主決定）→ UI-SPEC 產生中 → plan → execute
+  - 決定重點：手機回報走「選取 → 批次工具列 🚩回報」；修正層存 AI_STATE_KV `corrections:v1`；`GET /corrections.json` 公開唯讀 60 秒快取；寫回腳本 `tools/corrections/writeback.py`（預設 dry-run，`--apply`／`--push` 才動作，非 main 不清空）
+- 注意：這台不能 push（SSH 下鑰匙圈鎖住）；本機 commit 累積中，Andy 回家後自己 push
 
 ## ⏸ 雲端接力結束（2026-10-04，接回本機繼續）
 

@@ -266,7 +266,28 @@ Plans:
   4. 執行寫回腳本會把修正層寫進 `data/` 並 push；確認線上已生效後才清空修正層，重跑不會重複套用也不會遺失修正〔自動：本機模擬〕
 
 **Human check**: 正式環境實際走一次「核准 → 套用 → 寫回 push → 清空」
-**Plans**: TBD
+**Plans**: 10 plans
+
+Plans:
+**Wave 1**
+- [ ] 07-01-PLAN.md — Tracer：修正層端到端（Worker 套用＋公開讀取＋網站兩段式套用詞庫）、後台金鑰改走 X-Admin-Key、測試基礎設施、?v=0.96.10
+
+**Wave 2** *(blocked on Wave 1 completion)*
+- [ ] 07-02-PLAN.md — Worker：所有核准動作對照、共用重播測試向量、撤回／清空／後台讀取、409／503、/reports.json 分頁 800 筆
+- [ ] 07-03-PLAN.md — 網站：字庫修正層兩段式套用、Worker 失敗／逾時／離線照常可用、換詞庫包只抓一次
+- [ ] 07-04-PLAN.md — 回報入口 Tracer：批次工具列 🚩 回報＋一頁式回報視窗（多選、上限 10、防重複、失敗與限流、無障礙、版面）、頁首改名「意見」
+- [ ] 07-05-PLAN.md — 後台 Tracer：同詞同因合併成列、整列／批次核准駁回（D-12 預設）、篩選與全選、防注入、手機版
+
+**Wave 3** *(blocked on Wave 2 completion)*
+- [ ] 07-06-PLAN.md — AI 詞卡「🚩 回報詞語」模式、右鍵「🚩 回報…」、拿掉字卡／AI 詞卡長按（破音字保留）
+- [ ] 07-07-PLAN.md — 後台「🚀 套用到線上」與撤回、已上線／已寫入資料檔狀態、失敗與 >500 提示、有效讀音併入修正層
+- [ ] 07-08-PLAN.md — 寫回腳本 Tracer：讀修正層、預覽差異、--apply 寫檔＋commit（排版逐字相同、重跑不重複、安全停下）
+
+**Wave 4** *(blocked on Wave 3 completion)*
+- [ ] 07-09-PLAN.md — 寫回腳本：--push → 等線上生效 → 只清這一批、--confirm-only、逾時、409 重試、中斷重跑；真 Worker 端到端
+
+**Wave 5** *(blocked on Wave 4 completion)*
+- [ ] 07-10-PLAN.md — 真 workerd 冒煙（套用／公開讀取／撤回）、DEPLOY.md、Andy 驗收清單與自主決定、整階段總檢查
 **UI hint**: yes
 
 ### Phase 8: Songs & Editor Model 歌曲管理與資料模型
