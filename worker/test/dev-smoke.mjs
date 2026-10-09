@@ -66,9 +66,9 @@ async function main() {
     wrangler.stdout.on('data', d => { wranglerLog += d; });
     wrangler.stderr.on('data', d => { wranglerLog += d; });
 
-    const call = (path, { method = 'GET', origin = LOCAL, body } = {}) => fetch(base + path, {
+    const call = (path, { method = 'GET', origin = LOCAL, body, headers = {} } = {}) => fetch(base + path, {
         method,
-        headers: { ...(origin ? { Origin: origin } : {}), ...(body ? { 'Content-Type': 'application/json' } : {}) },
+        headers: { ...(origin ? { Origin: origin } : {}), ...(body ? { 'Content-Type': 'application/json' } : {}), ...headers },
         body: body ? JSON.stringify(body) : undefined,
     });
 
@@ -109,6 +109,51 @@ async function main() {
     r = await call(`/reports.json?key=${ADMIN}`);
     j = await r.json();
     must(Array.isArray(j) && j.length === 1 && j[0].kvKey && j[0].word === '測試', 'GET /reports.json 讀得到剛存的回報', j);
+
+    // (5a)–(5e) 修正層：核准（標頭金鑰）→ 套用 → 網站公開讀取 → 撤回（Phase 7）
+    const AK = { 'X-Admin-Key': ADMIN };
+    const WORD = '冒煙詞';
+    r = await call('/corrections/apply', { method: 'OPTIONS', body: undefined, headers: { 'Access-Control-Request-Method': 'POST', 'Access-Control-Request-Headers': 'x-admin-key,content-type' } });
+    must(r.status === 204 && /X-Admin-Key/i.test(r.headers.get('Access-Control-Allow-Headers') || ''), '(5a) OPTIONS /corrections/apply 預檢允許 X-Admin-Key', [r.status, r.headers.get('Access-Control-Allow-Headers')]);
+
+    r = await call('/feedback', { method: 'POST', origin: SITE, body: { type: 'word-report', word: WORD, reportType: '不該出現' } });
+    must(r.status === 200, '(5b) POST /feedback 存了「不該出現」的詞回報', r.status);
+    r = await call('/reports.json', { headers: AK });
+    j = await r.json();
+    const rep = Array.isArray(j) ? j.find(x => x.word === WORD) : null;
+    must(rep?.kvKey, '(5b) 用 X-Admin-Key 標頭（網址沒有 key）讀得到那筆回報', j);
+    r = await call('/reports/decision', { method: 'POST', headers: AK, body: { kvKey: rep.kvKey, status: 'agreed', action: { type: 'remove_word', word: WORD, reason: '不該出現' } } });
+    must(r.status === 200, '(5b) POST /reports/decision 用標頭金鑰核准', r.status);
+
+    r = await call('/corrections/admin.json');
+    must(r.status === 403, '(5c) 沒有金鑰讀 /corrections/admin.json 得到 403', r.status);
+    r = await call('/corrections/admin.json', { headers: AK });
+    j = await r.json();
+    must(r.status === 200 && j.rev === 0, '(5c) 有金鑰讀 /corrections/admin.json：修正層還是空的、rev 0', j);
+    r = await call('/corrections/apply', { method: 'POST', headers: AK, body: { kvKeys: [rep.kvKey], baseRev: 0 } });
+    j = await r.json();
+    must(r.status === 200 && j.rev === 1 && j.applied?.length === 1, '(5c) POST /corrections/apply 套用成功、rev 變 1', j);
+    const entryId = j.applied[0].id;
+
+    r = await call('/corrections.json');
+    const rawView = await r.text();
+    j = JSON.parse(rawView);
+    must(r.status === 200 && /max-age=60/.test(r.headers.get('Cache-Control') || ''), '(5d) GET /corrections.json 200 且 Cache-Control 含 max-age=60', [r.status, r.headers.get('Cache-Control')]);
+    must(j.wordlist?.removed?.includes(WORD) && !rawView.includes(rep.kvKey), '(5d) 公開版有被移除的詞、沒有回報的 kvKey', j);
+    r = await call('/corrections.json', { origin: 'https://evil.example' });
+    must(r.status === 403, '(5d) 陌生來源讀 /corrections.json 得到 403', r.status);
+
+    await sleep(1100);   // KV 同一個鍵一秒只能寫一次
+    r = await call('/corrections/revoke', { method: 'POST', headers: AK, body: { ids: [entryId], baseRev: 1 } });
+    must(r.status === 200, '(5e) POST /corrections/revoke 撤回成功', await r.clone().text());
+    // wrangler 本機 KV 的讀取快取可能慢一下，輪詢最多 3 秒
+    let gone = false;
+    for (let i = 0; i < 12 && !gone; i++) {
+        r = await call('/corrections.json');
+        gone = !(await r.json()).wordlist?.removed?.includes(WORD);
+        if (!gone) await sleep(250);
+    }
+    must(gone, '(5e) 撤回後公開版不再有那個詞');
 
     // (6) 真的排程觸發
     r = await call('/cdn-cgi/local/scheduled?format=json');
