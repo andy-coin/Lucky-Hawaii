@@ -90,8 +90,7 @@ body {
 .btn:hover { opacity: .85; }
 .btn-reload { background: rgba(255,255,255,.22); color: #fff; }
 .btn-theme  { background: rgba(255,255,255,.18); color: #fff; padding: 6px 10px; }
-.btn-export { background: #fff; color: var(--header-grad-2); }
-.btn-export:disabled { opacity: .4; cursor: not-allowed; }
+#exportBtn:disabled { opacity: .4; cursor: not-allowed; }
 
 /* ── Layout ── */
 .main {
@@ -229,7 +228,7 @@ body {
   <label class="toggle"><input type="checkbox" id="showArchived"> 顯示已封存 (<span id="archivedCount">0</span>)</label>
   <button class="btn btn-theme" onclick="toggleTheme()" title="切換亮/暗">🌓</button>
   <button class="btn btn-reload" id="reloadBtn" onclick="reload()">🔄 重新載入</button>
-  <button class="btn btn-export" id="exportBtn" disabled onclick="exportChanges()">💾 匯出 agreed</button>
+  <button class="btn btn-reload" id="exportBtn" disabled onclick="exportChanges()">💾 匯出 agreed（備援）</button>
 </div>
 
 <!-- 批次工具列 + 橡皮筋框 -->
@@ -279,7 +278,7 @@ body {
 .card-reading { font-size: 1.125rem; }
 .card-subject { font-size: 0.875rem; font-weight: 700; }
 .card.live { border-left-color: var(--action-bg); opacity: 1; }
-.action-preview.live { color: var(--info-text); border-color: rgba(90,103,216,.4); background: rgba(90,103,216,.12); }
+.action-preview.live { color: var(--info-text); border-color: rgba(90,103,216,.4); background: rgba(90,103,216,.08); }   /* .12 的亮色對比只有 4.44，降到 .08 */
 .count-pill {
   display: inline-block; flex-shrink: 0; white-space: nowrap;
   padding: 4px 8px; border-radius: 20px; font-size: 0.75rem; font-weight: 700;
@@ -344,6 +343,8 @@ body {
 .apply-line.err { color: var(--err-text); background: rgba(229,62,62,.12); }
 .apply-line.warn { color: var(--warn-text); background: rgba(217,119,6,.12); }
 .apply-line.neutral { color: var(--text-primary); background: var(--section-badge-bg); }
+.apply-retry { background: none; color: var(--info-text); padding: 4px 8px; font-size: 0.875rem; font-weight: 700; text-decoration: underline; }
+.live-badge { padding: 4px 8px; border-radius: 20px; font-size: 0.75rem; font-weight: 700; background: rgba(90,103,216,.08); color: var(--info-text); }   /* UI-SPEC 寫 .18，亮色底只有 4.1:1，降到 .08 才過 4.5 */
 .btn-undo.btn-revoke { color: var(--warn-text); font-size: 0.875rem; font-weight: 700; }
 /* ── 篩選列 ── */
 .filter-row {
@@ -447,10 +448,15 @@ async function _loadRhymeOvr() {
     _rhymeOvr = res.ok ? await res.json() : {};
   } catch(e) { _rhymeOvr = {}; }
 }
+// 有效讀音 = 字庫 → data 裡的修正檔 → 線上修正層的 view（E6），這樣取代讀音時看到的是連鎖修正後的結果
 function getEffectiveReadings(char) {
   const keys = [...(CHAR_READINGS.get(char) || [])];
-  const ovr = _rhymeOvr;
-  if (!ovr) return keys;
+  if (_rhymeOvr) applyReadingOvr(keys, char, _rhymeOvr);
+  const lv = layer.view && layer.view.rhymeDict;
+  if (lv) applyReadingOvr(keys, char, lv);
+  return keys;
+}
+function applyReadingOvr(keys, char, ovr) {
   for (const r of ovr.removed || [])
     if (r.char === char) { const i = keys.indexOf(r.dict_key); if (i >= 0) keys.splice(i, 1); }
   for (const r of ovr.hidden || [])
@@ -459,7 +465,6 @@ function getEffectiveReadings(char) {
     if (r.char === char) { const i = keys.indexOf(r.from); if (i >= 0) keys[i] = r.to; }
   for (const r of ovr.added || [])
     if (r.char === char && !keys.includes(r.dict_key)) keys.push(r.dict_key);
-  return keys;
 }
 </script>
 <script>
@@ -718,6 +723,7 @@ async function loadLayer(quiet) {
   if (!quiet && loadState === 'ok') render();
 }
 
+function retryLayer() { layer.state = 'loading'; render(); loadLayer(); }
 const failReason = status => status === 401 || status === 403 ? '金鑰不對' : `伺服器回應 ${status}`;
 const applyFail = reason => ({ kind: 'err', text: `套用沒有成功：${reason}。已核准的內容都還在，可以直接再按一次。` });
 
@@ -730,18 +736,25 @@ async function applyApproved() {
   const rows = _groups.filter(g => g.st.counts.approved).map(g => g.key);
   rows.forEach(k => { busyGroups.add(k); rowErrors.delete(k); });
   render();
-  let msg = null, any = false;
+  let msg = null, any = false, skipped = 0;
   try {
     for (let i = 0; i < keys.length; i += 100) {
       const res = await adminFetch('/corrections/apply', jsonPost({ kvKeys: keys.slice(i, i + 100), baseRev: layer.rev }));
+      if (res.status === 409) { msg = { kind: 'err', text: MSG_409 + '套用' }; break; }
       if (!res.ok) { msg = applyFail(failReason(res.status)); break; }
-      layer.rev = (await res.json()).rev; any = true;
+      const d = await res.json();
+      layer.rev = d.rev; any = true;
+      // 重複的（已套用／已寫入）不算沒套用；其餘是 Worker 重驗後不收的，仍留在等待套用
+      skipped += (d.skipped || []).filter(x => !['already_applied', 'already_written'].includes(x.reason)).length;
     }
   } catch (e) { msg = applyFail('網路不通'); }
   if (any) await loadLayer(true);
   layerBusy = applying = batchBusy = false;
   rows.forEach(k => busyGroups.delete(k));
-  applyMsg = msg || { kind: 'ok', text: `已套用 ${keys.length} 筆。約 1～2 分鐘內生效，網站重新整理就會看到。` };
+  const done = keys.length - skipped;
+  applyMsg = msg || (done
+    ? { kind: 'ok', text: `已套用 ${done} 筆。約 1～2 分鐘內生效，網站重新整理就會看到。` + (skipped ? `另有 ${skipped} 筆沒有套用（內容不符規則），仍留在等待套用。` : '') }
+    : applyFail(`${skipped} 筆的內容都不符規則，沒有一筆被套用`));
   render();
 }
 
@@ -756,6 +769,8 @@ async function revokeGroup(groupKey) {
   try {
     const res = await adminFetch('/corrections/revoke', jsonPost({ ids, baseRev: layer.rev }));
     if (res.ok) { await loadLayer(true); msg = { kind: 'neutral', text: `已撤回「${subjectLabel(g)}」，約 1～2 分鐘內從線上移除` }; }
+    else if (res.status === 404) msg = { kind: 'err', text: '這筆修正已不在線上（可能已撤回或已寫入資料檔），請重新載入' };
+    else if (res.status === 409) msg = { kind: 'err', text: MSG_409 + '試' };
     else msg = { kind: 'err', text: `撤回沒有成功：${failReason(res.status)}。可以再按一次。` };
   } catch (e) { msg = { kind: 'err', text: '撤回沒有成功：網路不通。可以再按一次。' }; }
   layerBusy = false; busyGroups.delete(groupKey);
@@ -912,9 +927,17 @@ function render() {
 // 黏在最上面的套用列：修正層筆數、等待套用幾筆、🚀 按鈕，以及最近一次套用／撤回的結果
 function applyBarHtml() {
   const ok = layer.state === 'ok', m = pendingKeys().length;
-  const summary = ok ? `線上修正層：<b>${layer.entries.length}</b> 筆 · 等待套用：<b>${m}</b> 筆` : '線上修正層：讀取中…';
+  const n = layer.entries.length;
+  const summary = ok ? `線上修正層：<b>${n}</b> 筆 · 等待套用：<b>${m}</b> 筆`
+    : layer.state === 'error' ? '線上修正層：讀取失敗 <button type="button" class="btn apply-retry" data-act="layer-retry" aria-label="重新讀取線上修正層" title="重新讀取線上修正層">重試</button>'
+    : '線上修正層：讀取中…';
   const note = ok ? (m ? '按下後約 1～2 分鐘內生效（網站重新整理就會看到）' : '沒有等待套用的核准項目') : '';
-  const line = applyMsg ? `<div class="apply-line ${applyMsg.kind}" role="${applyMsg.kind === 'err' ? 'alert' : 'status'}">${esc(applyMsg.text)}</div>` : '';
+  // 提示行依序：讀不到 → 修正層太大（C6，只是提醒，不停用套用）→ 最近一次套用／撤回的結果
+  const lines = [];
+  if (layer.state === 'error') lines.push({ kind: 'err', text: '讀不到線上修正層，請檢查網路或金鑰後按「重試」' });
+  if (ok && n > 500) lines.push({ kind: 'warn', text: `修正層已經有 ${n} 筆（超過 500 筆）。建議先跑寫回腳本 npm run corrections:writeback，把修正寫進 data。仍然可以繼續套用。` });
+  if (applyMsg) lines.push(applyMsg);
+  const line = lines.map(l => `<div class="apply-line ${l.kind}" role="${l.kind === 'err' ? 'alert' : 'status'}">${esc(l.text)}</div>`).join('');
   return `<div class="apply-bar" id="applyBar">
     <div class="apply-text"><div class="apply-summary">${summary}</div><div class="apply-note">${note}</div></div>
     <button type="button" class="btn btn-apply" id="applyBtn" data-act="apply"${ok && m && !layerBusy ? '' : ' disabled'}>${applying ? '套用中…' : `🚀 套用到線上（${m}）`}</button>
@@ -1395,10 +1418,11 @@ function renderGroupRow(g) {
   const pill = merged ? `<span class="count-pill${n >= 3 ? ' many' : ''}">×${n}</span>` : '';
   const err = rowErrors.get(g.key);
 
+  const liveBadge = st.counts.live ? '<span class="live-badge">已上線</span>' : '';   // 文字標明，不只靠顏色
   return `<div class="card group ${esc(cls || 'pending')}${sel ? ' selected' : ''}" data-group="${esc(g.key)}">
     <div class="card-header">
       <label class="row-check-wrap"><input type="checkbox" class="row-check" data-act="check" data-group="${esc(g.key)}" aria-label="${esc('選取 ' + name + ' 的回報')}"${sel ? ' checked' : ''}></label>
-      ${badge}${headline}${pill}<span class="card-time">${times}</span>
+      ${badge}${headline}${liveBadge}${pill}<span class="card-time">${times}</span>
     </div>
     ${mergedHtml}
     ${body}
@@ -2267,6 +2291,7 @@ mainEl.addEventListener('click', e => {
     case 'ai':               return execAI(gk, el.dataset.mode);
     case 'apply':            return applyApproved();
     case 'revoke':           return revokeGroup(gk);
+    case 'layer-retry':      return retryLayer();
   }
 });
 mainEl.addEventListener('keydown', e => {

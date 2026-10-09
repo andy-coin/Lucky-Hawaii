@@ -860,6 +860,7 @@ test('後台：有效讀音 — 取代讀音的下拉選單看得到修正層：
     const options = async env => {
         const { context, page } = await bootAdmin(browser, { reports, env });
         await page.getByRole('button', { name: '✏️ 取代舊讀音' }).click();
+        await page.locator('#editSelect').waitFor();
         const opts = await page.locator('#editSelect option').allTextContents();
         await context.close();
         return opts;
