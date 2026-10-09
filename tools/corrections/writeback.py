@@ -9,14 +9,18 @@
   python3 -B tools/corrections/writeback.py --apply         寫 data/wordlist-overrides.json、
                                                             data/rhyme-dict-overrides.json、
                                                             data/applied-changes.log，並只 commit 這三個檔
-  python3 -B tools/corrections/writeback.py --apply --push  （之後的版本）推上線、確認線上生效後才清空修正層
-  python3 -B tools/corrections/writeback.py --confirm-only  （之後的版本）自己 push 之後，只做確認與清空
+  python3 -B tools/corrections/writeback.py --apply --push  在 main 上寫檔、commit、push，等線上網站真的換成新資料，
+                                                            才清空「這一批」修正層（等最久 --timeout 秒，預設 1200 即 20 分鐘，
+                                                            每 --poll-interval 秒看一次，預設 30）
+  python3 -B tools/corrections/writeback.py --confirm-only  不寫檔、不 commit、不 push（任何分支都可以）：只確認線上已生效並清空
+                                                            日誌裡已記過 id 的那幾筆（合併到 main 之後，或逾時之後用這個）
 
 退出碼：0 成功或沒事可做 · 2 讀不到修正層或沒有金鑰 · 3 資料不合格或 git 失敗
         · 4 線上確認逾時 · 5 清空失敗
 
-不支援同時跑兩個：請一次只開一個寫回，避免兩邊同時改 data/ 與 git。
-重跑是安全的：已寫入的修正不會重複寫、不會重複記日誌、不會重複 commit。
+不支援同時跑兩個：請一次只開一個寫回，避免兩邊同時改 data/ 與 git（腳本沒有鎖）。
+重跑是安全的：已寫入的修正不會重複寫、不會重複記日誌、不會重複 commit；任何一步中斷都直接重跑
+（或確認階段用 --confirm-only）。清空只動「已寫進資料檔日誌」的那批 id，寫回期間新套用的修正會留在修正層。
 """
 import argparse
 import json
@@ -24,7 +28,9 @@ import os
 import re
 import subprocess
 import sys
+import time
 import unicodedata
+import http.client
 import urllib.error
 import urllib.request
 from datetime import datetime
@@ -40,6 +46,10 @@ RHYME_FILE = 'data/rhyme-dict-overrides.json'
 LOG_FILE = 'data/applied-changes.log'
 TARGET_PATHS = (WORD_FILE, RHYME_FILE, LOG_FILE)
 BUCKETS = ('removed', 'hidden', 'fixed', 'added')
+CLEAR_CHUNK = 100       # Worker 一次最多收 100 個 id
+CLEAR_PAUSE = 1.1       # KV 同一個 key 每秒只能寫一次：分批清空時批與批之間等一下
+LIVE_TIMEOUT_MSG = ('等了 %g 秒，線上網站還沒換成新資料。不是壞掉，CDN 還沒更新，過幾分鐘用 --confirm-only 重跑；'
+                    '修正層一筆都沒清')
 NOT_LIVE_MSG = '目前不在 main：已寫檔並 commit，不 push、不清空。合併到 main 後用 --confirm-only 完成確認與清空'
 
 
@@ -435,33 +445,138 @@ def commit_targets(repo, count, rev):
     return True
 
 
+# ==================== 推上線、等線上生效、清空這一批 ====================
+
+def confirmed_batch(entries, logged_ids):
+    """這一批 = 修正層裡「id 已記在 applied-changes.log」的項目（照修正層順序）。
+    寫回期間或在別的分支才套用的修正沒有記過，所以不在這批、也不會被清掉。"""
+    return [e for e in entries if e['id'] in logged_ids]
+
+
+def git_push(repo, remote, branch):
+    r = git(repo, 'push', remote, branch)
+    if r.returncode != 0:
+        raise Stop(3, 'git push 失敗，修正層沒有動：%s' % (r.stderr or r.stdout).strip())
+
+
+def fetch_live(site):
+    """抓網站上現在的兩個修正檔。?cb= 只是順手加的，GitHub Pages 的 CDN 會無視網址參數，不能靠它。"""
+    cb = int(time.time())
+    docs = []
+    for rel in (WORD_FILE, RHYME_FILE):
+        req = urllib.request.Request('%s/%s?cb=%d' % (site.rstrip('/'), rel, cb),
+                                     headers={'User-Agent': USER_AGENT, 'Cache-Control': 'no-cache'})
+        with urllib.request.urlopen(req, timeout=15) as res:
+            docs.append(json.loads(res.read().decode('utf-8')))
+    return docs[0], docs[1]
+
+
+def wait_until_live(site, batch, timeout, interval, now=time.monotonic, sleep=time.sleep):
+    """輪詢到 merge(線上, 這批) == 線上（不看 updated_at）為止；merge 是冪等的，所以不需要任何狀態。逾時回 False。"""
+    deadline = now() + timeout
+    n = 0
+    while True:
+        n += 1
+        try:
+            live_word, live_rhyme = fetch_live(site)
+            if not (isinstance(live_word, dict) and isinstance(live_rhyme, dict)):
+                raise ValueError('not a document')
+            m_word, m_rhyme = merge(live_word, live_rhyme, batch)
+            if _content(m_word) == _content(live_word) and _content(m_rhyme) == _content(live_rhyme):
+                return True
+            print('第 %d 次確認：線上還是舊資料' % n, flush=True)
+        except (OSError, ValueError, http.client.HTTPException) as e:   # 讀不到一律當作還沒生效（URLError 也是 OSError）
+            print('第 %d 次確認：讀不到線上資料（%s）' % (n, type(e).__name__), flush=True)
+        if now() >= deadline:
+            return False
+        sleep(max(0, min(interval, deadline - now())))
+
+
+def _post_clear(worker, key, ids, rev):
+    req = urllib.request.Request(
+        worker.rstrip('/') + '/corrections/clear', data=json.dumps({'ids': ids, 'baseRev': rev}).encode('utf-8'),
+        method='POST', headers={'X-Admin-Key': key, 'User-Agent': USER_AGENT, 'Content-Type': 'application/json'})
+    try:
+        with urllib.request.urlopen(req, timeout=15) as res:
+            return res.status, json.loads(res.read().decode('utf-8'))
+    except urllib.error.HTTPError as e:
+        try:
+            return e.code, json.loads(e.read().decode('utf-8'))
+        except (OSError, ValueError):
+            return e.code, {}
+    except (OSError, ValueError, http.client.HTTPException) as e:
+        raise Stop(5, '清空修正層失敗（%s）；資料已在線上、修正層沒有動，可以用 --confirm-only 重跑' % type(e).__name__)
+
+
+def clear_ids(worker, key, ids, rev):
+    """POST /corrections/clear，只清這些 id。409（rev 對不上）→ 重抓 rev、同樣的 id 再試一次；仍失敗 exit 5。
+    ponytail: 超過 100 筆分批、批間固定等 1.1 秒（KV 每秒一次寫入）；量大了再改成依回應重試 503。"""
+    cleared = []
+    for i in range(0, len(ids), CLEAR_CHUNK):
+        chunk = ids[i:i + CLEAR_CHUNK]
+        if i:
+            time.sleep(CLEAR_PAUSE)
+        code, doc = _post_clear(worker, key, chunk, rev)
+        if code == 409:
+            try:
+                rev = fetch_layer(worker, key)['rev']
+            except Stop:
+                raise Stop(5, '清空遇到 409，重抓修正層版本失敗；修正層沒有動，可以用 --confirm-only 重跑')
+            code, doc = _post_clear(worker, key, chunk, rev)
+        if code != 200 or not isinstance(doc, dict) or not doc.get('ok'):
+            raise Stop(5, '清空修正層失敗：伺服器回應 %d；修正層沒有被這支腳本改動（已清的批次除外），可以用 --confirm-only 重跑' % code)
+        cleared.extend(doc.get('cleared') or [])
+        rev = doc.get('rev', rev)
+    return cleared
+
+
+def finish_live(args, key, batch):
+    """等線上生效 → 只清這一批。呼叫前 batch 已通過 check_entries。"""
+    ids = [e['id'] for e in batch]
+    print('等線上網站換成新資料（最久 %g 秒，每 %g 秒看一次）…' % (args.timeout, args.poll_interval), flush=True)
+    if not wait_until_live(args.site, batch, args.timeout, args.poll_interval):
+        raise Stop(4, LIVE_TIMEOUT_MSG % args.timeout)
+    layer = fetch_layer(args.worker, key)        # 等的期間 rev 可能變了：用最新的，409 才不會常發生
+    left = [e for e in layer['entries'] if e['id'] not in set(ids)]
+    cleared = clear_ids(args.worker, key, ids, layer['rev'])
+    print('已清空這批 %d 筆；寫回期間新套用的 %d 筆仍留在修正層' % (len(cleared), len(left)))
+    return 0
+
+
 # ==================== 主流程 ====================
 
 def build_parser():
     p = argparse.ArgumentParser(description='把線上修正層寫回 data/ 的修正檔（預設只預覽）')
     p.add_argument('--apply', action='store_true', help='寫檔並 commit（預設只預覽）')
-    p.add_argument('--push', action='store_true', help='（之後的版本）推上線並在確認後清空修正層')
-    p.add_argument('--confirm-only', action='store_true', help='（之後的版本）只做線上確認與清空')
+    p.add_argument('--push', action='store_true', help='推上線（要和 --apply 一起用，只有在 --live-branch 上才會 push），確認線上生效後清空這一批')
+    p.add_argument('--confirm-only', action='store_true', help='不寫檔不 commit 不 push，只確認線上已生效並清空已寫入的那批（任何分支都可以）')
     p.add_argument('--worker', default=WORKER_URL, help='Worker 網址')
     p.add_argument('--site', default=SITE_URL, help='網站網址（線上確認用）')
     p.add_argument('--repo', default=str(Path(__file__).resolve().parents[2]), help='專案根目錄')
     p.add_argument('--remote', default='origin', help='git remote 名稱')
     p.add_argument('--live-branch', default='main', help='線上網站來自哪個分支')
-    p.add_argument('--timeout', type=float, default=1200, help='線上確認的逾時秒數')
-    p.add_argument('--poll-interval', type=float, default=30, help='線上確認的輪詢間隔秒數')
+    p.add_argument('--timeout', type=float, default=1200, help='線上確認的逾時秒數（預設 1200，即 20 分鐘）')
+    p.add_argument('--poll-interval', type=float, default=30, help='線上確認的輪詢間隔秒數（預設 30）')
     return p
 
 
 def run(args):
-    if args.push or args.confirm_only:
-        # 對外動作（push、清空）要等下一版；現在遇到就明確拒絕，絕不默默略過
-        raise Stop(3, '--push／--confirm-only 目前還沒有（這一版只做到寫檔與 commit），什麼都沒做')
+    if args.push and not args.apply and not args.confirm_only:
+        raise Stop(3, '--push 要和 --apply 一起用，什麼都沒做')
     key = os.environ.get(KEY_ENV, '')
     if not key:
         raise Stop(2, '請先設定環境變數 %s' % KEY_ENV)
     repo = Path(args.repo)
     layer = fetch_layer(args.worker, key)
     entries = layer['entries']
+    if args.confirm_only:
+        # 不碰資料檔、不 commit、不 push，任何分支都可以：只處理日誌裡已記過 id 的那幾筆
+        batch = confirmed_batch(entries, read_logged_ids(repo / LOG_FILE))
+        if not batch:
+            print('沒有需要確認的修正')
+            return 0
+        check_entries(batch)
+        return finish_live(args, key, batch)
     if not entries:
         print('修正層是空的，沒有要寫回的')
         return 0
@@ -474,11 +589,10 @@ def run(args):
     print('讀到修正層 rev %s，共 %d 筆' % (layer.get('rev'), len(entries)))
     for line in diff:
         print(line)
-    if not diff and all(e['id'] in logged for e in entries):
-        print('資料檔已包含這批修正')
-        return 0
+    already = not diff and all(e['id'] in logged for e in entries)
     if not args.apply:
-        print('（預覽）加 --apply 才會寫檔並 commit')
+        print('資料檔已包含這批修正（還沒清空修正層的話，推上線後用 --confirm-only）' if already
+              else '（預覽）加 --apply 才會寫檔並 commit')
         return 0
     if git_ok(repo, 'status', '--porcelain', '--', *TARGET_PATHS).strip():
         raise Stop(3, 'data 檔有還沒 commit 的修改，請先處理（什麼都沒寫）')
@@ -491,8 +605,18 @@ def run(args):
     if branch != args.live_branch:
         print(NOT_LIVE_MSG.replace('main', args.live_branch))
         return 0
-    print('已 commit；要推上線請加 --push（或自己 push 後用 --confirm-only）')
-    return 0
+    if not args.push:
+        print('已 commit；要推上線請加 --push（或自己 push 後用 --confirm-only）')
+        return 0
+    # 沒有新 commit 也要 push：上一次可能 commit 完就被中斷，commit 還沒出去
+    git_push(repo, args.remote, args.live_branch)
+    print('已 push %s %s' % (args.remote, args.live_branch))
+    # 這一批 = 修正層裡已記在日誌的項目；寫回期間才套用的不在其中
+    batch = confirmed_batch(entries, read_logged_ids(repo / LOG_FILE))
+    if not batch:
+        print('沒有需要確認的修正')
+        return 0
+    return finish_live(args, key, batch)
 
 
 def main(argv=None):

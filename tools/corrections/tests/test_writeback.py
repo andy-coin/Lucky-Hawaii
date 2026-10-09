@@ -266,13 +266,11 @@ class SafetyStops(WritebackCase):
         self.assertIn('已 commit；要推上線請加 --push', out)
         self.assertNotIn('目前不在 main', out)
 
-    def test_push_and_confirm_only_are_refused_for_now(self):
-        git(self.repo, 'checkout', '-b', 'gsd/test')
+    def test_push_without_apply_is_refused(self):
         before = self.state()
         w = self.worker([self.good])
-        for flag in ('--push', '--confirm-only'):
-            code, out, err = self.run_main(['--worker', w.url, '--repo', str(self.repo), '--apply', flag])
-            self.assertEqual(code, 3)
+        code, out, err = self.run_main(['--worker', w.url, '--repo', str(self.repo), '--push'])
+        self.assertEqual(code, 3)
         self.assertEqual(self.state(), before)
 
     def test_commit_failure_exits_3_and_keeps_the_changes(self):
