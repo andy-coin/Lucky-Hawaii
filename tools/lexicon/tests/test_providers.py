@@ -431,7 +431,8 @@ class SelectProviderTest(unittest.TestCase):
 
     def test_urls_must_be_https_or_local(self):
         for bad in ('http://example.com', 'ftp://x', 'example.com', 'http://localhost:8787',
-                    'http://127.0.0.1.evil.com/x', 'http://127.0.0.1@evil.com/x', 'https://user:pw@example.com/x'):
+                    'http://127.0.0.1.evil.com/x', 'http://127.0.0.1@evil.com/x', 'https://user:pw@example.com/x',
+                    'https://[x', 'https://example.com:99999/x'):
             with self.assertRaises(LexError, msg=bad):
                 judge.select_provider('auto', 'm', {'LEX_AI_URL': bad})
         judge.select_provider('auto', 'm', {'LEX_AI_URL': 'http://127.0.0.1:8787'})

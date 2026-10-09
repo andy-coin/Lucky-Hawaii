@@ -474,7 +474,11 @@ class WorkerProvider(TextProvider):
 def _checked_url(value, what):
     """網址必須是 https://（本機測試可用 http://127.0.0.1）；金鑰與詞只送往這個位置。"""
     value = value.strip()
-    parts = urllib.parse.urlsplit(value)
+    try:
+        parts = urllib.parse.urlsplit(value)
+        parts.port   # 埠號不合法（非數字、超出範圍）也在這裡擋下
+    except ValueError:
+        raise LexError('%s 不是合法的網址' % what) from None
     local = parts.scheme == 'http' and parts.hostname == '127.0.0.1'
     # 用解析後的主機判斷（不能只比對開頭，否則 127.0.0.1.evil.com、127.0.0.1@evil.com 會通過）
     if not ((parts.scheme == 'https' and parts.hostname) or local) or parts.username or parts.password:
