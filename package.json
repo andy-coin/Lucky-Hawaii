@@ -15,7 +15,9 @@
     "lexicon:verify": "python3 -B tools/lexicon/build.py verify",
     "lexicon:eval": "python3 -B tools/lexicon/build.py eval",
     "lexicon:judge": "python3 -B tools/lexicon/build.py judge --rebuild",
-    "lexicon:test": "python3 -B -m unittest discover -s tools/lexicon/tests -t tools/lexicon"
+    "lexicon:test": "python3 -B -m unittest discover -s tools/lexicon/tests -t tools/lexicon",
+    "corrections:writeback": "python3 -B tools/corrections/writeback.py",
+    "corrections:test": "python3 -B -m unittest discover -s tools/corrections/tests -t tools/corrections"
   },
   "devDependencies": {
     "@playwright/test": "1.63.0",
