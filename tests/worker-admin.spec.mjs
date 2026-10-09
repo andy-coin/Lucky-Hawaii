@@ -200,3 +200,82 @@ test('admin：回報路徑不影響 AI 路徑（/models 照常、未知路徑仍
     expect((await call('/models', { origin: ORIGIN, env })).status).toBe(200);
     expect((await call('/nope', { origin: ORIGIN, env })).status).toBe(404);
 });
+
+// ==================== Phase 7：後台金鑰改走 X-Admin-Key，所有後台路徑共用同一個檢查 ====================
+const H = (key = 'admin-test') => ({ 'X-Admin-Key': key });
+const withHeaders = (path, { method = 'GET', body, headers, origin = ORIGIN, env } = {}) => worker.fetch(
+    new Request('https://w' + path, {
+        method, headers: { Origin: origin, ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}), ...headers },
+        body: body === undefined ? undefined : JSON.stringify(body),
+    }), env, { waitUntil() {} });
+
+test('admin：/reports.json 用 X-Admin-Key header（不帶網址金鑰）→ 200 陣列；錯的 header → 403 Forbidden', async () => {
+    const env = seeded({ a: record({ n: 'a' }) });
+    const ok = await withHeaders('/reports.json', { headers: H(), env });
+    expect(ok.status).toBe(200);
+    expect((await ok.json()).map(i => i.n)).toEqual(['a']);
+    const bad = await withHeaders('/reports.json', { headers: H('wrong'), env });
+    expect(bad.status).toBe(403);
+    expect(await bad.text()).toBe('Forbidden');
+    // header 優先：header 錯、網址金鑰對 → 仍然拒絕
+    expect((await withHeaders('/reports.json?key=admin-test', { headers: H('wrong'), env })).status).toBe(403);
+});
+
+test('admin：/reports/decision 與 /reports/delete 用 header 的結果和網址金鑰相同', async () => {
+    const env = seeded({ k1: record(), k2: record() });
+    const dec = await withHeaders('/reports/decision', { method: 'POST', body: { kvKey: 'k1', status: 'agreed', action: { type: 'remove_word', word: '心' } }, headers: H(), env });
+    expect(dec.status).toBe(200);
+    expect(JSON.parse(env.USER_FEEDBACK_KV.m.get('k1')).status).toBe('agreed');
+    const del = await withHeaders('/reports/delete', { method: 'POST', body: { kvKey: 'k2' }, headers: H(), env });
+    expect(del.status).toBe(200);
+    expect([...env.USER_FEEDBACK_KV.m.keys()]).toEqual(['k1']);
+    for (const path of ['/reports/decision', '/reports/delete']) {
+        const r = await withHeaders(path, { method: 'POST', body: { kvKey: 'k1', status: 'agreed' }, headers: H('wrong'), env });
+        expect(r.status).toBe(403);
+        expect(await r.text()).toBe('Forbidden');
+    }
+    expect(JSON.parse(env.USER_FEEDBACK_KV.m.get('k1')).status).toBe('agreed');
+});
+
+test('admin：/health.json 用 header → 和網址金鑰一樣（沒有紀錄 404）；錯 header → 403', async () => {
+    const env = makeEnv();
+    expect((await withHeaders('/health.json', { headers: H(), env })).status).toBe(404);
+    expect((await withHeaders('/health.json?key=admin-test', { env })).status).toBe(404);
+    const bad = await withHeaders('/health.json', { headers: H('wrong'), env });
+    expect(bad.status).toBe(403);
+    expect(await bad.text()).toBe('Forbidden');
+    expect((await withHeaders('/health/run', { method: 'POST', headers: H('wrong'), env })).status).toBe(403);
+});
+
+test('admin：伺服器沒設金鑰（空字串）時，空 header、空網址金鑰在每個後台路徑都被拒絕', async () => {
+    const env = makeEnv({ USER_REPORT_KEY: '', USER_FEEDBACK_KV: new FakeKV({ k1: record() }) });
+    const hit = [];
+    for (const [path, method] of [['/reports.json', 'GET'], ['/reports/decision', 'POST'], ['/reports/delete', 'POST'], ['/health.json', 'GET'], ['/health/run', 'POST'], ['/corrections/apply', 'POST']]) {
+        for (const [label, q, headers] of [['空 header', '', H('')], ['空網址金鑰', '?key=', {}], ['都沒給', '', {}]]) {
+            const res = await withHeaders(path + q, { method, body: method === 'POST' ? { kvKey: 'k1', status: 'agreed', kvKeys: ['k1'], baseRev: 0 } : undefined, headers, env });
+            if (res.status !== 403) hit.push(`${path} ${label} → ${res.status}`);
+        }
+    }
+    expect(hit).toEqual([]);
+    expect(env.USER_FEEDBACK_KV.m.has('k1')).toBe(true);
+    expect(env.USER_FEEDBACK_KV.puts).toBe(0);
+});
+
+test('admin：舊路徑的 403 仍是純文字 Forbidden，但帶 CORS 標頭（跨來源的後台才讀得到）', async () => {
+    const env = seeded({ k1: record() });
+    for (const [path, method] of [['/reports.json', 'GET'], ['/reports/decision', 'POST'], ['/reports/delete', 'POST'], ['/health.json', 'GET'], ['/health/run', 'POST']]) {
+        const res = await withHeaders(path, { method, headers: H('wrong'), env });
+        expect(res.status, path).toBe(403);
+        expect(await res.text(), path).toBe('Forbidden');
+        expect(res.headers.get('Access-Control-Allow-Origin'), path).toBe(ORIGIN);
+        expect(res.headers.get('Vary'), path).toBe('Origin');
+    }
+});
+
+test('admin：預檢 OPTIONS /corrections/apply → 204，允許 X-Admin-Key，結果快取 7200 秒', async () => {
+    const res = await withHeaders('/corrections/apply', { method: 'OPTIONS', env: makeEnv() });
+    expect(res.status).toBe(204);
+    expect(res.headers.get('Access-Control-Allow-Origin')).toBe(ORIGIN);
+    expect(res.headers.get('Access-Control-Allow-Headers')).toContain('X-Admin-Key');
+    expect(res.headers.get('Access-Control-Max-Age')).toBe('7200');
+});

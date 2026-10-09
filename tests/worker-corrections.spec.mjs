@@ -137,3 +137,49 @@ test('修正層 Worker：寫入失敗 → 503 KV_BUSY；文件損毀 → 500 且
     expect((await call('/corrections.json', { origin: ORIGIN, env: bad })).status).toBe(500);
     expect(bad.AI_STATE_KV.m.get('corrections:v1')).toBe('{oops');
 });
+
+test('修正層 Worker：預檢允許 X-Admin-Key', async () => {
+    const res = await call('/corrections/apply', { method: 'OPTIONS', origin: ORIGIN, env: makeEnv() });
+    expect(res.status).toBe(204);
+    expect(res.headers.get('Access-Control-Allow-Headers')).toBe('Content-Type, X-Admin-Key');
+    expect(res.headers.get('Access-Control-Max-Age')).toBe('7200');
+});
+
+test('修正層 Worker：空金鑰一律拒絕', async () => {
+    const env = makeEnv({ USER_REPORT_KEY: '', USER_FEEDBACK_KV: new FakeKV({ k1: report() }) });
+    for (const headers of [{ 'X-Admin-Key': '' }, {}]) {
+        const res = await apply(env, ['k1'], 0, headers);
+        expect(res.status).toBe(403);
+    }
+    expect(env.AI_STATE_KV.puts).toBe(0);
+});
+
+test('修正層 Worker：FakeKV failPut 讓下一次 put 丟錯一次，然後復原', async () => {
+    const kv = new FakeKV();
+    kv.failPut = true;
+    await expect(kv.put('a', '1')).rejects.toThrow('1 write per second');
+    expect(kv.failPut).toBe(false);
+    await kv.put('a', '1');
+    expect(await kv.get('a')).toBe('1');
+});
+
+test('修正層 Worker：FakeKV staleOnce 讓下一次 get 讀到舊值，之後讀到新值', async () => {
+    const kv = new FakeKV({ a: 'new' });
+    kv.staleOnce('a', 'old');
+    expect(await kv.get('a')).toBe('old');
+    expect(await kv.get('a')).toBe('new');
+});
+
+test('修正層 Worker：FakeKV list 分頁（cursor、limit、pageSize、list_complete）', async () => {
+    const kv = new FakeKV({ c: '3', a: '1', b: '2' });
+    const first = await kv.list({ limit: 2 });
+    expect(first.keys.map(k => k.name)).toEqual(['a', 'b']);
+    expect(first.list_complete).toBe(false);
+    const second = await kv.list({ limit: 2, cursor: first.cursor });
+    expect(second.keys.map(k => k.name)).toEqual(['c']);
+    expect(second.list_complete).toBe(true);
+    kv.pageSize = 1;
+    expect((await kv.list()).keys).toHaveLength(1);
+    const all = new FakeKV({ x: '1', y: '2' });
+    expect(await all.list()).toMatchObject({ list_complete: true, keys: [{ name: 'x' }, { name: 'y' }] });
+});
