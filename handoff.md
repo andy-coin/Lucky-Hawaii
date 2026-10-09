@@ -18,8 +18,13 @@
 - 回歸關卡：`npm test` 423 過／27 跳過／0 失敗（注意：python 一律加 `-B`，tools/ 留 __pycache__ 會讓 lexicon-build 測試失敗）
 - Phase 6 驗證：human_needed（3/5 自動過、2 項需真 AI），06-UAT.md 4 項；驗收清單更正 5-42／5-43、新增 3-15（高頻中國用語）；commit 952d24f
 - 進行中：`/gsd-autonomous --from 7`
-  - Phase 7 CONTEXT 已寫（`.planning/phases/07-feedback-correction-layer/07-CONTEXT.md`，A～D 全為自主決定）→ UI-SPEC 產生中 → plan → execute
-  - 決定重點：手機回報走「選取 → 批次工具列 🚩回報」；修正層存 AI_STATE_KV `corrections:v1`；`GET /corrections.json` 公開唯讀 60 秒快取；寫回腳本 `tools/corrections/writeback.py`（預設 dry-run，`--apply`／`--push` 才動作，非 main 不清空）
+  - Phase 7 回報與修正層：10/10 計畫完成（commit 961f18a…a819f61），`npm test` 548 過／27 跳過／0 失敗，`corrections:test` 42 OK，`worker:smoke`／`worker:check` 過
+    - Worker：`worker/src/corrections.js`（apply／revoke／clear／admin.json／公開 `/corrections.json`）、`adminKeyOk`（X-Admin-Key 優先）
+    - 網站：`js/wordlist.js`、`js/dict.js` 兩段式套用＋`loadCorrections`（3 秒逾時略過）；`js/report.js` 🚩 回報視窗；`js/ai-word-events.js` AI 回報模式；頁尾「回報」改名「意見」；`?v=0.96.10`
+    - 後台：`admin/index.html` 合併列、批次核准／駁回、🚀 套用到線上、撤回
+    - 寫回腳本：`tools/corrections/writeback.py`（`npm run corrections:writeback`）
+    - 驗收：精簡版 2-18～2-24、3-16～3-18、4-16～4-18、5-51～5-63；`-linux.png` 截圖基準 16 張待雲端 `npm run visual:update`
+  - 下一步：Phase 7 code review（進行中）→ verifier → Phase 8
 - 注意：這台不能 push（SSH 下鑰匙圈鎖住）；本機 commit 累積中，Andy 回家後自己 push
 
 ## ⏸ 雲端接力結束（2026-10-04，接回本機繼續）
