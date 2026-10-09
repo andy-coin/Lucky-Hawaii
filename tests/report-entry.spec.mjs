@@ -558,3 +558,114 @@ test('回報入口：切換斷點', async ({ browser }) => {
         expect(r.home, '🚩 回報跟著批次面板搬進手機版面').toBe('mobileBatchArea');
     } finally { await context.close(); }
 });
+
+// ===== AI 詞卡回報模式（07-06，D-03） =====
+const AI_REPLY = '美音、原因、光陰';
+// 搜尋 心 → 生成（詞庫 stub 只有 12 個候選，由 mock 的 Worker 補 AI 詞）。按鈕直接觸發 click，與 smoke 一樣
+async function generateAi(page) {
+    await page.fill('#searchInput', '心');
+    await settle(page);
+    await page.evaluate(() => document.getElementById('generateBtn').click());
+    await page.waitForFunction(() => !document.getElementById('generateBtn').disabled && !document.getElementById('aiWordsContainer').textContent.includes('AI 生成補充詞'));
+    await page.waitForSelector('.ai-word-card .ai-badge');
+}
+const openAiPanel = page => page.evaluate(() => { if (document.getElementById('rightPanel').classList.contains('collapsed')) toggleRightPanel(); });
+const savedCount = page => page.evaluate(() => savedWords.length);
+
+test('回報入口：AI 回報模式', async ({ browser }) => {
+    const bodies = [];
+    const { context, page, errors } = await bootPage(browser, { wordlist: 'stub', aiReply: AI_REPLY, beforeGoto: capture(bodies) });
+    await generateAi(page);
+    await openAiPanel(page);
+    const row = page.locator('#aiReportRow');
+    await expect(row).toBeVisible();
+    await expect(page.locator('#aiReportStart')).toHaveText('🚩 回報詞語');
+    // 一般點擊照舊：存進保留區
+    const cards = page.locator('.ai-word-card');
+    const before = await savedCount(page);
+    await cards.nth(0).click();
+    expect(await savedCount(page)).toBe(before + 1);
+    // 進入選取模式：點詞不存、只選取
+    await page.locator('#aiReportStart').click();
+    await expect(page.locator('#aiWordsContainer')).toHaveClass(/report-mode/);
+    await expect(page.locator('#aiReportText')).toHaveText('點選要回報的詞');
+    await expect(page.locator('#aiReportSend')).toBeHidden();
+    await cards.nth(1).click();
+    await cards.nth(2).click();
+    expect(await savedCount(page), '選取模式不能存詞').toBe(before + 1);
+    await expect(page.locator('#aiReportText')).toHaveText('已選 2 個詞');
+    await expect(page.locator('.ai-word-card.report-picked')).toHaveCount(2);
+    await expect(page.locator('#aiReportSend')).toHaveText('回報（2）');
+    await expect(page.locator('#aiReportSend')).toHaveAttribute('aria-label', '回報已選的 2 個詞');
+    // 再點一次取消選取
+    await cards.nth(2).click();
+    await expect(page.locator('#aiReportText')).toHaveText('已選 1 個詞');
+    await cards.nth(2).click();
+    const words = await page.locator('.ai-word-card.report-picked').evaluateAll(els => els.map(e => e.dataset.word));
+    expect(words).toHaveLength(2);
+    // 開同一個回報視窗、選原因、送出：每個詞一筆
+    await page.locator('#aiReportSend').click();
+    await expect(page.locator('#reportModalOverlay')).toHaveClass(/show/);
+    await expect(page.locator('#reportTitle')).toHaveText('回報 2 個字詞');
+    await page.locator('.report-reason[data-reason="不該出現"]').click();
+    await page.locator('#reportSendBtn').click();
+    await expect(page.locator('#reportModalOverlay')).not.toHaveClass(/show/);
+    expect(bodies).toEqual(words.map(word => ({ type: 'word-report', word, reportType: '不該出現' })));
+    // 成功後離開模式、清掉選取，再點詞又是存進保留區
+    await expect(page.locator('#aiWordsContainer')).not.toHaveClass(/report-mode/);
+    await expect(page.locator('.ai-word-card.report-picked')).toHaveCount(0);
+    await expect(page.locator('#aiReportStart')).toBeVisible();
+    await cards.nth(3).click();
+    expect(await savedCount(page)).toBe(before + 2);
+    // 結束選取：離開並清掉選取
+    await page.locator('#aiReportStart').click();
+    await cards.nth(4).click();
+    await page.locator('#aiReportExit').click();
+    await expect(page.locator('#aiWordsContainer')).not.toHaveClass(/report-mode/);
+    await expect(page.locator('.ai-word-card.report-picked')).toHaveCount(0);
+    expect(errors.filter(e => !e.includes('Failed to load resource'))).toEqual([]);
+    await context.close();
+});
+
+test('回報入口：AI 列隱藏', async ({ browser }) => {
+    const { context, page } = await bootPage(browser, { wordlist: 'stub', aiReply: AI_REPLY });
+    await expect(page.locator('#aiReportRow')).toHaveAttribute('hidden', '');
+    await generateAi(page);
+    await expect(page.locator('#aiReportRow')).not.toHaveAttribute('hidden', '');
+    // 進入模式選一個，再按一次生成：模式關掉、選取清掉、新詞卡出現後列又回到一般狀態
+    await openAiPanel(page);
+    await page.locator('#aiReportStart').click();
+    await page.locator('.ai-word-card').first().click();
+    await expect(page.locator('#aiReportText')).toHaveText('已選 1 個詞');
+    await page.evaluate(() => document.getElementById('generateBtn').click());
+    await page.waitForFunction(() => !document.getElementById('generateBtn').disabled && !document.getElementById('aiWordsContainer').textContent.includes('AI 生成補充詞'));
+    await expect(page.locator('#aiWordsContainer')).not.toHaveClass(/report-mode/);
+    await expect(page.locator('.ai-word-card.report-picked')).toHaveCount(0);
+    await expect(page.locator('#aiReportExit')).toBeHidden();
+    // 詞卡被清空（換搜尋重置）：整列藏起來
+    await page.evaluate(() => { document.getElementById('aiWordsContainer').innerHTML = ''; });
+    await expect(page.locator('#aiReportRow')).toHaveAttribute('hidden', '');
+    await context.close();
+});
+
+for (const [name, device] of [['手機 390', DEVICES.phone], ['觸控平板橫放 1180', DEVICES.tabletLandscape]]) {
+    test(`回報入口：AI 列觸控（${name}）`, async ({ browser }) => {
+        const { context, page } = await bootPage(browser, { wordlist: 'stub', aiReply: AI_REPLY, device });
+        try {
+            await generateAi(page);
+            await openAiPanel(page);
+            await waitStill(page);
+            const idle = await auditTouchTargets(page, { mustSee: ['#aiReportStart'] });
+            expect(idle.missing).toEqual([]);
+            expect(idle.failures.filter(f => /ai-report/.test(f.selector)), '回報詞語鈕點擊範圍要 ≥ 44×44').toEqual([]);
+            await page.locator('#aiReportStart').click();
+            await page.locator('.ai-word-card').first().click();
+            await waitStill(page);
+            const on = await auditTouchTargets(page, { mustSee: ['#aiReportSend', '#aiReportExit'] });
+            expect(on.missing).toEqual([]);
+            expect(on.failures.filter(f => /ai-report/.test(f.selector)), '回報（n）與結束選取點擊範圍要 ≥ 44×44').toEqual([]);
+            const sw = await page.evaluate(() => ({ sw: document.scrollingElement.scrollWidth, cw: document.scrollingElement.clientWidth }));
+            expect(sw.sw, '整頁不能橫向捲動').toBeLessThanOrEqual(sw.cw + 1);
+        } finally { await context.close(); }
+    });
+}

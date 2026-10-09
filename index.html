@@ -342,6 +342,12 @@
                 <div class="ai-exhausted" id="wordlistProgress" style="display:none"></div>
                 <button class="generate-btn" id="generateBtn" onclick="generateAISuggestions()">✨提供詞語建議</button>
                 <div class="ai-loading" id="aiLoading" style="display:none">AI 思考中…</div>
+                <div class="ai-report-row" id="aiReportRow" hidden>
+                    <span class="ai-report-text" id="aiReportText"></span>
+                    <button type="button" class="ai-report-btn" id="aiReportStart" aria-label="進入選取模式，回報 AI 建議的詞語" title="進入選取模式，回報 AI 建議的詞語">🚩 回報詞語</button>
+                    <button type="button" class="ai-report-btn primary" id="aiReportSend" hidden>回報（0）</button>
+                    <button type="button" class="ai-report-btn" id="aiReportExit" hidden aria-label="結束回報選取，回到一般點選儲存" title="結束回報選取，回到一般點選儲存">結束選取</button>
+                </div>
                 <div class="ai-words-grid" id="aiWordsContainer"></div>
             </div>
             <div class="saved-pool-section" id="savedPoolSection">

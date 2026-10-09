@@ -251,7 +251,7 @@
         const _reportedSet = new Set();
         // 視窗狀態只活在這個物件：items 是開啟當下的快照，換選取也不會變；
         // msg 是送出後的結果訊息 { text, error }；epoch 每次關閉加 1，讓還在跑的送出知道視窗已經關了
-        const _report = { items: [], reason: null, opener: null, sending: false, cut: false, msg: null, epoch: 0 };
+        const _report = { items: [], reason: null, opener: null, onSent: null, sending: false, cut: false, msg: null, epoch: 0 };
         const _rpt = id => document.getElementById(id);
 
         // 讀目前選取的字卡 → 回報項目（依畫面順序；壞掉的卡與重複的卡略過）
@@ -340,7 +340,8 @@
         }
 
         // 打開回報視窗；items 預設是目前選取的字卡。什麼都沒選就只跳提示（D-02）
-        function openReportDialog(items) {
+        // opts.onSent：全部送出成功後呼叫（AI 詞卡回報模式用它離開選取）
+        function openReportDialog(items, opts) {
             const list = Array.isArray(items) ? items : _reportItemsFromSelection();
             if (list.length === 0) { showToast('先點一下要回報的字，再按回報'); return; }
             _report.items = list.slice(0, REPORT_MAX);
@@ -348,6 +349,7 @@
             _report.reason = null;
             _report.sending = false;
             _report.msg = null;
+            _report.onSent = opts && typeof opts.onSent === 'function' ? opts.onSent : null;
             _report.opener = document.activeElement;
             _rpt('reportNote').value = '';
             _renderReportState();
@@ -384,7 +386,7 @@
             const todo = _report.items.filter(it => !_reportedSet.has(_reportKey(it, reportType)));
             if (todo.length === 0) return;
             const note = Array.from(_rpt('reportNote').value.trim()).slice(0, REPORT_NOTE_MAX).join('');
-            const epoch = _report.epoch;
+            const epoch = _report.epoch, onSent = _report.onSent;
             _report.sending = true;
             _report.msg = null;
             _renderReportState();
@@ -401,6 +403,7 @@
                 const n = _report.items.length;
                 showToast(n === 1 ? `已回報「${_reportItemLabel(_report.items[0])}」— ${_report.reason}` : `已回報 ${n} 個字詞，謝謝你`);
                 closeReportDialog();
+                if (onSent) onSent();
                 return;
             }
             // 失敗：視窗、原因、說明都留著；已送出的標成「已回報過」，使用者可以直接再按一次
