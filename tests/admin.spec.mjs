@@ -668,3 +668,260 @@ test('後台：撤回 — 一鍵撤回二心，列回到已核准未套用，等
     expect((await publicView(env)).wordlist.hidden).toEqual([]);
     await context.close();
 });
+
+// ===== 07-07 Task 2：失敗原因、409／503、重按、超過 500 筆、已寫入、有效讀音、備援匯出 =====
+// 預檢請求（OPTIONS）放給 Worker 橋處理，其餘才交給 fn；fn 回 true 表示自己處理了
+const except = (pathname, fn) => intercept(pathname, (route, req) => (req.method() === 'OPTIONS' ? false : fn(route, req)));
+const fakeRes = (status, body = {}) => route => { route.fulfill({ status, contentType: 'application/json', headers: { 'access-control-allow-origin': BASE }, body: JSON.stringify(body) }); return true; };
+const hooks = (...hs) => async ctx => { for (const h of hs) await h(ctx); };
+const seedLayer = (entries, extra = {}) => ({ AI_STATE_KV: new FakeKV({ 'corrections:v1': JSON.stringify({ version: 1, rev: 3, updated_at: null, entries, written: [], ...extra }) }) });
+const entryFor = (i, kvKey) => ({ id: `c_${i}`, target: 'wordlist', bucket: 'hidden', value: `詞${i}`, source_kvKeys: [kvKey ?? `seed${i}`], applied_at: '2026-10-09T01:00:00.000Z' });
+const manyEntries = n => Array.from({ length: n }, (_, i) => entryFor(i));
+const oneApproved = () => [agreed(word('二心', '極度冷僻', T1), hideWord('二心'))];
+const applyBtn = page => page.locator('#applyBtn');
+
+test('後台：套用失敗 — 金鑰不對／網路不通／伺服器回應 503 各有白話原因，狀態不變，套用重新可按，再按就成功', async ({ browser }) => {
+    let mode = '403';
+    const { context, page, env } = await bootAdmin(browser, {
+        reports: approvedFour(),
+        hook: except('/corrections/apply', (route, req) => {
+            if (mode === '403') return fakeRes(403, { ok: false })(route);
+            if (mode === 'abort') { route.abort(); return true; }
+            if (mode === '503') return fakeRes(503, { ok: false, code: 'KV_BUSY' })(route);
+            return false;
+        }),
+    });
+    const err = page.locator('.apply-line.err');
+    for (const [m, reason] of [['403', '金鑰不對'], ['abort', '網路不通'], ['503', '伺服器回應 503']]) {
+        mode = m;
+        await applyBtn(page).click();
+        await expect(err).toHaveText(`套用沒有成功：${reason}。已核准的內容都還在，可以直接再按一次。`);
+        await expect(applyBtn(page)).toBeEnabled();
+        await expect(applyBtn(page)).toHaveText('🚀 套用到線上（4）');
+        await expect(page.locator('.apply-summary')).toHaveText('線上修正層：0 筆 · 等待套用：4 筆');
+        await expect(rowOf(page, '二心', '極度冷僻').locator('.action-preview')).toContainText('（等待套用）');
+        expect(env.AI_STATE_KV.m.has('corrections:v1')).toBe(false);
+    }
+    mode = 'ok';
+    await applyBtn(page).click();
+    await expect(page.locator('.apply-line.ok')).toBeVisible();
+    await expect(err).toHaveCount(0);
+    expect(layerDoc(env).entries).toHaveLength(2);
+    await context.close();
+});
+
+test('後台：409 — 修正層在別處變動過，套用顯示請重新載入，不寫入；重新載入後可以套用', async ({ browser }) => {
+    let stale = true;
+    // 線上 rev 是 5，頁面讀到的卻是舊的 4
+    const { context, page, env, calls } = await bootAdmin(browser, {
+        reports: oneApproved(), env: seedLayer([], { rev: 5 }),
+        hook: except('/corrections/admin.json', (route, req) => (stale && req.method() === 'GET'
+            ? fakeRes(200, { ok: true, version: 1, rev: 4, updated_at: null, entries: [], written: [], view: null })(route) : false)),
+    });
+    await applyBtn(page).click();
+    await expect(page.locator('.apply-line.err')).toHaveText('線上修正層剛剛有變動，請按「重新載入」後再套用');
+    expect(JSON.parse(applyCalls(calls)[0].body).baseRev).toBe(4);
+    expect(layerDoc(env).entries).toHaveLength(0);
+    await expect(applyBtn(page)).toBeEnabled();
+    stale = false;
+    await page.locator('#reloadBtn').click();
+    await expect(page.locator('.apply-line')).toHaveCount(0);   // 重新載入清掉舊訊息
+    await applyBtn(page).click();
+    await expect(page.locator('.apply-line.ok')).toBeVisible();
+    expect(layerDoc(env).entries).toHaveLength(1);
+    await context.close();
+});
+
+test('後台：重按 — 送出中只有一個請求、列顯示處理中…、選取鎖住；成功後同樣的 kvKey 再送一次不會多出條目', async ({ browser }) => {
+    let release;
+    const gate = new Promise(r => { release = r; });
+    const { context, page, env, calls } = await bootAdmin(browser, {
+        reports: approvedFour(),
+        hook: except('/corrections/apply', async () => { await gate; return false; }),
+    });
+    await applyBtn(page).dblclick();
+    await expect(applyBtn(page)).toHaveText('套用中…');
+    await expect(applyBtn(page)).toBeDisabled();
+    await applyBtn(page).dispatchEvent('click');   // 硬送一次也不會多送
+    for (const r of await page.locator('.card.group').all()) await expect(r.locator('.action-preview')).toHaveText('處理中…');
+    for (const b of await page.locator('.card-actions button').all()) await expect(b).toBeDisabled();
+    for (const b of await page.locator('#batchBar button').all()) await expect(b).toBeDisabled();
+    await page.locator('.card.group').first().locator('.row-check').dispatchEvent('click');
+    await expect(page.locator('#batchBar')).not.toHaveClass(/show/);
+    release();
+    await expect(page.locator('.apply-line.ok')).toBeVisible();
+    expect(applyCalls(calls)).toHaveLength(1);
+
+    // 逾時後重按：同一批 kvKey 再送，Worker 說已套用過，修正層不變
+    const again = await page.evaluate(async keys => {
+        const res = await adminFetch('/corrections/apply', jsonPost({ kvKeys: keys, baseRev: layer.rev }));
+        return { status: res.status, body: await res.json() };
+    }, [0, 1, 2, 3].map(kvKeyOf));
+    expect(again.status).toBe(200);
+    expect(again.body.skipped.map(s => s.reason)).toEqual(['already_applied', 'already_applied', 'already_applied', 'already_applied']);
+    expect(layerDoc(env).entries).toHaveLength(2);
+    await context.close();
+});
+
+test('後台：套用部分略過 — Worker 不收的那筆仍留在等待套用，訊息說明', async ({ browser }) => {
+    const { context, page } = await bootAdmin(browser, {
+        reports: [agreed(word('甲', '極度冷僻', T1), hideWord('甲')), agreed(word('<x>', '極度冷僻', T2), hideWord('<x>'))],
+    });
+    await applyBtn(page).click();
+    await expect(page.locator('.apply-line.ok')).toHaveText('已套用 1 筆。約 1～2 分鐘內生效，網站重新整理就會看到。另有 1 筆沒有套用（內容不符規則），仍留在等待套用。');
+    await expect(page.locator('.apply-summary')).toHaveText('線上修正層：1 筆 · 等待套用：1 筆');
+    await context.close();
+});
+
+test('後台：超過 500 筆 — 剛好 500 筆沒有提示，501 筆出現琥珀色提示且套用仍可按', async ({ browser }) => {
+    let boot = await bootAdmin(browser, { reports: oneApproved(), env: seedLayer(manyEntries(500)) });
+    await expect(boot.page.locator('.apply-summary')).toHaveText('線上修正層：500 筆 · 等待套用：1 筆');
+    await expect(boot.page.locator('.apply-line.warn')).toHaveCount(0);
+    await boot.context.close();
+
+    boot = await bootAdmin(browser, { reports: oneApproved(), env: seedLayer(manyEntries(501)) });
+    await expect(boot.page.locator('.apply-line.warn')).toHaveText('修正層已經有 501 筆（超過 500 筆）。建議先跑寫回腳本 npm run corrections:writeback，把修正寫進 data。仍然可以繼續套用。');
+    await expect(applyBtn(boot.page)).toBeEnabled();
+    await boot.context.close();
+});
+
+test('後台：讀取失敗 — 修正層讀不到時顯示讀取失敗與重試，套用停用；重試成功後恢復；沒有回報時套用列仍在', async ({ browser }) => {
+    let down = true;
+    const { context, page } = await bootAdmin(browser, {
+        reports: oneApproved(),
+        hook: except('/corrections/admin.json', route => (down ? fakeRes(503, { ok: false })(route) : false)),
+    });
+    await expect(page.locator('.apply-summary')).toContainText('線上修正層：讀取失敗');
+    const retry = page.getByRole('button', { name: '重新讀取線上修正層' });
+    await expect(retry).toHaveText('重試');
+    await expect(applyBtn(page)).toBeDisabled();
+    await expect(page.locator('.apply-line.err')).toHaveText('讀不到線上修正層，請檢查網路或金鑰後按「重試」');
+    down = false;
+    await retry.click();
+    await expect(page.locator('.apply-summary')).toHaveText('線上修正層：0 筆 · 等待套用：1 筆');
+    await expect(page.locator('.apply-line')).toHaveCount(0);
+    await expect(applyBtn(page)).toBeEnabled();
+    await context.close();
+
+    // 沒有等待套用的項目、甚至沒有任何回報：套用列照樣在，按鈕停用
+    const empty = await bootAdmin(browser, { reports: [] });
+    await expect(empty.page.locator('.apply-note')).toHaveText('沒有等待套用的核准項目');
+    await expect(applyBtn(empty.page)).toBeDisabled();
+    await expect(applyBtn(empty.page)).toHaveText('🚀 套用到線上（0）');
+    await empty.context.close();
+});
+
+test('後台：已寫入資料檔 — 在 written 清單裡的列顯示已寫入資料檔、歸已上線篩選、沒有撤回，也不算等待套用', async ({ browser }) => {
+    const reports = [agreed(word('二心', '極度冷僻', T1), hideWord('二心')), agreed(word('三心', '極度冷僻', T2), hideWord('三心'))];
+    const { context, page } = await bootAdmin(browser, { reports, env: seedLayer([], { written: [kvKeyOf(0)] }) });
+    const done = rowOf(page, '二心', '極度冷僻');
+    await expect(done.locator('.action-preview')).toHaveText('✓ 已寫入資料檔');
+    await expect(done.getByRole('button', { name: /撤回/ })).toHaveCount(0);
+    await expect(page.locator('.apply-summary')).toHaveText('線上修正層：0 筆 · 等待套用：1 筆');
+    await chip(page, '已上線').click();
+    expect(await visibleWords(page)).toEqual(['二心']);
+    await context.close();
+});
+
+test('後台：備註 — 核准的備註是已處理，不算等待套用', async ({ browser }) => {
+    const { context, page } = await bootAdmin(browser, {
+        reports: [agreed(feedback('想法', '內容', T1), { type: 'note', text: '之後再看' })],
+    });
+    const row = page.locator('.card.group', { hasText: '想法' });
+    await expect(row.locator('.action-preview')).toHaveText('✓ 📝 備註：之後再看');
+    await expect(page.locator('.apply-summary')).toHaveText('線上修正層：0 筆 · 等待套用：0 筆');
+    await expect(applyBtn(page)).toBeDisabled();
+    await chip(page, '已核准未套用').click();
+    await expect(page.locator('.card.group')).toHaveCount(0);
+    await context.close();
+});
+
+test('後台：撤回已不在 — 修正已不在線上時說明原因，頁面維持原樣直到重新載入', async ({ browser }) => {
+    const { context, page, env } = await bootAdmin(browser, { reports: oneApproved() });
+    await applyBtn(page).click();
+    await expect(page.locator('.apply-line.ok')).toBeVisible();
+    // 修正在別處被拿掉了，但版本沒變（所以 Worker 回 404 而不是 409）
+    const doc = layerDoc(env); doc.entries = [];
+    env.AI_STATE_KV.m.set('corrections:v1', JSON.stringify(doc));
+    const row = rowOf(page, '二心', '極度冷僻');
+    await row.getByRole('button', { name: /^從線上撤回「/ }).click();
+    await expect(page.locator('.apply-line.err')).toHaveText('這筆修正已不在線上（可能已撤回或已寫入資料檔），請重新載入');
+    await expect(row.locator('.action-preview')).toContainText('已上線');
+    await expect(page.locator('.apply-summary')).toHaveText('線上修正層：1 筆 · 等待套用：0 筆');
+    await page.locator('#reloadBtn').click();
+    await expect(row.locator('.action-preview')).toContainText('（等待套用）');
+    await context.close();
+});
+
+test('後台：有效讀音 — 取代讀音的下拉選單看得到修正層：被隱藏的讀音不再出現，連鎖修正後的讀音出現', async ({ browser }) => {
+    const hidden = { id: 'c_1', target: 'rhymeDict', bucket: 'hidden', value: { char: '長', dict_key: 'ㄔㄤ2', reading: 'ㄔㄤˊ' }, source_kvKeys: ['x1'], applied_at: '2026-10-09T01:00:00.000Z' };
+    const fixed = { id: 'c_2', target: 'rhymeDict', bucket: 'fixed', value: { char: '長', from: 'ㄓㄤ3', to: 'ㄓㄤ4' }, source_kvKeys: ['x2'], applied_at: '2026-10-09T01:00:00.000Z' };
+    const reports = [char('長', 'ㄔㄤˊ', '建議讀音', T1, { suggested: 'ㄏㄜˊ' })];
+    const options = async env => {
+        const { context, page } = await bootAdmin(browser, { reports, env });
+        await page.getByRole('button', { name: '✏️ 取代舊讀音' }).click();
+        const opts = await page.locator('#editSelect option').allTextContents();
+        await context.close();
+        return opts;
+    };
+    expect(await options({})).toEqual(expect.arrayContaining(['ㄔㄤˊ', 'ㄓㄤˇ']));
+    const withLayer = await options(seedLayer([hidden, fixed]));
+    expect(withLayer).not.toContain('ㄔㄤˊ');
+    expect(withLayer).not.toContain('ㄓㄤˇ');
+    expect(withLayer).toContain('ㄓㄤˋ');
+});
+
+test('後台：備援匯出 — 按鈕改名為匯出 agreed（備援），用 btn-reload 外觀，沒有 agreed 時停用', async ({ browser }) => {
+    let boot = await bootAdmin(browser, { reports: [word('甲', '極度冷僻', T1)] });
+    const btn = boot.page.locator('#exportBtn');
+    await expect(btn).toHaveText('💾 匯出 agreed（備援）');
+    await expect(btn).toHaveClass(/btn-reload/);
+    await expect(btn).toBeDisabled();
+    await boot.context.close();
+    boot = await bootAdmin(browser, { reports: oneApproved() });
+    await expect(boot.page.locator('#exportBtn')).toBeEnabled();
+    await boot.context.close();
+});
+
+test('後台：手機錯誤行 — 390 寬最長的失敗行與超過 500 筆提示在套用列內換行，不蓋到套用按鈕', async ({ browser }) => {
+    const { context, page } = await bootAdmin(browser, {
+        device: DEVICES.phone, reports: oneApproved(), env: seedLayer(manyEntries(501)),
+        hook: except('/corrections/apply', fakeRes(503, { ok: false })),
+    });
+    await applyBtn(page).click();
+    await expect(page.locator('.apply-line.err')).toBeVisible();
+    await expect(page.locator('.apply-line.warn')).toBeVisible();
+    const bar = await page.locator('.apply-bar').boundingBox();
+    const btn = await applyBtn(page).boundingBox();
+    for (const sel of ['.apply-line.err', '.apply-line.warn', '.apply-text']) {
+        const b = await page.locator(sel).boundingBox();
+        expect(b.x, sel).toBeGreaterThanOrEqual(bar.x - 0.5);
+        expect(b.x + b.width, sel).toBeLessThanOrEqual(bar.x + bar.width + 0.5);
+        expect(rectsOverlap(b, btn), `${sel} 蓋到套用按鈕`).toBe(false);
+    }
+    expect(btn.height).toBeGreaterThanOrEqual(44);
+    const m = await page.evaluate(() => ({ sw: document.documentElement.scrollWidth, cw: document.documentElement.clientWidth }));
+    expect(m.sw).toBeLessThanOrEqual(m.cw + 1);
+    await context.close();
+});
+
+test('後台：已上線顏色 — 已上線標籤、套用成功／失敗／警告行在亮暗兩個主題對比 ≥ 4.5，且用文字標明不只靠顏色', async ({ browser }) => {
+    const { context, page } = await bootAdmin(browser, { reports: oneApproved() });
+    await applyBtn(page).click();
+    await expect(page.locator('.apply-line.ok')).toBeVisible();
+    await expect(page.locator('.live-badge')).toHaveText('已上線');
+    await page.evaluate(() => {
+        document.querySelector('.apply-bar').insertAdjacentHTML('beforeend',
+            '<div class="apply-line err" id="probeErr">err</div><div class="apply-line warn" id="probeWarn">warn</div><div class="apply-line neutral" id="probeNeutral">n</div>');
+    });
+    const targets = ['.live-badge', '.action-preview.live', '.apply-line.ok', '#probeErr', '#probeWarn', '#probeNeutral', '.apply-summary', '.apply-note', '.btn-revoke'];
+    for (const theme of ['light', 'dark']) {
+        await page.evaluate(t => { if (t === 'dark') document.documentElement.setAttribute('data-theme', 'dark'); else document.documentElement.removeAttribute('data-theme'); }, theme);
+        for (const sel of targets) {
+            const r = await contrastOf(page, sel);
+            expect(r.missing, `${theme} 找不到 ${sel}`).toBeUndefined();
+            expect(r.ratio, `${theme} ${sel}`).toBeGreaterThanOrEqual(4.5);
+        }
+    }
+    await context.close();
+});
