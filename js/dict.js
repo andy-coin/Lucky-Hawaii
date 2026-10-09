@@ -105,7 +105,7 @@
         }
 
         // ── 修正層：Worker 上已套用、還沒寫回 data 的修正；抓不到就略過，不擋畫面 ──
-        // 每次載入頁面只抓一次（詞庫與字庫共用）；不加 no-cache，讓伺服器的 max-age=60 生效；永遠不 reject
+        // 每次載入頁面只抓一次（詞庫與字庫共用）；讓伺服器的 max-age=60 生效；永遠不 reject；fetch 不帶 cache 選項
         let _corrP = null;
         function loadCorrections() {
             if (_corrP) return _corrP;
