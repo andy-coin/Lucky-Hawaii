@@ -108,6 +108,44 @@ test('admin：/reports.json 依 ts 新到舊，附 kvKey，壞掉的值丟掉，
     expect(items.map(i => i.kvKey)).toEqual(['newest', 'mid', 'old']);
 });
 
+test('admin：/reports.json 鍵很多時用 cursor 一頁一頁列完，全部回傳，不加截斷標頭', async () => {
+    const init = {};
+    for (let i = 0; i < 5; i++) init[`${1700000000000 + i}_ab${i}`] = record({ ts: `2026-01-0${i + 1}T00:00:00.000Z`, n: i });
+    const env = seeded(init);
+    env.USER_FEEDBACK_KV.pageSize = 2;
+    let lists = 0;
+    const realList = env.USER_FEEDBACK_KV.list.bind(env.USER_FEEDBACK_KV);
+    env.USER_FEEDBACK_KV.list = async o => { lists++; return realList(o); };
+    const res = await call('/reports.json?key=admin-test', { env });
+    expect(res.status).toBe(200);
+    const items = await res.json();
+    expect(lists).toBe(3);
+    expect(items.map(i => i.n)).toEqual([4, 3, 2, 1, 0]);
+    expect(items.every(i => typeof i.kvKey === 'string')).toBe(true);
+    expect(res.headers.get('X-Reports-Truncated')).toBeNull();
+});
+
+test('admin：/reports.json 超過 800 筆 → 只讀最新 800 筆（依鍵名的時間前綴），回 X-Reports-Truncated', async () => {
+    const init = {};
+    for (let i = 0; i < 805; i++) init[`${1700000000000 + i}_abcd`] = record({ ts: new Date(1700000000000 + i).toISOString(), n: i });
+    const env = seeded(init);
+    const res = await call('/reports.json?key=admin-test', { env });
+    expect(res.status).toBe(200);
+    const items = await res.json();
+    expect(items).toHaveLength(800);
+    expect(items[0].n).toBe(804);
+    expect(items[799].n).toBe(5);
+    expect(env.USER_FEEDBACK_KV.gets).toBe(800);
+    expect(res.headers.get('X-Reports-Truncated')).toBe('1');
+    expect(res.headers.get('Access-Control-Expose-Headers')).toContain('X-Reports-Truncated');
+    expect(res.headers.get('Access-Control-Allow-Origin')).toBe(ORIGIN);
+    // 剛好 800 筆不算截斷
+    const ok = seeded(Object.fromEntries(Object.entries(init).slice(5)));
+    const res2 = await call('/reports.json?key=admin-test', { env: ok });
+    expect((await res2.json())).toHaveLength(800);
+    expect(res2.headers.get('X-Reports-Truncated')).toBeNull();
+});
+
 test('admin：/reports.json 金鑰錯或沒給 → 403 Forbidden', async () => {
     const env = seeded({ a: record() });
     for (const q of ['', '?key=wrong', '?key=']) {
