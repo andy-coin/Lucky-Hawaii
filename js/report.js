@@ -184,21 +184,28 @@
             if (e.target.closest('.poly-chip')) clearTimeout(_polyLongPressTimer);
         }, { passive: true });
 
-        async function postFeedback(data) {
-            // 回傳是否送出成功；失敗時給使用者一個白話提示（D-08：回報是使用者主動的操作）
+        // 送出一筆回報；回傳 { ok, status }（網路錯誤 status 為 0）。只記錄、不跳提示，由呼叫的人決定怎麼告訴使用者
+        async function postFeedbackRaw(data) {
             try {
                 const res = await fetch(WORKER_URL + '/feedback', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(data)
                 });
-                if (res.ok) return true;
+                if (res.ok) return { ok: true, status: res.status };
                 lhWarn('回報送出失敗：伺服器回應 ' + res.status);
+                return { ok: false, status: res.status };
             } catch(e) {
                 lhWarn('回報送出失敗', e);
+                return { ok: false, status: 0 };
             }
-            showToast('回報沒有送出，請檢查網路後再試一次');
-            return false;
+        }
+
+        async function postFeedback(data) {
+            // 回傳是否送出成功；失敗時給使用者一個白話提示（D-08：回報是使用者主動的操作）
+            const r = await postFeedbackRaw(data);
+            if (!r.ok) showToast('回報沒有送出，請檢查網路後再試一次');
+            return r.ok;
         }
 
         function openFeedbackModal() {
@@ -228,3 +235,130 @@
             } finally { sendBtn.disabled = false; }
         }
 
+        // ===== 回報視窗（Phase 7，FB-01） =====
+        const REPORT_MAX = 10;          // 一次最多回報幾個（每個一筆 KV 寫入）
+        const REPORT_CHIPS_MAX = 8;     // 視窗裡最多列幾個字詞晶片，其餘收成「+k」
+        const REPORT_NOTE_MAX = 500;    // 說明欄上限（Unicode 字元數，不是 UTF-16 長度）
+        // 視窗上的原因 → 實際存進去的 reportType（後台依 reportType 合併）＋選了之後的說明欄提示
+        const REPORT_REASONS = {
+            '讀音錯誤': { type: '讀音錯誤', placeholder: '你覺得正確的讀音是？（選填）例：ㄔㄤˊ', placeholderPinyin: '你覺得正確的讀音是？（選填）例：chang2' },
+            '太冷僻': { type: '極度冷僻', placeholder: '補充說明（選填）' },
+            '不該出現': { type: '不該出現', placeholder: '補充說明（選填）' },
+            '其他': { type: '其他', placeholder: '請簡單說明（選填）' }
+        };
+        const _REPORT_TONE_MARKS = ['', '', 'ˊ', 'ˇ', 'ˋ', '˙'];
+        // 視窗狀態只活在這個物件（不寫 localStorage）：items 是開啟當下的快照，換選取也不會變
+        const _report = { items: [], reason: null, opener: null, sending: false };
+
+        // 讀目前選取的字卡 → 回報項目（依畫面順序；壞掉的卡與重複的卡略過）
+        function _reportItemsFromSelection() {
+            const items = [], seen = new Set();
+            document.querySelectorAll('.char-card.selected').forEach(card => {
+                const char = card.dataset.char, key = card.dataset.key;
+                if (!char || !key || key === 'undefined0' || seen.has(char + key)) return;
+                seen.add(char + key);
+                const base = key.slice(0, -1), tone = parseInt(key.slice(-1), 10) || 1;
+                items.push({ kind: 'char', char, base, tone, reading: base + _REPORT_TONE_MARKS[tone] });
+            });
+            return items;
+        }
+
+        function _reportItemLabel(it) { return it.kind === 'char' ? it.char : it.word; }
+
+        function _renderReportState() {
+            const items = _report.items;
+            const title = document.getElementById('reportTitle');
+            title.textContent = items.length === 1 ? `回報「${_reportItemLabel(items[0])}」` : `回報 ${items.length} 個字詞`;
+            const box = document.getElementById('reportWords');
+            box.textContent = '';
+            items.slice(0, REPORT_CHIPS_MAX).forEach(it => {
+                const chip = document.createElement('span');
+                chip.className = 'report-chip';
+                chip.appendChild(document.createTextNode(_reportItemLabel(it)));
+                if (it.kind === 'char') {
+                    const r = document.createElement('span');
+                    r.className = 'report-chip-reading';
+                    r.textContent = fmtPhonetic(it.base, it.tone);
+                    chip.appendChild(r);
+                }
+                box.appendChild(chip);
+            });
+            if (items.length > REPORT_CHIPS_MAX) {
+                const more = document.createElement('span');
+                more.className = 'report-chip';
+                more.textContent = `+${items.length - REPORT_CHIPS_MAX}`;
+                box.appendChild(more);
+            }
+            document.querySelectorAll('#reportReasons .report-reason').forEach(b => {
+                const on = b.dataset.reason === _report.reason;
+                b.setAttribute('aria-checked', on ? 'true' : 'false');
+                b.querySelector('.report-reason-label').textContent = (on ? '✓ ' : '') + b.dataset.reason;
+            });
+            const info = REPORT_REASONS[_report.reason];
+            document.getElementById('reportNote').placeholder = info
+                ? ((lastSearchType === 'pinyin' && info.placeholderPinyin) || info.placeholder) : '補充說明（選填）';
+            document.getElementById('reportSendBtn').disabled = !_report.reason || _report.sending;
+            document.getElementById('reportSendBtn').textContent = items.length > 1 ? `送出回報（${items.length} 個）` : '送出回報';
+        }
+
+        // 打開回報視窗；items 預設是目前選取的字卡。什麼都沒選就只跳提示（D-02）
+        function openReportDialog(items) {
+            const list = Array.isArray(items) ? items : _reportItemsFromSelection();
+            if (list.length === 0) { showToast('先點一下要回報的字，再按回報'); return; }
+            _report.items = list.slice(0, REPORT_MAX);
+            _report.reason = null;
+            _report.sending = false;
+            _report.opener = document.activeElement;
+            document.getElementById('reportNote').value = '';
+            document.getElementById('reportStatus').textContent = '';
+            _renderReportState();
+            document.getElementById('reportModalOverlay').classList.add('show');
+            document.getElementById('reportTitle').focus();   // 焦點放標題，不放說明欄，手機鍵盤才不會彈出來
+        }
+
+        function closeReportDialog(e) {
+            const overlay = document.getElementById('reportModalOverlay');
+            if (e && e.target !== overlay) return;
+            overlay.classList.remove('show');
+            const op = _report.opener;
+            _report.opener = null;
+            if (op && op.focus && document.contains(op)) op.focus();
+        }
+
+        function _reportPayload(it, reportType, note) {
+            const body = it.kind === 'char'
+                ? { type: 'char-reading-report', char: it.char, reading: it.reading, reportType }
+                : { type: 'word-report', word: it.word, reportType };
+            if (note) body[reportType === '讀音錯誤' ? 'suggested' : 'note'] = note;
+            return body;
+        }
+
+        async function submitReport() {
+            if (!_report.reason || _report.sending) return;
+            const reportType = REPORT_REASONS[_report.reason].type;
+            const note = document.getElementById('reportNote').value.trim();
+            _report.sending = true;
+            _renderReportState();
+            let allOk = true;
+            for (const it of _report.items) {
+                const r = await postFeedbackRaw(_reportPayload(it, reportType, note));
+                if (!r.ok) { allOk = false; break; }
+            }
+            _report.sending = false;
+            if (!allOk) {
+                showToast('回報沒有送出，請檢查網路後再試一次');
+                _renderReportState();
+                return;
+            }
+            const first = _report.items[0];
+            showToast(_report.items.length === 1 ? `已回報「${_reportItemLabel(first)}」— ${_report.reason}` : `已回報 ${_report.items.length} 個字詞，謝謝你`);
+            closeReportDialog();
+        }
+
+        document.querySelectorAll('#reportReasons .report-reason').forEach(b => b.addEventListener('click', () => {
+            if (_report.sending) return;
+            _report.reason = b.dataset.reason;
+            _renderReportState();
+        }));
+        document.getElementById('reportCancelBtn').addEventListener('click', () => closeReportDialog());
+        document.getElementById('reportSendBtn').addEventListener('click', () => submitReport());

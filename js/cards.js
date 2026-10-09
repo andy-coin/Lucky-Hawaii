@@ -231,6 +231,8 @@
             if (el) {
                 el.textContent = selectedChars.size > 0 ? `已選 ${selectedChars.size} 字` : '';
             }
+            // 🚩 回報鈕：沒選字時標成 aria-disabled（仍可按，會跳提示），選了就恢復
+            document.querySelectorAll('.btn-report').forEach(b => b.setAttribute('aria-disabled', selectedChars.size === 0 ? 'true' : 'false'));
             updateSelectedCharsHint();
         }
 

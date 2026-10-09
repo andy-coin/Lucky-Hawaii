@@ -148,6 +148,9 @@
         .batch-btn.btn-common { border-left: 0.5rem solid #f5576c; }
         .batch-btn.btn-rare { border-left: 0.5rem solid #4299e1; }
         .batch-btn.btn-clear { border-left: 0.5rem solid #bac0a0; }
+        /* 🚩 回報不是標記動作：隔開一點，左邊條用強調色；沒選字時淡一點但仍可按（按了會跳提示） */
+        .batch-btn.btn-report { border-left: 0.5rem solid var(--highlight-border); margin-inline-start: var(--sp-3); }
+        .batch-btn.btn-report[aria-disabled="true"], .m-batch-btn.btn-report[aria-disabled="true"] { opacity: .6; cursor: pointer; }
         .batch-panel.inline .batch-btn {
             flex-direction: row;
             padding: 0.1875rem 0.625rem;
@@ -491,11 +494,11 @@
             .batch-panel.inline {
                  display: none;
             }
-            /* 三個批次按鈕：三欄等寬格線（UI-SPEC §5.2），不再用左右位移硬擠 */
+            /* 四個批次按鈕：等寬格線（UI-SPEC §5.2），390px 一排四個、放大到 150% 自動變 2×2，不再用左右位移硬擠 */
             .m-batch-panel {
                 position: static;
                 display: grid;
-                grid-template-columns: repeat(3, 1fr);
+                grid-template-columns: repeat(auto-fit, minmax(4.5rem, 1fr));
                 gap: 0.5rem;
                 z-index: 900;
                 transition: opacity 0.3s ease;
@@ -522,7 +525,7 @@
                 color: var(--text-secondary);
                 transition: all 0.3s ease;
                 box-shadow: 0 2px 8px var(--shadow);
-                padding: 0.25rem 0.625rem;
+                padding: 0.25rem;
                 font-size: 0.8rem;
             }
             @media (hover: hover) and (pointer: fine) {
@@ -533,7 +536,7 @@
             }
             .m-batch-btn .batch-icon {
                 font-size: 1rem;
-                padding: 0 0.25rem;
+                padding: 0;
                 margin-left: -0.125rem;
             }
             .m-batch-btn.btn-common { border-left: 0.375rem solid #f5576c; }
@@ -543,6 +546,7 @@
             .m-batch-btn.btn-clear { border-left: 0.375rem solid #bac0a0; 
                 gap: 0.125rem;
             }
+            .m-batch-btn.btn-report { border-left: 0.375rem solid var(--highlight-border); }
 
             /* 排列模式 */
             .mode-button.active::before{

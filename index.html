@@ -108,6 +108,9 @@
                     <button class="batch-btn btn-clear" onclick="batchMark('clear')" title="取消標記">
                         <span class="batch-icon">↩</span><span>取消</span>
                     </button>
+                    <button class="batch-btn btn-report" onclick="openReportDialog()" title="回報選取的字或詞" aria-label="回報選取的字或詞" aria-disabled="true">
+                        <span class="batch-icon">🚩</span><span>回報</span>
+                    </button>
                 </div>
                 <div class="settings-trigger" id="settingsTrigger" onclick="toggleSettings()">
                     <span class="gear-icon" data-long = "⚙️ 偏好設定" data-short ="⚙️"></span>
@@ -240,6 +243,26 @@
         </div>
     </div>
 
+    <!-- 回報視窗（Phase 7，FB-01）：一頁完成——字詞、4 個原因、選填說明 -->
+    <div class="feedback-modal-overlay" id="reportModalOverlay" onclick="closeReportDialog(event)">
+        <div class="feedback-modal report-modal" role="dialog" aria-modal="true" aria-labelledby="reportTitle" onclick="event.stopPropagation()">
+            <h3 id="reportTitle" tabindex="-1">回報</h3>
+            <div class="report-words" id="reportWords"></div>
+            <div class="report-reasons" id="reportReasons" role="radiogroup" aria-label="回報原因">
+                <button type="button" class="report-reason" role="radio" aria-checked="false" data-reason="讀音錯誤"><span class="report-reason-label">讀音錯誤</span><span class="report-reason-hint">注音或拼音不對</span></button>
+                <button type="button" class="report-reason" role="radio" aria-checked="false" data-reason="太冷僻"><span class="report-reason-label">太冷僻</span><span class="report-reason-hint">平常幾乎不會用到</span></button>
+                <button type="button" class="report-reason" role="radio" aria-checked="false" data-reason="不該出現"><span class="report-reason-label">不該出現</span><span class="report-reason-hint">不押韻、怪詞、錯字</span></button>
+                <button type="button" class="report-reason" role="radio" aria-checked="false" data-reason="其他"><span class="report-reason-label">其他</span><span class="report-reason-hint">在下面寫給我們看</span></button>
+            </div>
+            <textarea id="reportNote" rows="3" maxlength="500" placeholder="補充說明（選填）"></textarea>
+            <div class="report-status" id="reportStatus" role="status" aria-live="polite"></div>
+            <div class="feedback-modal-actions">
+                <button type="button" class="feedback-cancel-btn" id="reportCancelBtn" aria-label="先不回報，關閉視窗" title="先不回報，關閉視窗">先不回報</button>
+                <button type="button" class="report-send-btn" id="reportSendBtn" disabled>送出回報</button>
+            </div>
+        </div>
+    </div>
+
     <div class="m-batch-panel" id="m-batchPanel">
         <button class="m-batch-btn btn-common" onclick="batchMark('common')">
             <span class="batch-icon">⭐</span>
@@ -252,6 +275,10 @@
         <button class="m-batch-btn btn-clear" onclick="batchMark('clear')">
             <span class="batch-icon">↩</span>
             <span>取消</span>
+        </button>
+        <button class="m-batch-btn btn-report" onclick="openReportDialog()" title="回報選取的字或詞" aria-label="回報選取的字或詞" aria-disabled="true">
+            <span class="batch-icon">🚩</span>
+            <span>回報</span>
         </button>
     </div>    
     

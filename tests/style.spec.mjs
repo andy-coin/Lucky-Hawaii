@@ -199,7 +199,8 @@ test('視覺：Tab 鍵有清楚焦點框', async ({ browser }) => {
 test('視覺：沒有新的顏色常數', () => {
     const lit = /#[0-9a-fA-F]{3,8}\b|rgba?\([^)]*\)/g;
     const norm = s => s.toLowerCase().replace(/\s+/g, '');
-    const allow = new Set(['#5a6577']);
+    // Phase 7 UI-SPEC 的 --action-bg-hover 色票（只出現在 css/base.css 的變數定義）
+    const allow = new Set(['#5a6577', '#4c51bf']);
     for (const f of CSS_FILES) {
         const old = execFileSync('git', ['show', `078c5d1:${f}`], { encoding: 'utf8', maxBuffer: 1 << 26 });
         for (const m of old.matchAll(lit)) allow.add(norm(m[0]));

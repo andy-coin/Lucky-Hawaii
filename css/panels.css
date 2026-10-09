@@ -493,6 +493,54 @@
             .feedback-send-btn:hover { background: #5a67d8; }
         }
         .feedback-cancel-btn { background: none; color: var(--text-secondary); }
+
+        /* ===== 回報視窗（Phase 7，FB-01）：沿用 .feedback-modal 外殼，這裡只放它自己的部分 ===== */
+        .report-modal h3 { font-size: 1.25rem; font-weight: 700; line-height: 1.2; margin: 0 0 var(--sp-3); }
+        .report-words { display: flex; flex-wrap: wrap; gap: var(--sp-2); margin-bottom: var(--sp-4); }
+        .report-chip {
+            min-width: 0;
+            overflow-wrap: anywhere;
+            padding: var(--sp-1) var(--sp-3);
+            border: 1px solid var(--border);
+            border-radius: 1rem;
+            background: var(--card-bg);
+            color: var(--text-primary);
+            font-size: 1rem;
+            font-weight: 400;
+        }
+        .report-chip.reported { opacity: .6; }
+        .report-chip-reading, .report-chip-done {
+            margin-inline-start: var(--sp-1);
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+        }
+        .report-chip-reading { font-family: 'JetBrains Mono', monospace; }
+        .report-reasons { display: grid; grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr)); gap: var(--sp-2); }
+        .report-reason {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            min-height: 3.5rem;
+            padding: var(--sp-2) var(--sp-3);
+            border: 2px solid var(--border);
+            border-radius: 0.75rem;
+            background: var(--card-bg);
+            font-family: 'Noto Sans TC', sans-serif;
+            text-align: left;
+            cursor: pointer;
+        }
+        .report-reason[aria-checked="true"] { border-color: var(--highlight-border); }
+        .report-reason:disabled { opacity: .5; cursor: default; }
+        .report-reason-label { font-size: 1rem; font-weight: 700; color: var(--text-primary); }
+        .report-reason-hint { font-size: 0.75rem; font-weight: 400; color: var(--text-secondary); }
+        .report-modal textarea { margin: var(--sp-4) 0 0; scroll-margin-bottom: 1rem; }
+        .report-status { min-height: 1.5rem; margin-top: var(--sp-2); font-size: 0.875rem; color: var(--text-secondary); }
+        .report-status.error { color: #e53e3e; font-weight: 700; }
+        .report-send-btn { background: var(--action-bg); color: var(--action-text); border-color: var(--action-bg); }
+        .report-send-btn:disabled { opacity: .5; cursor: not-allowed; }
+        @media (hover: hover) and (pointer: fine) {
+            .report-send-btn:not(:disabled):hover { background: var(--action-bg-hover); border-color: var(--action-bg-hover); }
+        }
         @media (hover: hover) and (pointer: fine) {
             .feedback-cancel-btn:hover { border-color: #667eea; color: #667eea; }
         }
