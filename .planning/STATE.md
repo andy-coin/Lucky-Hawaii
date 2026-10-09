@@ -4,16 +4,16 @@ milestone: v0.96
 current_phase: 07
 current_phase_name: Feedback & Correction Layer 回報與修正層
 status: executing
-stopped_at: Completed 07-01-PLAN.md
-last_updated: "2026-10-09T17:55:13.534Z"
+stopped_at: Completed 07-02-PLAN.md
+last_updated: "2026-10-09T18:04:11.571Z"
 last_activity: 2026-10-10
 last_activity_desc: Phase 07 execution started
-state_head: 73826f4c1de152de757d549eb2452a9b1ae95263
+state_head: 0ee2323b5ac93bf7835e78cf1271a59de1ba4329
 progress:
   total_phases: 12
   completed_phases: 2
   total_plans: 51
-  completed_plans: 42
+  completed_plans: 43
 ---
 
 # Project State
@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-10-03)
 ## Current Position
 
 Phase: 07 (Feedback & Correction Layer 回報與修正層) — EXECUTING
-Plan: 2 of 10
+Plan: 3 of 10
 Status: Ready to execute
 Last activity: 2026-10-10 — Phase 07 execution started
 
@@ -99,6 +99,7 @@ Progress: [██░░░░░░░░] 17%
 | Phase 06 P07 | ~2 h | 2 tasks | 24 files |
 | Phase 06 P08 | 1.5h | 3 tasks | 14 files |
 | Phase 07 P01 | 25 min | 2 tasks | 10 files |
+| Phase 07 P02 | 30min | 3 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -161,6 +162,8 @@ Recent decisions affecting current work:
 - [Phase 06]: 06-08: calibration passes at 90% agreement; eval writes no files; AI-pass checklist stays D-20 (extended)
 - [Phase 07]: 07-01: 修正層放 AI_STATE_KV 單一文件 corrections:v1（扁平 entries＋rev 樂觀鎖），公開 view 與 data 修正檔同形狀；網站在 data 修正檔之後兩段式套用，修正層壞掉只留警告、詞庫照載
 - [Phase 07]: 07-01: 後台金鑰共用 adminKeyOk（X-Admin-Key 優先、?key= 暫留到 v2、空金鑰一律拒絕）；舊路徑 403 仍純文字但帶 CORS；整個 Phase 7 共用 ?v=0.96.10
+- [Phase 07]: 07-02: rhymeDict fixed(v) 同時把 (字, to) 與 (字, from) 從 removed/hidden 拿掉，才能讓重播冪等；Python 寫回腳本照 replayEntries 註解實作
+- [Phase 07]: 07-02: wordlist added 的 z 為空時不蓋既有 fixed[w]；手動新增詞可無注音，AI 收錄必須有注音
 
 ### Pending Todos
 
@@ -202,6 +205,6 @@ Items acknowledged and deferred at milestone close, most recent first:
 
 ## Session Continuity
 
-Last session: 2026-10-09T17:55:13.484Z
-Stopped at: Completed 07-01-PLAN.md
+Last session: 2026-10-09T18:04:11.515Z
+Stopped at: Completed 07-02-PLAN.md
 Resume file: None
