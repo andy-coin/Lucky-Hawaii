@@ -179,5 +179,115 @@ class DryRunAndApply(WritebackCase):
         self.assertNotIn(KEY, git(repo, 'log', '-p', '--all'))
 
 
+class SafetyStops(WritebackCase):
+    def setUp(self):
+        WritebackCase.setUp(self)
+        self.repo = make_repo(self.tmp)
+        self.good = entry('c_good', 'wordlist', 'removed', '測試詞')
+
+    def state(self):
+        return self.head(self.repo), [self.read(self.repo, n) for n in ('wordlist-overrides.json', 'rhyme-dict-overrides.json', 'applied-changes.log')]
+
+    def apply(self, w, *extra):
+        return self.run_main(['--worker', w.url, '--repo', str(self.repo), '--apply'] + list(extra))
+
+    def test_one_invalid_entry_stops_everything(self):
+        before = self.state()
+        w = self.worker([self.good, entry('c_bad', 'wordlist', 'removed', '<img>')])
+        code, out, err = self.apply(w)
+        self.assertEqual(code, 3)
+        self.assertIn('c_bad', err)
+        self.assertEqual(self.state(), before)
+
+    def test_invalid_entry_also_stops_the_preview(self):
+        w = self.worker([self.good, entry('c_bad', 'wordlist', 'hidden', '二 心')])
+        code, out, err = self.run_main(['--worker', w.url, '--repo', str(self.repo)])
+        self.assertEqual(code, 3)
+
+    def test_dirty_target_file_stops_with_nothing_written(self):
+        wl = self.repo / 'data' / 'wordlist-overrides.json'
+        wl.write_text(wl.read_text(encoding='utf-8') + '\n', encoding='utf-8')
+        before = self.state()
+        w = self.worker([self.good])
+        code, out, err = self.apply(w)
+        self.assertEqual(code, 3)
+        self.assertIn('data 檔有還沒 commit 的修改，請先處理', err)
+        self.assertEqual(self.state()[0], before[0])
+        self.assertEqual(self.state()[1][1:], before[1][1:])
+        self.assertEqual(self.state()[1][0], before[1][0])
+
+    def test_missing_key_exits_2(self):
+        w = self.worker([self.good])
+        code, out, err = self.run_main(['--worker', w.url, '--repo', str(self.repo)], key=None)
+        self.assertEqual(code, 2)
+        self.assertIn('LH_ADMIN_KEY', err)
+        self.assertEqual(w.requests, [])
+
+    def test_wrong_key_exits_2_without_echoing_it(self):
+        w = self.worker([self.good])
+        code, out, err = self.run_main(['--worker', w.url, '--repo', str(self.repo)], key='wrong-KEY-98765')
+        self.assertEqual(code, 2)
+        self.assertIn('金鑰不對', err)
+        self.assertNotIn('wrong-KEY-98765', out + err)
+
+    def test_unreachable_worker_exits_2(self):
+        w = self.worker([self.good])
+        url = w.url
+        w.close()
+        code, out, err = self.run_main(['--worker', url, '--repo', str(self.repo)])
+        self.assertEqual(code, 2)
+        self.assertNotIn(KEY, err)
+
+    def test_server_error_exits_2(self):
+        w = self.worker([self.good], status=500)
+        code, out, err = self.run_main(['--worker', w.url, '--repo', str(self.repo)])
+        self.assertEqual(code, 2)
+        self.assertIn('500', err)
+
+    def test_other_branch_commits_but_never_pushes_or_clears(self):
+        git(self.repo, 'checkout', '-b', 'gsd/test')
+        bare = Path(self.tmp) / 'bare.git'
+        git(self.tmp, 'init', '--bare', str(bare))
+        git(self.repo, 'remote', 'add', 'origin', str(bare))
+        head0 = self.head(self.repo)
+        w = self.worker([self.good])
+        code, out, err = self.apply(w)
+        self.assertEqual(code, 0, err)
+        self.assertIn('目前不在 main：已寫檔並 commit，不 push、不清空。合併到 main 後用 --confirm-only 完成確認與清空', out)
+        self.assertNotEqual(self.head(self.repo), head0)
+        self.assertEqual(git(bare, 'for-each-ref').strip(), '')          # 遠端什麼都沒收到
+        self.assertEqual([r['path'] for r in w.requests], ['/corrections/admin.json'])   # 沒有清空請求
+
+    def test_live_branch_flag_reaches_the_live_path_without_pushing(self):
+        git(self.repo, 'checkout', '-b', 'gsd/test')
+        w = self.worker([self.good])
+        code, out, err = self.apply(w, '--live-branch', 'gsd/test')
+        self.assertEqual(code, 0, err)
+        self.assertIn('已 commit；要推上線請加 --push', out)
+        self.assertNotIn('目前不在 main', out)
+
+    def test_push_and_confirm_only_are_refused_for_now(self):
+        git(self.repo, 'checkout', '-b', 'gsd/test')
+        before = self.state()
+        w = self.worker([self.good])
+        for flag in ('--push', '--confirm-only'):
+            code, out, err = self.run_main(['--worker', w.url, '--repo', str(self.repo), '--apply', flag])
+            self.assertEqual(code, 3)
+        self.assertEqual(self.state(), before)
+
+    def test_commit_failure_exits_3_and_keeps_the_changes(self):
+        hook = self.repo / '.git' / 'hooks' / 'pre-commit'
+        hook.write_text('#!/bin/sh\necho hook-says-no >&2\nexit 1\n', encoding='utf-8')
+        hook.chmod(0o755)
+        head0 = self.head(self.repo)
+        w = self.worker([self.good])
+        code, out, err = self.apply(w)
+        self.assertEqual(code, 3)
+        self.assertIn('hook-says-no', err)
+        self.assertIn('data/wordlist-overrides.json', err)               # 報告工作區還有哪些修改
+        self.assertEqual(self.head(self.repo), head0)
+        self.assertIn('測試詞', self.read(self.repo, 'wordlist-overrides.json'))
+
+
 if __name__ == '__main__':
     unittest.main()

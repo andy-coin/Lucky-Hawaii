@@ -40,6 +40,7 @@ RHYME_FILE = 'data/rhyme-dict-overrides.json'
 LOG_FILE = 'data/applied-changes.log'
 TARGET_PATHS = (WORD_FILE, RHYME_FILE, LOG_FILE)
 BUCKETS = ('removed', 'hidden', 'fixed', 'added')
+NOT_LIVE_MSG = '目前不在 main：已寫檔並 commit，不 push、不清空。合併到 main 後用 --confirm-only 完成確認與清空'
 
 
 class Stop(Exception):
@@ -131,6 +132,92 @@ def format_rhyme(doc):
         '  "updated_at": %s\n' % _q(doc['updated_at']) +
         '}\n'
     )
+
+
+# ==================== 驗證（和 Worker 的 validateEntryValue 同一套規則）====================
+_WORD_RE = re.compile(r'[^\s<>"\'`\\&\ufeff]+')
+_SYLLABLE_RE = re.compile(r'[ㄅ-ㄩ]+[ˊˇˋ˙]?')
+_DICT_KEY_RE = re.compile(r'[ㄅ-ㄩ]+[1-5]')
+_ENTRY_ID_RE = re.compile(r'c_[\w-]{1,64}')
+_TIERS = ('common', 'normal', 'rare')
+_SOURCES = ('manual', 'ai_accept', 'ai_modify')
+_TONE_DIGIT = {'ˊ': '2', 'ˇ': '3', 'ˋ': '4', '˙': '5'}
+
+
+def _len(s):
+    return len(s) if isinstance(s, str) else 0
+
+
+def _is_word(w):
+    # 1–20 字、不含空白／引號／角括號／反斜線／&／控制字元（fullmatch：結尾換行不能溜過去）
+    return (isinstance(w, str) and 1 <= len(w) <= 20 and _WORD_RE.fullmatch(w) is not None
+            and not any(unicodedata.category(ch) == 'Cc' for ch in w))
+
+
+def _is_char(c):
+    return isinstance(c, str) and len(c) == 1 and _is_word(c)
+
+
+def _is_z(z, n):
+    if not isinstance(z, str):
+        return False
+    parts = z.split(' ')
+    return len(parts) == n and all(_SYLLABLE_RE.fullmatch(p) for p in parts)
+
+
+def _is_reading(r):
+    return isinstance(r, str) and _SYLLABLE_RE.fullmatch(r) is not None
+
+
+def _is_dict_key(k):
+    return isinstance(k, str) and _DICT_KEY_RE.fullmatch(k) is not None
+
+
+def _reading_to_dict_key(r):
+    return r[:-1] + _TONE_DIGIT[r[-1]] if r[-1] in _TONE_DIGIT else r + '1'
+
+
+def _key_matches(reading, key):
+    return _is_reading(reading) and _is_dict_key(key) and _reading_to_dict_key(reading) == key
+
+
+def validate_entry(target, bucket, v):
+    if bucket not in BUCKETS or not v:
+        return False
+    if target == 'wordlist':
+        if bucket in ('removed', 'hidden'):
+            return _is_word(v)
+        if not isinstance(v, dict):
+            return False
+        if bucket == 'fixed':
+            return _is_word(v.get('w')) and _is_z(v.get('z'), _len(v.get('w')))
+        # added：只有手動新增可以沒有注音；AI 收錄的一定要有
+        z = v.get('z')
+        z_ok = v.get('source') == 'manual' if z == '' else _is_z(z, _len(v.get('w')))
+        return (_is_word(v.get('w')) and z_ok and v.get('tier') in _TIERS and v.get('source') in _SOURCES
+                and ('original' not in v or _is_word(v['original'])))
+    if target == 'rhymeDict':
+        if not isinstance(v, dict) or not _is_char(v.get('char')):
+            return False
+        if bucket in ('removed', 'hidden'):
+            return _is_dict_key(v.get('dict_key')) and ('reading' not in v or _key_matches(v['reading'], v['dict_key']))
+        if bucket == 'fixed':
+            return (_is_dict_key(v.get('from')) and _is_dict_key(v.get('to'))
+                    and ('tier' not in v or v['tier'] in _TIERS))
+        return _key_matches(v.get('reading'), v.get('dict_key')) and v.get('tier') in _TIERS
+    return False
+
+
+def check_entries(entries):
+    """線上修正層的每一筆都要通過驗證；任何一筆不合格就整批停下（D4）。"""
+    bad = []
+    for e in entries:
+        ok = (isinstance(e, dict) and isinstance(e.get('id'), str) and _ENTRY_ID_RE.fullmatch(e['id'])
+              and validate_entry(e.get('target'), e.get('bucket'), e.get('value')))
+        if not ok:
+            bad.append(e.get('id') if isinstance(e, dict) and isinstance(e.get('id'), str) else '(沒有 id)')
+    if bad:
+        raise Stop(3, '修正層有 %d 筆資料不合格，已停止、什麼都沒寫：%s' % (len(bad), '、'.join(bad[:10])))
 
 
 # ==================== 合併（契約：worker/src/corrections.js 的 replayEntries）====================
@@ -366,6 +453,9 @@ def build_parser():
 
 
 def run(args):
+    if args.push or args.confirm_only:
+        # 對外動作（push、清空）要等下一版；現在遇到就明確拒絕，絕不默默略過
+        raise Stop(3, '--push／--confirm-only 目前還沒有（這一版只做到寫檔與 commit），什麼都沒做')
     key = os.environ.get(KEY_ENV, '')
     if not key:
         raise Stop(2, '請先設定環境變數 %s' % KEY_ENV)
@@ -375,25 +465,33 @@ def run(args):
     if not entries:
         print('修正層是空的，沒有要寫回的')
         return 0
+    check_entries(entries)
     old_word = load_overrides(repo / WORD_FILE)
     old_rhyme = load_overrides(repo / RHYME_FILE)
     new_word, new_rhyme = merge(old_word, old_rhyme, entries)
     diff = (diff_lines(old_word, new_word, '詞庫', False) + diff_lines(old_rhyme, new_rhyme, '讀音', True))
-    pending_ids = [e for e in entries if e['id'] not in read_logged_ids(repo / LOG_FILE)]
+    logged = read_logged_ids(repo / LOG_FILE)
     print('讀到修正層 rev %s，共 %d 筆' % (layer.get('rev'), len(entries)))
     for line in diff:
         print(line)
-    if not diff and not pending_ids:
+    if not diff and all(e['id'] in logged for e in entries):
         print('資料檔已包含這批修正')
         return 0
     if not args.apply:
         print('（預覽）加 --apply 才會寫檔並 commit')
         return 0
+    if git_ok(repo, 'status', '--porcelain', '--', *TARGET_PATHS).strip():
+        raise Stop(3, 'data 檔有還沒 commit 的修改，請先處理（什麼都沒寫）')
     apply_files(repo, old_word, old_rhyme, new_word, new_rhyme, entries)
     if commit_targets(repo, len(entries), layer.get('rev')):
         print('已寫入並 commit：%s' % '、'.join(TARGET_PATHS))
     else:
         print('資料檔已包含這批修正')
+    branch = git_ok(repo, 'rev-parse', '--abbrev-ref', 'HEAD').strip()
+    if branch != args.live_branch:
+        print(NOT_LIVE_MSG.replace('main', args.live_branch))
+        return 0
+    print('已 commit；要推上線請加 --push（或自己 push 後用 --confirm-only）')
     return 0
 
 
