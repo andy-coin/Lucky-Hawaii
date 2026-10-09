@@ -1,0 +1,1487 @@
+{
+  "description": "修正層重播語意的共用測試向量（Worker JS 與 tools/corrections Python 都讀這一份）",
+  "cases": [
+    {
+      "name": "字詞：移除",
+      "entries": [
+        {
+          "target": "wordlist",
+          "bucket": "removed",
+          "value": "二心"
+        }
+      ],
+      "expected": {
+        "wordlist": {
+          "removed": [
+            "二心"
+          ],
+          "hidden": [],
+          "fixed": {},
+          "added": []
+        },
+        "rhymeDict": {
+          "removed": [],
+          "hidden": [],
+          "fixed": [],
+          "added": []
+        }
+      }
+    },
+    {
+      "name": "字詞：隱藏",
+      "entries": [
+        {
+          "target": "wordlist",
+          "bucket": "hidden",
+          "value": "二心"
+        }
+      ],
+      "expected": {
+        "wordlist": {
+          "removed": [],
+          "hidden": [
+            "二心"
+          ],
+          "fixed": {},
+          "added": []
+        },
+        "rhymeDict": {
+          "removed": [],
+          "hidden": [],
+          "fixed": [],
+          "added": []
+        }
+      }
+    },
+    {
+      "name": "字詞：先移除後隱藏 → 只剩隱藏",
+      "entries": [
+        {
+          "target": "wordlist",
+          "bucket": "removed",
+          "value": "二心"
+        },
+        {
+          "target": "wordlist",
+          "bucket": "hidden",
+          "value": "二心"
+        }
+      ],
+      "expected": {
+        "wordlist": {
+          "removed": [],
+          "hidden": [
+            "二心"
+          ],
+          "fixed": {},
+          "added": []
+        },
+        "rhymeDict": {
+          "removed": [],
+          "hidden": [],
+          "fixed": [],
+          "added": []
+        }
+      }
+    },
+    {
+      "name": "字詞：先隱藏後移除 → 只剩移除",
+      "entries": [
+        {
+          "target": "wordlist",
+          "bucket": "hidden",
+          "value": "二心"
+        },
+        {
+          "target": "wordlist",
+          "bucket": "removed",
+          "value": "二心"
+        }
+      ],
+      "expected": {
+        "wordlist": {
+          "removed": [
+            "二心"
+          ],
+          "hidden": [],
+          "fixed": {},
+          "added": []
+        },
+        "rhymeDict": {
+          "removed": [],
+          "hidden": [],
+          "fixed": [],
+          "added": []
+        }
+      }
+    },
+    {
+      "name": "字詞：修正注音",
+      "entries": [
+        {
+          "target": "wordlist",
+          "bucket": "fixed",
+          "value": {
+            "w": "好運",
+            "z": "ㄏㄠˇ ㄩㄣˋ"
+          }
+        }
+      ],
+      "expected": {
+        "wordlist": {
+          "removed": [],
+          "hidden": [],
+          "fixed": {
+            "好運": "ㄏㄠˇ ㄩㄣˋ"
+          },
+          "added": []
+        },
+        "rhymeDict": {
+          "removed": [],
+          "hidden": [],
+          "fixed": [],
+          "added": []
+        }
+      }
+    },
+    {
+      "name": "字詞：先新增後修正注音 → 新增那筆也換成新注音，fixed 同步",
+      "entries": [
+        {
+          "target": "wordlist",
+          "bucket": "added",
+          "value": {
+            "w": "好運",
+            "z": "ㄏㄠˇ ㄩㄣˋ",
+            "tier": "normal",
+            "source": "manual"
+          }
+        },
+        {
+          "target": "wordlist",
+          "bucket": "fixed",
+          "value": {
+            "w": "好運",
+            "z": "ㄏㄠˇ ㄩㄣˊ"
+          }
+        }
+      ],
+      "expected": {
+        "wordlist": {
+          "removed": [],
+          "hidden": [],
+          "fixed": {
+            "好運": "ㄏㄠˇ ㄩㄣˊ"
+          },
+          "added": [
+            {
+              "w": "好運",
+              "z": "ㄏㄠˇ ㄩㄣˊ",
+              "tier": "normal",
+              "source": "manual"
+            }
+          ]
+        },
+        "rhymeDict": {
+          "removed": [],
+          "hidden": [],
+          "fixed": [],
+          "added": []
+        }
+      }
+    },
+    {
+      "name": "字詞：先修正注音後新增 → fixed 跟著新增的注音",
+      "entries": [
+        {
+          "target": "wordlist",
+          "bucket": "fixed",
+          "value": {
+            "w": "好運",
+            "z": "ㄏㄠˇ ㄩㄣˋ"
+          }
+        },
+        {
+          "target": "wordlist",
+          "bucket": "added",
+          "value": {
+            "w": "好運",
+            "z": "ㄏㄠˇ ㄩㄣˊ",
+            "tier": "normal",
+            "source": "manual"
+          }
+        }
+      ],
+      "expected": {
+        "wordlist": {
+          "removed": [],
+          "hidden": [],
+          "fixed": {
+            "好運": "ㄏㄠˇ ㄩㄣˊ"
+          },
+          "added": [
+            {
+              "w": "好運",
+              "z": "ㄏㄠˇ ㄩㄣˊ",
+              "tier": "normal",
+              "source": "manual"
+            }
+          ]
+        },
+        "rhymeDict": {
+          "removed": [],
+          "hidden": [],
+          "fixed": [],
+          "added": []
+        }
+      }
+    },
+    {
+      "name": "字詞：先移除後新增 → 只在新增",
+      "entries": [
+        {
+          "target": "wordlist",
+          "bucket": "removed",
+          "value": "好運"
+        },
+        {
+          "target": "wordlist",
+          "bucket": "added",
+          "value": {
+            "w": "好運",
+            "z": "ㄏㄠˇ ㄩㄣˋ",
+            "tier": "normal",
+            "source": "manual"
+          }
+        }
+      ],
+      "expected": {
+        "wordlist": {
+          "removed": [],
+          "hidden": [],
+          "fixed": {},
+          "added": [
+            {
+              "w": "好運",
+              "z": "ㄏㄠˇ ㄩㄣˋ",
+              "tier": "normal",
+              "source": "manual"
+            }
+          ]
+        },
+        "rhymeDict": {
+          "removed": [],
+          "hidden": [],
+          "fixed": [],
+          "added": []
+        }
+      }
+    },
+    {
+      "name": "字詞：先新增後移除 → 只在移除",
+      "entries": [
+        {
+          "target": "wordlist",
+          "bucket": "added",
+          "value": {
+            "w": "好運",
+            "z": "ㄏㄠˇ ㄩㄣˋ",
+            "tier": "normal",
+            "source": "manual"
+          }
+        },
+        {
+          "target": "wordlist",
+          "bucket": "removed",
+          "value": "好運"
+        }
+      ],
+      "expected": {
+        "wordlist": {
+          "removed": [
+            "好運"
+          ],
+          "hidden": [],
+          "fixed": {},
+          "added": []
+        },
+        "rhymeDict": {
+          "removed": [],
+          "hidden": [],
+          "fixed": [],
+          "added": []
+        }
+      }
+    },
+    {
+      "name": "字詞：先移除後修正注音 → 修正會把它從移除拿掉",
+      "entries": [
+        {
+          "target": "wordlist",
+          "bucket": "removed",
+          "value": "好運"
+        },
+        {
+          "target": "wordlist",
+          "bucket": "fixed",
+          "value": {
+            "w": "好運",
+            "z": "ㄏㄠˇ ㄩㄣˋ"
+          }
+        }
+      ],
+      "expected": {
+        "wordlist": {
+          "removed": [],
+          "hidden": [],
+          "fixed": {
+            "好運": "ㄏㄠˇ ㄩㄣˋ"
+          },
+          "added": []
+        },
+        "rhymeDict": {
+          "removed": [],
+          "hidden": [],
+          "fixed": [],
+          "added": []
+        }
+      }
+    },
+    {
+      "name": "字詞：先修正注音後隱藏 → fixed 被拿掉",
+      "entries": [
+        {
+          "target": "wordlist",
+          "bucket": "fixed",
+          "value": {
+            "w": "好運",
+            "z": "ㄏㄠˇ ㄩㄣˋ"
+          }
+        },
+        {
+          "target": "wordlist",
+          "bucket": "hidden",
+          "value": "好運"
+        }
+      ],
+      "expected": {
+        "wordlist": {
+          "removed": [],
+          "hidden": [
+            "好運"
+          ],
+          "fixed": {},
+          "added": []
+        },
+        "rhymeDict": {
+          "removed": [],
+          "hidden": [],
+          "fixed": [],
+          "added": []
+        }
+      }
+    },
+    {
+      "name": "字詞：新增後再新增同一個詞 → 整筆取代、位置不變",
+      "entries": [
+        {
+          "target": "wordlist",
+          "bucket": "added",
+          "value": {
+            "w": "好運",
+            "z": "ㄏㄠˇ ㄩㄣˋ",
+            "tier": "normal",
+            "source": "manual"
+          }
+        },
+        {
+          "target": "wordlist",
+          "bucket": "added",
+          "value": {
+            "w": "二心",
+            "z": "ㄦˋ ㄒㄧㄣ",
+            "tier": "normal",
+            "source": "manual"
+          }
+        },
+        {
+          "target": "wordlist",
+          "bucket": "added",
+          "value": {
+            "w": "好運",
+            "z": "ㄏㄠˇ ㄩㄣˊ",
+            "tier": "common",
+            "source": "manual"
+          }
+        }
+      ],
+      "expected": {
+        "wordlist": {
+          "removed": [],
+          "hidden": [],
+          "fixed": {},
+          "added": [
+            {
+              "w": "好運",
+              "z": "ㄏㄠˇ ㄩㄣˊ",
+              "tier": "common",
+              "source": "manual"
+            },
+            {
+              "w": "二心",
+              "z": "ㄦˋ ㄒㄧㄣ",
+              "tier": "normal",
+              "source": "manual"
+            }
+          ]
+        },
+        "rhymeDict": {
+          "removed": [],
+          "hidden": [],
+          "fixed": [],
+          "added": []
+        }
+      }
+    },
+    {
+      "name": "字詞：AI 收錄與改寫收錄",
+      "entries": [
+        {
+          "target": "wordlist",
+          "bucket": "added",
+          "value": {
+            "w": "花火",
+            "z": "ㄏㄨㄚ ㄏㄨㄛˇ",
+            "tier": "normal",
+            "source": "ai_accept"
+          }
+        },
+        {
+          "target": "wordlist",
+          "bucket": "added",
+          "value": {
+            "w": "星河",
+            "z": "ㄒㄧㄥ ㄏㄜˊ",
+            "tier": "normal",
+            "source": "ai_modify",
+            "original": "星海"
+          }
+        }
+      ],
+      "expected": {
+        "wordlist": {
+          "removed": [],
+          "hidden": [],
+          "fixed": {},
+          "added": [
+            {
+              "w": "花火",
+              "z": "ㄏㄨㄚ ㄏㄨㄛˇ",
+              "tier": "normal",
+              "source": "ai_accept"
+            },
+            {
+              "w": "星河",
+              "z": "ㄒㄧㄥ ㄏㄜˊ",
+              "tier": "normal",
+              "source": "ai_modify",
+              "original": "星海"
+            }
+          ]
+        },
+        "rhymeDict": {
+          "removed": [],
+          "hidden": [],
+          "fixed": [],
+          "added": []
+        }
+      }
+    },
+    {
+      "name": "字詞：base 裡被移除的詞，先新增再移除，回到原本位置",
+      "base": {
+        "wordlist": {
+          "removed": [
+            "甲",
+            "乙",
+            "丙"
+          ]
+        }
+      },
+      "entries": [
+        {
+          "target": "wordlist",
+          "bucket": "added",
+          "value": {
+            "w": "乙",
+            "z": "ㄧˇ",
+            "tier": "normal",
+            "source": "manual"
+          }
+        },
+        {
+          "target": "wordlist",
+          "bucket": "removed",
+          "value": "乙"
+        },
+        {
+          "target": "wordlist",
+          "bucket": "added",
+          "value": {
+            "w": "甲",
+            "z": "ㄐㄧㄚˇ",
+            "tier": "normal",
+            "source": "manual"
+          }
+        },
+        {
+          "target": "wordlist",
+          "bucket": "removed",
+          "value": "甲"
+        }
+      ],
+      "expected": {
+        "wordlist": {
+          "removed": [
+            "甲",
+            "乙",
+            "丙"
+          ],
+          "hidden": [],
+          "fixed": {},
+          "added": []
+        },
+        "rhymeDict": {
+          "removed": [],
+          "hidden": [],
+          "fixed": [],
+          "added": []
+        }
+      }
+    },
+    {
+      "name": "字詞：base 之外的新詞依最後放入的順序排在後面",
+      "base": {
+        "wordlist": {
+          "removed": [
+            "甲"
+          ]
+        }
+      },
+      "entries": [
+        {
+          "target": "wordlist",
+          "bucket": "removed",
+          "value": "丁"
+        },
+        {
+          "target": "wordlist",
+          "bucket": "removed",
+          "value": "戊"
+        },
+        {
+          "target": "wordlist",
+          "bucket": "hidden",
+          "value": "丁"
+        },
+        {
+          "target": "wordlist",
+          "bucket": "removed",
+          "value": "丁"
+        }
+      ],
+      "expected": {
+        "wordlist": {
+          "removed": [
+            "甲",
+            "戊",
+            "丁"
+          ],
+          "hidden": [],
+          "fixed": {},
+          "added": []
+        },
+        "rhymeDict": {
+          "removed": [],
+          "hidden": [],
+          "fixed": [],
+          "added": []
+        }
+      }
+    },
+    {
+      "name": "字詞：base 其他內容保留，只動被點到的詞",
+      "base": {
+        "wordlist": {
+          "removed": [
+            "甲"
+          ],
+          "hidden": [
+            "乙"
+          ],
+          "fixed": {
+            "丁": "ㄉㄧㄥ"
+          },
+          "added": [
+            {
+              "w": "戊",
+              "z": "ㄨˋ",
+              "tier": "normal",
+              "source": "manual"
+            }
+          ]
+        }
+      },
+      "entries": [
+        {
+          "target": "wordlist",
+          "bucket": "removed",
+          "value": "乙"
+        },
+        {
+          "target": "wordlist",
+          "bucket": "fixed",
+          "value": {
+            "w": "丙",
+            "z": "ㄅㄧㄥˇ"
+          }
+        }
+      ],
+      "expected": {
+        "wordlist": {
+          "removed": [
+            "甲",
+            "乙"
+          ],
+          "hidden": [],
+          "fixed": {
+            "丁": "ㄉㄧㄥ",
+            "丙": "ㄅㄧㄥˇ"
+          },
+          "added": [
+            {
+              "w": "戊",
+              "z": "ㄨˋ",
+              "tier": "normal",
+              "source": "manual"
+            }
+          ]
+        },
+        "rhymeDict": {
+          "removed": [],
+          "hidden": [],
+          "fixed": [],
+          "added": []
+        }
+      }
+    },
+    {
+      "name": "字詞：沒有 entries → 原樣（缺的欄位補空）",
+      "base": {
+        "wordlist": {
+          "removed": [
+            "甲"
+          ]
+        }
+      },
+      "entries": [],
+      "expected": {
+        "wordlist": {
+          "removed": [
+            "甲"
+          ],
+          "hidden": [],
+          "fixed": {},
+          "added": []
+        },
+        "rhymeDict": {
+          "removed": [],
+          "hidden": [],
+          "fixed": [],
+          "added": []
+        }
+      }
+    },
+    {
+      "name": "讀音：移除",
+      "entries": [
+        {
+          "target": "rhymeDict",
+          "bucket": "removed",
+          "value": {
+            "char": "長",
+            "dict_key": "ㄔㄤ2",
+            "reading": "ㄔㄤˊ"
+          }
+        }
+      ],
+      "expected": {
+        "wordlist": {
+          "removed": [],
+          "hidden": [],
+          "fixed": {},
+          "added": []
+        },
+        "rhymeDict": {
+          "removed": [
+            {
+              "char": "長",
+              "dict_key": "ㄔㄤ2",
+              "reading": "ㄔㄤˊ"
+            }
+          ],
+          "hidden": [],
+          "fixed": [],
+          "added": []
+        }
+      }
+    },
+    {
+      "name": "讀音：隱藏",
+      "entries": [
+        {
+          "target": "rhymeDict",
+          "bucket": "hidden",
+          "value": {
+            "char": "長",
+            "dict_key": "ㄔㄤ2",
+            "reading": "ㄔㄤˊ"
+          }
+        }
+      ],
+      "expected": {
+        "wordlist": {
+          "removed": [],
+          "hidden": [],
+          "fixed": {},
+          "added": []
+        },
+        "rhymeDict": {
+          "removed": [],
+          "hidden": [
+            {
+              "char": "長",
+              "dict_key": "ㄔㄤ2",
+              "reading": "ㄔㄤˊ"
+            }
+          ],
+          "fixed": [],
+          "added": []
+        }
+      }
+    },
+    {
+      "name": "讀音：新增",
+      "entries": [
+        {
+          "target": "rhymeDict",
+          "bucket": "added",
+          "value": {
+            "char": "長",
+            "reading": "ㄓㄤˇ",
+            "dict_key": "ㄓㄤ3",
+            "tier": "common"
+          }
+        }
+      ],
+      "expected": {
+        "wordlist": {
+          "removed": [],
+          "hidden": [],
+          "fixed": {},
+          "added": []
+        },
+        "rhymeDict": {
+          "removed": [],
+          "hidden": [],
+          "fixed": [],
+          "added": [
+            {
+              "char": "長",
+              "reading": "ㄓㄤˇ",
+              "dict_key": "ㄓㄤ3",
+              "tier": "common"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "讀音：修正",
+      "entries": [
+        {
+          "target": "rhymeDict",
+          "bucket": "fixed",
+          "value": {
+            "char": "長",
+            "from": "ㄔㄤ2",
+            "to": "ㄓㄤ3"
+          }
+        }
+      ],
+      "expected": {
+        "wordlist": {
+          "removed": [],
+          "hidden": [],
+          "fixed": {},
+          "added": []
+        },
+        "rhymeDict": {
+          "removed": [],
+          "hidden": [],
+          "fixed": [
+            {
+              "char": "長",
+              "from": "ㄔㄤ2",
+              "to": "ㄓㄤ3"
+            }
+          ],
+          "added": []
+        }
+      }
+    },
+    {
+      "name": "讀音：先移除後隱藏 → 只剩隱藏",
+      "entries": [
+        {
+          "target": "rhymeDict",
+          "bucket": "removed",
+          "value": {
+            "char": "長",
+            "dict_key": "ㄔㄤ2",
+            "reading": "ㄔㄤˊ"
+          }
+        },
+        {
+          "target": "rhymeDict",
+          "bucket": "hidden",
+          "value": {
+            "char": "長",
+            "dict_key": "ㄔㄤ2",
+            "reading": "ㄔㄤˊ"
+          }
+        }
+      ],
+      "expected": {
+        "wordlist": {
+          "removed": [],
+          "hidden": [],
+          "fixed": {},
+          "added": []
+        },
+        "rhymeDict": {
+          "removed": [],
+          "hidden": [
+            {
+              "char": "長",
+              "dict_key": "ㄔㄤ2",
+              "reading": "ㄔㄤˊ"
+            }
+          ],
+          "fixed": [],
+          "added": []
+        }
+      }
+    },
+    {
+      "name": "讀音：先隱藏後新增 → 只剩新增",
+      "entries": [
+        {
+          "target": "rhymeDict",
+          "bucket": "hidden",
+          "value": {
+            "char": "長",
+            "dict_key": "ㄔㄤ2",
+            "reading": "ㄔㄤˊ"
+          }
+        },
+        {
+          "target": "rhymeDict",
+          "bucket": "added",
+          "value": {
+            "char": "長",
+            "reading": "ㄔㄤˊ",
+            "dict_key": "ㄔㄤ2",
+            "tier": "normal"
+          }
+        }
+      ],
+      "expected": {
+        "wordlist": {
+          "removed": [],
+          "hidden": [],
+          "fixed": {},
+          "added": []
+        },
+        "rhymeDict": {
+          "removed": [],
+          "hidden": [],
+          "fixed": [],
+          "added": [
+            {
+              "char": "長",
+              "reading": "ㄔㄤˊ",
+              "dict_key": "ㄔㄤ2",
+              "tier": "normal"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "讀音：先新增後移除 → 只剩移除",
+      "entries": [
+        {
+          "target": "rhymeDict",
+          "bucket": "added",
+          "value": {
+            "char": "長",
+            "reading": "ㄔㄤˊ",
+            "dict_key": "ㄔㄤ2",
+            "tier": "normal"
+          }
+        },
+        {
+          "target": "rhymeDict",
+          "bucket": "removed",
+          "value": {
+            "char": "長",
+            "dict_key": "ㄔㄤ2",
+            "reading": "ㄔㄤˊ"
+          }
+        }
+      ],
+      "expected": {
+        "wordlist": {
+          "removed": [],
+          "hidden": [],
+          "fixed": {},
+          "added": []
+        },
+        "rhymeDict": {
+          "removed": [
+            {
+              "char": "長",
+              "dict_key": "ㄔㄤ2",
+              "reading": "ㄔㄤˊ"
+            }
+          ],
+          "hidden": [],
+          "fixed": [],
+          "added": []
+        }
+      }
+    },
+    {
+      "name": "讀音：先修正後把修正後的讀音移除 → 修正拿掉，兩個讀音都移除",
+      "entries": [
+        {
+          "target": "rhymeDict",
+          "bucket": "fixed",
+          "value": {
+            "char": "長",
+            "from": "ㄔㄤ2",
+            "to": "ㄓㄤ3"
+          }
+        },
+        {
+          "target": "rhymeDict",
+          "bucket": "removed",
+          "value": {
+            "char": "長",
+            "dict_key": "ㄓㄤ3",
+            "reading": "ㄓㄤˇ"
+          }
+        }
+      ],
+      "expected": {
+        "wordlist": {
+          "removed": [],
+          "hidden": [],
+          "fixed": {},
+          "added": []
+        },
+        "rhymeDict": {
+          "removed": [
+            {
+              "char": "長",
+              "dict_key": "ㄓㄤ3",
+              "reading": "ㄓㄤˇ"
+            },
+            {
+              "char": "長",
+              "dict_key": "ㄔㄤ2"
+            }
+          ],
+          "hidden": [],
+          "fixed": [],
+          "added": []
+        }
+      }
+    },
+    {
+      "name": "讀音：先修正後把修正後的讀音隱藏 → 修正拿掉，兩個讀音都隱藏",
+      "entries": [
+        {
+          "target": "rhymeDict",
+          "bucket": "fixed",
+          "value": {
+            "char": "長",
+            "from": "ㄔㄤ2",
+            "to": "ㄓㄤ3"
+          }
+        },
+        {
+          "target": "rhymeDict",
+          "bucket": "hidden",
+          "value": {
+            "char": "長",
+            "dict_key": "ㄓㄤ3",
+            "reading": "ㄓㄤˇ"
+          }
+        }
+      ],
+      "expected": {
+        "wordlist": {
+          "removed": [],
+          "hidden": [],
+          "fixed": {},
+          "added": []
+        },
+        "rhymeDict": {
+          "removed": [],
+          "hidden": [
+            {
+              "char": "長",
+              "dict_key": "ㄓㄤ3",
+              "reading": "ㄓㄤˇ"
+            },
+            {
+              "char": "長",
+              "dict_key": "ㄔㄤ2"
+            }
+          ],
+          "fixed": [],
+          "added": []
+        }
+      }
+    },
+    {
+      "name": "讀音：先移除後修正成它 → 修正把它從移除拿掉",
+      "entries": [
+        {
+          "target": "rhymeDict",
+          "bucket": "removed",
+          "value": {
+            "char": "長",
+            "dict_key": "ㄓㄤ3",
+            "reading": "ㄓㄤˇ"
+          }
+        },
+        {
+          "target": "rhymeDict",
+          "bucket": "fixed",
+          "value": {
+            "char": "長",
+            "from": "ㄔㄤ2",
+            "to": "ㄓㄤ3"
+          }
+        }
+      ],
+      "expected": {
+        "wordlist": {
+          "removed": [],
+          "hidden": [],
+          "fixed": {},
+          "added": []
+        },
+        "rhymeDict": {
+          "removed": [],
+          "hidden": [],
+          "fixed": [
+            {
+              "char": "長",
+              "from": "ㄔㄤ2",
+              "to": "ㄓㄤ3"
+            }
+          ],
+          "added": []
+        }
+      }
+    },
+    {
+      "name": "讀音：先移除原讀音後修正 → 修正生效，原讀音的移除讓位",
+      "entries": [
+        {
+          "target": "rhymeDict",
+          "bucket": "removed",
+          "value": {
+            "char": "長",
+            "dict_key": "ㄔㄤ2",
+            "reading": "ㄔㄤˊ"
+          }
+        },
+        {
+          "target": "rhymeDict",
+          "bucket": "fixed",
+          "value": {
+            "char": "長",
+            "from": "ㄔㄤ2",
+            "to": "ㄓㄤ3"
+          }
+        }
+      ],
+      "expected": {
+        "wordlist": {
+          "removed": [],
+          "hidden": [],
+          "fixed": {},
+          "added": []
+        },
+        "rhymeDict": {
+          "removed": [],
+          "hidden": [],
+          "fixed": [
+            {
+              "char": "長",
+              "from": "ㄔㄤ2",
+              "to": "ㄓㄤ3"
+            }
+          ],
+          "added": []
+        }
+      }
+    },
+    {
+      "name": "讀音：同一個原讀音再修正 → 後者取代、位置不變",
+      "entries": [
+        {
+          "target": "rhymeDict",
+          "bucket": "fixed",
+          "value": {
+            "char": "長",
+            "from": "ㄔㄤ2",
+            "to": "ㄓㄤ3"
+          }
+        },
+        {
+          "target": "rhymeDict",
+          "bucket": "fixed",
+          "value": {
+            "char": "和",
+            "from": "ㄏㄜ2",
+            "to": "ㄏㄜ4"
+          }
+        },
+        {
+          "target": "rhymeDict",
+          "bucket": "fixed",
+          "value": {
+            "char": "長",
+            "from": "ㄔㄤ2",
+            "to": "ㄓㄤ4"
+          }
+        }
+      ],
+      "expected": {
+        "wordlist": {
+          "removed": [],
+          "hidden": [],
+          "fixed": {},
+          "added": []
+        },
+        "rhymeDict": {
+          "removed": [],
+          "hidden": [],
+          "fixed": [
+            {
+              "char": "長",
+              "from": "ㄔㄤ2",
+              "to": "ㄓㄤ4"
+            },
+            {
+              "char": "和",
+              "from": "ㄏㄜ2",
+              "to": "ㄏㄜ4"
+            }
+          ],
+          "added": []
+        }
+      }
+    },
+    {
+      "name": "讀音：base 的移除先新增再移除，回到原本位置；不同字不互相影響",
+      "base": {
+        "rhymeDict": {
+          "removed": [
+            {
+              "char": "和",
+              "dict_key": "ㄏㄜ2",
+              "reading": "ㄏㄜˊ"
+            },
+            {
+              "char": "長",
+              "dict_key": "ㄔㄤ2",
+              "reading": "ㄔㄤˊ"
+            }
+          ]
+        }
+      },
+      "entries": [
+        {
+          "target": "rhymeDict",
+          "bucket": "added",
+          "value": {
+            "char": "和",
+            "reading": "ㄏㄜˊ",
+            "dict_key": "ㄏㄜ2",
+            "tier": "normal"
+          }
+        },
+        {
+          "target": "rhymeDict",
+          "bucket": "removed",
+          "value": {
+            "char": "和",
+            "dict_key": "ㄏㄜ2",
+            "reading": "ㄏㄜˊ"
+          }
+        },
+        {
+          "target": "rhymeDict",
+          "bucket": "removed",
+          "value": {
+            "char": "長",
+            "dict_key": "ㄓㄤ3",
+            "reading": "ㄓㄤˇ"
+          }
+        }
+      ],
+      "expected": {
+        "wordlist": {
+          "removed": [],
+          "hidden": [],
+          "fixed": {},
+          "added": []
+        },
+        "rhymeDict": {
+          "removed": [
+            {
+              "char": "和",
+              "dict_key": "ㄏㄜ2",
+              "reading": "ㄏㄜˊ"
+            },
+            {
+              "char": "長",
+              "dict_key": "ㄔㄤ2",
+              "reading": "ㄔㄤˊ"
+            },
+            {
+              "char": "長",
+              "dict_key": "ㄓㄤ3",
+              "reading": "ㄓㄤˇ"
+            }
+          ],
+          "hidden": [],
+          "fixed": [],
+          "added": []
+        }
+      }
+    },
+    {
+      "name": "讀音：同字不同讀音各自獨立",
+      "entries": [
+        {
+          "target": "rhymeDict",
+          "bucket": "removed",
+          "value": {
+            "char": "和",
+            "dict_key": "ㄏㄜ2",
+            "reading": "ㄏㄜˊ"
+          }
+        },
+        {
+          "target": "rhymeDict",
+          "bucket": "hidden",
+          "value": {
+            "char": "和",
+            "dict_key": "ㄏㄜ4",
+            "reading": "ㄏㄜˋ"
+          }
+        }
+      ],
+      "expected": {
+        "wordlist": {
+          "removed": [],
+          "hidden": [],
+          "fixed": {},
+          "added": []
+        },
+        "rhymeDict": {
+          "removed": [
+            {
+              "char": "和",
+              "dict_key": "ㄏㄜ2",
+              "reading": "ㄏㄜˊ"
+            }
+          ],
+          "hidden": [
+            {
+              "char": "和",
+              "dict_key": "ㄏㄜ4",
+              "reading": "ㄏㄜˋ"
+            }
+          ],
+          "fixed": [],
+          "added": []
+        }
+      }
+    }
+  ],
+  "invalid": [
+    {
+      "name": "含標記的詞",
+      "target": "wordlist",
+      "bucket": "removed",
+      "value": "<img>"
+    },
+    {
+      "name": "含控制字元的詞",
+      "target": "wordlist",
+      "bucket": "hidden",
+      "value": "二\u0007心"
+    },
+    {
+      "name": "含空白的詞",
+      "target": "wordlist",
+      "bucket": "removed",
+      "value": "二 心"
+    },
+    {
+      "name": "超過 20 字的詞",
+      "target": "wordlist",
+      "bucket": "removed",
+      "value": "一二三四五六七八九十一二三四五六七八九十一"
+    },
+    {
+      "name": "空字串的詞",
+      "target": "wordlist",
+      "bucket": "hidden",
+      "value": ""
+    },
+    {
+      "name": "注音音節數不等於字數",
+      "target": "wordlist",
+      "bucket": "fixed",
+      "value": {
+        "w": "好運",
+        "z": "ㄏㄠˇ"
+      }
+    },
+    {
+      "name": "注音含問號",
+      "target": "wordlist",
+      "bucket": "fixed",
+      "value": {
+        "w": "好運",
+        "z": "ㄏㄠˇ ?"
+      }
+    },
+    {
+      "name": "AI 收錄的注音是空的",
+      "target": "wordlist",
+      "bucket": "added",
+      "value": {
+        "w": "花火",
+        "z": "",
+        "tier": "normal",
+        "source": "ai_accept"
+      }
+    },
+    {
+      "name": "新增詞等級不對",
+      "target": "wordlist",
+      "bucket": "added",
+      "value": {
+        "w": "花火",
+        "z": "ㄏㄨㄚ ㄏㄨㄛˇ",
+        "tier": "vip",
+        "source": "manual"
+      }
+    },
+    {
+      "name": "新增詞來源不對",
+      "target": "wordlist",
+      "bucket": "added",
+      "value": {
+        "w": "花火",
+        "z": "ㄏㄨㄚ ㄏㄨㄛˇ",
+        "tier": "normal",
+        "source": "hacker"
+      }
+    },
+    {
+      "name": "讀音 dict_key 聲調不是 1–5",
+      "target": "rhymeDict",
+      "bucket": "removed",
+      "value": {
+        "char": "長",
+        "dict_key": "ㄔㄤ9",
+        "reading": "ㄔㄤˊ"
+      }
+    },
+    {
+      "name": "讀音 dict_key 和 reading 對不上",
+      "target": "rhymeDict",
+      "bucket": "added",
+      "value": {
+        "char": "長",
+        "reading": "ㄔㄤˊ",
+        "dict_key": "ㄔㄤ3",
+        "tier": "normal"
+      }
+    },
+    {
+      "name": "字是兩個字",
+      "target": "rhymeDict",
+      "bucket": "hidden",
+      "value": {
+        "char": "長長",
+        "dict_key": "ㄔㄤ2",
+        "reading": "ㄔㄤˊ"
+      }
+    },
+    {
+      "name": "讀音新增的等級不對",
+      "target": "rhymeDict",
+      "bucket": "added",
+      "value": {
+        "char": "長",
+        "reading": "ㄔㄤˊ",
+        "dict_key": "ㄔㄤ2",
+        "tier": "rare!"
+      }
+    },
+    {
+      "name": "讀音修正缺 to",
+      "target": "rhymeDict",
+      "bucket": "fixed",
+      "value": {
+        "char": "長",
+        "from": "ㄔㄤ2"
+      }
+    },
+    {
+      "name": "未知的欄位",
+      "target": "wordlist",
+      "bucket": "weird",
+      "value": "二心"
+    },
+    {
+      "name": "未知的對象",
+      "target": "nowhere",
+      "bucket": "removed",
+      "value": "二心"
+    }
+  ]
+}

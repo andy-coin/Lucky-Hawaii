@@ -1,7 +1,9 @@
 // 修正層 Worker：套用、公開讀取（不開瀏覽器）
 import { test, expect } from '@playwright/test';
 import worker from '../worker/src/index.js';
+import { readFileSync } from 'node:fs';
 import { FakeKV, makeEnv } from './worker-helpers.mjs';
+import { actionToEntry, replayEntries, validateEntryValue } from '../worker/src/corrections.js';
 
 const ORIGIN = 'https://andy-coin.github.io';
 const KEY = { 'X-Admin-Key': 'admin-test' };
@@ -182,4 +184,102 @@ test('修正層 Worker：FakeKV list 分頁（cursor、limit、pageSize、list_c
     expect((await kv.list()).keys).toHaveLength(1);
     const all = new FakeKV({ x: '1', y: '2' });
     expect(await all.list()).toMatchObject({ list_complete: true, keys: [{ name: 'x' }, { name: 'y' }] });
+});
+
+// ---------- 07-02 Task 1：動作對照與共用向量 ----------
+const VECTORS = JSON.parse(readFileSync(new URL('./fixtures/corrections-vectors.json', import.meta.url), 'utf8'));
+
+test('修正層 Worker：共用向量——每個 case 重播結果完全相等，再重播一次不變', () => {
+    expect(VECTORS.cases.length).toBeGreaterThanOrEqual(14);
+    for (const c of VECTORS.cases) {
+        for (const e of c.entries) expect(validateEntryValue(e.target, e.bucket, e.value), `${c.name} 的 entry 要能通過驗證`).toBe(true);
+        const once = replayEntries(c.base, c.entries);
+        expect(once, c.name).toEqual(c.expected);
+        // 順序也是契約的一部分：陣列用 toEqual 比對順序，fixed 物件另外比對鍵順序
+        expect(Object.keys(once.wordlist.fixed), c.name + '（fixed 鍵順序）').toEqual(Object.keys(c.expected.wordlist.fixed));
+        expect(replayEntries(once, c.entries), c.name + '（再重播一次）').toEqual(once);
+    }
+});
+
+test('修正層 Worker：共用向量——base 不被改動', () => {
+    const base = { wordlist: { removed: ['甲'], fixed: { 丁: 'ㄉㄧㄥ' } }, rhymeDict: { removed: [{ char: '長', dict_key: 'ㄔㄤ2' }] } };
+    const snapshot = JSON.stringify(base);
+    replayEntries(base, [{ target: 'wordlist', bucket: 'hidden', value: '甲' }, { target: 'rhymeDict', bucket: 'added', value: { char: '長', reading: 'ㄔㄤˊ', dict_key: 'ㄔㄤ2', tier: 'normal' } }]);
+    expect(JSON.stringify(base)).toBe(snapshot);
+});
+
+test('修正層 Worker：共用向量——不合格的值一律被驗證擋下', () => {
+    expect(VECTORS.invalid.length).toBeGreaterThanOrEqual(8);
+    for (const v of VECTORS.invalid) expect(validateEntryValue(v.target, v.bucket, v.value), v.name).toBe(false);
+});
+
+const act = (type, extra) => report({ action: { type, ...extra } });
+const ACTION_REPORTS = {
+    a1: act('hide_word', { word: '二心' }),
+    a2: act('remove_word', { word: '三心' }),
+    a3: act('fix_word_reading', { word: '好運', new_z: 'ㄏㄠˇ ㄩㄣˋ' }),
+    a4: act('manual_add_word', { word: '花火', z: 'ㄏㄨㄚ ㄏㄨㄛˇ', tier: 'common' }),
+    a5: act('accept_ai_word', { word: '星河', z: 'ㄒㄧㄥ ㄏㄜˊ' }),
+    a6: act('modify_ai_word', { original: '星海', modified: '星辰', z: 'ㄒㄧㄥ ㄔㄣˊ' }),
+    a7: act('hide_char_reading', { char: '和', dict_key: 'ㄏㄜ4', reading: 'ㄏㄜˋ' }),
+    a8: act('remove_char_reading', { char: '長', dict_key: 'ㄔㄤ2', reading: 'ㄔㄤˊ' }),
+    a9: act('fix_char_reading', { char: '行', old_reading: 'ㄒㄧㄥˊ', old_dict_key: 'ㄒㄧㄥ2', new_reading: 'ㄏㄤˊ', new_dict_key: 'ㄏㄤ2' }),
+    a10: act('manual_add_reading', { char: '樂', new_reading: 'ㄩㄝˋ', new_dict_key: 'ㄩㄝ4', to_tier: 'common' }),
+    a11: act('note', { text: '只是備註' }),
+};
+
+test('修正層 Worker：動作對照——11 種核准動作一次套用，10 筆進修正層、備註略過，公開 view 是資料檔的形狀', async () => {
+    const env = seeded(ACTION_REPORTS);
+    const res = await apply(env, Object.keys(ACTION_REPORTS));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.count).toBe(10);
+    expect(body.skipped).toEqual([{ kvKey: 'a11', reason: 'no_effect' }]);
+    expect(env.AI_STATE_KV.puts).toBe(1);
+    const view = await (await call('/corrections.json', { origin: ORIGIN, env })).json();
+    expect(view).toEqual({
+        version: 1, rev: 1,
+        wordlist: {
+            removed: ['三心'], hidden: ['二心'], fixed: { 好運: 'ㄏㄠˇ ㄩㄣˋ' },
+            added: [
+                { w: '花火', z: 'ㄏㄨㄚ ㄏㄨㄛˇ', tier: 'common', source: 'manual' },
+                { w: '星河', z: 'ㄒㄧㄥ ㄏㄜˊ', tier: 'normal', source: 'ai_accept' },
+                { w: '星辰', z: 'ㄒㄧㄥ ㄔㄣˊ', tier: 'normal', source: 'ai_modify', original: '星海' },
+            ],
+        },
+        rhymeDict: {
+            removed: [{ char: '長', dict_key: 'ㄔㄤ2', reading: 'ㄔㄤˊ' }],
+            hidden: [{ char: '和', dict_key: 'ㄏㄜ4', reading: 'ㄏㄜˋ' }],
+            fixed: [{ char: '行', from: 'ㄒㄧㄥ2', to: 'ㄏㄤ2' }],
+            added: [{ char: '樂', reading: 'ㄩㄝˋ', dict_key: 'ㄩㄝ4', tier: 'common' }],
+        },
+    });
+});
+
+test('修正層 Worker：動作對照——沒有原讀音的修正變成新增；手動新增詞可沒有注音；不合格的值被略過', () => {
+    expect(actionToEntry({ action: { type: 'fix_char_reading', char: '行', old_reading: '', old_dict_key: '', new_reading: 'ㄏㄤˊ', new_dict_key: 'ㄏㄤ2' } }))
+        .toEqual({ target: 'rhymeDict', bucket: 'added', value: { char: '行', reading: 'ㄏㄤˊ', dict_key: 'ㄏㄤ2', tier: 'normal' } });
+    expect(actionToEntry({ action: { type: 'manual_add_word', word: '花火', z: '', tier: 'normal' } }))
+        .toEqual({ target: 'wordlist', bucket: 'added', value: { w: '花火', z: '', tier: 'normal', source: 'manual' } });
+    expect(actionToEntry({ action: { type: 'manual_add_word', word: '花火' } }).value.tier).toBe('normal');
+    const bad = [
+        { type: 'accept_ai_word', word: '星河', z: '' },
+        { type: 'accept_ai_word', word: '星河', z: 'ㄒㄧㄥ ?' },
+        { type: 'fix_word_reading', word: '好運', new_z: 'ㄏㄠˇ' },
+        { type: 'remove_word', word: '<img>' },
+        { type: 'hide_char_reading', char: '長', dict_key: 'ㄔㄤ9', reading: 'ㄔㄤˊ' },
+        { type: 'hide_char_reading', char: '長', dict_key: 'ㄔㄤ3', reading: 'ㄔㄤˊ' },
+        { type: 'manual_add_reading', char: '樂', new_reading: 'ㄩㄝˋ', new_dict_key: 'ㄩㄝ4', to_tier: 'vip' },
+        { type: 'fix_char_reading', char: '行', old_reading: 'ㄒㄧㄥˊ', old_dict_key: 'ㄒㄧㄥ2', new_reading: 'ㄏㄤˊ', new_dict_key: 'ㄏㄤ3' },
+        { type: 'teleport', word: '好運' },
+    ];
+    for (const action of bad) expect(actionToEntry({ action }), action.type).toEqual({ skip: 'invalid' });
+    expect(actionToEntry({ action: { type: 'note', text: 'x' } })).toEqual({ skip: 'no_effect' });
+});
+
+test('修正層 Worker：動作對照——只認 action，不看回報上的 word 欄位', async () => {
+    const env = seeded({ k1: report({ word: '<b>x', action: { type: 'remove_word', word: '二心' } }) });
+    const body = await (await apply(env, ['k1'])).json();
+    expect(body.count).toBe(1);
+    expect(JSON.parse(env.AI_STATE_KV.m.get('corrections:v1')).entries[0].value).toBe('二心');
 });
