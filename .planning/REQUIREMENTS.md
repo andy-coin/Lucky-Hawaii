@@ -53,7 +53,7 @@
 - [x] **FB-02**: 後台同一個詞的多筆回報合併顯示，可批次核准／駁回
 - [x] **FB-03**: 後台核准後一鍵套用，修正暫存為 Worker 上的「修正層」，線上使用者即時生效（與回報資料分開存放）
 - [x] **FB-04**: 已套用的修正可一鍵撤回
-- [ ] **FB-05**: 腳本可把累積的修正層寫回 `data/`、push 到 GitHub，確認線上部署生效後才清空 Worker 修正層，不會重複套用或遺失修正
+- [x] **FB-05**: 腳本可把累積的修正層寫回 `data/`、push 到 GitHub，確認線上部署生效後才清空 Worker 修正層，不會重複套用或遺失修正
 
 ### Editor（歌詞編輯器）
 
@@ -148,7 +148,7 @@
 | FB-02 | Phase 7 | Complete |
 | FB-03 | Phase 7 | Complete |
 | FB-04 | Phase 7 | Complete |
-| FB-05 | Phase 7 | Pending |
+| FB-05 | Phase 7 | Complete |
 | EDIT-01 | Phase 8 | Pending |
 | EDIT-02 | Phase 9 | Pending |
 | EDIT-03 | Phase 9 | Pending |

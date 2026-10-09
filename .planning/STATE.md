@@ -4,16 +4,16 @@ milestone: v0.96
 current_phase: 07
 current_phase_name: Feedback & Correction Layer 回報與修正層
 status: executing
-stopped_at: Completed 07-08-PLAN.md
-last_updated: "2026-10-09T22:45:11.388Z"
+stopped_at: Completed 07-09-PLAN.md
+last_updated: "2026-10-09T22:54:51.629Z"
 last_activity: 2026-10-10
 last_activity_desc: Phase 07 execution started
-state_head: e3e43873e480f2224365c3b0fb64c5048bfecb00
+state_head: 7b4b78195e0920be059c4988d4bd7d7b89eb4887
 progress:
   total_phases: 12
   completed_phases: 2
   total_plans: 51
-  completed_plans: 49
+  completed_plans: 50
 ---
 
 # Project State
@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-10-03)
 ## Current Position
 
 Phase: 07 (Feedback & Correction Layer 回報與修正層) — EXECUTING
-Plan: 9 of 10
+Plan: 10 of 10
 Status: Ready to execute
 Last activity: 2026-10-10 — Phase 07 execution started
 
@@ -106,6 +106,7 @@ Progress: [██░░░░░░░░] 17%
 | Phase 07 P06 | 20 min | 2 tasks | 8 files |
 | Phase 07 P07 | 45 min | 2 tasks | 2 files |
 | Phase 07 P08 | 40 min | 2 tasks | 7 files |
+| Phase 07 P09 | 45min | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -181,6 +182,7 @@ Recent decisions affecting current work:
 - [Phase 07]: 07-07: 列內只要有一筆在線上就顯示撤回；Worker 不收的項目留在等待套用並說明；修正層讀取失敗保留舊資料只改狀態
 - [Phase 07]: 07-08：--push／--confirm-only 在寫檔版暫時明確拒絕（exit 3），07-09 補實作時再放行
 - [Phase 07]: 07-08：寫回腳本預覽與 --apply 都先整批驗證；只有 --apply 才檢查三個目標檔是否未 commit；非 main 訊息以 --live-branch 取代 main
+- [Phase 07]: 07-09: 批次 = 日誌已記 id；清空前重抓 rev、409 重試一次；--push 須搭配 --apply；有 --push 時沒有新 commit 也 push
 
 ### Pending Todos
 
@@ -222,6 +224,6 @@ Items acknowledged and deferred at milestone close, most recent first:
 
 ## Session Continuity
 
-Last session: 2026-10-09T22:45:11.335Z
-Stopped at: Completed 07-08-PLAN.md
+Last session: 2026-10-09T22:54:51.582Z
+Stopped at: Completed 07-09-PLAN.md
 Resume file: None
