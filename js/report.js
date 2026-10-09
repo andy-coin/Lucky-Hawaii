@@ -247,8 +247,12 @@
             '其他': { type: '其他', placeholder: '請簡單說明（選填）' }
         };
         const _REPORT_TONE_MARKS = ['', '', 'ˊ', 'ˇ', 'ˋ', '˙'];
-        // 視窗狀態只活在這個物件（不寫 localStorage）：items 是開啟當下的快照，換選取也不會變
-        const _report = { items: [], reason: null, opener: null, sending: false };
+        // 本頁已回報過的「字詞＋原因」：只放記憶體，重新整理就忘（A4、D-08，不寫任何儲存鍵）
+        const _reportedSet = new Set();
+        // 視窗狀態只活在這個物件：items 是開啟當下的快照，換選取也不會變；
+        // msg 是送出後的結果訊息 { text, error }；epoch 每次關閉加 1，讓還在跑的送出知道視窗已經關了
+        const _report = { items: [], reason: null, opener: null, sending: false, cut: false, msg: null, epoch: 0 };
+        const _rpt = id => document.getElementById(id);
 
         // 讀目前選取的字卡 → 回報項目（依畫面順序；壞掉的卡與重複的卡略過）
         function _reportItemsFromSelection() {
@@ -263,23 +267,37 @@
             return items;
         }
 
-        function _reportItemLabel(it) { return it.kind === 'char' ? it.char : it.word; }
+        function _reportItemLabel(it) { return it.kind === 'char' ? it.char : it.word.trim(); }
+        // 同一個字詞＋同一個原因本頁只送一次；字詞用修剪後的原字串比對，不做任何正規化
+        function _reportKey(it, reportType) {
+            return it.kind === 'char' ? `c|${it.char}|${it.reading}|${reportType}` : `w|${it.word.trim()}|${reportType}`;
+        }
 
         function _renderReportState() {
-            const items = _report.items;
-            const title = document.getElementById('reportTitle');
-            title.textContent = items.length === 1 ? `回報「${_reportItemLabel(items[0])}」` : `回報 ${items.length} 個字詞`;
-            const box = document.getElementById('reportWords');
+            const items = _report.items, info = REPORT_REASONS[_report.reason];
+            const reportType = info && info.type;
+            const done = it => !!reportType && _reportedSet.has(_reportKey(it, reportType));
+            const skipped = items.filter(done).length;
+            const fresh = items.length - skipped;
+            _rpt('reportTitle').textContent = items.length === 1 ? `回報「${_reportItemLabel(items[0])}」` : `回報 ${items.length} 個字詞`;
+            // 晶片只用 textContent／createElement 建，AI 來的詞帶標記也只會當文字（T-07-15）
+            const box = _rpt('reportWords');
             box.textContent = '';
             items.slice(0, REPORT_CHIPS_MAX).forEach(it => {
                 const chip = document.createElement('span');
-                chip.className = 'report-chip';
+                chip.className = 'report-chip' + (done(it) ? ' reported' : '');
                 chip.appendChild(document.createTextNode(_reportItemLabel(it)));
                 if (it.kind === 'char') {
                     const r = document.createElement('span');
                     r.className = 'report-chip-reading';
                     r.textContent = fmtPhonetic(it.base, it.tone);
                     chip.appendChild(r);
+                }
+                if (done(it)) {
+                    const d = document.createElement('span');
+                    d.className = 'report-chip-done';
+                    d.textContent = '已回報過';
+                    chip.appendChild(d);
                 }
                 box.appendChild(chip);
             });
@@ -289,16 +307,36 @@
                 more.textContent = `+${items.length - REPORT_CHIPS_MAX}`;
                 box.appendChild(more);
             }
-            document.querySelectorAll('#reportReasons .report-reason').forEach(b => {
+            const btns = [...document.querySelectorAll('#reportReasons .report-reason')];
+            btns.forEach((b, i) => {
                 const on = b.dataset.reason === _report.reason;
                 b.setAttribute('aria-checked', on ? 'true' : 'false');
                 b.querySelector('.report-reason-label').textContent = (on ? '✓ ' : '') + b.dataset.reason;
+                b.tabIndex = (_report.reason ? on : i === 0) ? 0 : -1;   // 單選群組只留一個 Tab 停靠點，方向鍵在裡面移動
+                b.disabled = _report.sending;
             });
-            const info = REPORT_REASONS[_report.reason];
-            document.getElementById('reportNote').placeholder = info
-                ? ((lastSearchType === 'pinyin' && info.placeholderPinyin) || info.placeholder) : '補充說明（選填）';
-            document.getElementById('reportSendBtn').disabled = !_report.reason || _report.sending;
-            document.getElementById('reportSendBtn').textContent = items.length > 1 ? `送出回報（${items.length} 個）` : '送出回報';
+            const note = _rpt('reportNote');
+            note.disabled = _report.sending;
+            note.placeholder = info ? ((lastSearchType === 'pinyin' && info.placeholderPinyin) || info.placeholder) : '補充說明（選填）';
+            // 狀態行：送出結果 > 送出中 > 已回報過 > 超過上限
+            const status = _rpt('reportStatus');
+            let text = '', error = false;
+            if (_report.msg) { text = _report.msg.text; error = !!_report.msg.error; }
+            else if (_report.sending) text = '送出中…';
+            else {
+                const parts = [];
+                if (reportType && items.length > 0 && fresh === 0) parts.push('這些字詞已經用這個原因回報過了');
+                else if (skipped > 0) parts.push(`${skipped} 個已回報過，會略過`);
+                if (_report.cut) parts.push('一次最多回報 10 個，已先取前 10 個');   // 文字寫死 10，要改上限時跟 REPORT_MAX 一起改
+                text = parts.join('；');
+            }
+            status.textContent = text;
+            status.classList.toggle('error', error);
+            const send = _rpt('reportSendBtn');
+            const count = reportType ? fresh : items.length;
+            send.textContent = _report.sending ? '送出中…' : (items.length > 1 ? `送出回報（${count} 個）` : '送出回報');
+            send.setAttribute('aria-label', `送出回報，共 ${count} 個字詞`);
+            send.disabled = !reportType || _report.sending || fresh === 0;
         }
 
         // 打開回報視窗；items 預設是目前選取的字卡。什麼都沒選就只跳提示（D-02）
@@ -306,20 +344,27 @@
             const list = Array.isArray(items) ? items : _reportItemsFromSelection();
             if (list.length === 0) { showToast('先點一下要回報的字，再按回報'); return; }
             _report.items = list.slice(0, REPORT_MAX);
+            _report.cut = list.length > REPORT_MAX;
             _report.reason = null;
             _report.sending = false;
+            _report.msg = null;
             _report.opener = document.activeElement;
-            document.getElementById('reportNote').value = '';
-            document.getElementById('reportStatus').textContent = '';
+            _rpt('reportNote').value = '';
             _renderReportState();
-            document.getElementById('reportModalOverlay').classList.add('show');
-            document.getElementById('reportTitle').focus();   // 焦點放標題，不放說明欄，手機鍵盤才不會彈出來
+            _rpt('reportModalOverlay').classList.add('show');
+            _rpt('reportTitle').focus();   // 焦點放標題，不放說明欄，手機鍵盤才不會彈出來
         }
 
         function closeReportDialog(e) {
-            const overlay = document.getElementById('reportModalOverlay');
-            if (e && e.target !== overlay) return;
+            const overlay = _rpt('reportModalOverlay');
+            if (e) {
+                if (e.target !== overlay) return;
+                if (_rpt('reportNote').value.trim()) return;   // 點遮罩只在說明欄是空的時候才關，打到一半的字不能不見
+            }
+            if (!overlay.classList.contains('show')) return;
             overlay.classList.remove('show');
+            _report.epoch++;
+            _report.sending = false;
             const op = _report.opener;
             _report.opener = null;
             if (op && op.focus && document.contains(op)) op.focus();
@@ -328,7 +373,7 @@
         function _reportPayload(it, reportType, note) {
             const body = it.kind === 'char'
                 ? { type: 'char-reading-report', char: it.char, reading: it.reading, reportType }
-                : { type: 'word-report', word: it.word, reportType };
+                : { type: 'word-report', word: it.word.trim(), reportType };
             if (note) body[reportType === '讀音錯誤' ? 'suggested' : 'note'] = note;
             return body;
         }
@@ -336,29 +381,75 @@
         async function submitReport() {
             if (!_report.reason || _report.sending) return;
             const reportType = REPORT_REASONS[_report.reason].type;
-            const note = document.getElementById('reportNote').value.trim();
+            const todo = _report.items.filter(it => !_reportedSet.has(_reportKey(it, reportType)));
+            if (todo.length === 0) return;
+            const note = Array.from(_rpt('reportNote').value.trim()).slice(0, REPORT_NOTE_MAX).join('');
+            const epoch = _report.epoch;
             _report.sending = true;
+            _report.msg = null;
             _renderReportState();
-            let allOk = true;
-            for (const it of _report.items) {
+            let failed = null;
+            for (const it of todo) {
                 const r = await postFeedbackRaw(_reportPayload(it, reportType, note));
-                if (!r.ok) { allOk = false; break; }
+                if (r.ok) _reportedSet.add(_reportKey(it, reportType));
+                if (epoch !== _report.epoch) return;          // 送到一半視窗被關了：不再送下一個，也不動畫面
+                if (!r.ok) { failed = r; break; }
+                _renderReportState();
             }
             _report.sending = false;
-            if (!allOk) {
-                showToast('回報沒有送出，請檢查網路後再試一次');
-                _renderReportState();
+            if (!failed) {
+                const n = _report.items.length;
+                showToast(n === 1 ? `已回報「${_reportItemLabel(_report.items[0])}」— ${_report.reason}` : `已回報 ${n} 個字詞，謝謝你`);
+                closeReportDialog();
                 return;
             }
-            const first = _report.items[0];
-            showToast(_report.items.length === 1 ? `已回報「${_reportItemLabel(first)}」— ${_report.reason}` : `已回報 ${_report.items.length} 個字詞，謝謝你`);
-            closeReportDialog();
+            // 失敗：視窗、原因、說明都留著；已送出的標成「已回報過」，使用者可以直接再按一次
+            const k = _report.items.filter(it => _reportedSet.has(_reportKey(it, reportType))).length;
+            if (failed.status === 429) {
+                _report.msg = { text: '回報得太快了，請過一分鐘再試', error: true };
+                showToast(_report.msg.text);
+            } else if (k > 0) {
+                _report.msg = { text: `已送出 ${k} 個，還有 ${_report.items.length - k} 個沒送出，請再按一次送出`, error: true };
+            } else {
+                _report.msg = { text: '回報沒有送出，請檢查網路後再試一次', error: true };
+                showToast(_report.msg.text);
+            }
+            _renderReportState();
+            _rpt('reportSendBtn').focus();
         }
 
-        document.querySelectorAll('#reportReasons .report-reason').forEach(b => b.addEventListener('click', () => {
-            if (_report.sending) return;
-            _report.reason = b.dataset.reason;
-            _renderReportState();
-        }));
-        document.getElementById('reportCancelBtn').addEventListener('click', () => closeReportDialog());
-        document.getElementById('reportSendBtn').addEventListener('click', () => submitReport());
+        // 單選群組：點選、方向鍵移動（右／下 = 下一個，左／上 = 上一個，頭尾相接）
+        (function wireReportDialog() {
+            const btns = [...document.querySelectorAll('#reportReasons .report-reason')];
+            const choose = b => {
+                if (_report.sending) return;
+                _report.reason = b.dataset.reason;
+                _report.msg = null;
+                _renderReportState();
+            };
+            btns.forEach(b => b.addEventListener('click', () => choose(b)));
+            _rpt('reportReasons').addEventListener('keydown', e => {
+                const step = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }[e.key];
+                const i = btns.indexOf(document.activeElement);
+                if (!step || i < 0) return;
+                e.preventDefault();
+                const next = btns[(i + step + btns.length) % btns.length];
+                choose(next);
+                next.focus();
+            });
+            _rpt('reportCancelBtn').addEventListener('click', () => closeReportDialog());
+            _rpt('reportSendBtn').addEventListener('click', () => submitReport());
+            // Esc 關閉；Tab 只在視窗裡打轉（遮罩蓋住整頁，簡單的焦點圈）
+            document.addEventListener('keydown', e => {
+                const ov = _rpt('reportModalOverlay');
+                if (!ov.classList.contains('show')) return;
+                if (e.key === 'Escape') { e.preventDefault(); closeReportDialog(); return; }
+                if (e.key !== 'Tab') return;
+                const tabbables = [...ov.querySelectorAll('button, textarea')].filter(el => !el.disabled && el.tabIndex >= 0);
+                if (tabbables.length === 0) return;
+                const first = tabbables[0], last = tabbables[tabbables.length - 1], a = document.activeElement;
+                if (!ov.contains(a)) { e.preventDefault(); first.focus(); }
+                else if (e.shiftKey && (a === first || a === _rpt('reportTitle'))) { e.preventDefault(); last.focus(); }
+                else if (!e.shiftKey && a === last) { e.preventDefault(); first.focus(); }
+            });
+        })();

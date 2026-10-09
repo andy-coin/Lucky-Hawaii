@@ -135,7 +135,7 @@
         <div class="footer">
             創作者專屬工具 · 歡迎分享
             <span class="about-btn" onclick="toggleAbout()">i</span>
-            <button class="feedback-btn" onclick="openFeedbackModal()">回報</button>
+            <button class="feedback-btn" onclick="openFeedbackModal()">意見</button>
         </div>
 
         <div class="about-overlay" id="aboutOverlay" onclick="closeAbout(event)">
@@ -192,7 +192,7 @@
                     <button class="save-load-btn" style="flex:1;text-align:center" onclick="exportSession();closeSettingsOverlay({target:document.getElementById('settingsOverlay')})" title="匯出">💾 存檔</button>
                     <button class="save-load-btn" style="flex:1;text-align:center" onclick="document.getElementById('importFileInput').click();closeSettingsOverlay({target:document.getElementById('settingsOverlay')})" title="讀取">📂 讀取</button>
                 </div>
-                <button class="settings-feedback-btn save-load-btn" style="width:100%;text-align:center;" onclick="closeSettingsOverlay({target:document.getElementById('settingsOverlay')});openFeedbackModal()">✉️ 回報 / 意見</button>
+                <button class="settings-feedback-btn save-load-btn" style="width:100%;text-align:center;" onclick="closeSettingsOverlay({target:document.getElementById('settingsOverlay')});openFeedbackModal()">✉️ 意見回饋</button>
                 <button class="reset-color" onclick="resetColors()" >重設顏色!</button>
                 <button class="reset-color" onclick="clearDictOverrides()" title="清除瀏覽器中暫存的字庫修改（不影響檔案）">清除字庫 local 覆寫</button>
             </div>

@@ -159,6 +159,13 @@
             box-shadow: none;
         }
         .batch-panel.inline .batch-btn .batch-icon { font-size: 0.95rem; }
+        /* 900px 以下仍顯示這排（例如橫拿手機 844px）：第 4 顆 🚩 回報進來後一排會擠不下而換行，
+           所以把按鈕左右內距和回報鈕的隔開距離收一點，讓模式鈕、批次鈕、齒輪維持同一排 */
+        @media (max-width: 900px) {
+            .batch-panel.inline { gap: var(--sp-1); }
+            .batch-panel.inline .batch-btn { padding-inline: var(--sp-1); }
+            .batch-btn.btn-report { margin-inline-start: var(--sp-1); }
+        }
 
         .m-batch-panel{
             display: none;
@@ -503,7 +510,7 @@
                 z-index: 900;
                 transition: opacity 0.3s ease;
                 transform: none;
-                padding: 0.25rem 0.9375rem;
+                padding: 0.25rem var(--sp-2);   /* 左右留 0.5rem：390px 內容寬 320px，4 欄 × 72px + 3 個間距 = 312px 才排得下 */
                 background: var(--container-bg);
             }
             .m-batch-btn {
