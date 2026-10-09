@@ -82,9 +82,11 @@ class LoadCalibrationTest(unittest.TestCase):
         rows = judge.load_calibration(CALIBRATION)
         self.assertGreaterEqual(len(rows), 50)
         by_word = {r[0]: r[1] for r in rows}
-        self.assertEqual(by_word['三酸甘油酯'], 'K')
-        self.assertEqual(by_word['聚乙烯醇縮丁醛'], 'D')
-        self.assertEqual(by_word['分散式雜湊表'], 'D')
+        self.assertEqual(by_word['糖化血色素'], 'K')
+        self.assertEqual(by_word['鄰苯二甲酸二辛酯'], 'D')
+        self.assertEqual(by_word['紅黑樹平衡演算法'], 'D')
+        # 提示詞範例裡的詞不能同時當考題，否則一致率會虛高
+        self.assertEqual([w for w in by_word if '「%s」' % w in judge._INSTRUCTION], [])
         n_k = sum(1 for r in rows if r[1] == 'K')
         self.assertGreater(n_k, len(rows) - n_k)   # K 多於 D（約 36 比 24）
         self.assertGreaterEqual(len(rows) - n_k, 20)
@@ -212,7 +214,7 @@ class EvalCommandTest(unittest.TestCase):
         rec.write_text('\n'.join(flipped) + '\n', encoding='utf-8')
         rc, out, _err = self.run_cli(['--provider', 'recorded', '--recorded', str(rec)])
         self.assertEqual(rc, 1)
-        self.assertIn('三酸甘油酯：標準 K，AI 回答 D', out)
+        self.assertIn('糖化血色素：標準 K，AI 回答 D', out)
 
     def test_min_agree_can_be_lowered_and_bad_values_are_refused(self):
         rows = judge.load_calibration(CALIBRATION)
