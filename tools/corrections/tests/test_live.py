@@ -174,6 +174,39 @@ class PushPollClear(LiveCase):
         self.assertIn('已清空這批 2 筆；寫回期間新套用的 1 筆仍留在修正層', out)
         self.assertNotIn(KEY, out + err)
 
+    def test_an_entry_revoked_while_waiting_is_reported_and_only_the_rest_is_cleared(self):
+        repo = make_repo(self.tmp)
+        bare = self.remote(repo)
+        w = self.layer([ONE, TWO])
+        site = self.site(bare, 'main', live_after=1)
+        site.on_poll = lambda n: setattr(w, 'entries', [e for e in w.entries if e['id'] != 'c_one']) if n == 1 else None
+        code, out, err = self.go(repo, w, site, '--apply', '--push')
+        self.assertEqual(code, 6)                                        # 寫回完成，但有一筆已寫進資料檔卻被撤回
+        self.assertEqual([c['ids'] for c in w.clears()], [['c_two']])     # 只送出現在還在的
+        self.assertEqual(w.ids(), [])
+        self.assertIn('c_one', err)
+        self.assertIn('wordlist/removed', err)
+        self.assertIn('測試詞', err)
+        self.assertIn('網站上仍然有效', err)
+        self.assertNotIn('c_two', err)
+        self.assertNotIn(KEY, out + err)
+
+    def test_an_entry_revoked_between_the_reread_and_the_clear_is_also_reported(self):
+        repo = make_repo(self.tmp)
+        bare = self.remote(repo)
+        w = self.layer([ONE, TWO])
+        real = writeback.fetch_layer
+        def fetch_then_revoke(worker, key):
+            doc = real(worker, key)
+            if len(w.requests) >= 2 and w.entries and any(e['id'] == 'c_one' for e in w.entries) and not w.clears():
+                w.entries = [e for e in w.entries if e['id'] != 'c_one']   # 讀完之後、清空之前被撤回
+            return doc
+        with mock.patch.object(writeback, 'fetch_layer', fetch_then_revoke):
+            code, out, err = self.go(repo, w, self.site(bare, 'main'), '--apply', '--push')
+        self.assertEqual(code, 6)
+        self.assertIn('c_one', err)
+        self.assertEqual(w.ids(), [])
+
     def test_timeout_exits_4_keeps_the_push_and_clears_nothing(self):
         repo = make_repo(self.tmp)
         bare = self.remote(repo)

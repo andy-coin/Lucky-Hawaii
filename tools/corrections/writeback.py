@@ -15,12 +15,13 @@
   python3 -B tools/corrections/writeback.py --confirm-only  不寫檔、不 commit、不 push（任何分支都可以）：只確認線上已生效並清空
                                                             日誌裡已記過 id 的那幾筆（合併到 main 之後，或逾時之後用這個）
 
-退出碼：0 成功或沒事可做 · 2 讀不到修正層或沒有金鑰 · 3 資料不合格或 git 失敗
-        · 4 線上確認逾時 · 5 清空失敗
+退出碼：0 成功或沒事可做 · 2 讀不到修正層或沒有金鑰 · 3 資料不合格（修正層的資料、或 data/ 兩個修正檔缺少／壞掉）或 git／寫檔失敗
+        · 4 線上確認逾時 · 5 清空失敗 · 6 寫回完成，但等待期間有幾筆在後台被撤回、而它們已經寫進資料檔並上線（要手動處理，訊息裡有清單）
 
 不支援同時跑兩個：請一次只開一個寫回，避免兩邊同時改 data/ 與 git（腳本沒有鎖）。
 重跑是安全的：已寫入的修正不會重複寫、不會重複記日誌、不會重複 commit；任何一步中斷都直接重跑
-（或確認階段用 --confirm-only）。清空只動「已寫進資料檔日誌」的那批 id，寫回期間新套用的修正會留在修正層。
+（或確認階段用 --confirm-only）。寫檔前會先把三個檔的新內容全部排好版、寫成暫存檔，再一次換上去（檔案不會寫到一半）；
+資料檔缺少、壞掉或有格式不對的項目時，直接停下來、什麼都不寫，不會默默丟掉任何既有項目。清空只動「已寫進資料檔日誌」的那批 id，寫回期間新套用的修正會留在修正層。
 """
 import argparse
 import json
@@ -86,8 +87,43 @@ def fetch_layer(worker, key):
 # ==================== 檔案讀寫與排版（和舊匯出腳本逐字相同）====================
 
 def load_overrides(path):
-    with open(str(path), encoding='utf-8') as f:
-        return json.load(f)
+    try:
+        with open(str(path), encoding='utf-8') as f:
+            doc = json.load(f)
+    except FileNotFoundError:
+        raise Stop(3, '找不到資料檔 %s，已停止、什麼都沒寫' % Path(str(path)).name)
+    except (OSError, ValueError) as e:
+        raise Stop(3, '資料檔 %s 讀不了或不是正確的 JSON（%s），已停止、什麼都沒寫' % (Path(str(path)).name, type(e).__name__))
+    if not isinstance(doc, dict) or 'version' not in doc:
+        raise Stop(3, '資料檔 %s 的格式不對（缺少 version），已停止、什麼都沒寫' % Path(str(path)).name)
+    return doc
+
+
+def check_base(doc, name, is_rhyme):
+    """既有的修正檔每個項目都要認得出身分（詞、或字＋讀音）；認不得的不能默默被重排掉，直接停下來。"""
+    def bad(why):
+        raise Stop(3, '資料檔 %s 的格式不對（%s），已停止、什麼都沒寫；請先手動修好這個檔' % (name, why))
+    for b in BUCKETS:
+        v = doc.get(b)
+        if v is None:
+            continue
+        if not is_rhyme and b == 'fixed':
+            if not isinstance(v, dict) or not all(isinstance(k, str) and isinstance(x, str) for k, x in v.items()):
+                bad('fixed 要是 詞 → 注音 的對照')
+            continue
+        if not isinstance(v, list):
+            bad('%s 要是清單' % b)
+        for i, it in enumerate(v):
+            if not is_rhyme and b in ('removed', 'hidden'):
+                ok = isinstance(it, str)
+            elif not is_rhyme:
+                ok = isinstance(it, dict) and isinstance(it.get('w'), str)
+            elif b == 'fixed':
+                ok = isinstance(it, dict) and isinstance(it.get('char'), str) and isinstance(it.get('from'), str)
+            else:
+                ok = isinstance(it, dict) and isinstance(it.get('char'), str) and isinstance(it.get('dict_key'), str)
+            if not ok:
+                bad('%s 第 %d 項認不出是哪個詞或字' % (b, i + 1))
 
 
 def _q(s):
@@ -369,6 +405,9 @@ def diff_lines(old, new, label, is_rhyme):
     for bucket in BUCKETS:
         o = _ident_map(bucket, old.get(bucket), is_rhyme)
         n = _ident_map(bucket, new.get(bucket), is_rhyme)
+        raw = old.get(bucket)
+        if isinstance(raw, list) and len(raw) > len(o):
+            lines.append('%s %s 原本有 %d 個重複項目，寫回時會合併成一個' % (label, bucket, len(raw) - len(o)))
         added = [k for k in n if k not in o]
         gone = [k for k in o if k not in n]
         changed = [k for k in n if k in o and n[k] != o[k]]
@@ -386,17 +425,41 @@ def read_logged_ids(log_path):
     return set(re.findall(r'"id": "(c_[\w-]+)"', p.read_text(encoding='utf-8')))
 
 
+def _replace_all(items):
+    """items = [(路徑, bytes)]：全部先寫成同一個資料夾的暫存檔，都成功才一個一個換上去。
+    排版或寫暫存檔失敗時一個檔都不動；暫存檔不論成敗都會清掉。"""
+    tmps = []
+    try:
+        for path, data in items:
+            tmp = path.with_name(path.name + '.tmp-%d' % os.getpid())
+            tmps.append((tmp, path))
+            tmp.write_bytes(data)
+        for tmp, path in tmps:
+            os.replace(str(tmp), str(path))
+    except OSError as e:
+        raise Stop(3, '寫檔失敗（%s）；請先看 git status 確認資料檔狀態，再重跑' % type(e).__name__)
+    finally:
+        for tmp, _ in tmps:
+            try:
+                tmp.unlink()
+            except OSError:
+                pass
+
+
 def apply_files(repo, old_word, old_rhyme, new_word, new_rhyme, entries, now=None):
-    """只在內容（不含 updated_at）真的變了才寫檔；每個還沒記過的 entry id 在日誌補一行。回傳寫了哪些檔。"""
+    """只在內容（不含 updated_at）真的變了才寫檔；每個還沒記過的 entry id 在日誌補一行。回傳寫了哪些檔。
+    三個檔的新內容全部先排好版，才一起換上去：中途出錯不會留下寫到一半的樹。"""
     repo = Path(str(repo))
     now = (now or datetime.now()).isoformat()
-    written = []
+    out = []
     for rel, old, new, fmt in ((WORD_FILE, old_word, new_word, format_word),
                                (RHYME_FILE, old_rhyme, new_rhyme, format_rhyme)):
         if _content(old) != _content(new):
             new['updated_at'] = now
-            (repo / rel).write_text(fmt(new), encoding='utf-8')
-            written.append(rel)
+            try:
+                out.append((repo / rel, rel, fmt(new).encode('utf-8')))
+            except (KeyError, TypeError, ValueError) as e:
+                raise Stop(3, '排版 %s 失敗（%s），已停止、什麼都沒寫' % (rel, type(e).__name__))
     log_path = repo / LOG_FILE
     logged = read_logged_ids(log_path)
     lines = []
@@ -406,13 +469,11 @@ def apply_files(repo, old_word, old_rhyme, new_word, new_rhyme, entries, now=Non
         logged.add(e['id'])
         lines.append('%s | corrections:%s/%s | %s' % (now, e['target'], e['bucket'], json.dumps(e, ensure_ascii=False)))
     if lines:
-        prefix = ''
-        if log_path.exists() and log_path.stat().st_size and not log_path.read_bytes().endswith(b'\n'):
-            prefix = '\n'
-        with open(str(log_path), 'a', encoding='utf-8') as f:
-            f.write(prefix + '\n'.join(lines) + '\n')
-        written.append(LOG_FILE)
-    return written
+        old_log = log_path.read_bytes() if log_path.exists() else b''
+        prefix = b'\n' if old_log and not old_log.endswith(b'\n') else b''
+        out.append((log_path, LOG_FILE, old_log + prefix + ('\n'.join(lines) + '\n').encode('utf-8')))
+    _replace_all([(p, data) for p, _, data in out])
+    return [rel for _, rel, _ in out]
 
 
 # ==================== git（一律不經過 shell）====================
@@ -530,16 +591,36 @@ def clear_ids(worker, key, ids, rev):
     return cleared
 
 
+def describe_entry(e):
+    v = json.dumps(e.get('value'), ensure_ascii=False)
+    return '%s  %s/%s  %s' % (e.get('id'), e.get('target'), e.get('bucket'), v if len(v) <= 80 else v[:77] + '…')
+
+
+def revoked_warning(lost):
+    return ('注意：寫回期間，下面 %d 筆修正在後台被撤回了，但它們已經寫進 data/ 並推上線，網站上仍然有效：\n  %s\n'
+            '要讓網站也拿掉它們，請手動編輯 data/wordlist-overrides.json、data/rhyme-dict-overrides.json 拿掉這幾筆的效果，'
+            'commit 後再推上去（或在後台重新核准、套用，再寫回一次）。其餘的批次已清空。'
+            % (len(lost), '\n  '.join(describe_entry(e) for e in lost)))
+
+
 def finish_live(args, key, batch):
-    """等線上生效 → 只清這一批。呼叫前 batch 已通過 check_entries。"""
+    """等線上生效 → 只清這一批。呼叫前 batch 已通過 check_entries。
+    清空前重新讀一次修正層：只送出「現在還在」的 id；等待期間被撤回的（已經寫進資料檔、也上線了）列出來並用結束代碼 6 提醒。"""
     ids = [e['id'] for e in batch]
     print('等線上網站換成新資料（最久 %g 秒，每 %g 秒看一次）…' % (args.timeout, args.poll_interval), flush=True)
     if not wait_until_live(args.site, batch, args.timeout, args.poll_interval):
         raise Stop(4, LIVE_TIMEOUT_MSG % args.timeout)
-    layer = fetch_layer(args.worker, key)        # 等的期間 rev 可能變了：用最新的，409 才不會常發生
+    layer = fetch_layer(args.worker, key)        # 等的期間 rev 和內容都可能變了：用最新的
+    now_ids = set(e['id'] for e in layer['entries'])
+    present = [i for i in ids if i in now_ids]
     left = [e for e in layer['entries'] if e['id'] not in set(ids)]
-    cleared = clear_ids(args.worker, key, ids, layer['rev'])
+    cleared = clear_ids(args.worker, key, present, layer['rev']) if present else []
+    gone = set(cleared)
+    lost = [e for e in batch if e['id'] not in gone]   # 重新讀之前就被撤回的，加上讀完到清空之間被撤回的
     print('已清空這批 %d 筆；寫回期間新套用的 %d 筆仍留在修正層' % (len(cleared), len(left)))
+    if lost:
+        print(revoked_warning(lost), file=sys.stderr)
+        return 6
     return 0
 
 
@@ -583,6 +664,8 @@ def run(args):
     check_entries(entries)
     old_word = load_overrides(repo / WORD_FILE)
     old_rhyme = load_overrides(repo / RHYME_FILE)
+    check_base(old_word, Path(WORD_FILE).name, False)
+    check_base(old_rhyme, Path(RHYME_FILE).name, True)
     new_word, new_rhyme = merge(old_word, old_rhyme, entries)
     diff = (diff_lines(old_word, new_word, '詞庫', False) + diff_lines(old_rhyme, new_rhyme, '讀音', True))
     logged = read_logged_ids(repo / LOG_FILE)
@@ -595,7 +678,7 @@ def run(args):
               else '（預覽）加 --apply 才會寫檔並 commit')
         return 0
     if git_ok(repo, 'status', '--porcelain', '--', *TARGET_PATHS).strip():
-        raise Stop(3, 'data 檔有還沒 commit 的修改，請先處理（什麼都沒寫）')
+        raise Stop(3, 'data 檔有還沒 commit 的修改，請先處理（什麼都沒寫）。如果是上一次寫到一半被中斷，用 git checkout -- %s 還原後重跑' % ' '.join(TARGET_PATHS))
     apply_files(repo, old_word, old_rhyme, new_word, new_rhyme, entries)
     if commit_targets(repo, len(entries), layer.get('rev')):
         print('已寫入並 commit：%s' % '、'.join(TARGET_PATHS))
@@ -628,6 +711,10 @@ def main(argv=None):
         msg = e.msg.replace(key, '***') if key else e.msg
         print(msg, file=sys.stderr)
         return e.code
+    except Exception as e:   # 沒預期到的錯誤也要留在文件寫的結束代碼裡，不丟 traceback（traceback 可能帶出金鑰）
+        print('寫回時發生沒預期的錯誤（%s）。資料檔若有沒 commit 的修改，用 git checkout -- %s 還原後重跑'
+              % (type(e).__name__, ' '.join(TARGET_PATHS)), file=sys.stderr)
+        return 3
 
 
 if __name__ == '__main__':

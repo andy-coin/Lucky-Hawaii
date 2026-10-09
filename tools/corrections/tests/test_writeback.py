@@ -216,6 +216,67 @@ class SafetyStops(WritebackCase):
         self.assertEqual(self.state()[1][1:], before[1][1:])
         self.assertEqual(self.state()[1][0], before[1][0])
 
+    def data_listing(self):
+        return sorted(p.name for p in (self.repo / 'data').iterdir())
+
+    def test_missing_data_file_exits_3_and_writes_nothing(self):
+        (self.repo / 'data' / 'rhyme-dict-overrides.json').unlink()
+        word_before, listing = self.read(self.repo, 'wordlist-overrides.json'), self.data_listing()
+        w = self.worker([self.good])
+        code, out, err = self.apply(w)
+        self.assertEqual(code, 3)
+        self.assertIn('找不到資料檔 rhyme-dict-overrides.json', err)
+        self.assertEqual(self.read(self.repo, 'wordlist-overrides.json'), word_before)
+        self.assertEqual(self.data_listing(), listing)
+
+    def test_broken_json_or_missing_version_exits_3(self):
+        wl = self.repo / 'data' / 'wordlist-overrides.json'
+        for text, expect in (('{oops', '不是正確的 JSON'), ('{"removed": []}', '缺少 version'), ('[]', '缺少 version')):
+            wl.write_text(text, encoding='utf-8')
+            code, out, err = self.run_main(['--worker', self.worker([self.good]).url, '--repo', str(self.repo)])
+            self.assertEqual(code, 3, text)
+            self.assertIn(expect, err)
+            self.assertNotIn('Traceback', out + err)
+
+    def test_unrecognizable_base_item_stops_instead_of_being_dropped(self):
+        wl = self.repo / 'data' / 'wordlist-overrides.json'
+        doc = json.loads(wl.read_text(encoding='utf-8'))
+        doc['added'] = [{'z': 'ㄧ', 'tier': 'normal'}]            # 沒有 w
+        wl.write_text(json.dumps(doc, ensure_ascii=False), encoding='utf-8')
+        git(self.repo, 'commit', '-am', 'broken base')
+        before = self.state()
+        code, out, err = self.apply(self.worker([self.good]))
+        self.assertEqual(code, 3)
+        self.assertIn('added 第 1 項認不出是哪個詞或字', err)
+        self.assertEqual(self.state(), before)
+
+    def test_a_failure_while_formatting_leaves_every_file_untouched(self):
+        rhyme = entry('c_r', 'rhymeDict', 'hidden', {'char': '長', 'dict_key': 'ㄔㄤ2', 'reading': 'ㄔㄤˊ'})
+        before, listing = self.state(), self.data_listing()
+        w = self.worker([self.good, rhyme])
+        with mock.patch.object(writeback, 'format_rhyme', side_effect=KeyError('version')):
+            code, out, err = self.apply(w)
+        self.assertEqual(code, 3)
+        self.assertEqual(self.state(), before)                        # 詞庫檔、日誌也都沒動
+        self.assertEqual(self.data_listing(), listing)                # 沒有留下暫存檔
+
+    def test_unexpected_error_still_exits_3_without_a_traceback_or_the_key(self):
+        w = self.worker([self.good])
+        with mock.patch.object(writeback, 'merge', side_effect=RuntimeError(KEY)):
+            code, out, err = self.run_main(['--worker', w.url, '--repo', str(self.repo)])
+        self.assertEqual(code, 3)
+        self.assertNotIn('Traceback', out + err)
+        self.assertNotIn(KEY, out + err)
+
+    def test_duplicate_base_items_are_called_out_in_the_preview(self):
+        wl = self.repo / 'data' / 'wordlist-overrides.json'
+        doc = json.loads(wl.read_text(encoding='utf-8'))
+        doc['removed'] = doc['removed'] + doc['removed'][:2]
+        wl.write_text(json.dumps(doc, ensure_ascii=False), encoding='utf-8')
+        code, out, err = self.run_main(['--worker', self.worker([self.good]).url, '--repo', str(self.repo)])
+        self.assertEqual(code, 0, err)
+        self.assertIn('詞庫 removed 原本有 2 個重複項目，寫回時會合併成一個', out)
+
     def test_missing_key_exits_2(self):
         w = self.worker([self.good])
         code, out, err = self.run_main(['--worker', w.url, '--repo', str(self.repo)], key=None)
