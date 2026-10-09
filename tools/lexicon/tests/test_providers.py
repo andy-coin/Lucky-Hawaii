@@ -289,6 +289,11 @@ class GeminiProviderTest(ServerCase):
         self.assertEqual(prov.judge(WORDS), {'三酸甘油酯': 'K', '聚乙烯醇縮丁醛': None, '分散式雜湊表': None})
         self.assertEqual(len(srv.log), 1)
 
+    def test_a_busy_error_during_the_retry_keeps_what_the_first_request_answered(self):
+        srv = self.serve([gemini_ok('1 K'), (500, {}, {})])
+        prov = self.gemini(srv)
+        self.assertEqual(prov.judge(WORDS), {'三酸甘油酯': 'K', '聚乙烯醇縮丁醛': None, '分散式雜湊表': None})
+
 
 class RunJudgeWithGeminiTest(ServerCase):
     """整個 run_judge 走假 Gemini：結果存檔、金鑰不會出現在任何輸出或檔案。"""

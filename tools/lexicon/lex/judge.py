@@ -357,7 +357,9 @@ class TextProvider:
         if 0 < len(missing) < len(words):    # 只缺一部分：用較小的一批再問一次
             try:
                 again = self._ask(missing)
-            except RequestCapReached:
+            except ProviderAuthError:
+                raise
+            except ProviderError:            # 忙碌、5xx、網路、達上限：缺的先留著，已拿到的照樣存檔
                 again = None
             for w in missing:
                 result[w] = (again or {}).get(w)
