@@ -538,6 +538,10 @@
         .report-status.error { color: #e53e3e; font-weight: 700; }
         .report-send-btn { background: var(--action-bg); color: var(--action-text); border-color: var(--action-bg); }
         .report-send-btn:disabled { opacity: .5; cursor: not-allowed; }
+        /* 觸控或窄螢幕：縮小比例時 3.5rem 會低於 44px，所以取兩者較大 */
+        @media (max-width: 900px), (pointer: coarse) {
+            .report-reason { min-height: max(3.5rem, var(--hit)); }
+        }
         @media (hover: hover) and (pointer: fine) {
             .report-send-btn:not(:disabled):hover { background: var(--action-bg-hover); border-color: var(--action-bg-hover); }
         }

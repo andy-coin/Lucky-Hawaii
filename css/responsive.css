@@ -160,10 +160,10 @@
         }
         .batch-panel.inline .batch-btn .batch-icon { font-size: 0.95rem; }
         /* 900px 以下仍顯示這排（例如橫拿手機 844px）：第 4 顆 🚩 回報進來後一排會擠不下而換行，
-           所以把按鈕左右內距和回報鈕的隔開距離收一點，讓模式鈕、批次鈕、齒輪維持同一排 */
+           所以把按鈕左右內距、圖示間距、左邊條和回報鈕的隔開距離收一點，讓模式鈕、批次鈕、齒輪維持同一排（820px 平板也排得下） */
         @media (max-width: 900px) {
             .batch-panel.inline { gap: var(--sp-1); }
-            .batch-panel.inline .batch-btn { padding-inline: var(--sp-1); }
+            .batch-panel.inline .batch-btn { padding-inline: var(--sp-1); gap: 0.125rem; border-left-width: 0.375rem; }   /* 左邊條 0.5→0.375rem，和手機版一樣 */
             .batch-btn.btn-report { margin-inline-start: var(--sp-1); }
         }
 

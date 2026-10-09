@@ -260,3 +260,31 @@ test('視覺：字卡動畫只動位置與陰影、保留區提示一致', async
     expect(await page.locator('#savedWordsContainer').textContent()).toContain(EMPTY);
     await context.close();
 });
+
+test('視覺：行動色只在變數定義裡', () => {
+    // #4c51bf 與 #5a67d8 只能出現在宣告 --action-bg／--action-bg-hover 的那幾行（Phase 7 UI-SPEC §3.1）
+    // 唯一的既有例外：panels.css 的 .feedback-send-btn:hover（Phase 7 之前就有的 #5a67d8，意見回饋視窗用，不在本階段範圍）
+    const bad = [];
+    let defs = 0;
+    for (const f of CSS_FILES) {
+        cssText(f).split('\n').forEach((line, i) => {
+            if (!/#4c51bf|#5a67d8/i.test(line)) return;
+            if (/--action-bg(-hover)?\s*:/.test(line)) { defs++; return; }
+            if (f === 'css/panels.css' && /\.feedback-send-btn:hover/.test(line)) return;
+            bad.push(`${f}:${i + 1}: ${line.trim()}`);
+        });
+    }
+    expect(bad, '行動色出現在變數定義以外的地方（請改用 var(--action-bg)／var(--action-bg-hover)）').toEqual([]);
+    expect(defs, '亮色與暗色各定義 --action-bg 與 --action-bg-hover').toBe(4);
+});
+
+test('視覺：Phase 7 沒有新的動畫', () => {
+    // @keyframes 的數量要和 Phase 7 的起點（commit 952d24f）一樣
+    const count = text => (stripCssComments(text).match(/@keyframes\b/g) || []).length;
+    const before = CSS_FILES.reduce((n, f) => {
+        try { return n + count(execFileSync('git', ['show', `952d24f:${f}`], { encoding: 'utf8', maxBuffer: 1 << 26 })); } catch { return n; }   // 起點之後才新增的檔案算 0
+    }, 0);
+    const now = CSS_FILES.reduce((n, f) => n + count(readFileSync(f, 'utf8')), 0);
+    expect(before, '前置：起點有讀到 @keyframes').toBeGreaterThan(0);
+    expect(now, '本階段不能新增 @keyframes').toBe(before);
+});

@@ -2,7 +2,7 @@
 // 所有標題都以「回報入口：」開頭；/feedback 的請求內容由 page.route 攔下來比對
 import { test, expect } from '@playwright/test';
 import { bootPage, settle } from './helpers.mjs';
-import { DEVICES } from './layout-lib.mjs';
+import { DEVICES, setScale, waitStill, expectFullyInViewport, rectsOverlap, auditTouchTargets, auditVisibleControls, emulateKeyboard, readKeyboard, insideVisible, meetsInputFloor } from './layout-lib.mjs';
 
 const WORKER_HOST = 'lucky-hawaii.is3000dollar.workers.dev';
 
@@ -368,4 +368,193 @@ test('回報入口：字詞當文字顯示', async ({ browser }) => {
     expect(await page.evaluate(() => window.__xss)).toBeUndefined();
     expect(errors.filter(e => !e.includes('Failed to load resource'))).toEqual([]);
     await context.close();
+});
+
+// ===== Task 3：各種裝置、縮放、主題 =====
+const LAYOUT_DEVICES = [['手機 390×844', DEVICES.phone], ['平板 820×1180', DEVICES.tablet], ['桌機 1440×900', DEVICES.desktop], ['觸控平板橫放 1180×820', DEVICES.tabletLandscape]];
+const visibleReportBtn = page => page.locator('.btn-report:visible');
+// 這個畫面是否算「觸控」：觸控指標，或寬度 ≤ 900（UI-SPEC §10.2：兩者之一就要 44×44）
+const needsHit = (page, device) => page.evaluate(() => matchMedia('(pointer: coarse), (max-width: 900px)').matches);
+
+for (const [name, device] of LAYOUT_DEVICES) {
+    for (const pct of [100, 150]) {
+        test(`回報入口：版面（${name}，${pct}%）`, async ({ browser }) => {
+            const { context, page } = await bootPage(browser, { wordlist: 'stub', device, beforeGoto: capture([]) });
+            try {
+                await search(page);
+                await pick(page, 0);
+                if (pct !== 100) await setScale(page, pct);
+                await waitStill(page);
+                const hit = await needsHit(page, device);
+                // 工具列上的 🚩：整個框在視窗內，和同一排的兄弟按鈕不重疊
+                const btn = visibleReportBtn(page);
+                await expect(btn).toHaveCount(1);
+                await expectFullyInViewport(page, btn);
+                const mine = await btn.boundingBox();
+                const sibs = await btn.evaluate(b => [...b.parentElement.children].filter(x => x !== b && x.getClientRects().length).map(x => x.getBoundingClientRect().toJSON()));
+                expect(sibs.length, '同一排還有其他批次鈕').toBeGreaterThanOrEqual(3);
+                for (const r of sibs) expect(rectsOverlap(mine, r), '回報鈕不能壓到旁邊的按鈕').toBe(false);
+                const bar = await auditTouchTargets(page, { mustSee: ['.btn-report'] });
+                expect(bar.missing).toEqual([]);
+                // 同一時刻量畫面上所有可互動元素的框，回報鈕不能壓到任何一個
+                // （auditTouchTargets 的 overlaps 在頁面會捲動的 150% 下會因逐個捲動而誤報，連原本就有的按鈕也中，所以改用同一刻的實際框）
+                const all = await auditVisibleControls(page, '.options, #mobileBatchArea');
+                const me = all.filter(c => /btn-report/.test(c.name));
+                expect(me.length).toBe(1);
+                for (const c of all) if (!/btn-report/.test(c.name)) expect(rectsOverlap(me[0], c), `回報鈕壓到 ${c.name}`).toBe(false);
+                if (hit) expect(bar.failures.filter(f => /btn-report/.test(f.selector)), '回報鈕點擊範圍要 ≥ 44×44').toEqual([]);
+                // 視窗開著：原因、先不回報、送出回報
+                await btn.click();
+                await expect(page.locator('#reportModalOverlay')).toHaveClass(/show/);
+                await page.locator('.report-reason[data-reason="太冷僻"]').click();   // 選了才有「✓」，量到的是最寬的狀態
+                await waitStill(page);
+                const dlg = await auditTouchTargets(page, { mustSee: ['.report-reason', '#reportCancelBtn', '#reportSendBtn'] });
+                expect(dlg.missing).toEqual([]);
+                expect(dlg.overlaps.filter(o => /report/.test(o.a + o.b)), '視窗裡的控制項彼此不重疊').toEqual([]);
+                if (hit) expect(dlg.failures.filter(f => /report/.test(f.selector)), '視窗控制項點擊範圍要 ≥ 44×44').toEqual([]);
+                const sw = await page.evaluate(() => ({ sw: document.scrollingElement.scrollWidth, cw: document.scrollingElement.clientWidth }));
+                expect(sw.sw, '整頁不能橫向捲動').toBeLessThanOrEqual(sw.cw + 1);
+            } finally { await context.close(); }
+        });
+    }
+}
+
+test('回報入口：手機四欄', async ({ browser }) => {
+    const { context, page } = await bootPage(browser, { wordlist: 'stub', device: DEVICES.phone });
+    try {
+        const rows = () => page.evaluate(() => {
+            const p = document.getElementById('m-batchPanel');
+            const rs = [...p.children].map(b => b.getBoundingClientRect());
+            return { cols: getComputedStyle(p).gridTemplateColumns.split(' ').length, tops: [...new Set(rs.map(r => Math.round(r.top)))], right: Math.max(...rs.map(r => r.right)), left: Math.min(...rs.map(r => r.left)), iw: innerWidth };
+        });
+        const r100 = await rows();
+        expect(r100.cols, '390px／100% 一排四個').toBe(4);
+        expect(r100.tops).toHaveLength(1);
+        await setScale(page, 150);
+        await waitStill(page);
+        const r150 = await rows();
+        expect(r150.cols, '放大到 150% 變 2×2').toBe(2);
+        expect(r150.tops).toHaveLength(2);
+        for (const r of [r100, r150]) { expect(r.left).toBeGreaterThanOrEqual(0); expect(r.right).toBeLessThanOrEqual(r.iw + 0.5); }
+    } finally { await context.close(); }
+});
+
+for (const [name, device] of [['手機', DEVICES.phone], ['觸控平板橫放', DEVICES.tabletLandscape]]) {
+    test(`回報入口：輸入框字級（${name}）`, async ({ browser }) => {
+        test.setTimeout(180_000);   // 縮放要用真按鈕一下一下點到 50%／150%
+        const { context, page } = await bootPage(browser, { wordlist: 'stub', device });
+        try {
+            await search(page);
+            await pick(page, 0);
+            for (const pct of [100, 150, 50]) {
+                await setScale(page, pct);        // 視窗開著會蓋住縮放鈕，所以每個比例先縮放、再開視窗量、再關
+                await waitStill(page);
+                await page.evaluate(() => openReportDialog());
+                const px = await page.locator('#reportNote').evaluate(el => parseFloat(getComputedStyle(el).fontSize));
+                expect(meetsInputFloor(px), `${name} ${pct}%：說明欄 ${px}px 要 ≥ 16px`).toBe(true);
+                await page.evaluate(() => closeReportDialog());
+            }
+        } finally { await context.close(); }
+    });
+}
+
+test('回報入口：鍵盤（後盾）', async ({ browser }) => {
+    const { context, page } = await bootPage(browser, { wordlist: 'stub', device: DEVICES.phone });
+    try {
+        await search(page);
+        await pick(page, 0);
+        await page.evaluate(() => openReportDialog());
+        await page.locator('.report-reason[data-reason="讀音錯誤"]').click();
+        await page.locator('#reportNote').focus();
+        await emulateKeyboard(page, 336);
+        await expect.poll(async () => (await readKeyboard(page)).open).toBe(true);
+        await waitStill(page);
+        const kb = await readKeyboard(page);
+        expect(insideVisible(await page.locator('#reportNote').boundingBox(), kb), '說明欄在可見範圍內').toBe(true);
+        expect(insideVisible(await page.locator('#reportSendBtn').boundingBox(), kb), '送出回報在可見範圍內').toBe(true);
+    } finally { await context.close(); }
+});
+
+test('回報入口：長文字（後盾）', async ({ browser }) => {
+    const { context, page } = await bootPage(browser, { wordlist: 'stub', device: DEVICES.phone });
+    try {
+        await search(page, 'ㄢ');
+        await pick(page, ...Array.from({ length: 10 }, (_, i) => i));
+        await setScale(page, 150);
+        await waitStill(page);
+        const els = [visibleReportBtn(page)];
+        await visibleReportBtn(page).click();
+        await page.locator('.report-reason[data-reason="不該出現"]').click();
+        await waitStill(page);
+        await expect(page.locator('#reportSendBtn')).toHaveText('送出回報（10 個）');
+        const sel = ['.report-reason-label', '#reportSendBtn', '#reportCancelBtn'];
+        const boxes = await page.evaluate(sel => sel.flatMap(s => [...document.querySelectorAll(s)]).map(el => ({ name: el.id || el.className + ':' + el.textContent, clip: el.scrollWidth - el.clientWidth, r: el.getBoundingClientRect().toJSON() })), sel);
+        expect(boxes.length).toBeGreaterThanOrEqual(6);
+        for (const b of boxes) expect(b.clip, `${b.name} 文字被裁切`).toBeLessThanOrEqual(1);
+        for (let i = 0; i < boxes.length; i++) for (let j = i + 1; j < boxes.length; j++) expect(rectsOverlap(boxes[i].r, boxes[j].r), `${boxes[i].name} 和 ${boxes[j].name} 重疊`).toBe(false);
+        // 🚩 回報鈕（視窗關閉時量）
+        await page.locator('#reportCancelBtn').click();
+        await waitStill(page);
+        const bb = await els[0].evaluate(b => ({ clip: b.scrollWidth - b.clientWidth, spans: [...b.querySelectorAll('span')].map(s => s.scrollWidth - s.clientWidth) }));
+        expect(bb.clip).toBeLessThanOrEqual(1);
+        bb.spans.forEach(c => expect(c).toBeLessThanOrEqual(1));
+    } finally { await context.close(); }
+});
+
+test('回報入口：主題', async ({ browser }) => {
+    const custom = { containerBg: '#fff7e6', textColor: '#1a202c', highlightColor: '#2b6cb0' };
+    const cases = [['淺色', {}], ['深色', { colorScheme: 'dark' }], ['自訂配色', { storage: custom }]];
+    const seen = [];
+    for (const [name, opts] of cases) {
+        const { context, page } = await bootPage(browser, { wordlist: 'stub', beforeGoto: capture([]), ...opts });
+        try {
+            await search(page);
+            await pick(page, 0);
+            await page.evaluate(() => openReportDialog());
+            await page.locator('.report-reason[data-reason="其他"]').click();
+            const r = await page.evaluate(() => {
+                const probe = document.createElement('i');
+                probe.style.background = 'var(--action-bg)';
+                document.body.appendChild(probe);
+                const token = getComputedStyle(probe).backgroundColor;
+                probe.remove();
+                const send = getComputedStyle(document.getElementById('reportSendBtn'));
+                const dlg = getComputedStyle(document.querySelector('.report-modal'));
+                return { token, bg: send.backgroundColor, color: send.color, dlg: dlg.backgroundColor, title: getComputedStyle(document.getElementById('reportTitle')).color };
+            });
+            expect(r.bg, `${name}：送出鈕底色就是 --action-bg`).toBe(r.token);
+            expect(r.color).toBe('rgb(255, 255, 255)');
+            expect(r.dlg, `${name}：視窗有自己的底色`).not.toBe('rgba(0, 0, 0, 0)');
+            seen.push(r.token);
+        } finally { await context.close(); }
+    }
+    expect(new Set(seen).size, '三種主題的行動色一樣（自訂配色改不到它）').toBe(1);
+});
+
+test('回報入口：切換斷點', async ({ browser }) => {
+    const { context, page } = await bootPage(browser, { wordlist: 'stub', device: DEVICES.tabletLandscape, beforeGoto: capture([]) });
+    try {
+        await search(page);
+        await pick(page, 0);
+        await page.evaluate(() => openReportDialog());
+        await expect(page.locator('#reportModalOverlay')).toHaveClass(/show/);
+        await page.setViewportSize({ width: 390, height: 844 });
+        await waitStill(page);
+        const r = await page.evaluate(() => {
+            const o = document.getElementById('reportModalOverlay').getBoundingClientRect();
+            const m = document.querySelector('.report-modal');
+            const b = m.getBoundingClientRect();
+            return {
+                ov: o.toJSON(), vw: innerWidth, vh: innerHeight, cx: b.x + b.width / 2, cy: b.y + b.height / 2, inside: b.x >= 0 && b.right <= innerWidth && b.y >= 0 && b.bottom <= innerHeight,
+                overflowY: getComputedStyle(m).overflowY, home: document.querySelector('#m-batchPanel .btn-report') ? document.getElementById('m-batchPanel').parentElement.id : null,
+            };
+        });
+        expect(r.ov.width).toBeGreaterThanOrEqual(r.vw - 1);
+        expect(r.ov.height).toBeGreaterThanOrEqual(r.vh - 1);
+        expect(Math.abs(r.cx - r.vw / 2), '水平置中').toBeLessThanOrEqual(2);
+        expect(Math.abs(r.cy - r.vh / 2), '垂直置中').toBeLessThanOrEqual(2);
+        expect(r.inside, '整個視窗在畫面內').toBe(true);
+        expect(r.overflowY, '內容太高時視窗自己捲動').toMatch(/auto|scroll/);
+        expect(r.home, '🚩 回報跟著批次面板搬進手機版面').toBe('mobileBatchArea');
+    } finally { await context.close(); }
 });
