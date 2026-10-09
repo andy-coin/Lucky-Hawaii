@@ -669,7 +669,7 @@ test('後台：撤回 — 一鍵撤回二心，列回到已核准未套用，等
     await context.close();
 });
 
-// ===== 07-07 Task 2：失敗原因、409／503、重按、超過 500 筆、已寫入、有效讀音、備援匯出 =====
+// ===== 07-07 Task 2：失敗原因、409／503、重按、超過 500 筆、已寫入、有效讀音 =====
 // 預檢請求（OPTIONS）放給 Worker 橋處理，其餘才交給 fn；fn 回 true 表示自己處理了
 const except = (pathname, fn) => intercept(pathname, (route, req) => (req.method() === 'OPTIONS' ? false : fn(route, req)));
 const fakeRes = (status, body = {}) => route => { route.fulfill({ status, contentType: 'application/json', headers: { 'access-control-allow-origin': BASE }, body: JSON.stringify(body) }); return true; };
@@ -872,16 +872,12 @@ test('後台：有效讀音 — 取代讀音的下拉選單看得到修正層：
     expect(withLayer).toContain('ㄓㄤˋ');
 });
 
-test('後台：備援匯出 — 按鈕改名為匯出 agreed（備援），用 btn-reload 外觀，沒有 agreed 時停用', async ({ browser }) => {
-    let boot = await bootAdmin(browser, { reports: [word('甲', '極度冷僻', T1)] });
-    const btn = boot.page.locator('#exportBtn');
-    await expect(btn).toHaveText('💾 匯出 agreed（備援）');
-    await expect(btn).toHaveClass(/btn-reload/);
-    await expect(btn).toBeDisabled();
+test('CR-02：舊的「匯出 agreed」產生 .py 腳本的功能已移除（有程式碼注入風險，路徑也不存在，由 tools/corrections/writeback.py 取代）', async ({ browser }) => {
+    const boot = await bootAdmin(browser, { reports: oneApproved() });
+    await expect(boot.page.locator('#exportBtn')).toHaveCount(0);
+    await expect(boot.page.locator('.topbar')).not.toContainText('匯出');
     await boot.context.close();
-    boot = await bootAdmin(browser, { reports: oneApproved() });
-    await expect(boot.page.locator('#exportBtn')).toBeEnabled();
-    await boot.context.close();
+    for (const dead of ['exportChanges', 'apply_changes', 'DEFAULT_BASE', 'text/x-python']) expect(ADMIN_SRC, dead).not.toContain(dead);
 });
 
 test('後台：手機錯誤行 — 390 寬最長的失敗行與超過 500 筆提示在套用列內換行，不蓋到套用按鈕', async ({ browser }) => {
