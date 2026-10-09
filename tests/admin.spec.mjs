@@ -2,6 +2,8 @@
 import { test, expect } from '@playwright/test';
 import { CONTEXT_OPTS, BASE, routeExternal, collectErrors } from './helpers.mjs';
 import { FakeKV, makeEnv, bridgeWorker } from './worker-helpers.mjs';
+import { DEVICES, auditTouchTargets, auditVisibleControls, rectsOverlap } from './layout-lib.mjs';
+import { readFileSync } from 'node:fs';
 
 const WORKER_HOST = 'lucky-hawaii.is3000dollar.workers.dev';
 const KEY = 'admin-test';
@@ -33,10 +35,11 @@ async function bootAdmin(browser, { reports = [], env: envOver = {}, device = {}
     if (hook) await hook({ context, kv, env });
     const page = await context.newPage();
     const { errors } = collectErrors(page);
-    page.on('dialog', d => d.accept());
+    const dialogs = [];   // 所有跳出過的對話框訊息（XSS 測試用來確認 alert 沒有被觸發）
+    page.on('dialog', d => { dialogs.push(d.message()); d.accept(); });
     await page.goto('/admin/index.html');
     if (wait) await page.waitForSelector('#main[data-state="ok"], #main[data-state="error"]');
-    return { context, page, kv, env, calls, errors, offOrigin };
+    return { context, page, kv, env, calls, errors, offOrigin, dialogs };
 }
 
 // 以回報類型與詞找到那一列
@@ -421,5 +424,183 @@ test('後台：統計 — 共 N 組（M 筆）· 待審 · 已核准未套用 ·
     });
     await expect(page.locator('#statsLabel')).toHaveText('共 5 組（6 筆）· 待審 2 · 已核准未套用 1 · 已上線 0 · 已封存 1');
     await expect(page.locator('#archivedCount')).toHaveText('1');
+    await context.close();
+});
+
+// ===== Task 3：防注入、靜態掃描、手機版面、新顏色 =====
+const ADMIN_SRC = readFileSync(new URL('../admin/index.html', import.meta.url), 'utf8');
+const XSS_WORD = '<img src=x onerror=alert(1)>';
+const XSS_CHAR = '"><svg onload=alert(2)>';
+
+test('後台：XSS — 使用者字串一律當文字，沒有 img／svg 元素、沒有對話框', async ({ browser }) => {
+    const { context, page, dialogs, errors, calls } = await bootAdmin(browser, {
+        reports: [
+            word(XSS_WORD, '極度冷僻', T1, { note: XSS_WORD, suggested: XSS_CHAR }),
+            word(XSS_WORD, '極度冷僻', T2, { note: XSS_CHAR }),
+            char(XSS_CHAR, 'ㄇㄚ', '不該出現', T3, { note: XSS_WORD }),
+            feedback(XSS_WORD, XSS_CHAR, T3),
+            { type: 'ai-word-suggest', word: XSS_WORD, action: 'accept', ts: T2 },
+        ],
+    });
+    const w = rowOf(page, XSS_WORD, '極度冷僻');
+    await expect(w.locator('.card-word')).toHaveText(XSS_WORD);
+    await w.locator('.row-toggle').click();
+    await expect(w.locator('.row-originals')).toContainText(XSS_WORD);
+    await expect(w.locator('.row-originals')).toContainText(XSS_CHAR);
+    await expect(page.locator('.card.group', { hasText: '不該出現' }).locator('.card-char')).toHaveText(XSS_CHAR);
+    await expect(page.locator('.card.group', { hasText: '一般回饋' }).locator('.card-subject')).toHaveText(XSS_WORD);
+
+    // 核准後預覽文字、aria-label 也都是文字
+    await w.getByRole('button', { name: /^核准「/ }).click();
+    await expect(w.locator('.action-preview')).toContainText(`隱藏「${XSS_WORD}」`);
+    expect(decisions(calls)).toHaveLength(2);
+    await page.locator('#showArchived').check();
+    await page.waitForTimeout(200);
+
+    await expect(page.locator('#main img, #main svg')).toHaveCount(0);
+    await expect(page.locator('[onerror], [onload]')).toHaveCount(0);
+    expect(dialogs).toEqual([]);
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('後台：靜態掃描 — 沒有用範本字串拼出來的 on* 屬性、網址不帶金鑰', () => {
+    expect(ADMIN_SRC.match(/on[a-z]+="[^"]*\$\{/g)).toBeNull();
+    expect(ADMIN_SRC).not.toMatch(/encodeURIComponent\(key\)/);
+    expect(ADMIN_SRC).not.toMatch(/[?&]key=/);
+    // 範本裡剩下的行內事件都是固定字串（頂列、批次列、編輯面板、新增視窗）
+    const handlers = [...ADMIN_SRC.matchAll(/\son[a-z]+="([^"]*)"/g)].map(m => m[1]);
+    expect(handlers.length).toBeGreaterThan(0);
+    for (const h of handlers) expect(h, h).toMatch(/^[\w.()'=!&|; ,]+$/);
+});
+
+test('後台：字級與字重 — 新規則只用 0.75／0.875／1.125／1.5rem 與 400／700，膠囊內距 4px 8px', () => {
+    const css = ADMIN_SRC.slice(ADMIN_SRC.indexOf('/* ── Phase 7：合併列'), ADMIN_SRC.indexOf('</style>', ADMIN_SRC.indexOf('/* ── Phase 7：合併列')));
+    expect(css.length).toBeGreaterThan(500);
+    const sizes = [...css.matchAll(/font-size:\s*([^;}]+)/g)].map(m => m[1].trim());
+    const weights = [...css.matchAll(/font-weight:\s*([^;}]+)/g)].map(m => m[1].trim());
+    expect(sizes.length).toBeGreaterThan(10);
+    for (const v of sizes) expect(['0.75rem', '0.875rem', '1.125rem', '1.5rem'], `font-size ${v}`).toContain(v);
+    for (const v of weights) expect(['400', '700'], `font-weight ${v}`).toContain(v);
+    for (const sel of ['.count-pill', '.mini-badge']) {
+        const block = css.match(new RegExp(sel.replace('.', '\\.') + '\\s*\\{([^}]*)\\}'))[1];
+        expect(block, sel).toContain('padding: 4px 8px');
+    }
+    expect(css).not.toMatch(/@keyframes/);
+});
+
+test('後台：手機 — 390 寬不橫向捲動，標題列換行、時間在標題下面，新控制項 ≥ 44px，批次列貼底', async ({ browser }) => {
+    const { context, page } = await bootAdmin(browser, {
+        device: DEVICES.phone,
+        reports: [
+            word('二心', '極度冷僻', T1), word('二心', '極度冷僻', T3),
+            word('三心三心三心三心三心三心三心三心三心三心三心三心', '不該出現', T2),
+            char('長', 'ㄔㄤˊ', '讀音錯誤', T2),
+            feedback('希望加字', '可以加一個字嗎', T3),
+            { type: 'ai-word-suggest', word: '晨曦', action: 'accept', ts: T1 },
+        ],
+    });
+    const noScroll = () => page.evaluate(() => ({ sw: document.documentElement.scrollWidth, cw: document.documentElement.clientWidth }));
+    let m = await noScroll();
+    expect(m.sw).toBeLessThanOrEqual(m.cw + 1);
+
+    // 標題列換行：時間掉到標題下面
+    const row = rowOf(page, '二心', '極度冷僻');
+    const head = await row.locator('.card-word').boundingBox();
+    const time = await row.locator('.card-header .card-time').boundingBox();
+    expect(time.y).toBeGreaterThanOrEqual(head.y + head.height - 1);
+    const top = await page.locator('.topbar').evaluate(el => ({ sw: el.scrollWidth, cw: el.clientWidth }));
+    expect(top.sw).toBeLessThanOrEqual(top.cw + 1);
+
+    // 選兩列 → 批次列出現；展開一列讓展開鈕與原文也在畫面裡
+    await row.locator('.row-check').click();
+    await page.locator('.card.group', { hasText: '長' }).locator('.row-check').click();
+    await row.locator('.row-toggle').click();
+    await expect(page.locator('#batchBar')).toHaveClass(/show/);
+    m = await noScroll();
+    expect(m.sw).toBeLessThanOrEqual(m.cw + 1);
+
+    const audit = await auditTouchTargets(page, { mustSee: ['.row-check', '.row-toggle', '.filter-row button', '#batchBar .btn', '.card-actions .btn'] });
+    expect(audit.missing, '沒掃到的控制項').toEqual([]);
+    expect(audit.failures, '小於 44px 的控制項').toEqual([]);
+    // 相鄰間距：auditTouchTargets 的 overlaps 把每個元素捲到不同位置才量、座標又不含頁面捲動量，
+    // 整頁會捲動的後台會誤報；改成一段一段捲動，在「同一刻」量可見控制項的框，每個框外擴 2px 後不可互相重疊（= 間距 ≥ 4px）
+    const pageH = await page.evaluate(() => document.documentElement.scrollHeight);
+    for (let y = 0; y < pageH; y += 500) {
+        await page.evaluate(v => window.scrollTo(0, v), y);
+        // 貼底的批次列蓋在內容上面，是另一層：頁面控制項彼此比、批次列按鈕彼此比
+        for (const root of ['.topbar, #main', '#batchBar']) {
+            const boxes = await auditVisibleControls(page, root);
+            const grow = b => ({ x: b.x - 2, y: b.y - 2, width: b.width + 4, height: b.height + 4 });
+            for (let i = 0; i < boxes.length; i++) for (let j = i + 1; j < boxes.length; j++) {
+                expect(rectsOverlap(grow(boxes[i]), grow(boxes[j])), `捲到 ${y}：${boxes[i].name} 與 ${boxes[j].name} 間距不到 4px`).toBe(false);
+            }
+        }
+    }
+
+    // 批次列貼在視窗最下面、左右撐滿
+    const bar = await page.locator('#batchBar').evaluate(el => { const r = el.getBoundingClientRect(); return { bottom: r.bottom, left: r.left, right: r.right, ih: innerHeight, iw: innerWidth }; });
+    expect(Math.abs(bar.bottom - bar.ih)).toBeLessThanOrEqual(0.5);
+    expect(bar.left).toBeLessThanOrEqual(0.5);
+    expect(Math.abs(bar.right - bar.iw)).toBeLessThanOrEqual(0.5);
+    await context.close();
+});
+
+// 對比：文字色與「實際底色」（沿著祖先把半透明底色疊起來）
+const contrastOf = (page, selector, tint = null) => page.evaluate(({ selector, tint }) => {
+    const parse = c => { const n = (c.match(/[\d.]+/g) || []).map(Number); return { r: n[0], g: n[1], b: n[2], a: n[3] ?? 1 }; };
+    const over = (top, bot) => ({ r: top.r * top.a + bot.r * (1 - top.a), g: top.g * top.a + bot.g * (1 - top.a), b: top.b * top.a + bot.b * (1 - top.a), a: 1 });
+    const lum = c => { const f = v => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; }; return 0.2126 * f(c.r) + 0.7152 * f(c.g) + 0.0722 * f(c.b); };
+    const el = document.querySelector(selector);
+    if (!el) return { missing: selector };
+    const layers = [];
+    for (let n = el; n; n = n.parentElement) {
+        const bg = parse(getComputedStyle(n).backgroundColor);
+        if (bg.a > 0) layers.push(bg);
+        if (bg.a === 1) break;
+    }
+    let bg = layers.pop() || { r: 255, g: 255, b: 255, a: 1 };
+    if (bg.a < 1) bg = over(bg, { r: 255, g: 255, b: 255, a: 1 });
+    while (layers.length) bg = over(layers.pop(), bg);
+    if (tint) bg = over(tint, bg);
+    const fg = over(parse(getComputedStyle(el).color), bg);
+    const [a, b] = [lum(fg), lum(bg)].sort((x, y) => y - x);
+    return { ratio: (a + 0.05) / (b + 0.05) };
+}, { selector, tint });
+
+test('後台：顏色 — 新變數在亮暗兩個主題都有，文字對比 ≥ 4.5', async ({ browser }) => {
+    const { context, page } = await bootAdmin(browser, {
+        reports: [
+            ...Array.from({ length: 3 }, (_, i) => word('二心', '極度冷僻', `2026-10-0${i + 1}T00:00:00.000Z`, { note: '備註文字' })),
+            word('三心', '不該出現', T2),
+        ],
+        hook: intercept('/reports.json', async (route, req) => false),
+    });
+    const props = ['--action-bg', '--action-bg-hover', '--info-text', '--ok-text', '--err-text', '--warn-text'];
+    const readVars = () => page.evaluate(ps => Object.fromEntries(ps.map(p => [p, getComputedStyle(document.documentElement).getPropertyValue(p).trim()])), props);
+    const row = rowOf(page, '二心', '極度冷僻');
+    await row.locator('.row-toggle').click();
+    // 探測用元素：失敗列的錯誤文字與提示條平常不一定在畫面上，塞進去量 CSS 就好
+    await page.evaluate(() => {
+        document.querySelector('.card.group').insertAdjacentHTML('beforeend', '<div class="row-error" id="probeErr">err</div>');
+        document.getElementById('main').insertAdjacentHTML('afterbegin', '<div class="notice warn" id="probeWarn">warn</div>');
+    });
+    const targets = [
+        ['.row-originals .card-text:not(.no-note)', null], ['.row-originals .card-text.no-note', null], ['.count-pill.many', null], ['.chip:not(.active)', null], ['.chip.active', null],
+        ['.manual-note, .row-toggle', null], ['#probeErr', null], ['#probeWarn', { r: 217, g: 119, b: 6, a: 0.12 }],
+    ];
+    const expectVars = {
+        light: { '--action-bg': '#5a67d8', '--action-bg-hover': '#4c51bf', '--info-text': '#4c51bf', '--ok-text': '#276749', '--err-text': '#9b2c2c', '--warn-text': '#92400e' },
+        dark: { '--action-bg': '#5a67d8', '--action-bg-hover': '#4c51bf', '--info-text': '#a3bffa', '--ok-text': '#68d391', '--err-text': '#fc8181', '--warn-text': '#f6ad55' },
+    };
+    for (const theme of ['light', 'dark']) {
+        await page.evaluate(t => { if (t === 'dark') document.documentElement.setAttribute('data-theme', 'dark'); else document.documentElement.removeAttribute('data-theme'); }, theme);
+        expect(await readVars(), theme).toEqual(expectVars[theme]);
+        for (const [sel, tint] of targets) {
+            const r = await contrastOf(page, sel, tint);
+            expect(r.missing, `${theme} 找不到 ${sel}`).toBeUndefined();
+            expect(r.ratio, `${theme} ${sel}`).toBeGreaterThanOrEqual(4.5);
+        }
+    }
     await context.close();
 });
