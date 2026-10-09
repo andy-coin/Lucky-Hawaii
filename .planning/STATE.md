@@ -1,19 +1,19 @@
 ---
 gsd_state_version: "1.0"
 milestone: v0.96
-current_phase: 06
-current_phase_name: Lexicon Packs 台灣詞庫包
-status: verifying
-stopped_at: Completed 06-08-PLAN.md
-last_updated: "2026-10-04T19:38:47.550Z"
-last_activity: 2026-10-04
-last_activity_desc: Phase 06 execution started
-state_head: 8e51f484acfc65856591f5b56bca01d0afa7c364
+current_phase: 07
+current_phase_name: Feedback & Correction Layer 回報與修正層
+status: executing
+stopped_at: Completed 07-01-PLAN.md
+last_updated: "2026-10-09T17:55:13.534Z"
+last_activity: 2026-10-10
+last_activity_desc: Phase 07 execution started
+state_head: 73826f4c1de152de757d549eb2452a9b1ae95263
 progress:
   total_phases: 12
   completed_phases: 2
-  total_plans: 41
-  completed_plans: 41
+  total_plans: 51
+  completed_plans: 42
 ---
 
 # Project State
@@ -23,14 +23,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-10-03)
 
 **Core value:** 輸入一個字或音，就能快速拿到「符合台灣日常語感、真的能寫進歌詞」的押韻字詞——查得到、查得快、查得準。
-**Current focus:** Phase 06 — Lexicon Packs 台灣詞庫包
+**Current focus:** Phase 07 — Feedback & Correction Layer 回報與修正層
 
 ## Current Position
 
-Phase: 06 (Lexicon Packs 台灣詞庫包) — EXECUTING
-Plan: 8 of 8
-Status: Phase 6 自動驗證完成，等 Andy 人工驗收（06-UAT.md）
-Last activity: 2026-10-04 — Phase 06 execution started
+Phase: 07 (Feedback & Correction Layer 回報與修正層) — EXECUTING
+Plan: 2 of 10
+Status: Ready to execute
+Last activity: 2026-10-10 — Phase 07 execution started
 
 Progress: [██░░░░░░░░] 17%
 
@@ -98,6 +98,7 @@ Progress: [██░░░░░░░░] 17%
 | Phase 06 P06 | 100min | 2 tasks | 22 files |
 | Phase 06 P07 | ~2 h | 2 tasks | 24 files |
 | Phase 06 P08 | 1.5h | 3 tasks | 14 files |
+| Phase 07 P01 | 25 min | 2 tasks | 10 files |
 
 ## Accumulated Context
 
@@ -158,6 +159,8 @@ Recent decisions affecting current work:
 - [Phase 06]: 06-06: keep.json holds only 15 clearly everyday Taiwan words; 12 doubtful China-flavoured computing terms go to rules/r3-gray.json and become gray (G-china-term), judged later by the AI pass
 - [Phase 06]: 06-06: deletion reports live in tools/lexicon/reports/<id>/ (not data/), seeded samples, verify recomputes stats identities; rescue command writes sorted keep.json and cannot rescue R0 format removals
 - [Phase 06]: 06-08: calibration passes at 90% agreement; eval writes no files; AI-pass checklist stays D-20 (extended)
+- [Phase 07]: 07-01: 修正層放 AI_STATE_KV 單一文件 corrections:v1（扁平 entries＋rev 樂觀鎖），公開 view 與 data 修正檔同形狀；網站在 data 修正檔之後兩段式套用，修正層壞掉只留警告、詞庫照載
+- [Phase 07]: 07-01: 後台金鑰共用 adminKeyOk（X-Admin-Key 優先、?key= 暫留到 v2、空金鑰一律拒絕）；舊路徑 403 仍純文字但帶 CORS；整個 Phase 7 共用 ?v=0.96.10
 
 ### Pending Todos
 
@@ -199,6 +202,6 @@ Items acknowledged and deferred at milestone close, most recent first:
 
 ## Session Continuity
 
-Last session: 2026-10-04T19:38:47.452Z
-Stopped at: Completed 06-08-PLAN.md
+Last session: 2026-10-09T17:55:13.484Z
+Stopped at: Completed 07-01-PLAN.md
 Resume file: None

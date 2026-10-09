@@ -266,11 +266,11 @@ Plans:
   4. 執行寫回腳本會把修正層寫進 `data/` 並 push；確認線上已生效後才清空修正層，重跑不會重複套用也不會遺失修正〔自動：本機模擬〕
 
 **Human check**: 正式環境實際走一次「核准 → 套用 → 寫回 push → 清空」
-**Plans**: 10 plans
+**Plans**: 1/10 plans executed
 
 Plans:
 **Wave 1**
-- [ ] 07-01-PLAN.md — Tracer：修正層端到端（Worker 套用＋公開讀取＋網站兩段式套用詞庫）、後台金鑰改走 X-Admin-Key、測試基礎設施、?v=0.96.10
+- [x] 07-01-PLAN.md — Tracer：修正層端到端（Worker 套用＋公開讀取＋網站兩段式套用詞庫）、後台金鑰改走 X-Admin-Key、測試基礎設施、?v=0.96.10
 
 **Wave 2** *(blocked on Wave 1 completion)*
 - [ ] 07-02-PLAN.md — Worker：所有核准動作對照、共用重播測試向量、撤回／清空／後台讀取、409／503、/reports.json 分頁 800 筆
@@ -288,6 +288,7 @@ Plans:
 
 **Wave 5** *(blocked on Wave 4 completion)*
 - [ ] 07-10-PLAN.md — 真 workerd 冒煙（套用／公開讀取／撤回）、DEPLOY.md、Andy 驗收清單與自主決定、整階段總檢查
+
 **UI hint**: yes
 
 ### Phase 8: Songs & Editor Model 歌曲管理與資料模型
@@ -382,7 +383,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 4. AI Fill & Validate AI 挑詞填滿與造詞驗證 | 5/5 | In Progress|  |
 | 5. Multi-Device Layout 多裝置版面與流暢度 | 11/11 | In Progress|  |
 | 6. Lexicon Packs 台灣詞庫包 | 8/8 | In Progress|  |
-| 7. Feedback & Correction Layer 回報與修正層 | 0/TBD | Not started | - |
+| 7. Feedback & Correction Layer 回報與修正層 | 1/10 | In Progress|  |
 | 8. Songs & Editor Model 歌曲管理與資料模型 | 0/TBD | Not started | - |
 | 9. Section Modules 段落模組 | 0/TBD | Not started | - |
 | 10. Rhyme Map 韻腳地圖 | 0/TBD | Not started | - |
