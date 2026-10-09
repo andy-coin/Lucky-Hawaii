@@ -234,12 +234,15 @@ body {
 
 <!-- 批次工具列 + 橡皮筋框 -->
 <div class="batch-bar" id="batchBar">
-  <span>已選 <span class="count" id="batchCount">0</span> 筆</span>
+  <span>已選 <span class="count" id="batchCount">0</span> 列</span>
+  <button class="btn btn-approve" id="batchApprove" onclick="batchApprove()">核准</button>
+  <button class="btn btn-dismiss" id="batchDismiss" onclick="batchDismiss()">駁回</button>
   <button class="btn btn-archive" onclick="batchArchive()">📦 封存</button>
   <button class="btn btn-undo" onclick="batchRestore()">↩ 還原</button>
   <button class="btn btn-delete" onclick="batchDelete()">🗑 永久刪除</button>
   <button class="btn btn-clear" onclick="clearSelection()">清除選取</button>
 </div>
+<div class="batch-result" id="batchResult" role="status" aria-live="polite" hidden></div>
 <div class="marquee-box" id="marqueeBox"></div>
 
 <!-- Main -->
@@ -313,7 +316,30 @@ body {
 .ai-z-label { font-size: 0.75rem; color: var(--text-muted); white-space: nowrap; }
 .ai-z-warn { font-size: 0.75rem; color: var(--warn-text); }
 .edit-panel input.warn-input { border-color: #ed8936; }
-.locked .card, .locked .row-check-wrap { pointer-events: none; }
+.locked .card, .locked .row-check-wrap, .locked .select-all { pointer-events: none; }
+.batch-bar.busy { pointer-events: none; }
+.batch-bar .btn-approve { font-size: 0.875rem; }
+.batch-result {
+  position: fixed; right: 20px; bottom: 20px; z-index: 960; max-width: 360px;
+  background: var(--container-bg); color: var(--text-primary);
+  border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow);
+  padding: 8px 12px; font-size: 0.75rem; font-weight: 700; overflow-wrap: anywhere;
+}
+.batch-result[hidden] { display: none; }
+/* ── 篩選列 ── */
+.filter-row {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  background: var(--container-bg); color: var(--text-primary);
+  border: 1px solid var(--border); border-radius: 12px; padding: 12px 16px; box-shadow: var(--shadow);
+}
+.select-all { display: inline-flex; align-items: center; gap: 8px; font-size: 0.875rem; cursor: pointer; margin-right: auto; }
+.select-all input { width: 20px; height: 20px; accent-color: var(--action-bg); cursor: pointer; }
+.filter-chips { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.chip {
+  padding: 4px 12px; border-radius: 20px; font-size: 0.75rem; font-weight: 700;
+  background: var(--section-badge-bg); color: var(--text-primary);
+}
+.chip.active { background: var(--action-bg); color: #fff; }
 </style>
 
 <!-- 通用「人工新增」modal（缺字 / 缺少讀音）-->
@@ -497,6 +523,8 @@ let layer = { entries: [], written: [] };   // 線上修正層：07-07 載入後
 let loadState = 'idle';    // idle | loading | ok | error
 let loadError = null;      // { msg, hint }
 let truncated = false;     // Worker 說列表被截短（X-Reports-Truncated）
+let filter = 'all';        // all | pending | approved | live | dismissed
+let visibleKeys = [];      // 目前畫面上的列（全選用）
 let expanded = new Set();  // 已展開原文的列（group key）
 let busyGroups = new Set();// 正在送出的列
 let rowErrors = new Map(); // group key → 這一列的錯誤文字
@@ -665,6 +693,15 @@ function groupStatus(g) {
   const present = Object.keys(counts).sort((a, b) => STATUS_RANK[a] - STATUS_RANK[b]);
   return { status: present[0], counts, present };
 }
+// 篩選用的分類：已寫入資料檔歸「已上線」；已處理（備註）與已封存只在「全部」看得到
+const BUCKET = { pending: 'pending', approved: 'approved', live: 'live', written: 'live', dismissed: 'dismissed' };
+const FILTERS = [['all', '全部'], ['pending', '待審'], ['approved', '已核准未套用'], ['live', '已上線'], ['dismissed', '已駁回']];
+// 待審在前，再依最新時間新到舊，同時間依主題字串由小到大（逐字元比較，結果固定）
+function cmpGroups(a, b) {
+  return (a.st.status === 'pending' ? 0 : 1) - (b.st.status === 'pending' ? 0 : 1)
+      || b.latestNum - a.latestNum
+      || (a.subject < b.subject ? -1 : a.subject > b.subject ? 1 : 0);
+}
 // 已上線或已寫入的回報不能再被核准／駁回／封存（要先撤回，07-07）
 const isLocked = m => ['live', 'written'].includes(memberStatus(m));
 const findGroup = key => _groupMap.get(key);
@@ -690,38 +727,59 @@ function render() {
   document.getElementById('reloadBtn').disabled = loadState === 'loading';
   document.getElementById('exportBtn').disabled = !reports.some(r => r.status === 'agreed');
 
-  if (loadState === 'idle') {
-    main.innerHTML = '<div class="empty">輸入 USER_REPORT_KEY 後按「重新載入」</div>';
-    setStats('尚未載入'); return;
-  }
-  if (loadState === 'loading') {
-    main.innerHTML = '<div class="empty">載入中…</div>';
-    setStats('載入中…'); return;
-  }
-  if (loadState === 'error') {
-    main.innerHTML = `<div class="empty error">${esc(loadError.msg)}${loadError.hint ? `<div class="hint">${esc(loadError.hint)}</div>` : ''}</div>`;
-    setStats('—'); return;
+  if (loadState !== 'ok') {
+    _groups = []; _groupMap = new Map(); visibleKeys = [];
+    selectedGroups.clear(); updateBatchBar();
+    if (loadState === 'idle') {
+      main.innerHTML = '<div class="empty">輸入 USER_REPORT_KEY 後按「重新載入」</div>';
+      setStats('尚未載入');
+    } else if (loadState === 'loading') {
+      main.innerHTML = '<div class="empty">載入中…</div>';
+      setStats('載入中…');
+    } else {
+      main.innerHTML = `<div class="empty error">${esc(loadError.msg)}${loadError.hint ? `<div class="hint">${esc(loadError.hint)}</div>` : ''}</div>`;
+      setStats('—');
+    }
+    return;
   }
 
   _groups = groupReports(reports);
   _groupMap = new Map(_groups.map(g => [g.key, g]));
   _groups.forEach(g => { g.st = groupStatus(g); });
 
+  const n = s => _groups.filter(g => g.st.status === s).length;
+  setStats(`共 ${_groups.length} 組（${reports.length} 筆）· 待審 ${n('pending')} · 已核准未套用 ${n('approved')} · 已上線 ${n('live') + n('written')} · 已封存 ${n('archived')}`);
+  document.getElementById('archivedCount').textContent = n('archived');
+
+  // 顯示已封存疊在狀態篩選上面；全選與批次只動這裡算出來的 visible
   const showArchived = document.getElementById('showArchived').checked;
-  document.getElementById('archivedCount').textContent = _groups.filter(g => g.st.status === 'archived').length;
-  const visible = _groups.filter(g => showArchived || g.st.status !== 'archived')
-                         .sort((a, b) => b.latestNum - a.latestNum);
-  setStats(`共 ${_groups.length} 組（${reports.length} 筆）`);
+  const pool = _groups.filter(g => showArchived || g.st.status !== 'archived');
+  const counts = { all: pool.length, pending: 0, approved: 0, live: 0, dismissed: 0 };
+  pool.forEach(g => { const b = BUCKET[g.st.status]; if (b) counts[b]++; });
+  const visible = pool.filter(g => filter === 'all' || BUCKET[g.st.status] === filter).sort(cmpGroups);
+  visibleKeys = visible.map(g => g.key);
 
   let html = '';
   if (truncated) html += '<div class="notice warn">只載入最新 800 筆</div>';
-  const part = type => visible.filter(g => g.type === type);
-  const ai = part('ai-word-suggest'), rd = part('char-reading-report'), wd = part('word-report'), fb = part('feedback');
-  if (ai.length) html += section('🌟 AI 建議收錄', ai);
-  if (rd.length) html += section('🔤 讀音回報', rd);
-  if (wd.length) html += section('🃏 字卡回報', wd);
-  if (fb.length) html += section('📬 一般回饋', fb);
-  if (!html) html = '<div class="empty">沒有回報資料</div>';
+  if (!_groups.length) {
+    html += '<div class="empty">目前沒有回報。<div class="hint">有新的回報時會顯示在這裡；也可以按「重新載入」。</div></div>';
+  } else {
+    html += `<div class="filter-row">
+      <label class="select-all"><input type="checkbox" id="selectAll" data-act="select-all"> 全選目前篩選結果（${visible.length} 列）</label>
+      <div class="filter-chips" role="group" aria-label="狀態篩選">${FILTERS.map(([k, label]) =>
+        `<button type="button" class="btn chip${filter === k ? ' active' : ''}" data-act="filter" data-filter="${k}" aria-pressed="${filter === k}">${label} (${counts[k]})</button>`).join('')}</div>
+    </div>`;
+    if (!visible.length) {
+      html += '<div class="empty">這個篩選下沒有回報（改選「全部」看看）</div>';
+    } else {
+      const part = type => visible.filter(g => g.type === type);
+      const ai = part('ai-word-suggest'), rd = part('char-reading-report'), wd = part('word-report'), fb = part('feedback');
+      if (ai.length) html += section('🌟 AI 建議收錄', ai);
+      if (rd.length) html += section('🔤 讀音回報', rd);
+      if (wd.length) html += section('🃏 字卡回報', wd);
+      if (fb.length) html += section('📬 一般回饋', fb);
+    }
+  }
   main.innerHTML = html;
   updateBatchBar();
 }
@@ -1839,18 +1897,29 @@ function esc(s) {
 
 // ── 多選互動（以「列」為單位）──
 function updateBatchBar() {
-  // 先把已不存在的列從選取清單剔掉
-  const live = new Set(_groups.map(g => g.key));
-  for (const k of Array.from(selectedGroups)) if (!live.has(k)) selectedGroups.delete(k);
+  // 不在目前畫面上的列（換了篩選、被刪掉）不算選取，批次不會動到看不見的列
+  const vis = new Set(visibleKeys);
+  for (const k of Array.from(selectedGroups)) if (!vis.has(k)) selectedGroups.delete(k);
   document.querySelectorAll('.card[data-group]').forEach(c => {
     const on = selectedGroups.has(c.dataset.group);
     c.classList.toggle('selected', on);
     const cb = c.querySelector('.row-check');
     if (cb) cb.checked = on;
   });
+  const picked = visibleKeys.filter(k => selectedGroups.has(k)).length;
+  const sa = document.getElementById('selectAll');
+  if (sa) {
+    sa.checked = visibleKeys.length > 0 && picked === visibleKeys.length;
+    sa.indeterminate = picked > 0 && picked < visibleKeys.length;
+  }
   const bar = document.getElementById('batchBar');
   bar.classList.toggle('show', selectedGroups.size > 0);
-  document.getElementById('batchCount').textContent = selectedGroups.size;
+  bar.classList.toggle('busy', batchBusy);
+  bar.querySelectorAll('button').forEach(b => { b.disabled = batchBusy; });
+  const cnt = selectedGroups.size;
+  document.getElementById('batchCount').textContent = cnt;
+  document.getElementById('batchApprove').setAttribute('aria-label', `核准選取的 ${cnt} 列回報`);
+  document.getElementById('batchDismiss').setAttribute('aria-label', `駁回選取的 ${cnt} 列回報`);
 }
 function clearSelection() {
   if (batchBusy) return;
@@ -1935,14 +2004,14 @@ function onMarqueeUp() {
 }
 
 // 批次動作：對選到的每一列各跑一次（列與列最多 4 列同時，列內依序），失敗的列留著選取
-async function batchRun(keys, decide) {
+async function batchRun(keys, decideOf) {
   batchBusy = true;
   keys.forEach(k => { busyGroups.add(k); rowErrors.delete(k); });
   render();
   const failed = [];
   await pool(keys, 4, async k => {
     const g = findGroup(k);
-    const ok = g ? await decideMembers(g, decide, 1) : false;
+    const ok = g ? await decideMembers(g, decideOf(g), 1) : false;
     if (!ok) failed.push(k);
   });
   batchBusy = false;
@@ -1954,22 +2023,71 @@ async function batchRun(keys, decide) {
   return failed;
 }
 const fullyLocked = g => g.members.every(isLocked);
-function batchArchive() {
-  const keys = Array.from(selectedGroups).filter(k => { const g = findGroup(k); return g && g.st.status !== 'archived' && !fullyLocked(g); });
-  if (!keys.length) { alert('沒有可封存的項目'); return; }
-  if (!confirm(`封存 ${keys.length} 列？`)) return;
-  return batchRun(keys, decideFor('archive'));
+const LOCKED_NOTE = n => `略過 ${n} 列（已上線，請先撤回）`;
+function showBatchResult(text) {
+  batchResult = text;
+  const el = document.getElementById('batchResult');
+  el.textContent = text; el.hidden = !text;
+  clearTimeout(_batchResultTimer);
+  if (text) _batchResultTimer = setTimeout(() => showBatchResult(''), 4000);
 }
-function batchRestore() {
-  const keys = Array.from(selectedGroups).filter(k => { const g = findGroup(k); return g && g.st.status !== 'pending' && !fullyLocked(g); });
-  if (!keys.length) { alert('沒有可還原的項目（已是待審狀態）'); return; }
-  if (!confirm(`還原 ${keys.length} 列為待審？`)) return;
-  return batchRun(keys, decideFor('undo'));
+// 核准／駁回／封存／還原共用：已上線的列略過，失敗的列留著選取；回傳 { ok, failed, locked }
+async function batchDecide(groups, decideOf) {
+  const locked = groups.filter(fullyLocked).length;
+  const todo = groups.filter(g => !fullyLocked(g));
+  showBatchResult('');
+  const failed = todo.length ? await batchRun(todo.map(g => g.key), decideOf) : [];
+  return { ok: todo.length - failed.length, failed: failed.length, locked, todo: todo.length };
+}
+const failText = r => `已處理 ${r.ok} 列，${r.failed} 列失敗，失敗的仍保持選取，可以再按一次`;
+const selectedRows = () => Array.from(selectedGroups).map(findGroup).filter(Boolean);
+
+async function batchApprove() {
+  if (batchBusy) return;
+  const groups = selectedRows();
+  const manual = groups.filter(g => !fullyLocked(g) && !approveOpFor(g));
+  const doable = groups.filter(g => approveOpFor(g) && !fullyLocked(g));
+  if (!doable.length) {
+    const locked = groups.filter(fullyLocked).length;
+    showBatchResult(manual.length || !locked ? '選到的列都需要手動輸入，沒有核准任何一列' : LOCKED_NOTE(locked));
+    return;
+  }
+  const r = await batchDecide(doable.concat(groups.filter(fullyLocked)), g => decideFor(approveOpFor(g)));
+  if (r.failed) { showBatchResult(failText(r)); return; }
+  // 需手動的列不算處理過，一併取消選取，免得下次又被帶進來
+  manual.forEach(g => selectedGroups.delete(g.key)); updateBatchBar();
+  showBatchResult(`已核准 ${r.ok} 列`
+    + (manual.length ? `，略過 ${manual.length} 列（需要輸入新讀音）` : '')
+    + (r.locked ? `，${LOCKED_NOTE(r.locked)}` : ''));
+}
+async function batchDismiss() {
+  if (batchBusy) return;
+  const groups = selectedRows();
+  if (!groups.length) return;
+  const r = await batchDecide(groups, () => decideFor('dismiss'));
+  if (r.failed) { showBatchResult(failText(r)); return; }
+  showBatchResult(r.todo ? `已駁回 ${r.ok} 列` + (r.locked ? `，${LOCKED_NOTE(r.locked)}` : '') : LOCKED_NOTE(r.locked));
+}
+async function batchArchive() {
+  const groups = selectedRows().filter(g => g.st.status !== 'archived');
+  if (!groups.filter(g => !fullyLocked(g)).length) { alert('沒有可封存的項目'); return; }
+  if (!confirm(`封存 ${groups.filter(g => !fullyLocked(g)).length} 列？`)) return;
+  const r = await batchDecide(groups, () => decideFor('archive'));
+  showBatchResult(r.failed ? failText(r) : `已封存 ${r.ok} 列` + (r.locked ? `，${LOCKED_NOTE(r.locked)}` : ''));
+}
+async function batchRestore() {
+  const groups = selectedRows().filter(g => g.st.status !== 'pending');
+  if (!groups.filter(g => !fullyLocked(g)).length) { alert('沒有可還原的項目（已是待審狀態）'); return; }
+  if (!confirm(`還原 ${groups.filter(g => !fullyLocked(g)).length} 列為待審？`)) return;
+  const r = await batchDecide(groups, () => decideFor('undo'));
+  showBatchResult(r.failed ? failText(r) : `已還原 ${r.ok} 列` + (r.locked ? `，${LOCKED_NOTE(r.locked)}` : ''));
 }
 function batchDelete() {
-  const keys = Array.from(selectedGroups).filter(k => findGroup(k));
-  if (!keys.length) return;
-  return deleteGroups(keys);   // 確認通過後 deleteMembers 會立刻重畫，被刪的列自然從選取清單剔掉
+  const groups = selectedRows();
+  const locked = groups.filter(fullyLocked).length;
+  const p = groups.length ? deleteGroups(groups.map(g => g.key)) : null;   // 確認通過後 deleteMembers 會立刻重畫，被刪的列自然從選取清單剔掉
+  if (locked) showBatchResult(LOCKED_NOTE(locked));
+  return p;
 }
 
 // ── 事件委派（B5）：所有列內按鈕都是 data-act，不在 HTML 屬性裡放程式 ──
@@ -1984,6 +2102,11 @@ mainEl.addEventListener('click', e => {
       if (el.checked && e.shiftKey && _lastClickedKey) selectRange(_lastClickedKey, gk);
       else if (el.checked) selectedGroups.add(gk); else selectedGroups.delete(gk);
       _lastClickedKey = gk; updateBatchBar(); return;
+    case 'select-all':
+      if (batchBusy) { e.preventDefault(); return; }
+      for (const k of visibleKeys) { if (el.checked) selectedGroups.add(k); else selectedGroups.delete(k); }
+      _lastClickedKey = null; updateBatchBar(); return;
+    case 'filter':           filter = el.dataset.filter; render(); return;
     case 'approve':          return approveGroup(gk);
     case 'dismiss':          return execGroup(gk, 'dismiss');
     case 'archive':          return execGroup(gk, 'archive');

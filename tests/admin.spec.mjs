@@ -225,7 +225,7 @@ test('後台：全選 — 只選目前篩選結果；取消一列變半選；空
     await chip(page, '已上線').click();
     await expect(page.locator('label.select-all')).toHaveText('全選目前篩選結果（0 列）');
     await expect(page.locator('#batchBar')).not.toHaveClass(/show/);
-    await all.check();
+    await all.click();   // 0 列時勾不起來（check() 會抱怨狀態沒變），用 click 直接按
     await expect(page.locator('#batchCount')).toHaveText('0');
     await expect(page.locator('#batchBar')).not.toHaveClass(/show/);
     await context.close();
