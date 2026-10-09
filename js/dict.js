@@ -122,13 +122,8 @@
             return _corrP;
         }
 
-        async function applyRhymeDictOverrides() {
-            let ovr;
-            try {
-                const r = await fetch('data/rhyme-dict-overrides.json', { cache: 'no-cache' });
-                if (!r.ok) return false;
-                ovr = await r.json();
-            } catch(e) { lhWarn('字庫修正檔載入失敗', e); return false; }
+        // 套用一份字庫修正文件（data 檔與修正層同格式），回傳套用條數
+        function applyRhymeDictOverrideDoc(ovr) {
             let count = 0;
             for (const it of (ovr.removed || []).concat(ovr.hidden || [])) {
                 if (!it.char || !it.dict_key) continue;
@@ -145,7 +140,25 @@
                 _addCharToRhymeKey(a.dict_key, a.char, a.tier || 'normal');
                 count++;
             }
-            if (count) console.log(`[rhyme overrides] ${count} 條套用`);
+            return count;
+        }
+
+        // 先套 data 修正檔、再套修正層；兩段各自可缺、各自 try/catch，其一壞掉不影響另一段（C4）
+        async function applyRhymeDictOverrides() {
+            const [base, layer] = await Promise.all([
+                (async () => {
+                    try {
+                        const r = await fetch('data/rhyme-dict-overrides.json', { cache: 'no-cache' });
+                        return r.ok ? await r.json() : null;
+                    } catch(e) { lhWarn('字庫修正檔載入失敗', e); return null; }
+                })(),
+                loadCorrections(),
+            ]);
+            let count = 0, layerCount = 0;
+            if (base) { try { count += applyRhymeDictOverrideDoc(base); } catch (e) { lhWarn('字庫修正檔套用失敗', e); } }
+            if (layer && layer.rhymeDict) { try { layerCount = applyRhymeDictOverrideDoc(layer.rhymeDict); } catch (e) { lhWarn('修正層套用失敗', e); } }
+            count += layerCount;
+            if (count) console.log(`[rhyme overrides] ${count} 條套用（修正層 ${layerCount}）`);
             return count > 0;
         }
 

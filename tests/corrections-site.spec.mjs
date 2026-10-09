@@ -1,7 +1,7 @@
 // 修正層：Worker 套用 → 公開 view → 網站詞庫（瀏覽器，Worker 程式碼真的在測試程序裡跑）
 import { test, expect } from '@playwright/test';
 import worker from '../worker/src/index.js';
-import { bootPage } from './helpers.mjs';
+import { bootPage, settle, EMPTY_CORRECTIONS } from './helpers.mjs';
 import { FakeKV, makeEnv, bridgeWorker } from './worker-helpers.mjs';
 
 const report = JSON.stringify({ type: 'word-report', word: '二心', ts: '2026-01-01T00:00:00.000Z', status: 'agreed', action: { type: 'remove_word', word: '二心' } });
@@ -63,4 +63,35 @@ test('修正層：抓不到、慢過 3 秒、形狀不對 → 只留一則警告
             expect(warnings.filter(m => m.includes('[好韻器] 修正層載入失敗')), mode).toHaveLength(1);
         } finally { await context.close(); }
     }
+});
+
+// ── 字庫（rhymeDict）：修正層疊在 data/rhyme-dict-overrides.json 之上 ──
+const rdView = rd => ({ ...EMPTY_CORRECTIONS, rev: 1, rhymeDict: { removed: [], hidden: [], fixed: [], added: [], ...rd } });
+const cardCount = async (page, input, ch, key) => {
+    await page.fill('#searchInput', input);
+    await settle(page);
+    return page.locator(`.char-card[data-char="${ch}"][data-key="${key}"]`).count();
+};
+
+test('修正層：字庫隱藏讀音後，查韻看不到那張字卡（對照頁仍看得到）', async ({ browser }) => {
+    const ctl = await bootPage(browser, { corrections: EMPTY_CORRECTIONS });
+    try { expect(await cardCount(ctl.page, 'ㄔㄤ', '長', 'ㄔㄤ2')).toBeGreaterThan(0); } finally { await ctl.context.close(); }
+    const { context, page, errors } = await bootPage(browser, { corrections: rdView({ hidden: [{ char: '長', dict_key: 'ㄔㄤ2' }] }) });
+    try {
+        expect(await cardCount(page, 'ㄔㄤ', '長', 'ㄔㄤ2')).toBe(0);
+        expect(errors).toEqual([]);
+    } finally { await context.close(); }
+});
+
+test('修正層：字庫修正與新增讀音', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, { corrections: rdView({
+        fixed: [{ char: '常', from: 'ㄔㄤ2', to: 'ㄕㄤ2' }],
+        added: [{ char: '長', reading: 'ㄌㄤˊ', dict_key: 'ㄌㄤ2', tier: 'normal' }],
+    }) });
+    try {
+        expect(await cardCount(page, 'ㄕㄤ', '常', 'ㄕㄤ2')).toBeGreaterThan(0);
+        expect(await cardCount(page, 'ㄔㄤ', '常', 'ㄔㄤ2')).toBe(0);
+        expect(await cardCount(page, 'ㄌㄤ', '長', 'ㄌㄤ2')).toBeGreaterThan(0);
+        expect(errors).toEqual([]);
+    } finally { await context.close(); }
 });
