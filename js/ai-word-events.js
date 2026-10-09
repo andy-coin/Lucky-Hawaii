@@ -87,7 +87,10 @@
         _aiRepStart.addEventListener('click', () => { _aiWordsCt.classList.add('report-mode'); _renderAiReportRow(); });
         _aiRepExit.addEventListener('click', exitAiReportMode);
         _aiRepSend.addEventListener('click', () => {
-            const words = _aiPickedCards().map(c => c.dataset.word).filter(Boolean);
-            if (words.length) openReportDialog(words.map(word => ({ kind: 'word', word })), { onSent: exitAiReportMode });
+            const picked = _aiPickedCards();
+            const words = picked.map(c => c.dataset.word).filter(Boolean);
+            // 選到的全是 AI 造詞（有 AI 標記）才多出「建議收錄／建議修改」，和桌機右鍵選單的條件一樣（WR-06）
+            const ai = picked.length > 0 && picked.every(c => c.querySelector('.ai-badge'));
+            if (words.length) openReportDialog(words.map(word => ({ kind: 'word', word })), { onSent: exitAiReportMode, ai });
         });
 

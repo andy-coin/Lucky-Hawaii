@@ -627,6 +627,82 @@ test('回報入口：AI 回報模式', async ({ browser }) => {
     await context.close();
 });
 
+test('回報入口：AI 回報模式多出「建議收錄／建議修改」（手機沒有右鍵也能建議，WR-06）', async ({ browser }) => {
+    const bodies = [];
+    const { context, page, errors } = await bootPage(browser, { wordlist: 'stub', device: DEVICES.phone, aiReply: AI_REPLY, beforeGoto: capture(bodies) });
+    await generateAi(page);
+    await openAiPanel(page);
+    const d = dialog(page);
+    const aiWords = await page.locator('.ai-word-card:has(.ai-badge)').evaluateAll(els => els.map(e => e.dataset.word));
+    expect(aiWords.length).toBeGreaterThanOrEqual(2);
+    const pickAi = async (...idx) => {
+        await page.locator('#aiReportStart').click();
+        for (const i of idx) await page.locator('.ai-word-card:has(.ai-badge)').nth(i).click();
+        await page.locator('#aiReportSend').click();
+    };
+    // 一般回報視窗（字卡）看不到這兩個選項
+    // 選 1 個 AI 詞：4 個原因 + 2 個 AI 專用
+    await pickAi(0);
+    await expect(d.reason('建議收錄')).toBeVisible();
+    await expect(d.reason('建議修改')).toBeVisible();
+    // 建議收錄：照右鍵選單的格式送出
+    await d.reason('建議收錄').click();
+    await expect(d.send).toBeEnabled();
+    await d.send.click();
+    await expect(d.overlay).not.toHaveClass(/show/);
+    expect(bodies).toEqual([{ type: 'ai-word-suggest', word: aiWords[0], action: 'accept' }]);
+    // 建議修改：新詞寫在說明欄，沒寫、寫一樣、太長都不能送
+    bodies.length = 0;
+    await pickAi(0);
+    await d.reason('建議修改').click();
+    await expect(d.send).toBeDisabled();
+    await expect(d.status).toHaveText('請在下面寫要改成哪個詞');
+    await d.note.fill(aiWords[0]);
+    await expect(d.status).toHaveText('改成的詞要和原本的不一樣');
+    await d.note.fill('字'.repeat(21));
+    await expect(d.status).toHaveText('改成的詞最多 20 個字');
+    await expect(d.send).toBeDisabled();
+    await d.note.fill('新詞');
+    await expect(d.send).toBeEnabled();
+    await d.send.click();
+    await expect(d.overlay).not.toHaveClass(/show/);
+    expect(bodies).toEqual([{ type: 'ai-word-suggest', word: aiWords[0], action: 'modify', modified: '新詞' }]);
+    // 建議修改一次只能一個詞
+    bodies.length = 0;
+    await pickAi(0, 1);
+    await d.reason('建議修改').click();
+    await expect(d.status).toContainText('建議修改一次只能選一個詞');
+    await expect(d.send).toBeDisabled();
+    await d.reason('建議收錄').click();   // 收錄可以多個（第一個詞剛剛已經建議收錄過，本頁只送沒送過的）
+    await expect(d.send).toBeEnabled();
+    await d.send.click();
+    await expect(d.overlay).not.toHaveClass(/show/);
+    expect(bodies).toEqual([{ type: 'ai-word-suggest', word: aiWords[1], action: 'accept' }]);
+    // 方向鍵只在看得到的選項裡轉；4 個原因的視窗（字卡）不會冒出這兩個
+    await page.locator('#aiReportStart').click();
+    await page.locator('.ai-word-card:has(.ai-badge)').first().click();
+    await page.locator('#aiReportSend').click();
+    await d.reason('其他').click();
+    await page.keyboard.press('ArrowRight');
+    await expect(d.reason('建議收錄')).toHaveAttribute('aria-checked', 'true');
+    await page.locator('#reportCancelBtn').click();
+    await page.locator('#aiReportExit').click();
+    expect(errors.filter(e => !e.includes('Failed to load resource'))).toEqual([]);
+    await context.close();
+});
+
+test('回報入口：一般回報視窗沒有「建議收錄／建議修改」（只有 AI 回報模式選到 AI 造詞才有）', async ({ browser }) => {
+    const { context, page } = await bootPage(browser, { wordlist: 'stub', aiReply: AI_REPLY });
+    await search(page);
+    await pick(page, 0);
+    await openDialog(page);
+    const d = dialog(page);
+    await expect(d.reason('其他')).toBeVisible();
+    await expect(d.reason('建議收錄')).toBeHidden();
+    await expect(d.reason('建議修改')).toBeHidden();
+    await context.close();
+});
+
 test('回報入口：AI 列隱藏', async ({ browser }) => {
     const { context, page } = await bootPage(browser, { wordlist: 'stub', aiReply: AI_REPLY });
     await expect(page.locator('#aiReportRow')).toHaveAttribute('hidden', '');

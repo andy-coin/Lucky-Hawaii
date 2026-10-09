@@ -241,14 +241,18 @@
             '讀音錯誤': { type: '讀音錯誤', placeholder: '你覺得正確的讀音是？（選填）例：ㄔㄤˊ', placeholderPinyin: '你覺得正確的讀音是？（選填）例：chang2' },
             '太冷僻': { type: '極度冷僻', placeholder: '補充說明（選填）' },
             '不該出現': { type: '不該出現', placeholder: '補充說明（選填）' },
-            '其他': { type: '其他', placeholder: '請簡單說明（選填）' }
+            '其他': { type: '其他', placeholder: '請簡單說明（選填）' },
+            // 只有從「AI 回報模式」選到 AI 造詞時才出現（_report.ai）：手機沒有右鍵，靠這兩個選項建議收錄／修改 AI 詞（WR-06）
+            '建議收錄': { type: '建議收錄', placeholder: '補充說明（選填）', ai: true },
+            '建議修改': { type: '建議修改', placeholder: '要改成哪個詞？（必填，最多 20 字）', ai: true }
         };
+        const REPORT_MODIFY_MAX = 20;   // 和 Worker 的詞長上限一致
         const _REPORT_TONE_MARKS = ['', '', 'ˊ', 'ˇ', 'ˋ', '˙'];
         // 本頁已回報過的「字詞＋原因」：只放記憶體，重新整理就忘（A4、D-08，不寫任何儲存鍵）
         const _reportedSet = new Set();
         // 視窗狀態只活在這個物件：items 是開啟當下的快照，換選取也不會變；
         // msg 是送出後的結果訊息 { text, error }；epoch 每次關閉加 1，讓還在跑的送出知道視窗已經關了
-        const _report = { items: [], reason: null, opener: null, onSent: null, sending: false, cut: false, msg: null, epoch: 0 };
+        const _report = { items: [], reason: null, opener: null, onSent: null, sending: false, cut: false, msg: null, epoch: 0, ai: false };
         const _rpt = id => document.getElementById(id);
 
         // 讀目前選取的字卡 → 回報項目（依畫面順序；壞掉的卡與重複的卡略過）
@@ -268,6 +272,17 @@
         // 同一個字詞＋同一個原因本頁只送一次；字詞用修剪後的原字串比對，不做任何正規化
         function _reportKey(it, reportType) {
             return it.kind === 'char' ? `c|${it.char}|${it.reading}|${reportType}` : `w|${it.word.trim()}|${reportType}`;
+        }
+
+        // 「建議修改」要填新詞（說明欄）、而且一次只能一個詞；回傳不能送出的原因，可以送就回 ''
+        function _reportBlock(items) {
+            if (_report.reason !== '建議修改') return '';
+            if (items.length !== 1) return '建議修改一次只能選一個詞';
+            const w = Array.from(_rpt('reportNote').value.trim());
+            if (w.length === 0) return '請在下面寫要改成哪個詞';
+            if (w.length > REPORT_MODIFY_MAX) return `改成的詞最多 ${REPORT_MODIFY_MAX} 個字`;
+            if (w.join('') === items[0].word.trim()) return '改成的詞要和原本的不一樣';
+            return '';
         }
 
         function _renderReportState() {
@@ -305,7 +320,8 @@
                 box.appendChild(more);
             }
             const btns = [...document.querySelectorAll('#reportReasons .report-reason')];
-            btns.forEach((b, i) => {
+            btns.forEach(b => { b.hidden = !!REPORT_REASONS[b.dataset.reason].ai && !_report.ai; });   // AI 專用的原因平常藏起來
+            btns.filter(b => !b.hidden).forEach((b, i) => {
                 const on = b.dataset.reason === _report.reason;
                 b.setAttribute('aria-checked', on ? 'true' : 'false');
                 b.querySelector('.report-reason-label').textContent = (on ? '✓ ' : '') + b.dataset.reason;
@@ -318,10 +334,12 @@
             // 狀態行：送出結果 > 送出中 > 已回報過 > 超過上限
             const status = _rpt('reportStatus');
             let text = '', error = false;
+            const block = _reportBlock(items);
             if (_report.msg) { text = _report.msg.text; error = !!_report.msg.error; }
             else if (_report.sending) text = '送出中…';
             else {
                 const parts = [];
+                if (block) parts.push(block);
                 if (reportType && items.length > 0 && fresh === 0) parts.push('這些字詞已經用這個原因回報過了');
                 else if (skipped > 0) parts.push(`${skipped} 個已回報過，會略過`);
                 if (_report.cut) parts.push('一次最多回報 10 個，已先取前 10 個');   // 文字寫死 10，要改上限時跟 REPORT_MAX 一起改
@@ -333,7 +351,7 @@
             const count = reportType ? fresh : items.length;
             send.textContent = _report.sending ? '送出中…' : (items.length > 1 ? `送出回報（${count} 個）` : '送出回報');
             send.setAttribute('aria-label', `送出回報，共 ${count} 個字詞`);
-            send.disabled = !reportType || _report.sending || fresh === 0;
+            send.disabled = !reportType || _report.sending || fresh === 0 || !!block;
         }
 
         // 打開回報視窗；items 預設是目前選取的字卡。什麼都沒選就只跳提示（D-02）
@@ -347,6 +365,7 @@
             _report.sending = false;
             _report.msg = null;
             _report.onSent = opts && typeof opts.onSent === 'function' ? opts.onSent : null;
+            _report.ai = !!(opts && opts.ai);
             _report.opener = document.activeElement;
             _rpt('reportNote').value = '';
             _renderReportState();
@@ -370,6 +389,9 @@
         }
 
         function _reportPayload(it, reportType, note) {
+            // AI 詞的建議：和右鍵選單送出的格式一樣（後台的「🌟 AI 建議收錄」認這個）
+            if (reportType === '建議收錄') return { type: 'ai-word-suggest', word: it.word.trim(), action: 'accept', ...(note ? { note } : {}) };
+            if (reportType === '建議修改') return { type: 'ai-word-suggest', word: it.word.trim(), action: 'modify', modified: note };
             const body = it.kind === 'char'
                 ? { type: 'char-reading-report', char: it.char, reading: it.reading, reportType }
                 : { type: 'word-report', word: it.word.trim(), reportType };
@@ -420,16 +442,19 @@
 
         // 單選群組：點選、方向鍵移動（右／下 = 下一個，左／上 = 上一個，頭尾相接）
         (function wireReportDialog() {
-            const btns = [...document.querySelectorAll('#reportReasons .report-reason')];
+            const allBtns = [...document.querySelectorAll('#reportReasons .report-reason')];
+            const shown = () => allBtns.filter(b => !b.hidden);
             const choose = b => {
                 if (_report.sending) return;
                 _report.reason = b.dataset.reason;
                 _report.msg = null;
                 _renderReportState();
             };
-            btns.forEach(b => b.addEventListener('click', () => choose(b)));
+            allBtns.forEach(b => b.addEventListener('click', () => choose(b)));
+            _rpt('reportNote').addEventListener('input', () => { if (_report.reason === '建議修改') _renderReportState(); });   // 新詞一打就檢查能不能送
             _rpt('reportReasons').addEventListener('keydown', e => {
                 const step = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }[e.key];
+                const btns = shown();
                 const i = btns.indexOf(document.activeElement);
                 if (!step || i < 0) return;
                 e.preventDefault();

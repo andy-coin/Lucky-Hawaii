@@ -551,6 +551,7 @@
             text-align: left;
             cursor: pointer;
         }
+        .report-reason[hidden] { display: none; }   /* display:flex 會蓋掉 hidden 屬性 */
         .report-reason[aria-checked="true"] { border-color: var(--highlight-border); }
         .report-reason:disabled { opacity: .5; cursor: default; }
         .report-reason-label { font-size: 1rem; font-weight: 700; color: var(--text-primary); }
