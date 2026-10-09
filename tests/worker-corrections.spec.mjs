@@ -283,3 +283,190 @@ test('修正層 Worker：動作對照——只認 action，不看回報上的 wo
     expect(body.count).toBe(1);
     expect(JSON.parse(env.AI_STATE_KV.m.get('corrections:v1')).entries[0].value).toBe('二心');
 });
+
+// ---------- 07-02 Task 2：撤回、清空、後台讀取、版本號、KV 太忙 ----------
+const post = (env, path, body, headers = KEY) => call(path, { method: 'POST', body, env, headers, origin: ORIGIN });
+const revoke = (env, ids, baseRev) => post(env, '/corrections/revoke', { ids, baseRev });
+const clear = (env, ids, baseRev) => post(env, '/corrections/clear', { ids, baseRev });
+const stored = env => env.AI_STATE_KV.m.get('corrections:v1');
+const doc = env => JSON.parse(stored(env));
+const view = async env => (await call('/corrections.json', { origin: ORIGIN, env })).json();
+const entry = (i, over = {}) => ({ id: 'c_e' + i, target: 'wordlist', bucket: 'removed', value: '詞' + i, source_kvKeys: ['k' + i], applied_at: '2026-01-01T00:00:00.000Z', ...over });
+const withDoc = (d, init = {}) => makeEnv({ USER_FEEDBACK_KV: new FakeKV(init), AI_STATE_KV: new FakeKV({ 'corrections:v1': JSON.stringify({ version: 1, rev: 3, updated_at: null, entries: [], written: [], ...d }) }) });
+
+test('修正層 Worker：重按——同一份核准回報套用兩次只留一筆，第二次不寫入', async () => {
+    const env = seeded({ k1: report() });
+    expect((await apply(env, ['k1'], 0)).status).toBe(200);
+    const again = await apply(env, ['k1'], 1);
+    expect(again.status).toBe(200);
+    expect(await again.json()).toMatchObject({ skipped: [{ kvKey: 'k1', reason: 'already_applied' }], applied: [], rev: 1 });
+    expect(env.AI_STATE_KV.puts).toBe(1);
+    expect(doc(env).entries).toHaveLength(1);
+});
+
+test('修正層 Worker：409——版本號不對就不改；讀到過期的舊文件也擋得住', async () => {
+    const env = seeded({ k1: report(), k2: report({ action: { type: 'remove_word', word: '三心' } }) });
+    await apply(env, ['k1'], 0);
+    const before = stored(env);
+    const wrong = await apply(env, ['k2'], 0);
+    expect(wrong.status).toBe(409);
+    expect(await wrong.json()).toMatchObject({ ok: false, code: 'REV_MISMATCH', rev: 1 });
+    expect(env.AI_STATE_KV.puts).toBe(1);
+    // client 已拿到 rev 1，但 KV 這次回的是 rev 0 的舊文件
+    env.AI_STATE_KV.staleOnce('corrections:v1', JSON.stringify({ version: 1, rev: 0, updated_at: null, entries: [], written: [] }));
+    const stale = await apply(env, ['k2'], 1);
+    expect(stale.status).toBe(409);
+    expect(stored(env)).toBe(before);
+    expect(env.AI_STATE_KV.puts).toBe(1);
+});
+
+test('修正層 Worker：503——KV 太忙時回白話訊息，儲存的文件原封不動（套用、撤回、清空都一樣）', async () => {
+    const env = seeded({ k1: report(), k2: report({ action: { type: 'remove_word', word: '三心' } }) });
+    await apply(env, ['k1'], 0);
+    const before = stored(env);
+    const id = doc(env).entries[0].id;
+    const realErr = console.error; console.error = () => {};
+    try {
+        for (const run of [() => apply(env, ['k2'], 1), () => revoke(env, [id], 1), () => clear(env, [id], 1)]) {
+            env.AI_STATE_KV.failPut = true;
+            const res = await run();
+            expect(res.status).toBe(503);
+            expect(await res.json()).toMatchObject({ ok: false, code: 'KV_BUSY', message: '儲存太快了，請等一秒再試' });
+            expect(stored(env)).toBe(before);
+        }
+    } finally { console.error = realErr; }
+});
+
+test('修正層 Worker：撤回——依 id 移除那一筆，written 不動，view 不再有它', async () => {
+    const env = seeded({ k1: report(), k2: report({ action: { type: 'hide_word', word: '三心' } }) });
+    await apply(env, ['k1', 'k2'], 0);
+    const [e1, e2] = doc(env).entries;
+    const res = await revoke(env, [e1.id], 1);
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ ok: true, rev: 2, revoked: [e1.id], missing: [] });
+    expect(doc(env).entries.map(e => e.id)).toEqual([e2.id]);
+    expect(doc(env).written).toEqual([]);
+    expect(env.AI_STATE_KV.puts).toBe(2);
+    expect((await view(env)).wordlist).toEqual({ removed: [], hidden: ['三心'], fixed: {}, added: [] });
+});
+
+test('修正層 Worker：撤回——同一個詞後來的修正撤掉後，先前的修正重新生效', async () => {
+    const env = seeded({ k1: report(), k2: report({ action: { type: 'manual_add_word', word: '二心', z: 'ㄦˋ ㄒㄧㄣ', tier: 'normal' } }) });
+    await apply(env, ['k1'], 0);
+    await apply(env, ['k2'], 1);
+    expect((await view(env)).wordlist).toMatchObject({ removed: [], added: [{ w: '二心' }] });
+    const later = doc(env).entries[1];
+    expect((await revoke(env, [later.id], 2)).status).toBe(200);
+    expect((await view(env)).wordlist).toEqual({ removed: ['二心'], hidden: [], fixed: {}, added: [] });
+});
+
+test('修正層 Worker：撤回——一部分已不在、或全部不在（404，不寫入）、格式不對（400）、版本不符（409）', async () => {
+    const env = seeded({ k1: report() });
+    await apply(env, ['k1'], 0);
+    const id = doc(env).entries[0].id;
+    const none = await revoke(env, ['c_nope'], 1);
+    expect(none.status).toBe(404);
+    expect(await none.json()).toMatchObject({ ok: false, code: 'NOT_FOUND', missing: ['c_nope'], rev: 1, message: '這筆修正已不在線上（可能已撤回或已寫入資料檔），請重新載入' });
+    expect(env.AI_STATE_KV.puts).toBe(1);
+    for (const b of [{ baseRev: 1 }, { ids: [], baseRev: 1 }, { ids: ['nope'], baseRev: 1 }, { ids: [id], baseRev: -1 }, { ids: Array(101).fill(id), baseRev: 1 }]) {
+        expect((await post(env, '/corrections/revoke', b)).status, JSON.stringify(b).slice(0, 40)).toBe(400);
+    }
+    expect((await revoke(env, [id], 0)).status).toBe(409);
+    expect((await post(env, '/corrections/revoke', { ids: [id], baseRev: 1 }, {})).status).toBe(403);
+    expect((await call('/corrections/revoke', { env, headers: KEY, origin: ORIGIN })).status).toBe(405);
+    const part = await revoke(env, [id, 'c_gone'], 1);
+    expect(await part.json()).toEqual({ ok: true, rev: 2, revoked: [id], missing: ['c_gone'] });
+});
+
+test('修正層 Worker：清空——只移除指定 id，來源 kvKey 進 written（不重複），找不到的列在 missing，全找不到就不寫入', async () => {
+    const env = withDoc({ entries: [entry(1, { source_kvKeys: ['k1', 'k1b'] }), entry(2)], written: ['k1'] });
+    const res = await clear(env, ['c_e1', 'c_gone'], 3);
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ ok: true, rev: 4, cleared: ['c_e1'], missing: ['c_gone'] });
+    expect(doc(env).entries.map(e => e.id)).toEqual(['c_e2']);
+    expect(doc(env).written).toEqual(['k1', 'k1b']);
+    expect(env.AI_STATE_KV.puts).toBe(1);
+    const nothing = await clear(env, ['c_gone'], 4);
+    expect(nothing.status).toBe(200);
+    expect(await nothing.json()).toEqual({ ok: true, rev: 4, cleared: [], missing: ['c_gone'] });
+    expect(env.AI_STATE_KV.puts).toBe(1);
+    expect((await clear(env, ['c_e2'], 3)).status).toBe(409);
+});
+
+test('修正層 Worker：清空——written 最多留最新 5000 筆', async () => {
+    const old = Array.from({ length: 5000 }, (_, i) => 'old' + i);
+    const env = withDoc({ entries: [entry(1, { source_kvKeys: ['newA', 'newB'] })], written: old });
+    await clear(env, ['c_e1'], 3);
+    const w = doc(env).written;
+    expect(w).toHaveLength(5000);
+    expect(w.slice(-2)).toEqual(['newA', 'newB']);
+    expect(w[0]).toBe('old2');
+});
+
+test('修正層 Worker：清空之後，同一份回報套用會被當成已寫入', async () => {
+    const env = seeded({ k1: report() });
+    await apply(env, ['k1'], 0);
+    await clear(env, [doc(env).entries[0].id], 1);
+    const again = await (await apply(env, ['k1'], 2)).json();
+    expect(again.skipped).toEqual([{ kvKey: 'k1', reason: 'already_written' }]);
+});
+
+test('修正層 Worker：後台讀取——要金鑰；回整份文件加 view；POST 不行', async () => {
+    const env = seeded({ k1: report() });
+    await apply(env, ['k1'], 0);
+    expect((await call('/corrections/admin.json', { env, origin: ORIGIN })).status).toBe(403);
+    expect((await call('/corrections/admin.json?key=wrong', { env, origin: ORIGIN })).status).toBe(403);
+    const res = await call('/corrections/admin.json', { env, headers: KEY, origin: ORIGIN });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body).toMatchObject({ ok: true, version: 1, rev: 1, written: [] });
+    expect(body.entries).toHaveLength(1);
+    expect(body.entries[0].source_kvKeys).toEqual(['k1']);
+    expect(new Date(body.updated_at).toISOString()).toBe(body.updated_at);
+    expect(body.view).toEqual({ wordlist: { removed: ['二心'], hidden: [], fixed: {}, added: [] }, rhymeDict: { removed: [], hidden: [], fixed: [], added: [] } });
+    expect((await call('/corrections/admin.json', { method: 'POST', body: {}, env, headers: KEY, origin: ORIGIN })).status).toBe(405);
+    // 沒套用過 → 空文件
+    const empty = await (await call('/corrections/admin.json', { env: makeEnv(), headers: KEY, origin: ORIGIN })).json();
+    expect(empty).toMatchObject({ ok: true, rev: 0, entries: [], written: [] });
+});
+
+test('修正層 Worker：損毀——每一條路徑都回 500 LAYER_CORRUPT，儲存的值不被蓋掉', async () => {
+    const env = makeEnv({ USER_FEEDBACK_KV: new FakeKV({ k1: report() }), AI_STATE_KV: new FakeKV({ 'corrections:v1': 'not json' }) });
+    const runs = [
+        () => call('/corrections.json', { origin: ORIGIN, env }),
+        () => call('/corrections/admin.json', { env, headers: KEY, origin: ORIGIN }),
+        () => apply(env, ['k1'], 0),
+        () => revoke(env, ['c_e1'], 0),
+        () => clear(env, ['c_e1'], 0),
+    ];
+    for (const run of runs) {
+        const res = await run();
+        expect(res.status).toBe(500);
+        expect(await res.json()).toEqual({ ok: false, code: 'LAYER_CORRUPT', message: '修正層資料損毀' });
+    }
+    expect(stored(env)).toBe('not json');
+    expect(env.AI_STATE_KV.puts).toBe(0);
+});
+
+test('修正層 Worker：上限——修正層滿 2000 筆就不再套用新的', async () => {
+    const entries = Array.from({ length: 2000 }, (_, i) => entry(i));
+    const env = withDoc({ entries }, { fresh: report({ action: { type: 'remove_word', word: '新詞' } }) });
+    const res = await apply(env, ['fresh'], 3);
+    expect(res.status).toBe(400);
+    expect(await res.json()).toMatchObject({ ok: false, code: 'LAYER_FULL', message: '修正層已滿 2000 筆，請先跑寫回腳本' });
+    expect(env.AI_STATE_KV.puts).toBe(0);
+    // 撤回一筆之後又可以套用
+    expect((await revoke(env, ['c_e0'], 3)).status).toBe(200);
+    expect((await apply(env, ['fresh'], 4)).status).toBe(200);
+});
+
+test('修正層 Worker：只有已核准的回報進得了修正層（用戶端送的內容不算數）', async () => {
+    const env = seeded({
+        pending: report({ status: 'pending' }), dismissed: report({ status: 'dismissed' }),
+        noaction: report({ action: undefined }), agreed: report({ action: { type: 'remove_word', word: '三心' } }),
+    });
+    const res = await post(env, '/corrections/apply', { kvKeys: ['pending', 'dismissed', 'noaction', 'agreed'], baseRev: 0, action: { type: 'remove_word', word: '惡意' } });
+    const body = await res.json();
+    expect(body.skipped.map(s => s.reason)).toEqual(['not_agreed', 'not_agreed', 'not_agreed']);
+    expect(doc(env).entries.map(e => e.value)).toEqual(['三心']);
+});
