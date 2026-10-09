@@ -363,6 +363,28 @@ test('詞庫包：新包載入失敗時提示、退回原本的包並維持勾�
     } finally { await context.close(); }
 });
 
+test('詞庫包：連點換包、最後那包載入失敗時，退回真正載好的原包（不是載到一半的中間包）', async ({ browser }) => {
+    test.setTimeout(60_000);
+    const gamma = makeState('丙', 'G1');
+    gamma.fail = 0;
+    const { context, page, errors, alphaState } = await bootWithStubPacks(browser, { gamma });
+    try {
+        const release = gateOf(alphaState);
+        await openSettings(page);
+        await radio(page, 'alpha').check();
+        await expect.poll(() => alphaState.requests.length, { message: 'alpha 卡在閘門' }).toBeGreaterThan(0);
+        await radio(page, 'gamma').check();
+        await expect(page.locator('#lexiconPackStatus')).toHaveText('詞庫載入失敗，請稍後再試');
+        release();
+        await page.evaluate(() => window.__hoyunWordlistReady);
+        await expect(radio(page, 'v096')).toBeChecked();
+        expect(await page.evaluate(() => lhGet('lh:lexiconPack')), '設定值退回原樣，不是 alpha').toBeNull();
+        expect(await page.evaluate(() => activeLexiconPack.id)).toBe('v096');
+        expect(await page.evaluate(() => wordlistData.filter(e => e.w[0] === '甲').length), 'alpha 不可以蓋進來').toBe(0);
+        expect(realErrors(errors)).toEqual([]);
+    } finally { await context.close(); }
+});
+
 // ===== 快取登記簿與清理（06-03）=====
 // 讀 IndexedDB：'wl' 全部的鍵、非分段內容的記錄（ver、sentinel、p:index…）、備份筆數
 const wlState = page => page.evaluate(async () => {

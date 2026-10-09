@@ -195,6 +195,7 @@
         // 同一時間只有一次載入；失敗後下次呼叫會重抓。永遠回傳不會 reject 的 Promise，成功後立刻 resolve
         // finally 只清「自己」：換包時較新的載入已經接手 _wlP，舊的收尾不可以把它清掉
         let _wlP = null;
+        let _lastGoodPack = null;   // { desc, stored }：最後一個真正公開過詞庫的包
         function loadWordlist() {
             if (wordlistData !== null) return Promise.resolve();
             if (_wlP) return _wlP;
@@ -284,6 +285,8 @@
             const out = buf.length > 0 ? await applyWordlistOverrides(buf, live) : null;
             if (live()) {
                 wordlistData = out;
+                // 記下「真的載入成功」的包與當時的設定值：換包失敗要退回這個，而不是退回載到一半的包
+                if (out !== null) _lastGoodPack = { desc, stored: lhGet(LH_PACK_KEY) };
                 updateWordlistProgress(n, n);
             }
             await cacheP;
@@ -296,7 +299,6 @@
             const target = m && typeof id === 'string' && LH_PACK_ID_RE.test(id) ? m.packs.find(e => e.id === id) : null;
             if (!target) { lhWarn('換詞庫包失敗：清單裡沒有這個包'); return false; }
             const prev = activeLexiconPack;
-            const prevStored = lhGet(LH_PACK_KEY);
             lhSet(LH_PACK_KEY, id);
             if (prev && prev.id === id && wordlistData !== null) return true;
             _wlGen++;
@@ -319,13 +321,18 @@
             await p;
             if (myGen !== _wlGen) return false;   // 等待期間又換了包：那次才是有效的
             if (wordlistData === null || !activeLexiconPack || activeLexiconPack.id !== id) {
-                // 新包載不下來：退回原本的包（設定值與畫面一致，也不會留在「沒有詞庫」的狀態；不覆蓋使用者的其他設定）
-                if (prev) {
-                    if (prevStored === null) lhRemove(LH_PACK_KEY); else lhSet(LH_PACK_KEY, prevStored);
-                    activeLexiconPack = prev;
+                // 新包載不下來：退回「最後一個真的載入成功」的包（連點換包時 activeLexiconPack 可能是還沒載完的中間包）
+                // 設定值與畫面一致，也不會留在「沒有詞庫」的狀態；不覆蓋使用者的其他設定
+                if (_lastGoodPack) {
+                    if (_lastGoodPack.stored === null) lhRemove(LH_PACK_KEY); else lhSet(LH_PACK_KEY, _lastGoodPack.stored);
+                    activeLexiconPack = _lastGoodPack.desc;
                     _wlGen++;
                     _wlP = null;
-                    window.__hoyunWordlistReady = loadWordlist();
+                    const rbGen = _wlGen;
+                    const back = loadWordlist();
+                    window.__hoyunWordlistReady = back;
+                    // 換包時 AI 字卡已清掉：退回後補重跑目前搜尋（中途又換包就不重跑）
+                    back.then(() => { if (rbGen === _wlGen && wordlistData !== null) _refreshFromCurrentInput(); });
                 }
                 return false;
             }
