@@ -291,7 +291,7 @@ for (const [w, h] of [[844, 390], [667, 375], [740, 360], [568, 320]]) {
             // 3. 往回捲：標題與批次列都在，主題、縮放、批次標記真的點得到
             await page.locator('#mainContainer').evaluate(el => { el.scrollTop = 0; });
             await waitStill(page);
-            for (const [name, sel] of [['主題切換', '#themeToggle'], ['縮小', '#MzoomOut'], ['縮放百分比', '.zoom-reset'], ['放大', '#MzoomIn'], ['批次：常用', '#batchPanel .batch-btn >> nth=0'], ['批次：冷僻', '#batchPanel .batch-btn >> nth=1'], ['批次：取消', '#batchPanel .batch-btn >> nth=2']]) {
+            for (const [name, sel] of [['主題切換', '#themeToggle'], ['縮小', '#MzoomOut'], ['縮放百分比', '.zoom-reset'], ['放大', '#MzoomIn'], ['批次：常用', '#batchPanel .batch-btn >> nth=0'], ['批次：冷僻', '#batchPanel .batch-btn >> nth=1'], ['批次：取消', '#batchPanel .batch-btn >> nth=2'], ['批次：回報', '#batchPanel .btn-report']]) {
                 await expectReallyClickable(page, page.locator(sel).first(), name);
             }
             // 4. 真的按得動：放大一格
@@ -1869,18 +1869,20 @@ const readMenu = (page, id) => page.evaluate(id => {
         rem: parseFloat(getComputedStyle(document.documentElement).fontSize),
         minW: parseFloat(getComputedStyle(m).minWidth),
         items: [...m.querySelectorAll('.word-ctx-item')].map(e => e.getBoundingClientRect().height),
+        first: (m.querySelector('.word-ctx-item') || {}).textContent,
     };
 }, id);
 const hideMenus = page => page.evaluate(() => { _hideCtxMenu(); _hidePolyCtxMenu(); });
 
 test('選單：放大 150% 時右鍵／長按選單不跑出畫面', async ({ browser }) => {
     const MENUS = [
-        // [說明, 要觸發的元素, 選單 id]
-        ['字卡選單', '#resultsContainer .char-card', 'wordCtxMenu'],
-        ['AI 詞卡選單', '#aiWordsContainer .ai-word-card', 'wordCtxMenu'],
-        ['破音字選單', '.poly-chip', 'polyChipCtxMenu'],
+        // [說明, 要觸發的元素, 選單 id, 手機上是否用長按]
+        // 字卡與 AI 詞卡的長按已移除（留給拖曳），兩個平台都走 contextmenu；只有破音字 chip 手機仍是長按
+        ['字卡選單', '#resultsContainer .char-card', 'wordCtxMenu', false],
+        ['AI 詞卡選單', '#aiWordsContainer .ai-word-card', 'wordCtxMenu', false],
+        ['破音字選單', '.poly-chip', 'polyChipCtxMenu', true],
     ];
-    for (const [dname, device, touch] of [['桌機 1440×900（右鍵）', DEVICES.desktop, false], ['手機 390×844（長按 500ms）', DEVICES.phone, true]]) {
+    for (const [dname, device, touch] of [['桌機 1440×900（右鍵）', DEVICES.desktop, false], ['手機 390×844（右鍵＋破音字長按 500ms）', DEVICES.phone, true]]) {
         const { context, page } = await bootPage(browser, { device, storage: { 'lh:uiScale': '150' } });
         try {
             await page.fill('#searchInput', '樂');
@@ -1890,10 +1892,10 @@ test('選單：放大 150% 時右鍵／長按選單不跑出畫面', async ({ br
             const vp = await page.evaluate(() => ({ w: visualViewport.width, h: visualViewport.height }));
             // 右下角、左上角、右上角、左下角：四個角落都不能跑出去
             const corners = [['右下', vp.w - 2, vp.h - 2], ['左上', 1, 1], ['右上', vp.w - 2, 1], ['左下', 1, vp.h - 2]];
-            for (const [mname, sel, id] of MENUS) {
+            for (const [mname, sel, id, longPress] of MENUS) {
                 for (const [cname, x, y] of corners) {
                     await hideMenus(page);
-                    if (touch) {
+                    if (touch && longPress) {
                         await fireTouch(page, sel, 'touchstart', x, y);
                         await page.waitForTimeout(650);
                         await fireTouch(page, sel, 'touchend', x, y);
@@ -1903,6 +1905,7 @@ test('選單：放大 150% 時右鍵／長按選單不跑出畫面', async ({ br
                     const m = await readMenu(page, id);
                     const tag = `${dname} ${mname} ${cname}`;
                     expect(m.shown, `${tag}：選單有出現`).toBe(true);
+                    if (id === 'wordCtxMenu') expect(m.first, `${tag}：第一項是回報`).toBe('🚩 回報…');
                     expect(m.l, `${tag}：左邊在可見範圍內 ${JSON.stringify(m)}`).toBeGreaterThanOrEqual(m.vl - 0.5);
                     expect(m.t, `${tag}：上邊在可見範圍內`).toBeGreaterThanOrEqual(m.vt - 0.5);
                     expect(m.r, `${tag}：右邊在可見範圍內`).toBeLessThanOrEqual(m.vr + 0.5);

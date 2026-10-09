@@ -54,12 +54,14 @@
         }
 
         const _CTX_MENU_NORMAL = `
+        <div class="word-ctx-item" onclick="openReportFromCtx('word')">🚩 回報…</div>
         <div class="word-ctx-item" onclick="wordCtxReport('notExist')">❓ 詞不存在</div>
         <div class="word-ctx-item" onclick="wordCtxReport('obscure')">📦 極度冷僻</div>
         <div class="word-ctx-item" onclick="wordCtxReport('rhyme')">🎵 押韻錯誤</div>
         <div class="word-ctx-item" onclick="wordCtxReport('duplicate')">🔁 重複出現</div>
         <div class="word-ctx-item" onclick="wordSuggestReading()">🔤 建議讀音</div>`;
         const _CTX_MENU_AI = `
+            <div class="word-ctx-item" onclick="openReportFromCtx('word')">🚩 回報…</div>
             <div class="word-ctx-item" onclick="aiWordSuggest('accept')">✅ 建議收錄</div>
             <div class="word-ctx-item" onclick="aiWordSuggest('modify')">✏️ 建議修改</div>
             <div class="word-ctx-item" onclick="wordSuggestReading()">🔤 建議讀音</div>`;
@@ -78,7 +80,7 @@
         }
 
         // ===== 字卡右鍵 =====
-        let _charCtxChar = null;
+        let _charCtxChar = null, _charCtxKey = null;   // _charCtxKey = 右鍵那張字卡的讀音鍵（注音＋聲調數字）
         function _showCharCtxMenu(char, x, y) {
             _charCtxChar = char;
             const readings = getCharReadingsFormatted(char);
@@ -90,6 +92,7 @@
             }).join('');
             document.getElementById('wordCtxItems').innerHTML =
                 readingRows +
+                `<div class="word-ctx-item" onclick="openReportFromCtx('char')">🚩 回報…</div>` +
                 `<div class="word-ctx-item" onclick="charSuggestReading()">🔤 建議讀音</div>`;
             lhPlaceMenu(_ctxMenu, x, y);
         }
@@ -105,35 +108,29 @@
             postFeedback({ type: 'char-reading-report', char: _charCtxChar, reportType: '建議讀音', suggested: suggested.trim() });
             showToast(`已建議「${_charCtxChar}」讀音`);
         }
-        // 字卡 contextmenu / 長按
+        // 選單裡的「🚩 回報…」：只收常數 'char'／'word'，字詞從模組狀態讀，不經過 HTML（T-07-20）
+        function openReportFromCtx(kind) {
+            _hideCtxMenu();
+            if (kind === 'char') {
+                const key = _charCtxKey;
+                if (!_charCtxChar || !key || key === 'undefined0') return;
+                const base = key.slice(0, -1), tone = parseInt(key.slice(-1), 10) || 1;
+                openReportDialog([{ kind: 'char', char: _charCtxChar, base, tone, reading: base + _REPORT_TONE_MARKS[tone] }]);
+            } else if (kind === 'word') {
+                if (!_ctxWord) return;
+                openReportDialog([{ kind: 'word', word: _ctxWord }]);
+            }
+        }
+        // 字卡右鍵（長按不再開選單，留給之後的拖曳；手機用工具列的「🚩 回報」）
         document.addEventListener('contextmenu', e => {
             const card = e.target.closest('.char-card');
             if (!card || e.target.closest('.mark-badge')) return;
             const char = card.dataset.char;
             if (!char) return;
             e.preventDefault();
+            _charCtxKey = card.dataset.key || null;
             _showCharCtxMenu(char, e.clientX, e.clientY);
         });
-        let _charLongPressTimer = null, _charLongPressMoved = false;
-        document.addEventListener('touchstart', e => {
-            const card = e.target.closest('.char-card');
-            if (!card || e.target.closest('.mark-badge')) return;
-            _charLongPressMoved = false;
-            _charLongPressTimer = setTimeout(() => {
-                if (_charLongPressMoved) return;
-                const t = e.touches[0];
-                _showCharCtxMenu(card.dataset.char, t.clientX, t.clientY);
-            }, 500);
-        }, { passive: true });
-        document.addEventListener('touchmove', e => {
-            if (e.target.closest('.char-card')) {
-                _charLongPressMoved = true;
-                clearTimeout(_charLongPressTimer);
-            }
-        }, { passive: true });
-        document.addEventListener('touchend', e => {
-            if (e.target.closest('.char-card')) clearTimeout(_charLongPressTimer);
-        }, { passive: true });
         function _setCtxMenuFor(card) {
             const isAI = !!card.querySelector('.ai-badge');
             document.getElementById('wordCtxItems').innerHTML = isAI ? _CTX_MENU_AI : _CTX_MENU_NORMAL;

@@ -669,3 +669,74 @@ for (const [name, device] of [['手機 390', DEVICES.phone], ['觸控平板橫�
         } finally { await context.close(); }
     });
 }
+
+// ===== 右鍵「🚩 回報…」與長按釋放（07-06，D-04／D-05） =====
+const touchOn = (page, sel, type) => page.evaluate(({ sel, type }) => {
+    const el = document.querySelector(sel);
+    const r = el.getBoundingClientRect();
+    const t = new Touch({ identifier: 9, target: el, clientX: r.left + 5, clientY: r.top + 5 });
+    el.dispatchEvent(new TouchEvent(type, { bubbles: true, cancelable: true, touches: type === 'touchend' ? [] : [t], targetTouches: type === 'touchend' ? [] : [t], changedTouches: [t] }));
+}, { sel, type });
+const contextOn = (page, sel) => page.evaluate(sel => {
+    const r = document.querySelector(sel).getBoundingClientRect();
+    document.querySelector(sel).dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: r.left + 5, clientY: r.top + 5 }));
+}, sel);
+
+test('回報入口：長按', async ({ browser }) => {
+    const { context, page } = await bootPage(browser, { device: DEVICES.phone, aiReply: AI_REPLY });
+    try {
+        await page.fill('#searchInput', '樂');
+        await settle(page);
+        await page.evaluate(() => { document.getElementById('aiWordsContainer').innerHTML = aiWordCardHtml('平安', false); });
+        await expect(page.locator('.poly-chip').first()).toBeAttached();
+        // 字卡與 AI 詞卡：按住 600ms 不開任何選單（留給拖曳）
+        for (const sel of ['.char-card', '.ai-word-card']) {
+            await touchOn(page, sel, 'touchstart');
+            await page.waitForTimeout(600);
+            await touchOn(page, sel, 'touchend');
+            await expect(page.locator('#wordCtxMenu')).not.toHaveClass(/show/);
+        }
+        // 破音字 chip：長按照舊開 3 項選單
+        await touchOn(page, '.poly-chip', 'touchstart');
+        await page.waitForTimeout(600);
+        await touchOn(page, '.poly-chip', 'touchend');
+        await expect(page.locator('#polyChipCtxMenu')).toHaveClass(/show/);
+        await expect(page.locator('#polyChipCtxMenu .word-ctx-item')).toHaveCount(3);
+    } finally { await context.close(); }
+});
+
+test('回報入口：右鍵', async ({ browser }) => {
+    const bodies = [];
+    const { context, page, errors } = await bootPage(browser, { wordlist: 'stub', aiReply: AI_REPLY, beforeGoto: capture(bodies) });
+    await search(page);
+    const card = await page.locator('.char-card').first().evaluate(c => ({ char: c.dataset.char, key: c.dataset.key }));
+    await contextOn(page, '.char-card');
+    const first = page.locator('#wordCtxMenu .word-ctx-item').first();
+    await expect(first).toHaveText('🚩 回報…');
+    // 「🚩 回報…」在「🔤 建議讀音」之前
+    const labels = await page.locator('#wordCtxMenu .word-ctx-item').allTextContents();
+    expect(labels.indexOf('🚩 回報…')).toBeLessThan(labels.indexOf('🔤 建議讀音'));
+    await first.click();
+    await expect(page.locator('#wordCtxMenu')).not.toHaveClass(/show/);
+    await expect(page.locator('#reportModalOverlay')).toHaveClass(/show/);
+    await expect(page.locator('#reportTitle')).toHaveText(`回報「${card.char}」`);
+    await expect(page.locator('#reportWords .report-chip-reading')).toHaveCount(1);
+    await page.locator('.report-reason[data-reason="太冷僻"]').click();
+    await page.locator('#reportSendBtn').click();
+    await expect(page.locator('#reportModalOverlay')).not.toHaveClass(/show/);
+    const tone = parseInt(card.key.slice(-1), 10);
+    expect(bodies).toEqual([{ type: 'char-reading-report', char: card.char, reading: card.key.slice(0, -1) + ['', '', 'ˊ', 'ˇ', 'ˋ', '˙'][tone], reportType: '極度冷僻' }]);
+    // AI 詞卡（一般詞與 AI 造詞兩種選單）
+    await generateAi(page);
+    for (const sel of ['.ai-word-card:not(:has(.ai-badge))', '.ai-word-card:has(.ai-badge)']) {
+        const word = await page.locator(sel).first().evaluate(c => c.dataset.word);
+        await contextOn(page, sel);
+        await expect(page.locator('#wordCtxMenu .word-ctx-item').first()).toHaveText('🚩 回報…');
+        await page.evaluate(() => document.querySelector('#wordCtxMenu .word-ctx-item').click());
+        await expect(page.locator('#reportTitle')).toHaveText(`回報「${word}」`);
+        await page.locator('#reportCancelBtn').click();
+        await expect(page.locator('#reportModalOverlay')).not.toHaveClass(/show/);
+    }
+    expect(errors.filter(e => !e.includes('Failed to load resource'))).toEqual([]);
+    await context.close();
+});

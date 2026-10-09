@@ -365,6 +365,7 @@
         .ai-report-row[hidden], .ai-report-btn[hidden] { display: none; }
         .ai-report-row.active { position: sticky; top: 0; z-index: 1; background: var(--card-bg); padding: var(--sp-2) 0; }
         .ai-report-text { flex: 1 1 auto; font-size: 0.875rem; color: var(--text-secondary); }
+        .ai-report-text:empty { display: none; }   /* 一般狀態沒有文字：讓「回報詞語」靠左 */
         .ai-report-btn {
             min-height: 2rem;
             padding: 0 var(--sp-3);
