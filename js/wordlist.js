@@ -343,56 +343,69 @@
         // ── 後台匯出的詞庫 overrides（data/wordlist-overrides.json）──
         // 不存進 IDB（避免改 overrides 要重 build 詞庫），每次 loadWordlist 末段重新套用
         // 吃進詞庫陣列、回傳套完修正的陣列（任何提早結束都原樣回傳輸入）
+        // 兩段式：先套 data/ 的修正檔，再套 Worker 的修正層（loadCorrections，js/dict.js）；兩段用同一套規則，各自壞掉不影響另一段
         async function applyWordlistOverrides(list, live = () => true) {
-            let ovr;
-            try {
-                const r = await fetch('data/wordlist-overrides.json', { cache: 'no-cache' });
-                if (!r.ok) return list;
-                ovr = await r.json();
-            } catch(e) { lhWarn('詞庫修正檔載入失敗', e); return list; }
+            const fetchBase = async () => {
+                try {
+                    const r = await fetch('data/wordlist-overrides.json', { cache: 'no-cache' });
+                    return r.ok ? await r.json() : undefined;   // undefined = 沒有修正檔；解析出 null 之類壞內容要走下面的「套用失敗」記錄
+                } catch(e) { lhWarn('詞庫修正檔載入失敗', e); return undefined; }
+            };
+            const [base, layer] = await Promise.all([fetchBase(), loadCorrections()]);
             // 等修正檔期間若已換包，兩張對照表已經是新包的，這裡一個字都不能動
             if (!live()) return list;
-            // 全部先算在暫存裡，成功才一次寫進兩張對照表；中途任何例外就原樣回傳詞庫（修正檔壞了不能讓整份詞庫變成載入失敗）
-            try {
-                const removedSet = new Set(ovr.removed || []);
-                const hiddenSet  = new Set(ovr.hidden  || []);
-                const fixedMap   = ovr.fixed  || {};
-                const added      = ovr.added  || [];
-                const before  = list.length;
-                const filtered = [];
-                const mapDel = [], mapSet = [];   // 待套用：[詞] 與 [詞, 注音, 優先度]
-                let removed = 0, fixed = 0;
-                for (const e of list) {
-                    if (removedSet.has(e.w) || hiddenSet.has(e.w)) {
-                        mapDel.push(e.w);
-                        removed++;
-                        continue;
-                    }
-                    if (fixedMap[e.w]) {
-                        filtered.push({ ...e, z: fixedMap[e.w] });   // 不改原物件，失敗時原詞庫維持原樣
-                        mapSet.push([e.w, fixedMap[e.w], null]);
-                        fixed++;
-                    } else filtered.push(e);
+            let out = list;
+            if (base !== undefined) {
+                try { out = applyWordlistOverrideDoc(out, base); }
+                catch(e) { lhWarn('詞庫修正檔套用失敗，改用未修正的詞庫', e); }
+            }
+            if (layer && layer.wordlist) {
+                try { out = applyWordlistOverrideDoc(out, layer.wordlist); }
+                catch(e) { lhWarn('修正層套用失敗', e); }
+            }
+            return out;
+        }
+
+        // 套一份修正（形狀同 wordlist-overrides.json）：回傳新陣列；兩張對照表只在全部算完後才一次寫入，丟例外時什麼都沒動
+        function applyWordlistOverrideDoc(list, ovr) {
+            const removedSet = new Set(ovr.removed || []);
+            const hiddenSet  = new Set(ovr.hidden  || []);
+            const fixedMap   = ovr.fixed  || {};
+            const added      = ovr.added  || [];
+            const before  = list.length;
+            const filtered = [];
+            const mapDel = [], mapSet = [];   // 待套用：[詞] 與 [詞, 注音, 優先度]
+            let removed = 0, fixed = 0;
+            for (const e of list) {
+                if (removedSet.has(e.w) || hiddenSet.has(e.w)) {
+                    mapDel.push(e.w);
+                    removed++;
+                    continue;
                 }
-                let addedCount = 0;
-                // 加回的詞若這一包本來就有（或 added 裡重複出現），只留一筆：不同詞庫包重疊的詞很多，重複會讓 AI 建議出現同一個詞兩次（B5）
-                const have = new Set(filtered.map(e => e.w));
-                for (const a of added) {
-                    if (typeof a?.w !== 'string' || typeof a.z !== 'string' || !a.w || !a.z || a.z.includes('?')) continue;  // 缺注音或格式不對的跳過
-                    if (have.has(a.w)) continue;
-                    have.add(a.w);
-                    const entry = { w: a.w, z: a.z, p: a.p ?? 1 };
-                    filtered.push(entry);
-                    mapSet.push([a.w, entry.z, entry.p]);
-                    addedCount++;
-                }
-                mapDel.forEach(w => { wordPriorityMap.delete(w); wordPhoneticMap.delete(w); });
-                mapSet.forEach(([w, z, p]) => { wordPhoneticMap.set(w, z); if (p !== null) wordPriorityMap.set(w, p); });
-                if (removed || fixed || addedCount) {
-                    console.log(`[wordlist overrides] before=${before} → after=${filtered.length} (removed=${removed}, fixed=${fixed}, added=${addedCount})`);
-                }
-                return filtered;
-            } catch(e) { lhWarn('詞庫修正檔套用失敗，改用未修正的詞庫', e); return list; }
+                if (fixedMap[e.w]) {
+                    filtered.push({ ...e, z: fixedMap[e.w] });   // 不改原物件，失敗時原詞庫維持原樣
+                    mapSet.push([e.w, fixedMap[e.w], null]);
+                    fixed++;
+                } else filtered.push(e);
+            }
+            let addedCount = 0;
+            // 加回的詞若這一包本來就有（或 added 裡重複出現），只留一筆：不同詞庫包重疊的詞很多，重複會讓 AI 建議出現同一個詞兩次（B5）
+            const have = new Set(filtered.map(e => e.w));
+            for (const a of added) {
+                if (typeof a?.w !== 'string' || typeof a.z !== 'string' || !a.w || !a.z || a.z.includes('?')) continue;  // 缺注音或格式不對的跳過
+                if (have.has(a.w)) continue;
+                have.add(a.w);
+                const entry = { w: a.w, z: a.z, p: a.p ?? 1 };
+                filtered.push(entry);
+                mapSet.push([a.w, entry.z, entry.p]);
+                addedCount++;
+            }
+            mapDel.forEach(w => { wordPriorityMap.delete(w); wordPhoneticMap.delete(w); });
+            mapSet.forEach(([w, z, p]) => { wordPhoneticMap.set(w, z); if (p !== null) wordPriorityMap.set(w, p); });
+            if (removed || fixed || addedCount) {
+                console.log(`[wordlist overrides] before=${before} → after=${filtered.length} (removed=${removed}, fixed=${fixed}, added=${addedCount})`);
+            }
+            return filtered;
         }
 
         // rhymes: currentRhymes 陣列, targetLen: 目標詞長, minPriority: 本輪門檻

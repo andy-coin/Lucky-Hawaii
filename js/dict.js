@@ -104,6 +104,24 @@
             rhymeDict[dictKey] = parts.join('｜');
         }
 
+        // ── 修正層：Worker 上已套用、還沒寫回 data 的修正；抓不到就略過，不擋畫面 ──
+        // 每次載入頁面只抓一次（詞庫與字庫共用）；不加 no-cache，讓伺服器的 max-age=60 生效；永遠不 reject
+        let _corrP = null;
+        function loadCorrections() {
+            if (_corrP) return _corrP;
+            _corrP = (async () => {
+                try {
+                    const r = await fetch(WORKER_URL + '/corrections.json', { signal: AbortSignal.timeout(3000) });
+                    if (!r.ok) throw new Error('HTTP ' + r.status);
+                    const doc = await r.json();
+                    const isObj = v => v && typeof v === 'object' && !Array.isArray(v);
+                    if (!isObj(doc) || !isObj(doc.wordlist) || !isObj(doc.rhymeDict)) throw new Error('格式不對');
+                    return doc;
+                } catch (e) { lhWarn('修正層載入失敗', e); return null; }
+            })();
+            return _corrP;
+        }
+
         async function applyRhymeDictOverrides() {
             let ovr;
             try {

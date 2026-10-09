@@ -19,9 +19,17 @@ const DEFAULT_MODELS = [
     { id: 'openai/gpt-oss-120b', label: 'GPT-OSS 120B', provider: 'groq' },
 ];
 
+// 修正層公開 view 的空文件（Worker 沒套用過任何修正時的回覆）
+export const EMPTY_CORRECTIONS = {
+    version: 1, rev: 0,
+    wordlist: { removed: [], hidden: [], fixed: {}, added: [] },
+    rhymeDict: { removed: [], hidden: [], fixed: [], added: [] },
+};
+
 // 外部網路一律 200 mock（回 404／abort 會被 Chromium 記成 console.error）；不認得的主機記錄下來讓測試失敗
 // aiFail: { status, body } 讓 /ai 回失敗；models: 陣列 或 'down'（/models 回 503）
-export async function routeExternal(context, { aiReply, aiFail, models } = {}) {
+// corrections: 不給 = 空 view；物件 = 回這份 JSON；'down' = 503；'bad' = 200 但形狀不對；'hang' = 永遠不回（測 3 秒逾時）
+export async function routeExternal(context, { aiReply, aiFail, models, corrections } = {}) {
     const offOrigin = [];
     await context.route(url => new URL(url).origin !== BASE, route => {
         const u = new URL(route.request().url());
@@ -31,6 +39,12 @@ export async function routeExternal(context, { aiReply, aiFail, models } = {}) {
         if (u.hostname === 'lucky-hawaii.is3000dollar.workers.dev') {
             if (u.pathname === '/feedback') {
                 return route.fulfill({ status: 200, contentType: 'application/json', body: '{"ok":true}' });
+            }
+            if (u.pathname === '/corrections.json') {
+                if (corrections === 'hang') return new Promise(() => {});
+                if (corrections === 'down') return route.fulfill({ status: 503, contentType: 'application/json', body: '{"ok":false}' });
+                if (corrections === 'bad') return route.fulfill({ status: 200, contentType: 'application/json', body: '{"candidates":[]}' });
+                return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(corrections ?? EMPTY_CORRECTIONS) });
             }
             if (u.pathname === '/models') {
                 if (models === 'down') return route.fulfill({ status: 503, contentType: 'application/json', body: '{"ok":false}' });
@@ -82,7 +96,7 @@ export async function stubWordlist(context, ndjson) {
 // beforeGoto: async ({ context, page }) => {}，在收集器掛好之後、導航之前執行（例如 page.clock.install()）
 // device: 任何 newContext 選項（viewport、isMobile、hasTouch、deviceScaleFactor、reducedMotion…），蓋過預設的桌機
 // colorScheme: 給了就蓋過預設的 'light'
-export async function bootPage(browser, { storage = {}, init = null, wordlist = 'real', aiReply, aiFail, models, beforeGoto = null, waitWordlist = true, device = {}, colorScheme } = {}) {
+export async function bootPage(browser, { storage = {}, init = null, wordlist = 'real', aiReply, aiFail, models, corrections, beforeGoto = null, waitWordlist = true, device = {}, colorScheme } = {}) {
     const context = await browser.newContext({
         ...CONTEXT_OPTS,
         ...device,
@@ -95,7 +109,7 @@ export async function bootPage(browser, { storage = {}, init = null, wordlist = 
             }],
         },
     });
-    const offOrigin = await routeExternal(context, { aiReply, aiFail, models });
+    const offOrigin = await routeExternal(context, { aiReply, aiFail, models, corrections });
     if (wordlist === 'stub') await stubWordlist(context, readFileSync(new URL('./fixtures/wordlist-stub.ndjson', import.meta.url), 'utf8'));
     if (init) await context.addInitScript(init);
     const page = await context.newPage();

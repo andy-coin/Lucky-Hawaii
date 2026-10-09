@@ -3,6 +3,7 @@
 // 回報與後台路徑已在 plan 02-02 搬進來；舊版相容路由在 plan 02-03。
 import { runChain, toLegacy, parseAiBody, parseLegacyBody, BAD_REQUEST_ERROR, TOO_LARGE_ERROR } from './ai.js';
 import { runHealthCheck, readHealth, activeModels, HEALTH_KEY } from './health.js';
+import { handleCorrections } from './corrections.js';
 
 const ALLOWED_ORIGIN = 'https://andy-coin.github.io';
 
@@ -24,22 +25,31 @@ function corsHeaders(origin, env) {
     return {
         'Access-Control-Allow-Origin': originAllowed(origin, env) ? origin : ALLOWED_ORIGIN,
         'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type',
+        'Access-Control-Allow-Headers': 'Content-Type, X-Admin-Key',
+        'Access-Control-Max-Age': '7200',   // 預檢結果讓瀏覽器記 2 小時，後台連續操作不必每次多一趟 OPTIONS
         'Vary': 'Origin',
     };
 }
 
-export function json(status, obj, origin, env = {}) {
+export function json(status, obj, origin, env = {}, extra = {}) {
     return new Response(JSON.stringify(obj), {
         status,
-        headers: { 'Content-Type': 'application/json', ...corsHeaders(origin, env) },
+        headers: { 'Content-Type': 'application/json', ...corsHeaders(origin, env), ...extra },
     });
+}
+
+// 後台金鑰檢查：所有後台路徑共用這一個。X-Admin-Key header 優先，舊的 ?key= 第二（B4）。
+// 空金鑰一律拒絕，連 USER_REPORT_KEY 沒設定（空字串）時也一樣，不會變成「空對空」放行。
+// ?key= 舊版後台還在用（Worker 會先於 main 部署），v2 移除
+export function adminKeyOk(request, url, env) {
+    const key = request.headers.get('X-Admin-Key') ?? url.searchParams.get('key');
+    return typeof key === 'string' && key !== '' && !!env.USER_REPORT_KEY && key === env.USER_REPORT_KEY;
 }
 
 // 請求本文上限 64 KB，以位元組計（中文一字 3 bytes）。Content-Length 只是宣告、不可信，所以一律邊讀邊數，超過就停止讀取。
 const MAX_BODY_BYTES = 65536;
 const MAX_FEEDBACK_BYTES = 8192;   // 回報只是幾行字，8 KB 綽綽有餘；/feedback 每次都寫一筆 KV，不能讓人塞大內容
-async function readBodyCapped(request, max = MAX_BODY_BYTES) {
+export async function readBodyCapped(request, max = MAX_BODY_BYTES) {
     const declared = Number(request.headers.get('Content-Length'));
     if (Number.isFinite(declared) && declared > max) return { ok: false };
     if (!request.body) return { ok: true, text: '' };
@@ -241,6 +251,13 @@ async function route(request, env) {
     if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: corsHeaders(origin, env) });
     const admin = await handleFeedbackAdmin(request, env, url);
     if (admin) return admin;
+    const corr = await handleCorrections(request, env, url, {
+        json: (status, obj, extra) => json(status, obj, origin, env, extra),
+        readBodyCapped,
+        adminKeyOk: () => adminKeyOk(request, url, env),
+        originAllowed: () => originAllowed(origin, env),
+    });
+    if (corr) return corr;
     if (pathname === '/ai') {
         if (!originAllowed(origin, env)) return json(403, { ok: false, code: 'FORBIDDEN', message: '來源不被允許' }, origin, env);
         if (request.method !== 'POST') return json(405, { ok: false, code: 'METHOD', message: '不支援這個操作' }, origin, env);

@@ -4,7 +4,7 @@ import { BASE } from './helpers.mjs';
 
 export class FakeKV {
     constructor(init = {}) { this.m = new Map(Object.entries(init)); this.gets = 0; this.puts = 0; }
-    async get(k) { this.gets++; return this.m.has(k) ? this.m.get(k) : null; }
+    async get(k, opts) { this.gets++; this.lastGetOpts = opts; return this.m.has(k) ? this.m.get(k) : null; }
     async put(k, v) { this.puts++; this.m.set(k, typeof v === 'string' ? v : String(v)); }
     async delete(k) { this.m.delete(k); }
     async list() { return { keys: [...this.m.keys()].map(name => ({ name })) }; }
