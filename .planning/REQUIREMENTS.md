@@ -49,7 +49,7 @@
 
 ### Feedback & Admin（回報與後台）
 
-- [ ] **FB-01**: 回報入口更明顯、步驟更少（保留詞卡右鍵回報；長按保留給拖曳）
+- [x] **FB-01**: 回報入口更明顯、步驟更少（保留詞卡右鍵回報；長按保留給拖曳）
 - [x] **FB-02**: 後台同一個詞的多筆回報合併顯示，可批次核准／駁回
 - [x] **FB-03**: 後台核准後一鍵套用，修正暫存為 Worker 上的「修正層」，線上使用者即時生效（與回報資料分開存放）
 - [x] **FB-04**: 已套用的修正可一鍵撤回
@@ -144,7 +144,7 @@
 | UI-01 | Phase 5 | Complete |
 | UI-02 | Phase 5 | Complete |
 | UI-03 | Phase 5 | Complete |
-| FB-01 | Phase 7 | Pending |
+| FB-01 | Phase 7 | Complete |
 | FB-02 | Phase 7 | Complete |
 | FB-03 | Phase 7 | Complete |
 | FB-04 | Phase 7 | Complete |
