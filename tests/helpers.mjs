@@ -191,6 +191,21 @@ export const activeSong = page => page.evaluate(() => {
     return songs.find(s => s.id === id) || null;
 });
 
+// 同一個 context（共用 localStorage）開兩個分頁，兩邊在同一個 tick 導航，等歌曲模型都就緒
+export async function openTwoTabs(browser, storage) {
+    const context = await browser.newContext({
+        ...CONTEXT_OPTS,
+        storageState: { cookies: [], origins: [{ origin: BASE, localStorage: Object.entries(storage).map(([name, value]) => ({ name, value })) }] },
+    });
+    await routeExternal(context);
+    await stubWordlist(context, readFileSync(new URL('./fixtures/wordlist-stub.ndjson', import.meta.url), 'utf8'));
+    const pages = [await context.newPage(), await context.newPage()];
+    const errs = pages.map(p => collectErrors(p));
+    await Promise.all(pages.map(p => p.goto('/index.html')));
+    await Promise.all(pages.map(p => p.evaluate(() => Promise.all([window.__hoyunReady, window.__hoyunWordlistReady, window.__hoyunSafetyReady, window.__hoyunSongsReady]))));
+    return { context, pages, errs };
+}
+
 // 用 CDP 模擬注音輸入法組字：每一步 Input.imeSetComposition，最後 Input.insertText 確認
 // beforeCommit：組字中、確認之前執行（量「組字中有沒有存檔」）
 export async function compose(page, steps, commit, beforeCommit = null) {

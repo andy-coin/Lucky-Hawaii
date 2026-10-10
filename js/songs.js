@@ -120,6 +120,76 @@ function initSongs() {
     if (_dirty.size) flushSongs();
 }
 
+// ==================== 多分頁同步 ====================
+// 別的分頁改了 lh:songs：沒在打字就立刻重載，正在打字就等離開輸入框再重載（A5）。
+// 這個分頁自己寫入不會收到自己的 storage 事件；lh:activeSong 的變動不處理（每個分頁各自看自己的那首）。
+let _pendingExternal = false;
+
+// 游標在歌詞、情境或歌名輸入框裡才算正在編輯；整個視窗失焦時不算（否則背景分頁永遠不更新）
+function isEditingField() {
+    if (!document.hasFocus()) return false;
+    const ae = document.activeElement;
+    return !!(ae && ae.closest && ae.closest('#lyricsSections, #contextDescription, .song-name-input'));
+}
+
+// 側邊清單的順序：新的在前；建立時間相同就依 id，順序才固定
+function sortedSongs() {
+    return songs.slice().sort((a, b) => (b.createdAt - a.createdAt) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+}
+
+// 歌名在提示裡最多 16 個字（用字元而不是 UTF-16 單位，不會把一個字切半）
+function cutName(name, n) {
+    const chars = Array.from(name);
+    return chars.length > n ? chars.slice(0, n).join('') + '…' : name;
+}
+
+function _applyExternalSongs() {
+    _pendingExternal = false;
+    flushSongs();   // 先把這個分頁自己還沒存的修改合併進去，才不會被重載蓋掉（F4）
+    const raw = lhGet('lh:songs');
+    const list = lhGetJSON('lh:songs', null, lhSongsOk);   // 不直接用事件帶來的值（T-08-10）；損毀時這裡已經記過警告
+    if (!list) {
+        if (raw === null || raw === '') lhWarn('其他分頁移除了歌曲資料，維持目前畫面');
+        return;
+    }
+    const oldOrder = sortedSongs().map(s => s.id);
+    const oldPos = oldOrder.indexOf(activeSongId);
+    if (list.length === 0) {
+        songs = [makeEmptySong('未命名歌曲 1')];
+        _dirty.add(songs[0].id);
+    } else {
+        songs = list;
+        songs.forEach(s => { if (_normalizeSong(s)) _dirty.add(s.id); });
+    }
+    let deleted = false;
+    if (!songs.some(s => s.id === activeSongId)) {
+        deleted = true;
+        const alive = new Set(songs.map(s => s.id));
+        // 舊順序裡先往後找、找不到再往前找，都沒有就取清單第一首
+        const after = oldOrder.slice(oldPos + 1);
+        const before = oldOrder.slice(0, Math.max(oldPos, 0)).reverse();
+        activeSongId = [...after, ...before].find(id => alive.has(id)) || sortedSongs()[0].id;
+        lhSet('lh:activeSong', activeSongId);
+    }
+    if (_dirty.size) flushSongs();
+    renderActiveSong();
+    showToast(deleted
+        ? '其他分頁刪除了這首歌，已切換到「' + cutName(curSong().title, 16) + '」'
+        : '其他分頁更新了歌詞，已重新載入', 4000);
+}
+
+window.addEventListener('storage', e => {
+    if (songsMode !== 'v2' || (e.key !== 'lh:songs' && e.key !== null)) return;
+    if (isEditingField()) _pendingExternal = true;
+    else _applyExternalSongs();
+});
+
+// 離開編輯區才套用；從一個輸入框移到另一個時 activeElement 還在編輯區，不重畫
+document.addEventListener('focusout', () => {
+    if (!_pendingExternal) return;
+    setTimeout(() => { if (_pendingExternal && !isEditingField()) _applyExternalSongs(); }, 0);
+});
+
 // 關頁或切到背景前把等待中的修改寫出去（不用 beforeunload：手機上不可靠，而且會跳離開確認）
 window.addEventListener('pagehide', flushSongs);
 document.addEventListener('visibilitychange', () => {
