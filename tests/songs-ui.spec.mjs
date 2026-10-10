@@ -59,7 +59,7 @@ test('歌曲清單：升級提示只出現一次', async ({ browser }) => {
 });
 
 // ==================== 改名、鍵盤、編號與排序、每首歌各自的內容 ====================
-import { DEVICES } from './layout-lib.mjs';
+import { DEVICES, setScale, waitStill, expectReallyClickable, noPageScroll, rectsOverlap, auditTouchTargets } from './layout-lib.mjs';
 
 const song = (id, title, createdAt, o = {}) => ({
     id, title, createdAt, updatedAt: createdAt,
@@ -304,4 +304,238 @@ test('歌曲清單：AI 讀目前這首', async ({ browser }) => {
     expect(prompt).not.toMatch(/A歌詞獨有|A標籤獨有|A情境獨有/);
     expect(errors).toEqual([]);
     await context.close();
+});
+
+// ==================== 版面：推開欄、覆蓋層、各種寬度與縮放 ====================
+const rectOf = (page, sel) => page.locator(sel).first().evaluate(el => { const r = el.getBoundingClientRect(); return { x: r.x, y: r.y, width: r.width, height: r.height }; });
+const lsGet = (page, k) => page.evaluate(key => localStorage.getItem(key), k);
+const BOTH = { leftPanelCollapsed: 'false', rightPanelCollapsed: 'false' };
+
+test('歌曲清單：推開欄', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, { storage: seed(TWO), device: DESKTOP });
+    const panel0 = await rectOf(page, '#leftPanel');
+    const lyrics0 = await rectOf(page, '#lyricsSections');
+    await page.locator('#songListToggle').click();
+    await expect(page.locator('body')).toHaveClass(/songs-open/);
+    const panel1 = await rectOf(page, '#leftPanel');
+    const lyrics1 = await rectOf(page, '#lyricsSections');
+    expect(panel1.width - panel0.width).toBeCloseTo(144, 0);
+    expect(lyrics1.width).toBeCloseTo(lyrics0.width, 0);
+    const container = await rectOf(page, '.container');
+    expect(rectsOverlap(panel1, container), '左面板不蓋到主畫面').toBe(false);
+    await expectReallyClickable(page, page.locator('#MzoomIn'), '放大');
+    expect(await lsGet(page, 'lh:songListOpen')).toBe('true');
+    await page.reload();
+    await page.evaluate(() => window.__hoyunSongsReady);
+    await expect(page.locator('#songList')).toBeVisible();
+    await expect(page.locator('#songListToggle')).toHaveAttribute('aria-expanded', 'true');
+    await page.locator('#songListToggle').click();
+    await expect(page.locator('#songList')).toBeHidden();
+    await expect(page.locator('body')).not.toHaveClass(/songs-open/);
+    expect(await lsGet(page, 'lh:songListOpen')).toBe('false');
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('歌曲清單：覆蓋層不記狀態', async ({ browser }) => {
+    for (const [name, device, open] of [
+        ['手機', PHONE, async page => { await page.locator('#mtab-lyrics').click(); }],
+        ['1000 寬', { viewport: { width: 1000, height: 800 } }, async () => {}],
+    ]) {
+        const { context, page, errors } = await bootPage(browser, { storage: seed(TWO), device });
+        await open(page);
+        await page.locator('#songListToggle').click();
+        await expect(page.locator('#songList'), name).toBeVisible();
+        await expect(page.locator('#songList')).toHaveClass(/song-list--overlay/);
+        await waitStill(page);   // 淡入落下的 0.2 秒跑完再量
+        const list = await rectOf(page, '#songList');
+        const layout = await rectOf(page, '.lyrics-layout');
+        const head = await rectOf(page, '.lyrics-head');
+        expect(Math.abs(list.x - layout.x) + Math.abs(list.y - layout.y) + Math.abs(list.width - layout.width) + Math.abs(list.height - layout.height), name + ' 蓋滿歌詞區').toBeLessThan(2);
+        expect(rectsOverlap(list, head), name + ' 不蓋住標題列').toBe(false);
+        await expectReallyClickable(page, page.locator('#songListToggle'), '☰ 歌曲');
+        expect(await lsGet(page, 'lh:songListOpen'), name + ' 覆蓋層不寫偏好').toBeNull();
+        await page.reload();
+        await page.evaluate(() => window.__hoyunSongsReady);
+        await expect(page.locator('#songList'), name + ' 重開是關的').toBeHidden();
+        // 切歌：清單關起來、焦點回到 ☰ 歌曲
+        if (name === '手機') await page.locator('#mtab-lyrics').click();
+        await page.locator('#songListToggle').click();
+        await page.locator('.song-pick', { hasText: '第一首' }).click();
+        await expect(page.locator('#songList')).toBeHidden();
+        await expect(page.locator('#songListToggle')).toBeFocused();
+        await expect(page.locator('#songCurrent')).toHaveText('第一首');
+        expect(await lsGet(page, 'lh:songListOpen')).toBeNull();
+        expect(errors).toEqual([]);
+        await context.close();
+    }
+});
+
+test('歌曲清單：跨寬度切換', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, { storage: seed(TWO, 'song-a'), device: { ...DESKTOP, viewport: { width: 1440, height: 900 } } });
+    await page.locator('#songListToggle').click();
+    await page.evaluate(() => { window.__w = []; const set = Storage.prototype.setItem; Storage.prototype.setItem = function (k, v) { if (k === 'lh:songListOpen') window.__w.push(v); return set.call(this, k, v); }; });
+    const steps = [[1000, 800, 'open-overlay'], [820, 1180, 'closed'], [390, 844, 'closed'], [820, 1180, 'closed'], [1000, 800, 'closed'], [1440, 900, 'open-push']];
+    for (const [w, h, want] of steps) {
+        await page.setViewportSize({ width: w, height: h });
+        await waitStill(page);
+        const got = await page.evaluate(() => ({
+            open: !document.getElementById('songList').hidden,
+            cls: document.getElementById('songList').className,
+            bodyOpen: document.body.classList.contains('songs-open'),
+            active: activeSongId,
+            w: innerWidth,
+        }));
+        expect(got.active, `${w}px 還是同一首歌`).toBe('song-a');
+        expect(got.bodyOpen, `${w}px body.songs-open 只在 ≥ 1024`).toBe(w >= 1024 && got.open);
+        if (want === 'closed') expect(got.open, `${w}px 清單關著`).toBe(false);
+        if (want === 'open-overlay') { expect(got.open).toBe(true); expect(got.cls).toContain('song-list--overlay'); }
+        if (want === 'open-push') { expect(got.open).toBe(true); expect(got.cls).toContain('song-list--push'); }
+    }
+    expect(await page.evaluate(() => window.__w), '跨寬度不寫 lh:songListOpen').toEqual([]);
+    expect(await lsGet(page, 'lh:songListOpen')).toBe('true');
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('歌曲清單：兩邊面板都開', async ({ browser }) => {
+    // 保底：左邊多一欄之後，主畫面不到 24rem 就該把右邊收起來，左面板永遠不蓋到主畫面
+    for (const [w, h] of [[1024, 768], [1180, 820], [1440, 900]]) {
+        const { context, page, errors } = await bootPage(browser, { storage: { ...seed(TWO), ...BOTH }, device: { viewport: { width: w, height: h } } });
+        await page.locator('#songListToggle').click();
+        await waitStill(page);
+        const container = await rectOf(page, '.container');
+        const left = await rectOf(page, '#leftPanel');
+        const rightCollapsed = await page.evaluate(() => document.getElementById('rightPanel').classList.contains('collapsed'));
+        expect(container.width >= 384 - 0.5 || rightCollapsed, `${w}px 主畫面 ${container.width}px、右面板${rightCollapsed ? '收起' : '展開'}`).toBe(true);
+        expect(rectsOverlap(left, container), `${w}px 左面板沒蓋到主畫面`).toBe(false);
+        expect(errors).toEqual([]);
+        await context.close();
+    }
+});
+
+test('歌曲清單：三十首歌', async ({ browser }) => {
+    const many = Array.from({ length: 30 }, (_, i) => song('song-' + String(i).padStart(2, '0'), '第 ' + (i + 1) + ' 首', 1000 + i));
+    // 目前這首是最早建立的，在清單最底下
+    const { context, page, errors } = await bootPage(browser, { storage: seed(many, 'song-00'), device: DESKTOP });
+    await page.locator('#songListToggle').click();
+    await waitStill(page);
+    const m = await page.evaluate(() => {
+        const l = document.getElementById('songList');
+        const a = l.querySelector('.song-item[aria-current="true"]').getBoundingClientRect();
+        const r = l.getBoundingClientRect();
+        return { scrolls: l.scrollHeight > l.clientHeight + 1, top: a.top >= r.top - 1, bottom: a.bottom <= r.bottom + 1 };
+    });
+    expect(m.scrolls, '清單自己捲動').toBe(true);
+    expect(m.top && m.bottom, '目前這首在清單可視範圍內').toBe(true);
+    const sc = await noPageScroll(page);
+    expect(sc.sh).toBeLessThanOrEqual(sc.ih);
+    expect(sc.sw).toBeLessThanOrEqual(sc.iw);
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('歌曲清單：減少動態', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, { storage: seed(TWO), device: { viewport: { width: 1000, height: 800 }, reducedMotion: 'reduce' } });
+    await page.locator('#songListToggle').click();
+    const t = await page.locator('#songList').evaluate(el => { const cs = getComputedStyle(el); return { d: parseFloat(cs.transitionDuration), a: cs.animationName }; });
+    expect(t.d).toBeLessThanOrEqual(0.01);
+    expect(t.a).toBe('none');
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('歌曲清單：觸控目標', async ({ browser }) => {
+    const list = ['#songListToggle', '.lyrics-head .panel-add-btn', '.song-new-btn', '.song-pick', '.song-act.rename'];
+    for (const [name, device, openSheet] of [['手機', DEVICES.phone, true], ['平板直放', DEVICES.tablet, true], ['平板橫放', DEVICES.tabletLandscape, false]]) {
+        const { context, page, errors } = await bootPage(browser, { storage: seed(TWO), device });
+        if (openSheet) await page.locator('#mtab-lyrics').click();
+        await page.locator('#songListToggle').click();
+        await waitStill(page);
+        let r = await auditTouchTargets(page, { mustSee: list });
+        expect(r.missing, name + ' 沒量到').toEqual([]);
+        expect(r.failures, name + ' 觸控目標不到 44×44').toEqual([]);
+        expect(r.overlaps, name + ' 相鄰重疊').toEqual([]);
+        await page.evaluate(() => startRenameSong(activeSongId));
+        r = await auditTouchTargets(page, { mustSee: ['.song-name-input'] });
+        expect(r.missing, name + ' 改名輸入框沒量到').toEqual([]);
+        expect(r.failures, name + ' 改名輸入框不到 44×44').toEqual([]);
+        expect(errors).toEqual([]);
+        await context.close();
+    }
+});
+
+test('歌曲清單：改名不會被放大', async ({ browser }) => {
+    for (const [name, device, openSheet] of [['手機', DEVICES.phone, true], ['平板橫放', DEVICES.tabletLandscape, false]]) {
+        const { context, page, errors } = await bootPage(browser, { storage: seed(TWO), device });
+        if (openSheet) await page.locator('#mtab-lyrics').click();
+        await page.locator('#songListToggle').click();
+        await page.evaluate(() => startRenameSong(activeSongId));
+        for (const pct of [50, 100, 150]) {
+            await page.evaluate(p => setUiScale(p), pct);
+            await waitStill(page);
+            const px = await page.locator('.song-name-input').evaluate(el => parseFloat(getComputedStyle(el).fontSize));
+            expect(px, `${name} 縮放 ${pct}% 字級 ${px}px`).toBeGreaterThanOrEqual(16);
+        }
+        expect(errors).toEqual([]);
+        await context.close();
+    }
+});
+
+test('歌曲清單：標題列放得下', async ({ browser }) => {
+    const long = [song('song-l', '很長很長很長很長很長很長很長很長很長很長很長很長很長很長的歌名', 2000), song('song-s', '短', 1000)];
+    for (const [name, device, openSheet] of [['手機', DEVICES.phone, true], ['平板直放', DEVICES.tablet, true], ['桌機', DESKTOP, false]]) {
+        const { context, page, errors } = await bootPage(browser, { storage: seed(long), device });
+        if (openSheet) await page.locator('#mtab-lyrics').click();
+        for (const pct of [100, 150]) {
+            await page.evaluate(p => setUiScale(p), pct);
+            await waitStill(page);
+            const panel = await rectOf(page, '#leftPanel');
+            const kids = await page.locator('.lyrics-head > *').evaluateAll(els => els.map(el => { const r = el.getBoundingClientRect(); return { n: el.id || el.className, x: r.x, y: r.y, width: r.width, height: r.height }; }));
+            expect(kids.length).toBe(3);
+            for (const k of kids) {
+                expect(k.x, `${name} ${pct}% ${k.n} 左緣`).toBeGreaterThanOrEqual(panel.x - 0.5);
+                expect(k.x + k.width, `${name} ${pct}% ${k.n} 右緣`).toBeLessThanOrEqual(panel.x + panel.width + 0.5);
+            }
+            for (let i = 0; i < kids.length; i++) for (let j = i + 1; j < kids.length; j++) {
+                expect(rectsOverlap(kids[i], kids[j]), `${name} ${pct}% ${kids[i].n} 與 ${kids[j].n} 重疊`).toBe(false);
+            }
+            const cur = await page.locator('#songCurrent').evaluate(el => ({ one: el.scrollHeight <= el.clientHeight + 1, ell: getComputedStyle(el).textOverflow }));
+            expect(cur.one && cur.ell === 'ellipsis', name + ' 長歌名單行加刪節號').toBe(true);
+        }
+        expect(errors).toEqual([]);
+        await context.close();
+    }
+});
+
+test('歌曲清單：舊版單首模式', async ({ browser }) => {
+    // 備份存不下 → 沒升級，維持舊版單首歌詞：沒有歌曲清單，標題列仍顯示歌名（F2）
+    const big = { ...FIXTURE, haiku_lyrics: JSON.stringify([{ label: '', text: 'x'.repeat(600000) }]) };
+    const { context, page, errors } = await bootPage(browser, { storage: big, device: DESKTOP, init: () => { Object.defineProperty(window, 'indexedDB', { value: undefined, configurable: true }); } });
+    await expect(page.locator('#songListToggle')).toBeHidden();
+    await expect(page.locator('#songCurrent')).not.toHaveText('');
+    await page.evaluate(() => toggleSongList());
+    await expect(page.locator('#songList')).toBeHidden();
+    await page.evaluate(() => createSong());
+    expect(await page.evaluate(() => songs.length)).toBe(1);
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('歌曲清單：收起面板就關掉清單', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, { storage: seed(TWO), device: PHONE });
+    await openPhoneList(page);
+    await page.evaluate(() => mobileTab('search'));
+    await expect(page.locator('#songList')).toBeHidden();
+    await expect(page.locator('#songListToggle')).toHaveAttribute('aria-expanded', 'false');
+    // 桌機的推開欄：收起左面板不動偏好
+    expect(await lsGet(page, 'lh:songListOpen')).toBeNull();
+    expect(errors).toEqual([]);
+    await context.close();
+
+    const d = await bootPage(browser, { storage: seed(TWO), device: DESKTOP });
+    await d.page.locator('#songListToggle').click();
+    await d.page.evaluate(() => toggleLeftPanel());
+    expect(await lsGet(d.page, 'lh:songListOpen')).toBe('true');
+    await d.context.close();
 });

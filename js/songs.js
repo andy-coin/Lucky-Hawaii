@@ -123,8 +123,9 @@ function initSongs() {
         _applySongListState(true);
         syncCenterPanel();
     }
-    // 只有跑了升級的那一頁會看到一次（__lhMigrated 只在那一頁為 true）
-    if (window.__lhMigrated === true) showToast('你原本的歌詞已整理成第一首歌「我的第一首歌」，一字不少', 6000);
+    // 只有跑了升級的那一頁會看到一次（__lhMigrated 只在那一頁為 true）；第一次來、本來就沒有歌詞的人不需要被告知「原本的歌詞」
+    const migrated = songs.find(s => s.id === 'song-migrated');
+    if (window.__lhMigrated === true && migrated && migrated.sections.some(x => x.text.trim() !== '')) showToast('你原本的歌詞已整理成第一首歌「我的第一首歌」，一字不少', 6000);
 }
 
 // ==================== 多分頁同步 ====================
@@ -287,6 +288,14 @@ function toggleSongList(force) {
         syncCenterPanel(open ? 'left' : undefined);   // 左邊多了一欄，主畫面寬度要重算
     }
 }
+
+// 視窗跨過 1024：開著的清單在推開欄與覆蓋層之間換型；兩邊都不寫 lh:songListOpen（只有使用者按 ☰ 才寫，且只在推開欄）。
+// 回到桌機寬度而清單是關的，就照桌機上次存的偏好還原
+_MQ_SONG_PUSH.addEventListener('change', () => {
+    if (songsMode !== 'v2') return;
+    if (_songListOpen() || (_MQ_SONG_PUSH.matches && lhGet('lh:songListOpen') === 'true')) _applySongListState(true);
+    syncCenterPanel();
+});
 
 // 左邊面板收起（或離開歌詞分頁）時，蓋在歌詞上的清單跟著關；推開欄的偏好不動（§9）
 function closeSongListOverlay() {
