@@ -3,10 +3,11 @@
         let currentMode = 'common';
         let selectedChars = new Set();
         let recentClicks = []; // kept for compatibility
+        // 歌曲模型（歌詞、#標籤、情境都在這裡）：安全層開機（備份＋遷移）之後才由 initSongs 填入（A3），這裡只放空殼
+        let songs = [];
+        let activeSongId = null;
+        let songsMode = 'v2';   // 'legacy'＝遷移沒跑成，沿用 v0.96 的單首歌詞存法
         // 形狀不對的存檔（例如 'null'、'{}'）跟損毀的 JSON 一樣處理：用預設值開機、原始內容不動
-        let hashtags = lhGetJSON('haiku_hashtags', [], Array.isArray);
-        let lyricsSections = lhGetJSON('haiku_lyrics', [{ label: '', text: '' }],
-            v => Array.isArray(v) && v.length > 0 && v.every(s => s && typeof s === 'object' && (s.text === undefined || typeof s.text === 'string')));
         let savedWords = lhGetJSON('haiku_savedwords', [], Array.isArray);
         let wordlistData = null;
         let wordPriorityMap = new Map();

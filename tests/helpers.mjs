@@ -117,8 +117,8 @@ export async function bootPage(browser, { storage = {}, init = null, wordlist = 
     page.on('dialog', d => d.accept(d.type() === 'prompt' ? '測試' : undefined));   // 必須在導航前掛上
     if (beforeGoto) await beforeGoto({ context, page });
     await page.goto('/index.html');
-    // 未定義的訊號會直接 resolve，後續 plan 加 __hoyunSafetyReady 時不必改這裡
-    await page.evaluate(w => Promise.all([window.__hoyunReady, w ? window.__hoyunWordlistReady : null, window.__hoyunSafetyReady, window.__hoyunModelsReady]), waitWordlist);
+    // 未定義的訊號會直接 resolve，後續 plan 加新訊號時不必改這裡
+    await page.evaluate(w => Promise.all([window.__hoyunReady, w ? window.__hoyunWordlistReady : null, window.__hoyunSafetyReady, window.__hoyunSongsReady, window.__hoyunModelsReady]), waitWordlist);
     return { context, page, errors, warnings, offOrigin };
 }
 
@@ -179,3 +179,39 @@ export async function stubPack(context, id, state) {
     }));
     return base;
 }
+
+// ===== Phase 8 歌曲模型測試工具 =====
+// 目前啟用的那首歌（從 lh:songs 讀）；先 flushSongs() 把還在 300 ms 等待中的修改寫出去，讀到的才是畫面上的最新狀態
+export const activeSong = page => page.evaluate(() => {
+    if (typeof flushSongs === 'function') flushSongs();
+    const raw = localStorage.getItem('lh:songs');
+    if (raw === null) return null;
+    const songs = JSON.parse(raw);
+    const id = localStorage.getItem('lh:activeSong');
+    return songs.find(s => s.id === id) || null;
+});
+
+// 用 CDP 模擬注音輸入法組字：每一步 Input.imeSetComposition，最後 Input.insertText 確認
+// beforeCommit：組字中、確認之前執行（量「組字中有沒有存檔」）
+export async function compose(page, steps, commit, beforeCommit = null) {
+    const cdp = await page.context().newCDPSession(page);
+    try {
+        for (const text of steps) {
+            await cdp.send('Input.imeSetComposition', { text, selectionStart: text.length, selectionEnd: text.length });
+        }
+        if (beforeCommit) await beforeCommit();
+        await cdp.send('Input.insertText', { text: commit });
+    } finally {
+        await cdp.detach().catch(() => {});
+    }
+}
+
+// init script：記錄每一次 localStorage.setItem 的鍵與時間（window.__lsWrites）
+export const STORAGE_SPY = () => {
+    window.__lsWrites = [];
+    const orig = Storage.prototype.setItem;
+    Storage.prototype.setItem = function (k, v) {
+        window.__lsWrites.push({ k, t: performance.now() });
+        return orig.call(this, k, v);
+    };
+};

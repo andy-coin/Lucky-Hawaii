@@ -74,12 +74,14 @@
         async function generateAISuggestions() {
             if (currentRhymes.length === 0) { showToast('請先在上方搜尋要押韻的字'); return; }
 
-            const contextText = document.getElementById('contextDescription').value.trim();
-            const hashtagStr = hashtags.length > 0 ? hashtags.map(t => '#' + t).join(' ') : '';
+            // 歌詞、#標籤、情境都從目前這首歌的模型取（不讀畫面）
+            const song = curSong();
+            if (!song) return;
+            const contextText = song.context.trim();
+            const hashtagStr = song.hashtags.length > 0 ? song.hashtags.map(t => '#' + t).join(' ') : '';
             const contextFull = [contextText, hashtagStr].filter(Boolean).join('　');
             const lyricsText = lastLyricsSelection ||
-                Array.from(document.querySelectorAll('.section-textarea'))
-                    .map(ta => ta.value.trim()).filter(Boolean).join('\n');
+                song.sections.map(s => s.text.trim()).filter(Boolean).join('\n');
 
             const btn = document.getElementById('generateBtn');
             const loading = document.getElementById('aiLoading');
@@ -190,9 +192,11 @@
         });
 
         async function generateContextFromLyrics() {
+            // 請求要等好幾秒：先記住是哪一首歌，回來時結果寫進這一首，不會寫到使用者中途切過去的另一首（Pitfall 11）
+            const song = curSong();
+            if (!song) return;
             const text = lastLyricsSelection ||
-                Array.from(document.querySelectorAll('.section-textarea'))
-                     .map(ta => ta.value.trim()).filter(Boolean).join('\n\n');
+                song.sections.map(s => s.text.trim()).filter(Boolean).join('\n\n');
 
             if (!text) { showToast('左側歌詞是空的'); return; }
 
@@ -228,16 +232,25 @@
                     if (!val) continue;
 
                     if (key.includes('情境') && !gotContext) {
-                        document.getElementById('contextDescription').value = val;
+                        song.context = val;
                         gotContext = true;
                     } else if (key.includes('標籤') && !gotTags) {
                         const tags = val.split(/[,，、\s#]+/).map(t => t.trim()).filter(Boolean);
                         if (tags.length) {
-                            hashtags = tags;
-                            lhSet('haiku_hashtags', JSON.stringify(hashtags));
-                            renderHashtags();
+                            song.hashtags = tags;
                             gotTags = true;
                         }
+                    }
+                }
+                if (gotContext || gotTags) {
+                    markDirty(song.id);
+                    flushSongs();
+                    // 使用者還停在這首歌才更新畫面
+                    const now = curSong();
+                    if (now && now.id === song.id) {
+                        const ctxEl = document.getElementById('contextDescription');
+                        if (ctxEl) ctxEl.value = song.context;
+                        renderHashtags();
                     }
                 }
                 showToast(gotContext || gotTags ? '情境與標籤已更新 ✓' : '格式異常，請再試一次');

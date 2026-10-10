@@ -4,9 +4,9 @@ import { test, expect } from '@playwright/test';
 import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import { stripHtmlComments } from './html-lib.mjs';
 
-// 原本 inline script 由上到下的 20 個區塊（safety.js、layout.js 另外固定在最前面）
+// 原本 inline script 由上到下的 20 個區塊，加上 Phase 8 的 songs.js 共 21 個（safety.js、layout.js 另外固定在最前面）
 const JS_ORDER = [
-    'phonetic-tables', 'dict', 'search', 'state', 'polyphonic', 'cards', 'lyrics', 'wordlist', 'panels', 'rhyme-display',
+    'phonetic-tables', 'dict', 'search', 'state', 'songs', 'polyphonic', 'cards', 'lyrics', 'wordlist', 'panels', 'rhyme-display',
     'ai-client', 'candidates', 'ai-generate', 'ui-common', 'results', 'search-ui', 'theme', 'init', 'report', 'ai-word-events',
 ].map(n => `js/${n}.js`);
 const CSS_ORDER = ['css/base.css', 'css/panels.css', 'css/responsive.css'];
@@ -60,7 +60,7 @@ test('split：safety.js 最先、layout.js 緊接其後、其餘照原本順序'
 
 test('split：拆檔完成，index.html 只剩骨架', () => {
     const js = scriptTags.filter(isLocal).filter(r => r.src.startsWith('js/')).map(pathOf);
-    expect(js.slice(2), '完整 20 個 js 依序（safety.js、layout.js 之後）').toEqual(JS_ORDER);
+    expect(js.slice(2), '完整 21 個 js 依序（safety.js、layout.js 之後）').toEqual(JS_ORDER);
     expect(linkTags.filter(isLocal).map(pathOf), '完整 3 個 css 依序').toEqual(CSS_ORDER);
     const inline = [...html.matchAll(/<script\b([^>]*)>/g)].filter(m => !/\bsrc\s*=/.test(m[1]));
     expect(inline.length, '不可有沒有 src 的 script').toBe(0);

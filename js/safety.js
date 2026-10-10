@@ -335,6 +335,11 @@ const LH_MIGRATIONS = [];
 // 歌曲與區塊的 id：只允許安全字元（之後會當 DOM id、檔名片段用）
 const LH_ID_RE = /^[A-Za-z0-9_-]{1,40}$/;
 
+// 新的歌曲／區塊 id；不用 crypto.randomUUID（區網 http 測試等非安全環境沒有它）；備份匯入（08-07）也要用，所以放在這裡
+function lhNewId(prefix) {
+    return prefix + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+}
+
 // 與 js/state.js 讀舊歌詞用的驗證相同
 function _lhLegacySectionsOk(v) {
     return Array.isArray(v) && v.length > 0 && v.every(s => s && typeof s === 'object' && (s.text === undefined || typeof s.text === 'string'));

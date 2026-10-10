@@ -81,15 +81,6 @@
 
             _lhApplyPanelTier();
 
-            // 歌詞全空時自動清除情境與標籤
-            // 歌詞存檔損毀時會退回一個空段落，那不等於「使用者清空了歌詞」，不能因此刪掉標籤
-            if (!LH_CORRUPT_KEYS.has('haiku_lyrics') && lyricsSections.every(s => !s.text || s.text.trim() === '')) {
-                hashtags = [];
-                lhRemove('haiku_hashtags');
-                const ctxEl = document.getElementById('contextDescription');
-                if (ctxEl) ctxEl.value = '';
-            }
-
             // 恢復輸入模式按鈕狀態
             const modeBtn = document.getElementById('inputModeBtn');
             if (modeBtn && inputMode !== 'auto') {
@@ -98,8 +89,10 @@
                 modeBtn.classList.add(`mode-${inputMode}`);
             }
 
-            renderLyricsSections();
-            renderHashtags();
+            // 歌詞區等安全層開機（備份＋遷移）完成才畫（A3）；搜尋與結果不用等。
+            // 在這裡指定是因為 initSongs 需要的函式（lyrics.js 等）此時都已載入；若在更早的 script 就指定，
+            // 備份很快完成時 then 會在 songs.js 之前呼叫到還沒定義的函式
+            window.__hoyunSongsReady = window.__hoyunSafetyReady.then(initSongs);
             renderSavedWords();
             renderModelSelect();
             // 模型清單非同步載入；測試用這個訊號等待，程式邏輯不可依賴它；載入完只重畫選單、不寫入使用者設定
