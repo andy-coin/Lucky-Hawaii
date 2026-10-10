@@ -179,7 +179,7 @@ function _applyExternalSongs() {
 }
 
 window.addEventListener('storage', e => {
-    if (songsMode !== 'v2' || (e.key !== 'lh:songs' && e.key !== null)) return;
+    if (songsMode !== 'v2' || activeSongId === null || (e.key !== 'lh:songs' && e.key !== null)) return;
     if (isEditingField()) _pendingExternal = true;
     else _applyExternalSongs();
 });

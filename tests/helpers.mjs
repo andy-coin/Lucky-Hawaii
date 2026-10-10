@@ -203,6 +203,15 @@ export async function openTwoTabs(browser, storage) {
     const errs = pages.map(p => collectErrors(p));
     await Promise.all(pages.map(p => p.goto('/index.html')));
     await Promise.all(pages.map(p => p.evaluate(() => Promise.all([window.__hoyunReady, window.__hoyunWordlistReady, window.__hoyunSafetyReady, window.__hoyunSongsReady]))));
+    // 兩邊同時開機時，先完成的一邊可能還在補寫 lh:songs，另一邊會收到事件並跳提示；等儲存安靜下來、收掉開機時的提示，後面的斷言才不受影響
+    let last = null;
+    for (let stable = 0; stable < 2;) {
+        await pages[0].waitForTimeout(250);
+        const raw = await pages[0].evaluate(() => localStorage.getItem('lh:songs'));
+        stable = raw === last ? stable + 1 : 0;
+        last = raw;
+    }
+    await Promise.all(pages.map(p => p.evaluate(() => document.getElementById('copyToast')?.classList.remove('show'))));
     return { context, pages, errs };
 }
 
