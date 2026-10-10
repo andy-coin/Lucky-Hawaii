@@ -1,19 +1,19 @@
 ---
 gsd_state_version: "1.0"
 milestone: v0.96
-current_phase: 07
-current_phase_name: Feedback & Correction Layer 回報與修正層
-status: verifying
-stopped_at: Completed 07-10-PLAN.md
-last_updated: "2026-10-09T23:05:31.180Z"
-last_activity: 2026-10-10
-last_activity_desc: Phase 07 execution started
-state_head: 30fe5ba904d101d19963b32b48301b041ded312b
+current_phase: 08
+current_phase_name: Songs & Editor Model 歌曲管理與資料模型
+status: executing
+stopped_at: Completed 08-01-PLAN.md
+last_updated: "2026-10-10T22:38:09.622Z"
+last_activity: 2026-10-11
+last_activity_desc: Phase 08 execution started
+state_head: 260e60e3b0f83c4d4aa3fa5426f8ba8cf79e05b2
 progress:
   total_phases: 12
   completed_phases: 2
-  total_plans: 51
-  completed_plans: 51
+  total_plans: 60
+  completed_plans: 52
 ---
 
 # Project State
@@ -23,14 +23,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-10-03)
 
 **Core value:** 輸入一個字或音，就能快速拿到「符合台灣日常語感、真的能寫進歌詞」的押韻字詞——查得到、查得快、查得準。
-**Current focus:** Phase 07 — Feedback & Correction Layer 回報與修正層
+**Current focus:** Phase 08 — Songs & Editor Model 歌曲管理與資料模型
 
 ## Current Position
 
-Phase: 07 (Feedback & Correction Layer 回報與修正層) — EXECUTING
-Plan: 10 of 10
-Status: Phase complete — ready for verification
-Last activity: 2026-10-10 — Phase 07 execution started
+Phase: 08 (Songs & Editor Model 歌曲管理與資料模型) — EXECUTING
+Plan: 2 of 9
+Status: Ready to execute
+Last activity: 2026-10-11 — Phase 08 execution started
 
 Progress: [██░░░░░░░░] 17%
 
@@ -108,6 +108,7 @@ Progress: [██░░░░░░░░] 17%
 | Phase 07 P08 | 40 min | 2 tasks | 7 files |
 | Phase 07 P09 | 45min | 2 tasks | 4 files |
 | Phase 07 P10 | 40 min | 2 tasks | 4 files |
+| Phase 08 P01 | 25 min | 2 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -186,6 +187,7 @@ Recent decisions affecting current work:
 - [Phase 07]: 07-09: 批次 = 日誌已記 id；清空前重抓 rev、409 重試一次；--push 須搭配 --apply；有 --push 時沒有新 commit 也 push
 - [Phase 07]: 07-10: 精簡版題數表同步更正（第 3 級實為 15 題）；舊清單裡的「回報 / 意見」統一改為第 7 階段新名稱「意見回饋」
 - [Phase 07]: 07-10: 快照基準 darwin 16 檔已重拍，linux 16 檔留給 Andy 在雲端容器 npm run visual:update（D-22／3-17）
+- [Phase 08]: 08-01: fixed id 'song-migrated' makes the schema 1->2 step idempotent; corrupt legacy lyrics migrate to one empty section (raw kept in lh:corrupt:haiku_lyrics); ?v=0.96.12 shared by whole phase
 
 ### Pending Todos
 
@@ -228,6 +230,6 @@ Items acknowledged and deferred at milestone close, most recent first:
 
 ## Session Continuity
 
-Last session: 2026-10-09T23:05:31.131Z
-Stopped at: Completed 07-10-PLAN.md
+Last session: 2026-10-10T22:38:09.570Z
+Stopped at: Completed 08-01-PLAN.md
 Resume file: None

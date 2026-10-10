@@ -304,11 +304,11 @@ Plans:
   4. 匯出 JSON 備份（全部歌曲＋設定）後，在另一個乾淨的瀏覽器匯入即可完整還原〔自動〕
 
 **Human check**: 實機注音輸入法組字順暢；PDF 排版是否好看
-**Plans:** 9 plans
+**Plans:** 1/9 plans executed
 
 Plans:
 **Wave 1**
-- [ ] 08-01-PLAN.md — 升級遷移 1→2：先存兩份備份，再把原歌詞存成新格式「我的第一首歌」一字不少（儲存層 tracer）
+- [x] 08-01-PLAN.md — 升級遷移 1→2：先存兩份備份，再把原歌詞存成新格式「我的第一首歌」一字不少（儲存層 tracer）
 
 **Wave 2** *(blocked on Wave 1 completion)*
 - [ ] 08-02-PLAN.md — 編輯器改讀資料模型：打字與注音組字只改記憶體、300ms 合併存檔、不再讀回畫面、舊版單首模式
@@ -413,7 +413,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 5. Multi-Device Layout 多裝置版面與流暢度 | 11/11 | In Progress|  |
 | 6. Lexicon Packs 台灣詞庫包 | 8/8 | In Progress|  |
 | 7. Feedback & Correction Layer 回報與修正層 | 10/10 | In Progress|  |
-| 8. Songs & Editor Model 歌曲管理與資料模型 | 0/TBD | Not started | - |
+| 8. Songs & Editor Model 歌曲管理與資料模型 | 1/9 | In Progress|  |
 | 9. Section Modules 段落模組 | 0/TBD | Not started | - |
 | 10. Rhyme Map 韻腳地圖 | 0/TBD | Not started | - |
 | 11. Line Analysis & Settings 句構分析與設定頁 | 0/TBD | Not started | - |
