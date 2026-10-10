@@ -231,6 +231,10 @@
         <div class="word-ctx-item" onclick="polyChipReport('missingReading')">➕ 缺少讀音</div>
     </div>
 
+    <div class="word-ctx-menu export-menu" id="exportMenu" role="menu" aria-label="匯出這首歌">
+        <button type="button" class="word-ctx-item export-item" role="menuitem" onclick="exportSongAs('txt')"><span class="export-label">📄 TXT（預設）</span><span class="export-hint" data-hint="txt"></span></button>
+    </div>
+
     <div class="feedback-modal-overlay" id="feedbackModalOverlay" onclick="closeFeedbackModal(event)">
         <div class="feedback-modal" onclick="event.stopPropagation()">
             <h3>意見回饋</h3>
@@ -295,6 +299,7 @@
             <div class="side-panel-title lyrics-head">
                 <button type="button" id="songListToggle" class="song-toggle" onclick="toggleSongList()" aria-expanded="false" aria-controls="songList" aria-label="開關歌曲清單" title="開關歌曲清單">☰ 歌曲</button>
                 <span id="songCurrent" class="song-current"></span>
+                <button type="button" id="exportToggle" class="export-toggle" onclick="toggleExportMenu(event)" aria-haspopup="menu" aria-expanded="false" aria-label="匯出這首歌" title="匯出這首歌">⬇ 匯出</button>
                 <button type="button" class="panel-add-btn" onclick="addLyricsSection()" aria-label="在這首歌新增一個段落" title="在這首歌新增一個段落">+ 新增段落</button>
             </div>
             <div class="lyrics-layout">
@@ -402,6 +407,7 @@
     <script src="js/polyphonic.js?v=0.96.12"></script>
     <script src="js/cards.js?v=0.96.12"></script>
     <script src="js/lyrics.js?v=0.96.12"></script>
+    <script src="js/song-io.js?v=0.96.12"></script>
     <script src="js/wordlist.js?v=0.96.12"></script>
     <script src="js/panels.js?v=0.96.12"></script>
     <script src="js/rhyme-display.js?v=0.96.12"></script>

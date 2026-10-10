@@ -230,7 +230,7 @@
             align-items: center;
             gap: var(--sp-2);
         }
-        .song-toggle {
+        .song-toggle, .export-toggle {
             padding: var(--sp-1) var(--sp-3);
             min-height: 2rem;
             background: var(--card-bg);
@@ -244,9 +244,9 @@
             flex-shrink: 0;
         }
         .song-toggle[hidden] { display: none; }
-        .song-toggle[aria-expanded="true"] { border-color: var(--highlight-border); }
+        .song-toggle[aria-expanded="true"], .export-toggle[aria-expanded="true"] { border-color: var(--highlight-border); }
         @media (hover: hover) and (pointer: fine) {
-            .song-toggle:hover { background: var(--container-bg); }
+            .song-toggle:hover, .export-toggle:hover { background: var(--container-bg); }
         }
         .song-current {
             flex: 1 1 8rem;
@@ -664,6 +664,21 @@
             .word-ctx-item:hover { background: rgba(141,81,201,0.08); }
         }
         .word-ctx-divider { height: 0.0625rem; background: var(--border); margin: 0.1875rem 0; }
+        /* 匯出選單（Phase 8，UI-SPEC §4.1）：每項上面是名稱、下面一行提示 */
+        .export-menu { min-width: 14rem; max-width: calc(100vw - 1rem); }
+        .export-item {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 0;
+            width: 100%;
+            padding: var(--sp-2) var(--sp-3);
+            background: transparent;
+            border: 0;
+            font-family: inherit;
+            text-align: left;
+        }
+        .export-label { font-size: 0.875rem; font-weight: 700; line-height: 1.5; }
+        .export-hint { font-size: 0.75rem; font-weight: 400; line-height: 1.5; color: var(--text-secondary); }
 
         .feedback-modal-overlay {
             display: none;
