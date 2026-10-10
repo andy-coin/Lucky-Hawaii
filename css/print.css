@@ -1,0 +1,51 @@
+/* ===== 列印（Phase 8，UI-SPEC §4.3） =====
+   只在「匯出 → PDF」流程（body 有 print-song）才生效：這時只印 #printSheet 的歌名與歌詞。
+   平常按 Cmd/Ctrl+P 沒有這個 class，印出來還是整個頁面（F6）。
+   這是整個專案唯一允許直接寫 #000／#fff 的檔案：印出來一律黑字白底，深色主題也一樣。
+   尺寸用 pt／mm（紙張單位），不跟螢幕的 4 級字級混在一起。 */
+@page { size: A4; margin: 20mm 16mm; }
+
+body.print-song {
+    margin: 0 !important;
+    padding: 0 !important;
+    min-height: 0 !important;
+    transition: none !important;   /* body 平常有背景過渡，不關掉的話量到的是過渡中的顏色 */
+    background: #fff !important;
+    color: #000 !important;
+}
+body.print-song > *:not(#printSheet) { display: none !important; }
+body.print-song #printSheet { display: block !important; }
+body.print-song #printSheet,
+body.print-song #printSheet * {
+    color: #000 !important;
+    background: #fff !important;
+    border: 0 !important;
+    box-shadow: none !important;
+    text-shadow: none !important;
+    font-family: 'Noto Sans TC', sans-serif;
+}
+body.print-song .print-title {
+    margin: 0 0 16pt;
+    font-size: 20pt;
+    font-weight: 700;
+    line-height: 1.2;
+    text-align: left;
+}
+body.print-song .print-section { margin-bottom: 8pt; }
+/* 12 行以內的段落不被切在兩頁；更長的段落才允許換頁 */
+body.print-song .print-section.print-short { break-inside: avoid; }
+body.print-song .print-label {
+    margin: 16pt 0 4pt;
+    font-size: 12pt;
+    font-weight: 700;
+    line-height: 1.5;
+    break-after: avoid;
+}
+body.print-song .print-text {
+    margin: 0;
+    font-size: 14pt;
+    font-weight: 400;
+    line-height: 1.8;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}

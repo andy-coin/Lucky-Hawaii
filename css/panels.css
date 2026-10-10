@@ -677,6 +677,8 @@
             font-family: inherit;
             text-align: left;
         }
+        /* 列印用的隱藏頁，螢幕上不顯示；列印規則在 css/print.css */
+        #printSheet { display: none; }
         .export-label { font-size: 0.875rem; font-weight: 700; line-height: 1.5; }
         .export-hint { font-size: 0.75rem; font-weight: 400; line-height: 1.5; color: var(--text-secondary); }
 

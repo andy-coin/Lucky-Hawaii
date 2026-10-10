@@ -22,7 +22,7 @@ const TXT_EXPECTED = '我的/歌:1\n\n[主歌]\n第一句\n第二句\n\n[段落 
 const MD_EXPECTED = '# 我的/歌:1\n\n## 主歌\n\n第一句  \n第二句\n\n## 段落 2\n\n\\#開頭  \n\\1. 數字\n';
 const toastText = page => page.locator('#copyToast').textContent();
 const openMenu = async page => { await page.locator('#exportToggle').click(); await expect(page.locator('#exportMenu')).toBeVisible(); };
-const pickItem = (page, label) => page.locator('#exportMenu .export-item', { hasText: label });
+const pickItem = (page, label) => page.locator('#exportMenu .export-item').filter({ has: page.locator('.export-label', { hasText: label }) });
 // 讀下載檔的原始位元組（UTF-8、無 BOM 都要驗）
 async function readDownload(dl) {
     const stream = await dl.createReadStream();
@@ -42,5 +42,222 @@ test('匯出：下載 TXT', async ({ browser }) => {
     await expect(page.locator('#copyToast')).toHaveText('已匯出「我的_歌_1.txt」');
     await expect(page.locator('#exportMenu')).toBeHidden();
     expect(errors).toEqual([]);
+    await context.close();
+});
+
+// ==================== Markdown、複製、列印頁、空白歌 ====================
+// 測試用：window.print 換成計數器（headless 的 print() 會立刻跑完並清掉列印頁，看不到內容）
+const STUB_PRINT = () => { window.__printCount = 0; window.print = () => { window.__printCount++; }; };
+
+test('匯出：Markdown', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, { storage: seed([FIXTURE_SONG()]), device: DESKTOP });
+    await openMenu(page);
+    const [dl] = await Promise.all([page.waitForEvent('download'), pickItem(page, 'Markdown').click()]);
+    expect(dl.suggestedFilename()).toBe('我的_歌_1.md');
+    expect((await readDownload(dl)).toString('utf8')).toBe(MD_EXPECTED);
+    await expect(page.locator('#copyToast')).toHaveText('已匯出「我的_歌_1.md」');
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('匯出：Markdown 跳脫會變成標記的行', async ({ browser }) => {
+    const song = mkSong('song-m', '標記', [['A', '#標題\n> 引用\n- 項目\n* 星號\n+ 加號\n1. 數字\n12.兩位\n普通行 # 不用跳脫']]);
+    const { context, page } = await bootPage(browser, { storage: seed([song]), device: DESKTOP });
+    await openMenu(page);
+    const [dl] = await Promise.all([page.waitForEvent('download'), pickItem(page, 'Markdown').click()]);
+    expect((await readDownload(dl)).toString('utf8')).toBe(
+        '# 標記\n\n## A\n\n\\#標題  \n\\> 引用  \n\\- 項目  \n\\* 星號  \n\\+ 加號  \n\\1. 數字  \n\\12.兩位  \n普通行 # 不用跳脫\n');
+    await context.close();
+});
+
+test('匯出：複製整首', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, { storage: seed([FIXTURE_SONG()]), device: DESKTOP });
+    await openMenu(page);
+    const [dl] = await Promise.all([page.waitForEvent('download'), pickItem(page, 'TXT').click()]);
+    const fileText = (await readDownload(dl)).toString('utf8');
+    await page.evaluate(() => navigator.clipboard.writeText('舊內容'));
+    await openMenu(page);
+    await pickItem(page, '複製整首').click();
+    await expect(page.locator('#copyToast')).toHaveText('已複製整首');
+    const clip = await page.evaluate(() => navigator.clipboard.readText());
+    expect(clip).toBe(TXT_EXPECTED);
+    expect(clip, '剪貼簿與下載的 TXT 一字不差').toBe(fileText);
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('匯出：剪貼簿退回舊方法', async ({ browser }) => {
+    // writeText 被拒絕：改走 textarea + execCommand('copy')，用 copy 事件抓當下選取的文字
+    const init = () => {
+        navigator.clipboard.writeText = () => Promise.reject(new Error('denied'));
+        window.__copied = null;
+        document.addEventListener('copy', () => { window.__copied = document.getSelection().toString(); });
+    };
+    const { context, page } = await bootPage(browser, { storage: seed([FIXTURE_SONG()]), device: DESKTOP, init });
+    await openMenu(page);
+    await pickItem(page, '複製整首').click();
+    await expect(page.locator('#copyToast')).toHaveText('已複製整首');
+    expect(await page.evaluate(() => window.__copied)).toBe(TXT_EXPECTED);
+    expect(await page.locator('textarea[readonly]').count(), '暫時的 textarea 要收掉').toBe(0);
+    // 兩條路都失敗
+    await page.evaluate(() => { document.execCommand = () => false; });
+    await page.evaluate(() => document.getElementById('copyToast').classList.remove('show'));
+    await openMenu(page);
+    await pickItem(page, '複製整首').click();
+    await expect(page.locator('#copyToast')).toHaveText('複製失敗，請改用「TXT」下載');
+    expect(await page.locator('textarea[readonly]').count()).toBe(0);
+    await context.close();
+});
+
+test('匯出：空白歌不匯出', async ({ browser }) => {
+    const blank = mkSong('song-b', '空白歌', [['主歌', ''], ['', '  \n\t']]);
+    const { context, page, errors } = await bootPage(browser, { storage: seed([blank]), device: DESKTOP, init: STUB_PRINT });
+    await page.evaluate(() => navigator.clipboard.writeText('原本的剪貼簿'));
+    const downloads = [];
+    page.on('download', d => downloads.push(d));
+    for (const label of ['TXT', 'Markdown', 'PDF', '複製整首']) {
+        await page.evaluate(() => document.getElementById('copyToast')?.classList.remove('show'));
+        await openMenu(page);
+        await pickItem(page, label).click();
+        await expect(page.locator('#copyToast'), label).toHaveClass(/show/);
+        await expect(page.locator('#copyToast'), label).toHaveText('這首歌還沒有歌詞可以匯出');
+    }
+    await page.waitForTimeout(1000);
+    expect(downloads.length, '不可下載任何檔案').toBe(0);
+    expect(await page.evaluate(() => window.__printCount), '不可呼叫 window.print').toBe(0);
+    expect(await page.evaluate(() => navigator.clipboard.readText()), '剪貼簿不變').toBe('原本的剪貼簿');
+    expect(await page.evaluate(() => document.body.classList.contains('print-song'))).toBe(false);
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+// PDF 流程：點 PDF → 填列印頁 → window.print（被換成計數器）
+async function startPdfFlow(page) {
+    await openMenu(page);
+    await pickItem(page, 'PDF').click();
+    await expect(page.locator('#copyToast')).toHaveText('在列印視窗選「儲存為 PDF」');
+    expect(await page.evaluate(() => window.__printCount)).toBe(1);
+}
+
+test('匯出：PDF 列印頁', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, { storage: seed([FIXTURE_SONG()]), device: DESKTOP, init: STUB_PRINT });
+    await startPdfFlow(page);
+    await page.emulateMedia({ media: 'print' });
+    await expect(page.locator('#printSheet')).toBeVisible();
+    const sheet = await page.evaluate(() => {
+        const s = document.getElementById('printSheet');
+        const kids = [...s.children];
+        return {
+            tags: kids.map(k => k.tagName),
+            title: kids[0].textContent,
+            sections: kids.slice(1).map(k => [...k.children].map(c => c.tagName + ':' + c.textContent)),
+            cls: document.body.className,
+        };
+    });
+    expect(sheet.tags).toEqual(['H1', 'SECTION', 'SECTION']);
+    expect(sheet.title).toBe('我的/歌:1');
+    expect(sheet.sections).toEqual([['H2:主歌', 'P:第一句\n第二句'], ['H2:段落 2', 'P:#開頭\n1. 數字']]);
+    expect(sheet.cls).toContain('print-song');
+    const look = await page.evaluate(() => {
+        const s = document.getElementById('printSheet');
+        const all = [document.body, s, ...s.querySelectorAll('*')];
+        const outside = [...document.body.querySelectorAll('*')].filter(e => !s.contains(e));
+        return {
+            bad: all.filter(e => { const c = getComputedStyle(e); return c.color !== 'rgb(0, 0, 0)' || c.backgroundColor !== 'rgb(255, 255, 255)'; }).map(e => e.tagName),
+            visibleOutside: outside.filter(e => e.checkVisibility()).map(e => e.tagName + (e.id ? '#' + e.id : '')),
+            h2Weight: getComputedStyle(s.querySelector('h2')).fontWeight,
+            boxes: [...document.querySelectorAll('button, .side-panel, .copy-toast')].filter(e => e.getClientRects().length).length,
+        };
+    });
+    expect(look.bad, '列印頁每個元素都是黑字白底').toEqual([]);
+    expect(look.visibleOutside, '列印頁以外的東西都不顯示').toEqual([]);
+    expect(look.h2Weight).toBe('700');
+    expect(look.boxes, '按鈕、側邊面板、提示不可有框').toBe(0);
+    const pdf = await page.pdf({ format: 'A4' });
+    expect(pdf.subarray(0, 5).toString()).toBe('%PDF-');
+    await page.evaluate(() => window.dispatchEvent(new Event('afterprint')));
+    expect(await page.evaluate(() => document.getElementById('printSheet').childElementCount)).toBe(0);
+    expect(await page.evaluate(() => document.body.classList.contains('print-song'))).toBe(false);
+    expect(await page.evaluate(() => window.__printCount)).toBe(1);
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('匯出：平常列印不受影響', async ({ browser }) => {
+    // 沒走 PDF 流程時 body 沒有 print-song：Cmd/Ctrl+P 印出來還是整頁，不是空白
+    const { context, page } = await bootPage(browser, { storage: seed([FIXTURE_SONG()]), device: DESKTOP });
+    await page.emulateMedia({ media: 'print' });
+    await expect(page.locator('#searchInput')).toBeVisible();
+    await expect(page.locator('.container').first()).toBeVisible();
+    await expect(page.locator('#printSheet')).toBeHidden();
+    await context.close();
+});
+
+test('匯出：深色主題也印黑字白底', async ({ browser }) => {
+    const { context, page } = await bootPage(browser, { storage: seed([FIXTURE_SONG()], { hoyun_theme_mode: 'dark' }), device: DESKTOP, init: STUB_PRINT });
+    expect(await page.evaluate(() => document.documentElement.getAttribute('data-theme'))).toBe('dark');
+    await startPdfFlow(page);
+    await page.emulateMedia({ media: 'print' });
+    const r = await page.evaluate(() => {
+        const s = document.getElementById('printSheet');
+        const all = [document.body, s, ...s.querySelectorAll('*')];
+        return {
+            bad: all.filter(e => { const c = getComputedStyle(e); return c.color !== 'rgb(0, 0, 0)' || c.backgroundColor !== 'rgb(255, 255, 255)'; }).map(e => e.tagName),
+            visibleOutside: [...document.body.querySelectorAll('*')].filter(e => !s.contains(e) && e.checkVisibility()).length,
+        };
+    });
+    expect(r.bad).toEqual([]);
+    expect(r.visibleOutside).toBe(0);
+    await context.close();
+});
+
+test('匯出：不連網路，也只匯出這首歌', async ({ browser }) => {
+    const a = mkSong('song-a', '甲歌', [['主歌', '甲的歌詞']], { createdAt: 2000, hashtags: ['#秘密標籤'], context: '秘密情境' });
+    const b = mkSong('song-b', '乙歌', [['主歌', '乙的歌詞']], { createdAt: 1000 });
+    const { context, page, errors } = await bootPage(browser, {
+        storage: seed([a, b], { haiku_savedwords: JSON.stringify(['秘密保留詞']) }), device: DESKTOP, init: STUB_PRINT,
+    });
+    const requests = [];
+    page.on('request', r => { if (/^https?:/.test(r.url())) requests.push(r.url()); });
+    const outputs = [];
+    for (const label of ['TXT', 'Markdown']) {
+        await openMenu(page);
+        const [dl] = await Promise.all([page.waitForEvent('download'), pickItem(page, label).click()]);
+        outputs.push((await readDownload(dl)).toString('utf8'));
+    }
+    await openMenu(page);
+    await pickItem(page, '複製整首').click();
+    await expect(page.locator('#copyToast')).toHaveText('已複製整首');
+    outputs.push(await page.evaluate(() => navigator.clipboard.readText()));
+    await startPdfFlow(page);
+    outputs.push(await page.evaluate(() => document.getElementById('printSheet').textContent));
+    for (const o of outputs) {
+        expect(o).toContain('甲的歌詞');
+        for (const leak of ['乙歌', '乙的歌詞', '秘密標籤', '秘密情境', '秘密保留詞', 'lh:']) expect(o, leak).not.toContain(leak);
+    }
+    expect(requests, '匯出不可送出任何網路請求').toEqual([]);
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('匯出：歌名有標記也只當文字', async ({ browser }) => {
+    const title = '<img src=x onerror="window.__pwn=1">';
+    const song = mkSong('song-h', title, [['<b>段</b>', '</textarea><script>window.__pwn=2</script>']]);
+    const { context, page } = await bootPage(browser, { storage: seed([song]), device: DESKTOP, init: STUB_PRINT });
+    await openMenu(page);
+    await expect(page.locator('#exportMenu .export-hint[data-hint="txt"]')).toHaveText(/^下載 <img src=x onerror="window\.__pwn=1">\.txt$|^下載 .{1,16}…\.txt$/);
+    await page.mouse.click(5, 5);   // 點選單外面關掉
+    await expect(page.locator('#exportMenu')).toBeHidden();
+    await startPdfFlow(page);
+    const r = await page.evaluate(() => ({
+        title: document.querySelector('#printSheet h1').textContent,
+        label: document.querySelector('#printSheet h2').textContent,
+        injected: document.querySelectorAll('#printSheet img, #printSheet script, #printSheet b, #exportMenu img').length,
+        pwn: window.__pwn,
+    }));
+    expect(r.title).toBe(title);
+    expect(r.label).toBe('<b>段</b>');
+    expect(r.injected).toBe(0);
+    expect(r.pwn).toBeUndefined();
     await context.close();
 });

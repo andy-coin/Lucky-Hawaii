@@ -17,6 +17,7 @@
     <link rel="stylesheet" href="css/base.css?v=0.96.12">
     <link rel="stylesheet" href="css/panels.css?v=0.96.12">
     <link rel="stylesheet" href="css/responsive.css?v=0.96.12">
+    <link rel="stylesheet" href="css/print.css?v=0.96.12" media="print">
     <script src="data/rhyme-dict.js?v=0.96.12"></script>
     <script src="data/polyphonic-order.js?v=0.96.12"></script>
     <script src="js/safety.js?v=0.96.12"></script>
@@ -233,6 +234,10 @@
 
     <div class="word-ctx-menu export-menu" id="exportMenu" role="menu" aria-label="匯出這首歌">
         <button type="button" class="word-ctx-item export-item" role="menuitem" onclick="exportSongAs('txt')"><span class="export-label">📄 TXT（預設）</span><span class="export-hint" data-hint="txt"></span></button>
+        <button type="button" class="word-ctx-item export-item" role="menuitem" onclick="exportSongAs('md')"><span class="export-label">📝 Markdown</span><span class="export-hint" data-hint="md"></span></button>
+        <button type="button" class="word-ctx-item export-item" role="menuitem" onclick="exportSongAs('pdf')"><span class="export-label">🖨 PDF（列印）</span><span class="export-hint">列印視窗選「儲存為 PDF」</span></button>
+        <div class="word-ctx-divider" role="separator"></div>
+        <button type="button" class="word-ctx-item export-item" role="menuitem" onclick="exportSongAs('copy')"><span class="export-label">📋 複製整首</span><span class="export-hint">複製成 TXT 格式的文字</span></button>
     </div>
 
     <div class="feedback-modal-overlay" id="feedbackModalOverlay" onclick="closeFeedbackModal(event)">
@@ -398,6 +403,8 @@
             </div>
         </div>
     </div>
+
+    <div id="printSheet" aria-hidden="true"></div>
 
     <script src="js/phonetic-tables.js?v=0.96.12"></script>
     <script src="js/dict.js?v=0.96.12"></script>

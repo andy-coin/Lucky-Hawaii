@@ -8,15 +8,26 @@
             showToast(`已複製「${word}」`);
         }
 
+        // 舊的複製方法：回傳是否成功。readOnly 讓手機不跳鍵盤；iOS 的 select() 選不到，要再補 setSelectionRange；
+        // 暫時的 textarea 不管成敗都要移掉
         function fallbackCopy(text) {
             const ta = document.createElement('textarea');
             ta.value = text;
+            ta.readOnly = true;
             ta.style.position = 'fixed';
             ta.style.opacity = '0';
             document.body.appendChild(ta);
-            ta.select();
-            document.execCommand('copy');
-            document.body.removeChild(ta);
+            let ok = false;
+            try {
+                ta.select();
+                ta.setSelectionRange(0, ta.value.length);
+                ok = document.execCommand('copy');
+            } catch (e) {
+                lhWarn('fallbackCopy 失敗', e);
+            } finally {
+                document.body.removeChild(ta);
+            }
+            return ok;
         }
 
         function cycleInputMode() {

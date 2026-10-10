@@ -9,7 +9,7 @@ const JS_ORDER = [
     'phonetic-tables', 'dict', 'search', 'state', 'songs', 'polyphonic', 'cards', 'lyrics', 'song-io', 'wordlist', 'panels', 'rhyme-display',
     'ai-client', 'candidates', 'ai-generate', 'ui-common', 'results', 'search-ui', 'theme', 'init', 'report', 'ai-word-events',
 ].map(n => `js/${n}.js`);
-const CSS_ORDER = ['css/base.css', 'css/panels.css', 'css/responsive.css'];
+const CSS_ORDER = ['css/base.css', 'css/panels.css', 'css/responsive.css', 'css/print.css'];
 
 const rawHtml = readFileSync('index.html', 'utf8');
 const html = stripHtmlComments(rawHtml);   // 被註解掉的標籤瀏覽器不會載入，不能算數
@@ -61,7 +61,7 @@ test('split：safety.js 最先、layout.js 緊接其後、其餘照原本順序'
 test('split：拆檔完成，index.html 只剩骨架', () => {
     const js = scriptTags.filter(isLocal).filter(r => r.src.startsWith('js/')).map(pathOf);
     expect(js.slice(2), '完整 22 個 js 依序（safety.js、layout.js 之後）').toEqual(JS_ORDER);
-    expect(linkTags.filter(isLocal).map(pathOf), '完整 3 個 css 依序').toEqual(CSS_ORDER);
+    expect(linkTags.filter(isLocal).map(pathOf), '完整 4 個 css 依序').toEqual(CSS_ORDER);
     const inline = [...html.matchAll(/<script\b([^>]*)>/g)].filter(m => !/\bsrc\s*=/.test(m[1]));
     expect(inline.length, '不可有沒有 src 的 script').toBe(0);
     expect(/<style\b/i.test(html), '不可有 style 元素').toBe(false);

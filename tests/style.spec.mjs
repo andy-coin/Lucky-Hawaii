@@ -202,21 +202,26 @@ test('視覺：沒有新的顏色常數', () => {
     // Phase 7 UI-SPEC 的 --action-bg-hover 色票（只出現在 css/base.css 的變數定義）
     const allow = new Set(['#5a6577', '#4c51bf']);
     for (const f of CSS_FILES) {
-        const old = execFileSync('git', ['show', `078c5d1:${f}`], { encoding: 'utf8', maxBuffer: 1 << 26 });
+        // 078c5d1 之後才新增的樣式表（css/print.css）當時不存在，沒有舊色票可以加進白名單
+        let old = '';
+        try { old = execFileSync('git', ['show', `078c5d1:${f}`], { encoding: 'utf8', maxBuffer: 1 << 26, stdio: ['ignore', 'pipe', 'ignore'] }); } catch (e) { old = ''; }
         for (const m of old.matchAll(lit)) allow.add(norm(m[0]));
     }
     expect(allow.size, '前置：舊樣式表的白名單不是空的').toBeGreaterThan(40);
     const isScrim = n => /^rgba\(0,0,0,[0-9.]+\)$/.test(n);
+    // 列印檔印出來一律黑字白底，只有 css/print.css 可以直接寫 #000／#fff（Phase 8，UI-SPEC §4.3）
+    const allowedIn = (set, file, n) => set.has(n) || isScrim(n) || (file === 'css/print.css' && (n === '#000' || n === '#fff'));
     const extra = [];
     for (const f of CSS_FILES) {
         for (const m of cssText(f).matchAll(lit)) {
-            const n = norm(m[0]);
-            if (!allow.has(n) && !isScrim(n)) extra.push(`${f}: ${m[0]}`);
+            if (!allowedIn(allow, f, norm(m[0]))) extra.push(`${f}: ${m[0]}`);
         }
     }
     expect(extra, '新增了白名單以外的顏色常數（請改用既有顏色變數）').toEqual([]);
-    // 自檢：白名單外的顏色會被抓到
+    // 自檢：白名單外的顏色會被抓到；#000 只放過 css/print.css
     expect(allow.has('#123456') || isScrim('rgba(1,2,3,0.5)')).toBe(false);
+    expect(allowedIn(new Set(), 'css/panels.css', '#000'), '其他檔案的 #000 仍要被抓到').toBe(false);
+    expect(allowedIn(new Set(), 'css/print.css', '#000')).toBe(true);
 });
 
 test('視覺：系統要求減少動態時不播動畫', async ({ browser }) => {

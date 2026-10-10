@@ -17,6 +17,15 @@ function songToTxt(song) {
     return song.title + '\n\n' + parts.join('\n\n') + '\n';
 }
 
+// Markdown：「# 歌名」、每段「## 段落名」，歌詞每行尾巴補兩個空格（強制換行）。
+// 行首是 # > - * + 或「數字.」的歌詞行前面加反斜線，才不會被當成標題、引用、清單
+function songToMd(song) {
+    const esc = line => (/^(?:[#>*+-]|\d+\.)/.test(line) ? '\\' + line : line);
+    const parts = songExportSections(song).map(s =>
+        '## ' + s.label + '\n\n' + s.text.replace(/\s+$/, '').split('\n').map(esc).join('  \n'));
+    return '# ' + song.title + '\n\n' + parts.join('\n\n') + '\n';
+}
+
 // 檔名不能含的字元換成底線；全空白就用預設名（T-08-15）
 function safeFileName(title) {
     return title.replace(/[\\/:*?"<>|\u0000-\u001f]/g, '_').trim() || '未命名歌曲';
@@ -34,7 +43,50 @@ function downloadText(filename, text, type) {
     setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 10000);
 }
 
-// kind：'txt' 先做；其他種類之後加進來
+// 複製整首 = TXT 字串。writeText 要在點擊當下同步呼叫（Safari 要求）；被拒絕或沒有剪貼簿 API（非 https）就退回舊方法
+function copySongText(song) {
+    const text = songToTxt(song);
+    const done = () => showToast('已複製整首');
+    const legacy = () => (fallbackCopy(text) ? done() : showToast('複製失敗，請改用「TXT」下載', 2400));
+    if (navigator.clipboard) navigator.clipboard.writeText(text).then(done, legacy);
+    else legacy();
+}
+
+// PDF：不用任何函式庫。把歌填進隱藏的 #printSheet，body 加上 print-song 讓 css/print.css 只印這張，再叫出瀏覽器的列印視窗。
+// 全部用 textContent（歌名、段落名、歌詞都是使用者打的字）；列印結束（afterprint）清空，見下方
+function printSong(song) {
+    const sheet = document.getElementById('printSheet');
+    if (!sheet) return;
+    const mk = (tag, cls, text) => {
+        const el = document.createElement(tag);
+        el.className = cls;
+        el.textContent = text;
+        return el;
+    };
+    sheet.textContent = '';
+    sheet.appendChild(mk('h1', 'print-title', song.title));
+    for (const s of songExportSections(song)) {
+        const text = s.text.replace(/\s+$/, '');
+        const sec = document.createElement('section');
+        // 12 行以內的段落不要被分頁切成兩半；更長的才允許切
+        sec.className = 'print-section' + (text.split('\n').length <= 12 ? ' print-short' : '');
+        sec.appendChild(mk('h2', 'print-label', s.label));
+        sec.appendChild(mk('p', 'print-text', text));
+        sheet.appendChild(sec);
+    }
+    document.body.classList.add('print-song');
+    showToast('在列印視窗選「儲存為 PDF」', 3000);
+    window.print();
+}
+
+function _endPrint() {
+    const sheet = document.getElementById('printSheet');
+    if (sheet) sheet.textContent = '';
+    document.body.classList.remove('print-song');
+}
+window.addEventListener('afterprint', _endPrint);
+
+// kind：'txt' | 'md' | 'pdf' | 'copy'（選單項目寫死傳進來）
 function exportSongAs(kind) {
     flushSongs();
     const song = curSong();
@@ -48,6 +100,13 @@ function exportSongAs(kind) {
     if (kind === 'txt') {
         downloadText(safe + '.txt', songToTxt(song), 'text/plain;charset=utf-8');
         showToast('已匯出「' + cutName(safe, 16) + '.txt」', 2400);
+    } else if (kind === 'md') {
+        downloadText(safe + '.md', songToMd(song), 'text/markdown;charset=utf-8');
+        showToast('已匯出「' + cutName(safe, 16) + '.md」', 2400);
+    } else if (kind === 'pdf') {
+        printSong(song);
+    } else if (kind === 'copy') {
+        copySongText(song);
     }
 }
 
