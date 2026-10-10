@@ -5,7 +5,7 @@
 const LH_LOG_PREFIX = '[好韻器]';
 
 // === 已知儲存鍵清單（備份與測試共用；D-13） ===
-// 以 AST 掃描驗證過的 18 個固定鍵（Phase 5 加入 lh:uiScale，Phase 6 加入 lh:lexiconPack）
+// 以 AST 掃描驗證過的 21 個固定鍵（Phase 5 加入 lh:uiScale，Phase 6 加入 lh:lexiconPack，Phase 8 加入 lh:songs / lh:activeSong / lh:songListOpen）
 const LH_KEYS = [
     { key: 'haiku_lyrics', group: 'data' },
     { key: 'haiku_hashtags', group: 'data' },
@@ -24,7 +24,10 @@ const LH_KEYS = [
     { key: 'contextSectionCollapsed', group: 'ui' },
     { key: 'savedPoolCollapsed', group: 'ui' },
     { key: 'lh:uiScale', group: 'ui' },
-    { key: 'lh:lexiconPack', group: 'setting' }
+    { key: 'lh:lexiconPack', group: 'setting' },
+    { key: 'lh:songs', group: 'data' },
+    { key: 'lh:activeSong', group: 'data' },
+    { key: 'lh:songListOpen', group: 'ui' }
 ];
 // secret 旗標讓之後的匯出（Phase 8）可以排除金鑰
 const LH_KEY_PREFIXES = [{ prefix: 'apiKey_', group: 'setting', secret: true }];
@@ -323,10 +326,53 @@ function lhListBackups() {
 }
 
 // ===== 資料格式遷移 =====
-// 1 = 基準版本：所有 v0.96 鍵值維持原樣；缺 lh:schema 視為 1；Phase 8 多首歌是 1→2（D-14）
-const LH_SCHEMA_TARGET = 1;
+// 1 = 基準版本：所有 v0.96 鍵值維持原樣；缺 lh:schema 視為 1
+// 2 = 多首歌（Phase 8）：舊的單首歌詞複製成 lh:songs 的第一首，舊鍵 haiku_lyrics / haiku_hashtags 原封不動留著（降級與還原要讀）
+const LH_SCHEMA_TARGET = 2;
 // 步驟格式 { to: N, run(store) }：同步執行、必須冪等、只能透過 store 碰清單內的鍵、任何失敗都要 throw
 const LH_MIGRATIONS = [];
+
+// 歌曲與區塊的 id：只允許安全字元（之後會當 DOM id、檔名片段用）
+const LH_ID_RE = /^[A-Za-z0-9_-]{1,40}$/;
+
+// 與 js/state.js 讀舊歌詞用的驗證相同
+function _lhLegacySectionsOk(v) {
+    return Array.isArray(v) && v.length > 0 && v.every(s => s && typeof s === 'object' && (s.text === undefined || typeof s.text === 'string'));
+}
+
+// lh:songs 的形狀檢查：陣列，每首有合法 id 與 sections 陣列；空陣列也算合法（使用者可能刪光）
+function lhSongsOk(v) {
+    return Array.isArray(v) && v.every(s => s && typeof s === 'object' && typeof s.id === 'string' && LH_ID_RE.test(s.id) && Array.isArray(s.sections));
+}
+
+// 把 v0.96 的單首歌詞轉成新格式的一首歌；固定 id 'song-migrated' 讓重跑變成什麼都不做（冪等）
+// 舊歌詞缺或損毀（lhGetJSON 會把損毀原文另存到 lh:corrupt:haiku_lyrics）就給一個空區塊
+function lhSongFromLegacy() {
+    const legacy = lhGetJSON('haiku_lyrics', null, _lhLegacySectionsOk) || [{ label: '', text: '' }];
+    const now = Date.now();
+    return {
+        id: 'song-migrated',
+        title: '我的第一首歌',
+        sections: legacy.map((s, i) => ({ id: 'sec-m' + i, label: String(s.label ?? ''), text: String(s.text ?? ''), collapsed: !!s.collapsed })),
+        hashtags: lhGetJSON('haiku_hashtags', [], Array.isArray).filter(t => typeof t === 'string'),
+        context: '',
+        createdAt: now,
+        updatedAt: now
+    };
+}
+
+// 1→2：已有合法的 lh:songs（上次寫完就當機、或另一個分頁已做完）就保留，只補 lh:activeSong；絕不寫舊鍵
+LH_MIGRATIONS.push({
+    to: 2,
+    run(store) {
+        let songs = lhGetJSON('lh:songs', null, lhSongsOk);
+        if (!songs || songs.length === 0) {
+            songs = [lhSongFromLegacy()];
+            store.set('lh:songs', JSON.stringify(songs));
+        }
+        if (!songs.some(s => s.id === store.get('lh:activeSong'))) store.set('lh:activeSong', songs[0].id);
+    }
+});
 
 // 還原只動清單內的鍵：不含 lh: 中介資料、後台金鑰與同網域其他專案的鍵
 function _lhRestorable(key) {
@@ -388,7 +434,7 @@ async function lhMigrate(steps, target) {
     const b = await lhBackup('pre-schema-' + target, '升級資料格式前的備份（目標版本 ' + target + '）', lhSnapshot());
     if (!b.ok) return { ran: 0, blocked: true };   // 備份橫幅 lhBackup 已跳；備份沒存成就一步都不跑
     // 還原用的快照要在備份 await 之後才拍：備份最久會等 5 秒，期間使用者的編輯不能被還原蓋掉。
-    // ponytail: 主程式記憶體裡的資料仍是升級前格式；Phase 8 第一個真遷移上線前，主程式要改成先 await __hoyunSafetyReady 再讀取
+    // ponytail: 主程式記憶體裡的資料仍是升級前格式；編輯器改讀 lh:songs 的 plan（08-02）上線前，主程式要改成先 await __hoyunSafetyReady 再讀取
     const snap = lhSnapshot();
     const guard = k => { if (!_lhRestorable(k)) throw new Error('遷移不可寫入未登記的鍵：' + k); };
     // 直接寫 storage 物件：寫入失敗要 throw 讓遷移中止，不能像 lhSet 那樣吞掉
@@ -417,13 +463,14 @@ async function lhMigrate(steps, target) {
     }
 }
 
-// 絕不 reject；先確定有備份才把資料版本旗標 lh:schema 設成 '1'，再跑遷移（目前是空清單，等於不動作）
+// 絕不 reject；先確定有備份才把資料版本旗標 lh:schema 設成 '1'，再跑遷移（1→2 會先存 'pre-schema-2' 備份）
 // 之後有改資料格式的程式，第一次讀取前必須先 await window.__hoyunSafetyReady
 async function lhBootSafety() {
     try {
         const r = await lhBackup('baseline', '基準備份（這個版本第一次開啟時）', _lhBootSnapshot);
         if (r.ok && lhGet('lh:schema') === null) lhSet('lh:schema', '1');
-        await lhMigrate(LH_MIGRATIONS, LH_SCHEMA_TARGET);
+        const m = await lhMigrate(LH_MIGRATIONS, LH_SCHEMA_TARGET);
+        window.__lhMigrated = !!(m && m.ran > 0);   // 只有這一頁真的跑了升級；之後給「已升級」提示用
         return r;
     } catch (e) {
         lhWarn('開機備份流程失敗', e);
