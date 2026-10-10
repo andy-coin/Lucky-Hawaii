@@ -306,7 +306,7 @@
                 label.setAttribute('readonly', '');
                 label.setAttribute('ondblclick', 'enableSectionLabel(this,event)');
                 label.setAttribute('onblur', 'disableSectionLabel(this)');
-                label.setAttribute('onkeydown', "if(event.key==='Enter')this.blur()");
+                label.setAttribute('onkeydown', "if(event.key==='Enter'&&!event.isComposing&&event.keyCode !== 229)this.blur()");
                 header.appendChild(label);
 
                 if (i !== 0) {

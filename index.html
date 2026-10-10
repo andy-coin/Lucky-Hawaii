@@ -373,7 +373,7 @@
             <div class="hashtag-popup-title"># 新增標籤</div>
             <input type="text" id="hashtagPopupInput" class="hashtag-popup-input"
                 placeholder="輸入標籤名稱（不需加 #）"
-                onkeydown="if(event.key==='Enter'){confirmHashtagPopup();event.preventDefault()}if(event.key==='Escape')closeHashtagPopup()">
+                onkeydown="if(event.isComposing||event.keyCode===229)return;if(event.key==='Enter'){confirmHashtagPopup();event.preventDefault()}if(event.key==='Escape')closeHashtagPopup()">
             <div class="hashtag-popup-btns">
                 <button class="hashtag-popup-cancel" onclick="closeHashtagPopup()">取消</button>
                 <button class="hashtag-popup-confirm" onclick="confirmHashtagPopup()">新增</button>
