@@ -304,7 +304,36 @@ Plans:
   4. 匯出 JSON 備份（全部歌曲＋設定）後，在另一個乾淨的瀏覽器匯入即可完整還原〔自動〕
 
 **Human check**: 實機注音輸入法組字順暢；PDF 排版是否好看
-**Plans**: TBD
+**Plans:** 9 plans
+
+Plans:
+**Wave 1**
+- [ ] 08-01-PLAN.md — 升級遷移 1→2：先存兩份備份，再把原歌詞存成新格式「我的第一首歌」一字不少（儲存層 tracer）
+
+**Wave 2** *(blocked on Wave 1 completion)*
+- [ ] 08-02-PLAN.md — 編輯器改讀資料模型：打字與注音組字只改記憶體、300ms 合併存檔、不再讀回畫面、舊版單首模式
+
+**Wave 3** *(blocked on Wave 2 completion)*
+- [ ] 08-03-PLAN.md — 注音組字中 Enter 不送出、打字不重畫不跳游標、關分頁不掉字、保留池原樣顯示
+
+**Wave 4** *(blocked on Wave 3 completion)*
+- [ ] 08-04-PLAN.md — 多分頁同步：別頁存檔後等離開輸入框才重新載入、各改不同的歌不互蓋
+
+**Wave 5** *(blocked on Wave 4 completion)*
+- [ ] 08-05-PLAN.md — ☰ 歌曲清單：顯示／隱藏、新增、切換、重新命名（桌機推開欄、手機覆蓋層）
+
+**Wave 6** *(blocked on Wave 5 completion)*
+- [ ] 08-06-PLAN.md — ⬇ 匯出：TXT（預設）、Markdown、PDF（列印）、複製整首
+
+**Wave 7** *(blocked on Wave 6 completion)*
+- [ ] 08-07-PLAN.md — 備份全部／匯入備份：乾淨瀏覽器完整還原、只加入歌曲、舊版 v1 存檔、壞檔與惡意檔
+
+**Wave 8** *(blocked on Wave 7 completion)*
+- [ ] 08-08-PLAN.md — 🗑 刪除歌曲（先自動備份）、備份不被擠掉、偏好設定「自動備份」還原清單
+
+**Wave 9** *(blocked on Wave 8 completion)*
+- [ ] 08-09-PLAN.md — 整段使用流程端到端＋所有新介面共同檢查＋handoff（-linux 截圖基準留給 Andy 在雲端更新）
+
 **UI hint**: yes
 
 ### Phase 9: Section Modules 段落模組
