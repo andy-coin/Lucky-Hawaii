@@ -304,7 +304,7 @@ Plans:
   4. 匯出 JSON 備份（全部歌曲＋設定）後，在另一個乾淨的瀏覽器匯入即可完整還原〔自動〕
 
 **Human check**: 實機注音輸入法組字順暢；PDF 排版是否好看
-**Plans:** 3/9 plans executed
+**Plans:** 4/9 plans executed
 
 Plans:
 **Wave 1**
@@ -317,7 +317,7 @@ Plans:
 - [x] 08-03-PLAN.md — 注音組字中 Enter 不送出、打字不重畫不跳游標、關分頁不掉字、保留池原樣顯示
 
 **Wave 4** *(blocked on Wave 3 completion)*
-- [ ] 08-04-PLAN.md — 多分頁同步：別頁存檔後等離開輸入框才重新載入、各改不同的歌不互蓋
+- [x] 08-04-PLAN.md — 多分頁同步：別頁存檔後等離開輸入框才重新載入、各改不同的歌不互蓋
 
 **Wave 5** *(blocked on Wave 4 completion)*
 - [ ] 08-05-PLAN.md — ☰ 歌曲清單：顯示／隱藏、新增、切換、重新命名（桌機推開欄、手機覆蓋層）
@@ -413,7 +413,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 5. Multi-Device Layout 多裝置版面與流暢度 | 11/11 | In Progress|  |
 | 6. Lexicon Packs 台灣詞庫包 | 8/8 | In Progress|  |
 | 7. Feedback & Correction Layer 回報與修正層 | 10/10 | In Progress|  |
-| 8. Songs & Editor Model 歌曲管理與資料模型 | 3/9 | In Progress|  |
+| 8. Songs & Editor Model 歌曲管理與資料模型 | 4/9 | In Progress|  |
 | 9. Section Modules 段落模組 | 0/TBD | Not started | - |
 | 10. Rhyme Map 韻腳地圖 | 0/TBD | Not started | - |
 | 11. Line Analysis & Settings 句構分析與設定頁 | 0/TBD | Not started | - |

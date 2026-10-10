@@ -4,16 +4,16 @@ milestone: v0.96
 current_phase: 08
 current_phase_name: Songs & Editor Model 歌曲管理與資料模型
 status: executing
-stopped_at: Completed 08-03-PLAN.md
-last_updated: "2026-10-10T23:00:15.277Z"
+stopped_at: Completed 08-04-PLAN.md
+last_updated: "2026-10-10T23:07:47.903Z"
 last_activity: 2026-10-11
 last_activity_desc: Phase 08 execution started
-state_head: 584b4a03d6f270711974f74bf0ef727dd3703151
+state_head: b491de6d1c269a42405183673fe82fb94997f604
 progress:
   total_phases: 12
   completed_phases: 2
   total_plans: 60
-  completed_plans: 54
+  completed_plans: 55
 ---
 
 # Project State
@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-10-03)
 ## Current Position
 
 Phase: 08 (Songs & Editor Model 歌曲管理與資料模型) — EXECUTING
-Plan: 4 of 9
+Plan: 5 of 9
 Status: Ready to execute
 Last activity: 2026-10-11 — Phase 08 execution started
 
@@ -111,6 +111,7 @@ Progress: [██░░░░░░░░] 17%
 | Phase 08 P01 | 25 min | 2 tasks | 6 files |
 | Phase 08 P02 | 12 min | 2 tasks | 15 files |
 | Phase 08 P03 | 9 min | 2 tasks | 5 files |
+| Phase 08 P04 | 14 min | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -194,6 +195,8 @@ Recent decisions affecting current work:
 - [Phase 08]: 08-02: corrupt or empty lh:songs (schema 2) yields one empty song 未命名歌曲 1; corrupt raw text kept under lh:corrupt:lh:songs; missing lh:songs rebuilds from legacy keys
 - [Phase 08]: 08-02: lhNewId(prefix) lives in js/safety.js (no crypto.randomUUID); sections matched by data-id, toggle updates DOM in place
 - [Phase 08]: 08-03: Enter/Esc ignored while composing (isComposing or keyCode 229) in #hashtagPopupInput and .section-label; saved-word chips built with DOM APIs
+- [Phase 08]: Storage events are ignored until initSongs has run (activeSongId null); songsMode defaults to v2 so a booting tab misread the first write as a deleted song
+- [Phase 08]: Deleted-elsewhere neighbour is picked from the old sortedSongs order (next surviving, else previous); a dirty copy of a song deleted elsewhere is re-added on its next flush (accepted, last write wins)
 
 ### Pending Todos
 
@@ -236,6 +239,6 @@ Items acknowledged and deferred at milestone close, most recent first:
 
 ## Session Continuity
 
-Last session: 2026-10-10T23:00:15.222Z
-Stopped at: Completed 08-03-PLAN.md
+Last session: 2026-10-10T23:07:47.848Z
+Stopped at: Completed 08-04-PLAN.md
 Resume file: None
