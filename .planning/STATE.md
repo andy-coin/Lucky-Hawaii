@@ -4,16 +4,16 @@ milestone: v0.96
 current_phase: 08
 current_phase_name: Songs & Editor Model 歌曲管理與資料模型
 status: executing
-stopped_at: Completed 08-02-PLAN.md
-last_updated: "2026-10-10T22:52:25.561Z"
+stopped_at: Completed 08-03-PLAN.md
+last_updated: "2026-10-10T23:00:15.277Z"
 last_activity: 2026-10-11
 last_activity_desc: Phase 08 execution started
-state_head: 9e6743a28761929fc327a07e38e95963066d4a51
+state_head: 584b4a03d6f270711974f74bf0ef727dd3703151
 progress:
   total_phases: 12
   completed_phases: 2
   total_plans: 60
-  completed_plans: 53
+  completed_plans: 54
 ---
 
 # Project State
@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-10-03)
 ## Current Position
 
 Phase: 08 (Songs & Editor Model 歌曲管理與資料模型) — EXECUTING
-Plan: 3 of 9
+Plan: 4 of 9
 Status: Ready to execute
 Last activity: 2026-10-11 — Phase 08 execution started
 
@@ -110,6 +110,7 @@ Progress: [██░░░░░░░░] 17%
 | Phase 07 P10 | 40 min | 2 tasks | 4 files |
 | Phase 08 P01 | 25 min | 2 tasks | 6 files |
 | Phase 08 P02 | 12 min | 2 tasks | 15 files |
+| Phase 08 P03 | 9 min | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -192,6 +193,7 @@ Recent decisions affecting current work:
 - [Phase 08]: 08-02: legacy single-song mode whenever lh:schema is not '2'; edits write haiku_lyrics/haiku_hashtags only, lh:songs stays absent
 - [Phase 08]: 08-02: corrupt or empty lh:songs (schema 2) yields one empty song 未命名歌曲 1; corrupt raw text kept under lh:corrupt:lh:songs; missing lh:songs rebuilds from legacy keys
 - [Phase 08]: 08-02: lhNewId(prefix) lives in js/safety.js (no crypto.randomUUID); sections matched by data-id, toggle updates DOM in place
+- [Phase 08]: 08-03: Enter/Esc ignored while composing (isComposing or keyCode 229) in #hashtagPopupInput and .section-label; saved-word chips built with DOM APIs
 
 ### Pending Todos
 
@@ -234,6 +236,6 @@ Items acknowledged and deferred at milestone close, most recent first:
 
 ## Session Continuity
 
-Last session: 2026-10-10T22:52:25.501Z
-Stopped at: Completed 08-02-PLAN.md
+Last session: 2026-10-10T23:00:15.222Z
+Stopped at: Completed 08-03-PLAN.md
 Resume file: None
