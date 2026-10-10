@@ -116,8 +116,15 @@ function initSongs() {
     activeSongId = songs.some(s => s.id === saved)
         ? saved
         : songs.reduce((a, b) => (b.createdAt > a.createdAt ? b : a)).id;
-    renderActiveSong();
+    _refreshSongUI();
     if (_dirty.size) flushSongs();
+    // 桌機的推開欄記得上次開關；手機／平板的覆蓋層一律從關著開始（D-04）
+    if (songsMode === 'v2' && _MQ_SONG_PUSH.matches && lhGet('lh:songListOpen') === 'true') {
+        _applySongListState(true);
+        syncCenterPanel();
+    }
+    // 只有跑了升級的那一頁會看到一次（__lhMigrated 只在那一頁為 true）
+    if (window.__lhMigrated === true) showToast('你原本的歌詞已整理成第一首歌「我的第一首歌」，一字不少', 6000);
 }
 
 // ==================== 多分頁同步 ====================
@@ -172,7 +179,7 @@ function _applyExternalSongs() {
         lhSet('lh:activeSong', activeSongId);
     }
     if (_dirty.size) flushSongs();
-    renderActiveSong();
+    _refreshSongUI();
     showToast(deleted
         ? '其他分頁刪除了這首歌，已切換到「' + cutName(curSong().title, 16) + '」'
         : '其他分頁更新了歌詞，已重新載入', 4000);
@@ -194,4 +201,144 @@ document.addEventListener('focusout', () => {
 window.addEventListener('pagehide', flushSongs);
 document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'hidden') flushSongs();
+});
+
+// ==================== 歌曲清單（☰ 歌曲） ====================
+// 桌機（≥ 1024）是推開左側面板的一欄，其餘寬度是蓋在歌詞區上面的覆蓋層；兩種都只是同一個 #songList 換 class（D-02、D-03）
+const _MQ_SONG_PUSH = matchMedia('(min-width: 1024px)');
+const _songListOpen = () => { const el = document.getElementById('songList'); return !!el && !el.hidden; };
+
+// 標題列與清單的標題、數量、一首歌時的提示；舊版單首模式沒有清單，☰ 也藏起來（F2）
+function renderSongHeader() {
+    const song = curSong();
+    const cur = document.getElementById('songCurrent');
+    if (cur && song) { cur.textContent = song.title; cur.title = song.title; }
+    const btn = document.getElementById('songListToggle');
+    if (btn) btn.hidden = songsMode !== 'v2';
+}
+
+// 歌名一律用 createElement／textContent／setAttribute 進 DOM，動作用 data-song-id 加委派監聽（T-08-12）
+function renderSongList() {
+    const ul = document.getElementById('songItems');
+    if (!ul) return;
+    const list = sortedSongs();
+    ul.replaceChildren(...list.map(s => {
+        const active = s.id === activeSongId;
+        const li = document.createElement('li');
+        li.className = 'song-item';
+        if (active) li.setAttribute('aria-current', 'true');
+        const pick = document.createElement('button');
+        pick.type = 'button';
+        pick.className = 'song-pick';
+        pick.dataset.songId = s.id;
+        pick.tabIndex = active ? 0 : -1;
+        pick.textContent = s.title;
+        pick.title = s.title;
+        const acts = document.createElement('div');
+        acts.className = 'song-actions';
+        const ren = document.createElement('button');
+        ren.type = 'button';
+        ren.className = 'song-act rename';
+        ren.dataset.songId = s.id;
+        ren.textContent = '✎';
+        ren.setAttribute('aria-label', '重新命名「' + s.title + '」');
+        ren.title = '重新命名「' + s.title + '」';
+        acts.appendChild(ren);
+        li.append(pick, acts);
+        return li;
+    }));
+    const cap = document.getElementById('songListCaption');
+    if (cap) cap.textContent = '歌曲（' + list.length + '）';
+    const hint = document.getElementById('songListHint');
+    if (hint) hint.hidden = list.length !== 1;
+}
+
+// 換歌、開機、別分頁更新後：編輯器、標題列、清單一起依目前這首歌重畫
+function _refreshSongUI() {
+    renderActiveSong();
+    renderSongHeader();
+    renderSongList();
+}
+
+// 只動畫面與 class，不寫儲存：開關的記憶由 toggleSongList 決定（覆蓋層不記，D-04）
+function _applySongListState(open) {
+    const list = document.getElementById('songList');
+    const btn = document.getElementById('songListToggle');
+    if (!list) return;
+    const push = _MQ_SONG_PUSH.matches;
+    list.hidden = !open;
+    list.toggleAttribute('inert', !open);
+    list.classList.toggle('song-list--push', push);
+    list.classList.toggle('song-list--overlay', !push);
+    if (btn) btn.setAttribute('aria-expanded', String(open));
+    document.body.classList.toggle('songs-open', open && push);
+    if (open) {
+        const cur = list.querySelector('.song-item[aria-current="true"]');
+        if (cur) cur.scrollIntoView({ block: 'nearest' });
+    }
+}
+
+function toggleSongList(force) {
+    if (songsMode !== 'v2') return;
+    const open = typeof force === 'boolean' ? force : !_songListOpen();
+    _applySongListState(open);
+    if (_MQ_SONG_PUSH.matches) {
+        lhSet('lh:songListOpen', String(open));
+        syncCenterPanel(open ? 'left' : undefined);   // 左邊多了一欄，主畫面寬度要重算
+    }
+}
+
+// 左邊面板收起（或離開歌詞分頁）時，蓋在歌詞上的清單跟著關；推開欄的偏好不動（§9）
+function closeSongListOverlay() {
+    if (_songListOpen() && !_MQ_SONG_PUSH.matches) _applySongListState(false);
+}
+
+// 換歌：先把舊歌還沒存的修改寫出去（B2），再換 activeSongId
+function switchSong(id) {
+    if (!songs.some(s => s.id === id)) return;
+    const changed = id !== activeSongId;
+    if (changed) {
+        flushSongs();
+        activeSongId = id;
+        if (songsMode === 'v2') lhSet('lh:activeSong', id);
+        _refreshSongUI();
+        const area = document.getElementById('lyricsSections');
+        if (area) area.scrollTop = 0;
+    }
+    if (_songListOpen() && !_MQ_SONG_PUSH.matches) {
+        _applySongListState(false);
+        const btn = document.getElementById('songListToggle');
+        if (btn) btn.focus();
+    } else {
+        const pick = document.querySelector('#songItems .song-pick[data-song-id="' + id + '"]');   // id 已由 songs.some 驗證，只含 LH_ID_RE 字元
+        if (pick) pick.focus();
+    }
+}
+
+// 下一個沒用過的編號：現有「未命名歌曲 N」最大的 N 加 1（空缺不回頭補）
+function nextUntitledNumber() {
+    let max = 0;
+    songs.forEach(s => {
+        const m = /^未命名歌曲 (\d+)$/.exec(s.title);
+        if (m) max = Math.max(max, Number(m[1]));
+    });
+    return max + 1;
+}
+
+function createSong() {
+    if (songsMode !== 'v2') return;
+    flushSongs();
+    const song = makeEmptySong('未命名歌曲 ' + nextUntitledNumber());
+    songs.push(song);
+    markDirty(song.id);
+    activeSongId = song.id;
+    flushSongs();
+    _refreshSongUI();
+    const area = document.getElementById('lyricsSections');
+    if (area) area.scrollTop = 0;
+}
+
+document.addEventListener('click', e => {
+    const pick = e.target.closest && e.target.closest('#songItems .song-pick');
+    if (pick) switchSong(pick.dataset.songId);
 });

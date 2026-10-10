@@ -292,23 +292,36 @@
         <button type="button" class="sheet-handle" aria-label="關閉面板" onclick="mobileTab('search')"></button>
         <div class="side-panel-tab" onclick="toggleLeftPanel()">歌詞</div>
         <div class="side-panel-body">
-            <div class="side-panel-title" style="display:flex;justify-content:space-between;align-items:center;flex-shrink:0">
-                <span>📝 歌詞</span>
-                <button class="panel-add-btn" style="padding:0.1875rem 0.625rem;font-size:0.82rem;writing-mode:horizontal-tb" onclick="addLyricsSection()">+ 新增段落</button>
+            <div class="side-panel-title lyrics-head">
+                <button type="button" id="songListToggle" class="song-toggle" onclick="toggleSongList()" aria-expanded="false" aria-controls="songList" aria-label="開關歌曲清單" title="開關歌曲清單">☰ 歌曲</button>
+                <span id="songCurrent" class="song-current"></span>
+                <button type="button" class="panel-add-btn" onclick="addLyricsSection()" aria-label="在這首歌新增一個段落" title="在這首歌新增一個段落">+ 新增段落</button>
             </div>
-            <div class="lyrics-area" id="lyricsSections">載入歌詞中…</div>
-            <div class="context-section" id="contextSection">
-                <div class="context-section-header" onclick="toggleContextSection()">
-                    <span class="context-section-title">情境 ＆ 標籤</span>
-                    <button class="hashtag-add-btn" onclick="openHashtagPopup();event.stopPropagation()" title="新增標籤">+</button>
-                    <button class="context-refresh-btn" title="從歌詞自動生成" onclick="generateContextFromLyrics();event.stopPropagation()">↻</button>
-                    <span class="context-chevron" id="contextChevron">▾</span>
-                </div>
-                <div class="context-body" id="contextBody">
-                    <textarea class="context-textarea" id="contextDescription" rows="5"
-                        placeholder="描述歌曲情境、風格、主題…"></textarea>
-                    <div class="hashtag-chips" id="hashtagChips">
-                        <span style="color:var(--text-secondary);font-size:0.83rem;">新增標籤來引導 AI</span>
+            <div class="lyrics-layout">
+                <aside id="songList" class="song-list" aria-label="歌曲清單" hidden inert>
+                    <div class="song-list-head">
+                        <span id="songListCaption" class="song-list-caption">歌曲（1）</span>
+                        <button type="button" class="panel-add-btn song-new-btn" onclick="createSong()" aria-label="新增一首歌曲" title="新增一首歌曲">＋ 新增歌曲</button>
+                    </div>
+                    <ul id="songItems" class="song-items" role="list"></ul>
+                    <p id="songListHint" class="song-list-hint">按「＋ 新增歌曲」可以再寫一首</p>
+                </aside>
+                <div class="lyrics-main">
+                    <div class="lyrics-area" id="lyricsSections">載入歌詞中…</div>
+                    <div class="context-section" id="contextSection">
+                        <div class="context-section-header" onclick="toggleContextSection()">
+                            <span class="context-section-title">情境 ＆ 標籤</span>
+                            <button class="hashtag-add-btn" onclick="openHashtagPopup();event.stopPropagation()" title="新增標籤">+</button>
+                            <button class="context-refresh-btn" title="從歌詞自動生成" onclick="generateContextFromLyrics();event.stopPropagation()">↻</button>
+                            <span class="context-chevron" id="contextChevron">▾</span>
+                        </div>
+                        <div class="context-body" id="contextBody">
+                            <textarea class="context-textarea" id="contextDescription" rows="5"
+                                placeholder="描述歌曲情境、風格、主題…"></textarea>
+                            <div class="hashtag-chips" id="hashtagChips">
+                                <span style="color:var(--text-secondary);font-size:0.83rem;">新增標籤來引導 AI</span>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>

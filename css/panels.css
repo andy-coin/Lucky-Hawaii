@@ -40,8 +40,14 @@
                 padding-left: max(var(--page-pad), env(safe-area-inset-left), calc(var(--tab-w) + 0.25rem));
                 padding-right: max(var(--page-pad), env(safe-area-inset-right), calc(var(--tab-w) + 0.25rem));
             }
-            body.lp-open { padding-left: calc(var(--panel-w) + var(--page-pad)); }
+            body.lp-open { padding-left: calc(var(--panel-w) + var(--song-w, 0px) + var(--page-pad)); }
+            /* 歌曲清單推開欄（≥ 1024）：左面板多寬一欄，歌詞區寬度不變，主畫面照樣置中（D-02）；不做 transition，和上面一樣避免每一幀重排 */
+            .left-panel { width: calc(var(--panel-w) + var(--song-w, 0px)); }
             body.rp-open { padding-right: calc(var(--panel-w) + var(--page-pad)); }
+        }
+
+        @media (min-width: 1024px) {
+            body.songs-open { --song-w: 9rem; }
         }
 
         .side-panel-tab {
@@ -216,6 +222,188 @@
         @media (hover: hover) and (pointer: fine) {
             .panel-add-btn:hover { background: #c97422; }
         }
+
+        /* ===== 歌詞標題列與歌曲清單（Phase 8，UI-SPEC §2；只用 4 種字級 0.75／0.875／1／1.25rem、2 種字重） ===== */
+        .lyrics-head {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: var(--sp-2);
+        }
+        .song-toggle {
+            padding: var(--sp-1) var(--sp-3);
+            min-height: 2rem;
+            background: var(--card-bg);
+            color: var(--text-primary);
+            border: 1px solid var(--border);
+            border-radius: 0.5rem;
+            font-family: inherit;
+            font-size: 0.875rem;
+            font-weight: 700;
+            cursor: pointer;
+            flex-shrink: 0;
+        }
+        .song-toggle[hidden] { display: none; }
+        .song-toggle[aria-expanded="true"] { border-color: var(--highlight-border); }
+        @media (hover: hover) and (pointer: fine) {
+            .song-toggle:hover { background: var(--container-bg); }
+        }
+        .song-current {
+            flex: 1 1 8rem;
+            min-width: 0;
+            font-size: 1rem;
+            font-weight: 700;
+            line-height: 1.2;
+            color: var(--text-primary);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .lyrics-head .panel-add-btn {
+            margin-inline-start: auto;
+            padding: var(--sp-1) var(--sp-3);
+            min-height: 2rem;
+            font-size: 0.875rem;
+            writing-mode: horizontal-tb;
+        }
+
+        .lyrics-layout {
+            position: relative;
+            flex: 1;
+            min-height: 0;
+            display: flex;
+        }
+        .lyrics-main {
+            flex: 1;
+            min-width: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .song-list {
+            display: flex;
+            flex-direction: column;
+            gap: var(--sp-2);
+            padding: var(--sp-2);
+            background: var(--card-bg);
+            overflow-y: auto;
+            overscroll-behavior: contain;
+            min-height: 0;
+        }
+        .song-list[hidden] { display: none; }
+        .song-list--push {
+            width: var(--song-w);
+            flex-shrink: 0;
+            border-right: 1px solid var(--border);
+        }
+        .song-list--overlay {
+            position: absolute;
+            inset: 0;
+            z-index: 2;
+            padding: var(--sp-3);
+            box-shadow: 0 4px 24px rgba(0,0,0,0.18);
+            transition: opacity 0.2s ease, transform 0.2s ease;
+        }
+        /* 從隱藏到顯示的那一刻：由透明、往上 0.5rem 淡入落下（不用 @keyframes；不支援的瀏覽器就是直接出現） */
+        @starting-style {
+            .song-list--overlay { opacity: 0; transform: translateY(-0.5rem); }
+        }
+        .song-list-head {
+            display: flex;
+            flex-direction: column;
+            gap: var(--sp-2);
+            flex-shrink: 0;
+        }
+        .song-list--overlay .song-list-head {
+            flex-direction: row;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .song-list-caption {
+            font-size: 0.875rem;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+        .song-new-btn {
+            min-height: 2rem;
+            padding: var(--sp-1) var(--sp-3);
+            font-size: 0.875rem;
+            width: 100%;
+        }
+        .song-list--overlay .song-new-btn { width: auto; margin-inline-start: auto; }
+        .song-items {
+            list-style: none;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            gap: var(--sp-1);
+        }
+        .song-item {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: var(--sp-1);
+            padding: 0 var(--sp-1) 0 var(--sp-2);
+            border-radius: 0.5rem;
+            border-left: 0.25rem solid transparent;
+        }
+        .song-item[aria-current="true"] {
+            background: var(--container-bg);
+            border-left-color: var(--highlight-border);
+        }
+        .song-item[aria-current="true"] .song-pick { font-weight: 700; }
+        @media (hover: hover) and (pointer: fine) {
+            .song-item:not([aria-current="true"]):hover { background: var(--border); }
+        }
+        .song-pick {
+            flex: 1 1 100%;
+            min-width: 0;
+            min-height: 2rem;
+            padding: 0;
+            text-align: left;
+            font-family: inherit;
+            font-size: 0.875rem;
+            font-weight: 400;
+            color: var(--text-primary);
+            background: none;
+            border: 0;
+            cursor: pointer;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .song-list--overlay .song-pick { flex: 1 1 0; }
+        .song-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: var(--sp-1);
+            flex: 1 1 100%;
+        }
+        .song-list--overlay .song-actions { flex: 0 0 auto; }
+        /* 窄欄裡只有目前這首顯示動作，第二行靠右（D-06） */
+        .song-list--push .song-item:not([aria-current="true"]) .song-actions { display: none; }
+        .song-act {
+            width: 2rem;
+            height: 2rem;
+            padding: 0;
+            font-family: inherit;
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+            background: none;
+            border: 0;
+            border-radius: 0.375rem;
+            cursor: pointer;
+        }
+        .song-list-hint {
+            margin: 0;
+            font-size: 0.75rem;
+            font-weight: 400;
+            line-height: 1.5;
+            color: var(--text-secondary);
+        }
+        .song-list-hint[hidden] { display: none; }
 
         .word-chips {
             display: flex;
@@ -624,6 +812,11 @@
             padding: 0.4375rem 1.125rem;
             border-radius: 1.25rem;
             font-size: 0.85rem;
+            white-space: normal;
+            width: max-content;   /* left:50% 讓可用寬度只剩半個畫面，不加的話短句也會被擠成窄窄一條 */
+            max-width: min(92vw, 28rem);
+            text-align: center;
+            line-height: 1.5;
             z-index: 9999;
             pointer-events: none;
             opacity: 0;
