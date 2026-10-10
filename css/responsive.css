@@ -756,7 +756,7 @@
            「i」與 ✕ 用 ::after／實體大小。 ===== */
         @media (pointer: coarse), (max-width: 900px) {
             /* 歌曲清單（Phase 8，§9）：新增的控制項實體框 ≥ 44，相鄰的不重疊 */
-            .song-toggle, .lyrics-head .panel-add-btn, .song-new-btn, .song-pick, .song-name-input { min-height: var(--hit); }
+            .song-toggle, .export-toggle, .lyrics-head .panel-add-btn, .song-new-btn, .song-pick, .song-name-input { min-height: var(--hit); }
             .song-act { width: var(--hit); height: var(--hit); }
             .about-btn { position: relative; }
             .about-btn::after { content: ''; position: absolute; inset: -0.875rem; }

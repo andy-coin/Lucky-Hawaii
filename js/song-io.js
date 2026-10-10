@@ -123,6 +123,8 @@ function toggleExportMenu(e) {
     const btn = document.getElementById('exportToggle');
     if (!menu || !btn) return;
     if (menu.classList.contains('show')) { closeExportMenu(); return; }
+    // 有對話框開著就不開選單（對話框蓋在選單上面，開了也點不到）
+    if (document.querySelector('.feedback-modal-overlay.show')) { closeExportMenu(); return; }
     // 提示裡的歌名最多 16 個字（只用 textContent，歌名裡的標記不會被當成 HTML）
     const song = curSong();
     const name = cutName(safeFileName(song ? song.title : ''), 16);
@@ -149,4 +151,22 @@ document.addEventListener('pointerdown', e => {
     if (!menu || !menu.classList.contains('show')) return;
     if (e.target.closest('#exportMenu, #exportToggle')) return;
     closeExportMenu();
+});
+
+// 鍵盤：選單開著時 ↑↓ 在選項間移動（頭尾相接），Esc 關閉並把焦點還給 ⬇ 匯出。
+// 注音組字中的 Esc 是取消組字，不是關選單
+document.addEventListener('keydown', e => {
+    const menu = document.getElementById('exportMenu');
+    if (!menu || !menu.classList.contains('show') || e.isComposing || e.keyCode === 229) return;
+    if (e.key === 'Escape') {
+        closeExportMenu();
+        document.getElementById('exportToggle').focus();
+        e.preventDefault();
+    } else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        const items = [...menu.querySelectorAll('.export-item')];
+        const i = items.indexOf(document.activeElement);
+        const next = e.key === 'ArrowDown' ? (i + 1) % items.length : (i <= 0 ? items.length - 1 : i - 1);
+        items[next].focus();
+        e.preventDefault();
+    }
 });

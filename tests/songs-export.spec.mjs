@@ -1,6 +1,7 @@
 // 匯出（EDIT-08）：TXT、Markdown、PDF 列印頁、複製整首、選單、版面
 import { test, expect } from '@playwright/test';
 import { bootPage } from './helpers.mjs';
+import { DEVICES, waitStill, rectsOverlap, auditTouchTargets } from './layout-lib.mjs';
 
 const DESKTOP = { viewport: { width: 1440, height: 900 }, deviceScaleFactor: 1 };
 const mkSong = (id, title, sections, o = {}) => ({
@@ -259,5 +260,140 @@ test('匯出：歌名有標記也只當文字', async ({ browser }) => {
     expect(r.label).toBe('<b>段</b>');
     expect(r.injected).toBe(0);
     expect(r.pwn).toBeUndefined();
+    await context.close();
+});
+
+// ==================== 選單鍵盤、窄螢幕、觸控、長歌 ====================
+test('匯出：選單鍵盤', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, { storage: seed([FIXTURE_SONG()]), device: DESKTOP });
+    const focusedLabel = () => page.evaluate(() => document.activeElement?.querySelector?.('.export-label')?.textContent ?? null);
+    // 滑鼠打開：不搶焦點
+    await page.locator('#exportToggle').click();
+    await expect(page.locator('#exportMenu')).toBeVisible();
+    expect(await page.evaluate(() => document.activeElement?.closest('#exportMenu') !== null), '滑鼠打開不移焦點').toBe(false);
+    await page.mouse.click(5, 5);
+    await expect(page.locator('#exportMenu')).toBeHidden();
+    await expect(page.locator('#exportToggle')).toHaveAttribute('aria-expanded', 'false');
+    // 鍵盤打開：第一項拿到焦點
+    await page.locator('#exportToggle').focus();
+    await page.keyboard.press('Enter');
+    await expect(page.locator('#exportMenu')).toBeVisible();
+    await expect(page.locator('#exportToggle')).toHaveAttribute('aria-expanded', 'true');
+    expect(await focusedLabel()).toBe('📄 TXT（預設）');
+    await page.keyboard.press('ArrowDown');
+    await page.keyboard.press('ArrowDown');
+    expect(await focusedLabel()).toBe('🖨 PDF（列印）');
+    await page.keyboard.press('ArrowDown');
+    await page.keyboard.press('ArrowDown');
+    expect(await focusedLabel(), '↓ 到底接回第一項').toBe('📄 TXT（預設）');
+    await page.keyboard.press('ArrowUp');
+    expect(await focusedLabel(), '↑ 從第一項接到最後一項').toBe('📋 複製整首');
+    await page.keyboard.press('Escape');
+    await expect(page.locator('#exportMenu')).toBeHidden();
+    expect(await page.evaluate(() => document.activeElement?.id)).toBe('exportToggle');
+    // Space 也能打開；Enter 選項目後關閉
+    await page.keyboard.press('Space');
+    await expect(page.locator('#exportMenu')).toBeVisible();
+    const [dl] = await Promise.all([page.waitForEvent('download'), page.keyboard.press('Enter')]);
+    expect(dl.suggestedFilename()).toBe('我的_歌_1.txt');
+    await expect(page.locator('#exportMenu')).toBeHidden();
+    // 角色
+    expect(await page.locator('#exportMenu').getAttribute('role')).toBe('menu');
+    expect(await page.locator('#exportMenu .export-item').evaluateAll(els => els.map(e => e.getAttribute('role')))).toEqual(['menuitem', 'menuitem', 'menuitem', 'menuitem']);
+    expect(await page.locator('#exportToggle').getAttribute('aria-haspopup')).toBe('menu');
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('匯出：選單開著時開對話框會先關掉選單', async ({ browser }) => {
+    const { context, page } = await bootPage(browser, { storage: seed([FIXTURE_SONG()]), device: DESKTOP });
+    await openMenu(page);
+    await page.evaluate(() => document.getElementById('feedbackModalOverlay').classList.add('show'));
+    await page.locator('#exportToggle').dispatchEvent('click');   // 對話框蓋住了，用程式觸發（此時選單開著，會被關掉）
+    await expect(page.locator('#exportMenu')).toBeHidden();
+    await page.locator('#exportToggle').dispatchEvent('click');   // 對話框還開著：不會再打開
+    await expect(page.locator('#exportMenu')).toBeHidden();
+    await context.close();
+});
+
+test('匯出：標題列在手機放大也放得下', async ({ browser }) => {
+    const title = '很長的歌名'.repeat(12);
+    const { context, page, errors } = await bootPage(browser, { storage: seed([mkSong('song-l', title, [['主歌', '歌詞']])]), device: DEVICES.phone });
+    await page.locator('#mtab-lyrics').click();
+    for (const pct of [100, 150]) {
+        await page.evaluate(p => setUiScale(p), pct);   // 面板開著時按不到 ➕➖（被遮罩擋住），直接呼叫縮放函式
+        await waitStill(page);
+        const panel = await page.locator('#leftPanel').evaluate(el => { const r = el.getBoundingClientRect(); return { x: r.x, y: r.y, width: r.width, height: r.height }; });
+        const kids = await page.locator('.lyrics-head > *').evaluateAll(els => els.map(el => { const r = el.getBoundingClientRect(); return { n: el.id || el.className, x: r.x, y: r.y, width: r.width, height: r.height }; }));
+        expect(kids.map(k => k.n), '四個東西都在').toEqual(['songListToggle', 'songCurrent', 'exportToggle', 'panel-add-btn']);
+        for (const k of kids) {
+            expect(k.x, `${pct}% ${k.n} 左緣`).toBeGreaterThanOrEqual(panel.x - 0.5);
+            expect(k.x + k.width, `${pct}% ${k.n} 右緣`).toBeLessThanOrEqual(panel.x + panel.width + 0.5);
+        }
+        for (let i = 0; i < kids.length; i++) for (let j = i + 1; j < kids.length; j++) {
+            expect(rectsOverlap(kids[i], kids[j]), `${pct}% ${kids[i].n} 與 ${kids[j].n} 重疊`).toBe(false);
+        }
+        // 打開選單也要整個在畫面內
+        await page.locator('#exportToggle').click();
+        const m = await page.locator('#exportMenu').evaluate(el => { const r = el.getBoundingClientRect(); return { l: r.left, r: r.right, t: r.top, b: r.bottom, vw: innerWidth, vh: innerHeight }; });
+        expect(m.l, `${pct}% 選單左緣`).toBeGreaterThanOrEqual(0);
+        expect(m.r, `${pct}% 選單右緣`).toBeLessThanOrEqual(m.vw + 0.5);
+        expect(m.t, `${pct}% 選單上緣`).toBeGreaterThanOrEqual(0);
+        expect(m.b, `${pct}% 選單下緣`).toBeLessThanOrEqual(m.vh + 0.5);
+        await page.keyboard.press('Escape');   // 點空白處會點到面板遮罩，把整個面板關掉
+    }
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('匯出：觸控目標', async ({ browser }) => {
+    for (const [name, device, openSheet] of [['手機', DEVICES.phone, true], ['平板直放', DEVICES.tablet, true], ['平板橫放', DEVICES.tabletLandscape, false]]) {
+        const { context, page, errors } = await bootPage(browser, { storage: seed([FIXTURE_SONG()]), device });
+        if (openSheet) await page.locator('#mtab-lyrics').click();
+        await page.locator('#exportToggle').click();
+        await expect(page.locator('#exportMenu')).toBeVisible();
+        await waitStill(page);
+        const r = await auditTouchTargets(page, { mustSee: ['#exportToggle', '.export-item'] });
+        expect(r.missing, name + ' 沒量到').toEqual([]);
+        expect(r.failures, name + ' 觸控目標不到 44×44').toEqual([]);
+        expect(r.overlaps, name + ' 相鄰重疊').toEqual([]);
+        expect(r.seen.filter(n => /export-item/.test(n)).length, name + ' 四個選項都量到').toBe(4);
+        expect(errors).toEqual([]);
+        await context.close();
+    }
+});
+
+test('匯出：長歌列印', async ({ browser }) => {
+    // 補充檢查：把長歌印成 PDF 要有更多頁、列印頁沒有橫向被切（版面好不好看仍需人工看 PDF）
+    const lines = n => Array.from({ length: n }, (_, i) => `第${i + 1}行：一直一直寫下去的長長長長長長歌詞`).join('\n');
+    const sizes = [];
+    for (const n of [20, 200]) {
+        const { context, page, errors } = await bootPage(browser, { storage: seed([mkSong('song-long', '長歌', [['主歌', lines(n)]])]), device: DESKTOP, init: STUB_PRINT });
+        await startPdfFlow(page);
+        await page.emulateMedia({ media: 'print' });
+        const fit = await page.evaluate(() => { const s = document.getElementById('printSheet'); return { sw: s.scrollWidth, cw: s.clientWidth, lines: s.querySelector('.print-text').textContent.split('\n').length }; });
+        expect(fit.lines).toBe(n);
+        expect(fit.sw, '列印頁沒有橫向溢出').toBeLessThanOrEqual(fit.cw);
+        const pdf = await page.pdf({ format: 'A4' });
+        expect(pdf.subarray(0, 5).toString()).toBe('%PDF-');
+        sizes.push(pdf.length);
+        expect(errors).toEqual([]);
+        await context.close();
+    }
+    expect(sizes[1], '200 行的 PDF 比 20 行的大').toBeGreaterThan(sizes[0]);
+});
+
+test('匯出：下面沒位置時選單翻到按鈕上方', async ({ browser }) => {
+    const { context, page } = await bootPage(browser, { storage: seed([FIXTURE_SONG()]), device: DESKTOP });
+    // 把按鈕搬到畫面底部，模擬下方放不下
+    await page.evaluate(() => { const b = document.getElementById('exportToggle'); b.style.cssText = 'position:fixed;left:3rem;bottom:1rem;z-index:5'; });
+    await openMenu(page);
+    const r = await page.evaluate(() => {
+        const m = document.getElementById('exportMenu').getBoundingClientRect();
+        const b = document.getElementById('exportToggle').getBoundingClientRect();
+        return { menuBottom: m.bottom, btnTop: b.top, menuTop: m.top };
+    });
+    expect(r.menuTop).toBeGreaterThanOrEqual(0);
+    expect(r.menuBottom, '選單在按鈕上方，沒有蓋住按鈕').toBeLessThanOrEqual(r.btnTop + 0.5);
     await context.close();
 });
