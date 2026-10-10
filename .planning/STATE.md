@@ -4,16 +4,16 @@ milestone: v0.96
 current_phase: 08
 current_phase_name: Songs & Editor Model 歌曲管理與資料模型
 status: executing
-stopped_at: Completed 08-01-PLAN.md
-last_updated: "2026-10-10T22:38:09.622Z"
+stopped_at: Completed 08-02-PLAN.md
+last_updated: "2026-10-10T22:52:25.561Z"
 last_activity: 2026-10-11
 last_activity_desc: Phase 08 execution started
-state_head: 260e60e3b0f83c4d4aa3fa5426f8ba8cf79e05b2
+state_head: 9e6743a28761929fc327a07e38e95963066d4a51
 progress:
   total_phases: 12
   completed_phases: 2
   total_plans: 60
-  completed_plans: 52
+  completed_plans: 53
 ---
 
 # Project State
@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-10-03)
 ## Current Position
 
 Phase: 08 (Songs & Editor Model 歌曲管理與資料模型) — EXECUTING
-Plan: 2 of 9
+Plan: 3 of 9
 Status: Ready to execute
 Last activity: 2026-10-11 — Phase 08 execution started
 
@@ -109,6 +109,7 @@ Progress: [██░░░░░░░░] 17%
 | Phase 07 P09 | 45min | 2 tasks | 4 files |
 | Phase 07 P10 | 40 min | 2 tasks | 4 files |
 | Phase 08 P01 | 25 min | 2 tasks | 6 files |
+| Phase 08 P02 | 12 min | 2 tasks | 15 files |
 
 ## Accumulated Context
 
@@ -188,6 +189,9 @@ Recent decisions affecting current work:
 - [Phase 07]: 07-10: 精簡版題數表同步更正（第 3 級實為 15 題）；舊清單裡的「回報 / 意見」統一改為第 7 階段新名稱「意見回饋」
 - [Phase 07]: 07-10: 快照基準 darwin 16 檔已重拍，linux 16 檔留給 Andy 在雲端容器 npm run visual:update（D-22／3-17）
 - [Phase 08]: 08-01: fixed id 'song-migrated' makes the schema 1->2 step idempotent; corrupt legacy lyrics migrate to one empty section (raw kept in lh:corrupt:haiku_lyrics); ?v=0.96.12 shared by whole phase
+- [Phase 08]: 08-02: legacy single-song mode whenever lh:schema is not '2'; edits write haiku_lyrics/haiku_hashtags only, lh:songs stays absent
+- [Phase 08]: 08-02: corrupt or empty lh:songs (schema 2) yields one empty song 未命名歌曲 1; corrupt raw text kept under lh:corrupt:lh:songs; missing lh:songs rebuilds from legacy keys
+- [Phase 08]: 08-02: lhNewId(prefix) lives in js/safety.js (no crypto.randomUUID); sections matched by data-id, toggle updates DOM in place
 
 ### Pending Todos
 
@@ -230,6 +234,6 @@ Items acknowledged and deferred at milestone close, most recent first:
 
 ## Session Continuity
 
-Last session: 2026-10-10T22:38:09.570Z
-Stopped at: Completed 08-01-PLAN.md
+Last session: 2026-10-10T22:52:25.501Z
+Stopped at: Completed 08-02-PLAN.md
 Resume file: None
