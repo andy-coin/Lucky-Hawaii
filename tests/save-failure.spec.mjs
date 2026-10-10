@@ -205,9 +205,9 @@ test('IndexedDB: 備份寫入失敗時出現橫幅、改存一份在 localStorag
     await expect(banner).toContainText('資料備份沒有存成功');
     const ls = await page.evaluate(() => ({ backup: localStorage.getItem('lh:backup:ls'), schema: localStorage.getItem('lh:schema') }));
     const rec = JSON.parse(ls.backup);
-    expect(rec.id).toBe('baseline');
+    expect(rec.id).toBe('pre-schema-2');   // 單份備援：baseline 之後被升級前的備份取代，內容同樣是升級前的資料
     expect(rec.data).toEqual(Object.fromEntries(Object.entries(FIXTURE).filter(([k]) => !k.startsWith('apiKey_'))));   // 備援不含金鑰
-    expect(ls.schema).toBe('1');
+    expect(ls.schema).toBe('2');
     await page.fill('#searchInput', 'ㄢ');
     await settle(page);
     await expect(page.locator('.results-count').first()).toHaveText(/[1-9]/);

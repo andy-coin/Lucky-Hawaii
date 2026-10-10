@@ -136,14 +136,15 @@ const EXTRA = { haoYunQi_admin_key: 'admin-secret-test', haoYunQi_admin_theme: '
 test('backup: 第一次開啟建立基準備份，只含清單內的鍵', async ({ browser }) => {
     const { context, page, errors } = await bootPage(browser, { storage: { ...FIXTURE, ...EXTRA } });
     const list = await page.evaluate(() => lhListBackups());
-    expect(list.map(r => r.id)).toEqual(['baseline']);
+    expect(list.map(r => r.id)).toEqual(['baseline', 'pre-schema-2']);   // 升級到資料版本 2 前多存一份
     expect(list[0].data).toEqual(FIXTURE);
+    expect(list[1].data).toEqual(FIXTURE);
     expect(Object.keys(list[0].data)).toHaveLength(17);
     for (const k of Object.keys(list[0].data)) expect(k.startsWith('lh:')).toBe(false);
     expect(list[0].data).not.toHaveProperty('haoYunQi_admin_key');
     expect(list[0].data).not.toHaveProperty('haoYunQi_admin_theme');
     expect(list[0].data).not.toHaveProperty('otherProject_setting');
-    expect((await dumpLS(page))['lh:schema']).toBe('1');
+    expect((await dumpLS(page))['lh:schema']).toBe('2');
     expect(errors).toEqual([]);
     await context.close();
 });
@@ -158,14 +159,15 @@ test('backup: 舊版資料開啟後每個鍵值完全不變', async ({ browser }
 
 test('backup: 基準備份之後不會被覆寫', async ({ browser }) => {
     const { context, page, errors } = await bootPage(browser, { storage: FIXTURE });
-    const first = (await page.evaluate(() => lhListBackups()))[0];
+    const first = (await page.evaluate(() => lhListBackups())).find(r => r.id === 'baseline');
     await page.evaluate(() => lhSet('haiku_savedwords', '["新"]'));
     await page.reload();
     await ready(page);
     const list = await page.evaluate(() => lhListBackups());
-    expect(list).toHaveLength(1);
-    expect(list[0].createdAt).toBe(first.createdAt);
-    expect(list[0].data).toEqual(first.data);
+    expect(list).toHaveLength(2);   // baseline ＋ pre-schema-2
+    const baseline = list.find(r => r.id === 'baseline');
+    expect(baseline.createdAt).toBe(first.createdAt);
+    expect(baseline.data).toEqual(first.data);
     expect((await dumpLS(page)).haiku_savedwords).toBe('["新"]');
     expect(errors).toEqual([]);
     await context.close();
@@ -196,9 +198,9 @@ test('backup: 全新瀏覽器開啟沒有錯誤並設定資料版本', async ({ 
     const { context, page, errors } = await bootPage(browser, { storage: {} });
     expect(errors).toEqual([]);
     const list = await page.evaluate(() => lhListBackups());
-    expect(list.map(r => r.id)).toEqual(['baseline']);
+    expect(list.map(r => r.id)).toEqual(['baseline', 'pre-schema-2']);
     expect(list[0].data).toEqual({});
-    expect((await dumpLS(page))['lh:schema']).toBe('1');
+    expect((await dumpLS(page))['lh:schema']).toBe('2');
     await context.close();
 });
 
@@ -210,13 +212,13 @@ test('backup: IndexedDB 無法使用時改存 localStorage 單份並留記錄', 
     await expect(page.locator('#lhSaveBanner')).toHaveCount(0);
     const ls = await dumpLS(page);
     const rec = JSON.parse(ls['lh:backup:ls']);
-    expect(rec.id).toBe('baseline');
+    expect(rec.id).toBe('pre-schema-2');   // 單份備援：baseline 之後被升級前的備份取代
     expect(rec.data).toEqual(NO_SECRETS);   // 備援不含金鑰
-    expect(ls['lh:schema']).toBe('1');
+    expect(ls['lh:schema']).toBe('2');
     expect(warnings.some(w => w.includes('[好韻器] IndexedDB 不可用'))).toBe(true);
     const list = await page.evaluate(() => lhListBackups());
     expect(list).toHaveLength(1);
-    expect(list[0].id).toBe('baseline');
+    expect(list[0].id).toBe('pre-schema-2');
     expect(errors).toEqual([]);
     await context.close();
 });
@@ -244,7 +246,7 @@ test('restore: 從 localStorage 備援還原時不會刪掉目前的金鑰', asy
         init: () => { Object.defineProperty(window, 'indexedDB', { value: undefined, configurable: true }); },
     });
     await page.evaluate(() => localStorage.setItem('selectedModel', 'changed-later'));
-    expect(await page.evaluate(() => lhRestoreFromBackup('baseline'))).toBe(true);
+    expect(await page.evaluate(() => lhRestoreFromBackup('pre-schema-2'))).toBe(true);
     const after = await dumpLS(page);
     expect(after.selectedModel).toBe(FIXTURE.selectedModel);
     expect(after.apiKey_gemini).toBe(FIXTURE.apiKey_gemini);
@@ -255,6 +257,8 @@ test('restore: 從 localStorage 備援還原時不會刪掉目前的金鑰', asy
 // ===== 資料格式遷移（FND-03）=====
 test('migrate: 依版本順序執行、每步最多一次', async ({ browser }) => {
     const { context, page, errors } = await bootPage(browser, { storage: FIXTURE });
+    // 開機後資料版本已是 2（1→2 遷移跑完）；手寫的步驟要從 1 開始才會執行
+    await page.evaluate(() => localStorage.setItem('lh:schema', '1'));
     const run = () => page.evaluate(() => lhMigrate([
         { to: 3, run: s => s.set('haoYunQi_inputMode', s.get('haoYunQi_inputMode') + '3') },
         { to: 2, run: s => s.set('haoYunQi_inputMode', s.get('haoYunQi_inputMode') + '2') },
@@ -271,6 +275,8 @@ test('migrate: 依版本順序執行、每步最多一次', async ({ browser }) 
 
 test('migrate: 重跑三次結果相同、不多存備份', async ({ browser }) => {
     const { context, page, errors } = await bootPage(browser, { storage: FIXTURE });
+    // 開機後資料版本已是 2（1→2 遷移跑完）；手寫的步驟要從 1 開始才會執行
+    await page.evaluate(() => localStorage.setItem('lh:schema', '1'));
     const run = () => page.evaluate(() => lhMigrate([{ to: 2, run: s => s.set('selectedModel', 'gemini-test') }], 2));
     await run();
     const once = await dumpLS(page);
@@ -287,6 +293,8 @@ test('migrate: 重跑三次結果相同、不多存備份', async ({ browser }) 
 
 test('migrate: 中途失敗自動還原成升級前', async ({ browser }) => {
     const { context, page, errors } = await bootPage(browser, { storage: FIXTURE });
+    // 開機後資料版本已是 2（1→2 遷移跑完）；手寫的步驟要從 1 開始才會執行
+    await page.evaluate(() => localStorage.setItem('lh:schema', '1'));
     const before = await dumpLS(page);
     // 第一步成功（lh:schema 已翻成 2），第二步改到一半才失敗：lh:schema 也必須回到升級前
     const result = await page.evaluate(() => lhMigrate([
@@ -313,6 +321,8 @@ test('migrate: 中途失敗自動還原成升級前', async ({ browser }) => {
 
 test('migrate: 備份等待期間的編輯不會被失敗還原蓋掉（WR-03）', async ({ browser }) => {
     const { context, page, errors } = await bootPage(browser, { storage: FIXTURE });
+    // 開機後資料版本已是 2（1→2 遷移跑完）；手寫的步驟要從 1 開始才會執行
+    await page.evaluate(() => localStorage.setItem('lh:schema', '1'));
     const result = await page.evaluate(() => {
         const p = lhMigrate([{ to: 2, run: s => { s.set('selectedModel', 'step2'); throw new Error('boom'); } }], 2);
         // lhMigrate 在 await 備份時就回到這裡：模擬使用者在這段時間改了歌詞
@@ -328,6 +338,8 @@ test('migrate: 備份等待期間的編輯不會被失敗還原蓋掉（WR-03）
 
 test('migrate: 失敗後還原也失敗時，提示如實說還原沒做完（WR-02）', async ({ browser }) => {
     const { context, page, errors } = await bootPage(browser, { storage: FIXTURE });
+    // 開機後資料版本已是 2（1→2 遷移跑完）；手寫的步驟要從 1 開始才會執行
+    await page.evaluate(() => localStorage.setItem('lh:schema', '1'));
     const result = await page.evaluate(() => {
         const set = Storage.prototype.setItem;
         // 步驟自己寫 'step2' 可以；之後還原要把 selectedModel 寫回原值時，模擬寫入失敗
@@ -351,6 +363,8 @@ test('migrate: 失敗後還原也失敗時，提示如實說還原沒做完（WR
 
 test('migrate: 遷移步驟不可寫入未登記的鍵', async ({ browser }) => {
     const { context, page, errors } = await bootPage(browser, { storage: FIXTURE });
+    // 開機後資料版本已是 2（1→2 遷移跑完）；手寫的步驟要從 1 開始才會執行
+    await page.evaluate(() => localStorage.setItem('lh:schema', '1'));
     const before = await dumpLS(page);
     const result = await page.evaluate(() => lhMigrate([{ to: 2, run: s => s.set('evilKey', 'x') }], 2));
     expect(result).toMatchObject({ restored: true });
@@ -378,7 +392,9 @@ test('migrate: 備份存不進去時不執行遷移', async ({ browser }) => {
         },
     });
     await page.evaluate(() => { window.__failBackupIdb = true; window.__failBackupLs = true; });
-    const result = await page.evaluate(() => lhMigrate([{ to: 2, run: s => s.set('selectedModel', 'SHOULD-NOT') }], 2));
+    // 開機已經存過 'pre-schema-2'（同 id 不重寫就算成功），所以改測目標 3，備份 id 是還不存在的 'pre-schema-3'
+    await page.evaluate(() => localStorage.setItem('lh:schema', '1'));
+    const result = await page.evaluate(() => lhMigrate([{ to: 3, run: s => s.set('selectedModel', 'SHOULD-NOT') }], 3));
     expect(result).toMatchObject({ ran: 0, blocked: true });
     const ls = await dumpLS(page);
     expect(ls.selectedModel).toBe(FIXTURE.selectedModel);
@@ -474,11 +490,14 @@ test('backup: 兩個分頁同時開啟', async ({ browser }) => {
     const { context, pages, errs } = await openTwoTabs(browser, FIXTURE);
     for (const page of pages) {
         const list = await page.evaluate(() => lhListBackups());
-        expect(list.map(r => r.id)).toEqual(['baseline']);   // 只有一份，沒被另一個分頁重複建立
+        expect(list.map(r => r.id)).toEqual(['baseline', 'pre-schema-2']);   // 各只有一份，沒被另一個分頁重複建立
         expect(list[0].data).toEqual(FIXTURE);               // 原始字串逐字相同
         const ls = await dumpLS(page);
         for (const [k, v] of Object.entries(FIXTURE)) expect(ls[k]).toBe(v);
-        expect(ls['lh:schema']).toBe('1');
+        expect(ls['lh:schema']).toBe('2');
+        const songs = JSON.parse(ls['lh:songs']);            // 兩個分頁同時升級，仍然只有一首
+        expect(songs).toHaveLength(1);
+        expect(songs[0].id).toBe('song-migrated');
     }
     expect(errs).toEqual([[], []]);
     await context.close();
@@ -486,6 +505,8 @@ test('backup: 兩個分頁同時開啟', async ({ browser }) => {
 
 test('migrate: 兩個分頁同時遷移', async ({ browser }) => {
     const { context, pages, errs } = await openTwoTabs(browser, FIXTURE);
+    // 開機已升到資料版本 2；手寫的步驟要從 1 開始才會執行
+    await pages[0].evaluate(() => localStorage.setItem('lh:schema', '1'));
     // 冪等的轉換：已經加過 '+m' 就不再加；單獨跑一次的結果是 FIXTURE 值 + '+m'
     const migrate = page => page.evaluate(() => lhMigrate([
         { to: 2, run: s => { const v = s.get('haoYunQi_inputMode'); if (!v.endsWith('+m')) s.set('haoYunQi_inputMode', v + '+m'); } },
