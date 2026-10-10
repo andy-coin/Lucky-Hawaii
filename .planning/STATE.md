@@ -4,16 +4,16 @@ milestone: v0.96
 current_phase: 08
 current_phase_name: Songs & Editor Model 歌曲管理與資料模型
 status: executing
-stopped_at: Completed 08-05-PLAN.md
-last_updated: "2026-10-10T23:28:20.810Z"
+stopped_at: Completed 08-06-PLAN.md
+last_updated: "2026-10-10T23:48:45.341Z"
 last_activity: 2026-10-11
 last_activity_desc: Phase 08 execution started
-state_head: f0cdae55069d43d8fd5f7601a82b591cbd386742
+state_head: 863aa5495be0629a83095c095d2b4b3ae5ae005c
 progress:
   total_phases: 12
   completed_phases: 2
   total_plans: 60
-  completed_plans: 56
+  completed_plans: 57
 ---
 
 # Project State
@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-10-03)
 ## Current Position
 
 Phase: 08 (Songs & Editor Model 歌曲管理與資料模型) — EXECUTING
-Plan: 6 of 9
+Plan: 7 of 9
 Status: Ready to execute
 Last activity: 2026-10-11 — Phase 08 execution started
 
@@ -113,6 +113,7 @@ Progress: [██░░░░░░░░] 17%
 | Phase 08 P03 | 9 min | 2 tasks | 5 files |
 | Phase 08 P04 | 14 min | 2 tasks | 3 files |
 | Phase 08 P05 | 22 min | 3 tasks | 11 files |
+| Phase 08 P06 | 22 min | 3 tasks | 13 files |
 
 ## Accumulated Context
 
@@ -200,6 +201,8 @@ Recent decisions affecting current work:
 - [Phase 08]: Deleted-elsewhere neighbour is picked from the old sortedSongs order (next surviving, else previous); a dirty copy of a song deleted elsewhere is re-added on its next flush (accepted, last write wins)
 - [Phase 08]: 08-05: song list push column appears instantly (D-02), double-click rename only in push column (D-06), lh:songListOpen only read/written at >=1024 (D-04), new song number = max N + 1
 - [Phase 08]: 08-05: migration toast only when the migrated song has lyric text; both-panels check in syncCenterPanel uses real left and right widths
+- [Phase 08]: 08-06 F6: print rules scoped to body.print-song so normal Cmd/Ctrl+P still prints the page (overrides UI-SPEC D-12 unconditional hide)
+- [Phase 08]: 08-06: export menu hint/toast show the sanitised file name cut to 16 chars; css/print.css is the only file allowed #000/#fff
 
 ### Pending Todos
 
@@ -242,6 +245,6 @@ Items acknowledged and deferred at milestone close, most recent first:
 
 ## Session Continuity
 
-Last session: 2026-10-10T23:28:20.758Z
-Stopped at: Completed 08-05-PLAN.md
+Last session: 2026-10-10T23:48:45.285Z
+Stopped at: Completed 08-06-PLAN.md
 Resume file: None
