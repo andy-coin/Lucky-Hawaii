@@ -1055,7 +1055,7 @@ test('底部面板：六段歌詞可捲動、每段夠高', async ({ browser }) 
         for (const h of m.tas) expect(h, `每段輸入框高度 ${m.tas}`).toBeGreaterThanOrEqual(112);
         // 捲到最底的最後一段、以及「+ 新增段落」都點得到
         await expectReallyClickable(page, page.locator('#lyricsSections .section-textarea').last(), '最後一段輸入框');
-        await expectReallyClickable(page, page.locator('#leftPanel .panel-add-btn'), '新增段落');
+        await expectReallyClickable(page, page.locator('#leftPanel .lyrics-head .panel-add-btn'), '新增段落');
     } finally { await context.close(); }
 });
 
@@ -1074,7 +1074,7 @@ for (const [name, device] of [['手機', DEVICES.phone], ['平板', DEVICES.tabl
                 await expectReallyClickable(page, loc, label);
             };
             await toggleSide(page, device, 'lyrics');
-            await inside('#leftPanel', page.locator('#leftPanel .panel-add-btn'), '「+ 新增段落」');
+            await inside('#leftPanel', page.locator('#leftPanel .lyrics-head .panel-add-btn'), '「+ 新增段落」');
             await inside('#leftPanel', page.locator('#lyricsSections .section-textarea').first(), '第一個歌詞輸入框');
             await closeSheet(page, device);
             await toggleSide(page, device, 'ai');

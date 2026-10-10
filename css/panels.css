@@ -396,6 +396,20 @@
             border-radius: 0.375rem;
             cursor: pointer;
         }
+        .song-item.renaming .song-actions { display: none; }
+        .song-name-input {
+            flex: 1 1 100%;
+            min-width: 0;
+            min-height: 2rem;
+            padding: var(--sp-1) var(--sp-2);
+            border: 2px solid var(--highlight-border);
+            border-radius: 0.375rem;
+            background: var(--container-bg);
+            color: var(--text-primary);
+            font-family: inherit;
+            font-size: 0.875rem;
+            outline: none;
+        }
         .song-list-hint {
             margin: 0;
             font-size: 0.75rem;

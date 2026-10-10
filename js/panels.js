@@ -35,8 +35,10 @@
                     const rootStyle = getComputedStyle(document.documentElement);
                     const rem = parseFloat(rootStyle.fontSize) || 16;
                     const gutter = parseFloat(rootStyle.getPropertyValue('--page-pad')) || 0;
-                    const panelW = lp.getBoundingClientRect().width;
-                    if (window.innerWidth - 2 * panelW - 2 * gutter < 24 * rem) {
+                    // 左右各自量真實寬度：歌曲清單推開時左面板比右面板寬 --song-w，不能把左邊的寬度算兩次（Phase 8 D-02）
+                    const lpW = lp.getBoundingClientRect().width;
+                    const rpW = rp.getBoundingClientRect().width;
+                    if (window.innerWidth - lpW - rpW - 2 * gutter < 24 * rem) {
                         const victim = opener === 'right' ? lp : rp;
                         victim.classList.add('collapsed');
                         // 只有使用者親手打開造成的收起才記起來；單純視窗變窄不改他存的偏好
@@ -47,6 +49,9 @@
                 document.body.classList.toggle('lp-open', !lp.classList.contains('collapsed'));
                 document.body.classList.toggle('rp-open', !rp.classList.contains('collapsed'));
             }
+
+            // 左面板收起（任何版型）時，蓋在歌詞上的清單跟著關；推開欄的偏好不動（Phase 8 §9）
+            if (lp.classList.contains('collapsed') && typeof closeSongListOverlay === 'function') closeSongListOverlay();
 
             for (const panel of [lp, rp]) {
                 const collapsed = panel.classList.contains('collapsed');

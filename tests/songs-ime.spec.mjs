@@ -105,6 +105,8 @@ const caretAtEnd = (page, sel) => page.evaluate(s => { const e = document.queryS
 
 test('組字：不重畫也不跳游標', async ({ browser }) => {
     const { context, page, errors } = await bootPage(browser, { storage: FIXTURE });
+    // 升級那一次開機會有 6 秒的「歌詞已整理成第一首歌」提示；這個測試要看的是打字不會冒出提示，所以先收掉它
+    await page.evaluate(() => document.getElementById('copyToast')?.classList.remove('show'));
     for (const sel of ['.section-textarea', '#contextDescription']) {
         await page.evaluate(s => {
             const el = document.querySelector(s);

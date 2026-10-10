@@ -301,7 +301,15 @@ function switchSong(id) {
         flushSongs();
         activeSongId = id;
         if (songsMode === 'v2') lhSet('lh:activeSong', id);
-        _refreshSongUI();
+        // 清單原地換標記、不重畫：按鈕還是同一顆，連續點兩下（雙擊改名）才點得到同一個目標
+        renderActiveSong();
+        renderSongHeader();
+        document.querySelectorAll('#songItems .song-pick').forEach(p => {
+            const on = p.dataset.songId === id;
+            p.tabIndex = on ? 0 : -1;
+            if (on) p.closest('.song-item').setAttribute('aria-current', 'true');
+            else p.closest('.song-item').removeAttribute('aria-current');
+        });
         const area = document.getElementById('lyricsSections');
         if (area) area.scrollTop = 0;
     }
@@ -336,9 +344,101 @@ function createSong() {
     _refreshSongUI();
     const area = document.getElementById('lyricsSections');
     if (area) area.scrollTop = 0;
+    startRenameSong(song.id, { isNew: true });   // 新歌直接改名（D-07）；Esc 或不改就保留預設名稱
+}
+
+// ==================== 改名 ====================
+const SONG_NAME_MAX = 60;
+const _songPick = id => Array.from(document.querySelectorAll('#songItems .song-pick')).find(b => b.dataset.songId === id) || null;
+
+// 在清單那一列原地換成輸入框：Enter／失焦存檔，Esc 取消；空白或沒改就維持原名且不跳提示（D-18）
+// opts.isNew：剛新增的歌，改完後覆蓋層關起來，焦點回到 ☰ 歌曲而不是歌詞框（手機鍵盤不會又彈出來）
+function startRenameSong(id, opts = {}) {
+    const song = songs.find(s => s.id === id);
+    const pick = _songPick(id);
+    if (!song || !pick) return;
+    const row = pick.closest('.song-item');
+    if (row.querySelector('.song-name-input')) return;
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'song-name-input';
+    input.maxLength = SONG_NAME_MAX;
+    input.value = song.title;
+    input.setAttribute('aria-label', '歌曲名稱');
+    row.classList.add('renaming');
+    pick.replaceWith(input);
+    input.focus();
+    input.select();
+    let done = false;
+    const finish = (commit, refocus) => {
+        if (done) return;
+        done = true;
+        // 貼上的長字串在這裡才截斷（用字元數，不把一個字切半）
+        const name = Array.from(input.value.trim()).slice(0, SONG_NAME_MAX).join('');
+        if (commit && name && name !== song.title) {
+            song.title = name;
+            markDirty(id);
+            flushSongs();
+        }
+        renderSongList();
+        if (id === activeSongId) renderSongHeader();   // 改的不是目前這首就不動標題列（§9）
+        const overlay = _songListOpen() && !_MQ_SONG_PUSH.matches;
+        if (opts.isNew && overlay) {
+            _applySongListState(false);
+            const btn = document.getElementById('songListToggle');
+            if (refocus && btn) btn.focus();
+        } else if (refocus) {
+            const p = _songPick(id);
+            if (p) p.focus();
+        }
+    };
+    input.addEventListener('keydown', e => {
+        if (e.isComposing || e.keyCode === 229) return;   // 組字中的 Enter／Esc 是選字、取消組字
+        if (e.key === 'Enter') { e.preventDefault(); finish(true, true); }
+        else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); finish(false, true); }
+    });
+    input.addEventListener('blur', () => finish(true, false));
 }
 
 document.addEventListener('click', e => {
-    const pick = e.target.closest && e.target.closest('#songItems .song-pick');
-    if (pick) switchSong(pick.dataset.songId);
+    const t = e.target.closest ? e.target : e.target.parentElement;
+    const pick = t && t.closest('#songItems .song-pick');
+    if (pick) return switchSong(pick.dataset.songId);
+    const ren = t && t.closest('#songItems .song-act.rename');
+    if (ren) startRenameSong(ren.dataset.songId);
+});
+
+// 雙擊歌名改名只在推開欄（覆蓋層的第一下就把清單關了，雙擊落不下來；那裡用 ✎，D-06）
+// 以整列為準而不是只認歌名按鈕：第一下切歌後，目前這首會多出第二行的動作列把版面往上推，第二下常落在動作列的空白處
+document.addEventListener('dblclick', e => {
+    const row = e.target.closest && e.target.closest('#songItems .song-item');
+    if (!row || e.target.closest('.song-act, .song-name-input') || !_MQ_SONG_PUSH.matches) return;
+    const pick = row.querySelector('.song-pick');
+    if (pick) startRenameSong(pick.dataset.songId);
+});
+
+// 清單裡的鍵盤：上下在歌名間移動（roving tabindex）、F2 改名、Esc 關清單回 ☰ 歌曲；Enter／空白鍵是按鈕原生行為
+document.addEventListener('keydown', e => {
+    const t = e.target;
+    if (!t.closest || !t.closest('#songList') || t.classList.contains('song-name-input')) return;
+    if (e.isComposing || e.keyCode === 229) return;
+    const pick = t.classList.contains('song-pick') ? t : null;
+    if (e.key === 'Escape') {
+        e.preventDefault();   // 同時告訴手機版的「Esc 收起整個 sheet」這個 Esc 已經用掉了
+        toggleSongList(false);
+        const btn = document.getElementById('songListToggle');
+        if (btn) btn.focus();
+    } else if (pick && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
+        e.preventDefault();
+        const picks = Array.from(document.querySelectorAll('#songItems .song-pick'));
+        const next = picks[picks.indexOf(pick) + (e.key === 'ArrowDown' ? 1 : -1)];
+        if (next) {
+            picks.forEach(p => { p.tabIndex = -1; });
+            next.tabIndex = 0;
+            next.focus();
+        }
+    } else if (pick && e.key === 'F2') {
+        e.preventDefault();
+        startRenameSong(pick.dataset.songId);
+    }
 });
