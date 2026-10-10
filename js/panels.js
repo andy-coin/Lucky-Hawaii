@@ -139,12 +139,25 @@
                 countEl.textContent = savedWords.length;
                 countEl.style.display = savedWords.length ? 'inline' : 'none';
             }
+            // 保留池的字可能來自詞庫、AI 或匯入檔：只用 textContent 與事件監聽，不拼 HTML、不拼 onclick 字串（T-08-06）
             if (savedWords.length === 0) {
-                container.innerHTML = '<span style="color:var(--text-secondary);font-size:0.82rem;">點擊上方詞彙保留</span>';
+                const empty = document.createElement('span');
+                empty.textContent = '點擊上方詞彙保留';
+                empty.style.color = 'var(--text-secondary)';
+                empty.style.fontSize = '0.82rem';
+                container.replaceChildren(empty);
                 return;
             }
-            container.innerHTML = savedWords.map(w =>
-                `<div class="word-chip" onclick="copyWord('${w.replace(/'/g, "\\'")}')">` +
-                `${w}<span class="chip-remove" onclick="event.stopPropagation();removeSavedWord('${w.replace(/'/g, "\\'")}')">×</span></div>`
-            ).join('');
+            container.replaceChildren(...savedWords.map(w => {
+                const chip = document.createElement('div');
+                chip.className = 'word-chip';
+                chip.append(w);
+                chip.addEventListener('click', () => copyWord(w));
+                const x = document.createElement('span');
+                x.className = 'chip-remove';
+                x.textContent = '×';
+                x.addEventListener('click', e => { e.stopPropagation(); removeSavedWord(w); });
+                chip.appendChild(x);
+                return chip;
+            }));
         }

@@ -203,3 +203,73 @@ test('資料為準：主控台不出現歌詞', async ({ browser }) => {
     }
     await context.close();
 });
+
+// 保留池與 #標籤 的字一律當文字顯示、複製、移除，不被當成 HTML 或程式（B3, F11）
+test('資料為準：保留池的字原樣顯示', async ({ browser }) => {
+    const IMG = '<img src=x onerror=window.__pwn=1>';
+    const QUOTE = "a'b";
+    const { context, page, errors } = await bootPage(browser, { storage: { ...FIXTURE, haiku_savedwords: JSON.stringify([IMG, QUOTE]) } });
+    const chips = page.locator('#savedWordsContainer .word-chip');
+    await expect(chips).toHaveCount(2);
+    expect(await chips.evaluateAll(els => els.map(e => e.firstChild.textContent))).toEqual([IMG, QUOTE]);
+    expect(await page.locator('#savedWordsContainer img').count(), '沒有 img 元素').toBe(0);
+    expect(await page.evaluate(() => window.__pwn)).toBeUndefined();
+    // 點詞：剪貼簿裡正好是那個字串
+    await chips.nth(1).evaluate(e => e.click());
+    expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(QUOTE);
+    // × 只移除被點的那個詞
+    await chips.nth(0).locator('.chip-remove').evaluate(e => e.click());
+    await expect(chips).toHaveCount(1);
+    expect(JSON.parse(await page.evaluate(() => localStorage.getItem('haiku_savedwords')))).toEqual([QUOTE]);
+    await chips.nth(0).locator('.chip-remove').evaluate(e => e.click());
+    expect(await page.locator('#savedWordsContainer').textContent()).toContain('點擊上方詞彙保留');
+    expect(await page.evaluate(() => window.__pwn)).toBeUndefined();
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('資料為準：標籤原樣顯示', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, {
+        storage: v2Storage([song('s1', [sec('a1', '詞')], { hashtags: ['<b>t</b>', "a'b"] })]),
+    });
+    const chips = page.locator('#hashtagChips .hashtag-chip');
+    await expect(chips).toHaveCount(2);
+    expect(await chips.evaluateAll(els => els.map(e => e.textContent))).toEqual(['#<b>t</b>×', "#a'b×"]);
+    expect(await page.locator('#hashtagChips b').count()).toBe(0);
+    await chips.nth(1).locator('.chip-remove').evaluate(e => e.click());
+    expect((await activeSong(page)).hashtags).toEqual(['<b>t</b>']);
+    await chips.nth(0).locator('.chip-remove').evaluate(e => e.click());
+    expect((await activeSong(page)).hashtags).toEqual([]);
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('資料為準：情境結果寫回原本那首歌', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, {
+        storage: v2Storage([
+            song('s1', [sec('a1', '夜裡的風吹過窗邊，我想起你的笑')]),
+            song('s2', [sec('b1', '另一首')]),
+        ]),
+    });
+    let release;
+    const gate = new Promise(r => { release = r; });
+    await page.route('**/ai', async route => {
+        await gate;
+        await route.fulfill({
+            status: 200, contentType: 'application/json',
+            body: JSON.stringify({ ok: true, text: '情境：海邊的夜晚\n標籤：海,夜', model: { id: 'm', label: 'M' }, tried: [] }),
+        });
+    });
+    await page.evaluate(() => document.querySelector('.context-refresh-btn').click());
+    // 等請求出去、還在等回覆時，使用者切到第二首
+    await page.waitForFunction(() => document.querySelector('.context-refresh-btn').disabled);
+    await page.evaluate(() => { activeSongId = 's2'; renderActiveSong(); });
+    release();
+    await page.waitForFunction(() => !document.querySelector('.context-refresh-btn').disabled);
+    const got = await page.evaluate(() => { flushSongs(); return songs.map(s => ({ id: s.id, context: s.context, hashtags: s.hashtags })); });
+    expect(got.find(s => s.id === 's1').context).toBe('海邊的夜晚');
+    expect(got.find(s => s.id === 's2').context).toBe('');
+    expect(await page.locator('#contextDescription').inputValue(), '畫面上是第二首，不被別首的結果蓋掉').toBe('');
+    expect(errors).toEqual([]);
+    await context.close();
+});

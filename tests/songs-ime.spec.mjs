@@ -93,3 +93,83 @@ test('組字：段落名稱組字中按 Enter 不結束編輯', async ({ browser
     expect(errors).toEqual([]);
     await context.close();
 });
+
+// 打字與組字完全不碰畫面結構：沒有節點被換掉、游標不跳（D-17）
+const watchLeftPanel = page => page.evaluate(() => {
+    window.__muts = [];
+    window.__mo = new MutationObserver(list => { window.__muts.push(...list.filter(m => m.type === 'childList')); });
+    window.__mo.observe(document.getElementById('leftPanel'), { childList: true, subtree: true });
+});
+const takeMuts = page => page.evaluate(() => { window.__muts.push(...window.__mo.takeRecords()); return window.__muts.length; });
+const caretAtEnd = (page, sel) => page.evaluate(s => { const e = document.querySelector(s); return e.selectionStart === e.value.length && e.selectionEnd === e.value.length; }, sel);
+
+test('組字：不重畫也不跳游標', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, { storage: FIXTURE });
+    for (const sel of ['.section-textarea', '#contextDescription']) {
+        await page.evaluate(s => {
+            const el = document.querySelector(s);
+            window.__ta = el;
+            el.focus();
+            el.setSelectionRange(el.value.length, el.value.length);
+        }, sel);
+        await watchLeftPanel(page);
+        await page.keyboard.type('abcdefghij0123456789');
+        expect(await caretAtEnd(page, sel), sel + ' 打字後游標在最後').toBe(true);
+        for (const [steps, commit] of [[['ㄋ', 'ㄋㄧ', 'ㄋㄧˇ'], '你']]) {
+            const cdp = await page.context().newCDPSession(page);
+            for (const t of steps) {
+                await cdp.send('Input.imeSetComposition', { text: t, selectionStart: t.length, selectionEnd: t.length });
+                expect(await caretAtEnd(page, sel), sel + ' 組字中游標在最後').toBe(true);
+            }
+            await cdp.send('Input.insertText', { text: commit });
+            await cdp.detach();
+        }
+        expect(await caretAtEnd(page, sel), sel + ' 確認後游標在最後').toBe(true);
+        await page.waitForTimeout(500);   // 讓 300 毫秒的存檔也跑完，存檔不該動畫面
+        expect(await takeMuts(page), sel + ' 沒有任何節點增減').toBe(0);
+        expect(await page.evaluate(s => window.__ta === document.querySelector(s), sel), sel + ' 還是同一個節點').toBe(true);
+        expect(await page.evaluate(() => document.activeElement === window.__ta)).toBe(true);
+        await page.evaluate(() => window.__mo.disconnect());
+    }
+    // 沒有存檔提示、轉圈或提示訊息
+    expect(await page.evaluate(() => document.getElementById('copyToast')?.classList.contains('show') ?? false)).toBe(false);
+    expect(await page.locator('#leftPanel .spinner, #leftPanel [class*="saving"], #leftPanel [class*="loading"]').count()).toBe(0);
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('組字：關分頁不掉字', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, { storage: FIXTURE });
+    await page.evaluate(() => {
+        const ta = document.querySelector('.section-textarea');
+        ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length);
+    });
+    await page.keyboard.type('關分頁前的最後一句');   // 不等 300 毫秒存檔，直接關
+    await page.close({ runBeforeUnload: false });
+    const sibling = await context.newPage();
+    await sibling.goto('/index.html');
+    const text = await sibling.evaluate(() => {
+        const songs = JSON.parse(localStorage.getItem('lh:songs'));
+        return songs.find(s => s.id === localStorage.getItem('lh:activeSong')).sections[0].text;
+    });
+    expect(text.endsWith('關分頁前的最後一句')).toBe(true);
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('組字：切到背景立刻存', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, { storage: FIXTURE });
+    await page.evaluate(() => {
+        const ta = document.querySelector('.section-textarea');
+        ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length);
+    });
+    await page.keyboard.type('切背景');
+    await page.evaluate(() => {
+        Object.defineProperty(document, 'visibilityState', { value: 'hidden', configurable: true });
+        document.dispatchEvent(new Event('visibilitychange'));
+    });
+    // 不等 300 毫秒，立刻讀儲存
+    expect((await rawFirstText(page)).endsWith('切背景')).toBe(true);
+    expect(errors).toEqual([]);
+    await context.close();
+});
