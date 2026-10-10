@@ -98,7 +98,7 @@ test('localStorage: 使用者操作存檔失敗時不再出現程式錯誤', asy
     // 展開側欄：toggleLeftPanel 會寫入 leftPanelCollapsed（以前這裡會丟未捕捉的例外）
     await page.evaluate(() => document.querySelector('[onclick="toggleLeftPanel()"]').click());
     await expect(page.locator(BANNER)).toBeVisible();
-    // 打字：oninput 觸發 saveLyrics 寫入 haiku_lyrics
+    // 打字：input 事件只改模型，300 毫秒後才寫入 lh:songs（寫入失敗只跳橫幅，不丟例外）
     await page.evaluate(() => {
         const ta = document.querySelector('.section-textarea');
         ta.value = ta.value + '新的一行';

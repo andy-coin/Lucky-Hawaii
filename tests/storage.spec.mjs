@@ -1,7 +1,7 @@
 // 儲存相關測試：損毀資料開機（之後的 plan 會再加備份與遷移測試）
 import { test, expect } from '@playwright/test';
 import { readFileSync } from 'node:fs';
-import { bootPage, settle, BASE, CONTEXT_OPTS, routeExternal, stubWordlist, collectErrors } from './helpers.mjs';
+import { bootPage, settle, BASE, CONTEXT_OPTS, routeExternal, stubWordlist, collectErrors, activeSong } from './helpers.mjs';
 
 const CORRUPT = JSON.parse(readFileSync(new URL('./fixtures/v096-corrupt.json', import.meta.url), 'utf8'));
 const FIXTURE = JSON.parse(readFileSync(new URL('./fixtures/v096-localStorage.json', import.meta.url), 'utf8'));
@@ -47,14 +47,15 @@ for (const [key, value] of [['haiku_lyrics', 'null'], ['haiku_lyrics', '{}'], ['
 // WR-01：損毀後使用者繼續打字，下一次存檔會蓋掉原始字串；原始內容必須另存一份救得回來
 test('corrupt: 損毀後繼續編輯，原始內容仍另存可救回（歌詞與字庫覆寫）', async ({ browser }) => {
     const { context, page, errors } = await bootPage(browser, { storage: CORRUPT });
-    await page.locator('.section-textarea').first().fill('新寫的歌詞');   // 觸發 saveLyrics，蓋掉損毀字串
+    await page.locator('.section-textarea').first().fill('新寫的歌詞');   // 只改模型；存檔寫進 lh:songs，舊鍵不動
+    expect((await activeSong(page)).sections[0].text).toBe('新寫的歌詞');
     await page.evaluate(() => { dictOverrides = { x: 'y' }; saveDictOverrides(); });
     const got = await page.evaluate(() => ({
         lyrics: localStorage.getItem('haiku_lyrics'),
         stashLyrics: JSON.parse(localStorage.getItem('lh:corrupt:haiku_lyrics')).raw,
         stashSaved: JSON.parse(localStorage.getItem('lh:corrupt:haiku_savedwords')).raw,
     }));
-    expect(got.lyrics).toContain('新寫的歌詞');
+    expect(got.lyrics).toBe(CORRUPT.haiku_lyrics);   // 舊鍵連同損毀內容原封不動
     expect(got.stashLyrics).toBe(CORRUPT.haiku_lyrics);
     expect(got.stashSaved).toBe(CORRUPT.haiku_savedwords);
     expect(errors).toEqual([]);
@@ -130,7 +131,7 @@ test('IndexedDB: 舊分頁擋住升級時仍能開啟並查韻', async ({ browse
 
 // ===== 備份（FND-03）=====
 const dumpLS = page => page.evaluate(() => Object.fromEntries(Object.keys(localStorage).map(k => [k, localStorage.getItem(k)])));
-const ready = page => page.evaluate(() => Promise.all([window.__hoyunReady, window.__hoyunWordlistReady, window.__hoyunSafetyReady]));
+const ready = page => page.evaluate(() => Promise.all([window.__hoyunReady, window.__hoyunWordlistReady, window.__hoyunSafetyReady, window.__hoyunSongsReady]));
 const EXTRA = { haoYunQi_admin_key: 'admin-secret-test', haoYunQi_admin_theme: 'dark', otherProject_setting: 'x' };
 
 test('backup: 第一次開啟建立基準備份，只含清單內的鍵', async ({ browser }) => {
@@ -234,6 +235,7 @@ test('backup: localStorage 備援不含金鑰、太大就不存並跳橫幅（WR
     const big = { ...FIXTURE, haiku_lyrics: JSON.stringify([{ label: '', text: 'x'.repeat(600000) }]) };
     const b = await bootPage(browser, { storage: big, init: noIdb });
     await expect(b.page.locator('#lhSaveBanner')).toContainText('資料備份沒有存成功');
+    expect((await b.page.locator('.section-textarea').first().inputValue()).length, '沿用舊版單首模式，600000 字照樣顯示').toBe(600000);
     expect(await b.page.evaluate(() => localStorage.getItem('lh:backup:ls'))).toBeNull();
     expect(await b.page.evaluate(() => localStorage.getItem('lh:schema'))).toBeNull();
     expect(b.errors).toEqual([]);

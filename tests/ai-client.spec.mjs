@@ -209,7 +209,8 @@ test('白話：補充詞路徑 — 每個供應商都 503 時 AI 區顯示 Worke
 
 test('白話：情境產生器 — 失敗時用提示訊息顯示 Worker 的原因，按鈕恢復', async ({ browser }) => {
     await withPage(browser, { aiFail: { status: 503, body: { ok: false, code: 'ALL_BUSY', message: ALL_BUSY_MSG, tried: [] } } }, async ({ page, errors }) => {
-        await page.evaluate(() => { document.querySelector('.section-textarea').value = '夜裡的風吹過窗邊，我想起你的笑'; });
+        await page.evaluate(() => toggleLeftPanel());   // 面板收著時輸入框在畫面外，fill 不會真的輸入
+        await page.locator('.section-textarea').first().fill('夜裡的風吹過窗邊，我想起你的笑');   // 產生器讀模型，只有 input 事件會更新模型
         await page.evaluate(() => document.querySelector('.context-refresh-btn').click());
         await expect(page.locator('#copyToast')).toHaveText(ALL_BUSY_MSG);
         expectPlainChinese(await page.locator('#copyToast').textContent());
