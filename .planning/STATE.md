@@ -4,16 +4,16 @@ milestone: v0.96
 current_phase: 08
 current_phase_name: Songs & Editor Model 歌曲管理與資料模型
 status: executing
-stopped_at: Completed 08-07-PLAN.md
-last_updated: "2026-10-11T03:22:20.637Z"
+stopped_at: Completed 08-08-PLAN.md
+last_updated: "2026-10-11T03:43:28.956Z"
 last_activity: 2026-10-11
 last_activity_desc: Phase 08 execution started
-state_head: 8f33cd820281943591d05f501e660aff4e21039d
+state_head: 3c8cc760e522e987693aa3207e8a5595e584b2ed
 progress:
   total_phases: 12
   completed_phases: 2
   total_plans: 60
-  completed_plans: 58
+  completed_plans: 59
 ---
 
 # Project State
@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-10-03)
 ## Current Position
 
 Phase: 08 (Songs & Editor Model 歌曲管理與資料模型) — EXECUTING
-Plan: 8 of 9
+Plan: 9 of 9
 Status: Ready to execute
 Last activity: 2026-10-11 — Phase 08 execution started
 
@@ -115,6 +115,7 @@ Progress: [██░░░░░░░░] 17%
 | Phase 08 P05 | 22 min | 3 tasks | 11 files |
 | Phase 08 P06 | 22 min | 3 tasks | 13 files |
 | Phase 08 P07 | 17 min | 3 tasks | 15 files |
+| Phase 08 P08 | 17 min | 3 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -206,6 +207,8 @@ Recent decisions affecting current work:
 - [Phase 08]: 08-06: export menu hint/toast show the sanitised file name cut to 16 chars; css/print.css is the only file allowed #000/#fff
 - [Phase 08]: 08-07: add-only imports keep each song's createdAt; 全部還原 removes registered settings the backup lacks and never touches apiKey_*/admin keys; v1 file becomes one new song and switches to it; --danger-* tokens defined here for 08-08
 - [Phase 08]: 08-07: backup settings are shape-checked (#rrggbb colours, light/dark, input mode, pack id) and capped (1000 songs, 5000 words); restore result toast travels via numeric #lh-restored=N hash
+- [Phase 08]: 08-08: 還原這份 uses a two-tap inline confirm (再按一次確定還原) instead of a third dialog; baseline and pre-schema-* backups are pinned, newest 3 of the rest kept
+- [Phase 08]: 08-08: delete and restore backup ids carry a random tail; a failed write after the backup restores the pre-delete snapshot so 這首歌還在 is true
 
 ### Pending Todos
 
@@ -248,6 +251,6 @@ Items acknowledged and deferred at milestone close, most recent first:
 
 ## Session Continuity
 
-Last session: 2026-10-11T03:22:13.610Z
-Stopped at: Completed 08-07-PLAN.md
+Last session: 2026-10-11T03:43:28.900Z
+Stopped at: Completed 08-08-PLAN.md
 Resume file: None
