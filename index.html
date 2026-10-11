@@ -193,6 +193,7 @@
                     <button class="save-load-btn" style="flex:1;text-align:center" onclick="exportSession();closeSettingsOverlay({target:document.getElementById('settingsOverlay')})" title="把所有歌曲與設定存成一個備份檔" aria-label="把所有歌曲與設定存成一個備份檔">💾 備份全部</button>
                     <button class="save-load-btn" style="flex:1;text-align:center" onclick="document.getElementById('importFileInput').click();closeSettingsOverlay({target:document.getElementById('settingsOverlay')})" title="從備份檔還原歌曲與設定" aria-label="從備份檔還原歌曲與設定">📂 匯入備份</button>
                 </div>
+                <details class="settings-backups" id="autoBackupSection"><summary onclick="renderAutoBackups()">自動備份</summary><p class="settings-backups-hint">刪除歌曲、匯入備份與升級之前都會自動備份；可以在這裡還原</p><ul id="autoBackupList" role="list"></ul></details>
                 <button class="settings-feedback-btn save-load-btn" style="width:100%;text-align:center;" onclick="closeSettingsOverlay({target:document.getElementById('settingsOverlay')});openFeedbackModal()">✉️ 意見回饋</button>
                 <button class="reset-color" onclick="resetColors()" >重設顏色!</button>
                 <button class="reset-color" onclick="clearDictOverrides()" title="清除瀏覽器中暫存的字庫修改（不影響檔案）">清除字庫 local 覆寫</button>

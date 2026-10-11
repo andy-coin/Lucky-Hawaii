@@ -831,6 +831,20 @@
         .song-delete-last { margin: var(--sp-2) 0 0; font-size: 0.875rem; font-weight: 400; line-height: 1.5; color: var(--text-secondary); }
         .song-dialog [hidden] { display: none; }
         #songDeleteStatus { min-height: 1.5rem; margin: var(--sp-2) 0 0; font-size: 0.875rem; font-weight: 700; line-height: 1.5; color: var(--danger-line); }
+        /* ===== 設定裡的自動備份清單（Phase 8，F1）：每份一個小卡片，時間、名稱、還原鈕上下排，窄欄與放大都不擠 ===== */
+        .settings-backups { margin-top: var(--sp-2); font-size: 0.9rem; color: var(--text-primary); }
+        .settings-backups summary { cursor: pointer; padding: var(--sp-1) 0; }
+        .settings-backups-hint { margin: var(--sp-1) 0 var(--sp-2); font-size: 0.75rem; font-weight: 400; line-height: 1.5; color: var(--text-secondary); }
+        #autoBackupList { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--sp-2); }
+        .backup-item { display: flex; flex-direction: column; align-items: flex-start; gap: var(--sp-1); padding: var(--sp-2); border: 1px solid var(--border); border-radius: 0.5rem; background: var(--container-bg); }
+        .backup-empty { font-size: 0.875rem; font-weight: 400; color: var(--text-secondary); }
+        .backup-time { font-size: 0.75rem; font-weight: 400; line-height: 1.5; color: var(--text-secondary); }
+        .backup-label { font-size: 0.875rem; font-weight: 400; line-height: 1.5; color: var(--text-primary); overflow-wrap: anywhere; }
+        .backup-restore-btn { max-width: 100%; padding: var(--sp-1) var(--sp-3); font-family: inherit; font-size: 0.875rem; font-weight: 400; color: var(--text-primary); background: none; border: 1.5px solid var(--border); border-radius: 0.5rem; cursor: pointer; }
+        .backup-restore-btn[data-armed="1"] { border-color: var(--danger-line); color: var(--danger-line); font-weight: 700; }
+        @media (hover: hover) and (pointer: fine) {
+            .backup-restore-btn:hover { border-color: var(--highlight-border); }
+        }
         .song-danger-btn { background: var(--danger-bg); color: var(--danger-text); border-color: var(--danger-bg); }
         .song-danger-btn:disabled { opacity: .5; cursor: not-allowed; }
         @media (hover: hover) and (pointer: fine) {

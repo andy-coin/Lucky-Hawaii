@@ -413,7 +413,8 @@ function lhRestore(snap) {
     }
 }
 
-// Phase 8 的手動還原介面會呼叫這個；優先用 IndexedDB 的記錄，找不到才看 localStorage 那一份備援
+// 設定頁的「自動備份」清單會呼叫這個；優先用 IndexedDB 的記錄，找不到才看 localStorage 那一份備援
+// 還原成功後 lh:schema 也要退回備份當時的版本：不退的話，還原升級前的備份後資料版本仍是 2，遷移不會重跑，開機會看到空白（F1，RESEARCH Pitfall 10）
 async function lhRestoreFromBackup(id) {
     let rec = (await lhListBackups()).find(r => r && r.id === id);
     if (!rec) {
@@ -424,13 +425,18 @@ async function lhRestoreFromBackup(id) {
         } catch (e) { lhWarn('讀取 lh:backup:ls 失敗', e); }
     }
     if (!rec) return false;
+    let ok;
     // localStorage 備援不含金鑰：還原時把目前的金鑰補進去，不然「清掉備份裡沒有的鍵」會把金鑰刪掉
     if (rec.secretsOmitted && rec.data && typeof rec.data === 'object') {
         const cur = lhSnapshot();
         const keep = Object.keys(cur).filter(k => LH_KEY_PREFIXES.some(p => p.secret && k.startsWith(p.prefix)));
-        return lhRestore({ ...rec.data, ...Object.fromEntries(keep.map(k => [k, cur[k]])) });
+        ok = lhRestore({ ...rec.data, ...Object.fromEntries(keep.map(k => [k, cur[k]])) });
+    } else ok = lhRestore(rec.data);
+    if (ok) {
+        try { localStorage.setItem('lh:schema', String(rec.schema || 1)); }   // 中介資料鍵，lhRestore 不會動它
+        catch (e) { lhWarn('寫入 lh:schema 失敗', e); }
     }
-    return lhRestore(rec.data);
+    return ok;
 }
 
 // ===== 備份檔 v2（Phase 8，EDIT-09）=====

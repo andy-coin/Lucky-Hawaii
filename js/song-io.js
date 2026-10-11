@@ -364,6 +364,11 @@ async function importReplaceAll() {
 
 // 重新載入後顯示結果（網址上的暗號只有數字），然後把暗號收掉
 document.addEventListener('DOMContentLoaded', () => {
+    if (location.hash === '#lh-restored-backup') {
+        showToast('已還原自動備份（還原前的資料已自動備份）', 4000);
+        history.replaceState(null, '', location.pathname + location.search);
+        return;
+    }
     const m = /^#lh-restored=(\d{1,4})$/.exec(location.hash);
     if (!m) return;
     showToast('已還原 ' + Number(m[1]) + ' 首歌與設定（還原前的資料已自動備份）', 4000);
@@ -395,3 +400,98 @@ document.addEventListener('keydown', e => {
     else if (e.shiftKey && (a === first || a === _impEl('importTitle'))) { e.preventDefault(); last.focus(); }
     else if (!e.shiftKey && a === last) { e.preventDefault(); first.focus(); }
 });
+
+
+// ==================== 自動備份清單（設定 → 自動備份，F1） ====================
+// 刪除歌曲、全部還原、資料格式升級之前，安全層都會存一份自動備份；這裡列出來，讓「可從備份還原」是真的。
+// 備份名稱含使用者打的歌名，一律用 textContent 放進畫面（T-08-28）
+const BACKUP_ARM_MS = 4000;   // 第一下按完，多久內沒再按就解除
+const BACKUP_ARMED_TEXT = '再按一次確定還原（會先備份目前資料）';
+let _backupBusy = false;
+
+const _backupWhen = ms => {
+    const t = new Date(ms);
+    return Number.isNaN(t.getTime()) ? '' : t.getFullYear() + '/' + _pad2(t.getMonth() + 1) + '/' + _pad2(t.getDate()) + ' ' + _pad2(t.getHours()) + ':' + _pad2(t.getMinutes());
+};
+
+async function renderAutoBackups() {
+    const ul = document.getElementById('autoBackupList');
+    if (!ul) return;
+    let list = [];
+    try { list = (await lhListBackups()).filter(r => r && typeof r.id === 'string').reverse(); }   // 新的在上面
+    catch (e) { lhWarn('讀取自動備份清單失敗', e); }
+    if (list.length === 0) {
+        const li = document.createElement('li');
+        li.className = 'backup-empty';
+        li.textContent = '目前沒有自動備份';
+        ul.replaceChildren(li);
+        return;
+    }
+    ul.replaceChildren(...list.map(r => {
+        const label = typeof r.label === 'string' && r.label ? r.label : r.id;
+        const li = document.createElement('li');
+        li.className = 'backup-item';
+        const when = document.createElement('span');
+        when.className = 'backup-time';
+        when.textContent = _backupWhen(r.createdAt);
+        const name = document.createElement('span');
+        name.className = 'backup-label';
+        name.textContent = label;
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'backup-restore-btn';
+        btn.dataset.backupId = r.id;
+        btn.textContent = '還原這份';
+        btn.setAttribute('aria-label', '還原這份自動備份：' + label);
+        li.append(when, name, btn);
+        return li;
+    }));
+}
+
+// 還原前先把目前資料備份（不成功就不動）；成功後重新載入，主題、顏色、歌曲都靠開機流程重讀儲存
+async function restoreAutoBackup(id) {
+    if (_backupBusy) return;
+    _backupBusy = true;
+    try {
+        flushSongs();
+        const b = await lhBackup('pre-restore-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6), '還原自動備份前的備份', lhSnapshot());
+        if (!b || !b.ok) {
+            showToast('還原沒有開始：自動備份存不下來（瀏覽器的儲存空間可能已滿）。目前的資料沒有被改動。', 4000);
+            return;
+        }
+        if (!(await lhRestoreFromBackup(id))) {
+            showToast('還原沒有完成，請先按「備份全部」存成檔案。', 4000);
+            return;
+        }
+        // 重新載入時 pagehide 會把這個分頁還沒存的修改合併進去，蓋掉剛還原的歌：清掉旗標
+        _dirty.clear();
+        _deleted.clear();
+        history.replaceState(null, '', location.pathname + location.search + '#lh-restored-backup');
+        location.reload();
+    } catch (e) {
+        lhWarn('還原自動備份失敗', e);
+        showToast('還原沒有完成，請先按「備份全部」存成檔案。', 4000);
+    } finally { _backupBusy = false; }
+}
+
+// 兩下確認：第一下把按鈕變成「再按一次確定還原」，4 秒內沒再按就解除；一次只武裝一顆
+// 掛在清單本身而不是 document：設定視窗會 stopPropagation，點擊到不了 document
+document.getElementById('autoBackupList').addEventListener('click', e => {
+    const btn = e.target.closest && e.target.closest('#autoBackupList .backup-restore-btn');
+    if (!btn) return;
+    if (btn.dataset.armed === '1') {
+        clearTimeout(btn._armTimer);
+        restoreAutoBackup(btn.dataset.backupId);
+        return;
+    }
+    document.querySelectorAll('#autoBackupList .backup-restore-btn[data-armed="1"]').forEach(_disarmBackupBtn);
+    btn.dataset.armed = '1';
+    btn.textContent = BACKUP_ARMED_TEXT;
+    btn._armTimer = setTimeout(() => _disarmBackupBtn(btn), BACKUP_ARM_MS);
+});
+
+function _disarmBackupBtn(btn) {
+    clearTimeout(btn._armTimer);
+    delete btn.dataset.armed;
+    btn.textContent = '還原這份';
+}
