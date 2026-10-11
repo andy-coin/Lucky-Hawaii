@@ -57,15 +57,15 @@
 
 ### Editor（歌詞編輯器）
 
-- [ ] **EDIT-01**: 歌詞以資料模型為準（不再從畫面讀回），編輯時游標、注音輸入法組字不被打斷
+- [x] **EDIT-01**: 歌詞以資料模型為準（不再從畫面讀回），編輯時游標、注音輸入法組字不被打斷
 - [ ] **EDIT-02**: 段落模組可縱向拖曳排序、可調整高度，桌機與觸控裝置都可操作；修正現有拖曳 bug
 - [ ] **EDIT-03**: Undo / Redo 涵蓋文字編輯與段落操作（新增、刪除、排序、標籤）
-- [ ] **EDIT-04**: 多首歌管理：Google Docs 式側邊分頁，可顯示／隱藏，可新增、切換、刪除、重新命名；舊的單首歌詞自動遷移成第一首
+- [x] **EDIT-04**: 多首歌管理：Google Docs 式側邊分頁，可顯示／隱藏，可新增、切換、刪除、重新命名；舊的單首歌詞自動遷移成第一首
 - [ ] **EDIT-05**: 段落標籤結構化：預設 Intro / Verse / Pre-Chorus / Chorus / Inter（獨立標籤）/ Bridge / Outro / Custom；同類型依拖曳後順序自動編號，使用羅馬數字（Verse I、Verse II…）
 - [ ] **EDIT-06**: 左鍵點段落標籤按鈕在選項間循環切換；右鍵開啟 color picker 變更該段落顏色
 - [ ] **EDIT-07**: 段落字數統計
-- [ ] **EDIT-08**: 匯出：預設 TXT，另支援 PDF 與 Markdown；可一鍵複製整首
-- [ ] **EDIT-09**: JSON 備份與還原（全部歌曲＋設定），可換裝置匯入
+- [x] **EDIT-08**: 匯出：預設 TXT，另支援 PDF 與 Markdown；可一鍵複製整首
+- [x] **EDIT-09**: JSON 備份與還原（全部歌曲＋設定），可換裝置匯入
 
 ### Rhyme Map & Line Analysis（韻腳地圖與句構分析）
 
@@ -149,15 +149,15 @@
 | FB-03 | Phase 7 | Complete |
 | FB-04 | Phase 7 | Complete |
 | FB-05 | Phase 7 | Complete |
-| EDIT-01 | Phase 8 | Pending |
+| EDIT-01 | Phase 8 | Complete |
 | EDIT-02 | Phase 9 | Pending |
 | EDIT-03 | Phase 9 | Pending |
-| EDIT-04 | Phase 8 | Pending |
+| EDIT-04 | Phase 8 | Complete |
 | EDIT-05 | Phase 9 | Pending |
 | EDIT-06 | Phase 9 | Pending |
 | EDIT-07 | Phase 9 | Pending |
-| EDIT-08 | Phase 8 | Pending |
-| EDIT-09 | Phase 8 | Pending |
+| EDIT-08 | Phase 8 | Complete |
+| EDIT-09 | Phase 8 | Complete |
 | MAP-01 | Phase 10 | Pending |
 | MAP-02 | Phase 10 | Pending |
 | MAP-03 | Phase 10 | Pending |
