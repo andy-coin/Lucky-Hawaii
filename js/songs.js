@@ -458,6 +458,11 @@ document.addEventListener('keydown', e => {
     } else if (pick && e.key === 'F2') {
         e.preventDefault();
         startRenameSong(pick.dataset.songId);
+    } else if (pick && e.key === 'Delete') {
+        e.preventDefault();
+        // 關閉後焦點回到這列的 🗑；推開欄裡非目前這首的動作列是藏起來的，那就回到歌名
+        const trash = pick.closest('.song-item').querySelector('.song-act.delete');
+        openDeleteSong(pick.dataset.songId, trash && trash.offsetParent ? trash : pick);
     }
 });
 
@@ -574,3 +579,16 @@ async function confirmDeleteSong() {
         ? '已刪除「' + cutName(song.title, 16) + '」，並建立一首空白的新歌'
         : '已刪除「' + cutName(song.title, 16) + '」', created ? 4000 : 2400);
 }
+
+// Esc＝先不刪除（組字中的 Esc 是取消組字；刪除進行中不能關）；Tab 只在兩顆按鈕之間打轉
+document.addEventListener('keydown', e => {
+    if (!_deleteOpen() || e.isComposing || e.keyCode === 229) return;
+    if (e.key === 'Escape') { e.preventDefault(); closeDeleteSong(); return; }
+    if (e.key !== 'Tab') return;
+    const tabbables = [..._delEl('songDeleteOverlay').querySelectorAll('button')].filter(b => !b.disabled && !b.hidden);
+    if (tabbables.length === 0) { e.preventDefault(); return; }
+    const first = tabbables[0], last = tabbables[tabbables.length - 1], a = document.activeElement;
+    if (!_delEl('songDeleteOverlay').contains(a)) { e.preventDefault(); first.focus(); }
+    else if (e.shiftKey && a === first) { e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && a === last) { e.preventDefault(); first.focus(); }
+});

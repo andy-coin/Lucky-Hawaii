@@ -758,6 +758,8 @@
             /* 歌曲清單（Phase 8，§9）：新增的控制項實體框 ≥ 44，相鄰的不重疊 */
             .song-toggle, .export-toggle, .lyrics-head .panel-add-btn, .song-new-btn, .song-pick, .song-name-input { min-height: var(--hit); }
             .song-act { width: var(--hit); height: var(--hit); }
+            #songDeleteCancel, #songDeleteConfirm, .backup-restore-btn { min-height: var(--hit); }
+            .settings-backups summary { line-height: var(--hit); padding-block: 0; }   /* 單行文字：行高撐成 44，不用 flex（會吃掉展開箭頭） */
             .about-btn { position: relative; }
             .about-btn::after { content: ''; position: absolute; inset: -0.875rem; }
             .hashtag-add-btn {
