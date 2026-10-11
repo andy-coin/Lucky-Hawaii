@@ -192,9 +192,11 @@
         });
 
         async function generateContextFromLyrics() {
-            // 請求要等好幾秒：先記住是哪一首歌，回來時結果寫進這一首，不會寫到使用者中途切過去的另一首（Pitfall 11）
+            // 請求要等好幾秒：只記住是哪一首歌的 id，回來時重新找這首（WR-05）。
+            // 等待期間別的分頁可能更新過、整份 songs 換成新物件，或這首歌被刪掉；抓著舊物件寫入會存不進去卻顯示成功
             const song = curSong();
             if (!song) return;
+            const songId = song.id;
             const text = lastLyricsSelection ||
                 song.sections.map(s => s.text.trim()).filter(Boolean).join('\n\n');
 
@@ -221,6 +223,9 @@
                 }
                 if (!reply) throw lastErr || aiError(AI_FALLBACK_MSG);
 
+                const target = songs.find(s => s.id === songId);
+                if (!target) { showToast('這首歌已經不在了，結果沒有套用', 3000); return; }
+
                 // 逐行解析，更穩健
                 let gotContext = false, gotTags = false;
                 for (const line of reply.split('\n')) {
@@ -232,24 +237,24 @@
                     if (!val) continue;
 
                     if (key.includes('情境') && !gotContext) {
-                        song.context = val;
+                        target.context = val;
                         gotContext = true;
                     } else if (key.includes('標籤') && !gotTags) {
                         const tags = val.split(/[,，、\s#]+/).map(t => t.trim()).filter(Boolean);
                         if (tags.length) {
-                            song.hashtags = tags;
+                            target.hashtags = tags;
                             gotTags = true;
                         }
                     }
                 }
                 if (gotContext || gotTags) {
-                    markDirty(song.id);
+                    markDirty(songId);
                     flushSongs();
                     // 使用者還停在這首歌才更新畫面
                     const now = curSong();
-                    if (now && now.id === song.id) {
+                    if (now && now.id === songId) {
                         const ctxEl = document.getElementById('contextDescription');
-                        if (ctxEl) ctxEl.value = song.context;
+                        if (ctxEl) ctxEl.value = target.context;
                         renderHashtags();
                     }
                 }

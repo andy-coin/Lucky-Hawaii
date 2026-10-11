@@ -273,3 +273,72 @@ test('資料為準：情境結果寫回原本那首歌', async ({ browser }) => 
     expect(errors).toEqual([]);
     await context.close();
 });
+
+// ==================== 審查修正（WR-05、WR-06） ====================
+const gatedAi = async (page, text) => {
+    let release;
+    const gate = new Promise(r => { release = r; });
+    await page.route('**/ai', async route => {
+        await gate;
+        await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, text, model: { id: 'm', label: 'M' }, tried: [] }) });
+    });
+    return release;
+};
+
+test('情境生成：等待期間整份歌曲被換成新物件，結果仍寫進存檔（WR-05）', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, {
+        storage: v2Storage([song('s1', [sec('a1', '夜裡的風吹過窗邊，我想起你的笑')])]),
+    });
+    const release = await gatedAi(page, '情境：海邊的夜晚\n標籤：海,夜');
+    await page.evaluate(() => document.querySelector('.context-refresh-btn').click());
+    await page.waitForFunction(() => document.querySelector('.context-refresh-btn').disabled);
+    // 模擬別的分頁更新過：記憶體裡的 songs 換成從儲存重讀的新物件
+    await page.evaluate(() => { songs = JSON.parse(localStorage.getItem('lh:songs')); });
+    release();
+    await page.waitForFunction(() => !document.querySelector('.context-refresh-btn').disabled);
+    await expect(page.locator('#copyToast')).toHaveText('情境與標籤已更新 ✓');
+    const stored = await page.evaluate(() => { flushSongs(); return JSON.parse(localStorage.getItem('lh:songs'))[0]; });
+    expect(stored.context).toBe('海邊的夜晚');
+    expect(stored.hashtags).toEqual(['海', '夜']);
+    expect(await page.locator('#contextDescription').inputValue()).toBe('海邊的夜晚');
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('情境生成：等待期間這首歌被刪掉，不假裝成功（WR-05）', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, {
+        storage: v2Storage([song('s1', [sec('a1', '夜裡的風吹過窗邊，我想起你的笑')]), song('s2', [sec('b1', '另一首')], { createdAt: 2 })]),
+    });
+    const release = await gatedAi(page, '情境：海邊的夜晚\n標籤：海,夜');
+    await page.evaluate(() => document.querySelector('.context-refresh-btn').click());
+    await page.waitForFunction(() => document.querySelector('.context-refresh-btn').disabled);
+    await page.evaluate(() => { songs = songs.filter(s => s.id !== 's1'); activeSongId = 's2'; renderActiveSong(); });
+    release();
+    await page.waitForFunction(() => !document.querySelector('.context-refresh-btn').disabled);
+    await expect(page.locator('#copyToast')).toHaveText('這首歌已經不在了，結果沒有套用');
+    expect(await page.evaluate(() => songs.find(s => s.id === 's2').context)).toBe('');
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('情境生成：換歌後不使用上一首歌選取的字（WR-06）', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, {
+        storage: v2Storage([song('s1', [sec('a1', '甲歌的歌詞')]), song('s2', [sec('b1', '乙歌的歌詞')], { createdAt: 2 })]),
+    });
+    await page.evaluate(() => { lastLyricsSelection = '甲歌選取的字'; });
+    await page.evaluate(() => { switchSong('s2'); });
+    expect(await page.evaluate(() => lastLyricsSelection)).toBe('');
+    // 真的送出去的提示詞要是乙歌自己的歌詞
+    let prompt = '';
+    await page.route('**/ai', async route => {
+        prompt = route.request().postData() || '';
+        await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, text: '情境：x\n標籤：y', model: { id: 'm', label: 'M' }, tried: [] }) });
+    });
+    await page.evaluate(() => document.querySelector('.context-refresh-btn').click());
+    await page.waitForFunction(() => !document.querySelector('.context-refresh-btn').disabled);
+    await expect(page.locator('#copyToast')).toHaveText('情境與標籤已更新 ✓');
+    expect(prompt).toContain('乙歌的歌詞');
+    expect(prompt).not.toContain('甲歌選取的字');
+    expect(errors).toEqual([]);
+    await context.close();
+});

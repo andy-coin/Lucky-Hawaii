@@ -200,6 +200,8 @@
 
         // 整個編輯器依目前這首歌重畫（開機、切歌、匯入後）
         function renderActiveSong() {
+            // 換歌、刪歌、別的分頁更新都會走到這裡：上一首歌選取的字不能帶到這一首（WR-06）
+            lastLyricsSelection = '';
             renderLyricsSections();
             renderHashtags();
             const ctx = document.getElementById('contextDescription');
