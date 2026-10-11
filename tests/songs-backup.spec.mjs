@@ -696,3 +696,17 @@ test('備份：還原自動備份連退回也失敗時，如實說', async ({ br
     await expectFrozenBanner(page);
     await context.close();
 });
+
+// ==================== 審查修正（IN-09）：資料版本旗標寫不進去也算還原失敗 ====================
+test('備份：還原自動備份時資料版本旗標寫不進去，算失敗並退回原狀', async ({ browser }) => {
+    const { context, page } = await bootPage(browser, { storage: MINE_STORAGE(), device: DESKTOP, wordlist: 'stub', init: failKeyTimes });
+    await page.evaluate(() => { localStorage.setItem('selectedModel', 'changed-after-baseline'); });
+    const before = await dumpLS(page);
+    // 完整流程：還原時資料版本旗標那一下失敗（退回時恢復正常）→ 退回原狀，不重新載入
+    await page.evaluate(() => { window.__failKey = 'lh:schema'; window.__failTimes = 1; });
+    await page.evaluate(() => restoreAutoBackup('baseline'));
+    await expect(page.locator('#copyToast')).toHaveText('還原沒有完成，已經回到還原前的狀態，目前的資料沒有被改動。');
+    const after = await dumpLS(page);
+    for (const k of Object.keys(before)) expect(after[k], k).toBe(before[k]);
+    await context.close();
+});

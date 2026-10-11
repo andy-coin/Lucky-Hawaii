@@ -481,10 +481,15 @@ async function lhRestoreFromBackup(id) {
         data = Object.fromEntries(Object.entries(data).filter(([k]) => !_lhIsSecretKey(k) || !Object.prototype.hasOwnProperty.call(cur, k)));
         for (const k of Object.keys(cur)) if (_lhIsSecretKey(k)) data[k] = cur[k];
     }
-    const ok = lhRestore(data);
+    let ok = lhRestore(data);
     if (ok) {
         try { localStorage.setItem('lh:schema', String(rec.schema || 1)); }   // 中介資料鍵，lhRestore 不會動它
-        catch (e) { lhWarn('寫入 lh:schema 失敗', e); }
+        catch (e) {
+            // 資料版本沒跟著退回就重新載入，開機會看到空白（見上面的說明）：算失敗，讓呼叫端退回原狀（IN-09）
+            lhWarn('寫入 lh:schema 失敗', e);
+            lhSaveFailed('save');
+            ok = false;
+        }
     }
     return ok;
 }
