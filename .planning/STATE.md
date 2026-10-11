@@ -243,6 +243,7 @@ Recent decisions affecting current work:
 | 05 | verification_deferred_human | /gsd-verify-work 05（實機鍵盤／縮放手感／美觀；UAT 清單 05-UAT.md，步驟見 TEST-CHECKLIST.md） |
 | 06 | verification_deferred_human | /gsd-verify-work 06（審查 WR-01～06 已修、自動驗證 3/5＋2 項需真 AI；UAT 清單 06-UAT.md：AI 判斷、抽查刪除報告、高頻中國用語 3-15、切包手感） |
 | 07 | verification_deferred_human | /gsd-verify-work 07（審查 CR-01/02＋WR 全修、自動驗證 14/14；UAT 清單 07-UAT.md：正式環境走一次、手機實機、Linux 截圖基準、審查後改變 5-64） |
+| 08 | verification_deferred_human | /gsd-verify-work 08（審查兩輪 CR-01＋WR-01～12 全修、自動驗證 13/13；UAT 清單 08-UAT.md：實機注音、PDF、iOS、兩台裝置還原、Linux 截圖、自主決定 5-69～5-91） |
 
 ## Deferred Items
 

@@ -5,6 +5,14 @@
 - Pi Agent 預設連 ToshLLM (Qwen3.6)，profile: IQ50
 - `.devcontainer/docker-compose.yml` 的 ports 預設註解，web server 專案需取消註解
 
+## ⏸ 暫停點（2026-10-11）：Phase 8 全部做完，依 Andy 指示停在這裡，尚未開始 Phase 9
+
+- 已完成：Phase 6 審查＋驗證、Phase 7（10 計畫＋審查兩輪＋驗證）、Phase 8（9 計畫＋審查兩輪＋驗證）；三個階段都是「自動驗證全過、等 Andy 真人驗收」（06／07／08-UAT.md）
+- 最新：`npm test` **716 過／27 跳過／0 失敗**；`?v=0.96.12`
+- 本機 commit 很多都**還沒 push**（這台 SSH 下不能 push）→ Andy 回家後在終端機 `git push`
+- 接續：`/gsd-autonomous --from 9`（Phase 9 段落模組）；或先 `/gsd-verify-work 06`／`07`／`08` 做真人驗收
+- Phase 8 審查後補強（commit 8cba3ed…93afda4）：壞備份不再讓網站開不起來、還原時鎖住存檔、組字中不存半字、釘住的備份在沒有瀏覽器資料庫時也不被擠掉（`lh:backup:ls`／`ls2`／`ls3` 三格）、還原不動 API 金鑰、存不進去會出現提示、載入失敗仍可還原
+
 ## ✅ Phase 8 歌曲管理與資料模型：9/9 計畫完成（2026-10-11，分支 gsd/v0.96-stabilize，沒 push）
 
 - `npm test` 688 過／27 跳過／0 失敗（Mac 的 Chromium；只比對 -darwin 截圖）。`?v=` 全部是 **0.96.12**（30 個標籤，split-tags 會檢查一致）
