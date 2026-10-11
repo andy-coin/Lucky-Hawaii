@@ -360,7 +360,14 @@ function _lhLocalBackups() {
 function lhListBackups() {
     return lhIdbOpen().then(db => new Promise((resolve, reject) => {
         const req = db.transaction('backups', 'readonly').objectStore('backups').getAll();
-        req.onsuccess = () => resolve(req.result.sort((a, b) => a.seq - b.seq));
+        req.onsuccess = () => {
+            const idb = req.result.sort((a, b) => a.seq - b.seq);
+            // IndexedDB 偶爾寫入失敗時，那一份備份改存在 localStorage（lhBackup 回報 ok:true）：列表也要看得到，
+            // 不然「可從自動備份還原」對那一次刪除就是假的。同 id 以 IndexedDB 為準；備援的記錄沒有 seq，依建立時間排進去（IN-10）
+            const have = new Set(idb.map(r => r.id));
+            const extra = _lhLocalBackups().filter(r => r && typeof r.id === 'string' && !have.has(r.id));
+            resolve(extra.length ? [...idb, ...extra].sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0)) : idb);
+        };
         req.onerror = () => reject(req.error);
     })).catch(e => {
         lhWarn('讀取備份清單失敗', e);

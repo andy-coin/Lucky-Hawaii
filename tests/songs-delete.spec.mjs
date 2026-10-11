@@ -459,3 +459,31 @@ test('刪除歌曲：沒有 IndexedDB 時，升級前的備份不會被刪歌的
     expect(errors).toEqual([]);
     await context.close();
 });
+
+// ==================== 審查修正（IN-10）：IndexedDB 偶爾寫入失敗、改存 localStorage 的備份也要列出來 ====================
+test('刪除歌曲：IndexedDB 寫入失敗改存 localStorage 的備份，仍列在自動備份清單並可還原', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, {
+        storage: seed(THREE, 'song-b'), device: DESKTOP, wordlist: 'stub',
+        init: () => {
+            const put = IDBObjectStore.prototype.put;
+            IDBObjectStore.prototype.put = function (...a) {
+                if (this.name === 'backups' && window.__failPut) throw new DOMException('quota', 'QuotaExceededError');
+                return put.apply(this, a);
+            };
+        },
+    });
+    await page.evaluate(() => { window.__failPut = true; });
+    await page.locator('#songListToggle').click();
+    await del(page, 'song-b').click();
+    await page.locator('#songDeleteConfirm').click();
+    await expect(page.locator('#songDeleteOverlay')).toBeHidden();   // 備援存成功，刪除照常進行
+    await page.evaluate(() => { window.__failPut = false; });
+    expect((await readSongs(page)).map(s => s.id).sort()).toEqual(['song-a', 'song-c']);
+    await openBackupList(page);
+    const row = page.locator('#autoBackupList li', { hasText: '刪除「乙」前的自動備份' });
+    await expect(row).toHaveCount(1);
+    expect(await page.evaluate(() => lhRestoreFromBackup(JSON.parse(localStorage.getItem('lh:backup:ls2')).id))).toBe(true);
+    expect((await readSongs(page)).map(s => s.id).sort()).toEqual(['song-a', 'song-b', 'song-c']);
+    expect(errors.filter(e => !/quota|QuotaExceeded/i.test(e))).toEqual([]);
+    await context.close();
+});
