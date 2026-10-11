@@ -21,7 +21,7 @@ const THREE = [song('song-a', '甲', 1000, { text: '甲的歌詞' }), song('song
 
 const readSongs = page => page.evaluate(() => JSON.parse(localStorage.getItem('lh:songs')));
 const del = (page, id) => page.locator('.song-act.delete[data-song-id="' + id + '"]');
-const BODY = '這首歌的歌詞會一起刪除（刪除前會自動備份，可從備份還原）。';
+const BODY = '這首歌的歌詞會一起刪除（刪除前會自動備份，可從「設定」的「自動備份」還原；瀏覽器只保留最近幾份）。';
 
 test('刪除歌曲：先備份再刪', async ({ browser }) => {
     const { context, page, errors } = await bootPage(browser, { storage: seed(THREE, 'song-b'), device: DESKTOP, wordlist: 'stub' });
@@ -238,7 +238,7 @@ test('刪除歌曲：備份失敗就不刪', async ({ browser }) => {
     for (const broken of [() => { window.lhBackup = async () => { throw new Error('備份爆了'); }; }, () => { window.lhBackup = async () => ({ ok: false, where: null, existed: false }); }]) {
         await page.evaluate(broken);
         await page.locator('#songDeleteConfirm').click();
-        await expect(status).toHaveText('刪除沒有完成，這首歌還在。');
+        await expect(status).toHaveText('刪除沒有完成，這首歌還在。自動備份存不下來（瀏覽器的儲存空間可能已滿），請先按「備份全部」存成檔案。');
         await expect(page.locator('#songDeleteOverlay')).toBeVisible();
         await expect(page.locator('#songDeleteConfirm')).toBeEnabled();
         await expect(page.locator('#songDeleteConfirm')).toHaveText('刪除這首歌');
@@ -430,6 +430,32 @@ test('刪除歌曲：還原中按鈕停用', async ({ browser }) => {
     await expect(page.locator('#importOverlay')).toBeVisible();
     await page.evaluate(() => window.__release());
     await expect(page.locator('#copyToast')).toHaveText('已還原 1 首歌與設定（還原前的資料已自動備份）');
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+// ==================== 審查修正（IN-01）：釘住的備份在 localStorage 備援裡也不能被刪歌的備份蓋掉 ====================
+test('刪除歌曲：沒有 IndexedDB 時，升級前的備份不會被刪歌的備份蓋掉', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, { storage: FIXTURE, device: DESKTOP, wordlist: 'stub', init: noIdb });
+    const ids = () => page.evaluate(async () => (await lhListBackups()).map(r => r.id));
+    expect(await ids()).toEqual(['pre-schema-2']);
+    for (let i = 0; i < 2; i++) {   // 連刪兩次：一般槽只留最新一份，釘住的那份始終在
+        await addSecondSong(page);
+        await del(page, await page.evaluate(() => activeSongId)).click();
+        await page.locator('#songDeleteConfirm').click();
+        await expect(page.locator('#songDeleteOverlay')).toBeHidden();
+    }
+    const after = await ids();
+    expect(after[0], '升級前的備份還在').toBe('pre-schema-2');
+    expect(after.filter(id => id.startsWith('song-delete-'))).toHaveLength(1);
+    expect(JSON.parse(await page.evaluate(() => localStorage.getItem('lh:backup:ls'))).id).toBe('pre-schema-2');
+    // 重新開機：開機時再存的 baseline 也不會換掉它
+    await page.reload();
+    await page.evaluate(() => Promise.all([window.__hoyunSafetyReady, window.__hoyunSongsReady]));
+    expect(await ids()).toContain('pre-schema-2');
+    expect(await ids()).not.toContain('baseline');
+    // 兩個槽都能還原
+    expect(await page.evaluate(() => lhRestoreFromBackup('pre-schema-2'))).toBe(true);
     expect(errors).toEqual([]);
     await context.close();
 });

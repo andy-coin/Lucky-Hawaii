@@ -32,7 +32,8 @@ const LH_KEYS = [
 // secret 旗標讓之後的匯出（Phase 8）可以排除金鑰
 const LH_KEY_PREFIXES = [{ prefix: 'apiKey_', group: 'setting', secret: true }];
 // 新鍵一律用 lh: 前綴；這兩個是中介資料，不備份
-const LH_META_KEYS = ['lh:schema', 'lh:backup:ls'];
+// lh:backup:ls＝localStorage 備援的「釘住」槽（baseline、pre-schema-*、corrupt-songs-*）；lh:backup:ls2＝一般自動備份槽（刪歌、匯入、還原前）
+const LH_META_KEYS = ['lh:schema', 'lh:backup:ls', 'lh:backup:ls2'];
 // 後台頁（admin/）與本站同網域，它的金鑰是機密，絕對不可被快照或備份（RESEARCH Pitfall 8）
 const LH_EXCLUDED_KEYS = ['haoYunQi_admin_key', 'haoYunQi_admin_theme'];
 
@@ -250,23 +251,39 @@ function _lhBuildRecord(id, seq, label, snap) {
     };
 }
 
-// localStorage 單份備援（D-11）：同 id 已存在就不動；直接寫 storage 物件而不走 lhSet，
-// 因為這裡失敗要跳「備份」橫幅，不是「存檔」橫幅
+// localStorage 備援（D-11）：同 id 已存在就不動；直接寫 storage 物件而不走 lhSet，
+// 因為這裡失敗要跳「備份」橫幅，不是「存檔」橫幅。
+// 兩個槽（IN-01）：釘住的備份一個槽、一般自動備份另一個槽。只有一個槽的話，第一次刪歌的備份就會把升級前的備份蓋掉。
+// 釘住槽只放最新一份：pre-schema-N 可以取代 baseline，但每次開機都會再要求存的 baseline 不能取代已經存在的釘住備份
+// （開機後的資料已經升級過，換掉它就等於把升級前的備份丟了）
 // 備援跟使用者自己的歌詞共用同一個約 5MB 的額度：金鑰不放進備援（不要多一份明文），
 // 太大就不存（寧可跳備份橫幅，也不要把使用者自己的存檔擠爆）
 const LH_LS_BACKUP_MAX_CHARS = 500000;
 function _lhBackupToLocal(record) {
+    let slot = 'lh:backup:ls2';
+    if (_lhPinnedBackup(record.id)) {
+        slot = 'lh:backup:ls';
+        let oldId = null;
+        try {
+            const old = localStorage.getItem(slot);
+            if (old !== null) oldId = JSON.parse(old).id;
+        } catch (e) { lhWarn('讀取 ' + slot + ' 失敗，將覆寫', e); }
+        if (oldId === record.id) return true;
+        if (oldId !== null && record.id === 'baseline') return true;   // 已經有釘住的備份就不換成開機後的資料
+        // 釘住槽只放一份：只有 baseline 或同類的 pre-schema 可以被取代；其他釘住的備份（損毀歌曲的原文）寧可退到一般槽，也不擠掉升級前的備份
+        if (oldId !== null && oldId !== 'baseline' && !(record.id.startsWith('pre-schema-') && oldId.startsWith('pre-schema-'))) slot = 'lh:backup:ls2';
+    }
     try {
-        const old = localStorage.getItem('lh:backup:ls');
+        const old = slot === 'lh:backup:ls2' ? localStorage.getItem(slot) : null;
         if (old !== null && JSON.parse(old).id === record.id) return true;
-    } catch (e) { lhWarn('讀取 lh:backup:ls 失敗，將覆寫', e); }
+    } catch (e) { lhWarn('讀取 ' + slot + ' 失敗，將覆寫', e); }
     const data = {};
     for (const [k, v] of Object.entries(record.data)) {
         if (!LH_KEY_PREFIXES.some(p => p.secret && k.startsWith(p.prefix))) data[k] = v;
     }
     const json = JSON.stringify({ ...record, data, secretsOmitted: true });
     if (json.length > LH_LS_BACKUP_MAX_CHARS) { lhWarn('備援備份太大，不寫入 localStorage（' + json.length + ' 字元）'); return false; }
-    try { localStorage.setItem('lh:backup:ls', json); return true; }
+    try { localStorage.setItem(slot, json); return true; }
     catch (e) { lhWarn('備份寫入 localStorage 失敗', e); return false; }
 }
 
@@ -313,7 +330,19 @@ function lhBackup(id, label, snap) {
     });
 }
 
-// 依 seq 由舊到新；IndexedDB 讀不到時回 localStorage 那一份（沒有就是 []）
+// localStorage 備援的兩個槽，釘住的在前；讀不到或壞掉的槽略過（沒有就是 []）
+function _lhLocalBackups() {
+    const out = [];
+    for (const slot of ['lh:backup:ls', 'lh:backup:ls2']) {
+        try {
+            const raw = localStorage.getItem(slot);
+            if (raw !== null) out.push(JSON.parse(raw));
+        } catch (e) { lhWarn('讀取 ' + slot + ' 失敗', e); }
+    }
+    return out;
+}
+
+// 依 seq 由舊到新；IndexedDB 讀不到時回 localStorage 備援的記錄
 function lhListBackups() {
     return lhIdbOpen().then(db => new Promise((resolve, reject) => {
         const req = db.transaction('backups', 'readonly').objectStore('backups').getAll();
@@ -321,10 +350,7 @@ function lhListBackups() {
         req.onerror = () => reject(req.error);
     })).catch(e => {
         lhWarn('讀取備份清單失敗', e);
-        try {
-            const raw = localStorage.getItem('lh:backup:ls');
-            return raw === null ? [] : [JSON.parse(raw)];
-        } catch (e2) { lhWarn('讀取 lh:backup:ls 失敗', e2); return []; }
+        return _lhLocalBackups();
     });
 }
 
@@ -428,13 +454,7 @@ function lhRollback(snap, prevSchema) {
 // 還原成功後 lh:schema 也要退回備份當時的版本：不退的話，還原升級前的備份後資料版本仍是 2，遷移不會重跑，開機會看到空白（F1，RESEARCH Pitfall 10）
 async function lhRestoreFromBackup(id) {
     let rec = (await lhListBackups()).find(r => r && r.id === id);
-    if (!rec) {
-        try {
-            const raw = localStorage.getItem('lh:backup:ls');
-            const ls = raw === null ? null : JSON.parse(raw);
-            if (ls && ls.id === id) rec = ls;
-        } catch (e) { lhWarn('讀取 lh:backup:ls 失敗', e); }
-    }
+    if (!rec) rec = _lhLocalBackups().find(r => r && r.id === id);
     if (!rec) return false;
     let ok;
     // localStorage 備援不含金鑰：還原時把目前的金鑰補進去，不然「清掉備份裡沒有的鍵」會把金鑰刪掉

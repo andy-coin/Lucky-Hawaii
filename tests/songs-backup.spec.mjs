@@ -405,7 +405,7 @@ test('備份：備份存不下就不動', async ({ browser }) => {
             Object.defineProperty(window, 'indexedDB', { value: undefined, configurable: true });
             const orig = Storage.prototype.setItem;
             Storage.prototype.setItem = function (k, v) {
-                if (k === 'lh:backup:ls') throw new DOMException('The quota has been exceeded.', 'QuotaExceededError');
+                if (k === 'lh:backup:ls' || k === 'lh:backup:ls2') throw new DOMException('The quota has been exceeded.', 'QuotaExceededError');
                 return orig.call(this, k, v);
             };
         },

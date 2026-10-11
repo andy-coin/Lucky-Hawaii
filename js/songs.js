@@ -593,8 +593,8 @@ async function confirmDeleteSong() {
     ok.textContent = '刪除中…';
     _delEl('songDeleteCancel').disabled = true;
     _delEl('songDeleteStatus').textContent = '';
-    const fail = () => {
-        _delEl('songDeleteStatus').textContent = '刪除沒有完成，這首歌還在。';
+    const fail = (why) => {
+        _delEl('songDeleteStatus').textContent = '刪除沒有完成，這首歌還在。' + (why || '');
         ok.disabled = false;
         ok.textContent = '刪除這首歌';
         _delEl('songDeleteCancel').disabled = false;
@@ -603,14 +603,19 @@ async function confirmDeleteSong() {
     // 備份沒存成功就絕不刪（T-08-25）；id 帶亂數尾巴，同一毫秒的兩次刪除也不會因為「同 id 不重寫」而少備份一次
     let backedUp = false;
     let pre = null;
+    let flushedOk = true;
     try {
-        if (flushSongs()) {
+        flushedOk = flushSongs();
+        if (flushedOk) {
             pre = lhSnapshot();
             const r = await lhBackup('song-delete-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6), '刪除「' + song.title + '」前的自動備份', pre);
             backedUp = !!(r && r.ok);
         }
     } catch (e) { lhWarn('刪除前的自動備份失敗', e); }
-    if (!backedUp) { fail(); return; }
+    if (!backedUp) {
+        fail((flushedOk ? '自動備份存不下來' : '剛剛的修改還沒存下來') + '（瀏覽器的儲存空間可能已滿），請先按「備份全部」存成檔案。');
+        return;
+    }
 
     const prevSongs = songs;
     const prevActive = activeSongId;
