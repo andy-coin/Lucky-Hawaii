@@ -199,6 +199,7 @@ const IMPORT_ERRORS = {
     read: '讀取失敗：這個檔案打不開，請再試一次。',
     write: '還原沒有完成：瀏覽器的儲存空間可能已滿，已經回到匯入前的狀態。',
     backup: '還原沒有開始：自動備份存不下來（瀏覽器的儲存空間可能已滿）。',
+    rollback: '還原沒有完成，而且退回匯入前的狀態也沒有成功，現在儲存的資料可能有一部分是新的。請先按「備份全部」把畫面上的歌存成檔案，並且不要清除網站資料；匯入前的備份還留在瀏覽器裡。',
 };
 const IMPORT_TRUNCATED = '。注意：有內容超過上限，匯入時會被截短';
 const IMPORT_UNCHANGED = '目前的歌詞與設定都沒有被改動。';
@@ -236,7 +237,8 @@ function _showImportOverlay() {
 // 錯誤畫面：一段白話、一顆「關閉錯誤訊息」，焦點直接放在按鈕上（Enter 就能關）
 function showImportError(kind, info) {
     const msg = IMPORT_ERRORS[kind];
-    const text = (typeof msg === 'function' ? msg(String(info && info.version).slice(0, 12)) : msg || IMPORT_ERRORS.format) + IMPORT_UNCHANGED;
+    // rollback 是資料可能被動到的唯一一種錯誤，不能接「都沒有被改動」
+    const text = (typeof msg === 'function' ? msg(String(info && info.version).slice(0, 12)) : msg || IMPORT_ERRORS.format) + (kind === 'rollback' ? '' : IMPORT_UNCHANGED);
     _imp.parsed = null;
     _imp.busy = false;
     _showImportOverlay();
@@ -354,9 +356,12 @@ async function importReplaceAll() {
     try { r = await lhApplyBackupReplace(p); }
     catch (e) { lhWarn('全部還原失敗', e); r = { ok: false, stage: 'write' }; }
     if (!r.ok) {
-        setSavesFrozen(false);
-        flushSongs();   // 還原期間打的字補存
-        showImportError(r.stage === 'backup' ? 'backup' : 'write');
+        // 退回失敗時閂維持上著：儲存空間新舊混在一起，再寫只會越弄越亂；畫面上的歌還在記憶體裡，「備份全部」從記憶體組檔
+        if (r.stage !== 'rollback') {
+            setSavesFrozen(false);
+            flushSongs();   // 還原期間打的字補存
+        }
+        showImportError(r.stage === 'backup' || r.stage === 'rollback' ? r.stage : 'write');
         return;
     }
     history.replaceState(null, '', location.pathname + location.search + '#lh-restored=' + p.songs.length);
@@ -453,20 +458,29 @@ async function renderAutoBackups() {
 async function restoreAutoBackup(id) {
     if (_backupBusy) return;
     _backupBusy = true;
-    let reloading = false;
+    let keepFrozen = false;   // 重新載入中，或退回失敗：閂維持上著
     try {
         flushSongs();
         setSavesFrozen(true);   // WR-01：到重新載入為止不再寫歌曲
-        const b = await lhBackup('pre-restore-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6), '還原自動備份前的備份', lhSnapshot());
+        const pre = lhSnapshot();
+        const prevSchema = lhGet('lh:schema');
+        const b = await lhBackup('pre-restore-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6), '還原自動備份前的備份', pre);
         if (!b || !b.ok) {
             showToast('還原沒有開始：自動備份存不下來（瀏覽器的儲存空間可能已滿）。目前的資料沒有被改動。', 4000);
             return;
         }
-        if (!(await lhRestoreFromBackup(id))) {
-            showToast('還原沒有完成，請先按「備份全部」存成檔案。', 4000);
+        let restored = false;
+        try { restored = await lhRestoreFromBackup(id); } catch (e) { lhWarn('還原自動備份寫入失敗', e); }
+        if (!restored) {
+            // 和匯入「全部還原」一樣：寫到一半失敗就退回原狀，並且如實說退回成不成功（WR-04）
+            if (lhRollback(pre, prevSchema)) showToast('還原沒有完成，已經回到還原前的狀態，目前的資料沒有被改動。', 5000);
+            else {
+                keepFrozen = true;
+                showToast('還原沒有完成，而且退回原狀也沒有成功，儲存的資料可能有一部分是新的。請先按「備份全部」存成檔案，並且不要清除網站資料。', 8000);
+            }
             return;
         }
-        reloading = true;
+        keepFrozen = true;
         history.replaceState(null, '', location.pathname + location.search + '#lh-restored-backup');
         location.reload();
     } catch (e) {
@@ -474,7 +488,7 @@ async function restoreAutoBackup(id) {
         showToast('還原沒有完成，請先按「備份全部」存成檔案。', 4000);
     } finally {
         _backupBusy = false;
-        if (!reloading) { setSavesFrozen(false); flushSongs(); }
+        if (!keepFrozen) { setSavesFrozen(false); flushSongs(); }
     }
 }
 

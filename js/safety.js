@@ -413,6 +413,16 @@ function lhRestore(snap) {
     }
 }
 
+// 還原做到一半失敗時退回原狀：資料退回 snap，lh:schema 也退回（prevSchema 是 localStorage 原本的字串或 null）。
+// 回傳 true 才代表真的退回去了；false 時儲存空間可能新舊混在一起，呼叫端要老實說（WR-03、WR-04）
+function lhRollback(snap, prevSchema) {
+    let ok = lhRestore(snap);
+    try {
+        if (prevSchema === null) localStorage.removeItem('lh:schema'); else localStorage.setItem('lh:schema', prevSchema);
+    } catch (e) { lhWarn('退回 lh:schema 失敗', e); ok = false; }
+    return ok;
+}
+
 // 設定頁的「自動備份」清單會呼叫這個；優先用 IndexedDB 的記錄，找不到才看 localStorage 那一份備援
 // 還原成功後 lh:schema 也要退回備份當時的版本：不退的話，還原升級前的備份後資料版本仍是 2，遷移不會重跑，開機會看到空白（F1，RESEARCH Pitfall 10）
 async function lhRestoreFromBackup(id) {
@@ -631,9 +641,10 @@ function lhBuildBackup(songsArr, activeId, words) {
 }
 
 // 全部還原：先把目前資料自動備份，備份存不下來就一個字都不寫；寫到一半有任何一項失敗就退回匯入前的快照。
-// 回傳 { ok: true } 或 { ok: false, stage: 'backup' | 'write' }
+// 回傳 { ok: true } 或 { ok: false, stage: 'backup' | 'write' | 'rollback' }；rollback＝連退回都失敗，儲存空間可能新舊混在一起
 async function lhApplyBackupReplace(parsed) {
     const pre = lhSnapshot();
+    const prevSchema = lhGet('lh:schema');
     const b = await lhBackup('import-replace-' + Date.now(), '匯入備份前的自動備份', pre);
     if (!b.ok) return { ok: false, stage: 'backup' };
     let wrote = 0;
@@ -659,7 +670,8 @@ async function lhApplyBackupReplace(parsed) {
         catch (e) { lhWarn('寫入 lh:schema 失敗', e); lhSaveFailed('save'); ok = false; }
     }
     if (!ok) {
-        if (wrote > 0) lhRestore(pre);   // 一項都沒寫成就沒有東西要退回
+        // 一項都沒寫成就沒有東西要退回；退回也失敗要如實回報，不能說「已經回到匯入前」
+        if (wrote > 0 && !lhRollback(pre, prevSchema)) return { ok: false, stage: 'rollback' };
         return { ok: false, stage: 'write' };
     }
     return { ok: true };

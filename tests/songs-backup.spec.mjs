@@ -619,3 +619,58 @@ test('備份：編輯器能存的內容不會被截短，真的超過才先提�
     expect(got.context).toHaveLength(9000);
     await context.close();
 });
+
+// ==================== 審查修正（WR-03、WR-04）：退回成不成功要如實說 ====================
+// window.__failKey 指定的鍵：window.__failTimes 次寫入失敗（預設一次）；-1＝一直失敗
+const failKeyTimes = () => {
+    const orig = Storage.prototype.setItem;
+    Storage.prototype.setItem = function (k, v) {
+        if (window.__failKey === k && window.__failTimes !== 0) {
+            if (window.__failTimes > 0) window.__failTimes--;
+            throw new DOMException('The quota has been exceeded.', 'QuotaExceededError');
+        }
+        return orig.call(this, k, v);
+    };
+};
+
+test('備份：全部還原寫到一半失敗、連退回也失敗時，如實說資料可能是新舊混合', async ({ browser }) => {
+    const { context, page } = await bootPage(browser, { storage: MINE_STORAGE(), device: DESKTOP, wordlist: 'stub', init: failKeyTimes });
+    await importBuf(page, mkBackup([mkSong('c', '丙', { createdAt: 5000 })], { settings: { selectedModel: 'file-model' } }));
+    await page.evaluate(() => { window.__failKey = 'selectedModel'; window.__failTimes = -1; });   // 寫入失敗、退回時要寫回的同一個鍵也失敗
+    await page.locator('#importReplaceBtn').click();
+    await expect(page.locator('#importTitle')).toHaveText(ERR_TITLE);
+    const text = await page.locator('#importError').textContent();
+    expect(text).toContain('退回匯入前的狀態也沒有成功');
+    expect(text).toContain('備份全部');
+    expect(text, '資料可能被動到，不能說都沒有被改動').not.toContain(UNCHANGED);
+    expect(text).not.toContain('已經回到匯入前的狀態');
+    await context.close();
+});
+
+test('備份：還原自動備份寫到一半失敗會退回原狀', async ({ browser }) => {
+    const { context, page } = await bootPage(browser, { storage: MINE_STORAGE(), device: DESKTOP, wordlist: 'stub', init: failKeyTimes });
+    // 把目前資料改成和基準備份不一樣，才分得出有沒有退回
+    await page.evaluate(() => { localStorage.setItem('selectedModel', 'changed-after-baseline'); localStorage.setItem('hoyun_theme_mode', 'dark'); });
+    const before = await dumpLS(page);
+    await page.evaluate(() => { window.__failKey = 'selectedModel'; window.__failTimes = 1; });   // 還原那一下失敗，退回時恢復正常
+    await page.evaluate(() => restoreAutoBackup('baseline'));
+    await expect(page.locator('#copyToast')).toHaveText('還原沒有完成，已經回到還原前的狀態，目前的資料沒有被改動。');
+    const after = await dumpLS(page);
+    for (const k of Object.keys(before)) expect(after[k], k).toBe(before[k]);
+    // 閂已放開：之後打字照常存
+    await page.locator('.section-textarea').first().fill('退回之後的字');
+    await page.evaluate(() => flushSongs());
+    expect(await page.evaluate(() => JSON.parse(localStorage.getItem('lh:songs')).find(s => s.id === 'a').sections[0].text)).toBe('退回之後的字');
+    await context.close();
+});
+
+test('備份：還原自動備份連退回也失敗時，如實說', async ({ browser }) => {
+    const { context, page } = await bootPage(browser, { storage: MINE_STORAGE(), device: DESKTOP, wordlist: 'stub', init: failKeyTimes });
+    await page.evaluate(() => { localStorage.setItem('selectedModel', 'changed-after-baseline'); });
+    await page.evaluate(() => { window.__failKey = 'selectedModel'; window.__failTimes = -1; });
+    await page.evaluate(() => restoreAutoBackup('baseline'));
+    const toast = page.locator('#copyToast');
+    await expect(toast).toContainText('退回原狀也沒有成功');
+    await expect(toast).toContainText('備份全部');
+    await context.close();
+});
