@@ -36,6 +36,11 @@
             --action-bg: #5a67d8;
             --action-bg-hover: #4c51bf;
             --action-text: #fff;
+            /* 破壞性動作的固定色（Phase 8 UI-SPEC D-09）：填色按鈕白字約 5.5:1；文字與外框用 --danger-line。自訂配色不會改到 */
+            --danger-bg: #c53030;
+            --danger-bg-hover: #9b2c2c;
+            --danger-text: #fff;
+            --danger-line: #9b2c2c;
         }
 
         @supports not (height: 100dvh) {
@@ -65,6 +70,7 @@
             --action-bg: #5a67d8;
             --action-bg-hover: #4c51bf;
             --action-text: #fff;
+            --danger-line: #fc8181;
         }
         
         * {

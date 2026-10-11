@@ -790,6 +790,40 @@
         @media (hover: hover) and (pointer: fine) {
             .feedback-cancel-btn:hover { border-color: #667eea; color: #667eea; }
         }
+        /* ===== 歌曲對話框與匯入備份視窗（Phase 8，UI-SPEC §3、§5.2）：沿用 .feedback-modal 外殼 ===== */
+        .song-dialog h3 { font-size: 1.25rem; font-weight: 700; line-height: 1.2; margin: 0 0 var(--sp-3); }
+        .import-dialog [hidden] { display: none; }   /* 下面幾個元素有自己的 display，會蓋掉 hidden 屬性 */
+        .import-summary { margin: 0; font-size: 1rem; font-weight: 400; line-height: 1.5; color: var(--text-primary); }
+        .import-meta { margin: 0; font-size: 0.875rem; font-weight: 400; line-height: 1.5; color: var(--text-secondary); }
+        .import-chips { display: flex; flex-wrap: wrap; gap: var(--sp-2); margin: var(--sp-3) 0; }
+        .import-choices { display: flex; flex-direction: column; gap: var(--sp-2); }
+        .import-choice {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            width: 100%;
+            min-height: max(3.5rem, var(--hit));
+            padding: var(--sp-2) var(--sp-3);
+            border: 2px solid var(--border);
+            border-radius: 0.75rem;
+            background: var(--card-bg);
+            font-family: 'Noto Sans TC', sans-serif;
+            text-align: left;
+            cursor: pointer;
+            overflow-wrap: anywhere;
+        }
+        .import-choice-label { font-size: 1rem; font-weight: 700; line-height: 1.5; color: var(--text-primary); }
+        .import-choice-hint { font-size: 0.75rem; font-weight: 400; line-height: 1.5; color: var(--text-secondary); }
+        .import-choice.add { background: var(--action-bg); border-color: var(--action-bg); }
+        .import-choice.add .import-choice-label, .import-choice.add .import-choice-hint { color: var(--action-text); }
+        .import-choice.replace { background: var(--card-bg); border-color: var(--danger-line); }
+        .import-choice:disabled { opacity: .5; cursor: not-allowed; }
+        @media (hover: hover) and (pointer: fine) {
+            .import-choice.add:not(:disabled):hover { background: var(--action-bg-hover); border-color: var(--action-bg-hover); }
+        }
+        .import-status { min-height: 1.5rem; margin: var(--sp-2) 0 0; font-size: 0.875rem; font-weight: 400; line-height: 1.5; color: var(--text-secondary); }
+        .import-error { margin: 0 0 var(--sp-4); font-size: 1rem; font-weight: 400; line-height: 1.5; color: var(--text-primary); }
+        .import-dialog .feedback-modal-actions { margin-top: var(--sp-3); }
         .ai-exhausted {
             text-align: center;
             padding: 1.375rem 0.625rem 0.875rem;

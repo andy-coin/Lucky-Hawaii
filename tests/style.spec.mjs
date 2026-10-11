@@ -211,10 +211,17 @@ test('視覺：沒有新的顏色常數', () => {
     const isScrim = n => /^rgba\(0,0,0,[0-9.]+\)$/.test(n);
     // 列印檔印出來一律黑字白底，只有 css/print.css 可以直接寫 #000／#fff（Phase 8，UI-SPEC §4.3）
     const allowedIn = (set, file, n) => set.has(n) || isScrim(n) || (file === 'css/print.css' && (n === '#000' || n === '#fff'));
+    // Phase 8 UI-SPEC D-09：破壞性動作的色票只准寫在宣告 --danger-* 變數的那一行
+    const DANGER_HEX = new Set(['#c53030', '#9b2c2c', '#fc8181']);
     const extra = [];
     for (const f of CSS_FILES) {
-        for (const m of cssText(f).matchAll(lit)) {
-            if (!allowedIn(allow, f, norm(m[0]))) extra.push(`${f}: ${m[0]}`);
+        for (const line of cssText(f).split('\n')) {
+            const declaresDanger = /--danger-[a-z-]+\s*:/.test(line);
+            for (const m of line.matchAll(lit)) {
+                const n = norm(m[0]);
+                if (declaresDanger && DANGER_HEX.has(n)) continue;
+                if (!allowedIn(allow, f, n)) extra.push(`${f}: ${m[0]}`);
+            }
         }
     }
     expect(extra, '新增了白名單以外的顏色常數（請改用既有顏色變數）').toEqual([]);
@@ -222,6 +229,10 @@ test('視覺：沒有新的顏色常數', () => {
     expect(allow.has('#123456') || isScrim('rgba(1,2,3,0.5)')).toBe(false);
     expect(allowedIn(new Set(), 'css/panels.css', '#000'), '其他檔案的 #000 仍要被抓到').toBe(false);
     expect(allowedIn(new Set(), 'css/print.css', '#000')).toBe(true);
+    // 危險色只在 --danger-* 的宣告行內放行：同樣的色票寫在別的規則裡仍會被抓到
+    const lineExtra = line => [...line.matchAll(lit)].map(m => norm(m[0])).filter(n => !(/--danger-[a-z-]+\s*:/.test(line) && DANGER_HEX.has(n)) && !allowedIn(new Set(), 'css/panels.css', n));
+    expect(lineExtra('--danger-bg: #c53030;')).toEqual([]);
+    expect(lineExtra('.x { color: #c53030; }')).toEqual(['#c53030']);
 });
 
 test('視覺：系統要求減少動態時不播動畫', async ({ browser }) => {

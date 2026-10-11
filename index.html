@@ -274,6 +274,25 @@
         </div>
     </div>
 
+    <!-- 匯入備份視窗（Phase 8，EDIT-09）：同一個外殼四種畫面——摘要、舊存檔、還原中、錯誤 -->
+    <div class="feedback-modal-overlay" id="importOverlay" onclick="closeImportDialog(event)">
+        <div class="feedback-modal song-dialog import-dialog" role="dialog" aria-modal="true" aria-labelledby="importTitle" onclick="event.stopPropagation()">
+            <h3 id="importTitle" tabindex="-1">匯入備份</h3>
+            <p class="import-summary" id="importSummary"></p>
+            <p class="import-meta" id="importMeta"></p>
+            <div class="import-chips" id="importChips"></div>
+            <div class="import-choices">
+                <button type="button" class="import-choice add" id="importAddBtn" onclick="importAddSongs()" aria-labelledby="importAddLabel" aria-describedby="importAddHint"><span class="import-choice-label" id="importAddLabel">只加入歌曲</span><span class="import-choice-hint" id="importAddHint">保留你現在的歌曲與設定，備份裡的歌曲會加進來</span></button>
+                <button type="button" class="import-choice replace" id="importReplaceBtn" onclick="importReplaceAll()" aria-labelledby="importReplaceLabel" aria-describedby="importReplaceHint"><span class="import-choice-label" id="importReplaceLabel"><span aria-hidden="true">⚠ </span>全部還原（取代目前資料）</span><span class="import-choice-hint" id="importReplaceHint">目前的歌曲與設定會被換成備份檔的內容；換之前會先自動備份目前資料</span></button>
+            </div>
+            <p class="import-status" id="importStatus" role="status" aria-live="polite" hidden></p>
+            <p class="import-error" id="importError" hidden></p>
+            <div class="feedback-modal-actions">
+                <button type="button" class="feedback-cancel-btn" id="importCancelBtn" onclick="closeImportDialog()" aria-label="先不匯入，關閉視窗" title="先不匯入，關閉視窗">先不匯入</button>
+            </div>
+        </div>
+    </div>
+
     <div class="m-batch-panel" id="m-batchPanel">
         <button class="m-batch-btn btn-common" onclick="batchMark('common')">
             <span class="batch-icon">⭐</span>
