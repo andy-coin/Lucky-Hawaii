@@ -347,17 +347,17 @@ async function importReplaceAll() {
     if (!p || p.kind !== 'v2' || _imp.busy || !_importOpen()) return;
     _imp.busy = true;
     flushSongs();
+    setSavesFrozen(true);   // 從這裡到重新載入完成，這個分頁不再寫歌曲（WR-01）
     _setImportView('working');
     let r;
     try { r = await lhApplyBackupReplace(p); }
     catch (e) { lhWarn('全部還原失敗', e); r = { ok: false, stage: 'write' }; }
     if (!r.ok) {
+        setSavesFrozen(false);
+        flushSongs();   // 還原期間打的字補存
         showImportError(r.stage === 'backup' ? 'backup' : 'write');
         return;
     }
-    // 重新載入時 pagehide 會把這個分頁還沒存的修改合併進去，蓋掉剛還原的歌：清掉旗標
-    _dirty.clear();
-    _deleted.clear();
     history.replaceState(null, '', location.pathname + location.search + '#lh-restored=' + p.songs.length);
     location.reload();   // 主題、顏色、詞庫包、輸入模式都靠開機流程重讀儲存，重新載入最單純
 }
@@ -452,8 +452,10 @@ async function renderAutoBackups() {
 async function restoreAutoBackup(id) {
     if (_backupBusy) return;
     _backupBusy = true;
+    let reloading = false;
     try {
         flushSongs();
+        setSavesFrozen(true);   // WR-01：到重新載入為止不再寫歌曲
         const b = await lhBackup('pre-restore-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6), '還原自動備份前的備份', lhSnapshot());
         if (!b || !b.ok) {
             showToast('還原沒有開始：自動備份存不下來（瀏覽器的儲存空間可能已滿）。目前的資料沒有被改動。', 4000);
@@ -463,15 +465,16 @@ async function restoreAutoBackup(id) {
             showToast('還原沒有完成，請先按「備份全部」存成檔案。', 4000);
             return;
         }
-        // 重新載入時 pagehide 會把這個分頁還沒存的修改合併進去，蓋掉剛還原的歌：清掉旗標
-        _dirty.clear();
-        _deleted.clear();
+        reloading = true;
         history.replaceState(null, '', location.pathname + location.search + '#lh-restored-backup');
         location.reload();
     } catch (e) {
         lhWarn('還原自動備份失敗', e);
         showToast('還原沒有完成，請先按「備份全部」存成檔案。', 4000);
-    } finally { _backupBusy = false; }
+    } finally {
+        _backupBusy = false;
+        if (!reloading) { setSavesFrozen(false); flushSongs(); }
+    }
 }
 
 // 兩下確認：第一下把按鈕變成「再按一次確定還原」，4 秒內沒再按就解除；一次只武裝一顆

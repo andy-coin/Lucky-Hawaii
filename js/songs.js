@@ -6,6 +6,14 @@ const SONG_SAVE_DELAY = 300;   // 打字停下來多久才存；組字中完全�
 let _saveTimer = null;
 const _dirty = new Set();      // 這個分頁改過、還沒寫進儲存的歌 id
 const _deleted = new Set();    // 這個分頁刪掉、還沒從儲存移除的歌 id
+// 還原／匯入取代整份資料的期間（到重新載入為止）擋掉所有歌曲寫入（WR-01）：
+// 重新載入不是瞬間，這段時間任何打字、計時器、失焦、pagehide 的存檔都會把記憶體裡的舊歌蓋回剛還原的資料。
+// 只清 _dirty 旗標擋不住「之後又被標成改過」，所以用一個明確的閂；失敗時 setSavesFrozen(false) 才放開
+let _savesFrozen = false;
+function setSavesFrozen(on) {
+    _savesFrozen = !!on;
+    if (on) { clearTimeout(_saveTimer); _saveTimer = null; }
+}
 
 function makeEmptySong(title) {
     const now = Date.now();
@@ -34,6 +42,7 @@ function markDirty(id) {
 
 function scheduleSave() {
     clearTimeout(_saveTimer);
+    if (_savesFrozen) return;
     _saveTimer = setTimeout(flushSongs, SONG_SAVE_DELAY);
 }
 
@@ -51,6 +60,7 @@ function _flushLegacy() {
 function flushSongs() {
     clearTimeout(_saveTimer);
     _saveTimer = null;
+    if (_savesFrozen) return true;   // 資料正被整份取代，等重新載入；不是失敗，所以不跳橫幅
     if (songsMode === 'legacy') return _flushLegacy();
     if (!_dirty.size && !_deleted.size) return true;
     // 儲存裡讀不到或損毀（lhGetJSON 已另存損毀原文）時，改以記憶體裡的歌為底，才不會因為讀不到就丟歌
@@ -153,6 +163,7 @@ function cutName(name, n) {
 
 function _applyExternalSongs() {
     _pendingExternal = false;
+    if (_savesFrozen) return;
     flushSongs();   // 先把這個分頁自己還沒存的修改合併進去，才不會被重載蓋掉（F4）
     const raw = lhGet('lh:songs');
     const list = lhGetJSON('lh:songs', null, lhSongsOk);   // 不直接用事件帶來的值（T-08-10）；損毀時這裡已經記過警告

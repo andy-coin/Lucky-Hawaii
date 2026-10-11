@@ -565,3 +565,38 @@ test('字庫覆寫：字庫資料有非字串的值時索引照常建立', async
     expect(errors).toEqual([]);
     await context.close();
 });
+
+// ==================== 審查修正（WR-01）：還原期間到重新載入之間不再寫歌曲 ====================
+test('還原：閂上之後打字、計時器、失焦都不寫歌曲，放開才存', async ({ browser }) => {
+    const { context, page } = await bootPage(browser, { storage: MINE_STORAGE(), device: DESKTOP, wordlist: 'stub' });
+    const ta = page.locator('.section-textarea').first();
+    const stored = () => page.evaluate(() => JSON.parse(localStorage.getItem('lh:songs')).find(s => s.id === 'a').sections[0].text);
+    const before = await stored();
+    await page.evaluate(() => setSavesFrozen(true));
+    await ta.fill('閂上之後打的字');
+    await page.evaluate(() => { document.activeElement.blur(); window.dispatchEvent(new Event('pagehide')); flushSongs(); });
+    await page.waitForTimeout(600);   // 比 300 毫秒的存檔計時器長
+    expect(await stored(), '閂上的期間儲存的歌曲不變').toBe(before);
+    await page.evaluate(() => { setSavesFrozen(false); flushSongs(); });
+    expect(await stored(), '放開後補存').toBe('閂上之後打的字');
+    await context.close();
+});
+
+test('還原失敗後放開閂：還原期間打的字會補存', async ({ browser }) => {
+    const { context, page } = await bootPage(browser, { storage: MINE_STORAGE(), device: DESKTOP, wordlist: 'stub', init: failOnce });
+    await importBuf(page, mkBackup([mkSong('c', '丙', { createdAt: 5000 })]));
+    await page.evaluate(() => {   // 自動備份卡住，期間使用者還在打字
+        const real = window.lhBackup;
+        window.__gate = new Promise(r => { window.__release = r; });
+        window.lhBackup = async (...a) => { await window.__gate; return real(...a); };
+        window.__failKey = 'lh:songs';
+    });
+    await page.locator('#importReplaceBtn').click();
+    await expect(page.locator('#importStatus')).toHaveText('還原中…');
+    await page.evaluate(() => { const t = document.querySelector('.section-textarea'); t.value = '還原期間的字'; t.dispatchEvent(new Event('input', { bubbles: true })); });
+    await page.waitForTimeout(500);
+    await page.evaluate(() => window.__release());
+    await expect(page.locator('#importTitle')).toHaveText(ERR_TITLE);
+    await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('lh:songs')).find(s => s.id === 'a').sections[0].text)).toBe('還原期間的字');
+    await context.close();
+});
