@@ -200,6 +200,7 @@ const IMPORT_ERRORS = {
     write: '還原沒有完成：瀏覽器的儲存空間可能已滿，已經回到匯入前的狀態。',
     backup: '還原沒有開始：自動備份存不下來（瀏覽器的儲存空間可能已滿）。',
 };
+const IMPORT_TRUNCATED = '。注意：有內容超過上限，匯入時會被截短';
 const IMPORT_UNCHANGED = '目前的歌詞與設定都沒有被改動。';
 
 // 同一個視窗外殼的四種畫面：'summary'（v2）、'v1'（舊存檔）、'working'（還原中）、'error'
@@ -254,10 +255,10 @@ function openImportDialog(parsed) {
     const chips = _impEl('importChips');
     chips.replaceChildren();
     if (parsed.kind === 'v1') {
-        _impEl('importSummary').textContent = '這是舊版的存檔：有 ' + parsed.sectionCount + ' 段歌詞，會加進成新的一首歌';
+        _impEl('importSummary').textContent = '這是舊版的存檔：有 ' + parsed.sectionCount + ' 段歌詞，會加進成新的一首歌' + (parsed.truncated ? IMPORT_TRUNCATED : '');
         _impEl('importMeta').textContent = '';
     } else {
-        _impEl('importSummary').textContent = '這份備份有 ' + parsed.songs.length + ' 首歌與你的設定';
+        _impEl('importSummary').textContent = '這份備份有 ' + parsed.songs.length + ' 首歌與你的設定' + (parsed.truncated ? IMPORT_TRUNCATED : '');
         const when = ymdhm(parsed.exportedAt);
         _impEl('importMeta').textContent = when ? '備份時間：' + when : '';
         const mk = text => {

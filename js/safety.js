@@ -444,7 +444,9 @@ async function lhRestoreFromBackup(id) {
 const LH_BACKUP_FORMAT = 'lucky-hawaii-backup';
 const LH_BACKUP_VERSION = 2;
 const LH_BACKUP_MAX_BYTES = 5 * 1024 * 1024;
-const LH_IMPORT_CAPS = { songs: 1000, title: 60, sections: 200, label: 60, text: 200000, tags: 50, tag: 30, context: 5000, words: 5000, word: 50, setting: 1000000 };
+// 上限要比編輯器實際能存的還寬：編輯器自己沒有段數、標籤長度、情境長度的限制，備份檔本身又有 5 MB 的總量限制（WR-02）。
+// 歌名是例外，編輯器本來就限 60 字。真的超過時 stats.truncated 會讓匯入視窗明講，不會默默截短
+const LH_IMPORT_CAPS = { songs: 5000, title: 60, sections: 2000, label: 200, text: 1000000, tags: 200, tag: 100, context: 100000, words: 20000, word: 100, setting: 1000000 };
 // 設定值的形狀：app 自己會寫的值才收，壞值開機時會讓畫面壞掉（顏色反轉成 NaN 等）；沒列在這裡的設定只看長度
 const LH_SETTING_SHAPES = {
     haoYunQi_inputMode: /^(auto|zhuyin|pinyin)$/,
@@ -457,9 +459,13 @@ const LH_SETTING_SHAPES = {
     selectedModel: /^[^\n\r]{0,200}$/
 };
 
-// 依字元（不是 UTF-16 單位）截斷，不把一個字切半
-function _lhCut(s, n) {
-    return s.length <= n ? s : Array.from(s).slice(0, n).join('');
+// 依字元（不是 UTF-16 單位）截斷，不把一個字切半；stats（選用）記下有沒有真的截掉東西
+function _lhCut(s, n, stats) {
+    if (s.length <= n) return s;
+    const cut = Array.from(s);
+    if (cut.length <= n) return s;
+    if (stats) stats.truncated = true;
+    return cut.slice(0, n).join('');
 }
 
 // 備份檔會帶的設定鍵：登記為 setting 的鍵加上字庫覆寫；機密前綴（apiKey_）與後台金鑰從來不在清單裡，所以不可能進來
@@ -501,20 +507,22 @@ function lhCleanDictOverrides(o) {
 }
 
 // 保留池：字串、每個最多 50 字、去重、最多 5000 個
-function _lhNormalizeWords(arr) {
+function _lhNormalizeWords(arr, stats) {
     const out = [];
     const seen = new Set();
     for (const w of Array.isArray(arr) ? arr : []) {
-        if (typeof w !== 'string' || !w || w.length > LH_IMPORT_CAPS.word || seen.has(w)) continue;
+        if (typeof w !== 'string' || !w || seen.has(w)) continue;
+        if (w.length > LH_IMPORT_CAPS.word) { if (stats) stats.truncated = true; continue; }
         seen.add(w);
         out.push(w);
-        if (out.length >= LH_IMPORT_CAPS.words) break;
+        if (out.length >= LH_IMPORT_CAPS.words) { if (stats && arr.length > out.length) stats.truncated = true; break; }
     }
     return out;
 }
 
 // 把一首不可信的歌整理成乾淨的形狀；不是物件就回 null。takenIds：已經用掉的歌曲 id（Set），新 id 會加進去
-function lhNormalizeSong(raw, takenIds) {
+// stats（選用）：{ truncated } 有內容被上限截掉時設成 true
+function lhNormalizeSong(raw, takenIds, stats) {
     if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
     const pickId = (v, prefix, taken) => {
         let id = typeof v === 'string' && LH_ID_RE.test(v) && !taken.has(v) ? v : lhNewId(prefix);
@@ -524,15 +532,16 @@ function lhNormalizeSong(raw, takenIds) {
     };
     const taken = takenIds || new Set();
     const id = pickId(raw.id, 'song-', taken);
-    const title = _lhCut(typeof raw.title === 'string' ? raw.title.trim() : '', LH_IMPORT_CAPS.title).trim() || '未命名歌曲';
+    const title = _lhCut(typeof raw.title === 'string' ? raw.title.trim() : '', LH_IMPORT_CAPS.title, stats).trim() || '未命名歌曲';
     const secIds = new Set();
-    const sections = (Array.isArray(raw.sections) ? raw.sections : [])
-        .filter(s => s && typeof s === 'object')
+    const validSecs = (Array.isArray(raw.sections) ? raw.sections : []).filter(s => s && typeof s === 'object');
+    if (stats && validSecs.length > LH_IMPORT_CAPS.sections) stats.truncated = true;
+    const sections = validSecs
         .slice(0, LH_IMPORT_CAPS.sections)
         .map(s => ({
             id: pickId(s.id, 'sec-', secIds),
-            label: typeof s.label === 'string' ? _lhCut(s.label, LH_IMPORT_CAPS.label) : '',
-            text: typeof s.text === 'string' ? _lhCut(s.text, LH_IMPORT_CAPS.text) : '',
+            label: typeof s.label === 'string' ? _lhCut(s.label, LH_IMPORT_CAPS.label, stats) : '',
+            text: typeof s.text === 'string' ? _lhCut(s.text, LH_IMPORT_CAPS.text, stats) : '',
             collapsed: !!s.collapsed
         }));
     if (sections.length === 0) sections.push({ id: pickId(null, 'sec-', secIds), label: '', text: '', collapsed: false });
@@ -540,16 +549,16 @@ function lhNormalizeSong(raw, takenIds) {
     const hashtags = [];
     for (const t of Array.isArray(raw.hashtags) ? raw.hashtags : []) {
         if (typeof t !== 'string') continue;
-        const tag = _lhCut(t.trim(), LH_IMPORT_CAPS.tag);
+        const tag = _lhCut(t.trim(), LH_IMPORT_CAPS.tag, stats);
         if (!tag || seenTag.has(tag)) continue;
         seenTag.add(tag);
         hashtags.push(tag);
-        if (hashtags.length >= LH_IMPORT_CAPS.tags) break;
+        if (hashtags.length >= LH_IMPORT_CAPS.tags) { if (stats && raw.hashtags.length > hashtags.length) stats.truncated = true; break; }
     }
     const createdAt = Number.isFinite(raw.createdAt) ? raw.createdAt : Date.now();
     return {
         id, title, sections, hashtags,
-        context: typeof raw.context === 'string' ? _lhCut(raw.context, LH_IMPORT_CAPS.context) : '',
+        context: typeof raw.context === 'string' ? _lhCut(raw.context, LH_IMPORT_CAPS.context, stats) : '',
         createdAt,
         updatedAt: Number.isFinite(raw.updatedAt) ? raw.updatedAt : createdAt
     };
@@ -557,8 +566,9 @@ function lhNormalizeSong(raw, takenIds) {
 
 // 讀備份檔的文字，回傳：
 //   { ok: false, error: 'notjson' | 'format' | 'version' | 'nosongs', version }
-//   { ok: true, kind: 'v2', songs, activeSong, savedWords, settings, exportedAt }
-//   { ok: true, kind: 'v1', song, savedWords, sectionCount }   舊版 SAVE 檔：一首歌加保留池
+//   { ok: true, kind: 'v2', songs, activeSong, savedWords, settings, exportedAt, truncated }
+//   { ok: true, kind: 'v1', song, savedWords, sectionCount, truncated }   舊版 SAVE 檔：一首歌加保留池
+// truncated：有內容超過上限而被截短（匯入視窗會先告訴使用者，WR-02）
 // 全部整理過才回傳；呼叫端在 ok 之前不碰任何資料
 function lhParseBackup(text) {
     let d;
@@ -570,8 +580,10 @@ function lhParseBackup(text) {
         if (d.format !== LH_BACKUP_FORMAT || !Number.isInteger(d.version) || d.version < 1) return { ok: false, error: 'format' };
         if (d.version > LH_BACKUP_VERSION) return { ok: false, error: 'version', version: d.version };
         const taken = new Set();
+        const stats = { truncated: false };
+        if (Array.isArray(d.songs) && d.songs.length > LH_IMPORT_CAPS.songs) stats.truncated = true;
         const songs = (Array.isArray(d.songs) ? d.songs.slice(0, LH_IMPORT_CAPS.songs) : [])
-            .map(s => lhNormalizeSong(s, taken)).filter(Boolean);
+            .map(s => lhNormalizeSong(s, taken, stats)).filter(Boolean);
         if (songs.length === 0) return { ok: false, error: 'nosongs' };
         const settings = {};
         for (const key of _lhBackupSettingKeys()) {
@@ -581,19 +593,21 @@ function lhParseBackup(text) {
         return {
             ok: true, kind: 'v2', songs,
             activeSong: typeof d.activeSong === 'string' && songs.some(s => s.id === d.activeSong) ? d.activeSong : null,
-            savedWords: _lhNormalizeWords(d.savedWords),
+            savedWords: _lhNormalizeWords(d.savedWords, stats),
             settings,
-            exportedAt: typeof d.exportedAt === 'string' ? d.exportedAt : ''
+            exportedAt: typeof d.exportedAt === 'string' ? d.exportedAt : '',
+            truncated: stats.truncated
         };
     }
     if (Array.isArray(d.lyricsSections)) {
+        const stats = { truncated: false };
         const song = lhNormalizeSong({
             title: '匯入的歌曲',
             sections: d.lyricsSections,
             hashtags: d.hashtags,
             context: d.contextDescription
-        });
-        return { ok: true, kind: 'v1', song, savedWords: _lhNormalizeWords(d.savedWords), sectionCount: Math.min(d.lyricsSections.length, LH_IMPORT_CAPS.sections) };
+        }, undefined, stats);
+        return { ok: true, kind: 'v1', song, savedWords: _lhNormalizeWords(d.savedWords, stats), sectionCount: Math.min(d.lyricsSections.length, LH_IMPORT_CAPS.sections), truncated: stats.truncated };
     }
     return { ok: false, error: 'format' };
 }

@@ -312,15 +312,15 @@ test('備份：讀取失敗', async ({ browser }) => {
 
 // 檔案是被動過手腳的：JSON.parse 會把 "__proto__" 當成自己的屬性，所以用文字拼，不用物件字面值
 function hostileFile() {
-    const longSections = Array.from({ length: 300 }, (_, i) => ({ id: 'sec' + i, label: 'L' + i, text: 't' + i, collapsed: false }));
+    const longSections = Array.from({ length: 2100 }, (_, i) => ({ id: 'sec' + i, label: 'L' + i, text: 't' + i, collapsed: false }));
     const base = mkBackup([
         { id: '<img src=x>', title: 'S1', createdAt: 9000, updatedAt: 9000,
           sections: [{ id: 's', label: 'L', text: '</textarea><script>window.__pwn=1</script>', collapsed: false }], hashtags: [], context: '' },
         { id: '__proto__', title: '長'.repeat(100), createdAt: 800, sections: [], hashtags: [], context: '' },
-        { id: 'dup', title: 'S3', createdAt: 700, sections: longSections, hashtags: ['短標籤', '標'.repeat(40)], context: '情'.repeat(6000) },
+        { id: 'dup', title: 'S3', createdAt: 700, sections: longSections, hashtags: ['短標籤', '標'.repeat(150)], context: '情'.repeat(120000) },
         { id: 'dup', title: 'S4', createdAt: 600, sections: [{ id: 'x', label: '', text: '四', collapsed: false }], hashtags: [], context: '' },
         'not a song', null, 42,
-    ], { savedWords: ['好詞', '字'.repeat(60), '好詞', 5, null] });
+    ], { savedWords: ['好詞', '字'.repeat(120), '好詞', 5, null] });
     const settings = '{"__proto__":{"polluted":"yes"},"apiKey_gemini":"stolen","haoYunQi_admin_key":"x","selectedModel":"m-imported",'
         + '"bgColor1":"red;background:url(http://evil.example/x)","hoyun_theme_mode":"dark","unknownKey":"z"}';
     return JSON.stringify({ ...base, settings: '@@' }).replace('"@@"', settings);
@@ -331,7 +331,7 @@ test('備份：被動過手腳的檔案', async ({ browser }) => {
         storage: seed(MINE(), { apiKey_gemini: 'mine-key', haoYunQi_admin_key: 'admin-mine', bgColor1: '#112233' }), device: DESKTOP, wordlist: 'stub',
     });
     await importBuf(page, hostileFile());
-    await expect(page.locator('#importSummary')).toHaveText('這份備份有 4 首歌與你的設定');
+    await expect(page.locator('#importSummary')).toHaveText('這份備份有 4 首歌與你的設定。注意：有內容超過上限，匯入時會被截短');
     // 整理在顯示之前就做完：這時候原型沒被污染、script 沒跑
     expect(await page.evaluate(() => ({ polluted: ({}).polluted, pwn: window.__pwn }))).toEqual({});
     await page.locator('#importReplaceBtn').click();
@@ -345,9 +345,9 @@ test('備份：被動過手腳的檔案', async ({ browser }) => {
     expect(ids).not.toContain('<img src=x>');
     const byTitle = t => stored.find(x => x.title === t);
     expect(Array.from(stored.find(x => x.title.startsWith('長')).title)).toHaveLength(60);
-    expect(byTitle('S3').sections).toHaveLength(200);
-    expect(byTitle('S3').hashtags).toEqual(['短標籤', '標'.repeat(30)]);
-    expect(Array.from(byTitle('S3').context)).toHaveLength(5000);
+    expect(byTitle('S3').sections).toHaveLength(2000);
+    expect(byTitle('S3').hashtags).toEqual(['短標籤', '標'.repeat(100)]);
+    expect(Array.from(byTitle('S3').context)).toHaveLength(100000);
     expect(stored.find(x => x.title.startsWith('長')).sections, '沒有段落的歌補一個空段落').toHaveLength(1);
     for (const sg of stored) for (const sec of sg.sections) expect(Object.keys(sec).sort()).toEqual(['collapsed', 'id', 'label', 'text']);
     expect(JSON.parse(ls.haiku_savedwords)).toEqual(['好詞']);
@@ -598,5 +598,24 @@ test('還原失敗後放開閂：還原期間打的字會補存', async ({ brows
     await page.evaluate(() => window.__release());
     await expect(page.locator('#importTitle')).toHaveText(ERR_TITLE);
     await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('lh:songs')).find(s => s.id === 'a').sections[0].text)).toBe('還原期間的字');
+    await context.close();
+});
+
+// ==================== 審查修正（WR-02）：上限比編輯器寬，真的超過時先講 ====================
+test('備份：編輯器能存的內容不會被截短，真的超過才先提醒', async ({ browser }) => {
+    const { context, page } = await bootPage(browser, { storage: MINE_STORAGE(), device: DESKTOP, wordlist: 'stub' });
+    // 編輯器沒有段數、標籤長度、情境長度的限制：這些量都要原樣還原
+    const secs = Array.from({ length: 250 }, (_, i) => ({ id: 's' + i, label: '段' + '落'.repeat(80), text: 'x'.repeat(i === 0 ? 250000 : 5), collapsed: false }));
+    const big = { id: 'big', title: '大歌', createdAt: 5000, updatedAt: 5000, sections: secs, hashtags: Array.from({ length: 80 }, (_, i) => '標' + '籤'.repeat(40) + i), context: '情'.repeat(9000) };
+    await importBuf(page, mkBackup([big]));
+    await expect(page.locator('#importSummary'), '沒超過上限就沒有提醒').toHaveText('這份備份有 1 首歌與你的設定');
+    await page.locator('#importReplaceBtn').click();
+    await expect(page.locator('#copyToast')).toHaveText('已還原 1 首歌與設定（還原前的資料已自動備份）');
+    const got = JSON.parse((await dumpLS(page))['lh:songs'])[0];
+    expect(got.sections).toHaveLength(250);
+    expect(got.sections[0].text).toHaveLength(250000);
+    expect(Array.from(got.sections[0].label)).toHaveLength(81);
+    expect(got.hashtags).toHaveLength(80);
+    expect(got.context).toHaveLength(9000);
     await context.close();
 });
