@@ -1,7 +1,8 @@
         // 初始化：從 <script src="data/rhyme-dict.js"> 注入的全域變數載入
         rhymeDict = window._rhymeDictData || {};
-        loadDictOverrides();
-        buildIndex();
+        // 失敗只記警告、不中止：後面的 __hoyunReady、載入顏色與詞庫還要照常跑，歌詞編輯才不會跟著壞掉（CR-01）
+        try { loadDictOverrides(); } catch (e) { lhWarn('字庫覆寫套用失敗，略過', e); }
+        try { buildIndex(); } catch (e) { lhWarn('字庫索引建立失敗', e); }
         // 測試用就緒訊號：只給自動測試等待用，程式邏輯不可依賴它
         // 背景套用後台 overrides（data/rhyme-dict-overrides.json）完成後 rebuild；同時背景載入破音字讀音順序表
         window.__hoyunReady = Promise.all([ applyRhymeDictOverrides().then(applied => { if (applied) buildIndex(); }), loadPolyphonicsOrder() ]);

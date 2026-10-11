@@ -478,9 +478,26 @@ function _lhSettingFrom(src, key) {
         try {
             const o = JSON.parse(v);
             if (!o || typeof o !== 'object' || Array.isArray(o)) return undefined;
+            return JSON.stringify(lhCleanDictOverrides(o).clean);
         } catch (e) { lhWarn('備份檔裡的字庫覆寫不是合法 JSON，略過', e); return undefined; }
     }
     return v;
+}
+
+// 字庫覆寫（dictOverrides_v076）只收「注音＋聲調數字」的鍵與字串值（CR-01）。
+// 備份檔與瀏覽器裡的存檔都可能被改過；壞項目留到 buildIndex 才丟例外，整個 init 就停了。
+// 回傳 { clean, dropped }：clean 是沒有原型的乾淨物件；__proto__ 等鍵不符合格式，一律被擋
+const LH_DICT_KEY_RE = /^[ㄅ-ㄩ]{1,8}[1-5]$/;
+const LH_DICT_VALUE_MAX = 20000;
+function lhCleanDictOverrides(o) {
+    const clean = Object.create(null);
+    let dropped = 0;
+    for (const k of Object.keys(o)) {
+        const val = o[k];
+        if (LH_DICT_KEY_RE.test(k) && typeof val === 'string' && val.length <= LH_DICT_VALUE_MAX) clean[k] = val;
+        else dropped++;
+    }
+    return { clean, dropped };
 }
 
 // 保留池：字串、每個最多 50 字、去重、最多 5000 個

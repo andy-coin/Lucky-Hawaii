@@ -15,6 +15,7 @@
                 const tone = parseInt(key.slice(-1));
                 const baseZhuyin = key.slice(0, -1);
 
+                if (typeof value !== 'string') continue;   // 壞資料只略過那一筆，不讓整個索引建不起來
                 const parts = value.split('｜');
                 const tiers = ['common', 'normal', 'rare'];
 
@@ -45,7 +46,13 @@
             // 走 lhGetJSON：損毀或形狀不對時會留記錄、另存原始內容，不然下次存檔就把它蓋掉了
             const saved = lhGetJSON('dictOverrides_v076', null, v => v && typeof v === 'object' && !Array.isArray(v));
             if (!saved) return;
-            dictOverrides = saved;
+            // 存檔可能被手動改過或來自舊的備份：壞項目跳過並另存原文，絕不讓開機中止（CR-01）
+            const { clean, dropped } = lhCleanDictOverrides(saved);
+            if (dropped > 0) {
+                lhWarn('dictOverrides_v076 有 ' + dropped + ' 筆格式不合的項目，已略過（原始內容另存）');
+                _lhStashCorrupt('dictOverrides_v076', lhGet('dictOverrides_v076'));
+            }
+            dictOverrides = { ...clean };
             for (const [key, val] of Object.entries(dictOverrides)) {
                 rhymeDict[key] = val;
             }

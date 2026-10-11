@@ -528,3 +528,40 @@ test('備份：視窗焦點與鍵盤', async ({ browser }) => {
     expect(JSON.parse((await dumpLS(page))['lh:songs']).map(x => x.id)).toEqual(['a', 'b']);
     await context.close();
 });
+
+// ==================== 審查修正（08-REVIEW CR-01）：字庫覆寫的壞項目 ====================
+// 檔案用文字拼出來：JSON.parse 會把 "__proto__" 當成自己的屬性
+const BAD_DICT = '{"ㄚ1":123,"ㄚ2":null,"ㄚ3":{},"__proto__":{"polluted":"yes"},"x y":"zz","ㄅㄧㄣ4":"殯｜鬢｜儐"}';
+
+test('備份：字庫覆寫只收格式正確的項目', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, { storage: MINE_STORAGE(), device: DESKTOP, wordlist: 'stub' });
+    const file = JSON.stringify({ ...mkBackup([mkSong('c', '丙')]), settings: '@@' }).replace('"@@"', JSON.stringify({ dictOverrides_v076: BAD_DICT }));
+    await importBuf(page, file);
+    await page.locator('#importReplaceBtn').click();
+    await expect(page.locator('#copyToast')).toHaveText('已還原 1 首歌與設定（還原前的資料已自動備份）');
+    const ls = await dumpLS(page);
+    expect(JSON.parse(ls.dictOverrides_v076), '只剩格式正確的一筆').toEqual({ 'ㄅㄧㄣ4': '殯｜鬢｜儐' });
+    expect(await page.evaluate(() => ({ polluted: ({}).polluted, ready: typeof window.__hoyunReady }))).toEqual({ ready: 'object' });
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('字庫覆寫：存檔裡有壞項目時照常開機', async ({ browser }) => {
+    // 不經過匯入：直接把壞值放進 localStorage（手動改過、舊版殘留），開機不能中止
+    const { context, page, errors, warnings } = await bootPage(browser, { storage: { ...MINE_STORAGE(), dictOverrides_v076: BAD_DICT }, device: DESKTOP, wordlist: 'stub' });
+    expect(errors).toEqual([]);
+    expect(warnings.some(w => w.includes('dictOverrides_v076 有 5 筆格式不合的項目'))).toBe(true);
+    // 開機有跑完：歌詞畫出來、好的那筆覆寫進了字庫、原型沒被換掉
+    await expect(page.locator('#songCurrent')).toHaveText('甲');
+    expect(await page.evaluate(() => ({ good: rhymeDict['ㄅㄧㄣ4'], proto: Object.getPrototypeOf(rhymeDict) === Object.prototype, keys: Object.keys(dictOverrides) }))).toEqual({ good: '殯｜鬢｜儐', proto: true, keys: ['ㄅㄧㄣ4'] });
+    await context.close();
+});
+
+test('字庫覆寫：字庫資料有非字串的值時索引照常建立', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, { storage: MINE_STORAGE(), device: DESKTOP, wordlist: 'stub' });
+    // 壞值（非字串）只略過那一筆，其餘照常
+    const r = await page.evaluate(() => { rhymeDict['ㄚ9'] = 123; buildIndex(); return Object.keys(chineseDict).length > 0; });
+    expect(r).toBe(true);
+    expect(errors).toEqual([]);
+    await context.close();
+});
