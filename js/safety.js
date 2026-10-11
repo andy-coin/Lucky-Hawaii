@@ -33,7 +33,8 @@ const LH_KEYS = [
 const LH_KEY_PREFIXES = [{ prefix: 'apiKey_', group: 'setting', secret: true }];
 // 新鍵一律用 lh: 前綴；這兩個是中介資料，不備份
 // lh:backup:ls＝localStorage 備援的「釘住」槽（baseline、pre-schema-*、corrupt-songs-*）；lh:backup:ls2＝一般自動備份槽（刪歌、匯入、還原前）
-const LH_META_KEYS = ['lh:schema', 'lh:backup:ls', 'lh:backup:ls2'];
+// lh:backup:ls3＝損毀歌曲資料的原文（corrupt-songs-latest，只留最新一份），獨立一個槽，刪歌備份和升級前備份都擠不掉它
+const LH_META_KEYS = ['lh:schema', 'lh:backup:ls', 'lh:backup:ls2', 'lh:backup:ls3'];
 // 後台頁（admin/）與本站同網域，它的金鑰是機密，絕對不可被快照或備份（RESEARCH Pitfall 8）
 const LH_EXCLUDED_KEYS = ['haoYunQi_admin_key', 'haoYunQi_admin_theme'];
 
@@ -225,6 +226,7 @@ const LH_APP_VERSION = '0.96';
 const LH_BACKUP_KEEP = 3;
 // 基準備份與升級前的安全副本釘住，淘汰永遠不碰（F1）：刪歌、匯入產生的自動備份再多，也擠不掉升級前那份
 // corrupt-songs-*：lh:songs 損毀時保留的原始內容（WR-10），蓋掉損毀的存檔之前唯一的一份，同樣不能被輪替擠掉
+const _lhIsCorruptBackup = id => typeof id === 'string' && id.startsWith('corrupt-songs-');
 const _lhPinnedBackup = id => id === 'baseline' || (typeof id === 'string' && (id.startsWith('pre-schema-') || id.startsWith('corrupt-songs-')));
 
 // 只收清單內的鍵與已登記前綴的鍵（D-13）：不收中介資料、後台金鑰、同網域其他專案的鍵
@@ -263,7 +265,14 @@ function _lhBuildRecord(id, seq, label, snap) {
 const LH_LS_BACKUP_MAX_CHARS = 500000;
 function _lhBackupToLocal(record) {
     let slot = 'lh:backup:ls2';
-    if (_lhPinnedBackup(record.id)) {
+    if (_lhIsCorruptBackup(record.id)) {
+        // 固定 id、只留最新一份：同樣的損毀原文不重複寫，不同的才取代（IN-08）
+        slot = 'lh:backup:ls3';
+        try {
+            const old = localStorage.getItem(slot);
+            if (old !== null && JSON.parse(old).data['lh:songs'] === record.data['lh:songs']) return true;
+        } catch (e) { lhWarn('讀取 ' + slot + ' 失敗，將覆寫', e); }
+    } else if (_lhPinnedBackup(record.id)) {
         slot = 'lh:backup:ls';
         let oldId = null;
         try {
@@ -310,8 +319,11 @@ function lhBackup(id, label, snap) {
             all.onsuccess = () => {
                 try {
                     const recs = all.result;
-                    // 同一個 id 已存在就不動它：當機重跑也不會把原始備份換成改到一半的狀態
-                    if (recs.some(r => r.id === id)) { existed = true; return; }
+                    // 同一個 id 已存在就不動它：當機重跑也不會把原始備份換成改到一半的狀態。
+                    // 例外：損毀歌曲的原文用固定 id、只留最新一份，內容不一樣才取代舊的（IN-08）
+                    const old = recs.find(r => r.id === id);
+                    const sameCorrupt = old && old.data && snap && old.data['lh:songs'] === snap['lh:songs'];
+                    if (old && !(_lhIsCorruptBackup(id) && !sameCorrupt)) { existed = true; return; }
                     // 依「寫入順序」編號與淘汰，不用 createdAt（同一毫秒會平手）
                     const rec = _lhBuildRecord(id, recs.reduce((m, r) => Math.max(m, r.seq || 0), 0) + 1, label, snap);
                     store.put(rec);
@@ -335,7 +347,7 @@ function lhBackup(id, label, snap) {
 // localStorage 備援的兩個槽，釘住的在前；讀不到或壞掉的槽略過（沒有就是 []）
 function _lhLocalBackups() {
     const out = [];
-    for (const slot of ['lh:backup:ls', 'lh:backup:ls2']) {
+    for (const slot of ['lh:backup:ls', 'lh:backup:ls2', 'lh:backup:ls3']) {
         try {
             const raw = localStorage.getItem(slot);
             if (raw !== null) out.push(JSON.parse(raw));

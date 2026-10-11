@@ -494,3 +494,36 @@ test('凍結期間收到的外部更新不會被丟掉，放開後仍會套用�
     expect(errors).toEqual([]);
     await context.close();
 });
+
+// ==================== 審查修正（IN-08）：損毀原文只留最新一份，備援裡也不會被刪歌備份擠掉 ====================
+test('損毀的歌曲資料：固定 id 只留最新一份，內容相同不重複寫（IN-08）', async ({ browser }) => {
+    const { context, page } = await bootPage(browser, { storage: { ...FIXTURE, 'lh:schema': '2', 'lh:songs': 'not json' } });
+    const recs = () => page.evaluate(async () => (await lhListBackups()).filter(r => r.id.startsWith('corrupt-songs-')).map(r => [r.id, r.data['lh:songs']]));
+    await expect.poll(recs).toEqual([['corrupt-songs-latest', 'not json']]);
+    // 又壞了一次（內容不同）：取代舊的，不是再多一份
+    await page.evaluate(async () => { await lhBackup('corrupt-songs-latest', 't', { ...lhSnapshot(), 'lh:songs': 'second break' }); });
+    expect(await recs()).toEqual([['corrupt-songs-latest', 'second break']]);
+    // 同樣的內容再要求一次：不動
+    const seq = () => page.evaluate(async () => (await lhListBackups()).find(r => r.id === 'corrupt-songs-latest').seq);
+    const before = await seq();
+    await page.evaluate(async () => { await lhBackup('corrupt-songs-latest', 't', { ...lhSnapshot(), 'lh:songs': 'second break' }); });
+    expect(await seq()).toBe(before);
+    await context.close();
+});
+
+test('損毀的歌曲資料：沒有 IndexedDB 時原文有自己的槽，刪歌備份和升級前備份都擠不掉（IN-08）', async ({ browser }) => {
+    const { context, page } = await bootPage(browser, {
+        storage: { ...FIXTURE, 'lh:schema': '2', 'lh:songs': 'not json' },
+        init: () => { Object.defineProperty(window, 'indexedDB', { value: undefined, configurable: true }); },
+    });
+    const slot = k => page.evaluate(key => { const r = localStorage.getItem(key); return r === null ? null : JSON.parse(r).id; }, k);
+    await expect.poll(() => slot('lh:backup:ls3')).toBe('corrupt-songs-latest');
+    await page.evaluate(async () => { await lhBackup('song-delete-x', 'd', lhSnapshot()); await lhBackup('song-delete-y', 'd', lhSnapshot()); });
+    expect(await slot('lh:backup:ls3')).toBe('corrupt-songs-latest');
+    expect(await slot('lh:backup:ls2')).toBe('song-delete-y');
+    expect(await slot('lh:backup:ls')).not.toBeNull();
+    const ids = await page.evaluate(async () => (await lhListBackups()).map(r => r.id));
+    expect(ids).toContain('corrupt-songs-latest');
+    expect(await page.evaluate(() => Object.keys(localStorage).filter(k => k.startsWith('lh:backup:')).sort())).toEqual(['lh:backup:ls', 'lh:backup:ls2', 'lh:backup:ls3']);
+    await context.close();
+});

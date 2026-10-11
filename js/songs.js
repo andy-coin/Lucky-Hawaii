@@ -158,7 +158,7 @@ function _salvageSongs(raw) {
 // 損毀的 lh:songs 馬上就會被新內容蓋掉：蓋掉之前把整份儲存（含損毀的原文）存成釘住的自動備份，並告訴使用者一次。
 // lhSnapshot 是同步拍的，後面的覆寫不影響它；備份存進 IndexedDB 是非同步的，提示等它有結果再說
 function _keepCorruptSongs(salvagedCount) {
-    lhBackup('corrupt-songs-' + Date.now(), '歌曲資料損毀時的原始內容', lhSnapshot()).then(r => {
+    lhBackup('corrupt-songs-latest', '歌曲資料損毀時的原始內容', lhSnapshot()).then(r => {
         showToast('歌曲資料讀不出來，' + (salvagedCount ? '已救回 ' + salvagedCount + ' 首能用的歌' : '先建立了一首新歌')
             + (r && r.ok ? '。原本的內容已另存成自動備份，可以在「設定」的「自動備份」裡找回。' : '。原本的內容只留在瀏覽器裡，請先不要清除網站資料。'), 10000);
     }, e => lhWarn('保留損毀歌曲資料的備份失敗', e));
