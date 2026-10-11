@@ -296,9 +296,50 @@ function importSession(ev) {
     reader.readAsText(file);
 }
 
-// 「只加入歌曲」見下方 importAddSongs（Task 2）
+// 歌名撞到現有的歌就加「（匯入）」，總長維持在 60 字內；一直撞就疊上去（每一層都換成不同的字串，所以一定會結束）
+function _importTitle(title, existing) {
+    if (!existing.has(title)) return title;
+    for (let k = 1; k <= 15; k++) {
+        const t = Array.from(title).slice(0, SONG_NAME_MAX - 4 * k).join('') + '（匯入）'.repeat(k);
+        if (!existing.has(t)) return t;
+    }
+    for (let n = 2; ; n++) {
+        const t = Array.from(title).slice(0, 40).join('') + '（匯入' + n + '）';
+        if (!existing.has(t)) return t;
+    }
+}
+
+// 只加入歌曲：現有的歌與設定一個字都不動，也不會移除保留池的詞。
+// 備份裡的歌 id 撞到就換新 id、歌名撞到就加「（匯入）」；建立時間照備份原樣，所以會依時間排進清單裡。
+// 舊版存檔（v1）= 一首新歌，並且切過去；備份檔（v2）= 目前這首不變
 function importAddSongs() {
+    const p = _imp.parsed;
+    if (!p || _imp.busy || !_importOpen()) return;
+    if (songsMode !== 'v2') { showImportError('backup'); return; }   // 舊版單首模式（升級沒跑成）沒有地方存多首歌
+    flushSongs();
+    const incoming = p.kind === 'v1' ? [p.song] : p.songs;
+    const takenIds = new Set(songs.map(x => x.id));
+    const titles = new Set(songs.map(x => x.title));
+    const added = incoming.map(src => {
+        const song = { ...src, title: _importTitle(src.title, titles) };
+        while (takenIds.has(song.id)) song.id = lhNewId('song-');
+        takenIds.add(song.id);
+        songs.push(song);
+        _dirty.add(song.id);   // 不用 markDirty：它會把 updatedAt 改成現在，備份裡的時間要保留
+        return song;
+    });
+    const have = new Set(savedWords);
+    const newWords = p.savedWords.filter(w => !have.has(w));
+    if (newWords.length) {
+        savedWords = savedWords.concat(newWords);
+        lhSet('haiku_savedwords', JSON.stringify(savedWords));
+        renderSavedWords();
+    }
+    if (p.kind === 'v1') activeSongId = added[0].id;
+    flushSongs();   // 失敗時橫幅已經跳了，歌還在記憶體裡，下次存檔會再試
+    _refreshSongUI();
     closeImportDialog();
+    showToast(p.kind === 'v1' ? '已把舊版存檔加成新的一首歌「' + cutName(added[0].title, 16) + '」' : '已加入 ' + added.length + ' 首歌', 4000);
 }
 
 async function importReplaceAll() {

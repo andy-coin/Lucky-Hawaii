@@ -63,8 +63,8 @@
             <p>寫歌詞...不簡單...甘巴爹...早點睡...</p>
 
             <div class="save-load-controls">
-                <button class="save-load-btn" onclick="exportSession()" title="匯出歌詞、段落、情境、#標籤、保留池為 JSON 檔">💾<span class="save-load-text"> SAVE</span></button>
-                <button class="save-load-btn" onclick="document.getElementById('importFileInput').click()" title="從 JSON 檔還原">📂<span class="save-load-text"> LOAD</span></button>
+                <button class="save-load-btn" onclick="exportSession()" title="把所有歌曲與設定存成一個備份檔" aria-label="把所有歌曲與設定存成一個備份檔">💾<span class="save-load-text"> 備份全部</span></button>
+                <button class="save-load-btn" onclick="document.getElementById('importFileInput').click()" title="從備份檔還原歌曲與設定" aria-label="從備份檔還原歌曲與設定">📂<span class="save-load-text"> 匯入備份</span></button>
                 <input type="file" id="importFileInput" accept="application/json,.json" style="display:none" onchange="importSession(event)">
             </div>
         </div>
@@ -190,8 +190,8 @@
                     <div style="font-size:0.78rem; color:var(--text-secondary);">Groq 已整合，無需填入 Key。</div>
                 </div>
                 <div class="settings-saveload" style="gap:0.5rem;margin-top:0.25rem;">
-                    <button class="save-load-btn" style="flex:1;text-align:center" onclick="exportSession();closeSettingsOverlay({target:document.getElementById('settingsOverlay')})" title="匯出">💾 存檔</button>
-                    <button class="save-load-btn" style="flex:1;text-align:center" onclick="document.getElementById('importFileInput').click();closeSettingsOverlay({target:document.getElementById('settingsOverlay')})" title="讀取">📂 讀取</button>
+                    <button class="save-load-btn" style="flex:1;text-align:center" onclick="exportSession();closeSettingsOverlay({target:document.getElementById('settingsOverlay')})" title="把所有歌曲與設定存成一個備份檔" aria-label="把所有歌曲與設定存成一個備份檔">💾 備份全部</button>
+                    <button class="save-load-btn" style="flex:1;text-align:center" onclick="document.getElementById('importFileInput').click();closeSettingsOverlay({target:document.getElementById('settingsOverlay')})" title="從備份檔還原歌曲與設定" aria-label="從備份檔還原歌曲與設定">📂 匯入備份</button>
                 </div>
                 <button class="settings-feedback-btn save-load-btn" style="width:100%;text-align:center;" onclick="closeSettingsOverlay({target:document.getElementById('settingsOverlay')});openFeedbackModal()">✉️ 意見回饋</button>
                 <button class="reset-color" onclick="resetColors()" >重設顏色!</button>

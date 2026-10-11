@@ -110,10 +110,10 @@ function lhRemove(key) {
 // === 存檔失敗橫幅（D-09） ===
 const LH_BANNER_THROTTLE_MS = 60000;
 const LH_BANNER_TEXT = {
-    save: '存檔失敗：瀏覽器的儲存空間可能已滿，剛剛的修改可能沒有存下來。建議先按「匯出備份」存成檔案，再清掉不需要的舊資料。',
-    backup: '資料備份沒有存成功：瀏覽器的儲存空間可能已滿。你的歌詞與設定沒有被更動，建議先按「匯出備份」存成檔案。',
+    save: '存檔失敗：瀏覽器的儲存空間可能已滿，剛剛的修改可能沒有存下來。建議先按「備份全部」存成檔案，再清掉不需要的舊資料。',
+    backup: '資料備份沒有存成功：瀏覽器的儲存空間可能已滿。你的歌詞與設定沒有被更動，建議先按「備份全部」存成檔案。',
     'migrate-failed': '資料升級失敗，已自動還原成升級前的內容，歌詞與設定都在。',
-    'restore-failed': '資料升級失敗，而且自動還原沒有完整做完。請先按「匯出備份」存成檔案，並且不要清除網站資料；升級前的備份還留在瀏覽器裡。'
+    'restore-failed': '資料升級失敗，而且自動還原沒有完整做完。請先按「備份全部」存成檔案，並且不要清除網站資料；升級前的備份還留在瀏覽器裡。'
 };
 const _lhBannerShownAt = {};
 
@@ -132,7 +132,7 @@ function _lhBannerShow(text) {
         const exportBtn = document.createElement('button');
         exportBtn.type = 'button';
         exportBtn.className = 'lh-save-banner-export';
-        exportBtn.textContent = '匯出備份';
+        exportBtn.textContent = '備份全部';
         exportBtn.addEventListener('click', () => {
             if (typeof exportSession === 'function') exportSession();
         });
@@ -657,7 +657,7 @@ async function lhMigrate(steps, target) {
         try {
             if (prevSchema === null) localStorage.removeItem('lh:schema'); else localStorage.setItem('lh:schema', prevSchema);
         } catch (e2) { lhWarn('還原 lh:schema 失敗', e2); restored = false; }
-        // 還原沒做完就不能說「歌詞與設定都在」，改提示去匯出備份
+        // 還原沒做完就不能說「歌詞與設定都在」，改提示去按「備份全部」
         lhSaveFailed(restored ? 'migrate-failed' : 'restore-failed');
         return { ran: 0, restored };
     }

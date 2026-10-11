@@ -246,10 +246,10 @@ test('smoke 覆蓋率：原始碼裡的每個 handler 都有被觸發', async ({
 // 程式呼叫 input.click() 沒有使用者手勢，所以直接用 setInputFiles
 const importFile = (page, buffer) => page.setInputFiles('#importFileInput', { name: 'session.json', mimeType: 'application/json', buffer: Buffer.from(buffer) });
 
-test('import 合法存檔：顯示已讀取存檔並渲染歌詞', async ({ browser }) => {
+test('import 舊版存檔：按「加入成新歌曲」後渲染歌詞', async ({ browser }) => {
     const { context, page, errors, offOrigin } = await bootPage(browser, { wordlist: 'stub' });
     try {
-        const payload = {   // 與 exportSession 輸出同形狀
+        const payload = {   // 舊版（v0.96）SAVE 檔的形狀
             version: 1,
             exportedAt: '2026-10-03T00:00:00.000Z',
             lyricsSections: [
@@ -261,7 +261,9 @@ test('import 合法存檔：顯示已讀取存檔並渲染歌詞', async ({ brow
             contextDescription: '匯入的情境',
         };
         await importFile(page, JSON.stringify(payload));
-        await expect(page.locator('#copyToast')).toHaveText('已讀取存檔');
+        await expect(page.locator('#importSummary')).toHaveText('這是舊版的存檔：有 2 段歌詞，會加進成新的一首歌');
+        await page.locator('#importAddBtn').click();
+        await expect(page.locator('#copyToast')).toHaveText('已把舊版存檔加成新的一首歌「匯入的歌曲」');
         await expect(page.locator('.section-textarea').first()).toHaveValue('匯入的第一段歌詞');
         await expect(page.locator('#contextDescription')).toHaveValue('匯入的情境');
         expect(errors).toEqual([]);
@@ -271,11 +273,12 @@ test('import 合法存檔：顯示已讀取存檔並渲染歌詞', async ({ brow
     }
 });
 
-test('import 壞掉的檔案：顯示讀取失敗，不丟 JS 錯誤', async ({ browser }) => {
+test('import 壞掉的檔案：顯示無法匯入的說明，不丟 JS 錯誤', async ({ browser }) => {
     const { context, page, errors, offOrigin } = await bootPage(browser, { wordlist: 'stub' });
     try {
         await importFile(page, 'not json');
-        await expect(page.locator('#copyToast')).toHaveText('讀取失敗：檔案格式錯誤');
+        await expect(page.locator('#importTitle')).toHaveText('這個檔案無法匯入');
+        await expect(page.locator('#importError')).toHaveText('這個檔案不是有效的備份檔（內容讀不出來）。請選擇用「備份全部」存出來的 .json 檔。目前的歌詞與設定都沒有被改動。');
         expect(errors).toEqual([]);
         expect(offOrigin).toEqual([]);
     } finally {

@@ -26,7 +26,9 @@ test('localStorage: 寫入被拒時顯示存檔失敗橫幅', async ({ browser }
     await expect(banner).toBeVisible();
     await expect(banner).toHaveAttribute('role', 'alert');
     await expect(banner).toContainText('存檔失敗');
-    await expect(banner).toContainText('匯出備份');
+    await expect(banner).toContainText('備份全部');
+    await expect(page.locator('.lh-save-banner-export')).toHaveText('備份全部');
+    await expect(banner).not.toContainText('匯出備份');
     expect(errors).toEqual([]);
     // 橫幅不是 modal：需要手動關閉，關閉後 app 照常可用
     await page.locator('.lh-save-banner-close').click();
