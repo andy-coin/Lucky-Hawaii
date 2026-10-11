@@ -5,6 +5,24 @@
 - Pi Agent 預設連 ToshLLM (Qwen3.6)，profile: IQ50
 - `.devcontainer/docker-compose.yml` 的 ports 預設註解，web server 專案需取消註解
 
+## ✅ Phase 8 歌曲管理與資料模型：9/9 計畫完成（2026-10-11，分支 gsd/v0.96-stabilize，沒 push）
+
+- `npm test` 688 過／27 跳過／0 失敗（Mac 的 Chromium；只比對 -darwin 截圖）。`?v=` 全部是 **0.96.12**（30 個標籤，split-tags 會檢查一致）
+- 新檔：`js/songs.js`（歌曲模型、清單、改名、刪除）、`js/song-io.js`（匯出 TXT／Markdown／PDF／複製、備份全部、匯入、自動備份清單）、`css/print.css`；`js/safety.js` 多了備份檔解析與還原
+- 新測試：`tests/songs-{migrate,model,ime,crosstab,ui,export,backup,delete}.spec.mjs`，加上 08-09 的 `songs-journey.spec.mjs`（整合：一整天流程）與 `songs-audit.spec.mjs`（檢查：長歌名、怪字元、觸控、焦點、顏色、對比、無障礙名稱）。整合與檢查沒有挖出需要改程式的缺口
+- **舊分頁的風險（RESEARCH A8）**：升級前開著的舊版 v0.96 分頁不關的話，它會繼續寫舊的 `haiku_lyrics`，那些修改不會進新的歌曲資料。升級後請把舊分頁關掉或重新整理
+- 舊鍵 `haiku_lyrics`／`haiku_hashtags` 升級後原封不動留著（當退路）；`lh:schema` 是 2；升級前有 baseline 與 pre-schema-2 兩份自動備份（永遠不會被擠掉）
+
+**待 Andy 出手**
+- 在雲端容器執行 `npm run visual:update`，更新 -linux 截圖基準（本機只比對 -darwin；08-05、08-06、08-07 只刷新了 -darwin）
+- 真人驗收（機器量不到，`/gsd-verify-work 08` 會帶你走）：
+  1. 注音輸入法組字的手感：macOS Chrome／Safari、iPad／iPhone Safari、Android Gboard，打字時不被打斷、游標不亂跳
+  2. 長歌存成 PDF 的排版好不好看：頁與頁之間斷行、段落名不落單在頁底、沒被切邊
+  3. iOS：下載檔名、從主畫面圖示開啟時能不能列印、複製整首進剪貼簿
+  4. 手機：清單改名輸入框與刪除視窗搭配真的鍵盤；兩下確認的「還原這份」順不順
+  5. 兩台真的不同的裝置之間，用備份檔還原一次
+- 下一步：`/gsd-verify-work 08`（帶上面的真人項目），驗收清單已補在 `.planning/TEST-CHECKLIST.md`、`.planning/驗收清單-精簡版.md`
+
 ## ▶ 本機接續中（2026-10-09）
 
 - 已 pull 雲端進度到本機（HEAD 與 origin/gsd/v0.96-stabilize 一致；Mac 鑰匙圈在 SSH 下不能用，pull 要在終端機輸入 token）
