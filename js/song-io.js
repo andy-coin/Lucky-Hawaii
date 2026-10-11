@@ -177,6 +177,7 @@ const _pad2 = n => String(n).padStart(2, '0');
 
 // 檔名用本機時間：LuckyHawaii-備份-20261011-1530.json；不問檔名（沒有 prompt）
 function exportSession() {
+    if (!requireSongsReady()) return;   // 還沒載好會存出 0 首歌的備份（WR-09）
     flushSongs();   // 還在 300 毫秒等待中的修改先寫進模型再組備份
     const data = lhBuildBackup(songs, activeSongId, savedWords);
     const d = new Date();
@@ -284,7 +285,7 @@ function importSession(ev) {
     const input = ev && ev.target;
     const file = input && input.files && input.files[0];
     if (input) input.value = '';
-    if (!file) return;
+    if (!file || !requireSongsReady()) return;
     if (file.size > LH_BACKUP_MAX_BYTES) { showImportError('toolarge'); return; }
     const reader = new FileReader();
     reader.onerror = () => {
@@ -317,7 +318,7 @@ function _importTitle(title, existing) {
 // 舊版存檔（v1）= 一首新歌，並且切過去；備份檔（v2）= 目前這首不變
 function importAddSongs() {
     const p = _imp.parsed;
-    if (!p || _imp.busy || !_importOpen()) return;
+    if (!p || _imp.busy || !_importOpen() || !requireSongsReady()) return;
     if (songsMode !== 'v2') { showImportError('backup'); return; }   // 舊版單首模式（升級沒跑成）沒有地方存多首歌
     flushSongs();
     const incoming = p.kind === 'v1' ? [p.song] : p.songs;
@@ -347,7 +348,7 @@ function importAddSongs() {
 
 async function importReplaceAll() {
     const p = _imp.parsed;
-    if (!p || p.kind !== 'v2' || _imp.busy || !_importOpen()) return;
+    if (!p || p.kind !== 'v2' || _imp.busy || !_importOpen() || !requireSongsReady()) return;
     _imp.busy = true;
     flushSongs();
     setSavesFrozen(true);   // 從這裡到重新載入完成，這個分頁不再寫歌曲（WR-01）
@@ -456,7 +457,7 @@ async function renderAutoBackups() {
 
 // 還原前先把目前資料備份（不成功就不動）；成功後重新載入，主題、顏色、歌曲都靠開機流程重讀儲存
 async function restoreAutoBackup(id) {
-    if (_backupBusy) return;
+    if (_backupBusy || !requireSongsReady()) return;
     _backupBusy = true;
     let keepFrozen = false;   // 重新載入中，或退回失敗：閂維持上著
     try {

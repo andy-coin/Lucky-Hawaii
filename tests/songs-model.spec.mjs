@@ -377,3 +377,43 @@ test('多分頁同步：自己的存檔失敗時，別頁的更新不會吃掉�
     expect(errors.filter(e => !/QuotaExceeded|quota/i.test(e))).toEqual([]);
     await context.close();
 });
+
+// ==================== 審查修正（WR-09）：歌曲還沒載好 ====================
+test('載入前：匯出、新增歌曲、匯入都被擋住，不會存出空的備份', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, { storage: v2Storage([song('s1', [sec('a1', '我的歌詞')])]) });
+    const before = await dumpLS(page);
+    await page.evaluate(() => { songsReady = false; });   // 回到「還沒載好」的狀態
+    let downloaded = false;
+    page.on('download', () => { downloaded = true; });
+    await page.evaluate(() => { exportSession(); });
+    await expect(page.locator('#copyToast')).toHaveText('歌曲還在載入，請稍候再試');
+    await page.evaluate(() => { document.getElementById('copyToast').classList.remove('show'); createSong(); });
+    await expect(page.locator('#copyToast')).toHaveText('歌曲還在載入，請稍候再試');
+    await page.setInputFiles('#importFileInput', { name: 'b.json', mimeType: 'application/json', buffer: Buffer.from('{}') });
+    await page.waitForTimeout(300);
+    await expect(page.locator('#importOverlay')).not.toHaveClass(/show/);
+    expect(downloaded).toBe(false);
+    expect(await dumpLS(page), '什麼都沒寫').toEqual(before);
+    await page.evaluate(() => { songsReady = true; });
+    await context.close();
+});
+
+test('載入失敗：不停在載入中，說明資料沒有被更動', async ({ browser }) => {
+    const { context, page, warnings } = await bootPage(browser, {
+        storage: v2Storage([song('s1', [sec('a1', '我的歌詞')])]),
+        init: () => {
+            const orig = Element.prototype.replaceChildren;
+            Element.prototype.replaceChildren = function (...a) {
+                if (this.id === 'lyricsSections') throw new Error('boom');
+                return orig.apply(this, a);
+            };
+        },
+    });
+    await expect(page.locator('#lyricsSections')).toHaveText('歌詞載入失敗，但儲存的資料沒有被更動。請重新整理頁面再試一次。');
+    expect(warnings.some(w => w.includes('歌曲載入失敗'))).toBe(true);
+    expect(await page.evaluate(() => songsReady)).toBe(false);
+    expect(await page.evaluate(() => JSON.parse(localStorage.getItem('lh:songs'))[0].sections[0].text), '儲存的歌詞沒被動').toBe('我的歌詞');
+    await page.evaluate(() => { exportSession(); });
+    await expect(page.locator('#copyToast')).toHaveText('歌曲還在載入，請稍候再試');
+    await context.close();
+});

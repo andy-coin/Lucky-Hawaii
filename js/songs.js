@@ -111,6 +111,22 @@ function _normalizeSong(s) {
     return changed;
 }
 
+// 歌曲還沒載好之前，會動到整份資料的動作都不能做：這時候 songs 是空的，匯出會得到 0 首歌的備份，
+// 匯入／新增會把 lh:songs 寫成只剩新加的歌，舊歌詞就接不上了（WR-09）
+function requireSongsReady() {
+    if (songsReady) return true;
+    showToast('歌曲還在載入，請稍候再試', 2400);
+    return false;
+}
+
+// initSongs 丟出例外：編輯區不能停在永遠的「載入歌詞中…」，要講白話、並說明資料沒有被動到（songsReady 維持 false，上面那些動作都繼續擋著）
+function songsLoadFailed(e) {
+    lhWarn('歌曲載入失敗', e);
+    const area = document.getElementById('lyricsSections');
+    if (area) area.textContent = '歌詞載入失敗，但儲存的資料沒有被更動。請重新整理頁面再試一次。';
+    showToast('歌詞載入失敗，儲存的資料沒有被更動，請重新整理頁面', 6000);
+}
+
 // 開機：決定模式、載入歌、第一次畫出編輯器。不依賴安全層的回傳值，只看 lh:schema 與 lh:songs 實際長怎樣
 function initSongs() {
     if (lhGet('lh:schema') !== '2') {
@@ -134,6 +150,7 @@ function initSongs() {
         : songs.reduce((a, b) => (b.createdAt > a.createdAt ? b : a)).id;
     _refreshSongUI();
     if (_dirty.size) flushSongs();
+    songsReady = true;
     // 桌機的推開欄記得上次開關；手機／平板的覆蓋層一律從關著開始（D-04）
     if (songsMode === 'v2' && _MQ_SONG_PUSH.matches && lhGet('lh:songListOpen') === 'true') {
         _applySongListState(true);
@@ -376,7 +393,7 @@ function nextUntitledNumber() {
 }
 
 function createSong() {
-    if (songsMode !== 'v2') return;
+    if (songsMode !== 'v2' || !requireSongsReady()) return;
     flushSongs();
     const song = makeEmptySong('未命名歌曲 ' + nextUntitledNumber());
     songs.push(song);
