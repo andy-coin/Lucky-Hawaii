@@ -342,3 +342,38 @@ test('情境生成：換歌後不使用上一首歌選取的字（WR-06）', asy
     expect(errors).toEqual([]);
     await context.close();
 });
+
+test('多分頁同步：自己的存檔失敗時，別頁的更新不會吃掉這頁還沒存的修改（WR-08）', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, {
+        storage: v2Storage([song('s1', [sec('a1', '原本的第一首')]), song('s2', [sec('b1', '原本的第二首')], { createdAt: 2 })], 's1'),
+        init: () => {
+            const orig = Storage.prototype.setItem;
+            Storage.prototype.setItem = function (k, v) {
+                if (window.__failSongs && k === 'lh:songs') throw new DOMException('The quota has been exceeded.', 'QuotaExceededError');
+                return orig.call(this, k, v);
+            };
+        },
+    });
+    // 這頁改了第一首，但存不下去（儲存空間滿了）；別頁同時把第二首改名寫進儲存
+    await page.evaluate(() => { window.__failSongs = true; });
+    await textareas(page).first().fill('這頁打的字，還沒存下來');
+    await page.evaluate(() => {
+        const list = JSON.parse(localStorage.getItem('lh:songs'));
+        list.find(s => s.id === 's2').title = '別頁改的名字';
+        window.__failSongs = false;
+        localStorage.setItem('lh:songs', JSON.stringify(list));   // 模擬別頁寫入
+        window.__failSongs = true;
+        _applyExternalSongs();
+    });
+    const got = await page.evaluate(() => ({ s1: songs.find(s => s.id === 's1').sections[0].text, s2: songs.find(s => s.id === 's2').title, dirty: _dirty.has('s1') }));
+    expect(got.s1, '這頁的修改保留').toBe('這頁打的字，還沒存下來');
+    expect(got.s2, '別頁的改動也套進來').toBe('別頁改的名字');
+    expect(got.dirty, '還記得沒存下來').toBe(true);
+    await expect(textareas(page).first()).toHaveValue('這頁打的字，還沒存下來');
+    await expect(page.locator('#copyToast')).toContainText('修改還沒有存下來');
+    // 儲存恢復後補存
+    await page.evaluate(() => { window.__failSongs = false; flushSongs(); });
+    expect((await activeSong(page)).sections[0].text).toBe('這頁打的字，還沒存下來');
+    expect(errors.filter(e => !/QuotaExceeded|quota/i.test(e))).toEqual([]);
+    await context.close();
+});

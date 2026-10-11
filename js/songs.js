@@ -170,7 +170,7 @@ function cutName(name, n) {
 function _applyExternalSongs() {
     _pendingExternal = false;
     if (_savesFrozen) return;
-    flushSongs();   // 先把這個分頁自己還沒存的修改合併進去，才不會被重載蓋掉（F4）
+    const flushed = flushSongs();   // 先把這個分頁自己還沒存的修改合併進去，才不會被重載蓋掉（F4）
     const raw = lhGet('lh:songs');
     const list = lhGetJSON('lh:songs', null, lhSongsOk);   // 不直接用事件帶來的值（T-08-10）；損毀時這裡已經記過警告
     if (!list) {
@@ -179,11 +179,16 @@ function _applyExternalSongs() {
     }
     const oldOrder = sortedSongs().map(s => s.id);
     const oldPos = oldOrder.indexOf(activeSongId);
-    if (list.length === 0) {
+    // 自己的存檔失敗時（例如儲存空間滿了）_dirty 還記著沒存下來的歌：以這個分頁記憶體裡的為準，不能被儲存裡的舊版本蓋掉（WR-08）。
+    // 這個分頁刪掉但沒寫出去的歌也不要從儲存裡復活；儲存裡已經沒有、但這裡改過的歌留著
+    const mine = new Map(songs.filter(s => _dirty.has(s.id)).map(s => [s.id, s]));
+    const merged = list.filter(s => !_deleted.has(s.id)).map(s => mine.get(s.id) || s);
+    mine.forEach((s, id) => { if (!merged.some(x => x.id === id)) merged.push(s); });
+    if (merged.length === 0) {
         songs = [makeEmptySong('未命名歌曲 1')];
         _dirty.add(songs[0].id);
     } else {
-        songs = list;
+        songs = merged;
         songs.forEach(s => { if (_normalizeSong(s)) _dirty.add(s.id); });
     }
     let deleted = false;
@@ -196,8 +201,12 @@ function _applyExternalSongs() {
         activeSongId = [...after, ...before].find(id => alive.has(id)) || sortedSongs()[0].id;
         lhSet('lh:activeSong', activeSongId);
     }
-    if (_dirty.size) flushSongs();
+    const stillDirty = _dirty.size > 0 && !flushSongs();   // 失敗時橫幅 lhSet 已經跳了
     _refreshSongUI();
+    if (!flushed || stillDirty) {
+        showToast('其他分頁更新了歌詞，但這個分頁的修改還沒有存下來（儲存空間可能已滿），修改仍保留在畫面上。請先按「備份全部」。', 8000);
+        return;
+    }
     showToast(deleted
         ? '其他分頁刪除了這首歌，已切換到「' + cutName(curSong().title, 16) + '」'
         : '其他分頁更新了歌詞，已重新載入', 4000);
