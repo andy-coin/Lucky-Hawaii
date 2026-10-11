@@ -10,6 +10,9 @@ const _deleted = new Set();    // 這個分頁刪掉、還沒從儲存移除的�
 // 重新載入不是瞬間，這段時間任何打字、計時器、失焦、pagehide 的存檔都會把記憶體裡的舊歌蓋回剛還原的資料。
 // 只清 _dirty 旗標擋不住「之後又被標成改過」，所以用一個明確的閂；失敗時 setSavesFrozen(false) 才放開
 let _savesFrozen = false;
+// 注音／輸入法組字中（lyrics.js 的 compositionstart～compositionend）：半成品文字已經在模型裡，這段時間不寫進儲存（WR-07）。
+// 宣告放這裡而不是 lyrics.js，因為 flushSongs 要看它，而 songs.js 比 lyrics.js 先載入
+let _lhComposing = false;
 function setSavesFrozen(on) {
     _savesFrozen = !!on;
     if (on) { clearTimeout(_saveTimer); _saveTimer = null; }
@@ -57,10 +60,13 @@ function _flushLegacy() {
 }
 
 // 為什麼合併寫入：兩個分頁各改不同的歌時，不能互相蓋掉。只換掉這個分頁改過的歌，其餘以儲存裡現有的為準
-function flushSongs() {
+// force：離開頁面（pagehide、切到背景）時即使還在組字也要寫，掉字比寫進半成品更糟；其餘呼叫端組字中一律略過，
+// 旗標留著，compositionend 與 focusout 會補存
+function flushSongs(force) {
     clearTimeout(_saveTimer);
     _saveTimer = null;
     if (_savesFrozen) return true;   // 資料正被整份取代，等重新載入；不是失敗，所以不跳橫幅
+    if (_lhComposing && force !== true) return true;
     if (songsMode === 'legacy') return _flushLegacy();
     if (!_dirty.size && !_deleted.size) return true;
     // 儲存裡讀不到或損毀（lhGetJSON 已另存損毀原文）時，改以記憶體裡的歌為底，才不會因為讀不到就丟歌
@@ -210,9 +216,9 @@ document.addEventListener('focusout', () => {
 });
 
 // 關頁或切到背景前把等待中的修改寫出去（不用 beforeunload：手機上不可靠，而且會跳離開確認）
-window.addEventListener('pagehide', flushSongs);
+window.addEventListener('pagehide', () => flushSongs(true));
 document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'hidden') flushSongs();
+    if (document.visibilityState === 'hidden') flushSongs(true);
 });
 
 // ==================== 歌曲清單（☰ 歌曲） ====================

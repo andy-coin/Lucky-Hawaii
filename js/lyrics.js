@@ -215,6 +215,7 @@
             const container = document.getElementById('lyricsSections');
             const song = curSong();
             if (!container || !song) return;
+            _lhComposing = false;   // 輸入框被換掉時不會收到 compositionend／focusout，旗標不能卡在 true
             container.replaceChildren(...song.sections.map((s, i) => {
                 const el = document.createElement('div');
                 el.className = 'lyrics-section' + (s.collapsed ? ' collapsed' : '');
@@ -271,7 +272,7 @@
         // ===== 編輯器事件（B1、B2）：掛在不會被重畫的容器上，重畫只換子節點 =====
         // 輸入只改記憶體裡的模型；組字中（compositionstart～compositionend）完全不存檔，
         // 確認後立刻存；一般打字 300 毫秒後存一次；離開欄位立刻存
-        let _lhComposing = false;
+        // _lhComposing 宣告在 songs.js（flushSongs 也要看）
 
         // 用 data-id 找到區塊（不是用順序）；只寫模型，絕不回頭寫畫面（寫 .value 會打斷組字）
         function syncFromField(el) {
@@ -294,7 +295,7 @@
         ['lyricsSections', 'contextDescription'].forEach(id => {
             const area = document.getElementById(id);
             if (!area) return;
-            area.addEventListener('compositionstart', () => { _lhComposing = true; });
+            area.addEventListener('compositionstart', () => { _lhComposing = true; clearTimeout(_saveTimer); });
             area.addEventListener('compositionend', e => { _lhComposing = false; syncFromField(e.target); flushSongs(); });
             area.addEventListener('input', e => {
                 syncFromField(e.target);

@@ -175,3 +175,41 @@ test('組字：切到背景立刻存', async ({ browser }) => {
     expect(errors).toEqual([]);
     await context.close();
 });
+
+// ==================== 審查修正（WR-07）：已經排好的 300 毫秒計時器不能在組字中途寫檔 ====================
+test('組字：先打一般字、馬上開始組字，計時器不在組字中途存檔', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, { storage: FIXTURE, init: STORAGE_SPY });
+    await focusEnd(page);
+    await page.evaluate(() => { window.__lsWrites.length = 0; });
+    await page.keyboard.type('a');   // 排好 300 毫秒計時器
+    let during = -1;
+    let duringText = '';
+    await compose(page, ['ㄋ', 'ㄋㄧ', 'ㄋㄧˇ'], '你', async () => {
+        await page.waitForTimeout(600);   // 比計時器久
+        during = await page.evaluate(keys => window.__lsWrites.filter(w => keys.includes(w.k)).length, LYRIC_KEYS);
+        duringText = await rawFirstText(page);
+    });
+    expect(during, '組字中沒有任何歌詞存檔').toBe(0);
+    expect(duringText.includes('ㄋㄧˇ'), '儲存裡沒有半成品').toBe(false);
+    await page.waitForFunction(() => {
+        const songs = JSON.parse(localStorage.getItem('lh:songs'));
+        return songs.find(s => s.id === localStorage.getItem('lh:activeSong')).sections[0].text.endsWith('a你');
+    }, null, { timeout: 600 });
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('組字：組字到一半切到背景仍然存檔（不掉字）', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, { storage: FIXTURE });
+    await focusEnd(page);
+    await page.keyboard.type('已打好的字');
+    await compose(page, ['ㄋ', 'ㄋㄧ'], '你', async () => {
+        await page.evaluate(() => {
+            Object.defineProperty(document, 'visibilityState', { value: 'hidden', configurable: true });
+            document.dispatchEvent(new Event('visibilitychange'));
+        });
+        expect((await rawFirstText(page)).includes('已打好的字'), '離開頁面時組字中也會把已打好的字存下來').toBe(true);
+    });
+    expect(errors).toEqual([]);
+    await context.close();
+});
