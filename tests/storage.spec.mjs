@@ -181,10 +181,9 @@ test('backup: 同一毫秒建立的備份不互相覆蓋，只保留最新 3 份
     });
     await page.evaluate(() => Promise.all(['t1', 't2', 't3', 't4', 't5'].map(id => lhBackup(id, 'same-ms', { id }))));
     const list = await page.evaluate(() => lhListBackups());
-    expect(list.map(r => r.id)).toEqual(['t3', 't4', 't5']);      // 最新 3 份，baseline 與 t1、t2 被淘汰
-    expect(new Set(list.map(r => r.id)).size).toBe(3);
-    expect(list[0].seq).toBeLessThan(list[1].seq);
-    expect(list[1].seq).toBeLessThan(list[2].seq);
+    expect(list.map(r => r.id)).toEqual(['baseline', 'pre-schema-2', 't3', 't4', 't5']);      // baseline 與 pre-schema-* 釘住不淘汰，其餘只留最新 3 份（t1、t2 被淘汰）
+    expect(new Set(list.map(r => r.id)).size).toBe(5);
+    for (let i = 1; i < list.length; i++) expect(list[i - 1].seq).toBeLessThan(list[i].seq);
     expect(new Set(list.map(r => r.createdAt)).size).toBe(1);
     // 同 id 再備份：不覆寫
     const again = await page.evaluate(() => lhBackup('t5', 'again', {}));

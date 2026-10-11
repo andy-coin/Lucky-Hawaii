@@ -244,7 +244,14 @@ function renderSongList() {
         ren.textContent = '✎';
         ren.setAttribute('aria-label', '重新命名「' + s.title + '」');
         ren.title = '重新命名「' + s.title + '」';
-        acts.appendChild(ren);
+        const trash = document.createElement('button');
+        trash.type = 'button';
+        trash.className = 'song-act delete';
+        trash.dataset.songId = s.id;
+        trash.textContent = '🗑';
+        trash.setAttribute('aria-label', '刪除「' + s.title + '」');
+        trash.title = '刪除「' + s.title + '」';
+        acts.append(ren, trash);
         li.append(pick, acts);
         return li;
     }));
@@ -414,7 +421,9 @@ document.addEventListener('click', e => {
     const pick = t && t.closest('#songItems .song-pick');
     if (pick) return switchSong(pick.dataset.songId);
     const ren = t && t.closest('#songItems .song-act.rename');
-    if (ren) startRenameSong(ren.dataset.songId);
+    if (ren) return startRenameSong(ren.dataset.songId);
+    const trash = t && t.closest('#songItems .song-act.delete');
+    if (trash) openDeleteSong(trash.dataset.songId, trash);
 });
 
 // 雙擊歌名改名只在推開欄（覆蓋層的第一下就把清單關了，雙擊落不下來；那裡用 ✎，D-06）
@@ -451,3 +460,117 @@ document.addEventListener('keydown', e => {
         startRenameSong(pick.dataset.songId);
     }
 });
+
+
+// ==================== 刪除歌曲（C4） ====================
+// 刪之前一定先把整份資料存成自動備份（成功才動手）；備份或寫入失敗，歌還在、視窗不關
+const _del = { id: null, opener: null, busy: false };
+const _delEl = id => document.getElementById(id);
+const _deleteOpen = () => !!_delEl('songDeleteOverlay') && _delEl('songDeleteOverlay').classList.contains('show');
+
+function openDeleteSong(id, opener) {
+    if (songsMode !== 'v2') return;
+    const song = songs.find(s => s.id === id);
+    if (!song) return;
+    if (typeof closeExportMenu === 'function') closeExportMenu();
+    _del.id = id;
+    _del.opener = opener || document.activeElement;
+    _del.busy = false;
+    const long = Array.from(song.title).length > 24;
+    _delEl('songDeleteTitle').textContent = '刪除「' + cutName(song.title, 24) + '」？';
+    _delEl('songDeleteFull').hidden = !long;
+    _delEl('songDeleteFull').textContent = long ? song.title : '';
+    _delEl('songDeleteLast').hidden = songs.length !== 1;
+    _delEl('songDeleteStatus').textContent = '';
+    const ok = _delEl('songDeleteConfirm');
+    ok.textContent = '刪除這首歌';
+    ok.disabled = false;
+    ok.setAttribute('aria-label', '刪除「' + song.title + '」這首歌');
+    _delEl('songDeleteCancel').disabled = false;
+    _delEl('songDeleteOverlay').classList.add('show');
+    _delEl('songDeleteCancel').focus();
+}
+
+function _hideDeleteDialog() {
+    _delEl('songDeleteOverlay').classList.remove('show');
+    const op = _del.opener;
+    _del.id = null;
+    _del.opener = null;
+    // 那一列通常已經重畫過（opener 不在文件裡），焦點就回 ☰ 歌曲
+    const back = op && op.focus && document.contains(op) ? op : _delEl('songListToggle');
+    if (back) back.focus();
+}
+
+// 遮罩只有點在遮罩本身才算「先不刪除」；刪除進行中不能關
+function closeDeleteSong(e) {
+    if (!_deleteOpen() || _del.busy) return;
+    if (e && e.target !== _delEl('songDeleteOverlay')) return;
+    _hideDeleteDialog();
+}
+
+async function confirmDeleteSong() {
+    const id = _del.id;
+    if (id === null || _del.busy) return;
+    const song = songs.find(s => s.id === id);
+    if (!song) { _hideDeleteDialog(); return; }   // 這首歌已經被別的分頁刪掉了
+    _del.busy = true;
+    const ok = _delEl('songDeleteConfirm');
+    ok.disabled = true;
+    ok.textContent = '刪除中…';
+    _delEl('songDeleteCancel').disabled = true;
+    _delEl('songDeleteStatus').textContent = '';
+    const fail = () => {
+        _delEl('songDeleteStatus').textContent = '刪除沒有完成，這首歌還在。';
+        ok.disabled = false;
+        ok.textContent = '刪除這首歌';
+        _delEl('songDeleteCancel').disabled = false;
+        _del.busy = false;
+    };
+    // 備份沒存成功就絕不刪（T-08-25）；id 帶亂數尾巴，同一毫秒的兩次刪除也不會因為「同 id 不重寫」而少備份一次
+    let backedUp = false;
+    let pre = null;
+    try {
+        if (flushSongs()) {
+            pre = lhSnapshot();
+            const r = await lhBackup('song-delete-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6), '刪除「' + song.title + '」前的自動備份', pre);
+            backedUp = !!(r && r.ok);
+        }
+    } catch (e) { lhWarn('刪除前的自動備份失敗', e); }
+    if (!backedUp) { fail(); return; }
+
+    const prevSongs = songs;
+    const prevActive = activeSongId;
+    let next = activeSongId;
+    if (id === activeSongId) {
+        const order = sortedSongs().map(x => x.id);
+        const i = order.indexOf(id);
+        next = order[i + 1] || order[i - 1] || null;   // 先看下面那首，沒有再看上面
+    }
+    songs = songs.filter(x => x.id !== id);
+    _dirty.delete(id);
+    _deleted.add(id);
+    let created = null;
+    if (songs.length === 0) {   // 清單永遠不會是 0 首
+        created = makeEmptySong('未命名歌曲 ' + nextUntitledNumber());
+        songs.push(created);
+        _dirty.add(created.id);
+        next = created.id;
+    }
+    activeSongId = next;
+    if (!flushSongs()) {
+        // 寫入失敗：記憶體退回原樣，儲存也盡量退回備份前的樣子，畫面上這首歌還在
+        songs = prevSongs;
+        activeSongId = prevActive;
+        _deleted.delete(id);
+        if (created) _dirty.delete(created.id);
+        try { lhRestore(pre); } catch (e) { lhWarn('刪除失敗後退回原狀失敗', e); }
+        fail();
+        return;
+    }
+    _refreshSongUI();
+    _del.busy = false;
+    _hideDeleteDialog();
+    showToast(created
+        ? '已刪除「' + cutName(song.title, 16) + '」，並建立一首空白的新歌'
+        : '已刪除「' + cutName(song.title, 16) + '」', created ? 4000 : 2400);
+}

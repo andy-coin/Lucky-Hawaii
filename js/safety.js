@@ -220,6 +220,8 @@ function lhIdbOpen() {
 // 備份記錄格式 { id, seq, label, createdAt, appVersion, schema, data }，之後的遷移與還原都讀這個形狀（D-11、D-12）
 const LH_APP_VERSION = '0.96';
 const LH_BACKUP_KEEP = 3;
+// 基準備份與升級前的安全副本釘住，淘汰永遠不碰（F1）：刪歌、匯入產生的自動備份再多，也擠不掉升級前那份
+const _lhPinnedBackup = id => id === 'baseline' || (typeof id === 'string' && id.startsWith('pre-schema-'));
 
 // 只收清單內的鍵與已登記前綴的鍵（D-13）：不收中介資料、後台金鑰、同網域其他專案的鍵
 function lhSnapshot() {
@@ -293,7 +295,7 @@ function lhBackup(id, label, snap) {
                     // 依「寫入順序」編號與淘汰，不用 createdAt（同一毫秒會平手）
                     const rec = _lhBuildRecord(id, recs.reduce((m, r) => Math.max(m, r.seq || 0), 0) + 1, label, snap);
                     store.put(rec);
-                    recs.concat(rec).sort((a, b) => b.seq - a.seq).slice(LH_BACKUP_KEEP)
+                    recs.concat(rec).filter(r => !_lhPinnedBackup(r.id)).sort((a, b) => b.seq - a.seq).slice(LH_BACKUP_KEEP)
                         .forEach(r => store.delete(r.id));
                 } catch (e) { fail(e); try { tx.abort(); } catch (e2) { lhWarn('備份交易中止失敗', e2); } }
             };

@@ -293,6 +293,21 @@
         </div>
     </div>
 
+    <!-- 刪除歌曲確認視窗（Phase 8，EDIT-04）：刪之前一定先自動備份 -->
+    <div class="feedback-modal-overlay" id="songDeleteOverlay" onclick="closeDeleteSong(event)">
+        <div class="feedback-modal song-dialog" role="alertdialog" aria-modal="true" aria-labelledby="songDeleteTitle" aria-describedby="songDeleteBody" onclick="event.stopPropagation()">
+            <h3 id="songDeleteTitle"></h3>
+            <p class="song-delete-full" id="songDeleteFull" hidden></p>
+            <p class="song-delete-body" id="songDeleteBody">這首歌的歌詞會一起刪除（刪除前會自動備份，可從備份還原）。</p>
+            <p class="song-delete-last" id="songDeleteLast" hidden>這是最後一首，刪除後會自動建立一首空白的新歌。</p>
+            <p class="song-delete-status" id="songDeleteStatus" role="status" aria-live="polite"></p>
+            <div class="feedback-modal-actions">
+                <button type="button" class="feedback-cancel-btn" id="songDeleteCancel" onclick="closeDeleteSong()" aria-label="先不刪除，關閉視窗" title="先不刪除，關閉視窗">先不刪除</button>
+                <button type="button" class="song-danger-btn" id="songDeleteConfirm" onclick="confirmDeleteSong()">刪除這首歌</button>
+            </div>
+        </div>
+    </div>
+
     <div class="m-batch-panel" id="m-batchPanel">
         <button class="m-batch-btn btn-common" onclick="batchMark('common')">
             <span class="batch-icon">⭐</span>

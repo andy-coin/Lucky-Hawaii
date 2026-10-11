@@ -824,6 +824,19 @@
         .import-status { min-height: 1.5rem; margin: var(--sp-2) 0 0; font-size: 0.875rem; font-weight: 400; line-height: 1.5; color: var(--text-secondary); }
         .import-error { margin: 0 0 var(--sp-4); font-size: 1rem; font-weight: 400; line-height: 1.5; color: var(--text-primary); }
         .import-dialog .feedback-modal-actions { margin-top: var(--sp-3); }
+
+        /* ===== 刪除歌曲視窗（Phase 8，UI-SPEC §3）：破壞性按鈕用 --danger-* 固定色 ===== */
+        .song-delete-body { margin: 0; font-size: 1rem; font-weight: 400; line-height: 1.5; color: var(--text-primary); }
+        .song-delete-full { margin: 0 0 var(--sp-2); font-size: 0.875rem; font-weight: 400; line-height: 1.5; color: var(--text-secondary); overflow-wrap: anywhere; }
+        .song-delete-last { margin: var(--sp-2) 0 0; font-size: 0.875rem; font-weight: 400; line-height: 1.5; color: var(--text-secondary); }
+        .song-dialog [hidden] { display: none; }
+        #songDeleteStatus { min-height: 1.5rem; margin: var(--sp-2) 0 0; font-size: 0.875rem; font-weight: 700; line-height: 1.5; color: var(--danger-line); }
+        .song-danger-btn { background: var(--danger-bg); color: var(--danger-text); border-color: var(--danger-bg); }
+        .song-danger-btn:disabled { opacity: .5; cursor: not-allowed; }
+        @media (hover: hover) and (pointer: fine) {
+            .song-danger-btn:not(:disabled):hover { background: var(--danger-bg-hover); border-color: var(--danger-bg-hover); }
+            .song-act.delete:hover { color: var(--danger-line); }
+        }
         .ai-exhausted {
             text-align: center;
             padding: 1.375rem 0.625rem 0.875rem;
