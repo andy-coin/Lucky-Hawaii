@@ -130,7 +130,7 @@ function songsLoadFailed(e) {
 // lh:songs 整份驗證不過時，逐首撿回還能用的歌（有合法 id 和 sections 陣列），id 重複的只留第一首
 function _salvageSongs(raw) {
     let arr;
-    try { arr = JSON.parse(raw); } catch (e) { return []; }
+    try { arr = JSON.parse(raw); } catch (e) { lhWarn('損毀的 lh:songs 無法逐首撿回', e); return []; }
     if (!Array.isArray(arr)) return [];
     const seen = new Set();
     return arr.filter(s => {
