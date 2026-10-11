@@ -113,14 +113,21 @@ function _normalizeSong(s) {
 
 // 歌曲還沒載好之前，會動到整份資料的動作都不能做：這時候 songs 是空的，匯出會得到 0 首歌的備份，
 // 匯入／新增會把 lh:songs 寫成只剩新加的歌，舊歌詞就接不上了（WR-09）
-function requireSongsReady() {
+// opts.allowFailed：「全部還原」與自動備份還原只讀寫儲存空間、不碰記憶體裡的 songs，載入失敗時它們是唯一的出路，所以放行（WR-12）
+function requireSongsReady(opts) {
     if (songsReady) return true;
+    if (songsFailed) {
+        if (opts && opts.allowFailed) return true;
+        showToast('歌詞載入失敗，請重新整理頁面，或到「設定」的「自動備份」還原', 4000);
+        return false;
+    }
     showToast('歌曲還在載入，請稍候再試', 2400);
     return false;
 }
 
 // initSongs 丟出例外：編輯區不能停在永遠的「載入歌詞中…」，要講白話、並說明資料沒有被動到（songsReady 維持 false，上面那些動作都繼續擋著）
 function songsLoadFailed(e) {
+    songsFailed = true;
     lhWarn('歌曲載入失敗', e);
     const area = document.getElementById('lyricsSections');
     if (area) area.textContent = '歌詞載入失敗，但儲存的資料沒有被更動。請重新整理頁面再試一次。';

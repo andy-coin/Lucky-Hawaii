@@ -285,7 +285,7 @@ function importSession(ev) {
     const input = ev && ev.target;
     const file = input && input.files && input.files[0];
     if (input) input.value = '';
-    if (!file || !requireSongsReady()) return;
+    if (!file || !requireSongsReady({ allowFailed: true })) return;   // 載入失敗時也要能選檔，走「全部還原」
     if (file.size > LH_BACKUP_MAX_BYTES) { showImportError('toolarge'); return; }
     const reader = new FileReader();
     reader.onerror = () => {
@@ -348,7 +348,7 @@ function importAddSongs() {
 
 async function importReplaceAll() {
     const p = _imp.parsed;
-    if (!p || p.kind !== 'v2' || _imp.busy || !_importOpen() || !requireSongsReady()) return;
+    if (!p || p.kind !== 'v2' || _imp.busy || !_importOpen() || !requireSongsReady({ allowFailed: true })) return;
     _imp.busy = true;
     flushSongs();
     setSavesFrozen(true);   // 從這裡到重新載入完成，這個分頁不再寫歌曲（WR-01）
@@ -457,7 +457,7 @@ async function renderAutoBackups() {
 
 // 還原前先把目前資料備份（不成功就不動）；成功後重新載入，主題、顏色、歌曲都靠開機流程重讀儲存
 async function restoreAutoBackup(id) {
-    if (_backupBusy || !requireSongsReady()) return;
+    if (_backupBusy || !requireSongsReady({ allowFailed: true })) return;
     _backupBusy = true;
     let keepFrozen = false;   // 重新載入中，或退回失敗：閂維持上著
     try {

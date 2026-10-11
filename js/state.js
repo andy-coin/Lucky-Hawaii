@@ -7,6 +7,7 @@
         let songs = [];
         let activeSongId = null;
         let songsMode = 'v2';   // 'legacy'＝遷移沒跑成，沿用 v0.96 的單首歌詞存法
+let songsFailed = false; // initSongs 丟了例外：和「還沒載好」分開記，還原類的動作只需要儲存空間，這時候要能用（WR-12）
 let songsReady = false; // initSongs 跑完才是 true；之前 songs 是空的，匯出、匯入、新增歌曲都不能動（WR-09）
         // 形狀不對的存檔（例如 'null'、'{}'）跟損毀的 JSON 一樣處理：用預設值開機、原始內容不動
         let savedWords = lhGetJSON('haiku_savedwords', [], Array.isArray);

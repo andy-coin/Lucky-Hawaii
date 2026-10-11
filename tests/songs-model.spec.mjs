@@ -405,7 +405,7 @@ test('載入失敗：不停在載入中，說明資料沒有被更動', async ({
         init: () => {
             const orig = Element.prototype.replaceChildren;
             Element.prototype.replaceChildren = function (...a) {
-                if (this.id === 'lyricsSections') throw new Error('boom');
+                if (this.id === 'lyricsSections' && sessionStorage.getItem('noboom') !== '1') throw new Error('boom');
                 return orig.apply(this, a);
             };
         },
@@ -415,7 +415,45 @@ test('載入失敗：不停在載入中，說明資料沒有被更動', async ({
     expect(await page.evaluate(() => songsReady)).toBe(false);
     expect(await page.evaluate(() => JSON.parse(localStorage.getItem('lh:songs'))[0].sections[0].text), '儲存的歌詞沒被動').toBe('我的歌詞');
     await page.evaluate(() => { exportSession(); });
-    await expect(page.locator('#copyToast')).toHaveText('歌曲還在載入，請稍候再試');
+    // 載入失敗和「還在載入」要分開講（WR-12）
+    await expect(page.locator('#copyToast')).toHaveText('歌詞載入失敗，請重新整理頁面，或到「設定」的「自動備份」還原');
+    await context.close();
+});
+
+const BAD_LOAD_INIT = () => {
+    const orig = Element.prototype.replaceChildren;
+    Element.prototype.replaceChildren = function (...a) {
+        if (this.id === 'lyricsSections' && sessionStorage.getItem('noboom') !== '1') throw new Error('boom');
+        return orig.apply(this, a);
+    };
+};
+
+test('載入失敗後：「全部還原」仍可使用，還原完整個頁面恢復正常（WR-12）', async ({ browser }) => {
+    const { context, page } = await bootPage(browser, { storage: v2Storage([song('s1', [sec('a1', '壞掉的存檔')])]), init: BAD_LOAD_INIT });
+    expect(await page.evaluate(() => songsFailed)).toBe(true);
+    await page.evaluate(() => sessionStorage.setItem('noboom', '1'));   // 重新載入後這個存檔就載得起來
+    const backup = { format: 'lucky-hawaii-backup', version: 2, exportedAt: '2026-10-11T07:30:00.000Z', activeSong: 'r1', savedWords: [], settings: {},
+        songs: [{ id: 'r1', title: '救回來的歌', createdAt: 5, updatedAt: 5, hashtags: [], context: '', sections: [{ id: 'x1', label: '主歌', text: '備份裡的歌詞', collapsed: false }] }] };
+    await page.setInputFiles('#importFileInput', { name: 'b.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(backup)) });
+    await expect(page.locator('#importOverlay')).toHaveClass(/show/);
+    await page.locator('#importReplaceBtn').click();
+    await expect(page.locator('#copyToast')).toHaveText('已還原 1 首歌與設定（還原前的資料已自動備份）');
+    await page.evaluate(() => Promise.all([window.__hoyunSafetyReady, window.__hoyunSongsReady]));
+    await expect(page.locator('#songCurrent')).toHaveText('救回來的歌');
+    await expect(textareas(page).first()).toHaveValue('備份裡的歌詞');
+    await context.close();
+});
+
+test('載入失敗後：自動備份還原仍可使用（WR-12）', async ({ browser }) => {
+    const { context, page } = await bootPage(browser, { storage: v2Storage([song('s1', [sec('a1', '壞掉的存檔')])]), init: BAD_LOAD_INIT });
+    expect(await page.evaluate(() => songsFailed)).toBe(true);
+    await page.evaluate(() => sessionStorage.setItem('noboom', '1'));
+    const rec = await page.evaluate(async () => (await lhListBackups()).find(r => r.id === 'baseline'));
+    expect(rec).toBeTruthy();
+    await page.evaluate(() => { restoreAutoBackup('baseline'); });
+    await expect(page.locator('#copyToast')).toHaveText('已還原自動備份（還原前的資料已自動備份）');
+    await page.evaluate(() => Promise.all([window.__hoyunSafetyReady, window.__hoyunSongsReady]));
+    await expect(textareas(page).first()).toHaveValue('壞掉的存檔');   // 備份當時的資料，這次載得起來
     await context.close();
 });
 
