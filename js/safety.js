@@ -408,6 +408,8 @@ LH_MIGRATIONS.push({
     }
 });
 
+const _lhIsSecretKey = key => LH_KEY_PREFIXES.some(p => p.secret && key.startsWith(p.prefix));
+
 // 還原只動清單內的鍵：不含 lh: 中介資料、後台金鑰與同網域其他專案的鍵
 function _lhRestorable(key) {
     return lhIsKnownKey(key) && !LH_META_KEYS.includes(key);
@@ -456,13 +458,16 @@ async function lhRestoreFromBackup(id) {
     let rec = (await lhListBackups()).find(r => r && r.id === id);
     if (!rec) rec = _lhLocalBackups().find(r => r && r.id === id);
     if (!rec) return false;
-    let ok;
-    // localStorage 備援不含金鑰：還原時把目前的金鑰補進去，不然「清掉備份裡沒有的鍵」會把金鑰刪掉
-    if (rec.secretsOmitted && rec.data && typeof rec.data === 'object') {
+    // 金鑰以現在的為準，IndexedDB 與 localStorage 備援兩條路徑一樣（IN-02）：IndexedDB 的記錄裡是備份當時的金鑰值，
+    // 不能拿來蓋掉使用者後來換的金鑰，也不能讓「清掉備份裡沒有的鍵」刪掉備份之後新增的金鑰。
+    // 備份裡有、現在已經沒有的金鑰才補回來（沒有東西被蓋掉或刪掉）
+    let data = rec.data;
+    if (data && typeof data === 'object' && !Array.isArray(data)) {
         const cur = lhSnapshot();
-        const keep = Object.keys(cur).filter(k => LH_KEY_PREFIXES.some(p => p.secret && k.startsWith(p.prefix)));
-        ok = lhRestore({ ...rec.data, ...Object.fromEntries(keep.map(k => [k, cur[k]])) });
-    } else ok = lhRestore(rec.data);
+        data = Object.fromEntries(Object.entries(data).filter(([k]) => !_lhIsSecretKey(k) || !Object.prototype.hasOwnProperty.call(cur, k)));
+        for (const k of Object.keys(cur)) if (_lhIsSecretKey(k)) data[k] = cur[k];
+    }
+    const ok = lhRestore(data);
     if (ok) {
         try { localStorage.setItem('lh:schema', String(rec.schema || 1)); }   // 中介資料鍵，lhRestore 不會動它
         catch (e) { lhWarn('寫入 lh:schema 失敗', e); }

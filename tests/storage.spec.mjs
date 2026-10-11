@@ -427,6 +427,25 @@ test('restore: 只還原清單內的鍵與字串值', async ({ browser }) => {
     await context.close();
 });
 
+test('restore: 還原 IndexedDB 自動備份不會蓋掉或刪掉現在的金鑰（IN-02）', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, { storage: FIXTURE });
+    expect((await page.evaluate(async () => (await lhListBackups()).find(r => r.id === 'baseline'))).data.apiKey_gemini, '備份裡有舊金鑰').toBe(FIXTURE.apiKey_gemini);
+    await page.evaluate(() => { localStorage.setItem('apiKey_gemini', 'newer-key'); localStorage.setItem('apiKey_groq', 'added-later'); localStorage.setItem('selectedModel', 'changed'); });
+    expect(await page.evaluate(() => lhRestoreFromBackup('baseline'))).toBe(true);
+    const ls = await dumpLS(page);
+    expect(ls.apiKey_gemini, '現在的金鑰不被舊值蓋掉').toBe('newer-key');
+    expect(ls.apiKey_groq, '備份之後新增的金鑰不被刪掉').toBe('added-later');
+    expect(ls.selectedModel, '一般設定照常還原').toBe(FIXTURE.selectedModel);
+    // 現在已經沒有的金鑰，才會從備份補回來
+    await page.evaluate(() => localStorage.removeItem('apiKey_gemini'));
+    expect(await page.evaluate(() => lhRestoreFromBackup('baseline'))).toBe(true);
+    const ls2 = await dumpLS(page);
+    expect(ls2.apiKey_gemini).toBe(FIXTURE.apiKey_gemini);
+    expect(ls2.apiKey_groq).toBe('added-later');
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
 test('restore: 不是物件的備份內容不會動到任何資料', async ({ browser }) => {
     const { context, page, errors } = await bootPage(browser, { storage: FIXTURE });
     const before = await dumpLS(page);
