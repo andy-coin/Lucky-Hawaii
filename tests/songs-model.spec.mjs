@@ -484,3 +484,13 @@ test('損毀的歌曲資料：完全讀不出來時建立新歌，原文仍在�
     expect(errors).toEqual([]);
     await context.close();
 });
+
+test('凍結期間收到的外部更新不會被丟掉，放開後仍會套用（IN-07）', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, { storage: v2Storage([song('s1', [sec('a1', '原本')])]) });
+    await page.evaluate(() => { setSavesFrozen(true); _pendingExternal = true; _applyExternalSongs(); });
+    expect(await page.evaluate(() => _pendingExternal), '凍結中還記得有待套用的更新').toBe(true);
+    await page.evaluate(() => { setSavesFrozen(false); _applyExternalSongs(); });
+    expect(await page.evaluate(() => _pendingExternal)).toBe(false);
+    expect(errors).toEqual([]);
+    await context.close();
+});

@@ -358,7 +358,8 @@ async function importReplaceAll() {
     catch (e) { lhWarn('全部還原失敗', e); r = { ok: false, stage: 'write' }; }
     if (!r.ok) {
         // 退回失敗時閂維持上著：儲存空間新舊混在一起，再寫只會越弄越亂；畫面上的歌還在記憶體裡，「備份全部」從記憶體組檔
-        if (r.stage !== 'rollback') {
+        if (r.stage === 'rollback') setSavesFrozen(true, true);
+        else {
             setSavesFrozen(false);
             flushSongs();   // 還原期間打的字補存
         }
@@ -477,6 +478,7 @@ async function restoreAutoBackup(id) {
             if (lhRollback(pre, prevSchema)) showToast('還原沒有完成，已經回到還原前的狀態，目前的資料沒有被改動。', 5000);
             else {
                 keepFrozen = true;
+                setSavesFrozen(true, true);
                 showToast('還原沒有完成，而且退回原狀也沒有成功，儲存的資料可能有一部分是新的。請先按「備份全部」存成檔案，並且不要清除網站資料。', 8000);
             }
             return;

@@ -634,6 +634,25 @@ const failKeyTimes = () => {
     };
 };
 
+// 退回也失敗、閂維持上著時：編輯器不能默默吃字（IN-07）——橫幅明講、存檔回報失敗，之後打字再存也會再提醒
+async function expectFrozenBanner(page) {
+    const banner = page.locator('#lhSaveBanner');
+    await expect(banner).toBeVisible();
+    await expect(banner).toContainText('資料可能沒有存下來，請先「備份全部」再重新整理');
+    if (await page.locator('#importOverlay.show').count()) await page.locator('#importCancelBtn').click();
+    await page.locator('#lhSaveBanner .lh-save-banner-close').click();
+    await expect(banner).toBeHidden();
+    expect(await page.evaluate(() => flushSongs()), '凍結中 flushSongs 回報失敗').toBe(false);
+    await page.locator('.section-textarea').first().fill('凍結中繼續打的字');
+    await page.waitForTimeout(400);   // 打字後的存檔計時器仍會提醒（橫幅 60 秒內同一種只顯示一次，所以這裡看 flushSongs）
+    expect(await page.evaluate(() => flushSongs())).toBe(false);
+    // 「備份全部」從記憶體組檔，打的字不會丟
+    const [dl] = await Promise.all([page.waitForEvent('download'), page.evaluate(() => exportSession())]);
+    const file = test.info().outputPath('frozen.json');
+    await dl.saveAs(file);
+    expect(JSON.parse(readFileSync(file, 'utf8')).songs.some(x => x.sections.some(sec => sec.text === '凍結中繼續打的字'))).toBe(true);
+}
+
 test('備份：全部還原寫到一半失敗、連退回也失敗時，如實說資料可能是新舊混合', async ({ browser }) => {
     const { context, page } = await bootPage(browser, { storage: MINE_STORAGE(), device: DESKTOP, wordlist: 'stub', init: failKeyTimes });
     await importBuf(page, mkBackup([mkSong('c', '丙', { createdAt: 5000 })], { settings: { selectedModel: 'file-model' } }));
@@ -645,6 +664,7 @@ test('備份：全部還原寫到一半失敗、連退回也失敗時，如實�
     expect(text).toContain('備份全部');
     expect(text, '資料可能被動到，不能說都沒有被改動').not.toContain(UNCHANGED);
     expect(text).not.toContain('已經回到匯入前的狀態');
+    await expectFrozenBanner(page);
     await context.close();
 });
 
@@ -673,5 +693,6 @@ test('備份：還原自動備份連退回也失敗時，如實說', async ({ br
     const toast = page.locator('#copyToast');
     await expect(toast).toContainText('退回原狀也沒有成功');
     await expect(toast).toContainText('備份全部');
+    await expectFrozenBanner(page);
     await context.close();
 });

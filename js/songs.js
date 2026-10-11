@@ -10,11 +10,16 @@ const _deleted = new Set();    // 這個分頁刪掉、還沒從儲存移除的�
 // 重新載入不是瞬間，這段時間任何打字、計時器、失焦、pagehide 的存檔都會把記憶體裡的舊歌蓋回剛還原的資料。
 // 只清 _dirty 旗標擋不住「之後又被標成改過」，所以用一個明確的閂；失敗時 setSavesFrozen(false) 才放開
 let _savesFrozen = false;
+// 退回也失敗時閂維持上著（儲存空間新舊混在一起，再寫只會更亂）。這時編輯器不能默默吃掉使用者打的字：
+// flushSongs 回報失敗並顯示橫幅，「備份全部」從記憶體組檔（IN-07）
+let _savesFrozenBroken = false;
 // 注音／輸入法組字中（lyrics.js 的 compositionstart～compositionend）：半成品文字已經在模型裡，這段時間不寫進儲存（WR-07）。
 // 宣告放這裡而不是 lyrics.js，因為 flushSongs 要看它，而 songs.js 比 lyrics.js 先載入
 let _lhComposing = false;
-function setSavesFrozen(on) {
+function setSavesFrozen(on, broken) {
     _savesFrozen = !!on;
+    _savesFrozenBroken = !!on && !!broken;
+    if (_savesFrozenBroken) lhSaveFailed('frozen');
     if (on) { clearTimeout(_saveTimer); _saveTimer = null; }
 }
 
@@ -45,7 +50,7 @@ function markDirty(id) {
 
 function scheduleSave() {
     clearTimeout(_saveTimer);
-    if (_savesFrozen) return;
+    if (_savesFrozen && !_savesFrozenBroken) return;   // 壞掉的凍結仍要排計時器，好讓 flushSongs 顯示橫幅
     _saveTimer = setTimeout(flushSongs, SONG_SAVE_DELAY);
 }
 
@@ -65,7 +70,10 @@ function _flushLegacy() {
 function flushSongs(force) {
     clearTimeout(_saveTimer);
     _saveTimer = null;
-    if (_savesFrozen) return true;   // 資料正被整份取代，等重新載入；不是失敗，所以不跳橫幅
+    if (_savesFrozen) {
+        if (_savesFrozenBroken) { lhSaveFailed('frozen'); return false; }
+        return true;   // 資料正被整份取代，等重新載入；不是失敗，所以不跳橫幅
+    }
     if (_lhComposing && force !== true) return true;
     if (songsMode === 'legacy') return _flushLegacy();
     if (!_dirty.size && !_deleted.size) return true;
@@ -218,8 +226,8 @@ function cutName(name, n) {
 }
 
 function _applyExternalSongs() {
+    if (_savesFrozen) return;   // 先檢查再清旗標：閂放開之後，等待中的外部更新才還會被套用（IN-07）
     _pendingExternal = false;
-    if (_savesFrozen) return;
     const flushed = flushSongs();   // 先把這個分頁自己還沒存的修改合併進去，才不會被重載蓋掉（F4）
     const raw = lhGet('lh:songs');
     const list = lhGetJSON('lh:songs', null, lhSongsOk);   // 不直接用事件帶來的值（T-08-10）；損毀時這裡已經記過警告
