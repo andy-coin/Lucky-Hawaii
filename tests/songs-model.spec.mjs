@@ -1,7 +1,7 @@
 // 歌詞以資料模型為準：畫面只是模型的顯示，打字只改記憶體裡的這首歌，畫面不會被讀回存檔
 import { test, expect } from '@playwright/test';
 import { readFileSync } from 'node:fs';
-import { bootPage, activeSong } from './helpers.mjs';
+import { bootPage, activeSongRaw, flushAndReadActiveSong } from './helpers.mjs';
 
 const FIXTURE = JSON.parse(readFileSync(new URL('./fixtures/v096-localStorage.json', import.meta.url), 'utf8'));
 const LEGACY = JSON.parse(FIXTURE.haiku_lyrics);
@@ -26,7 +26,7 @@ test('資料為準：升級後顯示我的第一首歌', async ({ browser }) => 
     }
     await expect(page.locator('#hashtagChips .hashtag-chip')).toHaveText(['#浪漫×', '#夏天×']);
     expect(await page.locator('#contextDescription').inputValue()).toBe('');
-    expect((await activeSong(page)).id).toBe('song-migrated');
+    expect((await activeSongRaw(page)).id).toBe('song-migrated');
     expect(errors).toEqual([]);
     await context.close();
 });
@@ -46,7 +46,7 @@ test('資料為準：原樣顯示', async ({ browser }) => {
     expect(await page.locator('#hashtagChips .hashtag-chip').first().textContent()).toBe('#' + TAG + '×');
     // 點 × 只移除這一個標籤
     await page.locator('#hashtagChips .chip-remove').first().click();
-    expect((await activeSong(page)).hashtags).toEqual([]);
+    expect((await activeSongRaw(page)).hashtags).toEqual([]);
     expect(errors).toEqual([]);
     await context.close();
 });
@@ -58,7 +58,7 @@ test('資料為準：畫面被改動不會寫回', async ({ browser }) => {
     await page.evaluate(() => { document.querySelector('.section-textarea').value = 'TAMPER'; });   // 不送 input 事件
     await page.locator('.section-label').first().dblclick();
     await page.locator('.section-label').first().blur();
-    const s = await activeSong(page);
+    const s = await activeSongRaw(page);
     expect(s.sections[0].text).toBe('abc');
     expect(JSON.stringify(s)).not.toContain('TAMPER');
     // 匯出也是從模型來的
@@ -66,7 +66,7 @@ test('資料為準：畫面被改動不會寫回', async ({ browser }) => {
     const body = readFileSync(await download.path(), 'utf8');
     expect(body).toContain('abc');
     expect(body).not.toContain('TAMPER');
-    expect(JSON.stringify(await activeSong(page))).not.toContain('TAMPER');
+    expect(JSON.stringify(await activeSongRaw(page))).not.toContain('TAMPER');
     expect(errors).toEqual([]);
     await context.close();
 });
@@ -82,8 +82,9 @@ test('資料為準：用段落 id 對應', async ({ browser }) => {
     await page.locator('.lyrics-section[data-index="1"] .section-remove').click();
     await expect(page.locator('#lyricsSections .lyrics-section')).toHaveCount(2);
     await textareas(page).nth(1).fill('三改');
-    const s = await activeSong(page);
-    expect(s.sections.map(x => [x.id, x.text])).toEqual([['sa', '一'], ['sc', '三改']]);
+    // 打字後 300 毫秒的存檔計時器：等它自己寫，不替它 flush
+    await expect.poll(async () => (await activeSongRaw(page)).sections.map(x => [x.id, x.text])).toEqual([['sa', '一'], ['sc', '三改']]);
+    const s = await activeSongRaw(page);
     // 不變的外觀契約
     expect(await page.locator('.section-textarea').first().getAttribute('placeholder')).toBe('在這裡輸入或貼上歌詞…');
     expect(await page.locator('.section-textarea').nth(1).getAttribute('placeholder')).toBe('在這裡輸入歌詞…');
@@ -111,7 +112,7 @@ test('資料為準：標籤與情境跟著這首歌存', async ({ browser }) => 
     await page.evaluate(() => addHashtag('新標籤'));
     await page.locator('#contextDescription').fill('夜晚的海邊');
     await page.locator('#contextDescription').blur();
-    const s = await activeSong(page);
+    const s = await activeSongRaw(page);
     expect(s.hashtags).toEqual(['浪漫', '夏天', '新標籤']);
     expect(s.context).toBe('夜晚的海邊');
     await page.reload();
@@ -140,7 +141,7 @@ test('資料為準：舊鍵不再寫入', async ({ browser }) => {
     await textareas(page).last().fill('新段落的字');
     await page.locator('.lyrics-section-header').nth(1).click();   // 收合
     await page.locator('.lyrics-section[data-index="3"] .section-remove').click();   // 刪掉新段落
-    const s = await activeSong(page);   // 順便把所有等待中的修改寫出去
+    const s = await flushAndReadActiveSong(page);   // 收尾：這個測試看的是舊鍵有沒有被寫，不是存檔時機
     expect(s.sections[0].text).toBe('改了第一段');
     expect(s.hashtags).toEqual(['夏天', '多一個']);
     expect(s.sections).toHaveLength(3);
@@ -196,7 +197,7 @@ test('資料為準：主控台不出現歌詞', async ({ browser }) => {
     await textareas(page).first().fill('祕密的歌詞內容');
     await page.locator('#contextDescription').fill('祕密的情境');
     await page.evaluate(() => addHashtag('祕密標籤'));
-    await activeSong(page);
+    await flushAndReadActiveSong(page);   // 收尾：把等待中的修改寫出去，再看主控台
     expect(logs.length).toBeGreaterThan(0);
     for (const l of logs) {
         for (const secret of ['祕密', '夜色', '輕輕唱起', '一起走到天亮', '浪漫']) expect(l, '主控台訊息不可含歌詞內容').not.toContain(secret);
@@ -237,9 +238,9 @@ test('資料為準：標籤原樣顯示', async ({ browser }) => {
     expect(await chips.evaluateAll(els => els.map(e => e.textContent))).toEqual(['#<b>t</b>×', "#a'b×"]);
     expect(await page.locator('#hashtagChips b').count()).toBe(0);
     await chips.nth(1).locator('.chip-remove').evaluate(e => e.click());
-    expect((await activeSong(page)).hashtags).toEqual(['<b>t</b>']);
+    expect((await activeSongRaw(page)).hashtags).toEqual(['<b>t</b>']);
     await chips.nth(0).locator('.chip-remove').evaluate(e => e.click());
-    expect((await activeSong(page)).hashtags).toEqual([]);
+    expect((await activeSongRaw(page)).hashtags).toEqual([]);
     expect(errors).toEqual([]);
     await context.close();
 });
@@ -373,7 +374,7 @@ test('多分頁同步：自己的存檔失敗時，別頁的更新不會吃掉�
     await expect(page.locator('#copyToast')).toContainText('修改還沒有存下來');
     // 儲存恢復後補存
     await page.evaluate(() => { window.__failSongs = false; flushSongs(); });
-    expect((await activeSong(page)).sections[0].text).toBe('這頁打的字，還沒存下來');
+    expect((await activeSongRaw(page)).sections[0].text).toBe('這頁打的字，還沒存下來');
     expect(errors.filter(e => !/QuotaExceeded|quota/i.test(e))).toEqual([]);
     await context.close();
 });

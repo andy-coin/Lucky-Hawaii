@@ -2,7 +2,7 @@
 // 每個測試名稱開頭是主題標籤（縮放：…），之後各 plan 依標籤加入 flow／面板／鍵盤等測試
 import { test, expect } from '@playwright/test';
 import { readFileSync, readdirSync } from 'node:fs';
-import { bootPage, settle, activeSong } from './helpers.mjs';
+import { bootPage, settle, activeSongRaw } from './helpers.mjs';
 import { DEVICES, setScale, waitStill, noPageScroll, expectFullyInViewport, expectReallyClickable, rectsOverlap, auditVisibleControls, emulateKeyboard, restoreViewport, readKeyboard, insideVisible, meetsInputFloor, scanInputFonts, auditTouchTargets, meetsHit } from './layout-lib.mjs';
 
 const SCALE_KEY = 'lh:uiScale';
@@ -1784,7 +1784,7 @@ const DELETE_SECTIONS = [
     { label: '空白段', text: '', collapsed: false },
 ];
 // 歌詞現在存在 lh:songs 的目前這首歌裡；轉成舊的 { label, text, collapsed } 形狀，下面的比對照舊
-const savedLyrics = async page => (await activeSong(page))?.sections.map(s => ({ label: s.label, text: s.text, collapsed: s.collapsed })) ?? null;
+const savedLyrics = async page => (await activeSongRaw(page))?.sections.map(s => ({ label: s.label, text: s.text, collapsed: s.collapsed })) ?? null;
 const sectionCount = page => page.locator('#lyricsSections .lyrics-section').count();
 // bootPage 掛了一個自動按「確定」的處理器；這個測試要自己決定按取消或確定，所以先全部拿掉再掛自己的
 function takeOverDialogs(page) {

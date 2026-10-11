@@ -1,7 +1,7 @@
 // 儲存相關測試：損毀資料開機（之後的 plan 會再加備份與遷移測試）
 import { test, expect } from '@playwright/test';
 import { readFileSync } from 'node:fs';
-import { bootPage, settle, BASE, CONTEXT_OPTS, routeExternal, stubWordlist, collectErrors, activeSong } from './helpers.mjs';
+import { bootPage, settle, BASE, CONTEXT_OPTS, routeExternal, stubWordlist, collectErrors, activeSongRaw } from './helpers.mjs';
 
 const CORRUPT = JSON.parse(readFileSync(new URL('./fixtures/v096-corrupt.json', import.meta.url), 'utf8'));
 const FIXTURE = JSON.parse(readFileSync(new URL('./fixtures/v096-localStorage.json', import.meta.url), 'utf8'));
@@ -48,7 +48,7 @@ for (const [key, value] of [['haiku_lyrics', 'null'], ['haiku_lyrics', '{}'], ['
 test('corrupt: 損毀後繼續編輯，原始內容仍另存可救回（歌詞與字庫覆寫）', async ({ browser }) => {
     const { context, page, errors } = await bootPage(browser, { storage: CORRUPT });
     await page.locator('.section-textarea').first().fill('新寫的歌詞');   // 只改模型；存檔寫進 lh:songs，舊鍵不動
-    expect((await activeSong(page)).sections[0].text).toBe('新寫的歌詞');
+    await expect.poll(async () => (await activeSongRaw(page)).sections[0].text).toBe('新寫的歌詞');   // 等 300 毫秒的存檔計時器
     await page.evaluate(() => { dictOverrides = { x: 'y' }; saveDictOverrides(); });
     const got = await page.evaluate(() => ({
         lyrics: localStorage.getItem('haiku_lyrics'),

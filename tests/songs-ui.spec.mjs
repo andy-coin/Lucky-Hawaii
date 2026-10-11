@@ -1,7 +1,7 @@
 // 歌曲清單（EDIT-04）：標題列、☰ 歌曲清單、新增、切換、改名、版面
 import { test, expect } from '@playwright/test';
 import { readFileSync } from 'node:fs';
-import { bootPage, activeSong } from './helpers.mjs';
+import { bootPage } from './helpers.mjs';
 
 const FIXTURE = JSON.parse(readFileSync(new URL('./fixtures/v096-localStorage.json', import.meta.url), 'utf8'));
 const MIGRATION_TOAST = '你原本的歌詞已整理成第一首歌「我的第一首歌」，一字不少';

@@ -1,7 +1,7 @@
 // 注音組字：組字中不存檔、組字確認後 400 毫秒內存進 lh:songs；一般打字 300 毫秒後才存一次（研究測試 R1）
 import { test, expect } from '@playwright/test';
 import { readFileSync } from 'node:fs';
-import { bootPage, compose, activeSong, STORAGE_SPY } from './helpers.mjs';
+import { bootPage, compose, activeSongRaw, STORAGE_SPY } from './helpers.mjs';
 
 const FIXTURE = JSON.parse(readFileSync(new URL('./fixtures/v096-localStorage.json', import.meta.url), 'utf8'));
 const LYRIC_KEYS = ['lh:songs', 'haiku_lyrics', 'haiku_hashtags'];
@@ -67,12 +67,12 @@ test('組字：#標籤 視窗組字中按 Enter 不送出', async ({ browser }) 
     await page.locator('#hashtagPopupInput').focus();
     await compose(page, ['ㄅ', 'ㄅㄚ'], '吧', async () => {
         await page.keyboard.press('Enter');
-        expect((await activeSong(page)).hashtags, '組字中按 Enter 沒有新增標籤').toEqual(before);
+        expect((await activeSongRaw(page)).hashtags, '組字中按 Enter 沒有新增標籤').toEqual(before);
         await expect(page.locator('#hashtagPopupOverlay')).toHaveClass(/show/);
     });
     await page.keyboard.press('Enter');
     await expect(page.locator('#hashtagPopupOverlay')).not.toHaveClass(/show/);
-    expect((await activeSong(page)).hashtags).toEqual([...before, '吧']);
+    expect((await activeSongRaw(page)).hashtags).toEqual([...before, '吧']);
     expect(errors).toEqual([]);
     await context.close();
 });
@@ -89,7 +89,7 @@ test('組字：段落名稱組字中按 Enter 不結束編輯', async ({ browser
     });
     await page.keyboard.press('Enter');
     expect(await label.getAttribute('readonly')).not.toBeNull();
-    expect((await activeSong(page)).sections[0].label).toBe('吧');
+    expect((await activeSongRaw(page)).sections[0].label).toBe('吧');
     expect(errors).toEqual([]);
     await context.close();
 });

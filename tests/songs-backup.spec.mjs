@@ -121,7 +121,8 @@ const importBuf = (page, obj, name = 'backup.json') => page.setInputFiles('#impo
     name, mimeType: 'application/json', buffer: Buffer.from(typeof obj === 'string' ? obj : JSON.stringify(obj)),
 });
 const songListTitles = page => page.locator('#songItems .song-pick').allTextContents();
-const storedSongs = page => page.evaluate(() => { flushSongs(); return JSON.parse(localStorage.getItem('lh:songs')); });
+// 不替程式 flush：匯入完成後儲存裡就該是新的（WR-11）
+const storedSongs = page => page.evaluate(() => JSON.parse(localStorage.getItem('lh:songs')));
 
 test('備份：只加入歌曲', async ({ browser }) => {
     const mine = [mkSong('song-migrated', '我的第一首歌', { createdAt: 3000 }), mkSong('song-new', '新歌', { createdAt: 5000 })];

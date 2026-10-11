@@ -181,8 +181,19 @@ export async function stubPack(context, id, state) {
 }
 
 // ===== Phase 8 歌曲模型測試工具 =====
-// 目前啟用的那首歌（從 lh:songs 讀）；先 flushSongs() 把還在 300 ms 等待中的修改寫出去，讀到的才是畫面上的最新狀態
-export const activeSong = page => page.evaluate(() => {
+// 目前啟用的那首歌，直接讀儲存裡現在是什麼，不呼叫 flushSongs。
+// 任何「資料有存下來」的斷言都要用這個：存檔計時器、組字確認、失焦、離開頁面這些路徑沒寫的話，這裡讀得到舊的，測試才會失敗（WR-11）。
+// 打字之後的存檔要等 300 毫秒，用 expect.poll 或 page.waitForFunction 等它
+export const activeSongRaw = page => page.evaluate(() => {
+    const raw = localStorage.getItem('lh:songs');
+    if (raw === null) return null;
+    const songs = JSON.parse(raw);
+    const id = localStorage.getItem('lh:activeSong');
+    return songs.find(s => s.id === id) || null;
+});
+
+// 先 flushSongs() 再讀：只給「準備資料」與「收尾後讀結果」用，它會替被測的程式把該寫的寫出去，所以不能拿來證明程式有存檔
+export const flushAndReadActiveSong = page => page.evaluate(() => {
     if (typeof flushSongs === 'function') flushSongs();
     const raw = localStorage.getItem('lh:songs');
     if (raw === null) return null;
