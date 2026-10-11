@@ -221,7 +221,8 @@ function lhIdbOpen() {
 const LH_APP_VERSION = '0.96';
 const LH_BACKUP_KEEP = 3;
 // 基準備份與升級前的安全副本釘住，淘汰永遠不碰（F1）：刪歌、匯入產生的自動備份再多，也擠不掉升級前那份
-const _lhPinnedBackup = id => id === 'baseline' || (typeof id === 'string' && id.startsWith('pre-schema-'));
+// corrupt-songs-*：lh:songs 損毀時保留的原始內容（WR-10），蓋掉損毀的存檔之前唯一的一份，同樣不能被輪替擠掉
+const _lhPinnedBackup = id => id === 'baseline' || (typeof id === 'string' && (id.startsWith('pre-schema-') || id.startsWith('corrupt-songs-')));
 
 // 只收清單內的鍵與已登記前綴的鍵（D-13）：不收中介資料、後台金鑰、同網域其他專案的鍵
 function lhSnapshot() {

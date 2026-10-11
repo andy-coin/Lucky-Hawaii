@@ -417,3 +417,31 @@ test('載入失敗：不停在載入中，說明資料沒有被更動', async ({
     await expect(page.locator('#copyToast')).toHaveText('歌曲還在載入，請稍候再試');
     await context.close();
 });
+
+// ==================== 審查修正（WR-10）：損毀的 lh:songs 不能默默變成空白歌 ====================
+test('損毀的歌曲資料：能用的歌撿回來，原文另存成釘住的備份並提示一次（WR-10）', async ({ browser }) => {
+    const good = (id, text) => song(id, [sec('x' + id, text)], { title: '歌' + id });
+    const raw = JSON.stringify([good('g1', '第一首的字'), { id: 'bad', title: '沒有段落' }, 'junk', good('g2', '第二首的字'), good('g1', '重複的 id')]);
+    const { context, page, errors } = await bootPage(browser, { storage: { ...FIXTURE, 'lh:schema': '2', 'lh:songs': raw, 'lh:activeSong': 'g1' } });
+    await expect(page.locator('#copyToast')).toContainText('已救回 2 首能用的歌');
+    await expect(page.locator('#copyToast')).toContainText('自動備份');
+    const kept = await page.evaluate(() => JSON.parse(localStorage.getItem('lh:songs')).map(s => s.id));
+    expect(kept).toEqual(['g1', 'g2']);
+    const rec = await page.evaluate(async () => (await lhListBackups()).find(r => r.id.startsWith('corrupt-songs-')));
+    expect(rec, '有一份原始內容的備份').toBeTruthy();
+    expect(rec.data['lh:songs'], '備份裡是損毀的原文').toBe(raw);
+    // 釘住：再多的自動備份也擠不掉它
+    await page.evaluate(async () => { for (let i = 0; i < 6; i++) await lhBackup('song-delete-t' + i, 't', lhSnapshot()); });
+    expect(await page.evaluate(async () => (await lhListBackups()).some(r => r.id.startsWith('corrupt-songs-')))).toBe(true);
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('損毀的歌曲資料：完全讀不出來時建立新歌，原文仍在備份裡（WR-10）', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, { storage: { ...FIXTURE, 'lh:schema': '2', 'lh:songs': 'not json' } });
+    await expect(page.locator('#copyToast')).toContainText('先建立了一首新歌');
+    const rec = await page.evaluate(async () => (await lhListBackups()).find(r => r.id.startsWith('corrupt-songs-')));
+    expect(rec.data['lh:songs']).toBe('not json');
+    expect(errors).toEqual([]);
+    await context.close();
+});

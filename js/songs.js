@@ -127,6 +127,28 @@ function songsLoadFailed(e) {
     showToast('歌詞載入失敗，儲存的資料沒有被更動，請重新整理頁面', 6000);
 }
 
+// lh:songs 整份驗證不過時，逐首撿回還能用的歌（有合法 id 和 sections 陣列），id 重複的只留第一首
+function _salvageSongs(raw) {
+    let arr;
+    try { arr = JSON.parse(raw); } catch (e) { return []; }
+    if (!Array.isArray(arr)) return [];
+    const seen = new Set();
+    return arr.filter(s => {
+        const ok = s && typeof s === 'object' && typeof s.id === 'string' && LH_ID_RE.test(s.id) && Array.isArray(s.sections) && !seen.has(s.id);
+        if (ok) seen.add(s.id);
+        return ok;
+    });
+}
+
+// 損毀的 lh:songs 馬上就會被新內容蓋掉：蓋掉之前把整份儲存（含損毀的原文）存成釘住的自動備份，並告訴使用者一次。
+// lhSnapshot 是同步拍的，後面的覆寫不影響它；備份存進 IndexedDB 是非同步的，提示等它有結果再說
+function _keepCorruptSongs(salvagedCount) {
+    lhBackup('corrupt-songs-' + Date.now(), '歌曲資料損毀時的原始內容', lhSnapshot()).then(r => {
+        showToast('歌曲資料讀不出來，' + (salvagedCount ? '已救回 ' + salvagedCount + ' 首能用的歌' : '先建立了一首新歌')
+            + (r && r.ok ? '。原本的內容已另存成自動備份，可以在「設定」的「自動備份」裡找回。' : '。原本的內容只留在瀏覽器裡，請先不要清除網站資料。'), 10000);
+    }, e => lhWarn('保留損毀歌曲資料的備份失敗', e));
+}
+
 // 開機：決定模式、載入歌、第一次畫出編輯器。不依賴安全層的回傳值，只看 lh:schema 與 lh:songs 實際長怎樣
 function initSongs() {
     if (lhGet('lh:schema') !== '2') {
@@ -135,12 +157,16 @@ function initSongs() {
         songs = [lhSongFromLegacy()];
     } else {
         songsMode = 'v2';
-        const list = lhGet('lh:songs') === null ? null : lhGetJSON('lh:songs', null, lhSongsOk);
+        const rawSongs = lhGet('lh:songs');
+        const list = rawSongs === null ? null : lhGetJSON('lh:songs', null, lhSongsOk);
         if (list && list.length > 0) songs = list;
         else {
-            // 沒有（升級中斷）→ 從舊歌詞補一首；損毀或被清空 → 一首空歌。永遠至少有一首
-            songs = [lhGet('lh:songs') === null ? lhSongFromLegacy() : makeEmptySong('未命名歌曲 1')];
+            // 沒有（升級中斷）→ 從舊歌詞補一首；被清空 → 一首空歌；損毀 → 盡量救回還能用的歌，都不行才一首空歌。永遠至少有一首（WR-10）
+            const corrupt = LH_CORRUPT_KEYS.has('lh:songs');
+            const salvaged = corrupt ? _salvageSongs(rawSongs) : [];
+            songs = salvaged.length ? salvaged : [rawSongs === null ? lhSongFromLegacy() : makeEmptySong('未命名歌曲 1')];
             songs.forEach(s => _dirty.add(s.id));
+            if (corrupt) _keepCorruptSongs(salvaged.length);   // 要在下面 flushSongs 蓋掉損毀內容之前
         }
         songs.forEach(s => { if (_normalizeSong(s)) _dirty.add(s.id); });
     }
