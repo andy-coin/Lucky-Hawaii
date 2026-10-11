@@ -2,6 +2,7 @@
 import { test, expect } from '@playwright/test';
 import { readFileSync } from 'node:fs';
 import { bootPage } from './helpers.mjs';
+import { DEVICES } from './layout-lib.mjs';
 
 const FIXTURE = JSON.parse(readFileSync(new URL('./fixtures/v096-localStorage.json', import.meta.url), 'utf8'));
 const DESKTOP = { viewport: { width: 1440, height: 900 }, deviceScaleFactor: 1 };
@@ -255,5 +256,275 @@ test('備份：按鈕名稱', async ({ browser }) => {
     await expect(inSettings.nth(1)).toHaveText('📂 匯入備份');
     await expect(inSettings.nth(0)).toHaveAttribute('aria-label', '把所有歌曲與設定存成一個備份檔');
     await expect(inSettings.nth(1)).toHaveAttribute('aria-label', '從備份檔還原歌曲與設定');
+    await context.close();
+});
+
+// ==================== 壞檔、被動過手腳的檔案、寫到一半失敗 ====================
+const UNCHANGED = '目前的歌詞與設定都沒有被改動。';
+const ERR_TITLE = '這個檔案無法匯入';
+const BAD_FILES = [
+    ['不是 JSON', 'not json', '這個檔案不是有效的備份檔（內容讀不出來）。請選擇用「備份全部」存出來的 .json 檔。'],
+    ['空檔案', '', '這個檔案不是有效的備份檔（內容讀不出來）。請選擇用「備份全部」存出來的 .json 檔。'],
+    ['格式不對', '{"a":1}', '這不是好韻器的備份檔。請選擇用「備份全部」存出來的 .json 檔。'],
+    ['版本太新', { ...mkBackup([mkSong('z', 'Z')]), version: 3 }, '這份備份是比較新的版本做的（版本 3），目前的好韻器還讀不了。請先重新整理頁面更新，再試一次。'],
+    ['沒有任何歌曲', mkBackup([]), '這份備份裡沒有任何歌曲，沒有東西可以匯入。'],
+    ['檔案太大', 'x'.repeat(6 * 1024 * 1024), '檔案太大了（超過 5 MB），不像是備份檔。請確認選對檔案。'],
+];
+const MINE = () => [mkSong('a', '甲', { createdAt: 3000 }), mkSong('b', '乙', { createdAt: 1000 })];
+const MINE_STORAGE = () => seed(MINE(), { haiku_savedwords: JSON.stringify(['微光']), selectedModel: 'mine-model', hoyun_theme_mode: 'light', apiKey_gemini: 'mine-key' });
+
+for (const [name, content, sentence] of BAD_FILES) {
+    test(`備份：壞檔：${name}`, async ({ browser }) => {
+        const { context, page, errors } = await bootPage(browser, { storage: MINE_STORAGE(), device: DESKTOP, wordlist: 'stub' });
+        const before = await dumpLS(page);
+        await importBuf(page, content);
+        await expect(page.locator('#importOverlay')).toBeVisible();
+        await expect(page.locator('#importTitle')).toHaveText(ERR_TITLE);
+        await expect(page.locator('#importError')).toHaveText(sentence + UNCHANGED);
+        const close = page.locator('#importCancelBtn');
+        await expect(close).toHaveText('關閉錯誤訊息');
+        await expect(close).toHaveAttribute('aria-label', '關閉錯誤訊息，回到頁面');
+        await expect(close).toBeFocused();
+        for (const id of ['#importAddBtn', '#importReplaceBtn', '#importSummary', '#importChips']) await expect(page.locator(id)).toBeHidden();
+        expect(await dumpLS(page), '壞檔不動任何儲存的資料').toEqual(before);
+        await expect(page.locator('#importFileInput')).toHaveValue('');
+        await close.click();
+        await expect(page.locator('#importOverlay')).toBeHidden();
+        expect(await dumpLS(page)).toEqual(before);
+        expect(errors).toEqual([]);
+        await context.close();
+    });
+}
+
+test('備份：讀取失敗', async ({ browser }) => {
+    const { context, page } = await bootPage(browser, {
+        storage: MINE_STORAGE(), device: DESKTOP, wordlist: 'stub',
+        init: () => { FileReader.prototype.readAsText = function () { setTimeout(() => this.onerror && this.onerror(new ProgressEvent('error')), 0); }; },
+    });
+    const before = await dumpLS(page);
+    await importBuf(page, mkBackup([mkSong('z', 'Z')]));
+    await expect(page.locator('#importTitle')).toHaveText(ERR_TITLE);
+    await expect(page.locator('#importError')).toHaveText('讀取失敗：這個檔案打不開，請再試一次。' + UNCHANGED);
+    await expect(page.locator('#importCancelBtn')).toBeFocused();
+    expect(await dumpLS(page)).toEqual(before);
+    await context.close();
+});
+
+// 檔案是被動過手腳的：JSON.parse 會把 "__proto__" 當成自己的屬性，所以用文字拼，不用物件字面值
+function hostileFile() {
+    const longSections = Array.from({ length: 300 }, (_, i) => ({ id: 'sec' + i, label: 'L' + i, text: 't' + i, collapsed: false }));
+    const base = mkBackup([
+        { id: '<img src=x>', title: 'S1', createdAt: 9000, updatedAt: 9000,
+          sections: [{ id: 's', label: 'L', text: '</textarea><script>window.__pwn=1</script>', collapsed: false }], hashtags: [], context: '' },
+        { id: '__proto__', title: '長'.repeat(100), createdAt: 800, sections: [], hashtags: [], context: '' },
+        { id: 'dup', title: 'S3', createdAt: 700, sections: longSections, hashtags: ['短標籤', '標'.repeat(40)], context: '情'.repeat(6000) },
+        { id: 'dup', title: 'S4', createdAt: 600, sections: [{ id: 'x', label: '', text: '四', collapsed: false }], hashtags: [], context: '' },
+        'not a song', null, 42,
+    ], { savedWords: ['好詞', '字'.repeat(60), '好詞', 5, null] });
+    const settings = '{"__proto__":{"polluted":"yes"},"apiKey_gemini":"stolen","haoYunQi_admin_key":"x","selectedModel":"m-imported",'
+        + '"bgColor1":"red;background:url(http://evil.example/x)","hoyun_theme_mode":"dark","unknownKey":"z"}';
+    return JSON.stringify({ ...base, settings: '@@' }).replace('"@@"', settings);
+}
+
+test('備份：被動過手腳的檔案', async ({ browser }) => {
+    const { context, page, errors, offOrigin } = await bootPage(browser, {
+        storage: seed(MINE(), { apiKey_gemini: 'mine-key', haoYunQi_admin_key: 'admin-mine', bgColor1: '#112233' }), device: DESKTOP, wordlist: 'stub',
+    });
+    await importBuf(page, hostileFile());
+    await expect(page.locator('#importSummary')).toHaveText('這份備份有 4 首歌與你的設定');
+    // 整理在顯示之前就做完：這時候原型沒被污染、script 沒跑
+    expect(await page.evaluate(() => ({ polluted: ({}).polluted, pwn: window.__pwn }))).toEqual({});
+    await page.locator('#importReplaceBtn').click();
+    await expect(page.locator('#copyToast')).toHaveText('已還原 4 首歌與設定（還原前的資料已自動備份）');
+    const ls = await dumpLS(page);
+    const stored = JSON.parse(ls['lh:songs']);
+    expect(stored).toHaveLength(4);
+    const ids = stored.map(x => x.id);
+    for (const id of ids) expect(id).toMatch(/^[A-Za-z0-9_-]{1,40}$/);
+    expect(new Set(ids).size).toBe(4);
+    expect(ids).not.toContain('<img src=x>');
+    const byTitle = t => stored.find(x => x.title === t);
+    expect(Array.from(stored.find(x => x.title.startsWith('長')).title)).toHaveLength(60);
+    expect(byTitle('S3').sections).toHaveLength(200);
+    expect(byTitle('S3').hashtags).toEqual(['短標籤', '標'.repeat(30)]);
+    expect(Array.from(byTitle('S3').context)).toHaveLength(5000);
+    expect(stored.find(x => x.title.startsWith('長')).sections, '沒有段落的歌補一個空段落').toHaveLength(1);
+    for (const sg of stored) for (const sec of sg.sections) expect(Object.keys(sec).sort()).toEqual(['collapsed', 'id', 'label', 'text']);
+    expect(JSON.parse(ls.haiku_savedwords)).toEqual(['好詞']);
+    expect(ls.apiKey_gemini, '檔案裡的金鑰被忽略').toBe('mine-key');
+    expect(ls.haoYunQi_admin_key, '後台金鑰不動').toBe('admin-mine');
+    expect(ls.selectedModel).toBe('m-imported');
+    expect(ls.hoyun_theme_mode).toBe('dark');
+    expect(ls.bgColor1, '形狀不對的顏色被丟掉，備份檔沒有的設定被清掉').toBeUndefined();
+    expect(ls.unknownKey).toBeUndefined();
+    // 畫面：目前是最新的 S1，惡意字串當成文字顯示
+    await expect(page.locator('#songCurrent')).toHaveText('S1');
+    await expect(page.locator('.section-textarea').first()).toHaveValue('</textarea><script>window.__pwn=1</script>');
+    expect(await page.evaluate(() => ({ polluted: ({}).polluted, pwn: window.__pwn }))).toEqual({});
+    expect(errors).toEqual([]);
+    expect(offOrigin).toEqual([]);
+    await context.close();
+});
+
+// 在指定的鍵寫入第一次時丟 QuotaExceededError（之後恢復正常，退回才寫得回去）
+const failOnce = () => {
+    const orig = Storage.prototype.setItem;
+    Storage.prototype.setItem = function (k, v) {
+        if (window.__failKey === k) { window.__failKey = null; throw new DOMException('The quota has been exceeded.', 'QuotaExceededError'); }
+        return orig.call(this, k, v);
+    };
+};
+
+test('備份：寫到一半失敗會退回', async ({ browser }) => {
+    const WRITE_FAILED = '還原沒有完成：瀏覽器的儲存空間可能已滿，已經回到匯入前的狀態。' + UNCHANGED;
+    for (const failKey of ['lh:songs', 'selectedModel']) {   // 第一項就失敗、做到一半才失敗
+        const { context, page, errors } = await bootPage(browser, { storage: MINE_STORAGE(), device: DESKTOP, wordlist: 'stub', init: failOnce });
+        const before = await dumpLS(page);
+        await importBuf(page, mkBackup([mkSong('c', '丙', { createdAt: 5000 })], { savedWords: ['新詞'], settings: { selectedModel: 'file-model', hoyun_theme_mode: 'dark' } }));
+        await page.evaluate(k => { window.__failKey = k; }, failKey);
+        await page.locator('#importReplaceBtn').click();
+        await expect(page.locator('#importTitle')).toHaveText(ERR_TITLE);
+        await expect(page.locator('#importError'), failKey).toHaveText(WRITE_FAILED);
+        await expect(page.locator('#lhSaveBanner')).toBeVisible();
+        await expect(page.locator('#lhSaveBanner')).toContainText('存檔失敗');
+        expect(await dumpLS(page), `${failKey} 寫入失敗後儲存的資料回到匯入前`).toEqual(before);
+        await expect(page.locator('#importCancelBtn')).toBeFocused();
+        await page.locator('#importCancelBtn').click();
+        // 沒有重新載入：頁面上還是原本的歌
+        await expect(page.locator('#songCurrent')).toHaveText('甲');
+        expect(errors.filter(e => !/QuotaExceeded|quota/i.test(e))).toEqual([]);
+        await context.close();
+    }
+});
+
+test('備份：備份存不下就不動', async ({ browser }) => {
+    const { context, page } = await bootPage(browser, {
+        storage: MINE_STORAGE(), device: DESKTOP, wordlist: 'stub',
+        init: () => {   // IndexedDB 不能用，localStorage 的備援也寫不進去：自動備份一定失敗
+            Object.defineProperty(window, 'indexedDB', { value: undefined, configurable: true });
+            const orig = Storage.prototype.setItem;
+            Storage.prototype.setItem = function (k, v) {
+                if (k === 'lh:backup:ls') throw new DOMException('The quota has been exceeded.', 'QuotaExceededError');
+                return orig.call(this, k, v);
+            };
+        },
+    });
+    const before = await dumpLS(page);
+    await importBuf(page, mkBackup([mkSong('c', '丙')], { savedWords: ['新詞'], settings: { selectedModel: 'file-model' } }));
+    await page.locator('#importReplaceBtn').click();
+    await expect(page.locator('#importTitle')).toHaveText(ERR_TITLE);
+    await expect(page.locator('#importError')).toHaveText('還原沒有開始：自動備份存不下來（瀏覽器的儲存空間可能已滿）。' + UNCHANGED);
+    expect(await dumpLS(page), '備份存不下來就一個字都不寫').toEqual(before);
+    await context.close();
+});
+
+test('備份：還原中按鈕停用', async ({ browser }) => {
+    const { context, page } = await bootPage(browser, { storage: MINE_STORAGE(), device: DESKTOP, wordlist: 'stub' });
+    await importBuf(page, mkBackup([mkSong('c', '丙')]));
+    await page.evaluate(() => {   // 把自動備份卡住，直到測試放行
+        const real = window.lhBackup;
+        window.__gate = new Promise(r => { window.__release = r; });
+        window.lhBackup = async (...a) => { await window.__gate; return real(...a); };
+    });
+    await page.locator('#importReplaceBtn').click();
+    for (const id of ['#importAddBtn', '#importReplaceBtn', '#importCancelBtn']) await expect(page.locator(id)).toBeDisabled();
+    const status = page.locator('#importStatus');
+    await expect(status).toHaveText('還原中…');
+    await expect(status).toHaveAttribute('role', 'status');
+    // 還原中 Esc、點遮罩都關不掉
+    await page.keyboard.press('Escape');
+    await page.mouse.click(5, 5);
+    await expect(page.locator('#importOverlay')).toBeVisible();
+    await page.evaluate(() => window.__release());
+    await expect(page.locator('#copyToast')).toHaveText('已還原 1 首歌與設定（還原前的資料已自動備份）');
+    await context.close();
+});
+
+test('備份：歌名標籤太多與太長', async ({ browser }) => {
+    const many = Array.from({ length: 12 }, (_, i) => mkSong('m' + i, i === 0 ? '長'.repeat(60) : '歌' + i, { createdAt: 1000 + i }));
+    const { context, page } = await bootPage(browser, { storage: MINE_STORAGE(), device: DEVICES.phone, wordlist: 'stub' });
+    await importBuf(page, mkBackup(many));
+    await expect(page.locator('#importSummary')).toHaveText('這份備份有 12 首歌與你的設定');
+    const chips = page.locator('#importChips .report-chip');
+    await expect(chips).toHaveCount(6);
+    await expect(chips.last()).toHaveText('+7');
+    await expect(chips.first()).toHaveText('長'.repeat(60));
+    const r = await page.evaluate(() => {
+        const dlg = document.querySelector('.import-dialog').getBoundingClientRect();
+        const rects = [...document.querySelectorAll('#importChips .report-chip')].map(c => c.getBoundingClientRect());
+        return {
+            inside: rects.every(c => c.left >= dlg.left - 0.5 && c.right <= dlg.right + 0.5),
+            pageOverflow: document.documentElement.scrollWidth > document.documentElement.clientWidth,
+            dialogMaxH: getComputedStyle(document.querySelector('.import-dialog')).maxHeight,
+            dialogBottom: dlg.bottom, vh: window.innerHeight,
+            longChipLines: rects[0].height > rects[1].height * 1.5,
+        };
+    });
+    expect(r.inside, '標籤都在視窗裡面').toBe(true);
+    expect(r.pageOverflow, '頁面沒有橫向捲動').toBe(false);
+    expect(r.longChipLines, '60 字的歌名在視窗裡換行').toBe(true);
+    expect(r.dialogBottom).toBeLessThanOrEqual(r.vh);
+    expect(r.dialogMaxH).not.toBe('none');
+    // 手機觸控：兩個選項與取消鈕的點擊範圍都 ≥ 44×44
+    for (const id of ['#importAddBtn', '#importReplaceBtn', '#importCancelBtn']) {
+        const b = await page.locator(id).boundingBox();
+        expect(b.height, id + ' 高度').toBeGreaterThanOrEqual(44);
+        expect(b.width, id + ' 寬度').toBeGreaterThanOrEqual(44);
+    }
+    await context.close();
+});
+
+test('備份：一首歌的摘要', async ({ browser }) => {
+    const { context, page } = await bootPage(browser, { storage: MINE_STORAGE(), device: DESKTOP, wordlist: 'stub' });
+    await importBuf(page, mkBackup([mkSong('only', '唯一的歌')], { exportedAt: '2026-10-11T07:30:00.000Z' }));
+    await expect(page.locator('#importTitle')).toHaveText('匯入備份');
+    await expect(page.locator('#importSummary')).toHaveText('這份備份有 1 首歌與你的設定');
+    const t = new Date('2026-10-11T07:30:00.000Z');
+    const p2 = n => String(n).padStart(2, '0');
+    await expect(page.locator('#importMeta')).toHaveText(`備份時間：${t.getFullYear()}/${p2(t.getMonth() + 1)}/${p2(t.getDate())} ${p2(t.getHours())}:${p2(t.getMinutes())}`);
+    await expect(page.locator('#importChips .report-chip')).toHaveText(['唯一的歌']);
+    await expect(page.locator('#importAddBtn')).toContainText('只加入歌曲');
+    await expect(page.locator('#importAddBtn')).toContainText('保留你現在的歌曲與設定，備份裡的歌曲會加進來');
+    await expect(page.locator('#importReplaceBtn')).toContainText('目前的 2 首歌與設定會被換成備份檔的內容；換之前會先自動備份目前資料');
+    await expect(page.locator('#importReplaceBtn')).toHaveAccessibleName('全部還原（取代目前資料）');
+    await context.close();
+});
+
+test('備份：視窗焦點與鍵盤', async ({ browser }) => {
+    const { context, page } = await bootPage(browser, { storage: MINE_STORAGE(), device: DESKTOP, wordlist: 'stub' });
+    const opener = page.locator('.save-load-controls .save-load-btn >> nth=1');
+    const file = mkBackup([mkSong('c', '丙')]);
+    const open = async () => { await opener.focus(); await importBuf(page, file); await expect(page.locator('#importOverlay')).toBeVisible(); };
+    await open();
+    await expect(page.locator('#importFileInput')).toHaveValue('');
+    const title = page.locator('#importTitle');
+    await expect(title).toBeFocused();
+    await expect(title).toHaveAttribute('tabindex', '-1');
+    await expect(page.locator('.import-dialog')).toHaveAttribute('role', 'dialog');
+    await expect(page.locator('.import-dialog')).toHaveAttribute('aria-modal', 'true');
+    // Tab 順序：只加入歌曲 → 全部還原 → 先不匯入，之後回到第一個（焦點出不去）
+    const seq = [];
+    for (let i = 0; i < 4; i++) { await page.keyboard.press('Tab'); seq.push(await page.evaluate(() => document.activeElement.id)); }
+    expect(seq).toEqual(['importAddBtn', 'importReplaceBtn', 'importCancelBtn', 'importAddBtn']);
+    await page.keyboard.press('Shift+Tab');
+    await expect(page.locator('#importCancelBtn')).toBeFocused();
+    // Esc、點遮罩、先不匯入：都關掉並把焦點還給開啟前的按鈕
+    await page.keyboard.press('Escape');
+    await expect(page.locator('#importOverlay')).toBeHidden();
+    await expect(opener).toBeFocused();
+    await open();
+    await page.mouse.click(5, 5);
+    await expect(page.locator('#importOverlay')).toBeHidden();
+    await expect(opener).toBeFocused();
+    await open();
+    await page.locator('#importCancelBtn').click();
+    await expect(page.locator('#importOverlay')).toBeHidden();
+    await expect(opener).toBeFocused();
+    // 點視窗裡面不會關
+    await open();
+    await page.locator('#importSummary').click();
+    await expect(page.locator('#importOverlay')).toBeVisible();
+    // 目前的資料都沒動
+    expect(JSON.parse((await dumpLS(page))['lh:songs']).map(x => x.id)).toEqual(['a', 'b']);
     await context.close();
 });
