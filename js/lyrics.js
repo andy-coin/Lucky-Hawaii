@@ -258,6 +258,8 @@
                 return el;
             }));
             lhSecCountAll();
+            lhHistEnsure(song, true);   // 每次重畫（開機、換歌、別的分頁更新）先把「現在」記成歷史的起點
+            lhHistSyncButtons();
         }
 
         // ===== 編輯器事件（B1、B2）：掛在不會被重畫的容器上，重畫只換子節點 =====
@@ -286,11 +288,18 @@
             const area = document.getElementById(id);
             if (!area) return;
             area.addEventListener('compositionstart', () => { _lhComposing = true; clearTimeout(_saveTimer); });
-            area.addEventListener('compositionend', e => { _lhComposing = false; syncFromField(e.target); flushSongs(); lhSecCountFrom(e.target); });
+            area.addEventListener('compositionend', e => {
+                _lhComposing = false; syncFromField(e.target); flushSongs(); lhSecCountFrom(e.target);
+                // 一個確認的詞算一步（組字中不記）
+                if (e.target.classList.contains('section-textarea')) lhHistTyping(curSong(), e.target.closest('.lyrics-section').dataset.id, e.target.selectionStart);
+            });
             area.addEventListener('input', e => {
                 syncFromField(e.target);
                 // Firefox 在 compositionend 之後還會送最後一個 input，所以兩個旗標都看
-                if (!_lhComposing && !e.isComposing) { scheduleSave(); lhSecCountFrom(e.target); }
+                if (!_lhComposing && !e.isComposing) {
+                    scheduleSave(); lhSecCountFrom(e.target);
+                    if (e.target.classList.contains('section-textarea')) lhHistTyping(curSong(), e.target.closest('.lyrics-section').dataset.id, e.target.selectionStart);
+                }
             });
             area.addEventListener('focusout', () => { _lhComposing = false; flushSongs(); });
         });

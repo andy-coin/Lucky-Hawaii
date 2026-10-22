@@ -288,6 +288,25 @@
             min-height: 2rem;
             flex-shrink: 0;
         }
+        /* 復原／重做：外觀跟 .song-toggle 同一套（外框小按鈕）；變灰用 aria-disabled，按鈕有焦點時不丟焦點 */
+        .undo-group { display: inline-flex; gap: var(--sp-1); }
+        .undo-btn {
+            width: 2rem;
+            height: 2rem;
+            padding: 0;
+            background: var(--card-bg);
+            color: var(--text-primary);
+            border: 1px solid var(--border);
+            border-radius: 0.5rem;
+            font-family: inherit;
+            font-size: 1rem;
+            font-weight: 700;
+            cursor: pointer;
+        }
+        .undo-btn[aria-disabled="true"] { opacity: 0.4; cursor: not-allowed; }
+        @media (hover: hover) and (pointer: fine) {
+            .undo-btn:not([aria-disabled="true"]):hover { background: var(--container-bg); }
+        }
         .lyrics-total {
             margin-inline-start: auto;
             font-size: 0.75rem;

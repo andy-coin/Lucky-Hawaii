@@ -19,16 +19,33 @@ function lhSecFillTypeBtn(btn, label) {
 }
 
 // kind：動作名稱（之後記進歷史）；mutate(song) 改模型，回傳 false 代表沒改；opts.dom === 'render' 才整個重畫
+// 回傳這一步的歷史紀錄（真值）；沒改任何東西回傳 false
 function lhSecApply(kind, mutate, opts = {}) {
     const song = curSong();
-    if (!song || mutate(song) === false) return false;
-    // 第 9-04 計畫會在這裡先記下改動前的狀態（復原用）
+    if (!song) return false;
+    lhHistEnsure(song);   // 改之前先確認歷史的「現在」是改之前的樣子
+    if (mutate(song) === false) return false;
     lhSecFinalize(song.sections);
+    const step = lhHistCommit(song, kind, opts.caret);
     markDirty(song.id);
     flushSongs();
     if (opts.dom === 'render') renderLyricsSections();
     else lhSecRefreshMeta();
-    return true;
+    return step;
+}
+
+// 給讀屏軟體的提示（#lhLive 在面板外面，不影響組字測試的 DOM 監看）
+function lhAnnounce(msg) {
+    const live = document.getElementById('lhLive');
+    if (live) live.textContent = msg;
+}
+
+// 復原／重做後讓第一個變動的段落閃 700 毫秒外框（不用動畫，UI-SPEC D-14）
+function lhSecFlash(id) {
+    const el = lhSecEl(id);
+    if (!el) return;
+    el.classList.add('sec-flash');
+    setTimeout(() => el.classList.remove('sec-flash'), 700);
 }
 
 // 依模型就地更新每個區塊的名稱、編號、placeholder；節點不換，焦點、游標、捲動、組字都不受影響
