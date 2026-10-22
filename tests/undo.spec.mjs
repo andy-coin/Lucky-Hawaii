@@ -306,3 +306,65 @@ test('復原：重新整理就清空', async ({ browser }) => {
     expect(errors).toEqual([]);
     await context.close();
 });
+
+test('復原：變灰不丟焦點', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, { storage: one() });
+    await ta(page).focus();
+    await page.keyboard.press('End');
+    await page.keyboard.type('abc');
+    for (let i = 0; i < 6 && await page.evaluate(() => document.activeElement.id) !== 'undoBtn'; i++) await page.keyboard.press('Shift+Tab');   // 用鍵盤往前找到 ↶
+    expect(await page.evaluate(() => document.activeElement.id)).toBe('undoBtn');
+    await page.keyboard.press('Enter');
+    expect(await disabled(page, '#undoBtn')).toBe('true');
+    expect(await page.evaluate(() => document.activeElement.id), '變灰了焦點還在').toBe('undoBtn');
+    await page.keyboard.press('Enter');   // 變灰後再按什麼都不發生
+    await expect(ta(page)).toHaveValue('你好');
+    expect(await page.locator('#undoBtn').evaluate(b => b.hasAttribute('disabled')), '不用 disabled 屬性').toBe(false);
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('復原：按鈕不搶走輸入框焦點', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, { storage: one(), device: { viewport: { width: 1440, height: 900 } } });
+    await ta(page).focus();
+    await page.keyboard.press('End');
+    await page.keyboard.type('abc');
+    await page.locator('#undoBtn').click();
+    await expect(ta(page)).toHaveValue('你好');
+    expect(await page.evaluate(() => document.activeElement === document.querySelector('.section-textarea')), '焦點還在輸入框（手機鍵盤才不會收）').toBe(true);
+    await page.locator('#redoBtn').click();
+    expect(await page.evaluate(() => document.activeElement.classList.contains('section-textarea'))).toBe(true);
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('復原：讀屏提示', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, { storage: one() });
+    const live = () => page.evaluate(() => document.getElementById('lhLive').textContent);
+    expect(await page.locator('#lhLive').getAttribute('aria-live')).toBe('polite');
+    await ta(page).focus();
+    await page.keyboard.press('End');
+    await page.keyboard.type('abc');
+    await page.locator('#undoBtn').click();
+    expect(await live()).toBe('已復原');
+    await page.locator('#redoBtn').click();
+    expect(await live()).toBe('已重做');
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('復原：按鈕說明', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, { storage: one() });
+    expect(await page.locator('.undo-group').getAttribute('role')).toBe('group');
+    expect(await page.locator('.undo-group').getAttribute('aria-label')).toBe('復原與重做');
+    expect(await page.locator('#undoBtn').getAttribute('aria-label')).toBe('復原上一步');
+    expect(await page.locator('#redoBtn').getAttribute('aria-label')).toBe('重做上一步');
+    const mac = await page.evaluate(() => /Mac|iPhone|iPad|iPod/.test(navigator.platform || navigator.userAgent));   // 斷言這台機器會走的那一邊
+    expect(await page.locator('#undoBtn').getAttribute('title')).toBe(mac ? '復原（⌘Z）' : '復原（Ctrl+Z）');
+    expect(await page.locator('#redoBtn').getAttribute('title')).toBe(mac ? '重做（⇧⌘Z）' : '重做（Ctrl+Shift+Z 或 Ctrl+Y）');
+    // 桌機 2rem 方塊；觸控與窄螢幕 --hit
+    const box = async () => page.locator('#undoBtn').evaluate(b => { const r = b.getBoundingClientRect(); return [r.width, r.height]; });
+    expect(await box()).toEqual([32, 32]);
+    expect(errors).toEqual([]);
+    await context.close();
+});

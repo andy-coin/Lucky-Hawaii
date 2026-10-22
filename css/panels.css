@@ -307,6 +307,8 @@
         @media (hover: hover) and (pointer: fine) {
             .undo-btn:not([aria-disabled="true"]):hover { background: var(--container-bg); }
         }
+        /* 復原／重做後第一個變動的段落閃 700 毫秒外框（不用動畫） */
+        .lyrics-section.sec-flash { outline: 2px solid var(--highlight-border); outline-offset: -2px; }
         .lyrics-total {
             margin-inline-start: auto;
             font-size: 0.75rem;
@@ -1300,6 +1302,7 @@
             .panel-add-btn, .reset-pool-btn, .rhyme-mode-btn, .filter-chip, .generate-btn, .model-select,
             .ai-word-card, .ai-report-btn, .context-refresh-btn, .lyrics-section-header, .section-type { min-height: var(--hit); }
             .context-refresh-btn { min-width: var(--hit); }
+            .undo-btn { width: var(--hit); height: var(--hit); }
             .word-chip, .hashtag-chip { min-height: var(--hit); padding-block: 0; padding-right: 0; }
             .chip-remove {
                 display: inline-flex;
