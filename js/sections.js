@@ -62,7 +62,27 @@ function lhSecRefreshMeta() {
         if (btn) lhSecFillTypeBtn(btn, s.label);
         const ta = el.querySelector('.section-textarea');
         if (ta) ta.placeholder = i === 0 ? '在這裡輸入或貼上歌詞…' : '在這裡輸入歌詞…';
+        const rm = el.querySelector('.section-remove');
+        if (rm) {
+            rm.hidden = song.sections.length === 1;   // 只剩一段不能刪
+            rm.setAttribute('aria-label', '刪除「' + s.label + '」');
+        }
     });
+}
+
+// 刪除段落（C5）：不問、立刻刪，下方 5 秒內可按「復原」；只剩一段時什麼都不做
+// 「復原」只在這一步還是歷史最上面一步時才動作，別的動作（打字、換歌）之後按了也不會誤動
+function lhSecRemove(id) {
+    const song = curSong();
+    if (!song || song.sections.length < 2) return;
+    const index = song.sections.findIndex(s => s.id === id);
+    if (index < 0) return;
+    const label = song.sections[index].label || '段落';
+    const step = lhSecApply('remove', song => { song.sections.splice(index, 1); }, { dom: 'render' });
+    if (!step) return;
+    showUndoToast('已刪除「' + cutName(label, 16) + '」', '復原', () => {
+        if (lhHistTop(curSong()) === step) lhHistUndo();
+    }, 5000, '復原刪除「' + label + '」');
 }
 
 // ===== 字數（E1、E2）：每段一個 Text node，只改 .data，不增減節點；各段字數快取在 Map，打字時只重算那一段 =====
@@ -118,7 +138,7 @@ document.getElementById('lyricsSections').addEventListener('click', e => {
             s.type = LH_SEC_TYPES[(LH_SEC_TYPES.indexOf(s.type) + 1) % LH_SEC_TYPES.length];
         });
     } else if (e.target.closest('.section-remove')) {
-        removeLyricsSection(Number(secEl.dataset.index));
+        lhSecRemove(secEl.dataset.id);
     } else if (e.target.closest('.lyrics-section-header') && !e.target.closest('.section-handle, .section-count')) {
         toggleLyricsSection(Number(secEl.dataset.index));
     }

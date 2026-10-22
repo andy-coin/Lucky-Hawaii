@@ -79,7 +79,7 @@ test('資料為準：用段落 id 對應', async ({ browser }) => {
     await expect(page.locator('#lyricsSections .lyrics-section')).toHaveCount(3);
     expect(await page.locator('#lyricsSections .lyrics-section').evaluateAll(els => els.map(e => e.dataset.id))).toEqual(['sa', 'sb', 'sc']);
     expect(await page.locator('#lyricsSections .lyrics-section').evaluateAll(els => els.map(e => e.dataset.index))).toEqual(['0', '1', '2']);
-    // 刪掉第二段（有內容，確認框由 bootPage 自動按確定）
+    // 刪掉第二段（不再有確認框，直接刪）
     await page.locator('.lyrics-section[data-index="1"] .section-remove').click();
     await expect(page.locator('#lyricsSections .lyrics-section')).toHaveCount(2);
     await textareas(page).nth(1).fill('三改');

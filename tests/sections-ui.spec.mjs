@@ -358,3 +358,30 @@ test('字數：150% 長名稱與大字數不擠', async ({ browser }) => {
     expect(errors).toEqual([]);
     await context.close();
 });
+
+// ===== 刪除（09-05）：不跳確認、下方出現「復原」 =====
+test('刪除：直接刪、按復原救回', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, {
+        storage: v2Storage([song('s1', [typed('sa', 'verse', 'A'), typed('sb', 'chorus', 'B', { color: '#48a868' }), typed('sc', 'verse', 'C')])]),
+    });
+    const dialogs = [];
+    page.on('dialog', d => dialogs.push(d.message()));
+    await page.locator('.lyrics-section[data-index="1"] .section-remove').click();
+    await expect(page.locator('#lyricsSections .lyrics-section')).toHaveCount(2);
+    expect(await labels(page)).toEqual(['Verse I', 'Verse II']);
+    expect((await activeSongRaw(page)).sections).toHaveLength(2);
+    const toast = page.locator('#copyToast');
+    await expect(toast).toHaveClass(/has-action/);
+    await expect(toast).toContainText('已刪除「Chorus」');
+    const undo = toast.locator('button.toast-action');
+    await expect(undo).toHaveText('復原');
+    expect(await undo.getAttribute('aria-label')).toBe('復原刪除「Chorus」');
+    await undo.click();
+    await expect(page.locator('#lyricsSections .lyrics-section')).toHaveCount(3);
+    const back = await page.evaluate(() => curSong().sections.map(s => [s.id, s.type, s.text, s.color]));
+    expect(back).toEqual([['sa', 'verse', 'A', ''], ['sb', 'chorus', 'B', '#48a868'], ['sc', 'verse', 'C', '']]);
+    expect((await activeSongRaw(page)).sections.map(s => s.id)).toEqual(['sa', 'sb', 'sc']);
+    expect(dialogs).toEqual([]);
+    expect(errors).toEqual([]);
+    await context.close();
+});

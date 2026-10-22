@@ -56,10 +56,47 @@
                 toast.className = 'copy-toast';
                 document.body.appendChild(toast);
             }
-            toast.textContent = msg;
+            toast.textContent = msg;   // 一併丟掉上一個提示留下的「復原」按鈕
+            toast.classList.remove('has-action');
             toast.classList.add('show');
             clearTimeout(toast._timer);
             toast._timer = setTimeout(() => toast.classList.remove('show'), duration);
+        }
+
+        // 帶一個按鈕的提示（刪除段落後的「復原」，UI-SPEC D-09）。訊息是 Text node、按鈕文字走 textContent，不經 HTML 解析（T-09-12）。
+        // 按鈕只在提示顯示時收點擊；ms 之後提示和按鈕一起消失
+        function showUndoToast(msg, actionLabel, onAction, ms = 5000, actionAria) {
+            let toast = document.getElementById('copyToast');
+            if (!toast) {
+                toast = document.createElement('div');
+                toast.id = 'copyToast';
+                toast.className = 'copy-toast';
+                document.body.appendChild(toast);
+            }
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'toast-action';
+            btn.textContent = actionLabel;
+            if (actionAria) btn.setAttribute('aria-label', actionAria);
+            btn.addEventListener('click', () => {
+                hideUndoToastAction();
+                toast.classList.remove('show');
+                clearTimeout(toast._timer);
+                onAction();
+            });
+            toast.replaceChildren(document.createTextNode(msg), btn);
+            toast.setAttribute('role', 'status');
+            toast.classList.add('show', 'has-action');
+            clearTimeout(toast._timer);
+            toast._timer = setTimeout(() => { toast.classList.remove('show'); hideUndoToastAction(); }, ms);
+        }
+
+        // 拿掉提示上的按鈕（有更新的歷史步驟、復原／重做之後，那個按鈕就不能再按了）
+        function hideUndoToastAction() {
+            const toast = document.getElementById('copyToast');
+            if (!toast || !toast.classList.contains('has-action')) return;
+            toast.querySelector('.toast-action')?.remove();
+            toast.classList.remove('has-action');
         }
 
         // ===== 面板跟著目前版型走 =====

@@ -1777,7 +1777,7 @@ test('觸控：還沒搜尋時 AI 面板按鈕夠大、按建議會提示先搜�
     } finally { await context.close(); }
 });
 
-// ===== 05-08 任務二：有內容的段落刪除前先確認；放大到 150% 右鍵／長按選單不跑出畫面 =====
+// ===== 05-08 任務二／09-05：段落刪除不再確認，改由下方提示的「復原」救回；放大到 150% 右鍵／長按選單不跑出畫面 =====
 const DELETE_SECTIONS = [
     { label: '主歌', text: '寫了很久的主歌', collapsed: false },
     { label: '副歌', text: '寫了很久的副歌', collapsed: false },
@@ -1786,44 +1786,34 @@ const DELETE_SECTIONS = [
 // 歌詞現在存在 lh:songs 的目前這首歌裡；轉成舊的 { label, text, collapsed } 形狀，下面的比對照舊
 const savedLyrics = async page => (await activeSongRaw(page))?.sections.map(s => ({ label: s.label, text: s.text, collapsed: s.collapsed })) ?? null;
 const sectionCount = page => page.locator('#lyricsSections .lyrics-section').count();
-// bootPage 掛了一個自動按「確定」的處理器；這個測試要自己決定按取消或確定，所以先全部拿掉再掛自己的
-function takeOverDialogs(page) {
-    page.removeAllListeners('dialog');
-    const log = { messages: [], answer: 'dismiss' };
-    page.on('dialog', d => { log.messages.push(d.message()); return log.answer === 'accept' ? d.accept() : d.dismiss(); });
-    return log;
-}
+const sectionTexts = page => page.locator('#lyricsSections .section-textarea').evaluateAll(els => els.map(e => e.value));
 
-test('刪除：有歌詞的段落要先確認、空段落直接刪', async ({ browser }) => {
+test('刪除：不跳確認、按復原救回', async ({ browser }) => {
     const device = DEVICES.phone;
     const { context, page } = await bootPage(browser, { device, storage: { haiku_lyrics: JSON.stringify(DELETE_SECTIONS) } });
     try {
-        const log = takeOverDialogs(page);
+        const dialogs = [];
+        page.removeAllListeners('dialog');   // bootPage 掛了自動按「確定」的處理器；這裡只記錄、有跳就算失敗
+        page.on('dialog', d => { dialogs.push(d.message()); return d.dismiss(); });
         await toggleSide(page, device, 'lyrics');
         expect(await sectionCount(page)).toBe(3);
-        const removeBtn = i => page.locator(`#lyricsSections .lyrics-section[data-index="${i}"] .section-remove`);
+        const before = await sectionTexts(page);
 
-        // 有內容、按取消：段落與文字都在，存檔也沒變
-        await expectReallyClickable(page, removeBtn(1), '副歌的刪除鈕');
-        await removeBtn(1).tap();
-        expect(log.messages, '只問一次、文字完全照規格').toEqual(['刪除「Chorus」？段落內的歌詞會一併刪除，無法復原。']);   // 第 9 階段起名稱是模型算出的 Chorus
-        expect(await sectionCount(page), '取消後段落還在').toBe(3);
-        expect(await page.locator('#lyricsSections .section-textarea').nth(1).inputValue(), '取消後文字還在').toBe('寫了很久的副歌');
-        expect(await savedLyrics(page), '取消後存檔沒變').toEqual(DELETE_SECTIONS);
+        await expectReallyClickable(page, page.locator('#lyricsSections .lyrics-section[data-index="1"] .section-remove'), '副歌的刪除鈕');
+        await page.locator('#lyricsSections .lyrics-section[data-index="1"] .section-remove').tap();
+        expect(dialogs, '不跳確認').toEqual([]);
+        expect(await sectionCount(page), '直接刪掉').toBe(2);
+        await expect(page.locator('#copyToast')).toBeVisible();
+        await expect(page.locator('#copyToast')).toContainText('已刪除「Chorus」');
 
-        // 有內容、按確定：刪掉，存檔跟著更新
-        log.answer = 'accept';
-        await removeBtn(1).tap();
-        expect(log.messages.length, '又問了一次').toBe(2);
-        expect(await sectionCount(page)).toBe(2);
-        expect((await savedLyrics(page)).map(s => s.label)).toEqual(['Verse', '空白段']);   // 刪除後才寫入重算的名稱；空白段是自訂名稱
-
-        // 空段落：不問直接刪
-        log.answer = 'dismiss';   // 就算被問了也會按取消 → 段落還在就能抓到「不該問卻問了」
-        await removeBtn(1).tap();
-        expect(log.messages.length, '空段落不跳確認').toBe(2);
-        expect(await sectionCount(page), '空段落直接刪掉').toBe(1);
-        expect((await savedLyrics(page)).map(s => s.label)).toEqual(['Verse']);
+        // 提示上的「復原」是真的點得到（沒被別的東西蓋住）、夠大
+        const undo = page.locator('#copyToast .toast-action');
+        await expectReallyClickable(page, undo, '提示上的復原');
+        await undo.tap();
+        expect(await sectionCount(page), '復原後三段回來').toBe(3);
+        expect(await sectionTexts(page), '文字與順序原封不動').toEqual(before);
+        expect((await savedLyrics(page)).map(s => s.text), '存檔也回來了').toEqual(DELETE_SECTIONS.map(s => s.text));
+        expect(dialogs).toEqual([]);
     } finally { await context.close(); }
 });
 
@@ -1836,16 +1826,12 @@ test('刪除：段落名稱只當純文字顯示', async ({ browser }) => {
     ];
     const { context, page } = await bootPage(browser, { device, storage: { haiku_lyrics: JSON.stringify(sections) } });
     try {
-        const log = takeOverDialogs(page);
         await toggleSide(page, device, 'lyrics');
         await page.locator('#lyricsSections .lyrics-section[data-index="1"] .section-remove').tap();
-        await page.locator('#lyricsSections .lyrics-section[data-index="2"] .section-remove').tap();
-        expect(log.messages).toEqual([
-            '刪除「<b>x</b>」？段落內的歌詞會一併刪除，無法復原。',   // 標籤符號原樣出現，沒有被當成 HTML
-            '刪除「Verse II」？段落內的歌詞會一併刪除，無法復原。',   // 沒取名的段落是 Verse，與第一段同類型所以編號 II
-        ]);
-        expect(await sectionCount(page), '兩次都取消，三段都在').toBe(3);
-        expect(await page.evaluate(() => document.querySelectorAll('#lyricsSections b').length), '沒有被塞進頁面的標籤').toBe(0);
+        // 標籤符號原樣出現，沒有被當成 HTML
+        await expect(page.locator('#copyToast')).toHaveText(/已刪除「<b>x<\/b>」/);
+        expect(await page.evaluate(() => document.querySelectorAll('#copyToast b, #lyricsSections b').length), '沒有被塞進頁面的標籤').toBe(0);
+        expect(await sectionCount(page)).toBe(2);
     } finally { await context.close(); }
 });
 

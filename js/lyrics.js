@@ -168,22 +168,6 @@
             el.scrollIntoView({ block: 'nearest' });
         }
 
-        function removeLyricsSection(index) {
-            // 手機上刪除鈕變大了（44px），一次點錯不能就把寫好的歌詞弄丟：段落有內容時先確認，取消就什麼都不動（D-12）。
-            // 段落名稱當純文字塞進 confirm 訊息（不是 HTML，T-05-17）。第 9 階段會改成可復原，到時這個確認再拿掉。
-            const song = curSong();
-            const sec = song && song.sections[index];
-            if (!sec) return;
-            if ((sec.text || '').trim()) {
-                const name = sec.label || (index === 0 ? '歌詞' : '新段落');
-                if (!confirm('刪除「' + name + '」？段落內的歌詞會一併刪除，無法復原。')) return;
-            }
-            song.sections.splice(index, 1);
-            markDirty(song.id);
-            flushSongs();
-            renderLyricsSections();
-        }
-
         // 整個編輯器依目前這首歌重畫（開機、切歌、匯入後）
         function renderActiveSong() {
             // 換歌、刪歌、別的分頁更新都會走到這裡：上一首歌選取的字不能帶到這一首（WR-06）
@@ -238,13 +222,14 @@
                 cnt.appendChild(document.createTextNode(''));
                 header.appendChild(cnt);
 
-                if (i !== 0) {
-                    const rm = document.createElement('button');
-                    rm.className = 'section-remove';
-                    rm.title = '刪除';
-                    rm.textContent = '−';
-                    header.appendChild(rm);
-                }
+                // 每段都有 −（第一段也能刪）；只剩一段時藏起來（C5）
+                const rm = document.createElement('button');
+                rm.className = 'section-remove';
+                rm.title = '刪除這個段落';
+                rm.setAttribute('aria-label', '刪除「' + s.label + '」');
+                rm.textContent = '−';
+                rm.hidden = song.sections.length === 1;
+                header.appendChild(rm);
 
                 const body = document.createElement('div');
                 body.className = 'section-body';

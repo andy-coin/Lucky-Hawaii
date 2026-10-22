@@ -952,6 +952,26 @@
             transition: opacity 0.2s;
         }
         .copy-toast.show { opacity: 1; }
+        /* 帶「復原」按鈕的提示（09-05）：只在顯示時收點擊，藏起來的提示不擋觸控 */
+        .copy-toast.show.has-action {
+            pointer-events: auto;
+            display: flex;
+            align-items: center;
+            gap: var(--sp-3);
+        }
+        .toast-action {
+            font-family: inherit;
+            font-size: 0.875rem;
+            font-weight: 700;
+            color: inherit;
+            background: transparent;
+            border: 1px solid currentColor;
+            border-radius: 1rem;
+            padding: 0 var(--sp-3);
+            min-height: var(--hit);
+            min-width: var(--hit);
+            cursor: pointer;
+        }
 
         /* 情境自動生成按鈕 */
         .context-refresh-btn {
@@ -1143,6 +1163,7 @@
             transition: opacity 0.15s, color 0.15s;
             flex-shrink: 0;
         }
+        .section-remove[hidden] { display: none; }   /* 觸控版的 inline-flex 會蓋掉 hidden 屬性 */
         @media (hover: hover) and (pointer: fine) {
             .section-remove:hover { opacity: 1; color: #fc8181; }
         }
@@ -1314,7 +1335,7 @@
                 font-size: 1rem;
             }
             .lyrics-section-header { padding-block: 0; }
-            /* 段落刪除：觸控上沒有 hover，所以一律完整顯示；刪除前有內容會先確認（js/lyrics.js） */
+            /* 段落刪除：觸控上沒有 hover，所以一律完整顯示；刪除不確認，改由下方提示的「復原」救回（js/sections.js） */
             .section-remove {
                 display: inline-flex;
                 align-items: center;
