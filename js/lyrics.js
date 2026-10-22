@@ -81,13 +81,7 @@
             syncCenterPanel(panel.classList.contains('collapsed') ? undefined : 'left');
         }
 
-        // ===== 段落 toggle / label edit / drag reorder =====
-        function onSectionHeaderClick(e, i) {
-            if (e.target.classList.contains('section-remove')) return;
-            if (e.target.classList.contains('section-label') && !e.target.hasAttribute('readonly')) return;
-            toggleLyricsSection(i);
-        }
-
+        // ===== 段落 toggle / drag reorder（標題列點擊在 js/sections.js 事件委派）=====
         function toggleLyricsSection(i) {
             const song = curSong();
             const sec = song && song.sections[i];
@@ -101,19 +95,6 @@
                 if (chev) chev.style.transform = sec.collapsed ? 'rotate(-90deg)' : '';
             }
             markDirty(song.id);
-            flushSongs();
-        }
-
-        function enableSectionLabel(input, e) {
-            e.stopPropagation();
-            input.removeAttribute('readonly');
-            input.focus();
-            input.select();
-        }
-
-        // 名稱在打字時就已經同步進模型（syncFromField）；這裡只結束編輯狀態並存檔，不從畫面讀值
-        function disableSectionLabel(input) {
-            input.setAttribute('readonly', '');
             flushSongs();
         }
 
@@ -169,20 +150,22 @@
         }
 
         function addLyricsSection() {
-            const song = curSong();
-            if (!song) return;
+            let newId = null;
             // 依前一段猜一個常見的下一段（Verse → Pre-Chorus → Chorus → Verse），再一次重算所有名稱（B6、B2）
-            const last = song.sections[song.sections.length - 1];
-            song.sections.push(makeEmptySection(lhNextSecType(last && last.type)));
-            lhSecFinalize(song.sections);
-            markDirty(song.id);
-            flushSongs();
-            renderLyricsSections();
-            // 滾到底部讓剛新增的那一段可見
-            setTimeout(() => {
-                const body = document.querySelector('#leftPanel .side-panel-body');
-                if (body) body.scrollTop = body.scrollHeight;
-            }, 50);
+            lhSecApply('add', song => {
+                const last = song.sections[song.sections.length - 1];
+                const s = makeEmptySection(lhNextSecType(last && last.type));
+                newId = s.id;
+                song.sections.push(s);
+            }, { dom: 'render' });
+            const el = newId && lhSecEl(newId);
+            if (!el) return;
+            // 滑鼠裝置直接把游標放進新段落；觸控不聚焦（避免鍵盤自己彈出來遮住畫面）（D-13）
+            if (matchMedia('(hover: hover) and (pointer: fine)').matches) {
+                const ta = el.querySelector('.section-textarea');
+                if (ta) ta.focus({ preventScroll: true });
+            }
+            el.scrollIntoView({ block: 'nearest' });
         }
 
         function removeLyricsSection(index) {
@@ -224,10 +207,10 @@
                 el.className = 'lyrics-section' + (s.collapsed ? ' collapsed' : '');
                 el.dataset.index = String(i);
                 el.dataset.id = s.id;
+                el.dataset.type = s.type;
 
                 const header = document.createElement('div');
                 header.className = 'lyrics-section-header';
-                header.setAttribute('onclick', `onSectionHeaderClick(event,${i})`);
                 header.setAttribute('ondragstart', `onSectionDragStart(event,${i})`);
                 header.setAttribute('ondragover', `onSectionDragOver(event,${i})`);
                 header.setAttribute('ondragleave', 'onSectionDragLeave(event)');
@@ -241,19 +224,17 @@
                 if (s.collapsed) chev.style.transform = 'rotate(-90deg)';
                 header.appendChild(chev);
 
-                const label = document.createElement('input');
-                label.className = 'section-label';
-                label.value = s.label;   // 模型的 label 永遠是目前顯示名稱（A3）
-                label.setAttribute('readonly', '');
-                label.setAttribute('ondblclick', 'enableSectionLabel(this,event)');
-                label.setAttribute('onblur', 'disableSectionLabel(this)');
-                label.setAttribute('onkeydown', "if(event.key==='Enter'&&!event.isComposing&&event.keyCode !== 229)this.blur()");
-                header.appendChild(label);
+                // 名稱是按鈕：點一下換下一種類型（js/sections.js 委派）；模型的 label 永遠是目前顯示名稱（A3）
+                const typeBtn = document.createElement('button');
+                typeBtn.type = 'button';
+                typeBtn.className = 'section-type';
+                typeBtn.setAttribute('aria-describedby', 'secTypeHint');
+                lhSecFillTypeBtn(typeBtn, s.label);
+                header.appendChild(typeBtn);
 
                 if (i !== 0) {
                     const rm = document.createElement('button');
                     rm.className = 'section-remove';
-                    rm.setAttribute('onclick', `event.stopPropagation();removeLyricsSection(${i})`);
                     rm.title = '刪除';
                     rm.textContent = '−';
                     header.appendChild(rm);
@@ -290,7 +271,6 @@
             const sec = secEl && song.sections.find(x => x.id === secEl.dataset.id);
             if (!sec) return;
             if (el.classList.contains('section-textarea')) sec.text = el.value;
-            else if (el.classList.contains('section-label')) sec.label = el.value;
             else return;
             markDirty(song.id);
         }

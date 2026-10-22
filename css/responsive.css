@@ -66,7 +66,7 @@
             .lyrics-section.collapsed { flex: 0 0 calc(var(--hit) + 3px); min-height: 0; }
             .lyrics-section .section-body { display: flex; flex-direction: column; flex: 1 1 auto; }
             .lyrics-section .section-textarea { flex: 1 1 auto; min-height: 7rem; }
-            .section-label { min-width: 0; text-overflow: ellipsis; }
+            .section-type { min-width: var(--hit); text-overflow: ellipsis; }
             .context-section { flex: 0 0 33%; }
             .context-section.collapsed { flex: 0 0 calc(var(--hit) + 1px); }
             .context-section-header { min-height: var(--hit); }
@@ -734,7 +734,7 @@
            class 選擇器比元素選擇器強，所以每種輸入框都要明確列出（檔尾，同權重時這裡贏）。
            電腦（≥ 901 且滑鼠）維持原本字級。 ===== */
         @media (max-width: 900px), (pointer: coarse) {
-            .search-input, .section-label, .section-textarea, .context-textarea, .hashtag-popup-input,
+            .search-input, .section-textarea, .context-textarea, .hashtag-popup-input,
             .hashtag-input-row input, .word-input-row input, .feedback-modal input, .feedback-modal textarea,
             .model-select, .song-name-input {
                 font-size: max(16px, 1rem);

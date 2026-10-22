@@ -804,7 +804,7 @@ test('備份：段落舊版存檔推斷類型', async ({ browser }) => {
     expect(imported.sections.map(s => [s.type, s.label, s.text])).toEqual([
         ['verse', 'Verse', '匯入的第一段歌詞'], ['chorus', 'Chorus', '匯入的第二段歌詞'],
     ]);
-    expect(await page.locator('#lyricsSections .section-label').evaluateAll(els => els.map(e => e.value))).toEqual(['Verse', 'Chorus']);
+    expect(await page.locator('#lyricsSections .section-type').evaluateAll(els => els.map(e => e.textContent))).toEqual(['Verse', 'Chorus']);
     expect(errors).toEqual([]);
     await context.close();
 });

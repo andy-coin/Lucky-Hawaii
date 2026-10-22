@@ -24,7 +24,7 @@ test('資料為準：升級後顯示我的第一首歌', async ({ browser }) => 
     const NAMES = ['Verse', 'Chorus', 'Bridge'];
     for (let i = 0; i < 3; i++) {
         expect(await textareas(page).nth(i).inputValue()).toBe(LEGACY[i].text);
-        expect(await page.locator('.section-label').nth(i).inputValue()).toBe(NAMES[i]);
+        expect(await page.locator('.section-type').nth(i).textContent()).toBe(NAMES[i]);
     }
     await expect(page.locator('#hashtagChips .hashtag-chip')).toHaveText(['#浪漫×', '#夏天×']);
     expect(await page.locator('#contextDescription').inputValue()).toBe('');
@@ -42,7 +42,7 @@ test('資料為準：原樣顯示', async ({ browser }) => {
     });
     await expect(textareas(page)).toHaveCount(1);
     expect(await textareas(page).first().inputValue()).toBe(TEXT);
-    expect(await page.locator('.section-label').first().inputValue()).toBe(LABEL);
+    expect(await page.locator('.section-type').first().textContent()).toBe(LABEL);
     expect(await page.locator('#pwn, #pwn2').count(), '沒有被塞進頁面的元素').toBe(0);
     expect(await page.locator('#lyricsSections b, #hashtagChips i').count()).toBe(0);
     expect(await page.locator('#hashtagChips .hashtag-chip').first().textContent()).toBe('#' + TAG + '×');
@@ -58,8 +58,7 @@ test('資料為準：畫面被改動不會寫回', async ({ browser }) => {
     const ta = textareas(page).first();
     await ta.fill('abc');
     await page.evaluate(() => { document.querySelector('.section-textarea').value = 'TAMPER'; });   // 不送 input 事件
-    await page.locator('.section-label').first().dblclick();
-    await page.locator('.section-label').first().blur();
+    await page.locator('#searchInput').focus();   // 離開輸入框會走 focusout 存檔；存的是模型，不是畫面
     const s = await activeSongRaw(page);
     expect(s.sections[0].text).toBe('abc');
     expect(JSON.stringify(s)).not.toContain('TAMPER');
@@ -90,13 +89,13 @@ test('資料為準：用段落 id 對應', async ({ browser }) => {
     // 不變的外觀契約
     expect(await page.locator('.section-textarea').first().getAttribute('placeholder')).toBe('在這裡輸入或貼上歌詞…');
     expect(await page.locator('.section-textarea').nth(1).getAttribute('placeholder')).toBe('在這裡輸入歌詞…');
-    for (const cls of ['.lyrics-section-header', '.section-chevron', '.section-label', '.section-body']) {
+    for (const cls of ['.lyrics-section-header', '.section-chevron', '.section-type', '.section-body']) {
         expect(await page.locator('#lyricsSections ' + cls).count(), cls).toBeGreaterThan(0);
     }
     // 新段落與沒取名的預設名稱
     await page.evaluate(() => addLyricsSection());
     // 甲、乙、丙都是自訂名稱，新段落依前一段（Custom）猜成 Verse
-    expect(await page.locator('.section-label').last().inputValue()).toBe('Verse');
+    expect(await page.locator('.section-type').last().textContent()).toBe('Verse');
     expect(errors).toEqual([]);
     await context.close();
 });
@@ -105,7 +104,7 @@ test('資料為準：預設段落名稱', async ({ browser }) => {
     const { context, page, errors } = await bootPage(browser, {
         storage: v2Storage([song('s1', [sec('sa', '一'), sec('sb', '二')])]),
     });
-    expect(await page.locator('.section-label').evaluateAll(els => els.map(e => e.value))).toEqual(['Verse I', 'Verse II']);
+    expect(await page.locator('.section-type').evaluateAll(els => els.map(e => e.textContent))).toEqual(['Verse I', 'Verse II']);
     expect(errors).toEqual([]);
     await context.close();
 });

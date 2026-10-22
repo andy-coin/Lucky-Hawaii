@@ -1636,7 +1636,7 @@ const TOUCH_STATES = [
         await page.fill('#searchInput', '樂');
         await settle(page);
     }],
-    ['歌詞開著', ['button.section-remove', 'button.panel-add-btn', 'button.hashtag-add-btn', 'button.context-refresh-btn', 'span.chip-remove', 'span.hashtag-chip', 'input.section-label', 'div.lyrics-section-header', 'div.context-section-header', '.lyrics-section.collapsed button.section-remove'],
+    ['歌詞開著', ['button.section-remove', 'button.panel-add-btn', 'button.hashtag-add-btn', 'button.context-refresh-btn', 'span.chip-remove', 'span.hashtag-chip', 'button.section-type', 'div.context-section-header', '.lyrics-section.collapsed button.section-remove'],
         (page, d) => toggleSide(page, d, 'lyrics')],
     ['AI 開著', ['select#modelSelect', 'button.rhyme-mode-btn', 'button.filter-chip', 'button#generateBtn', 'div.ai-word-card', 'span.chip-remove', 'div.saved-pool-title', 'button.reset-pool-btn', 'button.hint-clear'], async (page, d) => {
         await page.fill('#searchInput', 'ㄢ');

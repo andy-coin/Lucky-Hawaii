@@ -77,23 +77,6 @@ test('組字：#標籤 視窗組字中按 Enter 不送出', async ({ browser }) 
     await context.close();
 });
 
-test('組字：段落名稱組字中按 Enter 不結束編輯', async ({ browser }) => {
-    const { context, page, errors } = await bootPage(browser, { storage: FIXTURE });
-    const oldLabel = (await rawSong(page)).sections[0].label;
-    const label = page.locator('.section-label').first();
-    await label.dblclick();
-    await compose(page, ['ㄅ', 'ㄅㄚ'], '吧', async () => {
-        await page.keyboard.press('Enter');
-        expect(await label.getAttribute('readonly'), '組字中按 Enter 還在編輯').toBeNull();
-        expect((await rawSong(page)).sections[0].label, '組字中沒有存半成品').toBe(oldLabel);
-    });
-    await page.keyboard.press('Enter');
-    expect(await label.getAttribute('readonly')).not.toBeNull();
-    expect((await activeSongRaw(page)).sections[0].label).toBe('吧');
-    expect(errors).toEqual([]);
-    await context.close();
-});
-
 // 打字與組字完全不碰畫面結構：沒有節點被換掉、游標不跳（D-17）
 const watchLeftPanel = page => page.evaluate(() => {
     window.__muts = [];
