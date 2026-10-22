@@ -28,6 +28,7 @@ function lhHistEnsure(song, verify) {
 function lhHistCommit(song, kind, caret) {
     const h = lhHistEnsure(song);
     h.run = null;   // 結構動作打斷連打合併
+    hideUndoToastAction();   // 有更新的一步，刪除提示上的「復原」不能再按
     const step = { snap: h.present, kind, caret: h.caret };
     h.past.push(step);
     if (h.past.length > LH_UNDO_MAX) h.past.shift();
@@ -42,6 +43,7 @@ function lhHistCommit(song, kind, caret) {
 function lhHistTyping(song, secId, caret, now = Date.now()) {
     const h = lhHistEnsure(song);
     if (!h.run || h.run.secId !== secId || now - h.run.t > LH_TYPING_GAP) {
+        hideUndoToastAction();
         h.past.push({ snap: h.present, kind: 'text', caret: h.caret });
         if (h.past.length > LH_UNDO_MAX) h.past.shift();
         h.future.length = 0;
@@ -73,6 +75,7 @@ function lhHistSyncButtons() {
 function _lhHistMove(from, to, msg) {
     const song = curSong();
     const h = song && lhHistEnsure(song);
+    hideUndoToastAction();
     if (!h || !from(h).length) return false;
     h.run = null;
     const step = from(h).pop();

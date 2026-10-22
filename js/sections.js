@@ -80,6 +80,11 @@ function lhSecRemove(id) {
     const label = song.sections[index].label || '段落';
     const step = lhSecApply('remove', song => { song.sections.splice(index, 1); }, { dom: 'render' });
     if (!step) return;
+    // 焦點（D-13）：滑鼠裝置落在原位置（沒有就最後一個）的類型鈕；觸控不聚焦，鍵盤不會自己彈出來
+    if (matchMedia('(hover: hover) and (pointer: fine)').matches) {
+        const btns = document.querySelectorAll('#lyricsSections .section-type');
+        btns[Math.min(index, btns.length - 1)]?.focus({ preventScroll: true });
+    }
     showUndoToast('已刪除「' + cutName(label, 16) + '」', '復原', () => {
         if (lhHistTop(curSong()) === step) lhHistUndo();
     }, 5000, '復原刪除「' + label + '」');

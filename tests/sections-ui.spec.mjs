@@ -385,3 +385,166 @@ test('刪除：直接刪、按復原救回', async ({ browser }) => {
     expect(errors).toEqual([]);
     await context.close();
 });
+
+const three = () => v2Storage([song('s1', [typed('sa', 'verse', 'A'), typed('sb', 'chorus', 'B', { color: '#48a868' }), typed('sc', 'verse', 'C')])]);
+const secCount = page => page.locator('#lyricsSections .lyrics-section').count();
+
+test('刪除：新動作讓復原鈕消失', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, { storage: three() });
+    const action = page.locator('#copyToast .toast-action');
+    const ids = () => page.evaluate(() => curSong().sections.map(s => s.id));
+    const delMiddle = () => page.locator('.lyrics-section[data-index="1"] .section-remove').click();
+    // 打字：在別的段落打一個字，是更新的一步，復原鈕立刻不見；↶ 兩下先撤打字、再救回被刪的段落
+    await delMiddle();
+    await expect(action).toHaveCount(1);
+    await page.locator('.section-textarea').nth(1).click();
+    await page.keyboard.press('x');
+    await expect(action).toHaveCount(0);
+    await expect(page.locator('#copyToast')).not.toHaveClass(/has-action/);
+    await page.locator('#undoBtn').click();
+    expect(await page.locator('.section-textarea').nth(1).inputValue()).toBe('C');
+    await page.locator('#undoBtn').click();
+    expect(await ids()).toEqual(['sa', 'sb', 'sc']);
+    // 換類型
+    await delMiddle();
+    await expect(action).toHaveCount(1);
+    await page.locator('.section-type').first().click();
+    await expect(action).toHaveCount(0);
+    await page.locator('#undoBtn').click();   // 撤換類型
+    await page.locator('#undoBtn').click();   // 撤刪除
+    expect(await ids()).toEqual(['sa', 'sb', 'sc']);
+    // 新增段落
+    await delMiddle();
+    await page.locator('.panel-add-btn').first().click();
+    await expect(action).toHaveCount(0);
+    // 按 ↶ 本身也會收掉復原鈕
+    await page.locator('#undoBtn').click();   // 撤新增
+    await page.locator('#undoBtn').click();   // 撤刪除
+    expect(await ids()).toEqual(['sa', 'sb', 'sc']);
+    await delMiddle();
+    await expect(action).toHaveCount(1);
+    await page.locator('#undoBtn').click();
+    await expect(action).toHaveCount(0);
+    expect(await ids()).toEqual(['sa', 'sb', 'sc']);
+    // 後來的別種提示也會蓋掉復原鈕
+    await delMiddle();
+    await page.evaluate(() => showToast('別的提示'));
+    await expect(action).toHaveCount(0);
+    expect(await secCount(page)).toBe(2);
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('刪除：換歌後按復原不動', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, {
+        storage: v2Storage([song('s1', [typed('sa', 'verse', 'A'), typed('sb', 'chorus', 'B')]), song('s2', [typed('sx', 'verse', 'X'), typed('sy', 'bridge', 'Y')], { title: '另一首' })]),
+    });
+    await page.locator('.lyrics-section[data-index="1"] .section-remove').click();
+    await expect(page.locator('#copyToast .toast-action')).toHaveCount(1);
+    await page.evaluate(() => switchSong('s2'));
+    expect(await page.evaluate(() => curSong().id)).toBe('s2');
+    // 復原鈕還在的話，按了也不能動到 B 歌
+    const btn = page.locator('#copyToast .toast-action');
+    if (await btn.count()) await btn.click();
+    expect(await page.evaluate(() => curSong().sections.map(s => s.id))).toEqual(['sx', 'sy']);
+    await page.evaluate(() => switchSong('s1'));
+    expect(await page.evaluate(() => curSong().sections.map(s => s.id))).toEqual(['sa']);
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('刪除：最後一段不能刪', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, { storage: v2Storage([song('s1', [typed('sa', 'verse', 'A')])]) });
+    const rm = page.locator('.lyrics-section .section-remove');
+    await expect(rm).toBeHidden();
+    await page.evaluate(() => lhSecRemove('sa'));
+    expect(await secCount(page)).toBe(1);
+    expect(await page.evaluate(() => curSong().sections.length)).toBe(1);
+    await expect(page.locator('#copyToast.has-action')).toHaveCount(0);
+    // 兩段時 − 都出現，刪到剩一段又藏起來
+    await page.locator('.panel-add-btn').first().click();
+    await expect(page.locator('.section-remove:visible')).toHaveCount(2);
+    await page.locator('.lyrics-section[data-index="1"] .section-remove').click();
+    await expect(page.locator('.section-remove:visible')).toHaveCount(0);
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('刪除：第一段也能刪', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, { storage: three() });
+    await page.locator('.lyrics-section[data-index="0"] .section-remove').click();
+    await expect(page.locator('#lyricsSections .lyrics-section')).toHaveCount(2);
+    expect(await page.locator('.section-textarea').first().getAttribute('placeholder')).toBe('在這裡輸入或貼上歌詞…');
+    expect(await page.locator('.section-textarea').nth(1).getAttribute('placeholder')).toBe('在這裡輸入歌詞…');
+    expect(await page.locator('.section-textarea').first().inputValue()).toBe('B');
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('刪除：一段兩段多段的名稱', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, {
+        storage: v2Storage([song('s1', [typed('sa', 'verse', 'A'), typed('sb', 'verse', 'B')])]),
+    });
+    expect(await labels(page)).toEqual(['Verse I', 'Verse II']);
+    await page.locator('.lyrics-section[data-index="1"] .section-remove').click();
+    expect(await labels(page)).toEqual(['Verse']);
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('刪除：焦點', async ({ browser }) => {
+    const focused = page => page.evaluate(() => {
+        const a = document.activeElement;
+        return { tag: a.tagName, type: a.classList.contains('section-type'), idx: a.closest('.lyrics-section')?.dataset.index ?? null };
+    });
+    for (const [name, device] of [['電腦', DEVICES.desktop], ['手機', DEVICES.phone]]) {
+        const { context, page, errors } = await bootPage(browser, { device, storage: three() });
+        await openLyrics(page);
+        const rm = i => page.locator(`.lyrics-section[data-index="${i}"] .section-remove`);
+        if (device === DEVICES.desktop) {
+            await rm(1).click();
+            expect(await focused(page), name + '：刪中間，落在同位置的類型鈕').toEqual({ tag: 'BUTTON', type: true, idx: '1' });
+            await rm(1).click();
+            expect(await focused(page), name + '：刪最後一段，落在新的最後一個類型鈕').toEqual({ tag: 'BUTTON', type: true, idx: '0' });
+        } else {
+            await rm(1).tap();
+            const f = await focused(page);
+            expect(f.tag, name + '：不聚焦輸入框').not.toBe('TEXTAREA');
+            expect(f.type, name + '：也不聚焦類型鈕').toBe(false);
+        }
+        expect(errors).toEqual([]);
+        await context.close();
+    }
+});
+
+test('刪除：名稱太長', async ({ browser }) => {
+    const long = '一二三四五六七八九十甲乙丙丁戊己庚辛壬癸子丑寅卯辰巳午未申酉';   // 30 字
+    const { context, page, errors } = await bootPage(browser, {
+        storage: v2Storage([song('s1', [typed('sa', 'verse', 'A'), typed('sb', 'custom', 'B', { custom: long })])]),
+    });
+    await page.locator('.lyrics-section[data-index="1"] .section-remove').click();
+    const toast = page.locator('#copyToast');
+    await expect(toast).toContainText('已刪除「' + Array.from(long).slice(0, 16).join('') + '…」');
+    expect(await toast.textContent()).not.toContain(Array.from(long).slice(0, 17).join(''));
+    expect(await toast.locator('.toast-action').getAttribute('aria-label')).toBe('復原刪除「' + long + '」');
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('刪除：五秒後仍可復原', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, {
+        storage: three(), beforeGoto: ({ page }) => page.clock.install(),
+    });
+    await page.clock.pauseAt(new Date(Date.now() + 5000));
+    await page.locator('.lyrics-section[data-index="1"] .section-remove').click();
+    await expect(page.locator('#copyToast')).toHaveClass(/show/);
+    await page.clock.runFor(5500);
+    await expect(page.locator('#copyToast')).not.toHaveClass(/show/);
+    await page.locator('.section-textarea').first().focus();
+    await page.keyboard.press('ControlOrMeta+z');
+    await expect(page.locator('#lyricsSections .lyrics-section')).toHaveCount(3);
+    const back = await page.evaluate(() => curSong().sections.map(s => [s.id, s.type, s.text, s.color]));
+    expect(back).toEqual([['sa', 'verse', 'A', ''], ['sb', 'chorus', 'B', '#48a868'], ['sc', 'verse', 'C', '']]);
+    expect(errors).toEqual([]);
+    await context.close();
+});
