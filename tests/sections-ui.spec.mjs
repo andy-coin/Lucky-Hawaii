@@ -1,7 +1,7 @@
 // 段落模組（第 9 階段）的瀏覽器測試：名稱、類型、編號。後續計畫會在這個檔加顏色、拖曳、高度、復原。
 import { test, expect } from '@playwright/test';
 import { readFileSync } from 'node:fs';
-import { bootPage, activeSongRaw } from './helpers.mjs';
+import { bootPage, activeSongRaw, compose } from './helpers.mjs';
 import { DEVICES, setScale, waitStill, rectsOverlap } from './layout-lib.mjs';
 
 const FIXTURE = JSON.parse(readFileSync(new URL('./fixtures/v096-localStorage.json', import.meta.url), 'utf8'));
@@ -254,6 +254,107 @@ test('字數：打字即時更新', async ({ browser }) => {
     await page.evaluate(() => switchSong('s2'));
     expect(await counts()).toEqual(['5 字']);
     expect(await total()).toBe('共 5 字');
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+// 打字與組字不增減畫面節點（只改 Text node 的 .data）
+const watchLeft = page => page.evaluate(() => {
+    window.__muts = [];
+    window.__mo = new MutationObserver(list => { window.__muts.push(...list.filter(m => m.type === 'childList')); });
+    window.__mo.observe(document.getElementById('leftPanel'), { childList: true, subtree: true });
+});
+const takeMutCount = page => page.evaluate(() => { window.__muts.push(...window.__mo.takeRecords()); return window.__muts.length; });
+const countTexts = page => page.evaluate(() => ({
+    sec: [...document.querySelectorAll('#lyricsSections .section-count')].map(e => e.textContent),
+    total: document.getElementById('songTotal').textContent,
+}));
+
+test('字數：組字中不變、確認後才變', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, {
+        storage: v2Storage([song('s1', [typed('sa', 'verse', '你好'), typed('sb', 'chorus', '')])]),
+    });
+    await page.evaluate(() => {
+        const ta = document.querySelector('.section-textarea');
+        ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length);
+    });
+    await watchLeft(page);
+    const before = await countTexts(page);
+    expect(before).toEqual({ sec: ['2 字', '0 字'], total: '共 2 字' });
+    await compose(page, ['ㄋ', 'ㄋㄧ', 'ㄋㄧˇ'], '你', async () => {
+        expect(await countTexts(page), '組字中數字不動').toEqual(before);
+    });
+    await expect(page.locator('#songTotal')).toHaveText('共 3 字');
+    expect((await countTexts(page)).sec).toEqual(['3 字', '0 字']);
+    // 一般打字：即時變，而且不增減任何節點
+    await page.keyboard.type('abc');
+    expect((await countTexts(page)).sec).toEqual(['4 字', '0 字']);
+    await page.waitForTimeout(500);
+    expect(await takeMutCount(page), '沒有任何節點增減').toBe(0);
+    // 文字框從頭到尾是同一個，也沒被計數寫過（內容就是打的字）
+    expect(await page.locator('.section-textarea').first().inputValue()).toBe('你好你abc');
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('字數：排序收合換類型不影響總數', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, {
+        storage: v2Storage([song('s1', [typed('sa', 'verse', '你好'), typed('sb', 'chorus', 'Hello 123'), typed('sc', 'bridge', '一二三')])]),
+    });
+    await expect(page.locator('#songTotal')).toHaveText('共 7 字');
+    await page.locator('#lyricsSections .lyrics-section-header').nth(1).click({ position: { x: 4, y: 4 } });   // 收合
+    await expect(page.locator('#lyricsSections .lyrics-section').nth(1)).toHaveClass(/collapsed/);
+    expect((await countTexts(page)).total).toBe('共 7 字');
+    for (let i = 0; i < 3; i++) await page.locator('#lyricsSections .section-type').nth(2).click();   // 換類型
+    expect((await countTexts(page))).toEqual({ sec: ['2 字', '2 字', '3 字'], total: '共 7 字' });
+    // 排序（模型移動後重畫；拖曳本身在 09-06）：每段字數跟著段落走，總數不變
+    await page.evaluate(() => { const s = curSong(); s.sections.push(s.sections.shift()); renderLyricsSections(); });
+    expect((await countTexts(page))).toEqual({ sec: ['2 字', '3 字', '2 字'], total: '共 7 字' });
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('字數：全部是空段落顯示共 0 字', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, {
+        storage: v2Storage([song('s1', [typed('sa', 'verse', ''), typed('sb', 'chorus', '  \n，，。。')])]),
+    });
+    expect(await countTexts(page)).toEqual({ sec: ['0 字', '0 字'], total: '共 0 字' });
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('字數：150% 長名稱與大字數不擠', async ({ browser }) => {
+    const BIG = '字'.repeat(999);
+    const sections = [typed('sa', 'prechorus', BIG), typed('sb', 'prechorus', BIG), typed('sc', 'prechorus', BIG)];
+    const { context, page, errors } = await bootPage(browser, { device: DEVICES.phone, storage: v2Storage([song('s1', sections)]) });
+    await setScale(page, 150);
+    await openLyrics(page);
+    await waitStill(page);
+    expect(await labels(page)).toEqual(['Pre-Chorus I', 'Pre-Chorus II', 'Pre-Chorus III']);
+    const rows = await page.evaluate(() => [...document.querySelectorAll('#lyricsSections .lyrics-section')].map(sec => {
+        const box = e => { if (!e) return null; const r = e.getBoundingClientRect(); return { x: r.x, y: r.y, width: r.width, height: r.height }; };
+        const t = sec.querySelector('.section-type');
+        return {
+            sec: box(sec), chev: box(sec.querySelector('.section-chevron')), type: box(t), cnt: box(sec.querySelector('.section-count')),
+            rm: box(sec.querySelector('.section-remove')), text: sec.querySelector('.section-count').textContent,
+            // 不縮的元素：看它的寬度是不是自然寬度（scrollWidth 不超過 clientWidth）
+            cntFits: sec.querySelector('.section-count').scrollWidth <= sec.querySelector('.section-count').clientWidth,
+        };
+    }));
+    for (const [i, r] of rows.entries()) {
+        const tag = `手機 150% 第 ${i + 1} 段`;
+        expect(r.text).toBe('999 字');
+        expect(r.cntFits, `${tag}：字數沒被截`).toBe(true);
+        const parts = [r.chev, r.type, r.cnt, r.rm].filter(Boolean);
+        for (const p of parts) {
+            expect(p.x, `${tag}：左邊超出段落`).toBeGreaterThanOrEqual(r.sec.x - 1);
+            expect(p.x + p.width, `${tag}：右邊超出段落`).toBeLessThanOrEqual(r.sec.x + r.sec.width + 1);
+            expect(Math.abs(p.y + p.height / 2 - (parts[0].y + parts[0].height / 2)), `${tag}：不在同一行`).toBeLessThanOrEqual(2);
+        }
+        for (let a = 0; a < parts.length; a++) for (let b = a + 1; b < parts.length; b++) {
+            expect(rectsOverlap(parts[a], parts[b]), `${tag}：第 ${a} 與第 ${b} 個重疊`).toBe(false);
+        }
+    }
     expect(errors).toEqual([]);
     await context.close();
 });

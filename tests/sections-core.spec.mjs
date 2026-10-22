@@ -108,3 +108,24 @@ test('名稱：常數', () => {
     expect(ev('LH_SEC_TYPES.every(t => LH_SEC_TYPE_SET.has(t) && typeof LH_SEC_NAMES[t] === "string")')).toBe(true);
     expect(ev('LH_SEC_KEY2TYPE.has("__proto__") || LH_SEC_KEY2TYPE.has("constructor")')).toBe(false);
 });
+
+test('字數：規則表', () => {
+    const rows = [
+        ['', 0], ['a', 1], ['Hello 你好 123', 4], ['Hello世界123 don’t 你好，ＡＢＣ', 8], ["don't", 1],
+        ['abc-def', 2], ['１２３４', 1], ['ㄅㄆㄇ', 3], ['𠀀𠀁', 2], ['🙂😀', 0], ['  \n，，。。…—', 0],
+        ['こんにちは', 5], ['한글', 2], ['ＡＢＣ', 1],
+    ];
+    for (const [text, n] of rows) expect(ev(`lhCountWords(${j(text)})`), j(text)).toBe(n);
+    // 非字串一律 0，不丟錯
+    for (const v of ['42', 'null', 'undefined', '{}', '[]']) expect(ev(`lhCountWords(${v})`), v).toBe(0);
+});
+
+test('字數：一百萬字不卡', () => {
+    const chunk = 'Hello 世界 123 don’t 你好，ＡＢＣ。🙂 ';
+    const text = chunk.repeat(Math.ceil(1000000 / chunk.length)).slice(0, 1000000);
+    expect(text.length).toBe(1000000);
+    vm.runInContext(`var __big = ${j(text)};`, ctx);
+    const ms = vm.runInContext('(() => { const t = performance.now(); lhCountWords(__big); return performance.now() - t; })()', Object.assign(ctx, { performance }));
+    expect(ms, `一百萬字花了 ${ms.toFixed(1)} 毫秒`).toBeLessThan(100);
+    expect(ev('lhCountWords(__big)')).toBeGreaterThan(100000);
+});
