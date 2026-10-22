@@ -96,7 +96,6 @@ test('整合：舊版使用者的一整天', async ({ browser }) => {
     await bk.saveAs(backupFile);
     await expect(pa.locator('#copyToast')).toHaveText('已匯出備份檔（2 首歌）');
     // 備份從記憶體組檔（舊歌沒被編輯過，儲存裡還是舊 label），所以拿記憶體當對照，不拿儲存的原文（第 9 階段 A2／A3）
-    const brief = list => list.map(s => ({ id: s.id, title: s.title, sections: s.sections.map(x => [x.id, x.label, x.text, x.collapsed]) }));
     const srcSongs = await pa.evaluate(() => JSON.parse(JSON.stringify(songs)));
     const srcActive = await ls(pa, 'lh:activeSong');
     const srcWords = await ls(pa, 'haiku_savedwords');
@@ -114,7 +113,7 @@ test('整合：舊版使用者的一整天', async ({ browser }) => {
     await ready(pb);
     const bSongs = await readSongs(pb);
     expect(bSongs).toHaveLength(2);
-    expect(brief(bSongs)).toEqual(brief(srcSongs));
+    expect(bSongs, '還原後的歌（含類型、顏色、高度）與來源記憶體裡的一模一樣').toEqual(srcSongs);
     expect(await ls(pb, 'lh:activeSong')).toBe(srcActive);
     expect(await ls(pb, 'haiku_savedwords')).toBe(srcWords);
     expect(await ls(pb, 'selectedModel')).toBe(srcModel);

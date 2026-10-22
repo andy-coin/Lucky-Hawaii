@@ -598,15 +598,22 @@ function lhNormalizeSong(raw, takenIds, stats) {
     const secIds = new Set();
     const validSecs = (Array.isArray(raw.sections) ? raw.sections : []).filter(s => s && typeof s === 'object');
     if (stats && validSecs.length > LH_IMPORT_CAPS.sections) stats.truncated = true;
+    // 第 9 階段（A4）：type / custom / color / height 一併驗證，壞欄位只丟那一欄，段落與歌詞照收。
+    // sections-core.js 比 safety.js 晚載入，這裡只在匯入時（執行期）呼叫，載入順序不影響
     const sections = validSecs
         .slice(0, LH_IMPORT_CAPS.sections)
-        .map(s => ({
-            id: pickId(s.id, 'sec-', secIds),
-            label: typeof s.label === 'string' ? _lhCut(s.label, LH_IMPORT_CAPS.label, stats) : '',
-            text: typeof s.text === 'string' ? _lhCut(s.text, LH_IMPORT_CAPS.text, stats) : '',
-            collapsed: !!s.collapsed
-        }));
-    if (sections.length === 0) sections.push({ id: pickId(null, 'sec-', secIds), label: '', text: '', collapsed: false });
+        .map(raw => {
+            const s = { ...raw, label: typeof raw.label === 'string' ? _lhCut(raw.label, LH_IMPORT_CAPS.label, stats) : '' };   // 先切再推斷，推斷看到的是切過的 label
+            return {
+                id: pickId(s.id, 'sec-', secIds),
+                label: s.label,
+                text: typeof s.text === 'string' ? _lhCut(s.text, LH_IMPORT_CAPS.text, stats) : '',
+                collapsed: !!s.collapsed,
+                ...lhSecFields(s)
+            };
+        });
+    if (sections.length === 0) sections.push({ id: pickId(null, 'sec-', secIds), label: '', text: '', collapsed: false, type: 'verse', custom: '', color: '', height: null });
+    lhSecFinalize(sections);   // 依類型與順序重算 label（A3）
     const seenTag = new Set();
     const hashtags = [];
     for (const t of Array.isArray(raw.hashtags) ? raw.hashtags : []) {

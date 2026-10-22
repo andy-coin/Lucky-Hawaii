@@ -47,6 +47,8 @@ test('備份：乾淨瀏覽器完整還原', async ({ browser }) => {
     const A = await bootSourceWithTwoSongs(browser);
     const { file } = await backupTo(A.page, 'backup.json');
     const srcLS = await dumpLS(A.page);
+    // 備份從記憶體組檔：沒被編輯過的舊歌，儲存裡還是舊 label，記憶體裡已是推斷出的名稱與新欄位（第 9 階段 A2），所以拿記憶體對照
+    const srcSongs = await A.page.evaluate(() => JSON.parse(JSON.stringify(songs)));
     await expect(A.page.locator('#copyToast')).toHaveText('已匯出備份檔（2 首歌）');
     await A.context.close();
 
@@ -58,7 +60,7 @@ test('備份：乾淨瀏覽器完整還原', async ({ browser }) => {
     await B.page.evaluate(() => Promise.all([window.__hoyunSafetyReady, window.__hoyunSongsReady]));
 
     const dst = await dumpLS(B.page);
-    expect(JSON.parse(dst['lh:songs'])).toEqual(JSON.parse(srcLS['lh:songs']));
+    expect(JSON.parse(dst['lh:songs']), '歌曲連同類型、顏色、高度原樣還原').toEqual(srcSongs);
     expect(dst['lh:activeSong']).toBe(srcLS['lh:activeSong']);
     expect(dst.haiku_savedwords).toBe(srcLS.haiku_savedwords);
     for (const k of [...SETTING_KEYS, 'dictOverrides_v076']) {
@@ -350,7 +352,7 @@ test('備份：被動過手腳的檔案', async ({ browser }) => {
     expect(byTitle('S3').hashtags).toEqual(['短標籤', '標'.repeat(100)]);
     expect(Array.from(byTitle('S3').context)).toHaveLength(100000);
     expect(stored.find(x => x.title.startsWith('長')).sections, '沒有段落的歌補一個空段落').toHaveLength(1);
-    for (const sg of stored) for (const sec of sg.sections) expect(Object.keys(sec).sort()).toEqual(['collapsed', 'id', 'label', 'text']);
+    for (const sg of stored) for (const sec of sg.sections) expect(Object.keys(sec).sort()).toEqual(['collapsed', 'color', 'custom', 'height', 'id', 'label', 'text', 'type']);   // 第 9 階段起多四個欄位
     expect(JSON.parse(ls.haiku_savedwords)).toEqual(['好詞']);
     expect(ls.apiKey_gemini, '檔案裡的金鑰被忽略').toBe('mine-key');
     expect(ls.haoYunQi_admin_key, '後台金鑰不動').toBe('admin-mine');
@@ -605,7 +607,7 @@ test('還原失敗後放開閂：還原期間打的字會補存', async ({ brows
 // ==================== 審查修正（WR-02）：上限比編輯器寬，真的超過時先講 ====================
 test('備份：編輯器能存的內容不會被截短，真的超過才先提醒', async ({ browser }) => {
     const { context, page } = await bootPage(browser, { storage: MINE_STORAGE(), device: DESKTOP, wordlist: 'stub' });
-    // 編輯器沒有段數、標籤長度、情境長度的限制：這些量都要原樣還原
+    // 編輯器沒有段數、情境長度的限制：這些量都要原樣還原（標籤例外：第 9 階段起自訂名稱上限 40 字元，見下面的斷言）
     const secs = Array.from({ length: 250 }, (_, i) => ({ id: 's' + i, label: '段' + '落'.repeat(80), text: 'x'.repeat(i === 0 ? 250000 : 5), collapsed: false }));
     const big = { id: 'big', title: '大歌', createdAt: 5000, updatedAt: 5000, sections: secs, hashtags: Array.from({ length: 80 }, (_, i) => '標' + '籤'.repeat(40) + i), context: '情'.repeat(9000) };
     await importBuf(page, mkBackup([big]));
@@ -615,7 +617,7 @@ test('備份：編輯器能存的內容不會被截短，真的超過才先提�
     const got = JSON.parse((await dumpLS(page))['lh:songs'])[0];
     expect(got.sections).toHaveLength(250);
     expect(got.sections[0].text).toHaveLength(250000);
-    expect(Array.from(got.sections[0].label)).toHaveLength(81);
+    expect(Array.from(got.sections[0].label), '認不得的長標籤成為自訂名稱，只留前 40 個字元（A4）').toHaveLength(40);
     expect(got.hashtags).toHaveLength(80);
     expect(got.context).toHaveLength(9000);
     await context.close();
@@ -708,5 +710,101 @@ test('備份：還原自動備份時資料版本旗標寫不進去，算失敗�
     await expect(page.locator('#copyToast')).toHaveText('還原沒有完成，已經回到還原前的狀態，目前的資料沒有被改動。');
     const after = await dumpLS(page);
     for (const k of Object.keys(before)) expect(after[k], k).toBe(before[k]);
+    await context.close();
+});
+
+// ==================== 段落模組欄位（第 9 階段 A4）：type / custom / color / height 進出備份 ====================
+const mkSec = (id, o = {}) => ({ id, label: '', text: id + '的歌詞', collapsed: false, ...o });
+const secBrief = s => ({ id: s.id, text: s.text, type: s.type, custom: s.custom, color: s.color, height: s.height, label: s.label });
+
+test('備份：段落新欄位往返', async ({ browser }) => {
+    const songA = { id: 'sa', title: '甲歌', createdAt: 2000, updatedAt: 2000, hashtags: [], context: '', sections: [
+        mkSec('r1', { type: 'chorus', custom: '', color: '#48a868', height: 12.5, label: 'Chorus' }),
+        mkSec('r2', { type: 'custom', custom: 'Hook', color: '', height: null, label: 'Hook' }),
+        mkSec('r3', { type: 'bridge', custom: '', color: '', height: null, label: 'Bridge' }),
+    ] };
+    const songB = { id: 'sb', title: '乙歌', createdAt: 1000, updatedAt: 1000, hashtags: [], context: '', sections: [
+        mkSec('r4', { type: 'verse', custom: '', color: '#e05d5d', height: 30, label: 'Verse I' }),
+        mkSec('r5', { type: 'verse', custom: '', color: '', height: null, label: 'Verse II' }),
+    ] };
+    const expected = [songA, songB].map(s => s.sections.map(secBrief));
+    const A = await bootPage(browser, { storage: seed([songA, songB]), device: DESKTOP, wordlist: 'stub' });
+    const { file } = await backupTo(A.page, 'sec-backup.json');
+    await A.context.close();
+
+    // 全部還原：乾淨瀏覽器
+    const B = await bootPage(browser, { storage: {}, device: DESKTOP, wordlist: 'stub' });
+    await B.page.setInputFiles('#importFileInput', file);
+    await B.page.getByRole('button', { name: '全部還原（取代目前資料）' }).click();
+    await expect(B.page.locator('#copyToast')).toHaveText('已還原 2 首歌與設定（還原前的資料已自動備份）');
+    const restored = await storedSongs(B.page);
+    expect(restored.map(s => s.sections.map(secBrief))).toEqual(expected);
+    expect(B.errors).toEqual([]);
+    await B.context.close();
+
+    // 只加入歌曲：已經有別的歌的瀏覽器
+    const C = await bootPage(browser, { storage: seed([mkSong('other', '別首')]), device: DESKTOP, wordlist: 'stub' });
+    await C.page.setInputFiles('#importFileInput', file);
+    await C.page.locator('#importAddBtn').click();
+    await expect(C.page.locator('#copyToast')).toHaveText('已加入 2 首歌');
+    const added = await storedSongs(C.page);
+    expect(added.filter(s => s.id === 'sa' || s.id === 'sb').sort((a, b) => a.id.localeCompare(b.id)).map(s => s.sections.map(secBrief))).toEqual(expected);
+    expect(C.errors).toEqual([]);
+    await C.context.close();
+});
+
+test('備份：段落壞欄位丟掉、段落照收', async ({ browser }) => {
+    const EXT_B = '𠀀'.repeat(41);   // 41 個 CJK 擴充 B 字（每個 2 個 UTF-16 單位）
+    const bad = [
+        mkSec('b0', { type: '__proto__', label: '主歌' }),
+        mkSec('b1', { type: 'solo', label: 'Hook' }),
+        mkSec('b2', { type: 'chorus', color: 'red; background:url(x)' }),
+        mkSec('b3', { type: 'chorus', color: '#fff' }),
+        mkSec('b4', { type: 'verse', color: '#E05D5D' }),
+        mkSec('b5', { type: 'bridge', height: 999 }),
+        mkSec('b6', { type: 'bridge', height: '20' }),
+        mkSec('b7', { type: 'bridge', height: 3 }),
+        mkSec('b8', { type: 'custom', custom: EXT_B, label: 'x' }),
+        mkSec('b9', { type: 'constructor', label: '副歌' }),
+    ];
+    const { context, page, errors } = await bootPage(browser, { storage: seed([mkSong('mine', '我的')]), device: DESKTOP, wordlist: 'stub' });
+    const protoBefore = await page.evaluate(() => Object.getOwnPropertyNames(Object.prototype).sort());
+    await importBuf(page, mkBackup([{ id: 'bad', title: '壞欄位', createdAt: 3000, updatedAt: 3000, hashtags: [], context: '', sections: bad }], { activeSong: 'bad' }));
+    await page.getByRole('button', { name: '全部還原（取代目前資料）' }).click();
+    await expect(page.locator('#copyToast')).toHaveText('已還原 1 首歌與設定（還原前的資料已自動備份）');
+    const got = (await storedSongs(page))[0].sections;
+    expect(got.map(s => s.id), '十段都在、順序不變').toEqual(bad.map(s => s.id));
+    expect(got.map(s => s.text), '歌詞一字不改').toEqual(bad.map(s => s.text));
+    const by = Object.fromEntries(got.map(s => [s.id, s]));
+    expect(by.b0.type, '__proto__ 當作無效，改由 label 推斷').toBe('verse');
+    expect(by.b9.type, 'constructor 當作無效，改由 label 推斷').toBe('chorus');
+    expect(by.b1).toMatchObject({ type: 'custom', custom: 'Hook', label: 'Hook' });
+    expect([by.b2.color, by.b3.color], '壞顏色變空字串').toEqual(['', '']);
+    expect(by.b4.color, '大寫轉小寫').toBe('#e05d5d');
+    expect([by.b5.height, by.b6.height, by.b7.height], '壞高度變 null').toEqual([null, null, null]);
+    expect(Array.from(by.b8.custom), '自訂名稱切成 40 個字元').toEqual(Array.from(EXT_B).slice(0, 40));
+    for (const s of got) {
+        expect(s.type).toMatch(/^(intro|verse|prechorus|chorus|inter|bridge|outro|custom)$/);
+        expect(Object.keys(s).sort()).toEqual(['collapsed', 'color', 'custom', 'height', 'id', 'label', 'text', 'type']);
+    }
+    expect(await page.evaluate(() => Object.getOwnPropertyNames(Object.prototype).sort()), 'Object.prototype 沒有多出任何鍵').toEqual(protoBefore);
+    await page.evaluate(() => Promise.all([window.__hoyunSafetyReady, window.__hoyunSongsReady]));
+    await expect(page.locator('#lyricsSections .lyrics-section')).toHaveCount(10);
+    expect(await page.locator('#lyricsSections [style*="url("]').count(), '沒有任何段落元素帶 url( 的行內樣式').toBe(0);
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('備份：段落舊版存檔推斷類型', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, { storage: seed([mkSong('a', '甲')]), device: DESKTOP, wordlist: 'stub' });
+    await importBuf(page, V1_FILE, 'session.json');
+    await page.locator('#importAddBtn').click();
+    await expect(page.locator('#songCurrent')).toHaveText('匯入的歌曲');
+    const imported = (await storedSongs(page)).find(s => s.title === '匯入的歌曲');
+    expect(imported.sections.map(s => [s.type, s.label, s.text])).toEqual([
+        ['verse', 'Verse', '匯入的第一段歌詞'], ['chorus', 'Chorus', '匯入的第二段歌詞'],
+    ]);
+    expect(await page.locator('#lyricsSections .section-label').evaluateAll(els => els.map(e => e.value))).toEqual(['Verse', 'Chorus']);
+    expect(errors).toEqual([]);
     await context.close();
 });
