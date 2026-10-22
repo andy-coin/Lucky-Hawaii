@@ -171,11 +171,14 @@
         function addLyricsSection() {
             const song = curSong();
             if (!song) return;
-            song.sections.push({ id: lhNewId('sec-'), label: '新段落', text: '', collapsed: false });
+            // 依前一段猜一個常見的下一段（Verse → Pre-Chorus → Chorus → Verse），再一次重算所有名稱（B6、B2）
+            const last = song.sections[song.sections.length - 1];
+            song.sections.push(makeEmptySection(lhNextSecType(last && last.type)));
+            lhSecFinalize(song.sections);
             markDirty(song.id);
             flushSongs();
             renderLyricsSections();
-            // 滾到底部讓新段落可見
+            // 滾到底部讓剛新增的那一段可見
             setTimeout(() => {
                 const body = document.querySelector('#leftPanel .side-panel-body');
                 if (body) body.scrollTop = body.scrollHeight;

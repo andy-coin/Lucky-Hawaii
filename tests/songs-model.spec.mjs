@@ -95,7 +95,8 @@ test('資料為準：用段落 id 對應', async ({ browser }) => {
     }
     // 新段落與沒取名的預設名稱
     await page.evaluate(() => addLyricsSection());
-    expect(await page.locator('.section-label').last().inputValue()).toBe('新段落');
+    // 甲、乙、丙都是自訂名稱，新段落依前一段（Custom）猜成 Verse
+    expect(await page.locator('.section-label').last().inputValue()).toBe('Verse');
     expect(errors).toEqual([]);
     await context.close();
 });
