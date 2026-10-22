@@ -2,6 +2,7 @@
 import { test, expect } from '@playwright/test';
 import { readFileSync } from 'node:fs';
 import { bootPage, activeSongRaw } from './helpers.mjs';
+import { DEVICES, setScale, waitStill, rectsOverlap } from './layout-lib.mjs';
 
 const FIXTURE = JSON.parse(readFileSync(new URL('./fixtures/v096-localStorage.json', import.meta.url), 'utf8'));
 const labels = page => page.locator('#lyricsSections .section-type').evaluateAll(els => els.map(e => e.textContent));
@@ -133,6 +134,99 @@ test('循環：原地更新', async ({ browser }) => {
     });
     expect(after).toEqual({ sameSecs: true, sameBtn: true, sameTa: true, value: before.value, caret: 3, scroll: before.scroll });
     expect(await labels(page)).toEqual(['Verse', 'Inter', 'Chorus']);
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+// 手機、平板要先把歌詞 sheet 打開；電腦的左面板本來就開著
+const openLyrics = async page => {
+    const tab = page.locator('#mtab-lyrics');
+    if (await tab.isVisible()) { await tab.tap(); await waitStill(page); }
+};
+
+test('循環：新增段落的焦點', async ({ browser }) => {
+    for (const [name, device, hasFocus] of [['電腦', DEVICES.desktop, true], ['手機', DEVICES.phone, false]]) {
+        const { context, page, errors } = await bootPage(browser, {
+            device, storage: v2Storage([song('s1', [typed('sa', 'verse', '一')])]),
+        });
+        await openLyrics(page);
+        const add = page.locator('.panel-add-btn').first();
+        if (hasFocus) await add.click(); else await add.tap();
+        await expect(page.locator('#lyricsSections .lyrics-section')).toHaveCount(2);
+        const active = await page.evaluate(() => {
+            const a = document.activeElement, sec = a && a.closest && a.closest('.lyrics-section');
+            return { isTa: !!a && a.classList.contains('section-textarea'), idx: sec ? sec.dataset.index : null };
+        });
+        if (hasFocus) {
+            expect(active, `${name}：焦點在新段落的輸入框`).toEqual({ isTa: true, idx: '1' });
+            const inside = await page.evaluate(() => {
+                const r = document.querySelectorAll('.lyrics-section')[1].getBoundingClientRect(), box = document.getElementById('lyricsSections').getBoundingClientRect();
+                return r.bottom > box.top && r.top < box.bottom;
+            });
+            expect(inside, `${name}：新段落在可見範圍內`).toBe(true);
+        } else {
+            expect(active.isTa, `${name}：觸控不聚焦`).toBe(false);
+        }
+        expect(errors).toEqual([]);
+        await context.close();
+    }
+});
+
+test('循環：標題列不擠不疊', async ({ browser }) => {
+    const LONG = '很長很長的段落名稱'.repeat(5).slice(0, 40);
+    expect(Array.from(LONG).length).toBe(40);
+    const sections = [typed('sa', 'verse', '一'), typed('sb', 'custom', '二', { custom: LONG }), typed('sc', 'chorus', '三', { collapsed: true }), typed('sd', 'bridge', '四')];
+    for (const [name, device] of [['手機', DEVICES.phone], ['平板', DEVICES.tablet], ['電腦', DEVICES.desktop]]) {
+        for (const pct of [100, 150]) {
+            const { context, page, errors } = await bootPage(browser, { device, storage: v2Storage([song('s1', sections)]) });
+            await setScale(page, pct);
+            await openLyrics(page);
+            await waitStill(page);   // 縮放後段落的 flex 有過渡動畫，等它停了再量
+            const rows = await page.evaluate(() => [...document.querySelectorAll('#lyricsSections .lyrics-section')].map(sec => {
+                const box = e => { if (!e) return null; const r = e.getBoundingClientRect(); return { x: r.x, y: r.y, width: r.width, height: r.height }; };
+                const t = sec.querySelector('.section-type');
+                return {
+                    sec: box(sec), chev: box(sec.querySelector('.section-chevron')), type: box(t), rm: box(sec.querySelector('.section-remove')),
+                    over: t.scrollWidth > t.clientWidth, title: t.title, text: t.textContent,
+                };
+            }));
+            for (const [i, r] of rows.entries()) {
+                const tag = `${name} ${pct}% 第 ${i + 1} 段`;
+                const parts = [r.chev, r.type, r.rm].filter(Boolean);
+                for (const p of parts) {
+                    expect(p.x, `${tag}：左邊超出段落`).toBeGreaterThanOrEqual(r.sec.x - 1);
+                    expect(p.x + p.width, `${tag}：右邊超出段落`).toBeLessThanOrEqual(r.sec.x + r.sec.width + 1);
+                    expect(p.y, `${tag}：上邊超出段落`).toBeGreaterThanOrEqual(r.sec.y - 1);
+                    expect(p.y + p.height, `${tag}：下邊超出段落`).toBeLessThanOrEqual(r.sec.y + r.sec.height + 1);
+                    expect(Math.abs(p.y + p.height / 2 - (parts[0].y + parts[0].height / 2)), `${tag}：不在同一行`).toBeLessThanOrEqual(2);
+                }
+                for (let a = 0; a < parts.length; a++) for (let b = a + 1; b < parts.length; b++) {
+                    expect(rectsOverlap(parts[a], parts[b]), `${tag}：第 ${a} 與第 ${b} 個重疊`).toBe(false);
+                }
+            }
+            // 平板的 sheet 夠寬，100% 時 40 個字放得下；窄的（手機、電腦左面板）一定要用 … 收尾
+            if (name !== '平板') expect(rows[1].over, `${name} ${pct}%：長名稱用 … 收尾`).toBe(true);
+            expect(rows[1].title).toBe(LONG);
+            expect(errors).toEqual([]);
+            await context.close();
+        }
+    }
+});
+
+test('循環：名稱只當純文字', async ({ browser }) => {
+    const NAME = '<img src=x onerror=alert(1)>';
+    const { context, page, errors } = await bootPage(browser, {
+        storage: v2Storage([song('s1', [typed('sa', 'custom', '一', { custom: NAME })])]),
+    });
+    await expect(page.locator('#lyricsSections .section-type')).toHaveText(NAME);
+    expect(await page.locator('#lyricsSections .section-type').first().textContent()).toBe(NAME);
+    expect(await page.locator('#lyricsSections img').count()).toBe(0);
+    // 換類型再換回來走的是同一條更新路徑，也不能把名字當 HTML
+    for (let i = 0; i < 8; i++) await page.locator('#lyricsSections .section-type').first().click();
+    expect(await page.locator('#lyricsSections .section-type').first().textContent()).toBe(NAME);
+    expect(await page.locator('#lyricsSections img').count()).toBe(0);
+    expect(await page.evaluate(() => window.__pwn)).toBeUndefined();
+    expect(await page.locator('#lyricsSections [onclick], #lyricsSections [onkeydown]').count(), '標題列沒有行內事件').toBe(0);
     expect(errors).toEqual([]);
     await context.close();
 });

@@ -1042,6 +1042,12 @@
             .lyrics-section-header:hover { background: var(--border); }
         }
         .section-chevron {
+            /* 正方形的框：收合時轉 90 度，外框大小不變，不會壓到旁邊的名稱按鈕 */
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 1rem;
+            height: 1rem;
             font-size: 0.75rem;
             color: var(--text-secondary);
             opacity: 0.6;
