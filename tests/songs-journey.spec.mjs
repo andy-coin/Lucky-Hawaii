@@ -76,7 +76,7 @@ test('整合：舊版使用者的一整天', async ({ browser }) => {
     expect(await ls(pa, 'haiku_lyrics'), '舊鍵 haiku_lyrics 沒被動過').toBe(FIXTURE.haiku_lyrics);
 
     // ===== (e) 匯出 TXT 與 複製整首：照規格，而且和畫面上的模型一字不差 =====
-    const TXT = '新歌\n\n[段落 1]\n第一句你\n';   // 新歌的段落沒有段落名，匯出叫「段落 1」（D-11）
+    const TXT = '新歌\n\n[Verse]\n第一句你\n';   // 新歌的第一段是 Verse，匯出直接用模型的段落名（第 9 階段 A3）
     await openMenu(pa);
     const [dl] = await Promise.all([pa.waitForEvent('download'), pickItem(pa, 'TXT').click()]);
     expect(dl.suggestedFilename()).toBe('新歌.txt');
@@ -95,7 +95,9 @@ test('整合：舊版使用者的一整天', async ({ browser }) => {
     const backupFile = test.info().outputPath('journey-backup.json');
     await bk.saveAs(backupFile);
     await expect(pa.locator('#copyToast')).toHaveText('已匯出備份檔（2 首歌）');
-    const srcSongs = await ls(pa, 'lh:songs');
+    // 備份從記憶體組檔（舊歌沒被編輯過，儲存裡還是舊 label），所以拿記憶體當對照，不拿儲存的原文（第 9 階段 A2／A3）
+    const brief = list => list.map(s => ({ id: s.id, title: s.title, sections: s.sections.map(x => [x.id, x.label, x.text, x.collapsed]) }));
+    const srcSongs = await pa.evaluate(() => JSON.parse(JSON.stringify(songs)));
     const srcActive = await ls(pa, 'lh:activeSong');
     const srcWords = await ls(pa, 'haiku_savedwords');
     const srcModel = await ls(pa, 'selectedModel');
@@ -112,7 +114,7 @@ test('整合：舊版使用者的一整天', async ({ browser }) => {
     await ready(pb);
     const bSongs = await readSongs(pb);
     expect(bSongs).toHaveLength(2);
-    expect(await ls(pb, 'lh:songs')).toBe(srcSongs);
+    expect(brief(bSongs)).toEqual(brief(srcSongs));
     expect(await ls(pb, 'lh:activeSong')).toBe(srcActive);
     expect(await ls(pb, 'haiku_savedwords')).toBe(srcWords);
     expect(await ls(pb, 'selectedModel')).toBe(srcModel);

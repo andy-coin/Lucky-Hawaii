@@ -20,9 +20,11 @@ const sec = (id, text, label = '', collapsed = false) => ({ id, label, text, col
 test('資料為準：升級後顯示我的第一首歌', async ({ browser }) => {
     const { context, page, errors } = await bootPage(browser, { storage: FIXTURE });
     await expect(textareas(page)).toHaveCount(3);
+    // 舊歌的主歌／副歌／橋段在第 9 階段起顯示為推斷出的類型名稱
+    const NAMES = ['Verse', 'Chorus', 'Bridge'];
     for (let i = 0; i < 3; i++) {
         expect(await textareas(page).nth(i).inputValue()).toBe(LEGACY[i].text);
-        expect(await page.locator('.section-label').nth(i).inputValue()).toBe(LEGACY[i].label);
+        expect(await page.locator('.section-label').nth(i).inputValue()).toBe(NAMES[i]);
     }
     await expect(page.locator('#hashtagChips .hashtag-chip')).toHaveText(['#浪漫×', '#夏天×']);
     expect(await page.locator('#contextDescription').inputValue()).toBe('');
@@ -102,7 +104,7 @@ test('資料為準：預設段落名稱', async ({ browser }) => {
     const { context, page, errors } = await bootPage(browser, {
         storage: v2Storage([song('s1', [sec('sa', '一'), sec('sb', '二')])]),
     });
-    expect(await page.locator('.section-label').evaluateAll(els => els.map(e => e.value))).toEqual(['歌詞', '新段落']);
+    expect(await page.locator('.section-label').evaluateAll(els => els.map(e => e.value))).toEqual(['Verse I', 'Verse II']);
     expect(errors).toEqual([]);
     await context.close();
 });

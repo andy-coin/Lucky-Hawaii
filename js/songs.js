@@ -23,12 +23,17 @@ function setSavesFrozen(on, broken) {
     if (on) { clearTimeout(_saveTimer); _saveTimer = null; }
 }
 
+// 一個空段落；label 先留空，lhSecFinalize 會依類型與順序算出顯示名稱
+function makeEmptySection(type) {
+    return { id: lhNewId('sec-'), type, custom: '', color: '', height: null, label: '', text: '', collapsed: false };
+}
+
 function makeEmptySong(title) {
     const now = Date.now();
     return {
         id: lhNewId('song-'),
         title,
-        sections: [{ id: lhNewId('sec-'), label: '', text: '', collapsed: false }],
+        sections: lhSecFinalize([makeEmptySection('verse')]),
         hashtags: [],
         context: '',
         createdAt: now,
@@ -113,9 +118,12 @@ function _normalizeSong(s) {
         return x;
     });
     if (s.sections.length === 0) {
-        s.sections.push({ id: lhNewId('sec-'), label: '', text: '', collapsed: false });
+        s.sections.push(makeEmptySection('verse'));
         changed = true;
     }
+    // 補類型並重算顯示名稱（A2 延遲正規化）：刻意不設 changed——讀取不寫入，
+    // 重算後的名稱要等這首歌下次被編輯才會進儲存；舊版程式回退時儲存裡的原 label 仍可讀
+    lhSecFinalize(s.sections);
     return changed;
 }
 

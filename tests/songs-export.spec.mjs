@@ -19,8 +19,9 @@ const FIXTURE_SONG = () => mkSong('song-x', '我的/歌:1', [
     ['', ''],
     ['', '#開頭\n1. 數字'],
 ]);
-const TXT_EXPECTED = '我的/歌:1\n\n[主歌]\n第一句\n第二句\n\n[段落 2]\n#開頭\n1. 數字\n';
-const MD_EXPECTED = '# 我的/歌:1\n\n## 主歌\n\n第一句  \n第二句\n\n## 段落 2\n\n\\#開頭  \n\\1. 數字\n';
+// 第 9 階段起標題讀模型的 label（A3）：主歌、空白、空白 都是 Verse，同類型 3 段依序編號 Verse I / II / III（空白段不輸出）
+const TXT_EXPECTED = '我的/歌:1\n\n[Verse I]\n第一句\n第二句\n\n[Verse III]\n#開頭\n1. 數字\n';
+const MD_EXPECTED = '# 我的/歌:1\n\n## Verse I\n\n第一句  \n第二句\n\n## Verse III\n\n\\#開頭  \n\\1. 數字\n';
 const toastText = page => page.locator('#copyToast').textContent();
 const openMenu = async page => { await page.locator('#exportToggle').click(); await expect(page.locator('#exportMenu')).toBeVisible(); };
 const pickItem = (page, label) => page.locator('#exportMenu .export-item').filter({ has: page.locator('.export-label', { hasText: label }) });
@@ -157,7 +158,7 @@ test('匯出：PDF 列印頁', async ({ browser }) => {
     });
     expect(sheet.tags).toEqual(['H1', 'SECTION', 'SECTION']);
     expect(sheet.title).toBe('我的/歌:1');
-    expect(sheet.sections).toEqual([['H2:主歌', 'P:第一句\n第二句'], ['H2:段落 2', 'P:#開頭\n1. 數字']]);
+    expect(sheet.sections).toEqual([['H2:Verse I', 'P:第一句\n第二句'], ['H2:Verse III', 'P:#開頭\n1. 數字']]);
     expect(sheet.cls).toContain('print-song');
     const look = await page.evaluate(() => {
         const s = document.getElementById('printSheet');

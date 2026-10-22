@@ -1,0 +1,90 @@
+// ==================== 段落模組：純函式 ====================
+// 純函式、不碰 DOM／儲存，Node 可直接載入（tests/sections-core.spec.mjs 用 node:vm 載入這一支）。
+// 負責：段落類型清單、舊 label 推斷類型、羅馬數字編號、欄位整理（壞值丟掉、段落照收）。
+// songs.js（開機／跨分頁讀取）、safety.js（備份匯入）、各 UI 動作都呼叫這裡；safety.js 比這支早載入，
+// 但它只在匯入時（執行期）才用到，所以載入順序不影響。
+
+const LH_SEC_TYPES = ['intro', 'verse', 'prechorus', 'chorus', 'inter', 'bridge', 'outro', 'custom'];   // 左鍵循環順序（B1）
+const LH_SEC_TYPE_SET = new Set(LH_SEC_TYPES);   // 用 Set／Map 查表，不用物件字面量：'__proto__'、'constructor' 才打不到原型鍵
+const LH_SEC_NAMES = { intro: 'Intro', verse: 'Verse', prechorus: 'Pre-Chorus', chorus: 'Chorus', inter: 'Inter', bridge: 'Bridge', outro: 'Outro', custom: 'Custom' };   // 只用驗證過的鍵讀
+const LH_SEC_CUSTOM_MAX = 40;   // 自訂名稱上限（以字元，不是 UTF-16 單位）
+const LH_SEC_H_MIN = 4;         // 段落高度（rem）合理範圍（A4）
+const LH_SEC_H_MAX = 60;
+const LH_SEC_COLOR_RE = /^#[0-9a-fA-F]{6}$/;
+// 舊 label → 類型（比對前已轉小寫、去掉尾端編號）
+const LH_SEC_KEY2TYPE = new Map(Object.entries({
+    intro: 'intro', '前奏': 'intro',
+    verse: 'verse', '主歌': 'verse', '歌詞': 'verse', '新段落': 'verse', '段落': 'verse',
+    prechorus: 'prechorus', 'pre-chorus': 'prechorus', 'pre chorus': 'prechorus', pre: 'prechorus', '導歌': 'prechorus', '預副歌': 'prechorus',
+    chorus: 'chorus', '副歌': 'chorus',
+    inter: 'inter', interlude: 'inter', '間奏': 'inter',
+    bridge: 'bridge', '橋段': 'bridge',
+    outro: 'outro', '尾奏': 'outro', '結尾': 'outro'
+}));
+
+// 以字元（code point）切，CJK 擴充字不會被切成半個
+function _lhSecCut(s, n) {
+    return Array.from(s).slice(0, n).join('');
+}
+
+// 空字串或不是字串 → verse；認得的 → 該類型；其他 → custom 並保留原名（A2）
+function lhInferSecType(label) {
+    const raw = typeof label === 'string' ? label.trim() : '';
+    if (!raw) return { type: 'verse', custom: '' };
+    const k = raw.toLowerCase().replace(/[_\s]+/g, ' ')
+        // 尾端的阿拉伯數字、要有空白隔開的羅馬數字、中文數字都去掉
+        .replace(/(?:\s*[#.\-]?\s*\d+|\s+[ivxlc]+|\s*[一二三四五六七八九十]+)$/u, '')
+        .trim().replace(/\s*-\s*/g, '-');
+    return LH_SEC_KEY2TYPE.has(k)
+        ? { type: LH_SEC_KEY2TYPE.get(k), custom: '' }
+        : { type: 'custom', custom: _lhSecCut(raw, LH_SEC_CUSTOM_MAX) };
+}
+
+// 整理單一段落的四個新欄位；壞值丟掉、段落與歌詞照收（A4）
+function lhSecFields(s) {
+    const hasType = typeof s.type === 'string' && LH_SEC_TYPE_SET.has(s.type);
+    const inf = hasType ? null : lhInferSecType(s.label);
+    let custom = typeof s.custom === 'string' ? _lhSecCut(s.custom.trim(), LH_SEC_CUSTOM_MAX) : '';
+    if (inf && inf.custom) custom = inf.custom;
+    return {
+        type: hasType ? s.type : inf.type,
+        custom,
+        color: typeof s.color === 'string' && LH_SEC_COLOR_RE.test(s.color) ? s.color.toLowerCase() : '',
+        height: Number.isFinite(s.height) && s.height >= LH_SEC_H_MIN && s.height <= LH_SEC_H_MAX ? Math.round(s.height * 10) / 10 : null
+    };
+}
+
+// 1→I、4→IV、9→IX、14→XIV、1999→MCMXCIX
+function lhToRoman(n) {
+    const t = [[1000, 'M'], [900, 'CM'], [500, 'D'], [400, 'CD'], [100, 'C'], [90, 'XC'], [50, 'L'], [40, 'XL'], [10, 'X'], [9, 'IX'], [5, 'V'], [4, 'IV'], [1, 'I']];
+    let out = '';
+    for (const [v, r] of t) while (n >= v) { out += r; n -= v; }
+    return out;
+}
+
+// 同類型出現 2 次以上才依目前順序加羅馬數字；Custom 不編號，沒名字就叫 Custom（B2）
+function lhSecNames(sections) {
+    const total = new Map(), seen = new Map();
+    for (const s of sections) total.set(s.type, (total.get(s.type) || 0) + 1);
+    return sections.map(s => {
+        if (s.type === 'custom') return (s.custom || '').trim() || LH_SEC_NAMES.custom;
+        const n = (seen.get(s.type) || 0) + 1;
+        seen.set(s.type, n);
+        return total.get(s.type) > 1 ? LH_SEC_NAMES[s.type] + ' ' + lhToRoman(n) : LH_SEC_NAMES[s.type];
+    });
+}
+
+// 補欄位 → 重算 label（A3：label 永遠是「目前顯示的名稱」）；就地修改並回傳同一個陣列，重跑結果完全相同
+function lhSecFinalize(sections) {
+    for (const s of sections) Object.assign(s, lhSecFields(s));
+    const names = lhSecNames(sections);
+    sections.forEach((s, i) => { s.label = names[i]; });
+    return sections;
+}
+
+// ＋新增段落預設的類型：Verse → Pre-Chorus → Chorus → Verse，其他或不確定一律 Verse（B6）
+function lhNextSecType(prevType) {
+    if (prevType === 'verse') return 'prechorus';
+    if (prevType === 'prechorus') return 'chorus';
+    return 'verse';
+}

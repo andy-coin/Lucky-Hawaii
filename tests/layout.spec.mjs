@@ -1806,7 +1806,7 @@ test('刪除：有歌詞的段落要先確認、空段落直接刪', async ({ br
         // 有內容、按取消：段落與文字都在，存檔也沒變
         await expectReallyClickable(page, removeBtn(1), '副歌的刪除鈕');
         await removeBtn(1).tap();
-        expect(log.messages, '只問一次、文字完全照規格').toEqual(['刪除「副歌」？段落內的歌詞會一併刪除，無法復原。']);
+        expect(log.messages, '只問一次、文字完全照規格').toEqual(['刪除「Chorus」？段落內的歌詞會一併刪除，無法復原。']);   // 第 9 階段起名稱是模型算出的 Chorus
         expect(await sectionCount(page), '取消後段落還在').toBe(3);
         expect(await page.locator('#lyricsSections .section-textarea').nth(1).inputValue(), '取消後文字還在').toBe('寫了很久的副歌');
         expect(await savedLyrics(page), '取消後存檔沒變').toEqual(DELETE_SECTIONS);
@@ -1816,14 +1816,14 @@ test('刪除：有歌詞的段落要先確認、空段落直接刪', async ({ br
         await removeBtn(1).tap();
         expect(log.messages.length, '又問了一次').toBe(2);
         expect(await sectionCount(page)).toBe(2);
-        expect((await savedLyrics(page)).map(s => s.label)).toEqual(['主歌', '空白段']);
+        expect((await savedLyrics(page)).map(s => s.label)).toEqual(['Verse', '空白段']);   // 刪除後才寫入重算的名稱；空白段是自訂名稱
 
         // 空段落：不問直接刪
         log.answer = 'dismiss';   // 就算被問了也會按取消 → 段落還在就能抓到「不該問卻問了」
         await removeBtn(1).tap();
         expect(log.messages.length, '空段落不跳確認').toBe(2);
         expect(await sectionCount(page), '空段落直接刪掉').toBe(1);
-        expect((await savedLyrics(page)).map(s => s.label)).toEqual(['主歌']);
+        expect((await savedLyrics(page)).map(s => s.label)).toEqual(['Verse']);
     } finally { await context.close(); }
 });
 
@@ -1842,7 +1842,7 @@ test('刪除：段落名稱只當純文字顯示', async ({ browser }) => {
         await page.locator('#lyricsSections .lyrics-section[data-index="2"] .section-remove').tap();
         expect(log.messages).toEqual([
             '刪除「<b>x</b>」？段落內的歌詞會一併刪除，無法復原。',   // 標籤符號原樣出現，沒有被當成 HTML
-            '刪除「新段落」？段落內的歌詞會一併刪除，無法復原。',     // 沒取名的用預設名稱
+            '刪除「Verse II」？段落內的歌詞會一併刪除，無法復原。',   // 沒取名的段落是 Verse，與第一段同類型所以編號 II
         ]);
         expect(await sectionCount(page), '兩次都取消，三段都在').toBe(3);
         expect(await page.evaluate(() => document.querySelectorAll('#lyricsSections b').length), '沒有被塞進頁面的標籤').toBe(0);

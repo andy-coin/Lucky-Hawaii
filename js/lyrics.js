@@ -240,7 +240,7 @@
 
                 const label = document.createElement('input');
                 label.className = 'section-label';
-                label.value = s.label || (i === 0 ? '歌詞' : '新段落');
+                label.value = s.label;   // 模型的 label 永遠是目前顯示名稱（A3）
                 label.setAttribute('readonly', '');
                 label.setAttribute('ondblclick', 'enableSectionLabel(this,event)');
                 label.setAttribute('onblur', 'disableSectionLabel(this)');
