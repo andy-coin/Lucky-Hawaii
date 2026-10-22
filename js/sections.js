@@ -48,6 +48,48 @@ function lhSecRefreshMeta() {
     });
 }
 
+// ===== 字數（E1、E2）：每段一個 Text node，只改 .data，不增減節點；各段字數快取在 Map，打字時只重算那一段 =====
+const _lhSecCounts = new Map();   // 段落 id → 字數
+
+function _lhSecShowTotal() {
+    const song = curSong();
+    const node = document.getElementById('songTotal')?.firstChild;
+    if (!song || !node) return;
+    let sum = 0;
+    for (const s of song.sections) sum += _lhSecCounts.get(s.id) || 0;
+    node.data = '共 ' + sum + ' 字';
+}
+
+// 全部重算（重畫列表、換歌之後）
+function lhSecCountAll() {
+    const song = curSong();
+    _lhSecCounts.clear();
+    if (!song) return;
+    for (const s of song.sections) _lhSecCounts.set(s.id, lhCountWords(s.text));
+    for (const el of document.getElementById('lyricsSections').children) {
+        const node = el.querySelector('.section-count')?.firstChild;
+        if (node) node.data = (_lhSecCounts.get(el.dataset.id) || 0) + ' 字';
+    }
+    _lhSecShowTotal();
+}
+
+// 只重算一段（打字、組字確認之後）：從模型讀文字，絕不碰 textarea
+function lhSecCountOne(secEl) {
+    const song = curSong();
+    const s = song && secEl && song.sections.find(x => x.id === secEl.dataset.id);
+    if (!s) return;
+    const n = lhCountWords(s.text);
+    _lhSecCounts.set(s.id, n);
+    const node = secEl.querySelector('.section-count')?.firstChild;
+    if (node) node.data = n + ' 字';
+    _lhSecShowTotal();
+}
+
+// 事件用：只有段落輸入框才算（情境欄位不算字數）
+function lhSecCountFrom(target) {
+    if (target && target.classList && target.classList.contains('section-textarea')) lhSecCountOne(target.closest('.lyrics-section'));
+}
+
 // 標題列：型別按鈕換下一種、− 刪除、其餘空白處收合／展開
 document.getElementById('lyricsSections').addEventListener('click', e => {
     const secEl = e.target.closest('.lyrics-section');

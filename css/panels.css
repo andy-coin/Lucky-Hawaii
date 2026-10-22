@@ -280,6 +280,22 @@
             flex-direction: column;
             gap: 0.5rem;
         }
+        /* 工具列：整首歌的總字數（之後 ↶ ↷ 也放這一列） */
+        .lyrics-tools {
+            display: flex;
+            align-items: center;
+            gap: var(--sp-2);
+            min-height: 2rem;
+            flex-shrink: 0;
+        }
+        .lyrics-total {
+            margin-inline-start: auto;
+            font-size: 0.75rem;
+            font-weight: 400;
+            color: var(--text-secondary);
+            font-variant-numeric: tabular-nums;
+            white-space: nowrap;
+        }
 
         .song-list {
             display: flex;
@@ -1079,6 +1095,16 @@
         @media (hover: hover) and (pointer: fine) {
             .section-type:hover { background: var(--container-bg); }
         }
+        /* 每段字數：靠右，不縮、不換行；點它不會收合（js/sections.js 排除） */
+        .section-count {
+            margin-inline-start: auto;
+            flex-shrink: 0;
+            font-size: 0.75rem;
+            font-weight: 400;
+            color: var(--text-secondary);
+            font-variant-numeric: tabular-nums;
+            white-space: nowrap;
+        }
         .lyrics-section.collapsed { flex: 0 0 2.125rem; min-height: 0; }
         .section-body { flex: 1; min-height: 0; }
         .lyrics-section.dragging { opacity: 0.45; }
@@ -1095,7 +1121,6 @@
             opacity: 0.4;
             transition: opacity 0.15s, color 0.15s;
             flex-shrink: 0;
-            margin-inline-start: auto;
         }
         @media (hover: hover) and (pointer: fine) {
             .section-remove:hover { opacity: 1; color: #fc8181; }

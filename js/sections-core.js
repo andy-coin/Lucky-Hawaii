@@ -88,3 +88,14 @@ function lhNextSecType(prevType) {
     if (prevType === 'prechorus') return 'chorus';
     return 'verse';
 }
+
+// 字數（CONTEXT E1）：每個漢字／平假名／片假名／韓文／注音符號算 1；其餘字母或數字連續一串算 1（詞內撇號如 don't 不拆開）；
+// 空白、標點、emoji 算 0。數量來自 match 的次數，不看 UTF-16 長度（𠀀 這類擴充字是 2 個單位但只算 1）。
+const _LH_CJK = String.raw`[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}\p{Script=Bopomofo}]`;
+const _LH_WC_RE = new RegExp(`${_LH_CJK}|(?:(?!${_LH_CJK})[\\p{L}\\p{N}])+(?:['’](?:(?!${_LH_CJK})[\\p{L}\\p{N}])+)*`, 'gu');
+function lhCountWords(text) {
+    if (typeof text !== 'string') return 0;
+    let n = 0;
+    for (const _ of text.matchAll(_LH_WC_RE)) n++;
+    return n;
+}

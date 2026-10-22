@@ -230,3 +230,30 @@ test('循環：名稱只當純文字', async ({ browser }) => {
     expect(errors).toEqual([]);
     await context.close();
 });
+
+test('字數：打字即時更新', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, {
+        storage: v2Storage([
+            song('s1', [typed('sa', 'verse', '你好'), typed('sb', 'chorus', '')]),
+            song('s2', [typed('sc', 'verse', '一二三四五')], { title: '另一首' }),
+        ]),
+    });
+    const counts = () => page.locator('#lyricsSections .section-count').evaluateAll(els => els.map(e => e.textContent));
+    const total = () => page.locator('#songTotal').textContent();
+    expect(await counts()).toEqual(['2 字', '0 字']);
+    expect(await total()).toBe('共 2 字');
+    // 打字：只重算這一段，總數是各段相加
+    await page.locator('.section-textarea').nth(1).click();
+    await page.keyboard.type('Hello 123');
+    expect(await counts()).toEqual(['2 字', '2 字']);
+    expect(await total()).toBe('共 4 字');
+    for (let i = 0; i < 9; i++) await page.keyboard.press('Backspace');
+    expect(await counts()).toEqual(['2 字', '0 字']);
+    expect(await total()).toBe('共 2 字');
+    // 換歌：總數換成那首歌的
+    await page.evaluate(() => switchSong('s2'));
+    expect(await counts()).toEqual(['5 字']);
+    expect(await total()).toBe('共 5 字');
+    expect(errors).toEqual([]);
+    await context.close();
+});

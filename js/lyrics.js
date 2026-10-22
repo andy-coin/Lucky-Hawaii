@@ -232,6 +232,12 @@
                 lhSecFillTypeBtn(typeBtn, s.label);
                 header.appendChild(typeBtn);
 
+                // 字數：先建好一個 Text node，之後只改 .data（不增減節點，打字與組字都不會重畫，E2）
+                const cnt = document.createElement('span');
+                cnt.className = 'section-count';
+                cnt.appendChild(document.createTextNode(''));
+                header.appendChild(cnt);
+
                 if (i !== 0) {
                     const rm = document.createElement('button');
                     rm.className = 'section-remove';
@@ -251,6 +257,7 @@
                 el.append(header, body);
                 return el;
             }));
+            lhSecCountAll();
         }
 
         // ===== 編輯器事件（B1、B2）：掛在不會被重畫的容器上，重畫只換子節點 =====
@@ -279,11 +286,11 @@
             const area = document.getElementById(id);
             if (!area) return;
             area.addEventListener('compositionstart', () => { _lhComposing = true; clearTimeout(_saveTimer); });
-            area.addEventListener('compositionend', e => { _lhComposing = false; syncFromField(e.target); flushSongs(); });
+            area.addEventListener('compositionend', e => { _lhComposing = false; syncFromField(e.target); flushSongs(); lhSecCountFrom(e.target); });
             area.addEventListener('input', e => {
                 syncFromField(e.target);
                 // Firefox 在 compositionend 之後還會送最後一個 input，所以兩個旗標都看
-                if (!_lhComposing && !e.isComposing) scheduleSave();
+                if (!_lhComposing && !e.isComposing) { scheduleSave(); lhSecCountFrom(e.target); }
             });
             area.addEventListener('focusout', () => { _lhComposing = false; flushSongs(); });
         });
