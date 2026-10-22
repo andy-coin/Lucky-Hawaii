@@ -150,10 +150,13 @@ document.addEventListener('keydown', e => {
 }, true);
 
 // 沒有 keydown 的路徑（Mac 選單「編輯 → 還原」、iOS 搖一搖）
+// Chromium 的原生復原堆疊是整個頁面共用的：焦點在搜尋框按 Ctrl+Z，被復原的可能是之前在歌詞裡打的字（事件的 target 是那個輸入框）。
+// 焦點不在編輯區卻要動歌詞的，直接取消，免得歌詞被別的欄位的快捷鍵改掉
 document.addEventListener('beforeinput', e => {
     if ((e.inputType !== 'historyUndo' && e.inputType !== 'historyRedo') || e.isComposing || !_lhInScope(e.target)) return;
     e.preventDefault();
     e.stopPropagation();
+    if (!_lhInScope(document.activeElement)) return;
     e.inputType === 'historyUndo' ? lhHistUndo() : lhHistRedo();
 }, true);
 
