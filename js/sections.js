@@ -18,6 +18,11 @@ function lhSecFillTypeBtn(btn, label) {
     btn.setAttribute('aria-label', label + '，段落類型，按一下切換');
 }
 
+// ⋮⋮ 把手的無障礙名稱（建立與原地更新共用）
+function lhSecHandleLabel(label) {
+    return '拖曳排序「' + label + '」，或按 Alt+上下鍵移動';
+}
+
 // kind：動作名稱（之後記進歷史）；mutate(song) 改模型，回傳 false 代表沒改；opts.dom === 'render' 才整個重畫
 // 回傳這一步的歷史紀錄（真值）；沒改任何東西回傳 false
 function lhSecApply(kind, mutate, opts = {}) {
@@ -30,7 +35,10 @@ function lhSecApply(kind, mutate, opts = {}) {
     markDirty(song.id);
     flushSongs();
     if (opts.dom === 'render') renderLyricsSections();
-    else lhSecRefreshMeta();
+    else {
+        if (opts.dom === 'move') lhSecMoveDom(opts.id, opts.beforeId);   // 搬現有節點，不重畫
+        lhSecRefreshMeta();
+    }
     return step;
 }
 
@@ -60,6 +68,8 @@ function lhSecRefreshMeta() {
         el.dataset.type = s.type;
         const btn = el.querySelector('.section-type');
         if (btn) lhSecFillTypeBtn(btn, s.label);
+        const hd = el.querySelector('.section-handle');
+        if (hd) hd.setAttribute('aria-label', lhSecHandleLabel(s.label));
         const ta = el.querySelector('.section-textarea');
         if (ta) ta.placeholder = i === 0 ? '在這裡輸入或貼上歌詞…' : '在這裡輸入歌詞…';
         const rm = el.querySelector('.section-remove');
@@ -89,6 +99,221 @@ function lhSecRemove(id) {
         if (lhHistTop(curSong()) === step) lhHistUndo();
     }, 5000, '復原刪除「' + label + '」');
 }
+
+// ===== 排序（C1～C3）：⋮⋮ 把手＋Pointer Events；拖曳中只動畫面上的覆蓋層，放開才寫一次模型 =====
+
+// 把 id 這段搬到 beforeId 之前（null＝最後面）。順序沒變或找不到就回傳 false
+function lhSecMoveTo(id, beforeId) {
+    const song = curSong();
+    if (!song) return false;
+    const from = song.sections.findIndex(s => s.id === id);
+    if (from < 0) return false;
+    const rest = song.sections.filter(s => s.id !== id);
+    const to = beforeId === null ? rest.length : rest.findIndex(s => s.id === beforeId);
+    if (to < 0 || to === from) return false;
+    const step = lhSecApply('move', song => {
+        const [m] = song.sections.splice(from, 1);
+        song.sections.splice(to, 0, m);
+    }, { dom: 'move', id, beforeId });
+    if (!step) return false;
+    lhSecFlash(id);
+    lhAnnounce(song.sections[to].label + ' 已移到第 ' + (to + 1) + ' 段，共 ' + song.sections.length + ' 段');
+    return true;
+}
+
+// 搬現有節點（insertBefore）：textarea 的內容、游標、捲動都留著；搬節點會讓焦點丟失，所以搬完還給原本有焦點的元素
+function lhSecMoveDom(id, beforeId /* null＝最後面 */) {
+    const area = document.getElementById('lyricsSections');
+    const el = lhSecEl(id);
+    if (!el) return;
+    const ref = beforeId ? lhSecEl(beforeId) : null;
+    const ae = document.activeElement;
+    const focused = ae && el.contains(ae) ? ae : null;
+    const tas = [...el.querySelectorAll('textarea')].map(t => [t, t.scrollTop, t.selectionStart, t.selectionEnd]);
+    area.insertBefore(el, ref);
+    for (const [t, top, a, b] of tas) {   // 重新插入會讓 textarea 的捲動歸零
+        t.scrollTop = top;
+        if (t === focused) t.setSelectionRange(a, b);
+    }
+    if (focused) focused.focus({ preventScroll: true });
+}
+
+let _lhDrag = null;   // 進行中的拖曳：{ handle, secEl, id, pointerId, sx, sy, x, y, started, raf, ghost, line, scroller, drop, touch }
+
+// 其他段落中，第一個「中線在指標下面」的那段的 id；都沒有＝放最後（null）
+function lhSecDropFor(d) {
+    for (const el of document.getElementById('lyricsSections').children) {
+        if (el === d.secEl || !el.classList.contains('lyrics-section')) continue;
+        const b = el.getBoundingClientRect();
+        if (d.y < b.top + b.height / 2) return el.dataset.id;
+    }
+    return null;
+}
+
+// 這個落點等於原位（原來的下一段就是落點）
+function lhSecDropSame(d, beforeId) {
+    const list = [...document.getElementById('lyricsSections').children].filter(c => c.classList.contains('lyrics-section'));
+    const next = list[list.indexOf(d.secEl) + 1];
+    return beforeId === (next ? next.dataset.id : null);
+}
+
+// 往上找第一個真的會捲動的祖先（含自己）；找不到就用列表本身
+function lhSecScroller() {
+    const area = document.getElementById('lyricsSections');
+    for (let el = area; el && el !== document.body; el = el.parentElement) {
+        const oy = getComputedStyle(el).overflowY;
+        if ((oy === 'auto' || oy === 'scroll') && el.scrollHeight > el.clientHeight) return el;
+    }
+    return area;
+}
+
+// 超過 4px 才算開始拖：做出殘影與落點線
+function lhSecDragBegin(d) {
+    d.started = true;
+    d.scroller = lhSecScroller();
+    const song = curSong();
+    const s = song && song.sections.find(x => x.id === d.id);
+    const ghost = document.createElement('div');
+    ghost.className = 'section-drag-ghost';
+    if (s && /^#[0-9a-f]{6}$/.test(s.color || '')) {
+        const bar = document.createElement('span');
+        bar.className = 'section-drag-ghost-bar';
+        bar.style.background = s.color;
+        ghost.appendChild(bar);
+    }
+    const name = document.createElement('span');
+    name.className = 'section-drag-ghost-name';
+    name.textContent = d.secEl.querySelector('.section-type')?.textContent || '';
+    const cnt = document.createElement('span');
+    cnt.className = 'section-drag-ghost-count';
+    cnt.textContent = d.secEl.querySelector('.section-count')?.textContent || '';
+    ghost.append(name, cnt);
+    document.body.appendChild(ghost);
+    d.ghost = ghost;
+    const line = document.createElement('div');
+    line.className = 'section-drop-line';
+    document.getElementById('lyricsSections').appendChild(line);
+    d.line = line;
+    d.secEl.classList.add('dragging');
+    document.body.classList.add('is-section-dragging');
+}
+
+// 每個 pointermove 排一個 rAF：捲動、殘影位置、落點線；靠邊時持續排下一幀
+function lhSecDragTick() {
+    const d = _lhDrag;
+    if (!d || !d.started) return;
+    d.raf = 0;
+    const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+    const zone = 3 * rem;
+    const r = d.scroller.getBoundingClientRect();
+    const nearTop = d.y < r.top + zone, nearBottom = d.y > r.bottom - zone;
+    if (nearTop || nearBottom) {
+        // 越靠邊越快：每幀 0.25～0.75rem（功能性的，不受減少動態影響）
+        const depth = Math.min(1, Math.max(0, (zone - (nearTop ? d.y - r.top : r.bottom - d.y)) / zone));
+        d.scroller.scrollTop += (nearTop ? -1 : 1) * (0.25 + 0.5 * depth) * rem;
+        d.raf = requestAnimationFrame(lhSecDragTick);
+    }
+    // 殘影：水平夾在面板內，觸控時放在手指上方（不被手指擋住）
+    const pr = document.getElementById('leftPanel').getBoundingClientRect();
+    const w = d.ghost.offsetWidth, h = d.ghost.offsetHeight;
+    const x = Math.max(pr.left, Math.min(d.x - w / 2, pr.right - w));
+    const y = Math.max(0, Math.min(d.y - h / 2 - (d.touch ? 2 * rem : 0), innerHeight - h));
+    d.ghost.style.transform = 'translate(' + x + 'px, ' + y + 'px)';
+    // 落點線：放在目標段落上緣；放最後時貼在最後一段的下緣
+    const beforeId = lhSecDropFor(d);
+    const lh = d.line.offsetHeight;
+    let top;
+    if (beforeId) {
+        const t = lhSecEl(beforeId);
+        top = t.offsetTop - (parseFloat(getComputedStyle(t.parentElement).rowGap) || 0) / 2 - lh / 2;
+    } else {
+        const secs = [...document.getElementById('lyricsSections').children].filter(c => c.classList.contains('lyrics-section') && c !== d.secEl);
+        const last = secs[secs.length - 1];
+        top = last ? last.offsetTop + last.offsetHeight - lh : 0;
+    }
+    d.line.style.top = Math.max(0, top) + 'px';
+    d.drop = beforeId;
+}
+
+// 結束一次拖曳：commit 為真且落點不是原位才寫模型；每條路徑都把事件、殘影、線、class 清乾淨
+function lhSecDragEnd(commit) {
+    const d = _lhDrag;
+    if (!d) return;
+    _lhDrag = null;
+    cancelAnimationFrame(d.raf);
+    d.handle.removeEventListener('pointermove', lhSecDragMove);
+    d.handle.removeEventListener('pointerup', lhSecDragUp);
+    d.handle.removeEventListener('pointercancel', lhSecDragCancel);
+    d.handle.removeEventListener('lostpointercapture', lhSecDragCancel);
+    document.removeEventListener('keydown', lhSecDragKey, true);
+    try { d.handle.releasePointerCapture(d.pointerId); } catch (err) { lhWarn('releasePointerCapture 失敗', err); }
+    const beforeId = d.started && commit ? lhSecDropFor(d) : undefined;   // 用放開當下的位置重算
+    d.ghost?.remove();
+    d.line?.remove();
+    d.secEl.classList.remove('dragging');
+    document.body.classList.remove('is-section-dragging');
+    if (beforeId === undefined || lhSecDropSame(d, beforeId)) return;
+    lhSecMoveTo(d.id, beforeId);
+}
+
+function lhSecDragMove(e) {
+    const d = _lhDrag;
+    if (!d || e.pointerId !== d.pointerId) return;
+    d.x = e.clientX;
+    d.y = e.clientY;
+    if (!d.started) {
+        if (Math.hypot(d.x - d.sx, d.y - d.sy) < 4) return;   // 點一下把手不算拖
+        lhSecDragBegin(d);
+    }
+    if (!d.raf) d.raf = requestAnimationFrame(lhSecDragTick);
+}
+
+function lhSecDragUp(e) {
+    const d = _lhDrag;
+    if (!d || e.pointerId !== d.pointerId) return;
+    d.x = e.clientX;
+    d.y = e.clientY;
+    lhSecDragEnd(true);
+}
+
+function lhSecDragCancel() { lhSecDragEnd(false); }
+
+// Esc 取消：capture 階段攔下並 preventDefault，≤ 900 的 sheet 才不會同時被收起（panels.js 看 defaultPrevented）；組字中不攔
+function lhSecDragKey(e) {
+    if (e.key !== 'Escape' || e.isComposing || e.keyCode === 229) return;
+    if (!_lhDrag || !_lhDrag.started) return;
+    e.preventDefault();
+    e.stopPropagation();
+    lhSecDragEnd(false);
+}
+
+// 給外面用：重畫列表、跨 900px、收起左面板時，把進行中的拖曳乾淨收掉（模型與高度不動）
+function lhSecAbortInteractions() {
+    lhSecDragEnd(false);
+}
+LH_MQ_SHEET.addEventListener('change', lhSecAbortInteractions);
+new MutationObserver(() => {
+    if (document.getElementById('leftPanel').classList.contains('collapsed')) lhSecAbortInteractions();
+}).observe(document.getElementById('leftPanel'), { attributes: true, attributeFilter: ['class'] });
+
+document.getElementById('lyricsSections').addEventListener('pointerdown', e => {
+    const handle = e.target.closest && e.target.closest('.section-handle');
+    if (!handle || _lhDrag || !e.isPrimary) return;
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    const secEl = handle.closest('.lyrics-section');
+    if (!secEl) return;
+    _lhDrag = {
+        handle, secEl, id: secEl.dataset.id, pointerId: e.pointerId, touch: e.pointerType === 'touch',
+        sx: e.clientX, sy: e.clientY, x: e.clientX, y: e.clientY,
+        started: false, raf: 0, ghost: null, line: null, scroller: null, drop: null,
+    };
+    try { handle.setPointerCapture(e.pointerId); } catch (err) { lhWarn('setPointerCapture 失敗', err); }
+    handle.addEventListener('pointermove', lhSecDragMove);
+    handle.addEventListener('pointerup', lhSecDragUp);
+    handle.addEventListener('pointercancel', lhSecDragCancel);
+    handle.addEventListener('lostpointercapture', lhSecDragCancel);
+    document.addEventListener('keydown', lhSecDragKey, true);
+});
 
 // ===== 字數（E1、E2）：每段一個 Text node，只改 .data，不增減節點；各段字數快取在 Map，打字時只重算那一段 =====
 const _lhSecCounts = new Map();   // 段落 id → 字數

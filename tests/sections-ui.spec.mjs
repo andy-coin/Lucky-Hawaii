@@ -302,7 +302,7 @@ test('字數：排序收合換類型不影響總數', async ({ browser }) => {
         storage: v2Storage([song('s1', [typed('sa', 'verse', '你好'), typed('sb', 'chorus', 'Hello 123'), typed('sc', 'bridge', '一二三')])]),
     });
     await expect(page.locator('#songTotal')).toHaveText('共 7 字');
-    await page.locator('#lyricsSections .lyrics-section-header').nth(1).click({ position: { x: 4, y: 4 } });   // 收合
+    await page.locator('#lyricsSections .section-chevron').nth(1).click();   // 收合（標題列左緣現在是 ⋮⋮ 把手，點它不收合）
     await expect(page.locator('#lyricsSections .lyrics-section').nth(1)).toHaveClass(/collapsed/);
     expect((await countTexts(page)).total).toBe('共 7 字');
     for (let i = 0; i < 3; i++) await page.locator('#lyricsSections .section-type').nth(2).click();   // 換類型

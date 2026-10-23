@@ -81,7 +81,7 @@
             syncCenterPanel(panel.classList.contains('collapsed') ? undefined : 'left');
         }
 
-        // ===== 段落 toggle / drag reorder（標題列點擊在 js/sections.js 事件委派）=====
+        // ===== 段落 toggle（標題列點擊與 ⋮⋮ 排序都在 js/sections.js 事件委派）=====
         function toggleLyricsSection(i) {
             const song = curSong();
             const sec = song && song.sections[i];
@@ -96,41 +96,6 @@
             }
             markDirty(song.id);
             flushSongs();
-        }
-
-        let _dragSrcIdx = null;
-        function onSectionDragStart(e, i) {
-            _dragSrcIdx = i;
-            e.dataTransfer.effectAllowed = 'move';
-            e.currentTarget.parentElement.classList.add('dragging');
-        }
-        function onSectionDragOver(e, i) {
-            e.preventDefault();
-            e.dataTransfer.dropEffect = 'move';
-            if (_dragSrcIdx !== null && _dragSrcIdx !== i) {
-                document.querySelectorAll('.lyrics-section').forEach(s => s.classList.remove('drag-over'));
-                const t = document.querySelector(`.lyrics-section[data-index="${i}"]`);
-                if (t) t.classList.add('drag-over');
-            }
-        }
-        function onSectionDragLeave(e) {
-            e.currentTarget.parentElement?.classList.remove('drag-over');
-        }
-        function onSectionDrop(e, i) {
-            e.preventDefault();
-            if (_dragSrcIdx === null || _dragSrcIdx === i) return;
-            const song = curSong();
-            if (!song || !song.sections[_dragSrcIdx]) { _dragSrcIdx = null; return; }
-            const [moved] = song.sections.splice(_dragSrcIdx, 1);
-            song.sections.splice(i, 0, moved);
-            _dragSrcIdx = null;
-            markDirty(song.id);
-            flushSongs();
-            renderLyricsSections();
-        }
-        function onSectionDragEnd() {
-            _dragSrcIdx = null;
-            document.querySelectorAll('.lyrics-section').forEach(s => s.classList.remove('dragging', 'drag-over'));
         }
 
         // ===== 情境＆標籤 / 保留池 收納 =====
@@ -182,6 +147,7 @@
         // 用 createElement / textContent / .value 組節點，歌詞與名稱不經過 HTML 解析（T-08-01）
         // class 與 data-index 維持原樣（版型與測試依賴），另加 data-id：編輯一律用 id 找區塊（B4）
         function renderLyricsSections() {
+            lhSecAbortInteractions();   // 重畫前先收掉進行中的拖曳（舊節點會被換掉）
             const container = document.getElementById('lyricsSections');
             const song = curSong();
             if (!container || !song) return;
@@ -195,12 +161,16 @@
 
                 const header = document.createElement('div');
                 header.className = 'lyrics-section-header';
-                header.setAttribute('ondragstart', `onSectionDragStart(event,${i})`);
-                header.setAttribute('ondragover', `onSectionDragOver(event,${i})`);
-                header.setAttribute('ondragleave', 'onSectionDragLeave(event)');
-                header.setAttribute('ondrop', `onSectionDrop(event,${i})`);
-                header.setAttribute('ondragend', 'onSectionDragEnd()');
-                header.setAttribute('draggable', 'true');
+
+                // ⋮⋮ 排序把手：只有它能拖（Pointer Events 在 js/sections.js），選字、按名稱鈕都不會誤拖
+                const grip = document.createElement('button');
+                grip.type = 'button';
+                grip.className = 'section-handle';
+                grip.title = '拖曳排序';
+                grip.textContent = '⋮⋮';
+                grip.setAttribute('aria-label', lhSecHandleLabel(s.label));
+                grip.setAttribute('aria-keyshortcuts', 'Alt+ArrowUp Alt+ArrowDown');
+                header.appendChild(grip);
 
                 const chev = document.createElement('span');
                 chev.className = 'section-chevron';

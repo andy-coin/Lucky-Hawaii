@@ -1148,8 +1148,64 @@
         }
         .lyrics-section.collapsed { flex: 0 0 2.125rem; min-height: 0; }
         .section-body { flex: 1; min-height: 0; }
-        .lyrics-section.dragging { opacity: 0.45; }
-        .lyrics-section.drag-over { box-shadow: 0 -2px 0 #8d51c9; }
+        /* 排序（js/sections.js）：拖的那段半透明，殘影跟著指標，落點線標出會放在哪裡 */
+        .lyrics-section.dragging { opacity: 0.5; }
+        .section-handle {
+            flex-shrink: 0;
+            width: 2rem;
+            align-self: stretch;
+            padding: 0;
+            border: none;
+            background: none;
+            color: var(--text-secondary);
+            font-family: 'Noto Sans TC', sans-serif;
+            font-size: 1rem;
+            font-weight: 700;
+            line-height: 1;
+            cursor: grab;
+            touch-action: none;
+            user-select: none;
+            -webkit-touch-callout: none;
+        }
+        @media (hover: hover) and (pointer: fine) {
+            .section-handle:hover { color: var(--text-primary); }
+        }
+        body.is-section-dragging { user-select: none; cursor: grabbing; }
+        #lyricsSections { position: relative; }
+        .section-drop-line {
+            position: absolute;
+            left: 0;
+            right: 0;
+            height: 0.25rem;
+            border-radius: 0.125rem;
+            background: var(--highlight-border);
+            z-index: 3;
+            pointer-events: none;
+        }
+        .section-drag-ghost {
+            position: fixed;
+            left: 0;
+            top: 0;
+            display: flex;
+            align-items: center;
+            gap: var(--sp-2);
+            pointer-events: none;
+            z-index: 10000;
+            width: min(18rem, 80vw);
+            box-sizing: border-box;
+            opacity: 0.95;
+            background: var(--container-bg);
+            border: 1px solid var(--border);
+            border-radius: 0.625rem;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.18);
+            padding: var(--sp-1) var(--sp-3);
+            font-size: 0.875rem;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+        .section-drag-ghost-bar { align-self: stretch; width: 0.25rem; border-radius: 0.125rem; flex-shrink: 0; }
+        .section-drag-ghost-name { flex: 1 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .section-drag-ghost-count { flex-shrink: 0; font-size: 0.75rem; font-weight: 400; color: var(--text-secondary); }
         .section-remove {
             background: transparent;
             border: none;
@@ -1335,6 +1391,8 @@
                 font-size: 1rem;
             }
             .lyrics-section-header { padding-block: 0; }
+            /* 排序把手：觸控一律實體 44×44（相鄰重疊 ≤ 4px） */
+            .section-handle { width: var(--hit); min-width: var(--hit); min-height: var(--hit); }
             /* 段落刪除：觸控上沒有 hover，所以一律完整顯示；刪除不確認，改由下方提示的「復原」救回（js/sections.js） */
             .section-remove {
                 display: inline-flex;
