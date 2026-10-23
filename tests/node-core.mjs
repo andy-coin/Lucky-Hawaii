@@ -3,7 +3,7 @@
 import vm from 'node:vm';
 import { readFileSync } from 'node:fs';
 
-export const CORE = ['js/phonetic-tables.js', 'js/dict.js', 'js/search.js', 'js/state.js', 'js/polyphonic.js', 'js/wordlist.js', 'js/candidates.js'];
+export const CORE = ['js/phonetic-tables.js', 'js/dict.js', 'js/search.js', 'js/state.js', 'js/polyphonic.js', 'js/rhyme-core.js', 'js/wordlist.js', 'js/candidates.js'];
 
 // vm 回傳的是跨 realm 物件，先 JSON 往返再比對
 export const pick = ev => code => JSON.parse(JSON.stringify(ev(code)));
