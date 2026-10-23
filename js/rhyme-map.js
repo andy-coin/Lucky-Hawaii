@@ -121,9 +121,7 @@ function _lhMapStrip(secEl, res, big) {
         strip.hidden = false;
     } else {
         const rows = res.rows.filter(r => !r.blank);
-        const n = rows.length;
-        let k = 0;
-        res.count.forEach(c => { if (c >= 2) k += c; });
+        const { n, k } = lhRhymeSummary(res, _lhMapSet.strict);
         const kids = rows.slice(0, 12).map(r => {
             const sp = document.createElement('span');
             sp.textContent = r.letter || '-';
@@ -160,6 +158,7 @@ function lhMapRenderAll() {
     _lhMapPending.clear();
     _lhMapDeferred.clear();
     _lhMapRO.disconnect();
+    if (_lhMapStatsOn && !lhSecEl(_lhMapStatsSec)) lhMapCloseStats(false);   // 開著統計的段落已經不在了
     for (const el of box.children) {
         const ta = el.querySelector('.section-textarea');
         if (ta) _lhMapRO.observe(ta);
@@ -420,10 +419,11 @@ function lhMapCloseMenu(refocus) {
     if (refocus) btn.focus({ preventScroll: true });
 }
 
-// 關掉所有韻腳相關的浮層（重畫列表、跨 900px、收面板、段落選單打開時都會叫）；之後的計畫會把統計與選字列也收進來
+// 關掉所有韻腳相關的浮層（重畫列表、跨 900px、收面板、段落選單打開時都會叫）
 function lhMapCloseAll() {
     lhMapCloseMenu(false);
     lhMapHideBar();
+    lhMapCloseStats(false);
 }
 
 document.getElementById('rhymeMenuBtn').addEventListener('click', e => {
@@ -459,6 +459,160 @@ if (window.visualViewport) {
     window.visualViewport.addEventListener('resize', _lhMapReclamp);
     window.visualViewport.addEventListener('scroll', _lhMapReclamp);
 }
+
+// ==================== 韻腳統計（MAP-04、CONTEXT C2／C4／D2、UI-SPEC D-10／D-11、4.2） ====================
+// 點標題列的字母條開 #rhymeStats：結構字母、共幾句押韻幾句、每個韻出現幾次，下面一句一列，點一列就查那一句的句尾。
+// 內容全來自該段最近一次分析（_lhMapCache 的 res），每個字串都走 textContent；沒有 hover 彈窗（D-11）
+let _lhMapStats = null;
+let _lhMapStatsOn = false;
+let _lhMapStatsSec = '';           // 開著的是哪一段
+
+const _lhMapCut = (str, n) => { const cs = Array.from(str); return cs.length > n ? cs.slice(0, n).join('') + '…' : str; };
+
+function lhMapStatsBuild() {
+    if (_lhMapStats) return _lhMapStats;
+    const m = _lhMk('div', 'word-ctx-menu section-menu');
+    m.id = 'rhymeStats';
+    m.setAttribute('role', 'dialog');
+    m.setAttribute('aria-label', '韻腳統計');
+    document.body.appendChild(m);
+    _lhMapStats = m;
+    return m;
+}
+
+// 該段的分析結果：快取過期（打字後還沒重畫）就先重畫一次
+function _lhMapStatsData(secEl) {
+    const sec = curSong()?.sections.find(x => x.id === secEl.dataset.id);
+    if (!sec) return null;
+    const hit = _lhMapCache.get(sec.id);
+    if (!hit || hit.text !== sec.text) { if (!_lhComposing) lhMapPaint(secEl); }
+    return { sec, res: (_lhMapCache.get(sec.id) || {}).res || null };
+}
+
+// 把內容填進去（每次都整個重建）
+function _lhMapStatsFill() {
+    const m = _lhMapStats, secEl = lhSecEl(_lhMapStatsSec);
+    const d = secEl && _lhMapStatsData(secEl);
+    if (!m || !d) return;
+    const strip = secEl.querySelector('.section-rhyme');
+    const res = d.res && d.res.count.size ? d.res : null;   // 沒有任何一行有韻（或太大沒分析）：只顯示空狀態
+    const kids = [_lhMk('div', 'section-menu-title', '韻腳統計：' + _lhMapCut(d.sec.label || '', 16))];
+    if (!res) kids.push(_lhMk('span', 'section-menu-cap', '這個段落還沒有可分析的句尾'));
+    else {
+        const strict = _lhMapSet.strict, sm = lhRhymeSummary(res, strict);
+        const rows = res.rows.filter(r => !r.blank);
+        const letters = _lhMk('div', 'rm-letters');
+        for (const r of rows) {
+            const sp = _lhMk('span', '', r.letter || '-');
+            if (r.key !== null) sp.dataset.f = String(r.f);
+            letters.append(sp);
+        }
+        kids.push(letters);
+        kids.push(_lhMk('div', 'rm-sum', '共 ' + sm.n + ' 句，押韻 ' + sm.k + ' 句（' + sm.p + '%）'));
+        kids.push(_lhMk('span', 'section-menu-cap', '判定：' + (strict ? '嚴格' : '寬韻')));
+        const groups = _lhMk('div', 'section-menu-block');
+        for (const g of sm.groups) {
+            const row = _lhMk('div', 'rm-group');
+            const sw = _lhMk('span', 'rm-sw');
+            sw.dataset.f = String(g.f);
+            row.append(_lhMk('span', 'rm-g-letter', g.letter), sw, _lhMk('span', '', g.label + ' ×' + g.count + (g.count === 1 ? '（孤句）' : '')));
+            groups.append(row);
+        }
+        kids.push(groups);
+        const list = _lhMk('div', 'section-menu-block');
+        list.append(_lhMk('span', 'section-menu-cap', '逐句'));
+        rows.forEach((r, n) => {
+            const ch = r.t ? r.t.char : (Array.from(r.line.replace(/[^\p{L}\p{N}]+$/u, '')).pop() || '');
+            const b = _lhMkBtn('rm-row', '', r.t ? '查韻：' + ch + '，第 ' + (n + 1) + ' 句' : '第 ' + (n + 1) + ' 句，沒有可查的句尾');
+            const lineCs = Array.from(r.line.trim());
+            b.append(_lhMk('span', 'rm-g-letter', r.letter || '-'), _lhMk('span', 'rm-tail', ch),
+                _lhMk('span', 'rm-prev', lineCs.slice(0, 12).join('') + (lineCs.length > 12 ? '…' : '')));
+            if (!r.t) b.setAttribute('aria-disabled', 'true');
+            b.addEventListener('click', e => {
+                if (!r.t) return;
+                const kb = e.detail === 0;
+                lhMapCloseAll();
+                lhMapLookup(r.t.char, false);
+                if (kb && !lhIsSheetMode()) secEl.querySelector('.section-rhyme')?.focus({ preventScroll: true });
+            });
+            list.append(b);
+        });
+        kids.push(list);
+    }
+    const close = _lhMkBtn('section-menu-btn section-menu-close', '關閉統計');
+    close.addEventListener('click', () => lhMapCloseStats(true));
+    kids.push(close);
+    m.replaceChildren(...kids);
+    // 字母條還在就放它下面；被藏起來了（段落剛好變成沒有韻）就留在原地，只夾進可見範圍
+    if (strip && !strip.hidden) _lhMapStatsPlace(strip);
+    else lhPlaceMenu(m, parseFloat(m.style.left) || 0, parseFloat(m.style.top) || 0);
+}
+
+// 放在字母條正下方；下面放不下被擠上去蓋住字母條時翻到上方（和段落設定選單一樣）
+function _lhMapStatsPlace(strip) {
+    const r = strip.getBoundingClientRect();
+    lhPlaceMenu(_lhMapStats, r.left, r.bottom + 4);
+    const b = _lhMapStats.getBoundingClientRect();
+    if (b.top < r.bottom && r.top - b.height - 4 >= 4) lhPlaceMenu(_lhMapStats, r.left, r.top - b.height - 4);
+}
+
+// byKeyboard：鍵盤打開才把焦點放到第一個能點的句子；滑鼠、觸控不搶焦點
+function lhMapOpenStats(secEl, byKeyboard) {
+    const strip = secEl && secEl.querySelector('.section-rhyme');
+    if (!strip || strip.hidden) return;
+    const m = lhMapStatsBuild();
+    if (typeof lhSecCloseMenu === 'function') lhSecCloseMenu();
+    if (typeof closeExportMenu === 'function') closeExportMenu();
+    if (typeof closeSongListOverlay === 'function') closeSongListOverlay();
+    lhMapCloseAll();
+    _lhMapStatsSec = secEl.dataset.id;
+    _lhMapStatsOn = true;
+    strip.setAttribute('aria-expanded', 'true');
+    _lhMapStatsFill();
+    if (byKeyboard) (m.querySelector('.rm-row:not([aria-disabled="true"])') || m.querySelector('.section-menu-close')).focus({ preventScroll: true });
+}
+
+// refocus：按「關閉」或 Esc 才把焦點還給字母條
+function lhMapCloseStats(refocus) {
+    if (!_lhMapStats || !_lhMapStatsOn) return;
+    _lhMapStatsOn = false;
+    _lhMapStats.classList.remove('show');
+    const strip = lhSecEl(_lhMapStatsSec)?.querySelector('.section-rhyme');
+    if (strip) strip.setAttribute('aria-expanded', 'false');
+    if (refocus && strip && !strip.hidden) strip.focus({ preventScroll: true });
+}
+
+// 開著的那一段重畫了（lhMapPaint 呼叫）：內容重建，鍵盤焦點留在同一列
+function _lhMapStatsRefresh(secId) {
+    if (!_lhMapStatsOn || secId !== _lhMapStatsSec) return;
+    const m = _lhMapStats, ae = document.activeElement;
+    const rows = [...m.querySelectorAll('.rm-row')];
+    const at = m.contains(ae) ? rows.indexOf(ae) : -2;   // -2：焦點不在裡面；-1：在關閉鈕
+    _lhMapStatsFill();
+    if (at === -2) return;
+    const now = [...m.querySelectorAll('.rm-row')];
+    (now[Math.min(Math.max(at, 0), now.length - 1)] || m.querySelector('.section-menu-close')).focus({ preventScroll: true });
+}
+
+document.getElementById('lyricsSections').addEventListener('click', e => {
+    const strip = e.target.closest && e.target.closest('.section-rhyme');
+    if (!strip) return;
+    const secEl = strip.closest('.lyrics-section');
+    if (_lhMapStatsOn && _lhMapStatsSec === secEl.dataset.id) lhMapCloseStats(false);   // 再按一次就收起來
+    else lhMapOpenStats(secEl, e.detail === 0);   // 鍵盤（Enter／空白）觸發的 click，detail 是 0
+});
+document.addEventListener('pointerdown', e => {
+    if (_lhMapStatsOn && !(e.target.closest && e.target.closest('#rhymeStats, .section-rhyme'))) lhMapCloseStats(false);
+}, true);
+document.addEventListener('keydown', e => {
+    if (e.key !== 'Escape' || !_lhMapStatsOn || e.isComposing || e.keyCode === 229) return;
+    e.preventDefault();
+    e.stopPropagation();
+    lhMapCloseStats(true);
+}, true);
+// 螢幕鍵盤、縮放：統計重新夾進可見範圍
+window.addEventListener('resize', () => _lhMapStatsRefresh(_lhMapStatsSec));
+if (window.visualViewport) window.visualViewport.addEventListener('resize', () => _lhMapStatsRefresh(_lhMapStatsSec));
 
 // ==================== 選字浮動列（MAP-05、CONTEXT D1／D3、UI-SPEC D-15／D-16／D-17） ====================
 // 在歌詞裡反白 1–20 個字（至少一個中文字），選取下方出現「🔍 查韻：{字}」「✨ AI 建議」；
@@ -550,6 +704,7 @@ function _lhMapBarPlace() {
 }
 
 function lhMapShowBar(snap) {
+    lhMapCloseStats(false);   // 同時只開一個浮層
     const bar = lhMapBarBuild();
     const prev = _lhMapBarSnap;
     if (prev && prev.ta !== snap.ta) prev.ta.removeAttribute('aria-keyshortcuts');

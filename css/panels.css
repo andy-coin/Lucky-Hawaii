@@ -1450,6 +1450,41 @@
         @supports (background: color-mix(in srgb, red 50%, blue)) {
             .section-rhyme span[data-f], .rm-letters span[data-f] { border-bottom-color: color-mix(in srgb, var(--text-primary) 30%, var(--rm-c)); }
         }
+        /* 韻腳統計（10-07，UI-SPEC 4.2）：沿用段落設定選單的外殼，裡面超出可見範圍就在選單內捲動 */
+        #rhymeStats { width: min(22rem, calc(100vw - 1rem)); }
+        .rm-letters {
+            font-size: 1.25rem;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            overflow-wrap: anywhere;
+            color: var(--text-primary);
+        }
+        .rm-sum { font-size: 0.875rem; font-weight: 400; color: var(--text-primary); }
+        .rm-group { display: flex; align-items: center; gap: var(--sp-2); font-size: 0.875rem; font-weight: 400; color: var(--text-primary); }
+        .rm-g-letter { flex: none; min-width: 1rem; font-weight: 700; }
+        .rm-row {
+            display: flex;
+            align-items: center;
+            gap: var(--sp-2);
+            width: 100%;
+            min-height: 2rem;
+            padding: var(--sp-1) var(--sp-2);
+            border: 1px solid var(--border);
+            border-radius: 0.5rem;
+            background: var(--card-bg);
+            color: var(--text-primary);
+            font-family: 'Noto Sans TC', sans-serif;
+            font-size: 0.875rem;
+            font-weight: 400;
+            text-align: left;
+            cursor: pointer;
+        }
+        .rm-tail { flex: none; min-width: 1rem; font-weight: 700; }
+        .rm-prev { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-secondary); }
+        .rm-row[aria-disabled="true"] { opacity: 0.4; cursor: default; }
+        @media (hover: hover) and (pointer: fine) {
+            .rm-row:not([aria-disabled="true"]):hover { background: var(--container-bg); }
+        }
         .lyrics-section.collapsed { flex: 0 0 2.125rem; min-height: 0; }
         .section-body { flex: 1; min-height: 0; position: relative; }
         /* 排序（js/sections.js）：拖的那段半透明，殘影跟著指標，落點線標出會放在哪裡 */
@@ -1772,6 +1807,7 @@
             .rhyme-menu-btn { min-width: var(--hit); min-height: var(--hit); }
             .rm-switch { min-height: var(--hit); }
             .section-rhyme { min-width: var(--hit); }
+            .rm-row { min-height: var(--hit); }
             .rm-bar .section-menu-btn { min-height: var(--hit); }
             .rm-chip { min-height: var(--hit); min-width: var(--hit); }
             .word-chip, .hashtag-chip { min-height: var(--hit); padding-block: 0; padding-right: 0; }

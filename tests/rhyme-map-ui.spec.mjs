@@ -1521,3 +1521,215 @@ test('標題字母：點字母條不會收合段落', async ({ browser }) => {
     expect(errors).toEqual([]);
     await context.close();
 });
+
+// ----- 統計 -----
+const MAP_LETTERS = JSON.stringify({ end: true, letters: true, inner: false, strict: false, skipParticles: true });
+const withLetters = (songs, extra = {}) => v2Storage(songs, { ...OPEN_PANELS, 'lh:map': MAP_LETTERS, ...extra });
+const STATS = '#rhymeStats';
+const statsRows = page => page.locator(STATS + ' .rm-row');
+const openStats = async (page, n = 0, how = 'click') => {
+    const strip = page.locator('#lyricsSections .lyrics-section').nth(n).locator(STRIP);
+    if (how === 'click') await strip.click();
+    else { await strip.focus(); await page.keyboard.press('Enter'); }
+    await expect(page.locator(STATS)).toBeVisible();
+};
+
+test('統計：內容', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, {
+        wordlist: 'stub', storage: withLetters([song([typed('sa', 'verse', F_AABB), typed('sb', 'chorus', F_ABAB)])]),
+    });
+    await expect(page.locator(STATS)).toHaveCount(0);   // 沒點之前連節點都沒有
+    const name = await page.locator('.section-type').first().textContent();
+    await openStats(page);
+    await expect(page.locator(STATS)).toHaveAttribute('role', 'dialog');
+    await expect(page.locator(STATS)).toHaveAttribute('aria-label', '韻腳統計');
+    await expect(page.locator(STATS + ' .section-menu-title')).toHaveText('韻腳統計：' + name);
+    await expect(page.locator(STATS + ' .rm-letters')).toHaveText('AABB');
+    expect(await page.locator(STATS + ' .rm-letters span').evaluateAll(els => els.map(e => e.dataset.f))).toEqual(['14', '14', '8', '8']);
+    await expect(page.locator(STATS + ' .rm-sum')).toHaveText('共 4 句，押韻 4 句（100%）');
+    await expect(page.locator(STATS)).toContainText('判定：寬韻');
+    const groups = page.locator(STATS + ' .rm-group');
+    await expect(groups).toHaveCount(2);
+    expect(await groups.evaluateAll(els => els.map(e => [...e.children].map(c => c.textContent)))).toEqual([['A', '', 'ㄤ ×2'], ['B', '', 'ㄠ ×2']]);
+    expect(await groups.first().locator('.rm-sw').getAttribute('data-f')).toBe('14');
+    await expect(page.locator(STATS)).toContainText('逐句');
+    await expect(statsRows(page)).toHaveCount(4);
+    expect(await statsRows(page).evaluateAll(els => els.map(e => e.getAttribute('aria-label')))).toEqual(['查韻：光，第 1 句', '查韻：窗，第 2 句', '查韻：道，第 3 句', '查韻：到，第 4 句']);
+    expect(await statsRows(page).evaluateAll(els => els.map(e => [...e.children].map(c => c.textContent)))).toEqual([
+        ['A', '光', '我望著遠方的光'], ['A', '窗', '獨自站在窗'], ['B', '道', '走過熟悉的街道'], ['B', '到', '終於我也回到']]);
+    await expect(page.locator(STATS + ' .section-menu-close')).toHaveText('關閉統計');
+    // 在字母條正下方；字母條標示展開；指標打開不搶焦點
+    const strip = page.locator(STRIP).first();
+    await expect(strip).toHaveAttribute('aria-expanded', 'true');
+    const [sb, mb] = await Promise.all([strip.boundingBox(), page.locator(STATS).boundingBox()]);
+    expect(mb.y, '在字母條下面').toBeGreaterThanOrEqual(sb.y + sb.height);
+    expect(Math.abs(mb.x - sb.x), '左緣對齊字母條').toBeLessThan(40);
+    expect(await page.evaluate(() => document.getElementById('rhymeStats').contains(document.activeElement))).toBe(false);
+    // 再點字母條收起來；另一段的字母條會換成它的統計
+    await strip.click();
+    await expect(page.locator(STATS)).toBeHidden();
+    await expect(strip).toHaveAttribute('aria-expanded', 'false');
+    await openStats(page, 1);
+    await expect(page.locator(STATS + ' .rm-letters')).toHaveText('ABAB');
+    // 嚴格：四個都是孤句
+    await page.locator(STATS + ' .section-menu-close').click();
+    await page.evaluate(() => lhMapSetSetting('strict', true));
+    await openStats(page, 1);
+    await expect(page.locator(STATS + ' .rm-letters')).toHaveText('ABCD');
+    await expect(page.locator(STATS + ' .rm-sum')).toHaveText('共 4 句，押韻 0 句（0%）');
+    await expect(page.locator(STATS)).toContainText('判定：嚴格');
+    expect(await page.locator(STATS + ' .rm-group').evaluateAll(els => els.map(e => e.lastElementChild.textContent))).toEqual(['ㄨㄤ ×1（孤句）', 'ㄠ ×1（孤句）', 'ㄧㄤ ×1（孤句）', 'ㄧㄠ ×1（孤句）']);
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('統計：點一列就查那句的句尾', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, {
+        wordlist: 'stub', storage: withLetters([song([typed('sa', 'verse', F_PART.replace('嗎', '你好嗎')), typed('sb', 'chorus', F_AABB)])]),
+    });
+    await openStats(page, 1);
+    await statsRows(page).nth(2).click();
+    await expect(page.locator('#searchInput')).toHaveValue('道');
+    await expect.poll(() => page.locator('.char-card').count()).toBeGreaterThan(0);
+    await expect(page.locator(STATS)).toBeHidden();
+    // 沒有韻的行（英文）不能點
+    await page.locator('#searchInput').fill('');
+    await openStats(page, 0);
+    const dash = page.locator(STATS + ' .rm-row[aria-disabled="true"]');
+    await expect(dash).toHaveCount(1);
+    await expect(dash).toContainText('Oh baby');
+    await dash.click({ force: true });
+    await expect(page.locator(STATS), '點了沒反應，統計還開著').toBeVisible();
+    await expect(page.locator('#searchInput')).toHaveValue('');
+    // 鍵盤：Enter 查韻，焦點回字母條
+    await page.keyboard.press('Escape');
+    await openStats(page, 1, 'key');
+    await expect(statsRows(page).first()).toBeFocused();
+    await page.keyboard.press('Tab');
+    await expect(statsRows(page).nth(1)).toBeFocused();
+    await page.keyboard.press('Enter');
+    await expect(page.locator('#searchInput')).toHaveValue('窗');
+    await expect(page.locator(STATS)).toBeHidden();
+    await expect(page.locator(STRIP).nth(1)).toBeFocused();
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('統計：手機點一列查韻會切到查韻分頁', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, {
+        wordlist: 'stub', device: DEVICES.phone, storage: withLetters([song([typed('sa', 'verse', F_AABB)])], {}),
+    });
+    await page.locator('#mtab-lyrics').click();
+    await waitStill(page);
+    await openStats(page);
+    await statsRows(page).nth(3).click();
+    await expect(page.locator('#searchInput')).toHaveValue('到');
+    await expect(page.locator('#mtab-search')).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.locator(STATS)).toBeHidden();
+    await expect.poll(() => page.locator('.char-card').count()).toBeGreaterThan(0);
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('統計：沒有可分析的句尾', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, {
+        wordlist: 'stub', storage: withLetters([song([typed('sa', 'verse', F_AABB)])]),
+    });
+    await openStats(page);
+    await expect(statsRows(page)).toHaveCount(4);
+    // 經由模型把文字換成只有英文，再重畫：字母條消失，統計重建成空狀態
+    await page.evaluate(() => { curSong().sections[0].text = 'hello world\n\nfoo bar'; lhMapPaint(lhSecEl('sa')); });
+    await expect(page.locator(STATS + ' .section-menu-cap')).toHaveText('這個段落還沒有可分析的句尾');
+    await expect(statsRows(page)).toHaveCount(0);
+    await expect(page.locator(STATS + ' .rm-letters, ' + STATS + ' .rm-group, ' + STATS + ' .rm-sum')).toHaveCount(0);
+    await expect(page.locator(STATS)).toContainText('韻腳統計：');
+    await expect(page.locator(STATS + ' .section-menu-close')).toBeVisible();
+    await expect(page.locator(STRIP).first()).toBeHidden();
+    expect(await page.locator(STATS).evaluate(m => { const r = m.getBoundingClientRect(); return r.left >= 0 && r.top >= 0 && r.right <= innerWidth && r.bottom <= innerHeight; })).toBe(true);
+    // 再換回有韻的文字：字母條回來，統計又有內容
+    await page.evaluate(() => { curSong().sections[0].text = '光\n窗'; lhMapPaint(lhSecEl('sa')); });
+    await expect(page.locator(STATS + ' .rm-letters')).toHaveText('AA');
+    await expect(page.locator(STRIP).first()).toBeVisible();
+    // 全空白的段落沒有字母條，也不會有統計可開
+    await page.evaluate(() => { curSong().sections[0].text = ''; lhMapPaint(lhSecEl('sa')); });
+    await expect(page.locator(STRIP).first()).toBeHidden();
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('統計：關閉與焦點', async ({ browser }) => {
+    const second = song([typed('sa', 'verse', F_AABB), typed('sb', 'chorus', F_ABAB)], {});
+    const other = { ...song([typed('sx', 'verse', F_AABB)]), id: 's2', title: '第二首' };
+    const { context, page, errors } = await bootPage(browser, { wordlist: 'stub', storage: withLetters([second, other]) });
+    const open = () => page.locator(STATS).isVisible();
+    const strip0 = page.locator(STRIP).first();
+    // 鍵盤打開：焦點到第一個句子；Esc 關掉並回字母條
+    await openStats(page, 0, 'key');
+    await expect(statsRows(page).first()).toBeFocused();
+    await page.keyboard.press('Escape');
+    await expect(page.locator(STATS)).toBeHidden();
+    await expect(strip0).toBeFocused();
+    // 空白鍵也能打開
+    await strip0.focus();
+    await page.keyboard.press(' ');
+    await expect(page.locator(STATS)).toBeVisible();
+    await page.keyboard.press('Escape');
+    // 點外面關掉
+    await openStats(page);
+    await page.locator('#songTotal').click();
+    await expect(page.locator(STATS)).toBeHidden();
+    // 「關閉統計」
+    await openStats(page);
+    await page.locator(STATS + ' .section-menu-close').click();
+    await expect(page.locator(STATS)).toBeHidden();
+    await expect(strip0).toBeFocused();
+    // 失焦不會關
+    await openStats(page);
+    await page.locator('#songTotal').focus();
+    await expect(page.locator(STATS)).toBeVisible();
+    // 開韻腳選單、段落選單、選字列：統計收起來
+    await page.evaluate(() => lhMapOpenMenu(false));
+    expect(await open()).toBe(false);
+    await page.evaluate(() => lhMapCloseMenu(false));
+    await openStats(page);
+    await page.evaluate(() => { const ta = document.querySelector('.section-textarea'); ta.focus(); lhMapShowBar({ ta, secId: 'sa', a: 5, b: 7, end: 7, char: '光', rd: null }); });
+    expect(await open()).toBe(false);
+    await page.evaluate(() => lhMapHideBar());
+    await openStats(page);
+    await page.evaluate(() => lhSecOpenMenu(lhSecEl('sa'), 100, 100, false));
+    expect(await open()).toBe(false);
+    await page.evaluate(() => lhSecCloseMenu());
+    // 段落刪除、重畫列表、換歌
+    await openStats(page, 1);
+    await page.evaluate(() => lhSecRemove('sb'));
+    await expect(page.locator(STATS)).toBeHidden();
+    await openStats(page, 0);
+    await page.evaluate(() => switchSong('s2'));
+    await expect(page.locator(STATS)).toBeHidden();
+    // 收左面板
+    await page.evaluate(() => toggleLeftPanel());
+    await page.evaluate(() => toggleLeftPanel());
+    await openStats(page, 0);
+    await page.evaluate(() => toggleLeftPanel());
+    await expect(page.locator(STATS)).toBeHidden();
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('統計：名稱太長時截斷', async ({ browser }) => {
+    const long = '一二三四五六七八九十甲乙丙丁戊己庚辛壬癸子丑寅卯辰巳午未申酉戌亥天地玄黃宇宙洪荒';
+    expect(Array.from(long)).toHaveLength(40);
+    const { context, page, errors } = await bootPage(browser, {
+        wordlist: 'stub', storage: withLetters([song([typed('sa', 'custom', F_AABB, { custom: long, label: long })])]),
+    });
+    await openStats(page);
+    await expect(page.locator(STATS + ' .section-menu-title')).toHaveText('韻腳統計：' + Array.from(long).slice(0, 16).join('') + '…');
+    // 剛好 16 個字不加 …
+    await page.locator(STATS + ' .section-menu-close').click();
+    const sixteen = Array.from(long).slice(0, 16).join('');
+    await page.evaluate(s => { curSong().sections[0].label = s; }, sixteen);
+    await openStats(page);
+    await expect(page.locator(STATS + ' .section-menu-title')).toHaveText('韻腳統計：' + sixteen);
+    expect(errors).toEqual([]);
+    await context.close();
+});

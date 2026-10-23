@@ -363,3 +363,50 @@ test('讀音：清洗——一首歌最多 2000 筆', () => {
     })()`);
     expect(n).toEqual([2001, 2000]);
 });
+
+// ===== 第 10-07 計畫：統計 =====
+const summary = (text, strict = false, skip = true) =>
+    ev(`lhRhymeSummary(lhRhymeAnalyze(${j(text)}, { strict: ${strict}, skipParticles: ${skip} }, null), ${strict})`);
+
+test('統計：寬韻 AABB 四句都押韻', () => {
+    reset();
+    const s = summary(F.AABB);
+    expect(s).toMatchObject({ n: 4, k: 4, p: 100 });
+    expect(s.groups.map(g => [g.letter, g.label, g.count])).toEqual([['A', 'ㄤ', 2], ['B', 'ㄠ', 2]]);
+    expect(s.groups.map(g => g.f)).toEqual([14, 8]);
+});
+
+test('統計：嚴格 ABAB 四個韻母都不同，每個一次', () => {
+    reset();
+    const s = summary(F.ABAB, true);
+    expect(s).toMatchObject({ n: 4, k: 0, p: 0 });
+    expect(s.groups.map(g => [g.letter, g.label, g.count])).toEqual([['A', 'ㄨㄤ', 1], ['B', 'ㄠ', 1], ['C', 'ㄧㄤ', 1], ['D', 'ㄧㄠ', 1]]);
+    expect(summary(F.ABAB).groups.map(g => [g.letter, g.label, g.count])).toEqual([['A', 'ㄤ', 2], ['B', 'ㄠ', 2]]);
+});
+
+test('統計：英文行算一句、空行不算', () => {
+    reset();
+    expect(summary(F.PART)).toMatchObject({ n: 4, k: 2, p: 50 });
+});
+
+test('統計：空韻', () => {
+    reset();
+    const s = summary(F.KONG);
+    expect(s.groups[0]).toMatchObject({ letter: 'A', label: '空韻', f: 16 });
+    expect(s.groups[0].count).toBe(4);
+    // 嚴格看韻母本身，不顯示「空韻」
+    expect(summary(F.KONG, true).groups.map(g => g.label)).toEqual(['ㄕ', 'ㄓ', 'ㄧㄢ', 'ㄗ', 'ㄙ']);
+});
+
+test('統計：沒有任何文字', () => {
+    reset();
+    expect(summary('')).toEqual({ n: 0, k: 0, p: 0, groups: [] });
+    expect(summary('\n  \n')).toEqual({ n: 0, k: 0, p: 0, groups: [] });
+});
+
+test('統計：超過 52 種韻母字母用 * 且不出現 undefined', () => {
+    reset();
+    const s = ev(`lhRhymeSummary({ rows: ${j(Array.from({ length: 60 }, (_, i) => ({ blank: false, key: 'k' + i, rhyme: 'ㄤ', f: 14, letter: i < 52 ? 'x' : '*' })))}, count: new Map(${j(Array.from({ length: 60 }, (_, i) => ['k' + i, 1]))}) }, true)`);
+    expect(s.groups).toHaveLength(60);
+    expect(JSON.stringify(s)).not.toContain('undefined');
+});

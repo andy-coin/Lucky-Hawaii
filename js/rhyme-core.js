@@ -148,6 +148,24 @@ function lhRhymeAnalyze(text, opts, readings) {
     return { rows, letters, count };
 }
 
+// 統計（段落標題列的字母條與 #rhymeStats 共用）：n＝非空行、k＝句尾韻在本段出現至少兩次的行數、p＝k/n 的百分比；
+// groups 依字母首次出現的順序，每個有韻的字母一筆 { letter, label, count, f }：寬韻 label 是家族名稱（沒有家族＝空韻），嚴格是韻母本身
+function lhRhymeSummary(result, strict) {
+    const rows = result.rows.filter(r => !r.blank);
+    const groups = [], seen = new Set();
+    let k = 0;
+    for (const r of rows) {
+        if (r.key === null) continue;
+        const c = result.count.get(r.key);
+        if (c >= 2) k++;
+        if (seen.has(r.key)) continue;
+        seen.add(r.key);
+        const fam = RHYME_TO_FAMILY[r.rhyme];
+        groups.push({ letter: r.letter, label: strict ? (r.rhyme || '空韻') : (fam === undefined ? '空韻' : RHYME_FAMILIES[fam].label), count: c, f: r.f });
+    }
+    return { n: rows.length, k, p: rows.length ? Math.round(k / rows.length * 100) : 0, groups };
+}
+
 // 匯入／載入時整理手動讀音（T-10-12）：鍵是 1–4 個漢字（擋掉 __proto__、constructor）、值是注音加選用聲調，
 // 且必須是鍵的最後一個字的合法字典讀音；最多 2000 筆。回傳全新的普通物件，沒有任何一筆留下就回 null。
 // 字典查不到這個字（還沒載入或冷僻字）時無法判斷合法，先保留——套用時 lhRhymeManual 仍會再驗一次，不會套錯
