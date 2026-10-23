@@ -219,7 +219,8 @@ let _pendingExternal = false;
 function isEditingField() {
     if (!document.hasFocus()) return false;
     const ae = document.activeElement;
-    return !!(ae && ae.closest && ae.closest('#lyricsSections, #contextDescription, .song-name-input'));
+    // 只有文字欄位算：焦點停在 ⋮⋮ 把手、名稱鈕這類按鈕上時，別的分頁的更新要馬上套用（手勢會先被收掉），不能卡到失焦
+    return !!(ae && ae.closest && ae.matches('textarea, input') && ae.closest('#lyricsSections, #contextDescription, .song-name-input'));
 }
 
 // 側邊清單的順序：新的在前；建立時間相同就依 id，順序才固定

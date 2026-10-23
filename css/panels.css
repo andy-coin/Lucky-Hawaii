@@ -1138,6 +1138,8 @@
             flex-direction: column;
             transition: flex 0.25s ease;
         }
+        /* 段落多到放不下時列表自己捲，不把每段壓成只剩標題列（和 ≤ 900 的 9rem 一致；有存高度的段落由下面 data-h 的規則放行） */
+        .lyrics-section:not(.collapsed) { min-height: 9rem; }
         .lyrics-section-header {
             display: flex;
             align-items: center;
