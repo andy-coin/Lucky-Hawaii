@@ -72,7 +72,7 @@ function lhHistSyncButtons() {
 }
 
 // 回到 step 的狀態；from／to 是要搬去的另一邊（redo 或 undo 的堆疊）
-function _lhHistMove(from, to, msg) {
+function _lhHistMove(from, to, msg, redo) {
     if (_lhComposing) return false;   // 組字中不動輸入框（寫 .value 會砍掉組字，旗標也會卡在 true）
     const song = curSong();
     const h = song && lhHistEnsure(song);
@@ -93,7 +93,7 @@ function _lhHistMove(from, to, msg) {
     flushSongs();
     h.present = _snap(song);
     h.caret = step.caret;
-    _lhHistShow(before, song.sections, h.caret);
+    _lhHistShow(before, song.sections, redo ? h.caret : null);   // 復原的游標看這次的差異；記下的游標是上一步結束的位置，只有重做用得上
     lhHistSyncButtons();
     lhAnnounce(msg);
     return true;
@@ -111,8 +111,11 @@ function _lhHistShow(before, after, caret) {
         const old = before.find(x => x.id === s.id).text;
         let pos = 0;
         if (caret && caret.id === s.id) pos = Math.min(caret.pos, s.text.length);
-        else {   // 沒記到游標：放在改動開始的地方（不切開代理對）
-            while (pos < old.length && pos < s.text.length && old[pos] === s.text[pos]) pos++;
+        else {   // 沒記到游標（復原）：放在還原那一塊的尾端；被復原的是插入就是改動開始的地方（不切開代理對）
+            let p = 0, q = 0;
+            while (p < old.length && p < s.text.length && old[p] === s.text[p]) p++;
+            while (q < old.length - p && q < s.text.length - p && old[old.length - 1 - q] === s.text[s.text.length - 1 - q]) q++;
+            pos = s.text.length - q;
             if (pos && pos < s.text.length && /[\uD800-\uDBFF]/.test(s.text[pos - 1])) pos--;
         }
         area.value = s.text;
@@ -136,8 +139,8 @@ function _lhHistShow(before, after, caret) {
     if (hit) lhSecFlash(hit.id);
 }
 
-const lhHistUndo = () => _lhHistMove(h => h.past, h => h.future, '已復原');
-const lhHistRedo = () => _lhHistMove(h => h.future, h => h.past, '已重做');
+const lhHistUndo = () => _lhHistMove(h => h.past, h => h.future, '已復原', false);
+const lhHistRedo = () => _lhHistMove(h => h.future, h => h.past, '已重做', true);
 
 // 快捷鍵與瀏覽器自己的復原事件只在歌詞編輯區生效，組字中一律不攔；搜尋框、情境、標籤、歌名維持瀏覽器原生復原
 const _LH_UNDO_SCOPE = '#lyricsSections, .lyrics-tools';   // 段落設定選單裡的自訂名稱框用原生復原，不動歌詞

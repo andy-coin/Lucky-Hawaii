@@ -139,12 +139,13 @@ test('復原：只換一格', async ({ browser }) => {
     await page.keyboard.press('End');
     await page.keyboard.type('ab');
     await page.clock.runFor(1100);
-    await page.keyboard.press('Home');
+    await ta(page, 0).evaluate(t => t.setSelectionRange(0, 0));   // 不用 Home 鍵：Mac 上 Home 是捲動不是移游標
     await page.keyboard.type('Z');
+    await expect(ta(page, 0)).toHaveValue('Z一ab');
     await page.locator('#undoBtn').click();
     await expect(ta(page, 0)).toHaveValue('一ab');
     expect(await page.evaluate(() => window.__ta === document.querySelectorAll('.section-textarea')[0]), '同一個節點').toBe(true);
-    expect(await ta(page, 0).evaluate(t => t.selectionStart), '游標在上一步結束的位置').toBe(3);
+    expect(await ta(page, 0).evaluate(t => t.selectionStart), '游標在這一步開始的位置（不是上一步結束的位置）').toBe(0);
     await scrollRest(page.locator('#lyricsSections'));
     // 結構步驟：整個重畫，捲動位置不變，第一個變動的段落閃一下
     await page.evaluate(() => switchSong('s2'));
