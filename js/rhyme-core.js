@@ -95,17 +95,34 @@ function lhRhymeReading(t, readings) {
     return infos[0].reading;
 }
 
-// 分析一段歌詞：每個實體行一列。opts = { strict, skipParticles }
-// 回傳 { rows, letters, count }：letters 是字母字串（空行不佔位、沒有目標字的行是 '-'），count 是 鍵 → 行數
+// 句中押韻（E2）：句尾字之前、讀音（字典第一讀音）的鍵與本段任何一個句尾相同的漢字，由左到右最多 3 個。
+// 不含句尾字本身、標點、字典查不到的字；語助詞開著時語助詞也不算。回傳 [{ i, f }]，i 是以字元算的位置，f 是顏色編號
+function lhRhymeInner(line, t, tailKeys, strict, skip) {
+    const out = [];
+    const cs = Array.from(line);
+    for (let i = 0; i < t.i && out.length < 3; i++) {
+        const c = cs[i];
+        if (!_LH_RHYME_HAN_RE.test(c) || !charInfo[c] || (skip && LH_RHYME_PARTICLES.has(c))) continue;
+        const infos = getCharAllReadings(c);
+        if (!infos.length) continue;
+        const rhyme = getZhuyinRhyme(infos[0].reading);
+        if (tailKeys.has(lhRhymeKey(rhyme, strict))) out.push({ i, f: lhRhymeColor(rhyme) });
+    }
+    return out;
+}
+
+// 分析一段歌詞：每個實體行一列。opts = { strict, skipParticles, inner }
+// 回傳 { rows, letters, count }：letters 是字母字串（空行不佔位、沒有目標字的行是 '-'），count 是 鍵 → 行數；
+// 每列另有 inner（句中押韻的字，沒開就是空陣列）
 function lhRhymeAnalyze(text, opts, readings) {
     const strict = !!(opts && opts.strict), skip = !opts || opts.skipParticles !== false;
     const rows = text.replace(/\r\n?/g, '\n').split('\n').map(line => {
-        if (!line.trim()) return { line, blank: true, t: null, reading: null, rhyme: null, key: null, f: null, letter: '', solo: false };
+        if (!line.trim()) return { line, blank: true, t: null, reading: null, rhyme: null, key: null, f: null, letter: '', solo: false, inner: [] };
         const t = lhRhymeTarget(line, skip);
         const reading = t && lhRhymeReading(t, readings);
-        if (!t || !reading) return { line, blank: false, t: null, reading: null, rhyme: null, key: null, f: null, letter: '-', solo: false };
+        if (!t || !reading) return { line, blank: false, t: null, reading: null, rhyme: null, key: null, f: null, letter: '-', solo: false, inner: [] };
         const rhyme = getZhuyinRhyme(reading);
-        return { line, blank: false, t, reading, rhyme, key: lhRhymeKey(rhyme, strict), f: lhRhymeColor(rhyme), letter: '', solo: false };
+        return { line, blank: false, t, reading, rhyme, key: lhRhymeKey(rhyme, strict), f: lhRhymeColor(rhyme), letter: '', solo: false, inner: [] };
     });
     const letterOf = new Map(), count = new Map();
     let letters = '';
@@ -118,5 +135,9 @@ function lhRhymeAnalyze(text, opts, readings) {
         count.set(r.key, (count.get(r.key) || 0) + 1);
     }
     for (const r of rows) if (r.key !== null) r.solo = count.get(r.key) === 1;   // 孤句（B3）
+    if (opts && opts.inner) {
+        const tailKeys = new Set(count.keys());
+        for (const r of rows) if (r.t) r.inner = lhRhymeInner(r.line, r.t, tailKeys, strict, skip);
+    }
     return { rows, letters, count };
 }

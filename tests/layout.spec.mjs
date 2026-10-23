@@ -1630,6 +1630,16 @@ const TOUCH_STORAGE = {
     haiku_savedwords: JSON.stringify(['平安', '晚安']),
 };
 // 每個畫面：名稱、一定要掃到的控制項（防止掃了個寂寞）、開啟方式
+// 韻腳選單（Phase 10）：開關、判定 radio、色票對照鈕、關閉鈕都要夠大（「韻腳 ▾」本身在「歌詞開著」掃；手機上選單會蓋住它）；色票格不能點，所以不掃
+const RHYME_MENU_MUST = ['button.rm-switch', '#rhymeMenu button[role=radio]', 'button.rm-legend-toggle', '#rhymeMenu button.section-menu-close'];
+const openRhymeMenu = async (page, d) => {
+    await toggleSide(page, d, 'lyrics');
+    await pointerOf(d)(page.locator('#rhymeMenuBtn'));
+    await expect(page.locator('#rhymeMenu')).toBeVisible();
+    await pointerOf(d)(page.locator('#rhymeMenu .rm-legend-toggle'));   // 打開色票對照
+    await expect(page.locator('#rhymeLegend')).toBeVisible();
+    await waitStill(page);
+};
 const TOUCH_STATES = [
     ['閒置', ['button#MzoomIn', 'button#themeToggle', 'input#searchInput', 'button.mode-button', 'button.mtab-btn', 'div#settingsTrigger'], async () => {}],
     ['搜尋後', ['div.char-card', 'button.poly-chip', 'span.mark-badge', 'button.m-batch-btn, button.batch-btn'], async page => {
@@ -1644,6 +1654,7 @@ const TOUCH_STATES = [
         await page.locator('#sectionMenu .type-row[data-type="custom"]').click();   // 自訂名稱的輸入框也要出現
         await expect(page.locator('#sectionMenu input.section-name-input')).toBeVisible();
     }],
+    ['韻腳選單開著', RHYME_MENU_MUST, openRhymeMenu],
     ['AI 開著', ['select#modelSelect', 'button.rhyme-mode-btn', 'button.filter-chip', 'button#generateBtn', 'div.ai-word-card', 'span.chip-remove', 'div.saved-pool-title', 'button.reset-pool-btn', 'button.hint-clear'], async (page, d) => {
         await page.fill('#searchInput', 'ㄢ');
         await settle(page);
@@ -1725,6 +1736,19 @@ test('觸控：相鄰按鈕的點擊範圍重疊不超過 4px', async ({ browser
     const bad = [];
     for (const r of await scanAllTouch(browser)) for (const o of r.overlaps) bad.push(`${r.label}：${o.a} 與 ${o.b} 重疊 ${o.amount}px`);
     expect([...new Set(bad)], '相鄰控制項的點擊範圍重疊超過 4px').toEqual([]);
+});
+
+test('觸控：橫放平板 1180×820 的韻腳選單每個控制項 ≥ 44×44', async ({ browser }) => {
+    const device = DEVICES.tabletLandscape;
+    const { context, page } = await bootTouch(browser, device);
+    try {
+        await waitStill(page);
+        await openRhymeMenu(page, device);
+        const r = await auditTouchTargets(page, { mustSee: RHYME_MENU_MUST });
+        expect(r.missing, `這些控制項沒被掃到（掃到 ${[...new Set(r.seen)]}）`).toEqual([]);
+        expect(r.failures, '這些控制項點擊範圍不到 44×44').toEqual([]);
+        expect(r.overlaps, '相鄰控制項重疊超過 4px').toEqual([]);
+    } finally { await context.close(); }
 });
 
 test('觸控：橫放平板與觸控電腦（寬度超過 900）回報、存檔鈕也夠大', async ({ browser }) => {

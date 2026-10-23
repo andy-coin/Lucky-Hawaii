@@ -253,3 +253,80 @@ test('對比：句中底線', () => {
         });
     }
 });
+
+// ===== 10-04：句中押韻 =====
+const inner = (text, { strict = false, skip = true, on = true } = {}) =>
+    ev(`lhRhymeAnalyze(${j(text)}, { strict: ${strict}, skipParticles: ${skip}, inner: ${on} }, null).rows.map(r => r.inner)`);
+const INNER = '我想望向遠方的光\n他在窗邊唱\n你看見天亮';
+
+test('句中：最多三個、由左到右、不含句尾字', () => {
+    reset();
+    const rows = inner(INNER);
+    // 第一行 想、望、向、方 都和句尾同家族，只取左邊三個（遠、的不押韻）
+    expect(rows[0]).toEqual([{ i: 1, f: 14 }, { i: 2, f: 14 }, { i: 3, f: 14 }]);
+    expect(rows[1]).toEqual([{ i: 2, f: 14 }]);   // 窗；句尾 唱 本身不算
+    expect(rows[2]).toEqual([]);                  // 看見天 都不押
+    for (const [line, r] of INNER.split('\n').map((l, n) => [l, rows[n]])) {
+        const tail = Array.from(line).length - 1;
+        expect(r.length).toBeLessThanOrEqual(3);
+        expect(r.every(m => m.i < tail)).toBe(true);
+    }
+});
+
+test('句中：關著時每一列都沒有標記', () => {
+    reset();
+    expect(inner(INNER, { on: false }).flat()).toEqual([]);
+    expect(ev(`lhRhymeAnalyze(${j(INNER)}, {}, null).rows.every(r => Array.isArray(r.inner) && !r.inner.length)`)).toBe(true);
+});
+
+test('句中：標點、空行、沒有句尾字的行都沒有標記', () => {
+    reset();
+    // 「，」「！」不是漢字；英文行沒有句尾字；空行沒有
+    const rows = inner('你想，我望！天亮\n\nOh baby\n走過窗光');
+    expect(rows[0]).toEqual([{ i: 1, f: 14 }, { i: 4, f: 14 }]);   // 想、望（「，」在位置 2，跳過）
+    expect(rows[1]).toEqual([]);
+    expect(rows[2]).toEqual([]);
+    expect(rows[3].map(m => m.i)).toEqual([2]);   // 窗；光是句尾
+});
+
+test('句中：忽略語助詞開著時語助詞不算，關掉就算', () => {
+    reset();
+    const t = '我的歌\n你的河';
+    expect(inner(t, { skip: true })).toEqual([[], []]);
+    expect(inner(t, { skip: false })).toEqual([[{ i: 1, f: 5 }], [{ i: 1, f: 5 }]]);
+});
+
+test('句中：嚴格要韻母全等，寬韻看家族', () => {
+    reset();
+    const t = '我愛你\n他很忙\n心中的光芒';
+    // 光（ㄨㄤ）和句尾 忙、芒（ㄤ）寬韻同家族、嚴格不同
+    expect(inner(t)[2]).toEqual([{ i: 3, f: 14 }]);
+    expect(inner(t, { strict: true })[2]).toEqual([]);
+});
+
+test('句中：寬韻與嚴格的 F-ABAB 孤句與顏色', () => {
+    reset();
+    // 顏色一律依家族，不因判定模式改變（B2）；孤句只看判定
+    const f = strict => ev(`lhRhymeAnalyze(${j(F.ABAB)}, { strict: ${strict} }, null).rows.map(r => [r.f, r.solo])`);
+    const wide = f(false), strictRows = f(true);
+    expect(wide.map(r => r[0])).toEqual(strictRows.map(r => r[0]));
+    expect(wide.some(r => r[1])).toBe(false);
+    expect(strictRows.every(r => r[1])).toBe(true);
+});
+
+test('句中：語助詞開關決定句尾字（愛你到天亮啊）', () => {
+    reset();
+    expect(target('愛你到天亮啊', true).char).toBe('亮');
+    expect(target('愛你到天亮啊', false).char).toBe('啊');
+});
+
+test('設定：整理成五個真布林', () => {
+    const norm = v => ev(`lhRhymeNormalizeSettings(${j(v)})`);
+    const D = { end: true, letters: false, inner: false, strict: false, skipParticles: true };
+    expect(norm(null)).toEqual(D);
+    expect(norm([1, 2])).toEqual(D);
+    expect(norm('x')).toEqual(D);
+    expect(norm({ end: 'false', inner: 1, strict: 'true', evil: true })).toEqual(D);
+    expect(norm({ end: false, strict: true, evil: 1 })).toEqual({ ...D, end: false, strict: true });
+    expect(Object.keys(norm({ evil: true })).sort()).toEqual(Object.keys(D).sort());
+});

@@ -67,18 +67,29 @@ function lhMapPaint(secEl) {
     if (!(_lhMapSet.end || _lhMapSet.inner || _lhMapSet.letters) || text.length > LH_WD_BIG || text.split('\n').length > LH_MAP_MAX_LINES) {
         mirror.replaceChildren();   // 關掉或太大：不分析，鏡像層留空
     } else {
-        const res = lhRhymeAnalyze(text, { strict: _lhMapSet.strict, skipParticles: _lhMapSet.skipParticles }, song.readings);
+        const res = lhRhymeAnalyze(text, { strict: _lhMapSet.strict, skipParticles: _lhMapSet.skipParticles, inner: _lhMapSet.inner }, song.readings);
         const frag = document.createDocumentFragment();
         res.rows.forEach((r, n) => {
-            if (r.t && _lhMapSet.end) {
-                const cs = Array.from(r.line);
-                const hl = document.createElement('span');
-                hl.className = r.solo ? 'rm-hl rm-solo' : 'rm-hl';
-                hl.dataset.f = String(r.f);
-                hl.textContent = cs[r.t.i];
-                frag.append(cs.slice(0, r.t.i).join(''), hl, cs.slice(r.t.i + 1).join(''));
+            // 這一行要特別標示的字：句尾字（色塊，句尾上色開著才有）與句中押韻的字（底線）
+            const marks = new Map();
+            if (r.t && _lhMapSet.end) marks.set(r.t.i, { cls: r.solo ? 'rm-hl rm-solo' : 'rm-hl', f: r.f });
+            for (const m of r.inner) marks.set(m.i, { cls: 'rm-inner', f: m.f });
+            if (!marks.size) frag.append(r.line);
+            else {
+                let buf = '';
+                Array.from(r.line).forEach((c, i) => {
+                    const mk = marks.get(i);
+                    if (!mk) { buf += c; return; }
+                    if (buf) { frag.append(buf); buf = ''; }
+                    const sp = document.createElement('span');
+                    sp.className = mk.cls;
+                    sp.dataset.f = String(mk.f);
+                    sp.textContent = c;
+                    frag.append(sp);
+                });
+                if (buf) frag.append(buf);
                 on = true;
-            } else frag.append(r.line);
+            }
             if (n < res.rows.length - 1) frag.append('\n');
         });
         frag.append('​');   // 結尾零寬字元：文字以換行結尾時，和輸入框一樣多出一個空行
@@ -193,9 +204,13 @@ document.getElementById('lyricsSections').addEventListener('input', e => {
 // 選單只建一次（掛在 body，沿用 .word-ctx-menu.section-menu 的外觀）；每個開關改了就馬上套用、寫進 lh:map，選單不關
 let _lhMapMenu = null;
 let _lhMapMenuOn = false;
-const LH_MAP_SWITCHES = [   // 選單裡的開關，依畫面順序；之後的計畫會加「段落結構字母」
-    { key: 'end', label: '句尾上色' },
-];
+// 文案照 UI-SPEC 第 7 節逐字；「段落結構字母」那一列之後的計畫才加
+const LH_MAP_HINT_INNER = '句子裡面跟句尾押同韻的字，加底線（每行最多 3 個）';
+const LH_MAP_MODE_HELP = {
+    wide: '寬韻：同一個韻族都算押韻（例：ㄤ、ㄧㄤ、ㄨㄤ）',
+    strict: '嚴格：韻母要完全一樣才算押韻（例：ㄤ 和 ㄧㄤ 不同）',
+};
+const LH_MAP_PARTICLE_CAP = '略過：' + Array.from(LH_RHYME_PARTICLES).join('、');   // 順序與 UI-SPEC 一致：啊、呀、哪…
 
 // 開關一列：文字＋右邊的「開／關」藥丸（狀態用字不用色，D-14）
 function _lhMapSwitchRow(key, label) {
@@ -212,13 +227,66 @@ function lhMapMenuBuild() {
     m.id = 'rhymeMenu';
     m.setAttribute('role', 'dialog');
     m.setAttribute('aria-label', '韻腳地圖設定');
-    const show = _lhMkBlock('顯示', ...LH_MAP_SWITCHES.map(d => _lhMapSwitchRow(d.key, d.label)));
+    // 句中押韻的說明用 aria-describedby 接到開關上
+    const innerSw = _lhMapSwitchRow('inner', '句中押韻');
+    const innerHint = _lhMk('span', 'section-menu-cap', LH_MAP_HINT_INNER);
+    innerHint.id = 'rhymeHintInner';
+    innerSw.setAttribute('aria-describedby', innerHint.id);
+    const show = _lhMkBlock('顯示', _lhMapSwitchRow('end', '句尾上色'), innerSw, innerHint);
+    // 判定：寬韻／嚴格兩個 radio（方向鍵移焦點，Enter／空白才選），下面只顯示目前模式的說明
+    const modes = _lhMk('div', 'type-grid');
+    modes.setAttribute('role', 'radiogroup');
+    modes.setAttribute('aria-label', '押韻判定');
+    for (const [id, name] of [['wide', '寬韻'], ['strict', '嚴格']]) {
+        const r = _lhMkBtn('type-row', name);
+        r.setAttribute('role', 'radio');
+        r.dataset.m = id;
+        modes.appendChild(r);
+    }
+    const help = _lhMk('span', 'section-menu-cap rm-mode-help');
+    const skipSw = _lhMapSwitchRow('skipParticles', '忽略句尾語助詞');
+    const skipCap = _lhMk('span', 'section-menu-cap', LH_MAP_PARTICLE_CAP);
+    skipCap.id = 'rhymeHintSkip';
+    skipSw.setAttribute('aria-describedby', skipCap.id);
+    const judge = _lhMkBlock('判定', modes, help, skipSw, skipCap);
+    // 色票對照：預設收著，每次打開選單都收回去；17 格都是純文字說明，不能點
+    const legend = _lhMk('div', 'rm-legend');
+    legend.id = 'rhymeLegend';
+    legend.hidden = true;
+    for (let n = 0; n <= LH_RHYME_NONE; n++) {
+        const cell = _lhMk('div', 'rm-cell');
+        const swatch = _lhMk('span', 'rm-sw');
+        swatch.dataset.f = String(n);
+        cell.append(swatch, _lhMk('span', 'rm-cell-label', n === LH_RHYME_NONE ? '空韻' : RHYME_FAMILIES[n].label));
+        legend.appendChild(cell);
+    }
+    const legendBtn = _lhMkBtn('section-menu-btn rm-legend-toggle', '色票對照 ▾');
+    legendBtn.setAttribute('aria-expanded', 'false');
+    legendBtn.setAttribute('aria-controls', legend.id);
     const close = _lhMkBtn('section-menu-btn section-menu-close', '關閉韻腳設定');
-    m.append(_lhMk('div', 'section-menu-title', '韻腳地圖'), show, close);
+    m.append(_lhMk('div', 'section-menu-title', '韻腳地圖'), show, judge, _lhMkBlock('色票對照', legendBtn, legend), close);
     document.body.appendChild(m);
     m.addEventListener('click', e => {
         const sw = e.target.closest && e.target.closest('.rm-switch');
         if (sw) lhMapSetSetting(sw.dataset.k, sw.getAttribute('aria-checked') !== 'true');
+        const r = e.target.closest && e.target.closest('.type-row');
+        if (r) lhMapSetSetting('strict', r.dataset.m === 'strict');
+    });
+    legendBtn.addEventListener('click', () => {
+        legend.hidden = !legend.hidden;
+        legendBtn.setAttribute('aria-expanded', String(!legend.hidden));
+        _lhMapPlaceMenu();   // 選單變高了：重新夾進可見範圍，關閉鈕才不會掉到畫面外
+    });
+    modes.addEventListener('keydown', e => {
+        const k = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }[e.key];
+        const rows = [...modes.children];
+        const i = rows.indexOf(document.activeElement);
+        if (!k || i < 0 || e.isComposing || e.keyCode === 229) return;
+        e.preventDefault();
+        rows.forEach(r => r.tabIndex = -1);
+        const next = rows[(i + k + rows.length) % rows.length];
+        next.tabIndex = 0;
+        next.focus({ preventScroll: true });
     });
     close.addEventListener('click', () => lhMapCloseMenu(true));
     // Tab 在選單裡頭尾相接
@@ -242,6 +310,13 @@ function lhMapMenuSync() {
         b.setAttribute('aria-checked', String(on));
         b.querySelector('.rm-pill').textContent = on ? '開' : '關';
     });
+    const mode = _lhMapSet.strict ? 'strict' : 'wide';
+    _lhMapMenu.querySelectorAll('.type-row').forEach(r => {
+        const on = r.dataset.m === mode;
+        r.setAttribute('aria-checked', String(on));
+        r.tabIndex = on ? 0 : -1;
+    });
+    _lhMapMenu.querySelector('.rm-mode-help').textContent = LH_MAP_MODE_HELP[mode];
 }
 
 // 一個開關改了：存檔、全部段落重畫、選單文字跟著變（只認五個已知的鍵與真布林）
@@ -271,6 +346,8 @@ function lhMapOpenMenu(byKeyboard) {
     if (typeof closeSongListOverlay === 'function') closeSongListOverlay();
     lhMapCloseAll();
     lhMapMenuSync();
+    m.querySelector('#rhymeLegend').hidden = true;   // 色票對照每次打開都收著
+    m.querySelector('.rm-legend-toggle').setAttribute('aria-expanded', 'false');
     _lhMapMenuOn = true;
     _lhMapPlaceMenu();
     document.getElementById('rhymeMenuBtn').setAttribute('aria-expanded', 'true');

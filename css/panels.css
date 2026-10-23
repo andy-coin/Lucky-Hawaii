@@ -349,6 +349,35 @@
             font-weight: 700;
         }
         .rm-switch[aria-checked="true"] .rm-pill { background: var(--action-bg); color: var(--action-text); border-color: var(--action-bg); }
+        /* 句中押韻：只畫底線，字本身仍是透明（D-07）；底線色＝家族色混 30% 文字色，對卡片底 ≥ 3:1 */
+        .rm-inner {
+            text-decoration: underline;
+            text-decoration-thickness: 0.125rem;
+            text-underline-offset: 0.2em;
+            text-decoration-color: var(--rm-c);
+        }
+        @supports (background: color-mix(in srgb, red 50%, blue)) {
+            .rm-inner { text-decoration-color: color-mix(in srgb, var(--text-primary) 30%, var(--rm-c)); }
+        }
+        /* 色票對照：17 個不能點的小格（色塊＋家族名稱） */
+        .rm-legend {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(4.5rem, 1fr));
+            gap: var(--sp-1);
+        }
+        .rm-cell { display: flex; align-items: center; gap: var(--sp-1); }
+        .rm-cell-label { font-size: 0.75rem; font-weight: 400; color: var(--text-primary); }
+        .rm-sw {
+            flex: none;
+            width: 1rem;
+            height: 1rem;
+            border: 1px solid var(--border);
+            border-radius: 0.25rem;
+            background: var(--rm-c);
+        }
+        @supports (background: color-mix(in srgb, red 50%, blue)) {
+            .rm-sw { background: color-mix(in srgb, var(--rm-c) 34%, var(--card-bg)); }
+        }
         @media (hover: hover) and (pointer: fine) {
             .rhyme-menu-btn:hover { background: var(--container-bg); }
             .rm-switch:hover { background: var(--container-bg); }

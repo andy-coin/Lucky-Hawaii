@@ -495,8 +495,133 @@ test('開關：預設只開句尾上色', async ({ browser }) => {
     expect(await lsGetMap(page), '沒碰過就不寫').toBeNull();
     await page.locator('#rhymeMenuBtn').click();
     await expect(sw(page, '句尾上色')).toHaveText(/開$/);
-    expect(await page.locator('#rhymeMenu .rm-switch').evaluateAll(els => els.filter(e => e.getAttribute('aria-checked') === 'true').map(e => e.dataset.k)), '預設開著的').toEqual(['end']);
+    expect(await page.locator('#rhymeMenu .rm-switch').evaluateAll(els => els.filter(e => e.getAttribute('aria-checked') === 'true').map(e => e.dataset.k)), '預設開著的').toEqual(['end', 'skipParticles']);
     expect(await lsGetMap(page), '只是打開選單不寫').toBeNull();
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+const F_ABAB = '我望著遠方的光\n走過熟悉的街道\n你笑著說天亮\n不怕前方的路遙';
+const radio = (page, name) => page.locator('#rhymeMenu [role=radio]', { hasText: name });
+// 每個色塊／底線所在的行號（數鏡像層裡出現過幾個換行字元）
+const lineOf = (page, sel) => page.locator('.rhyme-mirror').first().evaluate((m, q) => {
+    const out = []; let line = 0;
+    for (const n of m.childNodes) {
+        if (n.nodeType === 3) line += (n.textContent.match(/\n/g) || []).length;
+        else if (n.matches(q)) out.push([n.textContent, line]);
+    }
+    return out;
+}, sel);
+
+test('開關：嚴格與寬韻', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, { wordlist: 'stub', storage: v2Storage([song([typed('sa', 'verse', F_ABAB)])]) });
+    const solo = () => page.locator('.rhyme-mirror .rm-hl.rm-solo').count();
+    const fs = () => bands(page).then(b => b.map(x => x[1]));
+    const wideF = await fs();
+    expect(await solo(), '寬韻：光、亮同家族，道、遙同家族，沒有孤句').toBe(0);
+    await page.locator('#rhymeMenuBtn').click();
+    await expect(radio(page, '寬韻')).toHaveAttribute('aria-checked', 'true');
+    await expect(radio(page, '嚴格')).toHaveAttribute('aria-checked', 'false');
+    await expect(page.locator('#rhymeMenu [role=radiogroup]')).toHaveAttribute('aria-label', '押韻判定');
+    const help = page.locator('#rhymeMenu .rm-mode-help');
+    await expect(help).toHaveText('寬韻：同一個韻族都算押韻（例：ㄤ、ㄧㄤ、ㄨㄤ）');
+    await radio(page, '嚴格').click();
+    await expect(radio(page, '嚴格')).toHaveAttribute('aria-checked', 'true');
+    await expect(radio(page, '寬韻')).toHaveAttribute('aria-checked', 'false');
+    await expect(help).toHaveText('嚴格：韻母要完全一樣才算押韻（例：ㄤ 和 ㄧㄤ 不同）');
+    await expect(page.locator('#rhymeMenu')).toBeVisible();
+    await expect.poll(solo, '嚴格：光ㄨㄤ、亮ㄧㄤ各自不同，四句都是孤句').toBe(4);
+    expect(await fs(), '顏色一律照家族，不因判定改變').toEqual(wideF);
+    expect(JSON.parse(await lsGetMap(page)).strict).toBe(true);
+    await page.reload();
+    await page.evaluate(() => window.__lhMapReady);
+    await expect.poll(solo).toBe(4);
+    await page.locator('#rhymeMenuBtn').click();
+    await expect(radio(page, '嚴格')).toHaveAttribute('aria-checked', 'true');
+    // 方向鍵只移焦點，Enter 才選
+    await radio(page, '嚴格').focus();
+    await page.keyboard.press('ArrowLeft');
+    await expect(radio(page, '寬韻')).toBeFocused();
+    await expect(radio(page, '嚴格')).toHaveAttribute('aria-checked', 'true');
+    await page.keyboard.press('Enter');
+    await expect(radio(page, '寬韻')).toHaveAttribute('aria-checked', 'true');
+    await expect.poll(solo).toBe(0);
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('開關：忽略句尾語助詞', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, { wordlist: 'stub', storage: v2Storage([song([typed('sa', 'verse', '愛你到天亮啊')])]) });
+    expect((await bands(page)).map(b => b[0])).toEqual(['亮']);
+    await page.locator('#rhymeMenuBtn').click();
+    const s = sw(page, '忽略句尾語助詞');
+    await expect(s).toHaveText(/開$/);
+    await expect(page.locator('#rhymeMenu')).toContainText('略過：啊、呀、哪、呢、喔、哦、噢、吧、啦、嘛、耶、欸、囉、唷、了、的、嗎');
+    await s.click();
+    await expect(s).toHaveText(/關$/);
+    await expect.poll(async () => (await bands(page)).map(b => b[0])).toEqual(['啊']);
+    expect(JSON.parse(await lsGetMap(page)).skipParticles).toBe(false);
+    await s.click();
+    await expect.poll(async () => (await bands(page)).map(b => b[0])).toEqual(['亮']);
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('句中：預設關、打開後最多三個底線', async ({ browser }) => {
+    const text = '我想望向遠方的光\n他在窗邊唱\n你看見天亮';
+    const { context, page, errors } = await bootPage(browser, { wordlist: 'stub', storage: v2Storage([song([typed('sa', 'verse', text)])]) });
+    await expect(page.locator('.rm-inner')).toHaveCount(0);
+    await page.locator('#rhymeMenuBtn').click();
+    const s = sw(page, '句中押韻');
+    await expect(s).toHaveText(/關$/);
+    await expect(page.locator('#rhymeMenu')).toContainText('句子裡面跟句尾押同韻的字，加底線（每行最多 3 個）');
+    expect(await s.getAttribute('aria-describedby')).toBeTruthy();
+    await s.click();
+    await expect(s).toHaveText(/開$/);
+    await expect(page.locator('.rm-inner')).toHaveCount(4);
+    // 第一行最多 3 個（想望向，方也押韻但排第四）；第二行窗；第三行沒有；句尾字不在裡面
+    expect(await lineOf(page, '.rm-inner')).toEqual([['想', 0], ['望', 0], ['向', 0], ['窗', 1]]);
+    expect(await page.locator('.rm-inner').evaluateAll(els => els.map(e => e.dataset.f))).toEqual(['14', '14', '14', '14']);
+    expect(await lineOf(page, '.rm-hl')).toEqual([['光', 0], ['唱', 1], ['亮', 2]]);
+    expect(await page.locator('.rm-inner').first().evaluate(e => getComputedStyle(e).textDecorationLine)).toBe('underline');
+    // 句尾上色關掉：底線還在，色塊沒了
+    await sw(page, '句尾上色').click();
+    await expect(page.locator('.rm-hl')).toHaveCount(0);
+    await expect(page.locator('.rm-inner')).toHaveCount(4);
+    await expect(page.locator('.lyrics-section').first()).toHaveClass(/\brm-on\b/);
+    // 兩個都關：鏡像層全空
+    await s.click();
+    await expect(page.locator('.rm-inner')).toHaveCount(0);
+    expect(await page.locator('.rhyme-mirror').first().evaluate(m => m.childNodes.length), '兩個都關：不分析、鏡像層是空的').toBe(0);
+    await expect(page.locator('.lyrics-section').first()).not.toHaveClass(/\brm-on\b/);
+    expect(JSON.parse(await lsGetMap(page))).toEqual({ end: false, letters: false, inner: false, strict: false, skipParticles: true });
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('開關：色票對照', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, { wordlist: 'stub', storage: v2Storage([song([typed('sa', 'verse', F_AABB)])]) });
+    await page.locator('#rhymeMenuBtn').click();
+    const toggle = page.locator('#rhymeMenu .rm-legend-toggle');
+    const legend = page.locator('#rhymeLegend');
+    await expect(toggle).toHaveText('色票對照 ▾');
+    await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    await expect(toggle).toHaveAttribute('aria-controls', 'rhymeLegend');
+    await expect(legend).toBeHidden();
+    await toggle.click();
+    await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    await expect(legend).toBeVisible();
+    const cells = await legend.locator('.rm-cell').evaluateAll(els => els.map(e => [e.querySelector('.rm-cell-label').textContent, e.querySelector('.rm-sw').dataset.f]));
+    expect(cells).toHaveLength(17);
+    expect(cells.map(c => c[0])).toEqual(['ㄧ', 'ㄨ', 'ㄩ', 'ㄚ', 'ㄛ', 'ㄜ', 'ㄝ', 'ㄞ', 'ㄠ', 'ㄢ', 'ㄧㄢ', 'ㄣ', 'ㄥ', 'ㄧㄣ', 'ㄤ', 'ㄨㄥ', '空韻']);
+    expect(cells.map(c => c[1])).toEqual(Array.from({ length: 17 }, (_, i) => String(i)));
+    expect(await legend.locator('.rm-cell, .rm-sw').evaluateAll(els => els.some(e => e.tabIndex >= 0 && e.matches('button, [tabindex]')))).toBe(false);
+    expect(await legend.locator('.rm-sw').first().evaluate(e => getComputedStyle(e).backgroundColor)).not.toMatch(/rgba\(0, 0, 0, 0\)|transparent/);
+    // 每次打開選單都是收著的
+    await page.locator('#rhymeMenuBtn').click();
+    await page.locator('#rhymeMenuBtn').click();
+    await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    await expect(legend).toBeHidden();
     expect(errors).toEqual([]);
     await context.close();
 });
