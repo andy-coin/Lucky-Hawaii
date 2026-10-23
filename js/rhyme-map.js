@@ -62,14 +62,16 @@ function lhMapPaint(secEl) {
         return;
     }
     const text = sec.text;
-    let on = false;
+    let on = false, res = null;
+    const big = text.length > LH_WD_BIG || text.split('\n').length > LH_MAP_MAX_LINES;
     // 句尾上色、句中押韻、結構字母全關：完全不分析，和第 9 階段一樣（D-18）
-    if (!(_lhMapSet.end || _lhMapSet.inner || _lhMapSet.letters) || text.length > LH_WD_BIG || text.split('\n').length > LH_MAP_MAX_LINES) {
+    if (!(_lhMapSet.end || _lhMapSet.inner || _lhMapSet.letters) || big) {
         mirror.replaceChildren();   // 關掉或太大：不分析，鏡像層留空
     } else {
-        const res = lhRhymeAnalyze(text, { strict: _lhMapSet.strict, skipParticles: _lhMapSet.skipParticles, inner: _lhMapSet.inner }, song.readings);
+        res = lhRhymeAnalyze(text, { strict: _lhMapSet.strict, skipParticles: _lhMapSet.skipParticles, inner: _lhMapSet.inner }, song.readings);
         const frag = document.createDocumentFragment();
-        res.rows.forEach((r, n) => {
+        const paintRows = _lhMapSet.end || _lhMapSet.inner;   // 只開結構字母：鏡像層不必逐行排版
+        (paintRows ? res.rows : []).forEach((r, n) => {
             // 這一行要特別標示的字：句尾字（色塊，句尾上色開著才有）與句中押韻的字（底線）
             const marks = new Map();
             if (r.t && _lhMapSet.end) marks.set(r.t.i, { cls: (r.solo ? 'rm-hl rm-solo' : 'rm-hl') + (r.manual ? ' rm-manual' : ''), f: r.f });
@@ -92,13 +94,49 @@ function lhMapPaint(secEl) {
             }
             if (n < res.rows.length - 1) frag.append('\n');
         });
-        frag.append('​');   // 結尾零寬字元：文字以換行結尾時，和輸入框一樣多出一個空行
+        if (paintRows) frag.append('​');   // 結尾零寬字元：文字以換行結尾時，和輸入框一樣多出一個空行
         mirror.replaceChildren(frag);
     }
     secEl.classList.toggle('rm-on', on);
     mirror.classList.remove('rm-stale');
     _lhMapSync(ta, mirror);   // 顯示出來之後才設得動 scrollTop，所以放在最後
-    _lhMapCache.set(sec.id, { text, sig });
+    _lhMapCache.set(sec.id, { text, sig, res });
+    _lhMapStrip(secEl, res, big);
+}
+
+// 標題列的結構字母條：結構字母開著、而且這段至少有一行有韻才顯示；太大的段落顯示「—」。只在 lhMapPaint 裡更新（組字中不會走到這裡）
+function _lhMapStrip(secEl, res, big) {
+    const strip = secEl.querySelector('.section-rhyme');
+    if (!strip) return;
+    const show = _lhMapSet.letters && (big || (res && res.count.size > 0));
+    if (!show) {
+        strip.hidden = true;
+        strip.replaceChildren();
+        strip.removeAttribute('aria-label');
+        strip.removeAttribute('title');
+    } else if (big) {
+        strip.replaceChildren('—');
+        strip.setAttribute('aria-label', '押韻結構 —，按一下看統計');
+        strip.title = '段落太長，不做押韻分析';
+        strip.hidden = false;
+    } else {
+        const rows = res.rows.filter(r => !r.blank);
+        const n = rows.length;
+        let k = 0;
+        res.count.forEach(c => { if (c >= 2) k += c; });
+        const kids = rows.slice(0, 12).map(r => {
+            const sp = document.createElement('span');
+            sp.textContent = r.letter || '-';
+            if (r.key !== null) sp.dataset.f = String(r.f);
+            return sp;
+        });
+        if (rows.length > 12) kids.push(document.createTextNode('…'));
+        strip.replaceChildren(...kids);
+        strip.setAttribute('aria-label', '押韻結構 ' + res.letters + '，按一下看統計');
+        strip.title = res.letters + '　押韻 ' + k + '/' + n + ' 句，點一下看統計';
+        strip.hidden = false;
+    }
+    if (typeof _lhMapStatsRefresh === 'function') _lhMapStatsRefresh(secEl.dataset.id);
 }
 
 // 同步量位置：所有輸入框共用一個 ResizeObserver（捲軸出現／消失、拖高度、縮放、收合展開都會觸發）。
@@ -204,7 +242,8 @@ document.getElementById('lyricsSections').addEventListener('input', e => {
 // 選單只建一次（掛在 body，沿用 .word-ctx-menu.section-menu 的外觀）；每個開關改了就馬上套用、寫進 lh:map，選單不關
 let _lhMapMenu = null;
 let _lhMapMenuOn = false;
-// 文案照 UI-SPEC 第 7 節逐字；「段落結構字母」那一列之後的計畫才加
+// 文案照 UI-SPEC 第 7 節逐字
+const LH_MAP_HINT_LETTERS = '在每個段落標題列顯示 AABB 這類字母';
 const LH_MAP_HINT_INNER = '句子裡面跟句尾押同韻的字，加底線（每行最多 3 個）';
 const LH_MAP_MODE_HELP = {
     wide: '寬韻：同一個韻族都算押韻（例：ㄤ、ㄧㄤ、ㄨㄤ）',
@@ -235,7 +274,11 @@ function lhMapMenuBuild() {
     const innerHint = _lhMk('span', 'section-menu-cap', LH_MAP_HINT_INNER);
     innerHint.id = 'rhymeHintInner';
     innerSw.setAttribute('aria-describedby', innerHint.id);
-    const show = _lhMkBlock('顯示', _lhMapSwitchRow('end', '句尾上色'), innerSw, innerHint);
+    const lettersSw = _lhMapSwitchRow('letters', '段落結構字母');
+    const lettersHint = _lhMk('span', 'section-menu-cap', LH_MAP_HINT_LETTERS);
+    lettersHint.id = 'rhymeHintLetters';
+    lettersSw.setAttribute('aria-describedby', lettersHint.id);
+    const show = _lhMkBlock('顯示', _lhMapSwitchRow('end', '句尾上色'), lettersSw, lettersHint, innerSw, innerHint);
     // 判定：寬韻／嚴格兩個 radio（方向鍵移焦點，Enter／空白才選），下面只顯示目前模式的說明
     const modes = _lhMk('div', 'type-grid');
     modes.setAttribute('role', 'radiogroup');

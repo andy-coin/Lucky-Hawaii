@@ -1421,6 +1421,35 @@
             font-variant-numeric: tabular-nums;
             white-space: nowrap;
         }
+        /* 押韻結構字母條（10-07，UI-SPEC D-09）：名稱和字數之間；窄螢幕先縮名稱、再縮它（…），把手、字數、− 不縮；點它開統計，不收合段落 */
+        .section-rhyme {
+            flex: 0 1 auto;
+            min-width: 2.75rem;
+            min-height: 2rem;
+            margin-inline-start: auto;
+            padding: var(--sp-1) var(--sp-2);
+            border: 1px solid var(--border);
+            border-radius: 0.5rem;
+            background: var(--card-bg);
+            color: var(--text-primary);
+            font-family: 'Noto Sans TC', sans-serif;
+            font-size: 0.75rem;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            cursor: pointer;
+        }
+        .section-rhyme[hidden] { display: none; }
+        .section-rhyme:not([hidden]) + .section-count { margin-inline-start: 0; }
+        /* 字母底線＝那一行句尾的家族色混 30% 文字色（和句中押韻同一套）；「-」沒有 data-f，不畫 */
+        .section-rhyme span[data-f], .rm-letters span[data-f] {
+            border-bottom: 0.125rem solid var(--rm-c);
+        }
+        @supports (background: color-mix(in srgb, red 50%, blue)) {
+            .section-rhyme span[data-f], .rm-letters span[data-f] { border-bottom-color: color-mix(in srgb, var(--text-primary) 30%, var(--rm-c)); }
+        }
         .lyrics-section.collapsed { flex: 0 0 2.125rem; min-height: 0; }
         .section-body { flex: 1; min-height: 0; position: relative; }
         /* 排序（js/sections.js）：拖的那段半透明，殘影跟著指標，落點線標出會放在哪裡 */
@@ -1737,11 +1766,12 @@
            這樣相鄰的晶片、標題列文字不會被它的透明範圍蓋住（相鄰重疊 ≤ 4px）。 ===== */
         @media (pointer: coarse), (max-width: 900px) {
             .panel-add-btn, .reset-pool-btn, .rhyme-mode-btn, .filter-chip, .generate-btn, .model-select,
-            .ai-word-card, .ai-report-btn, .context-refresh-btn, .lyrics-section-header, .section-type { min-height: var(--hit); }
+            .ai-word-card, .ai-report-btn, .context-refresh-btn, .lyrics-section-header, .section-type, .section-rhyme { min-height: var(--hit); }
             .context-refresh-btn { min-width: var(--hit); }
             .undo-btn { width: var(--hit); height: var(--hit); }
             .rhyme-menu-btn { min-width: var(--hit); min-height: var(--hit); }
             .rm-switch { min-height: var(--hit); }
+            .section-rhyme { min-width: var(--hit); }
             .rm-bar .section-menu-btn { min-height: var(--hit); }
             .rm-chip { min-height: var(--hit); min-width: var(--hit); }
             .word-chip, .hashtag-chip { min-height: var(--hit); padding-block: 0; padding-right: 0; }

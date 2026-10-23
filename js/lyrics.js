@@ -187,6 +187,13 @@
                 lhSecFillTypeBtn(typeBtn, s.label);
                 header.appendChild(typeBtn);
 
+                // 押韻結構字母條（js/rhyme-map.js 的 lhMapPaint 填內容與顯示／隱藏）：預設藏著、沒有子節點；點它開統計，不收合段落
+                const rhy = document.createElement('button');
+                rhy.type = 'button';
+                rhy.className = 'section-rhyme';
+                rhy.hidden = true;
+                header.appendChild(rhy);
+
                 // 字數：先建好一個 Text node，之後只改 .data（不增減節點，打字與組字都不會重畫，E2）
                 const cnt = document.createElement('span');
                 cnt.className = 'section-count';

@@ -1443,3 +1443,81 @@ test('備份：每首歌最多留 2000 筆讀音', async ({ browser }) => {
     expect(errors).toEqual([]);
     await context.close();
 });
+
+// ===== 第 10-07 計畫：段落標題列的結構字母與統計 =====
+const STRIP = '.section-rhyme';
+const stripTexts = page => page.locator('#lyricsSections .lyrics-section').evaluateAll((els, q) => els.map(e => {
+    const b = e.querySelector(q);
+    return b && !b.hidden && getComputedStyle(b).display !== 'none' ? b.textContent : null;
+}), STRIP);
+const LETTERS_SONG = () => v2Storage([song([typed('sa', 'verse', F_AABB), typed('sb', 'chorus', F_ABAB), typed('sc', 'bridge', F_PART)])]);
+
+test('標題字母：打開後顯示 AABB', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, { wordlist: 'stub', storage: LETTERS_SONG() });
+    // 沒打開過：每個標題列都沒有字母條（MAP-11 預設只有句尾上色）
+    expect(await stripTexts(page)).toEqual([null, null, null]);
+    expect(await page.locator(STRIP + ':visible').count()).toBe(0);
+    // DOM 順序：把手、箭頭、名稱、字母條、字數、−
+    expect(await page.locator('.lyrics-section-header').first().evaluate(h => [...h.children].map(c => c.className.split(' ')[0])))
+        .toEqual(['section-handle', 'section-chevron', 'section-type', 'section-rhyme', 'section-count', 'section-remove']);
+    await page.locator('#rhymeMenuBtn').click();
+    const s = sw(page, '段落結構字母');
+    await expect(s).toHaveAttribute('aria-checked', 'false');
+    // 開關在「句尾上色」和「句中押韻」之間，旁邊有說明
+    expect(await page.locator('#rhymeMenu .rm-switch').evaluateAll(els => els.map(e => e.dataset.k))).toEqual(['end', 'letters', 'inner', 'skipParticles']);
+    await expect(page.locator('#rhymeHintLetters')).toHaveText('在每個段落標題列顯示 AABB 這類字母');
+    await expect(s).toHaveAttribute('aria-describedby', 'rhymeHintLetters');
+    await s.click();
+    await expect(s).toHaveAttribute('aria-checked', 'true');
+    await expect(page.locator('#rhymeMenu')).toBeVisible();
+    await expect.poll(() => stripTexts(page)).toEqual(['AABB', 'ABAB', 'A-AB']);
+    expect(JSON.parse(await lsGetMap(page)), '只有字母開關變了').toEqual({ end: true, letters: true, inner: false, strict: false, skipParticles: true });
+    // 嚴格：ABAB 的四個韻母都不一樣
+    await radio(page, '嚴格').click();
+    await expect.poll(() => stripTexts(page)).toEqual(['AABB', 'ABCD', 'A-BC']);
+    await radio(page, '寬韻').click();
+    await expect.poll(() => stripTexts(page)).toEqual(['AABB', 'ABAB', 'A-AB']);
+    // 字母底線：有韻的字有 data-f，「-」沒有
+    expect(await page.locator(STRIP).nth(2).locator('span').evaluateAll(els => els.map(e => e.dataset.f !== undefined))).toEqual([true, false, true, true]);
+    // 說明文字：aria-label 與 title
+    await expect(page.locator(STRIP).first()).toHaveAttribute('aria-label', '押韻結構 AABB，按一下看統計');
+    await expect(page.locator(STRIP).first()).toHaveAttribute('title', 'AABB　押韻 4/4 句，點一下看統計');
+    await expect(page.locator(STRIP).nth(2)).toHaveAttribute('title', 'A-AB　押韻 2/4 句，點一下看統計');
+    // 只開字母、關掉句尾上色：色塊沒有，字母條還在
+    await sw(page, '句尾上色').click();
+    await expect(page.locator('.rm-hl')).toHaveCount(0);
+    expect(await stripTexts(page)).toEqual(['AABB', 'ABAB', 'A-AB']);
+    await sw(page, '句尾上色').click();
+    // 重新整理後仍開著
+    await page.reload();
+    await page.evaluate(() => window.__lhMapReady);
+    await expect.poll(() => stripTexts(page)).toEqual(['AABB', 'ABAB', 'A-AB']);
+    // 關掉：全部藏起來、沒有殘留內容
+    await page.locator('#rhymeMenuBtn').click();
+    await sw(page, '段落結構字母').click();
+    await expect.poll(() => stripTexts(page)).toEqual([null, null, null]);
+    expect(await page.locator(STRIP).evaluateAll(els => els.map(e => e.childNodes.length))).toEqual([0, 0, 0]);
+    expect(JSON.parse(await lsGetMap(page)).letters).toBe(false);
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('標題字母：點字母條不會收合段落', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, {
+        wordlist: 'stub', storage: v2Storage([song([typed('sa', 'verse', F_AABB), typed('sb', 'chorus', F_ABAB)])], { ...OPEN_PANELS, 'lh:map': JSON.stringify({ end: true, letters: true, inner: false, strict: false, skipParticles: true }) }),
+    });
+    await expect.poll(() => stripTexts(page)).toEqual(['AABB', 'ABAB']);
+    const first = page.locator('#lyricsSections .lyrics-section').first();
+    await expect(first).not.toHaveClass(/\bcollapsed\b/);
+    await first.locator(STRIP).click();
+    await expect(first).not.toHaveClass(/\bcollapsed\b/);
+    await first.locator(STRIP).focus();
+    await page.keyboard.press('Enter');
+    await page.keyboard.press(' ');
+    await expect(first).not.toHaveClass(/\bcollapsed\b/);
+    // 對照：點標題列的空白處還是會收合
+    await first.locator('.section-chevron').click();
+    await expect(first).toHaveClass(/\bcollapsed\b/);
+    expect(errors).toEqual([]);
+    await context.close();
+});

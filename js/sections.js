@@ -588,7 +588,7 @@ document.getElementById('lyricsSections').addEventListener('click', e => {
         }
     } else if (e.target.closest('.section-remove')) {
         lhSecRemove(secEl.dataset.id);
-    } else if (e.target.closest('.lyrics-section-header') && !e.target.closest('.section-handle, .section-count')) {
+    } else if (e.target.closest('.lyrics-section-header') && !e.target.closest('.section-handle, .section-count, .section-rhyme')) {
         toggleLyricsSection(Number(secEl.dataset.index));
     }
 });
