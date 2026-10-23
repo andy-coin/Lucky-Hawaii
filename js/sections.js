@@ -121,6 +121,20 @@ function lhSecMoveTo(id, beforeId) {
     return true;
 }
 
+// 鍵盤用：往上（-1）或往下（+1）一格；已在盡頭就什麼都不做
+function lhSecMoveBy(id, delta) {
+    const song = curSong();
+    if (!song) return false;
+    const i = song.sections.findIndex(s => s.id === id);
+    const j = i + delta;
+    if (i < 0 || j < 0 || j >= song.sections.length) return false;
+    // 往上：放到上一段前面；往下：放到下下段前面（沒有就最後）
+    const next = delta < 0 ? song.sections[j] : song.sections[j + 1];
+    const ok = lhSecMoveTo(id, next ? next.id : null);
+    if (ok) lhSecEl(id)?.scrollIntoView({ block: 'nearest' });
+    return ok;
+}
+
 // 搬現有節點（insertBefore）：textarea 的內容、游標、捲動都留著；搬節點會讓焦點丟失，所以搬完還給原本有焦點的元素
 function lhSecMoveDom(id, beforeId /* null＝最後面 */) {
     const area = document.getElementById('lyricsSections');
@@ -313,6 +327,17 @@ document.getElementById('lyricsSections').addEventListener('pointerdown', e => {
     handle.addEventListener('pointercancel', lhSecDragCancel);
     handle.addEventListener('lostpointercapture', lhSecDragCancel);
     document.addEventListener('keydown', lhSecDragKey, true);
+});
+
+// 鍵盤：焦點在把手時 Alt+↑／↓ 移一格；移完焦點還在這一段的把手上，可以連按
+document.getElementById('lyricsSections').addEventListener('keydown', e => {
+    if (!e.altKey || e.ctrlKey || e.metaKey || e.isComposing || e.keyCode === 229) return;
+    if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
+    const handle = e.target.closest && e.target.closest('.section-handle');
+    const secEl = handle && handle.closest('.lyrics-section');
+    if (!secEl) return;
+    e.preventDefault();
+    lhSecMoveBy(secEl.dataset.id, e.key === 'ArrowUp' ? -1 : 1);
 });
 
 // ===== 字數（E1、E2）：每段一個 Text node，只改 .data，不增減節點；各段字數快取在 Map，打字時只重算那一段 =====

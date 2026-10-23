@@ -292,3 +292,55 @@ test('排序：選字與按名稱不會誤拖', async ({ browser }) => {
     expect(errors).toEqual([]);
     await context.close();
 });
+
+// ===== 鍵盤：Alt+↑／↓ =====
+const activeIsHandleOf = (page, id) => page.evaluate(i => {
+    const ae = document.activeElement;
+    return !!ae && ae.classList.contains('section-handle') && ae.closest('.lyrics-section').dataset.id === i;
+}, id);
+
+test('排序：鍵盤移動', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, { device: DEVICES.desktop, storage: ABC() });
+    await handle(page, 2).focus();
+    await page.keyboard.press('Alt+ArrowUp');
+    await page.keyboard.press('Alt+ArrowUp');
+    expect(await ids(page)).toEqual(['sc', 'sa', 'sb']);
+    expect(await activeIsHandleOf(page, 'sc')).toBe(true);
+    expect((await activeSongRaw(page)).sections.map(s => s.id)).toEqual(['sc', 'sa', 'sb']);
+    await expect(page.locator('#lhLive')).toHaveText('Verse I 已移到第 1 段，共 3 段');
+    // 已在最上面：什麼都不變、不多一步歷史
+    await page.keyboard.press('Alt+ArrowUp');
+    expect(await ids(page)).toEqual(['sc', 'sa', 'sb']);
+    await page.locator('#undoBtn').click();
+    await page.locator('#undoBtn').click();
+    expect(await ids(page)).toEqual(['sa', 'sb', 'sc']);
+    expect(await undoDisabled(page)).toBe('true');   // 剛好兩步
+    // 往下也一樣，最下面再按不動
+    await handle(page, 0).focus();
+    await page.keyboard.press('Alt+ArrowDown');
+    await page.keyboard.press('Alt+ArrowDown');
+    await page.keyboard.press('Alt+ArrowDown');
+    expect(await ids(page)).toEqual(['sb', 'sc', 'sa']);
+    expect(await activeIsHandleOf(page, 'sa')).toBe(true);
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('排序：鍵盤一步一個復原', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, { device: DEVICES.desktop, storage: ABC() });
+    await handle(page, 0).focus();
+    await page.keyboard.press('Alt+ArrowDown');
+    expect(await ids(page)).toEqual(['sb', 'sa', 'sc']);
+    expect(await undoDisabled(page)).toBe('false');
+    await page.locator('#undoBtn').click();
+    expect(await ids(page)).toEqual(['sa', 'sb', 'sc']);
+    expect(await undoDisabled(page)).toBe('true');   // 只有那一步
+    await page.locator('#redoBtn').click();
+    expect(await ids(page)).toEqual(['sb', 'sa', 'sc']);
+    // 沒有 Alt 的方向鍵不動
+    await handle(page, 1).focus();
+    await page.keyboard.press('ArrowUp');
+    expect(await ids(page)).toEqual(['sb', 'sa', 'sc']);
+    expect(errors).toEqual([]);
+    await context.close();
+});

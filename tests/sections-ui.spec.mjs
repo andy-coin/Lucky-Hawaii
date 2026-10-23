@@ -186,13 +186,14 @@ test('循環：標題列不擠不疊', async ({ browser }) => {
                 const box = e => { if (!e) return null; const r = e.getBoundingClientRect(); return { x: r.x, y: r.y, width: r.width, height: r.height }; };
                 const t = sec.querySelector('.section-type');
                 return {
-                    sec: box(sec), chev: box(sec.querySelector('.section-chevron')), type: box(t), rm: box(sec.querySelector('.section-remove')),
+                    sec: box(sec), handle: box(sec.querySelector('.section-handle')), chev: box(sec.querySelector('.section-chevron')), type: box(t),
+                    cnt: box(sec.querySelector('.section-count')), rm: box(sec.querySelector('.section-remove')),
                     over: t.scrollWidth > t.clientWidth, title: t.title, text: t.textContent,
                 };
             }));
             for (const [i, r] of rows.entries()) {
                 const tag = `${name} ${pct}% 第 ${i + 1} 段`;
-                const parts = [r.chev, r.type, r.rm].filter(Boolean);
+                const parts = [r.handle, r.chev, r.type, r.cnt, r.rm].filter(Boolean);
                 for (const p of parts) {
                     expect(p.x, `${tag}：左邊超出段落`).toBeGreaterThanOrEqual(r.sec.x - 1);
                     expect(p.x + p.width, `${tag}：右邊超出段落`).toBeLessThanOrEqual(r.sec.x + r.sec.width + 1);
@@ -335,7 +336,7 @@ test('字數：150% 長名稱與大字數不擠', async ({ browser }) => {
         const box = e => { if (!e) return null; const r = e.getBoundingClientRect(); return { x: r.x, y: r.y, width: r.width, height: r.height }; };
         const t = sec.querySelector('.section-type');
         return {
-            sec: box(sec), chev: box(sec.querySelector('.section-chevron')), type: box(t), cnt: box(sec.querySelector('.section-count')),
+            sec: box(sec), handle: box(sec.querySelector('.section-handle')), chev: box(sec.querySelector('.section-chevron')), type: box(t), cnt: box(sec.querySelector('.section-count')),
             rm: box(sec.querySelector('.section-remove')), text: sec.querySelector('.section-count').textContent,
             // 不縮的元素：看它的寬度是不是自然寬度（scrollWidth 不超過 clientWidth）
             cntFits: sec.querySelector('.section-count').scrollWidth <= sec.querySelector('.section-count').clientWidth,
@@ -345,7 +346,7 @@ test('字數：150% 長名稱與大字數不擠', async ({ browser }) => {
         const tag = `手機 150% 第 ${i + 1} 段`;
         expect(r.text).toBe('999 字');
         expect(r.cntFits, `${tag}：字數沒被截`).toBe(true);
-        const parts = [r.chev, r.type, r.cnt, r.rm].filter(Boolean);
+        const parts = [r.handle, r.chev, r.type, r.cnt, r.rm].filter(Boolean);
         for (const p of parts) {
             expect(p.x, `${tag}：左邊超出段落`).toBeGreaterThanOrEqual(r.sec.x - 1);
             expect(p.x + p.width, `${tag}：右邊超出段落`).toBeLessThanOrEqual(r.sec.x + r.sec.width + 1);
