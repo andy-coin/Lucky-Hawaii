@@ -1264,7 +1264,7 @@
         .lyrics-section.collapsed .section-chevron { transform: rotate(-90deg); }
         /* 段落名稱按鈕：點一下換下一種類型；只有它會縮（文字用 … 收尾），chevron 與 − 不縮 */
         .section-type {
-            flex: 0 1 auto;
+            flex: 0 100 auto;   /* 比字母條縮得快：空間不夠時先縮名稱，名稱縮到底才輪到字母條（UI-SPEC D-09） */
             min-width: 4rem;
             max-width: 100%;
             min-height: 2rem;
@@ -1806,7 +1806,9 @@
             .undo-btn { width: var(--hit); height: var(--hit); }
             .rhyme-menu-btn { min-width: var(--hit); min-height: var(--hit); }
             .rm-switch { min-height: var(--hit); }
-            .section-rhyme { min-width: var(--hit); }
+            .section-rhyme { min-width: max(44px, 1rem); }
+            /* 放大到 150% 的手機：把手、字數、− 都不縮，名稱和字母條各留 44px（實際像素）的觸控下限，其餘讓出來 */
+            .section-type:has(+ .section-rhyme:not([hidden])) { min-width: max(44px, 1rem); }
             .rm-row { min-height: var(--hit); }
             .rm-bar .section-menu-btn { min-height: var(--hit); }
             .rm-chip { min-height: var(--hit); min-width: var(--hit); }

@@ -3,7 +3,7 @@
 import { test, expect, chromium } from '@playwright/test';
 import { readFileSync } from 'node:fs';
 import { bootPage, compose, openTwoTabs, activeSongRaw } from './helpers.mjs';
-import { DEVICES, setScale, waitStill, emulateKeyboard, readKeyboard, insideVisible, auditTouchTargets } from './layout-lib.mjs';
+import { DEVICES, setScale, waitStill, emulateKeyboard, readKeyboard, insideVisible, auditTouchTargets, rectsOverlap, expectFullyInViewport } from './layout-lib.mjs';
 
 const FIXTURE = JSON.parse(readFileSync(new URL('./fixtures/v096-localStorage.json', import.meta.url), 'utf8'));
 const OPEN_PANELS = { leftPanelCollapsed: 'false', rightPanelCollapsed: 'false' };
@@ -1732,4 +1732,166 @@ test('統計：名稱太長時截斷', async ({ browser }) => {
     await expect(page.locator(STATS + ' .section-menu-title')).toHaveText('韻腳統計：' + sixteen);
     expect(errors).toEqual([]);
     await context.close();
+});
+
+// ----- 版面：標題列放得下、零／一／多句、觸控大小 -----
+const openLyricsTab = async page => {
+    if (await page.evaluate(() => lhIsSheetMode())) await page.locator('#mtab-lyrics').click();
+    await waitStill(page);
+};
+
+test('標題字母：各尺寸都放得下', async ({ browser }) => {
+    test.setTimeout(180_000);
+    const LONG = '很長很長的段落名稱'.repeat(5).slice(0, 40);
+    expect(Array.from(LONG)).toHaveLength(40);
+    const sections = [typed('sa', 'verse', F_AABB), typed('sb', 'custom', F_ABAB, { custom: LONG, label: LONG, color: '#e05d5d' }),
+        typed('sc', 'chorus', F_AABB, { collapsed: true }), typed('sd', 'bridge', F_PART)];
+    for (const [name, device] of [['手機', DEVICES.phone], ['平板', DEVICES.tablet], ['電腦', DEVICES.desktop]]) {
+        for (const pct of [100, 150]) {
+            const { context, page, errors } = await bootPage(browser, { device, wordlist: 'stub', storage: withLetters([song(sections)], {}) });
+            await setScale(page, pct);
+            await openLyricsTab(page);
+            await waitStill(page);
+            const rows = await page.evaluate(() => [...document.querySelectorAll('#lyricsSections .lyrics-section')].map(sec => {
+                const box = e => { if (!e) return null; const r = e.getBoundingClientRect(); return { x: r.x, y: r.y, width: r.width, height: r.height }; };
+                return {
+                    sec: box(sec), collapsed: sec.classList.contains('collapsed'),
+                    parts: ['.section-handle', '.section-chevron', '.section-type', '.section-rhyme', '.section-count', '.section-remove'].map(q => box(sec.querySelector(q))),
+                };
+            }));
+            expect(rows.some(r => r.collapsed), '有收合的段落').toBe(true);
+            for (const [i, r] of rows.entries()) {
+                const tag = `${name} ${pct}% 第 ${i + 1} 段`;
+                for (const p of r.parts) {
+                    expect(p, `${tag}：控制項存在`).not.toBeNull();
+                    expect(p.width, `${tag}：有寬度（字母條沒被藏起來）`).toBeGreaterThan(0);
+                    expect(p.x, `${tag}：左邊超出段落`).toBeGreaterThanOrEqual(r.sec.x - 1);
+                    expect(p.x + p.width, `${tag}：右邊超出段落`).toBeLessThanOrEqual(r.sec.x + r.sec.width + 1);
+                    expect(p.y, `${tag}：上邊超出段落`).toBeGreaterThanOrEqual(r.sec.y - 1);
+                    expect(p.y + p.height, `${tag}：下邊超出段落`).toBeLessThanOrEqual(r.sec.y + r.sec.height + 1);
+                    expect(Math.abs(p.y + p.height / 2 - (r.parts[0].y + r.parts[0].height / 2)), `${tag}：不在同一行`).toBeLessThanOrEqual(2);
+                }
+                for (let a = 0; a < r.parts.length; a++) for (let b = a + 1; b < r.parts.length; b++) {
+                    expect(rectsOverlap(r.parts[a], r.parts[b]), `${tag}：第 ${a} 與第 ${b} 個重疊`).toBe(false);
+                }
+            }
+            // Tab 順序：把手 → 名稱 → 字母條 → −
+            await page.locator('.section-handle').first().focus();
+            const order = [];
+            for (let n = 0; n < 3; n++) {
+                await page.keyboard.press('Tab');
+                order.push(await page.evaluate(() => document.activeElement.className.split(' ')[0]));
+            }
+            expect(order, `${name} ${pct}%：Tab 順序`).toEqual(['section-type', 'section-rhyme', 'section-remove']);
+            expect(errors).toEqual([]);
+            await context.close();
+        }
+    }
+});
+
+test('標題字母：零、一、多句', async ({ browser }) => {
+    const lines14 = Array.from({ length: 14 }, (_, i) => (i % 2 ? '走過熟悉的街道' : '我望著遠方的光')).join('\n');
+    const { context, page, errors } = await bootPage(browser, {
+        wordlist: 'stub',
+        storage: withLetters([song([typed('s1', 'verse', '我望著遠方的光'), typed('s2', 'verse', '我望著遠方的光\n獨自站在窗'),
+            typed('s3', 'verse', '天亮\n天亮'), typed('s4', 'verse', lines14), typed('s5', 'verse', '')])]),
+    });
+    const stripOf = n => page.locator('#lyricsSections .lyrics-section').nth(n).locator(STRIP);
+    // 一句：A，孤句，統計 0%
+    await expect(stripOf(0)).toHaveText('A');
+    await expect(page.locator('#lyricsSections .lyrics-section').nth(0).locator('.rhyme-mirror .rm-hl.rm-solo')).toHaveCount(1);
+    await openStats(page, 0);
+    await expect(page.locator(STATS + ' .rm-sum')).toHaveText('共 1 句，押韻 0 句（0%）');
+    await expect(page.locator(STATS + ' .rm-group')).toHaveText('Aㄤ ×1（孤句）');
+    await page.keyboard.press('Escape');
+    // 兩句同韻：AA，100%
+    await expect(stripOf(1)).toHaveText('AA');
+    await openStats(page, 1);
+    await expect(page.locator(STATS + ' .rm-sum')).toHaveText('共 2 句，押韻 2 句（100%）');
+    await page.keyboard.press('Escape');
+    // 完全一樣的相鄰兩句：同一個字母、同一組
+    await expect(stripOf(2)).toHaveText('AA');
+    await openStats(page, 2);
+    await expect(page.locator(STATS + ' .rm-group')).toHaveCount(1);
+    await expect(page.locator(STATS + ' .rm-group')).toHaveText(/^A.*×2$/);
+    await page.keyboard.press('Escape');
+    // 十四句：字母條 12 個字母加「…」，統計是完整的 14 個
+    expect(await stripOf(3).evaluate(b => [b.querySelectorAll('span').length, b.textContent])).toEqual([12, 'ABABABABABAB…']);
+    await expect(stripOf(3)).toHaveAttribute('aria-label', '押韻結構 ABABABABABABAB，按一下看統計');
+    await openStats(page, 3);
+    await expect(page.locator(STATS + ' .rm-letters')).toHaveText('ABABABABABABAB');
+    await expect(statsRows(page)).toHaveCount(14);
+    await page.keyboard.press('Escape');
+    // 沒有任何字的段落：沒有字母條
+    await expect(stripOf(4)).toBeHidden();
+    // 三十種不同韻母（嚴格）：字母接著用小寫，沒有 undefined
+    const got = await page.evaluate(() => {
+        const seen = new Map();
+        for (const c of Object.keys(charInfo)) {
+            if (!/^\p{Script=Han}$/u.test(c) || LH_RHYME_PARTICLES.has(c)) continue;
+            const r = getCharAllReadings(c);
+            if (!r.length) continue;
+            const rh = getZhuyinRhyme(r[0].reading);
+            if (!seen.has(rh)) seen.set(rh, c);
+            if (seen.size >= 30) break;
+        }
+        curSong().sections[4].text = [...seen.values()].join('\n');
+        lhMapSetSetting('strict', true);
+        return seen.size;
+    });
+    expect(got).toBe(30);
+    await expect(stripOf(4)).toBeVisible();
+    const alpha = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcd';
+    await expect(stripOf(4)).toHaveAttribute('aria-label', '押韻結構 ' + alpha + '，按一下看統計');
+    await expect(stripOf(4)).toHaveAttribute('title', new RegExp('^' + alpha + '　押韻 0/30 句'));
+    expect(await stripOf(4).textContent()).toBe(alpha.slice(0, 12) + '…');
+    await openStats(page, 4);
+    await expect(page.locator(STATS + ' .rm-letters')).toHaveText(alpha);
+    await expect(page.locator(STATS + ' .rm-sum')).toHaveText('共 30 句，押韻 0 句（0%）');
+    expect(await page.locator(STATS + ' .rm-group').count()).toBe(30);
+    const everything = await page.evaluate(() => document.getElementById('rhymeStats').textContent + [...document.querySelectorAll('.section-rhyme')].map(b => b.textContent + b.getAttribute('aria-label') + b.title).join(''));
+    expect(everything).not.toMatch(/undefined|NaN|null/);
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('標題字母：觸控大小與可見範圍', async ({ browser }) => {
+    test.setTimeout(180_000);
+    const lines14 = Array.from({ length: 14 }, (_, i) => (i % 2 ? '走過熟悉的街道' : '我望著遠方的光')).join('\n');
+    const mine = f => /section-rhyme|rm-row|section-menu-close/.test(f);
+    for (const [name, device] of [['手機', DEVICES.phone], ['平板', DEVICES.tablet], ['橫放平板', DEVICES.tabletLandscape]]) {
+        // 第一段只有四句：統計放得進字母條下面，不會蓋住別的字母條
+        const { context, page, errors } = await bootPage(browser, { device, wordlist: 'stub', storage: withLetters([song([typed('sa', 'verse', F_AABB), typed('sb', 'chorus', lines14)])]) });
+        await openLyricsTab(page);
+        // 統計是固定位置的浮層，掃描時會把歌詞區捲來捲去，所以字母條和統計分兩次量
+        for (const [what, open, must] of [['字母條', false, ['button.section-rhyme']], ['統計', true, ['#rhymeStats .rm-row', '#rhymeStats .section-menu-close']]]) {
+            if (open) await openStats(page, 0);
+            const a = await auditTouchTargets(page, { mustSee: must });
+            expect(a.missing, name + '：' + what + '都量到').toEqual([]);
+            expect(a.failures.filter(f => mine(f.selector)), name + '：' + what + '至少 44×44').toEqual([]);
+            expect(a.overlaps.filter(o => mine(o.a + o.b)), name + '：' + what + '不重疊').toEqual([]);
+        }
+        expect(errors).toEqual([]);
+        await context.close();
+    }
+    // 最擠的兩種：390×844 放大 150%、844×390 橫放；統計整個在可見範圍內，內部可以捲到最後一列
+    for (const [name, device, pct] of [['手機 150%', DEVICES.phone, 150], ['手機橫放', DEVICES.phoneLandscape, 100]]) {
+        const { context, page, errors } = await bootPage(browser, { device, wordlist: 'stub', storage: withLetters([song([typed('sa', 'verse', lines14), typed('sb', 'chorus', F_AABB)])], {}) });
+        await setScale(page, pct);
+        await openLyricsTab(page);
+        await waitStill(page);
+        await openStats(page, 0);
+        await expectFullyInViewport(page, page.locator(STATS));
+        const m = await page.locator(STATS).evaluate(n => ({ sh: n.scrollHeight, ch: n.clientHeight }));
+        expect(m.sh, name + '：內容比選單高，選單自己捲').toBeGreaterThan(m.ch);
+        await statsRows(page).last().scrollIntoViewIfNeeded();
+        const [mb, lb] = await Promise.all([page.locator(STATS).boundingBox(), statsRows(page).last().boundingBox()]);
+        expect(lb.y + lb.height, name + '：最後一列捲得到').toBeLessThanOrEqual(mb.y + mb.height + 1);
+        expect(lb.y, name + '：最後一列捲得到').toBeGreaterThanOrEqual(mb.y - 1);
+        await expect(page.locator(STATS + ' .section-menu-close')).toBeAttached();
+        await page.locator(STATS + ' .section-menu-close').scrollIntoViewIfNeeded();
+        await expectFullyInViewport(page, page.locator(STATS + ' .section-menu-close'));
+        expect(errors).toEqual([]);
+        await context.close();
+    }
 });
