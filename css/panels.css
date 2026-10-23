@@ -307,6 +307,52 @@
         @media (hover: hover) and (pointer: fine) {
             .undo-btn:not([aria-disabled="true"]):hover { background: var(--container-bg); }
         }
+        /* 「韻腳 ▾」按鈕（UI-SPEC D-12）：外框小按鈕加文字；打開時外框改用主文字色（不用強調色） */
+        .rhyme-menu-btn {
+            min-height: 2rem;
+            padding: var(--sp-1) var(--sp-3);
+            background: var(--card-bg);
+            color: var(--text-primary);
+            border: 1px solid var(--border);
+            border-radius: 0.5rem;
+            font-family: inherit;
+            font-size: 0.875rem;
+            font-weight: 700;
+            cursor: pointer;
+        }
+        .rhyme-menu-btn[aria-expanded="true"] { border-color: var(--text-primary); }
+        /* 韻腳選單的開關列（D-14）：整列是按鈕；狀態用右邊的「開／關」字，不靠顏色 */
+        .rm-switch {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: var(--sp-2);
+            width: 100%;
+            min-height: 2rem;
+            padding: var(--sp-1) var(--sp-3);
+            background: var(--card-bg);
+            color: var(--text-primary);
+            border: 1px solid var(--border);
+            border-radius: 0.5rem;
+            font-family: 'Noto Sans TC', sans-serif;
+            font-size: 0.875rem;
+            font-weight: 400;
+            text-align: left;
+            cursor: pointer;
+        }
+        .rm-pill {
+            padding: 0 var(--sp-2);
+            border: 1px solid var(--border);
+            border-radius: 0.5rem;
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+            font-weight: 700;
+        }
+        .rm-switch[aria-checked="true"] .rm-pill { background: var(--action-bg); color: var(--action-text); border-color: var(--action-bg); }
+        @media (hover: hover) and (pointer: fine) {
+            .rhyme-menu-btn:hover { background: var(--container-bg); }
+            .rm-switch:hover { background: var(--container-bg); }
+        }
         /* 復原／重做後第一個變動的段落閃 700 毫秒外框（不用動畫） */
         .lyrics-section.sec-flash { outline: 2px solid var(--highlight-border); outline-offset: -2px; }
 
@@ -1645,6 +1691,8 @@
             .ai-word-card, .ai-report-btn, .context-refresh-btn, .lyrics-section-header, .section-type { min-height: var(--hit); }
             .context-refresh-btn { min-width: var(--hit); }
             .undo-btn { width: var(--hit); height: var(--hit); }
+            .rhyme-menu-btn { min-width: var(--hit); min-height: var(--hit); }
+            .rm-switch { min-height: var(--hit); }
             .word-chip, .hashtag-chip { min-height: var(--hit); padding-block: 0; padding-right: 0; }
             .chip-remove {
                 display: inline-flex;

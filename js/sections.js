@@ -429,6 +429,7 @@ function lhSecAbortInteractions() {
     lhSecDragEnd(false);
     lhSecResizeEnd(false);
     lhSecCloseMenu();
+    if (typeof lhMapCloseAll === 'function') lhMapCloseAll();   // 韻腳選單（js/rhyme-map.js 最後才載入）
     if (typeof lhWordDragCancel === 'function') lhWordDragCancel();   // word-drag.js 最後才載入；第一次重畫時它還不存在
 }
 LH_MQ_SHEET.addEventListener('change', lhSecAbortInteractions);
@@ -814,6 +815,7 @@ function lhSecMenuSync() {
 // x、y：選單左上角想放的位置（滑鼠＝指標；觸控與鍵盤＝名稱鈕下方）
 function lhSecOpenMenu(secEl, x, y, byKeyboard) {
     const m = lhSecMenuBuild();
+    if (typeof lhMapCloseAll === 'function') lhMapCloseAll();   // 同時只開一個浮層
     closeExportMenu();
     closeSongListOverlay();
     _lhMenuId = secEl.dataset.id;

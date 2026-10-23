@@ -9,7 +9,7 @@ const LH_MAP_MAXWAIT = 1000;       // 連續打字最久等這麼久就算一次
 const LH_MAP_MAX_LINES = 5000;     // 超過這麼多行的段落不分析（字數上限沿用 LH_WD_BIG）
 const LH_MAP_HEX = /^#[0-9a-f]{6}$/;
 
-let _lhMapSet = Object.assign({}, LH_RHYME_DEFAULTS);   // 目前的開關（之後的計畫會改成可存檔）
+let _lhMapSet = lhRhymeNormalizeSettings(lhGetJSON('lh:map', null));   // 目前的開關；儲存裡的值壞了就退回預設（UI-SPEC 9.1 error）
 let _lhMapOk = false;              // 字典、詞庫、歌曲都就緒才畫（A5）
 let _lhMapEpoch = 0;               // 詞庫換包時加一，讓快取失效
 let _lhMapReadVer = 0;             // 手動讀音變動時加一，讓快取失效
@@ -63,13 +63,14 @@ function lhMapPaint(secEl) {
     }
     const text = sec.text;
     let on = false;
-    if (!_lhMapSet.end || text.length > LH_WD_BIG || text.split('\n').length > LH_MAP_MAX_LINES) {
+    // 句尾上色、句中押韻、結構字母全關：完全不分析，和第 9 階段一樣（D-18）
+    if (!(_lhMapSet.end || _lhMapSet.inner || _lhMapSet.letters) || text.length > LH_WD_BIG || text.split('\n').length > LH_MAP_MAX_LINES) {
         mirror.replaceChildren();   // 關掉或太大：不分析，鏡像層留空
     } else {
         const res = lhRhymeAnalyze(text, { strict: _lhMapSet.strict, skipParticles: _lhMapSet.skipParticles }, song.readings);
         const frag = document.createDocumentFragment();
         res.rows.forEach((r, n) => {
-            if (r.t) {
+            if (r.t && _lhMapSet.end) {
                 const cs = Array.from(r.line);
                 const hl = document.createElement('span');
                 hl.className = r.solo ? 'rm-hl rm-solo' : 'rm-hl';
@@ -187,6 +188,141 @@ document.getElementById('lyricsSections').addEventListener('input', e => {
     hit.last = sec.text;
     if (_lhMapMovesBand(prev, sec.text)) mirror.classList.add('rm-stale');
 }, false);
+
+// ==================== 「韻腳 ▾」選單（E3、UI-SPEC D-12／D-13／D-14） ====================
+// 選單只建一次（掛在 body，沿用 .word-ctx-menu.section-menu 的外觀）；每個開關改了就馬上套用、寫進 lh:map，選單不關
+let _lhMapMenu = null;
+let _lhMapMenuOn = false;
+const LH_MAP_SWITCHES = [   // 選單裡的開關，依畫面順序；之後的計畫會加「段落結構字母」
+    { key: 'end', label: '句尾上色' },
+];
+
+// 開關一列：文字＋右邊的「開／關」藥丸（狀態用字不用色，D-14）
+function _lhMapSwitchRow(key, label) {
+    const b = _lhMkBtn('rm-switch', '');
+    b.setAttribute('role', 'switch');
+    b.dataset.k = key;
+    b.append(_lhMk('span', 'rm-switch-label', label), _lhMk('span', 'rm-pill', ''));
+    return b;
+}
+
+function lhMapMenuBuild() {
+    if (_lhMapMenu) return _lhMapMenu;
+    const m = _lhMk('div', 'word-ctx-menu section-menu');
+    m.id = 'rhymeMenu';
+    m.setAttribute('role', 'dialog');
+    m.setAttribute('aria-label', '韻腳地圖設定');
+    const show = _lhMkBlock('顯示', ...LH_MAP_SWITCHES.map(d => _lhMapSwitchRow(d.key, d.label)));
+    const close = _lhMkBtn('section-menu-btn section-menu-close', '關閉韻腳設定');
+    m.append(_lhMk('div', 'section-menu-title', '韻腳地圖'), show, close);
+    document.body.appendChild(m);
+    m.addEventListener('click', e => {
+        const sw = e.target.closest && e.target.closest('.rm-switch');
+        if (sw) lhMapSetSetting(sw.dataset.k, sw.getAttribute('aria-checked') !== 'true');
+    });
+    close.addEventListener('click', () => lhMapCloseMenu(true));
+    // Tab 在選單裡頭尾相接
+    m.addEventListener('keydown', e => {
+        if (e.key !== 'Tab') return;
+        const items = [...m.querySelectorAll('button')].filter(n => n.tabIndex >= 0 && n.offsetParent !== null);
+        if (!items.length) return;
+        const first = items[0], last = items[items.length - 1];
+        if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+        else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+    });
+    _lhMapMenu = m;
+    return m;
+}
+
+// 依目前設定更新選單上的字與 aria 狀態
+function lhMapMenuSync() {
+    if (!_lhMapMenu) return;
+    _lhMapMenu.querySelectorAll('.rm-switch').forEach(b => {
+        const on = !!_lhMapSet[b.dataset.k];
+        b.setAttribute('aria-checked', String(on));
+        b.querySelector('.rm-pill').textContent = on ? '開' : '關';
+    });
+}
+
+// 一個開關改了：存檔、全部段落重畫、選單文字跟著變（只認五個已知的鍵與真布林）
+function lhMapSetSetting(key, value) {
+    if (!Object.prototype.hasOwnProperty.call(LH_RHYME_DEFAULTS, key) || typeof value !== 'boolean') return;
+    _lhMapSet = lhRhymeNormalizeSettings(Object.assign({}, _lhMapSet, { [key]: value }));
+    lhSet('lh:map', JSON.stringify(_lhMapSet));
+    lhMapMenuSync();
+    lhMapRenderAll();
+}
+
+// 選單放在按鈕正下方；下面放不下被擠上去蓋住按鈕時，翻到按鈕上方（跟段落設定選單一樣）
+function _lhMapPlaceMenu() {
+    const btn = document.getElementById('rhymeMenuBtn');
+    if (!_lhMapMenu || !btn) return;
+    const r = btn.getBoundingClientRect();
+    lhPlaceMenu(_lhMapMenu, r.left, r.bottom + 4);
+    const b = _lhMapMenu.getBoundingClientRect();
+    if (b.top < r.bottom && r.top - b.height - 4 >= 4) lhPlaceMenu(_lhMapMenu, r.left, r.top - b.height - 4);
+}
+
+// byKeyboard：鍵盤打開才把焦點放到第一個開關；滑鼠、觸控不搶焦點（手機鍵盤不要彈出來）
+function lhMapOpenMenu(byKeyboard) {
+    const m = lhMapMenuBuild();
+    if (typeof lhSecCloseMenu === 'function') lhSecCloseMenu();
+    if (typeof closeExportMenu === 'function') closeExportMenu();
+    if (typeof closeSongListOverlay === 'function') closeSongListOverlay();
+    lhMapCloseAll();
+    lhMapMenuSync();
+    _lhMapMenuOn = true;
+    _lhMapPlaceMenu();
+    document.getElementById('rhymeMenuBtn').setAttribute('aria-expanded', 'true');
+    if (byKeyboard) m.querySelector('.rm-switch')?.focus({ preventScroll: true });
+}
+
+// refocus：按「關閉」或 Esc 才把焦點還給按鈕
+function lhMapCloseMenu(refocus) {
+    if (!_lhMapMenu || !_lhMapMenuOn) return;
+    _lhMapMenuOn = false;
+    _lhMapMenu.classList.remove('show');
+    const btn = document.getElementById('rhymeMenuBtn');
+    btn.setAttribute('aria-expanded', 'false');
+    if (refocus) btn.focus({ preventScroll: true });
+}
+
+// 關掉所有韻腳相關的浮層（重畫列表、跨 900px、收面板、段落選單打開時都會叫）；之後的計畫會把統計與選字列也收進來
+function lhMapCloseAll() {
+    lhMapCloseMenu(false);
+}
+
+document.getElementById('rhymeMenuBtn').addEventListener('click', e => {
+    if (_lhMapMenuOn) lhMapCloseMenu(false);
+    else lhMapOpenMenu(e.detail === 0);   // 鍵盤（Enter／空白）觸發的 click，detail 是 0
+});
+// 點選單外面關掉；Esc 關掉並把焦點還給按鈕（capture：≤ 900 的 sheet 才不會同時被收起）
+document.addEventListener('pointerdown', e => {
+    if (_lhMapMenuOn && !(e.target.closest && e.target.closest('#rhymeMenu, #rhymeMenuBtn'))) lhMapCloseMenu(false);
+}, true);
+document.addEventListener('keydown', e => {
+    if (e.key !== 'Escape' || !_lhMapMenuOn || e.isComposing || e.keyCode === 229) return;
+    e.preventDefault();
+    e.stopPropagation();
+    lhMapCloseMenu(true);
+}, true);
+// 螢幕鍵盤出現／收起、視窗大小改變：選單重新夾進可見範圍（等兩個 frame，layout.js 要先更新 --app-h）
+let _lhMapMenuRaf = 0;
+function _lhMapReclamp() {
+    if (!_lhMapMenuOn || _lhMapMenuRaf) return;
+    _lhMapMenuRaf = requestAnimationFrame(() => requestAnimationFrame(() => {
+        _lhMapMenuRaf = 0;
+        if (!_lhMapMenuOn) return;
+        _lhMapPlaceMenu();
+        const ae = document.activeElement;
+        if (ae && _lhMapMenu.contains(ae)) ae.scrollIntoView({ block: 'nearest' });
+    }));
+}
+window.addEventListener('resize', _lhMapReclamp);
+if (window.visualViewport) {
+    window.visualViewport.addEventListener('resize', _lhMapReclamp);
+    window.visualViewport.addEventListener('scroll', _lhMapReclamp);
+}
 
 // 就緒閘門（A5）：字典、詞庫、歌曲都結束（成功或失敗都算）才開始畫；之前不畫、也不顯示錯誤
 window.__lhMapReady = Promise.allSettled([window.__hoyunReady, window.__hoyunWordlistReady, window.__hoyunSongsReady]).then(() => {

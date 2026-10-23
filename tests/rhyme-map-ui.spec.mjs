@@ -442,3 +442,61 @@ test('上色：字典載不到時不上色也不報錯', async ({ browser }) => 
     expect(mine, '兩支新檔不報錯').toEqual([]);
     await context.close();
 });
+
+// ===== 第 10-04 計畫：「韻腳 ▾」選單與設定 =====
+const lsGetMap = page => page.evaluate(() => localStorage.getItem('lh:map'));
+const sw = (page, name) => page.locator('#rhymeMenu .rm-switch', { hasText: name });
+
+test('開關：句尾上色關掉後重新整理還是關的', async ({ browser }) => {
+    const storage = v2Storage([song([typed('sa', 'verse', F_AABB)])]);
+    const { context, page, errors } = await bootPage(browser, { wordlist: 'stub', storage });
+    const btn = page.locator('#rhymeMenuBtn');
+    await expect(btn).toHaveText('韻腳 ▾');
+    await expect(btn).toHaveAttribute('aria-label', '韻腳地圖設定');
+    await expect(btn).toHaveAttribute('aria-haspopup', 'dialog');
+    await expect(btn).toHaveAttribute('aria-expanded', 'false');
+    // 按鈕在 ↶ ↷ 和「共 N 字」之間
+    expect(await page.evaluate(() => [...document.querySelector('.lyrics-tools').children].map(n => n.id || n.className))).toEqual(['undo-group', 'rhymeMenuBtn', 'songTotal']);
+    await btn.click();
+    const menu = page.locator('#rhymeMenu');
+    await expect(menu).toBeVisible();
+    await expect(menu).toHaveAttribute('role', 'dialog');
+    await expect(menu).toHaveAttribute('aria-label', '韻腳地圖設定');
+    await expect(btn).toHaveAttribute('aria-expanded', 'true');
+    const [br, mr] = await Promise.all([btn.boundingBox(), menu.boundingBox()]);
+    expect(mr.y, '選單在按鈕下面').toBeGreaterThanOrEqual(br.y + br.height);
+    expect(Math.abs(mr.x - br.x), '左緣對齊按鈕').toBeLessThan(40);
+    const s = sw(page, '句尾上色');
+    await expect(s).toHaveAttribute('role', 'switch');
+    await expect(s).toHaveAttribute('aria-checked', 'true');
+    await expect(s).toHaveText(/開$/);
+    expect((await bands(page)).length).toBe(4);
+    await s.click();
+    await expect(s).toHaveAttribute('aria-checked', 'false');
+    await expect(s).toHaveText(/關$/);
+    await expect(menu, '切換後選單還開著').toBeVisible();
+    await expect(page.locator('.rm-hl')).toHaveCount(0);
+    expect(JSON.parse(await lsGetMap(page))).toEqual({ end: false, letters: false, inner: false, strict: false, skipParticles: true });
+    // 重新整理：設定留著，色塊不回來
+    await page.reload();
+    await page.evaluate(() => Promise.all([window.__hoyunReady, window.__hoyunWordlistReady, window.__hoyunSongsReady, window.__lhMapReady]));
+    await expect(page.locator('.rm-hl')).toHaveCount(0);
+    await page.locator('#rhymeMenuBtn').click();
+    await expect(sw(page, '句尾上色')).toHaveAttribute('aria-checked', 'false');
+    await expect(sw(page, '句尾上色')).toHaveText(/關$/);
+    await sw(page, '句尾上色').click();
+    await expect.poll(async () => (await bands(page)).length).toBe(4);
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('開關：預設只開句尾上色', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, { wordlist: 'stub', storage: v2Storage([song([typed('sa', 'verse', F_AABB)])]) });
+    expect(await lsGetMap(page), '沒碰過就不寫').toBeNull();
+    await page.locator('#rhymeMenuBtn').click();
+    await expect(sw(page, '句尾上色')).toHaveText(/開$/);
+    expect(await page.locator('#rhymeMenu .rm-switch').evaluateAll(els => els.filter(e => e.getAttribute('aria-checked') === 'true').map(e => e.dataset.k)), '預設開著的').toEqual(['end']);
+    expect(await lsGetMap(page), '只是打開選單不寫').toBeNull();
+    expect(errors).toEqual([]);
+    await context.close();
+});

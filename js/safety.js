@@ -5,7 +5,7 @@
 const LH_LOG_PREFIX = '[好韻器]';
 
 // === 已知儲存鍵清單（備份與測試共用；D-13） ===
-// 以 AST 掃描驗證過的 21 個固定鍵（Phase 5 加入 lh:uiScale，Phase 6 加入 lh:lexiconPack，Phase 8 加入 lh:songs / lh:activeSong / lh:songListOpen）
+// 以 AST 掃描驗證過的 22 個固定鍵（Phase 5 加入 lh:uiScale，Phase 6 加入 lh:lexiconPack，Phase 8 加入 lh:songs / lh:activeSong / lh:songListOpen，Phase 10 加入 lh:map）
 const LH_KEYS = [
     { key: 'haiku_lyrics', group: 'data' },
     { key: 'haiku_hashtags', group: 'data' },
@@ -27,7 +27,8 @@ const LH_KEYS = [
     { key: 'lh:lexiconPack', group: 'setting' },
     { key: 'lh:songs', group: 'data' },
     { key: 'lh:activeSong', group: 'data' },
-    { key: 'lh:songListOpen', group: 'ui' }
+    { key: 'lh:songListOpen', group: 'ui' },
+    { key: 'lh:map', group: 'setting' }
 ];
 // secret 旗標讓之後的匯出（Phase 8）可以排除金鑰
 const LH_KEY_PREFIXES = [{ prefix: 'apiKey_', group: 'setting', secret: true }];

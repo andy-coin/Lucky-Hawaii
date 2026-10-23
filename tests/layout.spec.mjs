@@ -1636,7 +1636,7 @@ const TOUCH_STATES = [
         await page.fill('#searchInput', '樂');
         await settle(page);
     }],
-    ['歌詞開著', ['button.section-handle', 'button.section-remove', 'button.panel-add-btn', 'button.hashtag-add-btn', 'button.context-refresh-btn', 'span.chip-remove', 'span.hashtag-chip', 'button.section-type', 'button#undoBtn', 'button#redoBtn', 'div.context-section-header', '.lyrics-section.collapsed button.section-remove', 'div.section-resize'],
+    ['歌詞開著', ['button.section-handle', 'button.section-remove', 'button.panel-add-btn', 'button.hashtag-add-btn', 'button.context-refresh-btn', 'span.chip-remove', 'span.hashtag-chip', 'button.section-type', 'button#undoBtn', 'button#redoBtn', 'button#rhymeMenuBtn', 'div.context-section-header', '.lyrics-section.collapsed button.section-remove', 'div.section-resize'],
         (page, d) => toggleSide(page, d, 'lyrics')],
     ['段落設定開著', ['button.swatch', 'input[type=color]', 'button.type-row', 'input.section-name-input', 'button.section-move-up', 'button.section-move-down', 'button.section-menu-close', 'button.section-color-none'], async (page, d) => {
         await toggleSide(page, d, 'lyrics');

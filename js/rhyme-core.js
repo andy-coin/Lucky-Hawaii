@@ -10,6 +10,18 @@ const LH_RHYME_PARTICLES = new Set(Array.from('啊呀哪呢喔哦噢吧啦嘛耶
 const LH_RHYME_ALPHA = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
 // 開關預設（CONTEXT B4、C3、E1、E2）：只有句尾上色預設開
 const LH_RHYME_DEFAULTS = Object.freeze({ end: true, letters: false, inner: false, strict: false, skipParticles: true });
+
+// 把任何來源（儲存、備份檔、別的分頁）的 lh:map 整理成五個真布林：不是物件就全用預設；每個鍵只收 typeof boolean 的自己的屬性，
+// 多出來的鍵與字串 'true'、數字等一律丟掉（T-10-07）
+function lhRhymeNormalizeSettings(o) {
+    const out = Object.assign({}, LH_RHYME_DEFAULTS);
+    if (o && typeof o === 'object' && !Array.isArray(o)) {
+        for (const k of Object.keys(LH_RHYME_DEFAULTS)) {
+            if (Object.prototype.hasOwnProperty.call(o, k) && typeof o[k] === 'boolean') out[k] = o[k];
+        }
+    }
+    return out;
+}
 // 17 色：0–15 依 RHYME_FAMILIES 順序，16 是沒有家族的韻（空韻 ㄓㄔㄕㄖㄗㄘㄙ 等）用的中性灰
 const LH_RHYME_COLORS = Object.freeze({
     light: Object.freeze(['#d9534f', '#e8833a', '#d4a017', '#9aab2a', '#4caf50', '#2e9e74', '#1fa5a5', '#2f8fd0',
