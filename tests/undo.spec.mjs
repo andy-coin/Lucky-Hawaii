@@ -117,6 +117,17 @@ test('復原：組字一個詞一步', async ({ browser }) => {
     await context.close();
 });
 
+// 瀏覽器自己的捲動動畫（打字、Home／End 把游標捲進視野）會在幾十毫秒後才收尾，量捲動位置前要等它停下來（真實時間，不受假時鐘影響）
+async function scrollRest(list) {
+    let last = -1;
+    for (let still = 0; still < 3;) {
+        await list.page().waitForTimeout(60);
+        const now = await list.evaluate(l => l.scrollTop);
+        still = now === last ? still + 1 : 0;
+        last = now;
+    }
+}
+
 test('復原：只換一格', async ({ browser }) => {
     const rows = Array.from({ length: 12 }, (_, i) => typed('s' + i, 'verse', '行\n行\n行\n行\n行\n行' + i));
     const { context, page, errors } = await bootPage(browser, { storage: v2Storage([song('s1', [typed('sa', 'verse', '一'), typed('sb', 'chorus', '二')]), song('s2', rows)]), ...withClock });
@@ -134,12 +145,14 @@ test('復原：只換一格', async ({ browser }) => {
     await expect(ta(page, 0)).toHaveValue('一ab');
     expect(await page.evaluate(() => window.__ta === document.querySelectorAll('.section-textarea')[0]), '同一個節點').toBe(true);
     expect(await ta(page, 0).evaluate(t => t.selectionStart), '游標在上一步結束的位置').toBe(3);
+    await scrollRest(page.locator('#lyricsSections'));
     // 結構步驟：整個重畫，捲動位置不變，第一個變動的段落閃一下
     await page.evaluate(() => switchSong('s2'));
     const list = page.locator('#lyricsSections');
     await page.setViewportSize({ width: 1280, height: 600 });
     expect(await list.evaluate(l => l.scrollHeight > l.clientHeight), '列表要夠長才能量捲動').toBe(true);
     await page.locator('.section-type').nth(10).click();
+    await scrollRest(list);
     const top = await list.evaluate(l => l.scrollTop);
     expect(top).toBeGreaterThan(0);
     await page.locator('#undoBtn').click();
