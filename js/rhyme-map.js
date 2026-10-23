@@ -460,9 +460,8 @@ function lhMapBarBuild() {
     return bar;
 }
 
-function lhMapHideBar() {
-    clearTimeout(_lhMapBarTimer);
-    _lhMapBarTimer = 0;
+function lhMapHideBar(keepTimer) {
+    if (keepTimer !== true) { clearTimeout(_lhMapBarTimer); _lhMapBarTimer = 0; }
     if (_lhMapBarSnap) _lhMapBarSnap.ta.removeAttribute('aria-keyshortcuts');
     _lhMapBarSnap = null;
     if (_lhMapBar) _lhMapBar.classList.remove('show');
@@ -539,8 +538,9 @@ function _lhMapBarOnChange(e) {
         clearTimeout(_lhMapBarTimer);
         requestAnimationFrame(() => _lhMapSelCheck(ta));
     });
-    area.addEventListener('compositionstart', lhMapHideBar);
-    area.addEventListener('scroll', e => { if (performance.now() > _lhMapBarGrace) lhMapHideBar(); }, true);
+    area.addEventListener('compositionstart', () => lhMapHideBar());
+    // 捲動只收已經出現的列，不取消等著判斷的計時（聚焦時瀏覽器常會順手捲一下）
+    area.addEventListener('scroll', () => { if (_lhMapBarSnap && performance.now() > _lhMapBarGrace) lhMapHideBar(true); }, true);
     // Alt+↓：焦點到浮動列（D-16）
     area.addEventListener('keydown', e => {
         if (!_lhMapBarSnap || e.target !== _lhMapBarSnap.ta || !e.altKey || e.key !== 'ArrowDown' || e.isComposing || e.keyCode === 229) return;

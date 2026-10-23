@@ -822,3 +822,215 @@ test('浮動列：只點一下不會出現', async ({ browser }) => {
     expect(errors).toEqual([]);
     await context.close();
 });
+
+const CHINESE21 = '一二三四五六七八九十一二三四五六七八九十一';
+const waitBar = page => expect(page.locator(BAR)).toBeVisible();
+const quiet = async (page, ms = 700) => { await page.waitForTimeout(ms); };
+
+test('AI 建議：先查韻再出 AI 詞卡、送整首歌', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, {
+        wordlist: 'stub', aiReply: '天亮、心慌、離鄉',
+        storage: v2Storage([song([typed('sa', 'verse', F_AABB), typed('sb', 'chorus', '第二段的歌詞')])], { leftPanelCollapsed: 'false', rightPanelCollapsed: 'true' }),
+    });
+    const bodies = [];
+    page.on('request', r => { if (r.method() === 'POST' && new URL(r.url()).pathname === '/ai') bodies.push(r.postData()); });
+    await expect(page.locator('#rightPanel')).toHaveClass(/\bcollapsed\b/);
+    // 記下 AI 按鈕真正執行那一刻的 lastLyricsSelection：不是空的，AI 就只會拿到被選的字當歌詞（Pitfall 9）
+    await page.evaluate(() => {
+        const o = window.generateAISuggestions;
+        window.generateAISuggestions = function (...a) { window.__selAtAI = lastLyricsSelection; window.__songAtAI = curSong().sections.map(s => s.text.trim()).filter(Boolean).join('\n'); return o.apply(this, a); };
+        lastLyricsSelection = '光';   // 模擬滑鼠反白留下的值
+    });
+    await pick(page, 6, 7);
+    await waitBar(page);
+    await page.locator(BAR + ' button').nth(1).click();
+    await expect(page.locator('#searchInput')).toHaveValue('光');
+    await expect(page.locator('#rightPanel')).not.toHaveClass(/\bcollapsed\b/);
+    await expect.poll(() => page.locator('.ai-word-card').count()).toBeGreaterThan(0);
+    expect(bodies.length, '送出了 AI 請求').toBeGreaterThan(0);
+    expect(await page.evaluate(() => window.__selAtAI), 'AI 按下去時沒有留著被選的字').toBe('');
+    expect(await page.evaluate(() => window.__songAtAI), 'AI 用的歌詞是整首').toContain('第二段的歌詞');
+    expect(await page.evaluate(() => lastLyricsSelection)).toBe('');
+    await expect(page.locator(BAR)).toBeHidden();
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('浮動列：手機查韻與 AI 建議切分頁', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, {
+        wordlist: 'stub', device: DEVICES.phone, aiReply: '天亮、心慌、離鄉',
+        storage: v2Storage([song([typed('sa', 'verse', F_AABB)])], {}),
+    });
+    const collapsed = id => page.locator(id).evaluate(n => n.classList.contains('collapsed'));
+    // 開歌詞分頁、選字：查韻 → 回到查韻分頁，搜尋框有字、有字卡
+    await page.locator('#mtab-lyrics').click();
+    await waitStill(page);
+    await pick(page, 6, 7);
+    await waitBar(page);
+    await page.locator(BAR + ' button').first().click();
+    await expect(page.locator('#searchInput')).toHaveValue('光');
+    expect(await collapsed('#leftPanel')).toBe(true);
+    expect(await collapsed('#rightPanel')).toBe(true);
+    await expect(page.locator('#mtab-search')).toHaveAttribute('aria-pressed', 'true');
+    await expect.poll(() => page.locator('.char-card').count()).toBeGreaterThan(0);
+    // 再回歌詞：沒有跳出來的浮動列
+    await page.locator('#mtab-lyrics').click();
+    await waitStill(page);
+    await quiet(page);
+    await expect(page.locator(BAR)).toBeHidden();
+    // AI 建議：開 AI 分頁、詞卡出現
+    await pick(page, 5, 7);
+    await waitBar(page);
+    await page.locator(BAR + ' button').nth(1).click();
+    await expect(page.locator('#mtab-ai')).toHaveAttribute('aria-pressed', 'true');
+    expect(await collapsed('#rightPanel')).toBe(false);
+    await expect.poll(() => page.locator('.ai-word-card').count()).toBeGreaterThan(0);
+    await page.locator('#mtab-lyrics').click();
+    await waitStill(page);
+    await quiet(page);
+    await expect(page.locator(BAR)).toBeHidden();
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('浮動列：這些情況不出現', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, {
+        wordlist: 'stub',
+        storage: v2Storage([song([typed('sa', 'verse', F_AABB), typed('sb', 'chorus', 'abc def'), typed('sc', 'bridge', CHINESE21)])]),
+    });
+    const hidden = async () => { await quiet(page); await expect(page.locator(BAR)).toBeHidden(); };
+    await pick(page, 3, 3);
+    await hidden();                                    // 只有游標
+    await pick(page, 0, 3, 1);
+    await hidden();                                    // 'abc'：沒有中文字
+    await pick(page, 0, 21, 2);
+    await hidden();                                    // 21 個字：太長
+    await pick(page, 0, 20, 2);
+    await waitBar(page);                               // 20 個字剛好可以
+    await pick(page, 3, 3);
+    await expect(page.locator(BAR)).toBeHidden();
+    // 組字中：有選取也不出現
+    await pick(page, 5, 7);
+    await waitBar(page);
+    let during = null;
+    await compose(page, ['ㄌ', 'ㄌㄧ'], '你', async () => { await quiet(page); during = await page.locator(BAR).isVisible(); });
+    expect(during, '組字中浮動列不在').toBe(false);
+    await pick(page, 3, 3);
+    // 韻腳選單開著
+    await page.locator('#rhymeMenuBtn').click();
+    await expect(page.locator('#rhymeMenu')).toBeVisible();
+    await pick(page, 5, 7);
+    await hidden();
+    await page.keyboard.press('Escape');
+    await pick(page, 3, 3);
+    // 段落設定選單開著
+    await page.locator('#lyricsSections .section-type').first().click({ button: 'right' });
+    await expect(page.locator('#sectionMenu')).toBeVisible();
+    await pick(page, 5, 7);
+    await hidden();
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('浮動列：這些情況收起來', async ({ browser }) => {
+    const long = Array.from({ length: 80 }, (_, i) => '第' + i + '句歌詞在這裡').join('\n');
+    const mk = id => song([typed('sa', 'verse', F_AABB), typed('sb', 'chorus', long, { height: 160 })], { id });
+    const { context, page, errors } = await bootPage(browser, {
+        wordlist: 'stub', storage: v2Storage([mk('s1'), { ...mk('s2'), title: '第二首' }]),
+    });
+    const show = async (n = 0, a = 5, b = 7) => { await pick(page, a, b, n); await waitBar(page); };
+    const gone = () => expect(page.locator(BAR)).toBeHidden();
+    // Esc：焦點回輸入框、選取不變、不會自己再冒出來
+    await show();
+    await expect(page.locator('.section-textarea').first()).toHaveAttribute('aria-keyshortcuts', 'Alt+ArrowDown');
+    await page.keyboard.press('Escape');
+    await gone();
+    expect(await taState(page)).toEqual({ ta: true, a: 5, b: 7 });
+    await expect(page.locator('.section-textarea').first()).not.toHaveAttribute('aria-keyshortcuts', /.*/);
+    await quiet(page);
+    await gone();
+    // 選取收合（Esc 收掉的那個選取不會自己再冒出來，所以換一個範圍）
+    await show(0, 4, 7);
+    await pick(page, 7, 7);
+    await gone();
+    // 輸入框捲動
+    await show(1, 0, 3);
+    await page.evaluate(() => {
+        const ta = document.querySelectorAll('.section-textarea')[1], box = document.getElementById('lyricsSections');
+        if (ta.scrollHeight > ta.clientHeight) ta.scrollTop = 80; else box.scrollTop = box.scrollTop + 80;
+    });
+    await gone();
+    // 點頁面別處
+    await show();
+    await page.locator('#songTotal').click();
+    await gone();
+    // 開始組字
+    await show();
+    let during = null;
+    await compose(page, ['ㄌ'], '你', async () => { during = await page.locator(BAR).isVisible(); });
+    expect(during).toBe(false);
+    // 換歌
+    await show();
+    await page.evaluate(() => switchSong('s2'));
+    await gone();
+    // 收左面板
+    await show();
+    await page.evaluate(() => toggleLeftPanel());
+    await gone();
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('浮動列：按鈕不會吃掉選取', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, {
+        wordlist: 'stub', storage: v2Storage([song([typed('sa', 'verse', F_AABB)])]),
+    });
+    await pick(page, 5, 7);
+    await waitBar(page);
+    for (const i of [0, 1]) {
+        const b = await page.locator(BAR + ' button').nth(i).boundingBox();
+        await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2);
+        await page.mouse.down();
+        expect(await taState(page), '按下去、還沒放開：選取與焦點都還在').toEqual({ ta: true, a: 5, b: 7 });
+        await page.mouse.move(b.x - 30, b.y - 30);   // 拖出按鈕再放開：不算點擊
+        await page.mouse.up();
+        await expect(page.locator(BAR)).toBeVisible();
+    }
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('浮動列：鍵盤操作', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, {
+        wordlist: 'stub', storage: v2Storage([song([typed('sa', 'verse', F_AABB)])]),
+    });
+    const ta = page.locator('.section-textarea').first();
+    await expect(ta).not.toHaveAttribute('aria-keyshortcuts', /.*/);
+    await pick(page, 5, 7);
+    await waitBar(page);
+    await expect(ta).toHaveAttribute('aria-keyshortcuts', 'Alt+ArrowDown');
+    await page.keyboard.press('Alt+ArrowDown');
+    await expect(page.locator(BAR + ' button').first()).toBeFocused();
+    await page.keyboard.press('ArrowRight');
+    await expect(page.locator(BAR + ' button').nth(1)).toBeFocused();
+    await page.keyboard.press('ArrowLeft');
+    await expect(page.locator(BAR + ' button').first()).toBeFocused();
+    await page.keyboard.press('Escape');
+    await expect(page.locator(BAR)).toBeHidden();
+    await expect(ta).toBeFocused();
+    expect(await taState(page)).toEqual({ ta: true, a: 5, b: 7 });
+    await expect(ta).not.toHaveAttribute('aria-keyshortcuts', /.*/);
+    // Enter 按下「查韻」：焦點與選取回輸入框
+    await pick(page, 5, 7, 0);
+    await page.keyboard.press('Shift+ArrowLeft');   // 選取變了，解除 Esc 留下的記號
+    await page.keyboard.press('Shift+ArrowRight');
+    await waitBar(page);
+    await page.keyboard.press('Alt+ArrowDown');
+    await page.keyboard.press('Enter');
+    await expect(page.locator('#searchInput')).toHaveValue('光');
+    await expect(ta).toBeFocused();
+    expect(await taState(page)).toEqual({ ta: true, a: 5, b: 7 });
+    await expect(page.locator(BAR)).toBeHidden();
+    expect(errors).toEqual([]);
+    await context.close();
+});
