@@ -5,11 +5,14 @@
 // 詞一律用 textContent 與 .value 進畫面，不經過 HTML 解析。這支檔案最後載入，lhSec* 與 curSong 都已存在。
 
 const LH_WD_MOUSE_PX = 5;        // 滑鼠移動超過這麼多 px 才算拖
+const LH_WD_TOUCH_PX = 10;       // 觸控：長按期間移動超過這麼多 px 就是捲動，不拖
+const LH_WD_HOLD_MS = 400;       // 觸控：按住這麼久不動才開始拖
 const LH_WD_BIG = 200000;        // 超過這麼多字的段落不即時算游標，放開才算一次（鏡像排版太貴）
 
 let _lhWd = null;                // 進行中的手勢：{ card, word, pointerId, touch, sx, sy, x, y, state, ghost, caretEl, ta, mirror, raf }
 let _lhWdSwallow = false;        // 拖曳之後的那一次 click 要吞掉
 let _lhWdSwallowTimer = 0;
+let _lhWdTouchEnd = -Infinity;   // 上一次觸控手勢結束的時間：之後 600ms 內擋 contextmenu
 
 // ===== 鏡像 div：算 textarea 裡「指標下的字」的索引（RESEARCH Pattern 8，用真實點擊的 selectionStart 驗證過） =====
 const _LH_MIRROR_COPY = ['boxSizing', 'paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft', 'fontFamily', 'fontSize', 'fontWeight', 'fontStyle',
@@ -137,7 +140,9 @@ function _lhWdTick() {
     d.raf = 0;
     const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
     const h = d.ghost.offsetHeight;
-    const gx = Math.max(0, d.x - 0.75 * rem), gy = Math.max(0, d.y - 0.75 * rem - h);
+    // 滑鼠：殘影在指標左上 0.75rem；手指：置中在手指上方 3rem（不被手指擋住）
+    const gx = d.touch ? Math.max(0, d.x - d.ghost.offsetWidth / 2) : Math.max(0, d.x - 0.75 * rem);
+    const gy = Math.max(0, d.y - (d.touch ? 3 : 0.75) * rem - h);
     d.ghost.style.transform = 'translate(' + gx + 'px, ' + gy + 'px)';
     const ta = _lhWdTextareaAt(d.x, d.y);
     if (ta !== d.ta) {
@@ -184,21 +189,60 @@ function _lhWdBegin(d) {
     document.body.appendChild(ghost);
     d.ghost = ghost;
     document.body.classList.add('is-word-dragging');
+    if (d.touch) {
+        if (navigator.vibrate) navigator.vibrate(10);
+        // 長按 400ms 時瀏覽器還沒開始捲：此刻起擋掉 touchmove，列表才不會在指頭下捲動（要明確寫 passive:false）
+        document.addEventListener('touchmove', _lhWdBlock, { passive: false });
+        const hint = document.createElement('div');
+        hint.className = 'drag-hint';
+        hint.setAttribute('role', 'status');
+        hint.textContent = '拖到想放的位置，放開就插入；放在歌詞外面就取消';
+        document.body.appendChild(hint);
+        d.hint = hint;
+    }
+    document.addEventListener('keydown', _lhWdKey, true);
     d.raf = requestAnimationFrame(_lhWdTick);
 }
+
+function _lhWdBlock(e) {
+    if (_lhWd && _lhWd.state === 'dragging' && e.cancelable) e.preventDefault();
+}
+
+// Esc 取消：capture 階段攔下並 preventDefault，≤ 900 的 sheet 才不會同時被收起（panels.js 看 defaultPrevented）；組字中不攔
+function _lhWdKey(e) {
+    if (e.key !== 'Escape' || e.isComposing || e.keyCode === 229) return;
+    if (!_lhWd || _lhWd.state !== 'dragging') return;
+    e.preventDefault();
+    e.stopPropagation();
+    lhWordDragCancel();
+}
+
+// 觸控長按會在約 500ms 送 contextmenu（Android），Phase 7 的回報選單會跟著彈出：手勢進行中與結束後 600ms 內一律擋掉。
+// 滑鼠右鍵不在這裡（滑鼠手勢不設 touch 旗標、也不記結束時間），桌機回報選單照舊
+window.addEventListener('contextmenu', e => {
+    if ((_lhWd && _lhWd.touch) || performance.now() - _lhWdTouchEnd < 600) {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+    }
+}, true);
 
 // 收尾：不論放開、取消或被打斷，每條路徑都把監聽、殘影、插入線、外框、class 清乾淨
 function _lhWdFinish(released) {
     const d = _lhWd;
     if (!d) return;
     _lhWd = null;
+    clearTimeout(d.timer);
+    if (d.touch) _lhWdTouchEnd = performance.now();
     if (d.state === 'dragging') _lhWdArmSwallow(released);
     cancelAnimationFrame(d.raf);
     document.removeEventListener('pointermove', _lhWdMove, true);
     document.removeEventListener('pointerup', _lhWdUp, true);
     document.removeEventListener('pointercancel', _lhWdAbort, true);
+    document.removeEventListener('touchmove', _lhWdBlock, { passive: false });
+    document.removeEventListener('keydown', _lhWdKey, true);
     _lhWdLeaveTa(d);
     d.ghost?.remove();
+    d.hint?.remove();
     d.caretEl?.remove();
     d.card.classList.remove('word-drag-source');
     document.body.classList.remove('is-word-dragging');
@@ -220,7 +264,12 @@ function _lhWdMove(e) {
     d.x = e.clientX;
     d.y = e.clientY;
     if (d.state === 'pending') {
-        if (Math.hypot(d.x - d.sx, d.y - d.sy) <= LH_WD_MOUSE_PX) return;
+        const moved = Math.hypot(d.x - d.sx, d.y - d.sy);
+        if (d.touch) {   // 長按前就移動＝在捲動：放棄，不攔瀏覽器
+            if (moved > LH_WD_TOUCH_PX) _lhWdFinish(false);
+            return;
+        }
+        if (moved <= LH_WD_MOUSE_PX) return;
         _lhWdBegin(d);
         if (!_lhWd) return;
     }
@@ -284,8 +333,12 @@ document.addEventListener('pointerdown', e => {
     _lhWd = {
         card, word, pointerId: e.pointerId, touch: e.pointerType !== 'mouse',
         sx: e.clientX, sy: e.clientY, x: e.clientX, y: e.clientY, state: 'pending',
-        ghost: null, caretEl: null, ta: null, mirror: null, raf: 0,
+        ghost: null, hint: null, caretEl: null, ta: null, mirror: null, raf: 0, timer: 0,
     };
+    if (_lhWd.touch) {
+        const d = _lhWd;
+        d.timer = setTimeout(() => { if (_lhWd === d && d.state === 'pending') _lhWdBegin(d); }, LH_WD_HOLD_MS);
+    }
     document.addEventListener('pointermove', _lhWdMove, true);
     document.addEventListener('pointerup', _lhWdUp, true);
     document.addEventListener('pointercancel', _lhWdAbort, true);

@@ -341,6 +341,26 @@
         .section-textarea.drop-target { outline: 2px solid var(--highlight-border); outline-offset: -2px; }
         .word-drag-source { opacity: 0.5; }
         body.is-word-dragging, body.is-word-dragging * { user-select: none; cursor: grabbing; }
+        /* 卡片上長按不跳出系統選單、不選字；觸控仍可捲動清單（touch-action 維持 manipulation） */
+        .ai-word-card, .char-card { -webkit-touch-callout: none; user-select: none; }
+        .drag-hint {
+            position: fixed;
+            top: calc(env(safe-area-inset-top) + var(--sp-2));
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 10000;
+            width: max-content;
+            max-width: min(92vw, 28rem);
+            background: rgba(0,0,0,0.72);
+            color: white;
+            border-radius: 1rem;
+            padding: var(--sp-1) var(--sp-3);
+            font-size: 0.875rem;
+            font-weight: 700;
+            line-height: 1.5;
+            text-align: center;
+            pointer-events: none;
+        }
         .lyrics-total {
             margin-inline-start: auto;
             font-size: 0.75rem;

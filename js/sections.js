@@ -429,6 +429,7 @@ function lhSecAbortInteractions() {
     lhSecDragEnd(false);
     lhSecResizeEnd(false);
     lhSecCloseMenu();
+    if (typeof lhWordDragCancel === 'function') lhWordDragCancel();   // word-drag.js 最後才載入；第一次重畫時它還不存在
 }
 LH_MQ_SHEET.addEventListener('change', lhSecAbortInteractions);
 new MutationObserver(() => {
