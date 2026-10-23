@@ -381,3 +381,24 @@ test('復原：按鈕說明', async ({ browser }) => {
     expect(errors).toEqual([]);
     await context.close();
 });
+
+// 評審 CR-01：組字中按 ↶ 不能改輸入框（寫 .value 會砍掉組字、_lhComposing 卡在 true）
+test('復原：組字中按按鈕不動輸入框', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, { storage: one() });
+    await ta(page).focus();
+    await page.keyboard.press('End');
+    await page.keyboard.type('abc');
+    await page.keyboard.press('End');
+    let during = null;
+    await compose(page, ['ㄋ', 'ㄋㄧ'], '你', async () => {
+        await page.locator('#undoBtn').click();
+        during = { value: await ta(page).inputValue(), past: (await hist(page)).past, composing: await page.evaluate(() => _lhComposing) };
+    });
+    expect(during.composing, '組字中旗標為真').toBe(true);
+    expect(during.value, '組字中輸入框內容沒被覆蓋').toContain('ㄋㄧ');
+    expect(during.past, '歷史沒動').toBe(1);
+    await expect(ta(page)).toHaveValue('你好abc你');
+    expect(await page.evaluate(() => _lhComposing), '組字結束旗標放掉').toBe(false);
+    expect(errors).toEqual([]);
+    await context.close();
+});

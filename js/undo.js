@@ -73,6 +73,7 @@ function lhHistSyncButtons() {
 
 // 回到 step 的狀態；from／to 是要搬去的另一邊（redo 或 undo 的堆疊）
 function _lhHistMove(from, to, msg) {
+    if (_lhComposing) return false;   // 組字中不動輸入框（寫 .value 會砍掉組字，旗標也會卡在 true）
     const song = curSong();
     const h = song && lhHistEnsure(song);
     hideUndoToastAction();
