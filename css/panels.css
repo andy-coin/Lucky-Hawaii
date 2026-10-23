@@ -382,6 +382,10 @@
             .rhyme-menu-btn:hover { background: var(--container-bg); }
             .rm-switch:hover { background: var(--container-bg); }
         }
+        /* 選字浮動列（10-05）：兩顆按鈕一排，窄螢幕換行；沿用 .word-ctx-menu 的底、框、層級 */
+        .word-ctx-menu.rm-bar { padding: var(--sp-1); min-width: 0; }
+        .word-ctx-menu.rm-bar.show { display: flex; gap: var(--sp-1); flex-wrap: wrap; }
+        .rm-bar .section-menu-btn { min-height: 2rem; min-width: var(--hit); white-space: nowrap; }
         /* 復原／重做後第一個變動的段落閃 700 毫秒外框（不用動畫） */
         .lyrics-section.sec-flash { outline: 2px solid var(--highlight-border); outline-offset: -2px; }
 
@@ -1722,6 +1726,7 @@
             .undo-btn { width: var(--hit); height: var(--hit); }
             .rhyme-menu-btn { min-width: var(--hit); min-height: var(--hit); }
             .rm-switch { min-height: var(--hit); }
+            .rm-bar .section-menu-btn { min-height: var(--hit); }
             .word-chip, .hashtag-chip { min-height: var(--hit); padding-block: 0; padding-right: 0; }
             .chip-remove {
                 display: inline-flex;

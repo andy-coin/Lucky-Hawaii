@@ -763,3 +763,62 @@ test('開關：鍵盤開選單的焦點', async ({ browser }) => {
     expect(errors).toEqual([]);
     await context.close();
 });
+
+// ===== 第 10-05 計畫：選字浮動列 =====
+const BAR = '#rhymeSelBar';
+// 第 n 段的輸入框：聚焦並選 [a, b)
+const pick = (page, a, b, n = 0) => page.evaluate(([a, b, n]) => {
+    const ta = document.querySelectorAll('.section-textarea')[n];
+    ta.focus(); ta.setSelectionRange(a, b);
+}, [a, b, n]);
+const taState = page => page.evaluate(() => {
+    const ta = document.activeElement;
+    return { ta: ta.classList.contains('section-textarea'), a: ta.selectionStart, b: ta.selectionEnd };
+});
+// 第 n 段索引 i 那個字所在行的底邊（螢幕座標）與該字右緣
+const lineBottom = (page, i, n = 0) => page.evaluate(([i, n]) => {
+    const ta = document.querySelectorAll('.section-textarea')[n], m = lhMirror(ta), p = lhCaretRect(ta, m, i);
+    m.remove();
+    return { bottom: p.top + p.height, left: p.left };
+}, [i, n]);
+
+test('浮動列：反白後出現、按查韻就查', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, {
+        wordlist: 'stub', storage: v2Storage([song([typed('sa', 'verse', F_AABB)])]),
+    });
+    await expect(page.locator(BAR)).toBeHidden();
+    // 第一行行尾，Shift+← 兩次選到「的光」（鍵盤選取：400ms 後才出現）
+    await pick(page, 7, 7);
+    await page.keyboard.press('Shift+ArrowLeft');
+    await page.keyboard.press('Shift+ArrowLeft');
+    await expect(page.locator(BAR)).toBeVisible();
+    await expect(page.locator(BAR)).toHaveAttribute('role', 'toolbar');
+    await expect(page.locator(BAR)).toHaveAttribute('aria-label', '選字工具');
+    await expect(page.locator(BAR + ' button').first()).toHaveText('🔍 查韻：光');
+    await expect(page.locator(BAR + ' button').nth(1)).toHaveText('✨ AI 建議');
+    const box = await page.locator(BAR).boundingBox();
+    const line = await lineBottom(page, 7);
+    expect(box.y, '浮動列在選取那一行的下方').toBeGreaterThanOrEqual(line.bottom - 0.5);
+    expect(Math.abs(box.x - line.left), '左緣約在選取結尾').toBeLessThan(40);
+    // 查韻：搜尋框是「光」、有字卡；焦點與選取都還在輸入框，浮動列收掉
+    await page.locator(BAR + ' button').first().click();
+    await expect(page.locator('#searchInput')).toHaveValue('光');
+    await expect.poll(() => page.locator('.char-card').count()).toBeGreaterThan(0);
+    expect(await taState(page)).toEqual({ ta: true, a: 5, b: 7 });
+    await expect(page.locator(BAR)).toBeHidden();
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('浮動列：只點一下不會出現', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, {
+        wordlist: 'stub', storage: v2Storage([song([typed('sa', 'verse', F_AABB)])]),
+    });
+    await page.locator('.section-textarea').click({ position: { x: 60, y: 20 } });
+    await page.waitForTimeout(700);
+    await expect(page.locator(BAR)).toBeHidden();
+    await expect(page.locator('#searchInput')).toHaveValue('');
+    expect(await page.locator('.char-card').count()).toBe(0);
+    expect(errors).toEqual([]);
+    await context.close();
+});

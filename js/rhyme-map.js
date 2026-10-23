@@ -380,6 +380,7 @@ function lhMapCloseMenu(refocus) {
 // 關掉所有韻腳相關的浮層（重畫列表、跨 900px、收面板、段落選單打開時都會叫）；之後的計畫會把統計與選字列也收進來
 function lhMapCloseAll() {
     lhMapCloseMenu(false);
+    lhMapHideBar();
 }
 
 document.getElementById('rhymeMenuBtn').addEventListener('click', e => {
@@ -399,9 +400,11 @@ document.addEventListener('keydown', e => {
 // 螢幕鍵盤出現／收起、視窗大小改變：選單重新夾進可見範圍（等兩個 frame，layout.js 要先更新 --app-h）
 let _lhMapMenuRaf = 0;
 function _lhMapReclamp() {
-    if (!_lhMapMenuOn || _lhMapMenuRaf) return;
+    if ((!_lhMapMenuOn && !_lhMapBarSnap) || _lhMapMenuRaf) return;
+    _lhMapBarGrace = performance.now() + 700;   // 鍵盤出現時瀏覽器會自己把輸入框捲進可見範圍，那不算使用者捲動，選字列不收
     _lhMapMenuRaf = requestAnimationFrame(() => requestAnimationFrame(() => {
         _lhMapMenuRaf = 0;
+        if (_lhMapBarSnap) _lhMapBarPlace();   // 選字列也跟著重新放
         if (!_lhMapMenuOn) return;
         _lhMapPlaceMenu();
         const ae = document.activeElement;
@@ -412,6 +415,185 @@ window.addEventListener('resize', _lhMapReclamp);
 if (window.visualViewport) {
     window.visualViewport.addEventListener('resize', _lhMapReclamp);
     window.visualViewport.addEventListener('scroll', _lhMapReclamp);
+}
+
+// ==================== 選字浮動列（MAP-05、CONTEXT D1／D3、UI-SPEC D-15／D-16／D-17） ====================
+// 在歌詞裡反白 1–20 個字（至少一個中文字），選取下方出現「🔍 查韻：{字}」「✨ AI 建議」；
+// 只有反白＋按按鈕才查，單純點一下游標不會動搜尋。字取選取範圍最後一個中文字（韻腳在句尾）。
+// 時機：滑鼠放開（mouseup）下一個 frame 就判斷；鍵盤與觸控在最後一次 select／selectionchange／keyup 之後 400ms 才判斷，拖選取把手時不會閃。
+const LH_MAP_SEL_MAX = 20;       // 超過這麼多字（以字元計）的選取不是查詢意圖（全選、整段）
+const LH_MAP_BAR_MS = 400;
+const LH_MAP_HAN = /\p{Script=Han}/u;
+let _lhMapBar = null;
+let _lhMapBarSnap = null;        // 顯示當下的快照 { ta, secId, a, b, end, char }：按下按鈕時用它，不重讀選取（Pitfall 8）
+let _lhMapBarTimer = 0;
+let _lhMapBarSkip = '';          // 按過按鈕或 Esc 收掉的那個選取（段落:起:迄）：同一個選取不再自動跳出來，重新放開滑鼠或改選取才解除
+let _lhMapBarGrace = 0;          // 這個時間點之前的捲動不算使用者捲動（鍵盤開關時瀏覽器自己會捲）
+
+const _lhMapSelSig = ta => (ta.closest('.lyrics-section')?.dataset.id || '') + ':' + ta.selectionStart + ':' + ta.selectionEnd;
+
+function lhMapBarBuild() {
+    if (_lhMapBar) return _lhMapBar;
+    const bar = _lhMk('div', 'word-ctx-menu rm-bar');
+    bar.id = 'rhymeSelBar';
+    bar.setAttribute('role', 'toolbar');
+    bar.setAttribute('aria-label', '選字工具');
+    const icon = t => { const s = _lhMk('span', '', t); s.setAttribute('aria-hidden', 'true'); return s; };
+    const look = _lhMkBtn('section-menu-btn rm-bar-look', '');
+    look.append(icon('🔍'), _lhMk('span', 'rm-bar-t', ' 查韻：'));
+    const ai = _lhMkBtn('section-menu-btn rm-bar-ai', '');
+    ai.append(icon('✨'), _lhMk('span', '', ' AI 建議'));
+    bar.append(look, ai);
+    // 按鈕不能搶走輸入框的焦點與選取（手機鍵盤也才不會收起來）
+    for (const t of ['pointerdown', 'mousedown']) bar.addEventListener(t, e => e.preventDefault());
+    look.addEventListener('click', e => lhMapLookup(_lhMapBarSnap && _lhMapBarSnap.char, false, e.detail === 0));
+    ai.addEventListener('click', e => lhMapLookup(_lhMapBarSnap && _lhMapBarSnap.char, true, e.detail === 0));
+    bar.addEventListener('keydown', e => {
+        if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+        const items = [...bar.querySelectorAll('button')], i = items.indexOf(document.activeElement);
+        if (i < 0) return;
+        e.preventDefault();
+        items[(i + (e.key === 'ArrowRight' ? 1 : -1) + items.length) % items.length].focus({ preventScroll: true });
+    });
+    document.body.appendChild(bar);
+    _lhMapBar = bar;
+    return bar;
+}
+
+function lhMapHideBar() {
+    clearTimeout(_lhMapBarTimer);
+    _lhMapBarTimer = 0;
+    if (_lhMapBarSnap) _lhMapBarSnap.ta.removeAttribute('aria-keyshortcuts');
+    _lhMapBarSnap = null;
+    if (_lhMapBar) _lhMapBar.classList.remove('show');
+}
+
+// 放在選取結尾那一行的下方；放不下（lhPlaceMenu 夾進可見範圍）就貼在可見範圍底部
+// 太長的段落不量版面（鏡像排版太貴，T-10-11）；選取結尾捲出輸入框外時也直接貼底
+function _lhMapBarPlace() {
+    const s = _lhMapBarSnap, ta = s.ta;
+    const vv = window.visualViewport;
+    const r = ta.getBoundingClientRect();
+    let x = r.left, y = (vv ? vv.offsetTop + vv.height : innerHeight);
+    if (ta.value.length <= LH_WD_BIG) {
+        const m = lhMirror(ta);
+        let pos;
+        try { pos = lhCaretRect(ta, m, s.end); } finally { m.remove(); }
+        if (pos.top + pos.height >= r.top && pos.top <= r.bottom) {
+            const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+            x = pos.left;
+            y = pos.top + pos.height + (matchMedia('(pointer: coarse)').matches ? 1.75 : 0.25) * rem;
+        }
+    }
+    lhPlaceMenu(_lhMapBar, x, y);
+}
+
+function lhMapShowBar(snap) {
+    const bar = lhMapBarBuild();
+    if (_lhMapBarSnap && _lhMapBarSnap.ta !== snap.ta) _lhMapBarSnap.ta.removeAttribute('aria-keyshortcuts');
+    _lhMapBarSnap = snap;
+    snap.ta.setAttribute('aria-keyshortcuts', 'Alt+ArrowDown');
+    bar.querySelector('.rm-bar-t').textContent = ' 查韻：' + snap.char;
+    _lhMapBarPlace();
+}
+
+// 判斷這個輸入框現在的選取該不該出現浮動列
+function _lhMapSelCheck(ta) {
+    _lhMapBarTimer = 0;
+    try {
+        const a = ta.selectionStart, b = ta.selectionEnd;
+        const rpt = document.getElementById('aiWordsContainer');
+        const busy = _lhComposing || _lhDrag || _lhResize || _lhWd || _lhMenuId !== null || _lhMapMenuOn || (rpt && rpt.classList.contains('report-mode'));
+        if (busy || a === b || ta.getClientRects().length === 0 || _lhMapSelSig(ta) === _lhMapBarSkip) return lhMapHideBar();
+        const text = ta.value.slice(a, b);
+        const chars = Array.from(text);
+        if (chars.length > LH_MAP_SEL_MAX) return lhMapHideBar();
+        const han = chars.filter(c => LH_MAP_HAN.test(c));
+        if (!han.length) return lhMapHideBar();
+        const end = b - (text.length - text.trimEnd().length);   // 三連點選會多選到換行：浮動列放在最後一個字那一行
+        lhMapShowBar({ ta, secId: ta.closest('.lyrics-section').dataset.id, a, b, end, char: han[han.length - 1] });
+    } catch (e) {
+        lhWarn('韻腳地圖選字列失敗', e);
+        lhMapHideBar();
+    }
+}
+
+// 選取一變就先收掉（字可能換了）、400ms 後再判斷；選取收合馬上收掉
+function _lhMapBarOnChange(e) {
+    const ta = e.target;
+    if (!ta.classList || !ta.classList.contains('section-textarea')) return;
+    if (_lhMapSelSig(ta) !== _lhMapBarSkip) _lhMapBarSkip = '';
+    if (ta.selectionStart === ta.selectionEnd) return lhMapHideBar();
+    if (_lhMapBarSnap && (_lhMapBarSnap.ta !== ta || _lhMapBarSnap.a !== ta.selectionStart || _lhMapBarSnap.b !== ta.selectionEnd)) lhMapHideBar();
+    clearTimeout(_lhMapBarTimer);
+    _lhMapBarTimer = setTimeout(() => _lhMapSelCheck(ta), LH_MAP_BAR_MS);
+}
+{
+    const area = document.getElementById('lyricsSections');
+    for (const t of ['select', 'selectionchange']) area.addEventListener(t, _lhMapBarOnChange);
+    area.addEventListener('keyup', e => { if (e.key !== 'Escape') _lhMapBarOnChange(e); });
+    area.addEventListener('mouseup', e => {
+        const ta = e.target;
+        if (!ta.classList || !ta.classList.contains('section-textarea')) return;
+        _lhMapBarSkip = '';
+        clearTimeout(_lhMapBarTimer);
+        requestAnimationFrame(() => _lhMapSelCheck(ta));
+    });
+    area.addEventListener('compositionstart', lhMapHideBar);
+    area.addEventListener('scroll', e => { if (performance.now() > _lhMapBarGrace) lhMapHideBar(); }, true);
+    // Alt+↓：焦點到浮動列（D-16）
+    area.addEventListener('keydown', e => {
+        if (!_lhMapBarSnap || e.target !== _lhMapBarSnap.ta || !e.altKey || e.key !== 'ArrowDown' || e.isComposing || e.keyCode === 229) return;
+        e.preventDefault();
+        _lhMapBar.querySelector('button').focus({ preventScroll: true });
+    });
+}
+// 點浮動列以外的地方收掉
+document.addEventListener('pointerdown', e => {
+    if (_lhMapBarSnap && !(e.target.closest && e.target.closest('#rhymeSelBar'))) lhMapHideBar();
+}, true);
+// Esc：收掉、焦點回輸入框、選取不動（capture：≤ 900 的 sheet 才不會同時被收起）
+document.addEventListener('keydown', e => {
+    if (e.key !== 'Escape' || !_lhMapBarSnap || e.isComposing || e.keyCode === 229) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const s = _lhMapBarSnap;
+    _lhMapBarSkip = _lhMapSelSig(s.ta);
+    lhMapHideBar();
+    _lhMapBarRestore(s);
+}, true);
+
+// 焦點與選取還給輸入框（只還原同一個範圍，不寫 .value）
+function _lhMapBarRestore(s) {
+    if (!s.ta.isConnected) return;
+    s.ta.focus({ preventScroll: true });
+    s.ta.setSelectionRange(s.a, s.b);
+}
+
+// 查韻（withAI＝false）或查韻後問 AI（true）：做的事和搜尋框的 input 處理一樣（清已選字、更新提示、_handleSearch），不另寫第二套查詢
+async function lhMapLookup(char, withAI, byKeyboard) {
+    const s = _lhMapBarSnap;
+    try {
+        if (!char) return;
+        if (s) _lhMapBarSkip = _lhMapSelSig(s.ta);
+        lhMapHideBar();
+        lastLyricsSelection = '';   // AI 要拿整首歌當風格參考，不是被選的那個字（Pitfall 9）
+        searchInputEl.value = char;
+        selectedChars.clear();
+        updateSelectedCharsHint();
+        const done = _handleSearch(char);
+        if (lhIsSheetMode()) {
+            if (!withAI) mobileTab('search');
+            else if (document.getElementById('rightPanel').classList.contains('collapsed')) mobileTab('ai');
+        } else {
+            if (withAI && document.getElementById('rightPanel').classList.contains('collapsed')) toggleRightPanel();
+            if (byKeyboard && s) _lhMapBarRestore(s);
+        }
+        await done;
+        if (withAI) document.getElementById('generateBtn').click();   // 按鈕忙碌中是 disabled，點了沒反應
+    } catch (e) {
+        lhWarn('韻腳地圖查韻失敗', e);
+    }
 }
 
 // 就緒閘門（A5）：字典、詞庫、歌曲都結束（成功或失敗都算）才開始畫；之前不畫、也不顯示錯誤
