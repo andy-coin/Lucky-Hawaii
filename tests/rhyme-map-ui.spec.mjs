@@ -1309,3 +1309,137 @@ test('讀音：鍵盤打開時焦點先到目前的讀音，Enter 選定後焦�
     expect(errors).toEqual([]);
     await context.close();
 });
+
+// ----- 手動讀音的邊界：失效、舊歌不寫入、跨分頁、備份 -----
+// 句尾「行」的讀音設好（直接呼叫設定函式，UI 路徑已在上面測過）
+const setReading = (page, r) => page.evaluate(r => lhMapSetReading('sa', '們一起行', r), r);
+const mkBk = (songArr, activeSong = null) => ({
+    format: 'lucky-hawaii-backup', version: 2, exportedAt: '2026-10-11T07:30:00.000Z',
+    songs: songArr, activeSong, savedWords: [], settings: {},
+});
+const backupSong = (id, title, o = {}) => ({
+    id, title, createdAt: o.createdAt ?? 1000, updatedAt: 1000, hashtags: [], context: '',
+    sections: [{ id: 'sec-' + id, label: '', text: o.text ?? READ_TXT, collapsed: false, type: 'verse', custom: '', color: '', height: null }],
+    ...(o.readings !== undefined ? { readings: o.readings } : {}),
+});
+const sendBackup = (page, obj) => page.setInputFiles('#importFileInput', {
+    name: 'backup.json', mimeType: 'application/json', buffer: Buffer.from(typeof obj === 'string' ? obj : JSON.stringify(obj)),
+});
+const storedSongsRaw = page => page.evaluate(() => JSON.parse(localStorage.getItem('lh:songs')));
+
+test('讀音：改了句尾就自動失效', async ({ browser }) => {
+    const { context, page, errors } = await bootRead(browser);
+    const info = await polyInfo(page);
+    await setReading(page, info.other);
+    expect(await bands(page)).toEqual([['行', info.fo], ['光', '14']]);
+    // 在第一行行尾再打一個字：句尾鍵變了（們一起行 → 一起行走），原本的讀音不再套用，其他行不動
+    await page.evaluate(() => { const ta = document.querySelector('.section-textarea'); ta.focus(); ta.setSelectionRange(5, 5); });
+    await page.keyboard.type('走');
+    const want = await page.evaluate(() => {
+        const t = lhRhymeTarget('我們一起行走', true);
+        return { c: t.char, f: String(RHYME_TO_FAMILY[getZhuyinRhyme(lhRhymeReading(t, null))]) };
+    });
+    await expect.poll(() => bands(page)).toEqual([[want.c, want.f], ['光', '14']]);
+    expect(await manualCount(page)).toBe(0);
+    expect(await page.locator('#copyToast.show').count(), '沒有提示').toBe(0);
+    // 這首歌的 readings 原樣留著（只是不再套用），沒有因為失效而被改寫
+    expect((await storedSongsRaw(page))[0].readings).toEqual({ [READ_TAIL]: info.other });
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('讀音：舊歌沒有讀音時開機不寫入', async ({ browser }) => {
+    const songs = [song([typed('sa', 'verse', READ_TXT)])];
+    const storage = v2Storage(songs);
+    const { context, page, errors } = await bootPage(browser, { wordlist: 'stub', storage });
+    const before = storage['lh:songs'];
+    expect(await page.evaluate(() => localStorage.getItem('lh:songs')), '開機後').toBe(before);
+    await pick(page, 4, 5);
+    await waitBar(page);
+    await page.evaluate(() => lhMapRenderAll());
+    expect(await page.evaluate(() => localStorage.getItem('lh:songs')), '第一次重畫後').toBe(before);
+    // 備份與匯出：沒有指定過讀音的歌沒有 readings 欄位
+    const bk = await page.evaluate(() => JSON.stringify(lhBuildBackup(songs, activeSongId, [])));
+    expect(bk.includes('readings')).toBe(false);
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('讀音：別的分頁指定的讀音', async ({ browser }) => {
+    const { context, pages: [a, b], errs } = await openTwoTabs(browser, v2Storage([song([typed('sa', 'verse', READ_TXT)])]));
+    const info = await polyInfo(a);
+    expect(await bands(b)).toEqual([['行', info.fa], ['光', '14']]);
+    await setReading(a, info.other);
+    await expect.poll(() => bands(b)).toEqual([['行', info.fo], ['光', '14']]);
+    expect(await manualCount(b)).toBe(1);
+    await setReading(a, null);
+    await expect.poll(() => bands(b)).toEqual([['行', info.fa], ['光', '14']]);
+    expect(await manualCount(b)).toBe(0);
+    for (const e of errs) expect(e.errors).toEqual([]);
+    await context.close();
+});
+
+test('備份：手動讀音跟著備份走', async ({ browser }) => {
+    const A = await bootRead(browser);
+    const info = await polyInfo(A.page);
+    await setReading(A.page, info.other);
+    const text = await A.page.evaluate(() => JSON.stringify(lhBuildBackup(songs, activeSongId, [])));
+    expect(JSON.parse(text).songs[0].readings, '備份帶著讀音').toEqual({ [READ_TAIL]: info.other });
+    expect(await A.page.evaluate(t => lhParseBackup(t).songs[0].readings, text), '解析後一樣').toEqual({ [READ_TAIL]: info.other });
+    // 另一個乾淨的瀏覽器全部還原：重新整理後讀音和顏色都在
+    const B = await bootPage(browser, { wordlist: 'stub', storage: v2Storage([song([typed('sb', 'verse', '別首歌的歌詞')], { id: 'zz' })]) });
+    await sendBackup(B.page, text);
+    await B.page.locator('#importReplaceBtn').click();
+    await expect(B.page.locator('#copyToast')).toContainText('已還原');
+    expect((await storedSongsRaw(B.page))[0].readings).toEqual({ [READ_TAIL]: info.other });
+    await B.page.reload();
+    await B.page.evaluate(() => Promise.all([window.__hoyunReady, window.__hoyunWordlistReady, window.__hoyunSongsReady, window.__lhMapReady]));
+    expect(await bands(B.page)).toEqual([['行', info.fo], ['光', '14']]);
+    expect(await manualCount(B.page)).toBe(1);
+    expect(A.errors).toEqual([]);
+    expect(B.errors).toEqual([]);
+    await A.context.close();
+    await B.context.close();
+});
+
+test('備份：不合法的讀音被丟掉，歌照常匯入', async ({ browser }) => {
+    const { context, page, errors } = await bootRead(browser);
+    const info = await polyInfo(page);
+    // 用字串組檔，__proto__ 才會是真的自有屬性
+    const mixed = `{"__proto__":"ㄌㄜˋ","constructor":"ㄌㄜˋ","們一起行":${JSON.stringify(info.other)},"一二三四五":"ㄨˇ","ab樂":"ㄌㄜˋ","音樂":"ㄅㄚ","12行":"ㄏㄤˊ","行":5,"我行":"ㄏㄤˊ ","你行":null,"他行":["ㄏㄤˊ"]}`;
+    const file = JSON.stringify(mkBk([
+        backupSong('m1', '混合', { readings: 'MIXED' }),
+        backupSong('m2', '全壞', { readings: { '__proto__x': 'ㄌㄜˋ', '音樂': 'ㄅㄚ', '一二三四五': 'ㄨˇ' } }),
+        backupSong('m3', '陣列', { readings: ['ㄏㄤˊ'] }),
+        backupSong('m4', '空', { readings: {} }),
+        backupSong('m5', '字串', { readings: 'ㄏㄤˊ' }),
+        backupSong('m6', '空值', { readings: null }),
+    ])).replace('"MIXED"', mixed);
+    await sendBackup(page, file);
+    await page.locator('#importAddBtn').click();
+    await expect(page.locator('#copyToast')).toHaveText('已加入 6 首歌');
+    const now = await storedSongsRaw(page);
+    const by = t => now.find(s => s.title === t);
+    expect(by('混合').readings, '只剩合法的那一筆').toEqual({ [READ_TAIL]: info.other });
+    expect(Object.getPrototypeOf(by('混合').readings)).toBe(Object.prototype);
+    for (const t of ['全壞', '陣列', '空', '字串', '空值']) expect('readings' in by(t), t + '：一筆都不剩就沒有這個欄位').toBe(false);
+    expect(await page.evaluate(() => ({}).polluted === undefined && Object.keys(Object.prototype).length === 0)).toBe(true);
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('備份：每首歌最多留 2000 筆讀音', async ({ browser }) => {
+    const { context, page, errors } = await bootRead(browser);
+    const han = Array.from('天地玄黃宇宙洪荒日月盈昃辰宿列張寒來暑往秋收冬藏');
+    const r = await page.evaluate(() => getCharAllReadings('光')[0].reading);
+    const readings = {};
+    for (const a of han) for (const b of han) for (const c of han) { if (Object.keys(readings).length < 2500) readings[a + b + c + '光'] = r; }
+    expect(Object.keys(readings)).toHaveLength(2500);
+    await sendBackup(page, mkBk([backupSong('big', '很多', { readings })]));
+    await page.locator('#importAddBtn').click();
+    await expect(page.locator('#copyToast')).toHaveText('已加入 1 首歌');
+    const big = (await storedSongsRaw(page)).find(s => s.title === '很多');
+    expect(Object.keys(big.readings)).toHaveLength(2000);
+    expect(errors).toEqual([]);
+    await context.close();
+});

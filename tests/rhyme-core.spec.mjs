@@ -330,3 +330,36 @@ test('設定：整理成五個真布林', () => {
     expect(norm({ end: false, strict: true, evil: 1 })).toEqual({ ...D, end: false, strict: true });
     expect(Object.keys(norm({ evil: true })).sort()).toEqual(Object.keys(D).sort());
 });
+
+// ===== 第 10-06 計畫：手動讀音清洗 =====
+const clean = js => ev(`lhRhymeCleanReadings(${js})`);
+test('讀音：清洗——合法的原樣留下', () => {
+    expect(clean(j({ '聽著音樂': 'ㄌㄜˋ' }))).toEqual({ '聽著音樂': 'ㄌㄜˋ' });
+    expect(clean(j({ '們一起行': 'ㄏㄤˊ', '音樂': 'ㄩㄝˋ', '行': 'ㄒㄧㄥˊ' }))).toEqual({ '們一起行': 'ㄏㄤˊ', '音樂': 'ㄩㄝˋ', '行': 'ㄒㄧㄥˊ' });
+});
+test('讀音：清洗——壞的鍵與值整個丟掉', () => {
+    expect(clean(`JSON.parse('{"__proto__":"ㄌㄜˋ"}')`)).toBeNull();
+    expect(clean(j({ constructor: 'ㄌㄜˋ' }))).toBeNull();
+    expect(clean(j({ '一二三四五': 'ㄨˇ' }))).toBeNull();
+    expect(clean(j({ 'ab樂': 'ㄌㄜˋ' }))).toBeNull();
+    expect(clean(j({ '12樂': 'ㄌㄜˋ' }))).toBeNull();
+    expect(clean(j({ '音樂': 'ㄅㄚ' }))).toBeNull();
+    expect(clean(j({ '音樂': 5 }))).toBeNull();
+    expect(clean(j({ '音樂': ['ㄌㄜˋ'] }))).toBeNull();
+    expect(clean(j({ '音樂': 'ㄌㄜˋ ' }))).toBeNull();
+    for (const bad of ['[]', 'null', "'x'", '{}', 'undefined', '5', "['ㄌㄜˋ']"]) expect(clean(bad), bad).toBeNull();
+});
+test('讀音：清洗——混合時只留合法的，回傳全新的普通物件', () => {
+    const out = clean(`JSON.parse('{"__proto__":"ㄌㄜˋ","音樂":"ㄌㄜˋ","ab樂":"ㄌㄜˋ","行":"ㄏㄤˊ","音樂家":"ㄅㄚ"}')`);
+    expect(out).toEqual({ '音樂': 'ㄌㄜˋ', '行': 'ㄏㄤˊ' });
+    expect(ev(`(() => { const o = JSON.parse('{"__proto__":"ㄌㄜˋ","音樂":"ㄌㄜˋ"}'); const r = lhRhymeCleanReadings(o); return [r !== o, Object.getPrototypeOf(r) === Object.prototype, Object.prototype.hasOwnProperty.call(r, '__proto__')]; })()`)).toEqual([true, true, false]);
+});
+test('讀音：清洗——一首歌最多 2000 筆', () => {
+    const n = ev(`(() => {
+        const hs = Array.from('天地玄黃宇宙洪荒日月盈昃辰宿列張寒來暑往秋收冬藏'), r = getCharAllReadings('光')[0].reading, o = {};
+        let k = 0;
+        for (const a of hs) for (const b of hs) for (const c of hs) { if (k++ < 2001) o[a + b + c + '光'] = r; }
+        return [Object.keys(o).length, Object.keys(lhRhymeCleanReadings(o)).length];
+    })()`);
+    expect(n).toEqual([2001, 2000]);
+});
