@@ -363,6 +363,46 @@ test('詞庫包：新包載入失敗時提示、退回原本的包並維持勾�
     } finally { await context.close(); }
 });
 
+// 韻腳地圖（第 10 階段）：句尾字的讀音有一層來自詞庫（以該字結尾的詞），換包後要重讀
+const mapSong = text => ({ id: 's1', title: '測試歌', sections: [{ id: 'sa', type: 'verse', custom: '', color: '', height: null, label: '', text, collapsed: false }],
+    hashtags: [], context: '', createdAt: 1, updatedAt: 1 });
+const mapStorage = text => ({
+    ...JSON.parse(readFileSync(new URL('./fixtures/v096-localStorage.json', import.meta.url), 'utf8')),
+    'lh:schema': '2', 'lh:songs': JSON.stringify([mapSong(text)]), 'lh:activeSong': 's1', leftPanelCollapsed: 'false', rightPanelCollapsed: 'false',
+});
+const tailBand = page => page.locator('#lyricsSections .lyrics-section').first().locator('.rhyme-mirror .rm-hl').evaluateAll(els => els.map(e => [e.textContent, e.dataset.f]));
+
+test('詞庫包：換包後韻腳地圖用新包的詞讀音', async ({ browser }) => {
+    test.setTimeout(60_000);
+    // alpha 的第一個詞是「甲一」，讀音 ㄅㄚ ㄢ：句尾「一」換包前走字典讀音（家族 0），換包後走詞讀音 ㄢ（家族 9）
+    const { context, page, errors } = await bootWithStubPacks(browser, { storage: mapStorage('我在甲一') });
+    try {
+        expect(await tailBand(page)).toEqual([['一', '0']]);
+        expect(await page.evaluate(() => switchLexiconPack('alpha'))).toBe(true);
+        await expect.poll(() => tailBand(page)).toEqual([['一', '9']]);
+        expect(realErrors(errors)).toEqual([]);
+    } finally { await context.close(); }
+});
+
+test('詞庫包：換包失敗退回原包時，韻腳地圖也重畫一次', async ({ browser }) => {
+    test.setTimeout(60_000);
+    const alpha = makeState('甲', 'A1');
+    alpha.fail = 0;
+    const { context, page, errors } = await bootWithStubPacks(browser, { alpha, storage: mapStorage('我在甲一') });
+    try {
+        await page.evaluate(() => {
+            window.__mapCalls = 0;
+            const orig = window.lhMapOnLexiconChange;
+            window.lhMapOnLexiconChange = function () { window.__mapCalls++; return orig.apply(this, arguments); };
+        });
+        expect(await page.evaluate(() => switchLexiconPack('alpha'))).toBe(false);
+        await page.evaluate(() => window.__hoyunWordlistReady);
+        await expect.poll(() => page.evaluate(() => window.__mapCalls)).toBeGreaterThanOrEqual(1);
+        expect(await tailBand(page), '退回原包：仍是字典讀音').toEqual([['一', '0']]);
+        expect(realErrors(errors)).toEqual([]);
+    } finally { await context.close(); }
+});
+
 test('詞庫包：連點換包、最後那包載入失敗時，退回真正載好的原包（不是載到一半的中間包）', async ({ browser }) => {
     test.setTimeout(60_000);
     const gamma = makeState('丙', 'G1');

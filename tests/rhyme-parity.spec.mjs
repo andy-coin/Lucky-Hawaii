@@ -3,6 +3,8 @@
 // 這支測試描述「既有行為」：重構前後都要過，不是在測新的函式
 import { test, expect } from '@playwright/test';
 import { bootPage } from './helpers.mjs';
+import { loadCore, pick } from './node-core.mjs';
+import { readFileSync } from 'node:fs';
 
 // 在頁面裡挑 70 個查詢字（50 單音 + 20 破音）與 70 個候選字，依韻部輪流取，結果固定可重現
 const PICK_CHARS = () => {
@@ -75,4 +77,37 @@ test('共用：九千八百組字對三邊一致', async ({ browser }) => {
     expect(res.hits).toBeLessThan(res.pairs - 300);
     expect(errors).toEqual([]);
     await context.close();
+});
+
+// 字卡（searchRhyme）本來就是另一條路：它用 BORROW_MAP 借韻，家族表不借。
+// 所以字卡結果只多出 ㄣ／ㄥ 這一個已知例外（RESEARCH OQ2：BORROW_MAP 單向借 ㄣ↔ㄥ，家族不借；寬韻上色人與風不同色，列入 Andy 的 UAT）
+test('共用：字卡查韻只多出 ㄣ／ㄥ 這個已知例外', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, { wordlist: 'stub' });
+    const res = await page.evaluate(pickSrc => {
+        const { singles, polys } = eval('(' + pickSrc + ')')();
+        const offenders = new Set();
+        for (const q of [...singles, ...polys]) {
+            const qr = getZhuyinRhyme(getCharAllReadings(q)[0].reading);
+            // 破音字沒選讀音時 searchRhyme 會把每個讀音都查一遍；這裡像點了第一個讀音 chip 一樣固定讀音（跟 AI 詞篩選取的是同一個）
+            _polyphonic = { char: q, reading: getCharAllReadings(q)[0].reading };
+            for (const r of searchRhyme(q)) {
+                if (RHYME_TO_FAMILY[r.zhuyinRhyme] === RHYME_TO_FAMILY[qr]) continue;
+                offenders.add([qr, r.zhuyinRhyme].sort().join('|'));
+            }
+        }
+        return [...offenders];
+    }, PICK_CHARS.toString());
+    expect(res.filter(p => p !== ['ㄣ', 'ㄥ'].sort().join('|'))).toEqual([]);
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+// 不可能的請求：空韻母不是純聲母，也沒有家族，查詢永遠沒有候選（重構前後都一樣）
+test('共用：空的韻母請求永遠沒有候選', () => {
+    const { ev } = loadCore();
+    ev(`wordlistData = [${readFileSync(new URL('./fixtures/wordlist-stub.ndjson', import.meta.url), 'utf8').split('\n').filter(Boolean).slice(0, 50).join(',')}]`);
+    for (const strict of [false, true]) {
+        const out = pick(ev)(`currentRhymes = [{ rhyme: '', initial: '' }]; filterNoExtRhyme = ${strict}; filterWordsByRhymeSingle('一')`);
+        expect(out).toEqual([]);
+    }
 });
