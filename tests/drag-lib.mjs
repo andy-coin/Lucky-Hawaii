@@ -38,3 +38,9 @@ export async function touchSession(page) {
         },
     };
 }
+
+// 游標索引的標準答案：在 (x, y) 真的點一下，讀 textarea 的 selectionStart
+export async function caretOracle(page, textareaLocator, x, y) {
+    await page.mouse.click(x, y);
+    return textareaLocator.evaluate(el => el.selectionStart);
+}

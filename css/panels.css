@@ -309,6 +309,38 @@
         }
         /* 復原／重做後第一個變動的段落閃 700 毫秒外框（不用動畫） */
         .lyrics-section.sec-flash { outline: 2px solid var(--highlight-border); outline-offset: -2px; }
+
+        /* ===== 詞卡／字卡拖進歌詞（09-09）：殘影、插入線、輸入框外框；拖曳中只畫覆蓋層 ===== */
+        .word-drag-ghost {
+            position: fixed;
+            left: 0;
+            top: 0;
+            pointer-events: none;
+            z-index: 10000;
+            max-width: 14rem;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            background: var(--card-bg);
+            border: 2px solid var(--highlight-border);
+            border-radius: 0.75rem;
+            padding: var(--sp-1) var(--sp-3);
+            font-size: 1rem;
+            font-weight: 700;
+            line-height: 1.2;
+            color: var(--text-primary);
+            box-shadow: 0 4px 16px rgba(0,0,0,0.18);
+        }
+        .drop-caret {
+            position: fixed;
+            width: 0.125rem;
+            pointer-events: none;
+            z-index: 10000;
+            background: var(--highlight-border);
+        }
+        .section-textarea.drop-target { outline: 2px solid var(--highlight-border); outline-offset: -2px; }
+        .word-drag-source { opacity: 0.5; }
+        body.is-word-dragging, body.is-word-dragging * { user-select: none; cursor: grabbing; }
         .lyrics-total {
             margin-inline-start: auto;
             font-size: 0.75rem;
