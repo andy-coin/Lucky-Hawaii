@@ -1136,6 +1136,94 @@
         @media (hover: hover) and (pointer: fine) {
             .section-type:hover { background: var(--container-bg); }
         }
+        /* 段落顏色（D-03）：左邊 0.25rem 色條＋名稱鈕淡色底；--sec-color 與 data-color 只由 js/sections.js 寫入驗證過的 #rrggbb */
+        .lyrics-section[data-color]::before {
+            content: '';
+            position: absolute;
+            inset-block: 0;
+            left: 0;
+            width: 0.25rem;
+            background: var(--sec-color);
+            pointer-events: none;
+            z-index: 1;
+        }
+        /* 14% 淡色底：最壞的自訂色（深色主題的純白）文字對比仍有 4.69:1；不支援 color-mix 的瀏覽器只畫色條 */
+        @supports (background: color-mix(in srgb, red 50%, blue)) {
+            .lyrics-section[data-color] .section-type {
+                background: color-mix(in srgb, var(--sec-color) 14%, var(--card-bg));
+                border-color: color-mix(in srgb, var(--sec-color) 60%, var(--border));
+            }
+        }
+        /* 段落設定選單（UI-SPEC §3）：沿用 .word-ctx-menu 的底、框、層級，裡面分成幾個區塊 */
+        .section-menu {
+            width: min(20rem, calc(100vw - 1rem));
+            padding: var(--sp-3);
+        }
+        .section-menu.show {
+            display: flex;
+            flex-direction: column;
+            gap: var(--sp-3);
+        }
+        .section-menu > * { flex-shrink: 0; }
+        .section-menu-title {
+            font-size: 1rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            overflow-wrap: anywhere;
+        }
+        .section-menu-block {
+            display: flex;
+            flex-direction: column;
+            gap: var(--sp-1);
+        }
+        .section-menu-cap {
+            font-size: 0.75rem;
+            font-weight: 400;
+            color: var(--text-secondary);
+        }
+        .section-menu-row {
+            display: flex;
+            align-items: center;
+            gap: var(--sp-2);
+        }
+        .swatch-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(2rem, 1fr));
+            gap: var(--sp-1);
+        }
+        .swatch {
+            width: 2rem;
+            height: 2rem;
+            padding: 0;
+            border: none;
+            border-radius: 50%;
+            background: var(--sw);
+            box-shadow: inset 0 0 0 1px rgba(0,0,0,0.2);
+            cursor: pointer;
+        }
+        .swatch[aria-pressed="true"] { outline: 3px solid var(--text-primary); outline-offset: 2px; }
+        .section-color-input {
+            width: 2rem;
+            height: 2rem;
+            padding: 0;
+            border: 1px solid var(--border);
+            border-radius: 0.5rem;
+            background: var(--card-bg);
+            cursor: pointer;
+        }
+        .section-menu-btn {
+            min-height: 2rem;
+            padding: var(--sp-1) var(--sp-3);
+            border: 1px solid var(--border);
+            border-radius: 0.5rem;
+            background: var(--card-bg);
+            color: var(--text-primary);
+            font-family: 'Noto Sans TC', sans-serif;
+            font-size: 0.875rem;
+            font-weight: 700;
+            cursor: pointer;
+        }
+        .section-menu-btn[aria-pressed="true"] { border-color: var(--text-primary); }
         /* 每段字數：靠右，不縮、不換行；點它不會收合（js/sections.js 排除） */
         .section-count {
             margin-inline-start: auto;

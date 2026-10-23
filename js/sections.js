@@ -71,6 +71,7 @@ function lhSecRefreshMeta() {
         if (!s) return;
         el.dataset.index = String(i);
         el.dataset.type = s.type;
+        lhSecApplyColor(el, s.color);
         const btn = el.querySelector('.section-type');
         if (btn) lhSecFillTypeBtn(btn, s.label);
         const hd = el.querySelector('.section-handle');
@@ -85,6 +86,7 @@ function lhSecRefreshMeta() {
             rm.setAttribute('aria-label', '刪除「' + s.label + '」');
         }
     });
+    lhSecMenuSync();
 }
 
 // 刪除段落（C5）：不問、立刻刪，下方 5 秒內可按「復原」；只剩一段時什麼都不做
@@ -426,6 +428,7 @@ function lhSecResizeKey(e) {
 function lhSecAbortInteractions() {
     lhSecDragEnd(false);
     lhSecResizeEnd(false);
+    lhSecCloseMenu();
 }
 LH_MQ_SHEET.addEventListener('change', lhSecAbortInteractions);
 new MutationObserver(() => {
@@ -576,3 +579,149 @@ document.getElementById('lyricsSections').addEventListener('click', e => {
         toggleLyricsSection(Number(secEl.dataset.index));
     }
 });
+
+// ===== 段落設定（EDIT-06）：右鍵／長按名稱鈕開 #sectionMenu；選單只建一次，每次打開重填文字 =====
+// 8 個預設色只寫在這裡（CSS 不放色碼）；模型接受任何 #rrggbb，預設色只是快選（UI-SPEC D-04）
+const LH_SEC_COLORS = [
+    { name: '紅', hex: '#e05d5d' }, { name: '橘', hex: '#e98a3c' }, { name: '黃', hex: '#d69e2e' }, { name: '綠', hex: '#48a868' },
+    { name: '青', hex: '#2c9fa0' }, { name: '藍', hex: '#4a7fd4' }, { name: '紫', hex: '#8d6bd0' }, { name: '粉', hex: '#d2649a' },
+];
+const _LH_COLOR_OUT = /^#[0-9a-f]{6}$/;   // 只有這個格式的值才會進 style／dataset（T-09-16）
+let _lhMenu = null;     // #sectionMenu 節點（第一次打開才建）
+let _lhMenuId = null;   // 開著的是哪一段（id）；null＝關著
+
+// 顏色上畫面：dataset.color 給 CSS 屬性選擇器，--sec-color 給色條與淺底；值不合格式就拿掉
+function lhSecApplyColor(secEl, color) {
+    if (typeof color === 'string' && _LH_COLOR_OUT.test(color)) {
+        secEl.dataset.color = color;
+        secEl.style.setProperty('--sec-color', color);
+    } else {
+        delete secEl.dataset.color;
+        secEl.style.removeProperty('--sec-color');
+    }
+}
+
+// 建一個節點：文字一律走 textContent
+function _lhMk(tag, cls, text) {
+    const n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (text !== undefined) n.textContent = text;
+    return n;
+}
+function _lhMkBtn(cls, text, label) {
+    const b = _lhMk('button', cls, text);
+    b.type = 'button';
+    if (label) b.setAttribute('aria-label', label);
+    return b;
+}
+
+function lhSecMenuBuild() {
+    if (_lhMenu) return _lhMenu;
+    const m = _lhMk('div', 'word-ctx-menu section-menu');
+    m.id = 'sectionMenu';
+    m.setAttribute('role', 'dialog');
+    m.setAttribute('aria-label', '段落設定');
+    const title = _lhMk('div', 'section-menu-title');
+    title.id = 'sectionMenuTitle';
+    // 顏色
+    const colorBlock = _lhMk('div', 'section-menu-block');
+    const grid = _lhMk('div', 'swatch-grid');
+    for (const c of LH_SEC_COLORS) {
+        const sw = _lhMkBtn('swatch', '', '顏色：' + c.name);
+        sw.dataset.hex = c.hex;
+        sw.style.setProperty('--sw', c.hex);
+        grid.appendChild(sw);
+    }
+    const row = _lhMk('div', 'section-menu-row');
+    const pick = _lhMk('input', 'section-color-input');
+    pick.type = 'color';
+    pick.value = '#888888';
+    pick.setAttribute('aria-label', '自訂顏色');
+    const none = _lhMkBtn('section-menu-btn section-color-none', '無顏色');
+    row.append(pick, none);
+    colorBlock.append(_lhMk('span', 'section-menu-cap', '顏色'), grid, row);
+    m.append(title, colorBlock);
+    document.body.appendChild(m);
+    // 顏色：色票與「無顏色」馬上套用；原生選色盤拖動時只預覽（input），放開才記一步（change，D-06）
+    grid.addEventListener('click', e => {
+        const sw = e.target.closest && e.target.closest('.swatch');
+        if (sw) lhSecMenuColor(sw.dataset.hex);
+    });
+    none.addEventListener('click', () => lhSecMenuColor(''));
+    pick.addEventListener('input', () => {
+        const el = _lhMenuId && lhSecEl(_lhMenuId);
+        if (el && _LH_COLOR_OUT.test(pick.value)) lhSecApplyColor(el, pick.value);   // 只改畫面，不碰模型與歷史
+    });
+    pick.addEventListener('change', () => {
+        if (_LH_COLOR_OUT.test(pick.value)) lhSecMenuColor(pick.value);
+    });
+    _lhMenu = m;
+    return m;
+}
+
+// 目前這一段的模型資料（沒開或找不到回傳 null）
+function _lhMenuSec() {
+    const song = curSong();
+    return (song && _lhMenuId && song.sections.find(s => s.id === _lhMenuId)) || null;
+}
+
+// 把顏色寫進模型：一步一個歷史（沒變就不記）
+function lhSecMenuColor(color) {
+    const id = _lhMenuId;
+    if (!id) return;
+    lhSecApply('color', song => {
+        const s = song.sections.find(x => x.id === id);
+        if (!s || s.color === color) return false;
+        s.color = color;
+    });
+}
+
+// 依模型更新選單上會變的部分（標題、色票按下狀態）；不動使用者正在打的輸入框
+function lhSecMenuSync() {
+    const s = _lhMenuSec();
+    if (!_lhMenu || !s) return;
+    _lhMenu.querySelector('.section-menu-title').textContent = '段落設定：' + cutName(s.label, 16);
+    _lhMenu.querySelectorAll('.swatch').forEach(sw => sw.setAttribute('aria-pressed', String(sw.dataset.hex === s.color)));
+    _lhMenu.querySelector('.section-color-none').setAttribute('aria-pressed', String(!s.color));
+    if (s.color) _lhMenu.querySelector('.section-color-input').value = s.color;
+}
+
+// x、y：選單左上角想放的位置（滑鼠＝指標；觸控與鍵盤＝名稱鈕下方）
+function lhSecOpenMenu(secEl, x, y, byKeyboard) {
+    const m = lhSecMenuBuild();
+    closeExportMenu();
+    closeSongListOverlay();
+    _lhMenuId = secEl.dataset.id;
+    lhSecMenuSync();
+    lhPlaceMenu(m, x, y);
+    return m;
+}
+
+function lhSecCloseMenu() {
+    if (!_lhMenu || !_lhMenuId) return;
+    const el = lhSecEl(_lhMenuId), s = _lhMenuSec();
+    _lhMenu.classList.remove('show');
+    _lhMenuId = null;
+    if (el && s) lhSecApplyColor(el, s.color);   // 選色盤預覽沒按確定就關：畫面回到模型的顏色
+}
+
+// 右鍵（桌機）：在指標位置開
+document.getElementById('lyricsSections').addEventListener('contextmenu', e => {
+    const btn = e.target.closest && e.target.closest('.section-type');
+    if (!btn) return;
+    e.preventDefault();   // 瀏覽器自己的選單一律不要
+    lhSecOpenMenu(btn.closest('.lyrics-section'), e.clientX, e.clientY, false);
+});
+
+// 點選單外面關掉；Esc 關掉並把焦點還給名稱鈕（capture：≤ 900 的 sheet 才不會同時被收起）
+document.addEventListener('pointerdown', e => {
+    if (_lhMenuId && !(e.target.closest && e.target.closest('#sectionMenu'))) lhSecCloseMenu();
+}, true);
+document.addEventListener('keydown', e => {
+    if (e.key !== 'Escape' || !_lhMenuId || e.isComposing || e.keyCode === 229) return;
+    const id = _lhMenuId;
+    e.preventDefault();
+    e.stopPropagation();
+    lhSecCloseMenu();
+    lhSecEl(id)?.querySelector('.section-type')?.focus({ preventScroll: true });
+}, true);

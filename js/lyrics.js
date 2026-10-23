@@ -158,6 +158,7 @@
                 el.dataset.index = String(i);
                 el.dataset.id = s.id;
                 el.dataset.type = s.type;
+                lhSecApplyColor(el, s.color);
 
                 const header = document.createElement('div');
                 header.className = 'lyrics-section-header';

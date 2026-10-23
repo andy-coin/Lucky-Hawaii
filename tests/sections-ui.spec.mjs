@@ -549,3 +549,40 @@ test('刪除：五秒後仍可復原', async ({ browser }) => {
     expect(errors).toEqual([]);
     await context.close();
 });
+
+// ==================== 段落設定（EDIT-06）：顏色 ====================
+const colorOf = (page, i) => page.locator('#lyricsSections .lyrics-section').nth(i).evaluate(el => el.dataset.color || '');
+
+test('顏色：右鍵選色', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, {
+        device: DEVICES.desktop, storage: v2Storage([song('s1', [typed('sa', 'verse', 'A'), typed('sb', 'chorus', 'B')])]),
+    });
+    await page.locator('#lyricsSections .section-type').nth(1).click({ button: 'right' });
+    const menu = page.locator('#sectionMenu');
+    await expect(menu).toBeVisible();
+    await expect(menu).toContainText('段落設定：Chorus');
+    await expect(menu.locator('.swatch')).toHaveCount(8);
+    await menu.locator('.swatch[aria-label="顏色：綠"]').click();
+    const sec = page.locator('#lyricsSections .lyrics-section').nth(1);
+    expect(await colorOf(page, 1)).toBe('#48a868');
+    expect(await sec.evaluate(el => getComputedStyle(el).getPropertyValue('--sec-color').trim())).toBe('#48a868');
+    const bar = await sec.evaluate(el => {
+        const cs = getComputedStyle(el, '::before');
+        return { w: parseFloat(cs.width), bg: cs.backgroundColor, rem: parseFloat(getComputedStyle(document.documentElement).fontSize) };
+    });
+    expect(bar.w).toBeCloseTo(bar.rem * 0.25, 1);
+    expect(bar.bg).toBe('rgb(72, 168, 104)');
+    const bgOf = i => page.locator('#lyricsSections .section-type').nth(i).evaluate(el => getComputedStyle(el).backgroundColor);
+    expect(await bgOf(1), '有顏色的名稱鈕有淡色底').not.toBe(await bgOf(0));
+    expect((await activeSongRaw(page)).sections[1].color).toBe('#48a868');
+    await page.locator('#undoBtn').click();
+    expect(await colorOf(page, 1)).toBe('');
+    expect((await activeSongRaw(page)).sections[1].color).toBe('');
+    await page.locator('#redoBtn').click();
+    expect(await colorOf(page, 1)).toBe('#48a868');
+    await page.reload();
+    await page.waitForFunction(() => window.__hoyunSongsReady);
+    await expect(page.locator('#lyricsSections .lyrics-section').nth(1)).toHaveAttribute('data-color', '#48a868');
+    expect(errors).toEqual([]);
+    await context.close();
+});
