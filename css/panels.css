@@ -340,6 +340,8 @@
         }
         .section-textarea.drop-target { outline: 2px solid var(--highlight-border); outline-offset: -2px; }
         .word-drag-source { opacity: 0.5; }
+        /* 拖曳停在收合段落的標題列上：等 600ms 展開，這段時間標題列先淡淡亮起（靜態，不做動畫） */
+        .lyrics-section.dwell .lyrics-section-header { background: color-mix(in srgb, var(--highlight-border) 25%, var(--container-bg)); }
         body.is-word-dragging, body.is-word-dragging * { user-select: none; cursor: grabbing; }
         /* 卡片上長按不跳出系統選單、不選字；觸控仍可捲動清單（touch-action 維持 manipulation） */
         .ai-word-card, .char-card { -webkit-touch-callout: none; user-select: none; }

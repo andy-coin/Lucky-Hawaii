@@ -2,7 +2,7 @@
 import { test, expect } from '@playwright/test';
 import { readFileSync } from 'node:fs';
 import { bootPage, activeSongRaw, settle, compose } from './helpers.mjs';
-import { DEVICES } from './layout-lib.mjs';
+import { DEVICES, waitStill } from './layout-lib.mjs';
 import { centerOf, mouseDrag, touchSession, caretOracle } from './drag-lib.mjs';
 
 const FIXTURE = JSON.parse(readFileSync(new URL('./fixtures/v096-localStorage.json', import.meta.url), 'utf8'));
@@ -308,6 +308,251 @@ test('拖詞：特殊字元原樣插入', async ({ browser }) => {
     await expect(ta(page)).toHaveValue('春天' + W + '來了');
     await expect(page.locator('#lhLive')).toHaveText('已插入「' + W + '」到Verse');
     expect(await page.locator('#lyricsSections b, #lhLive b, .word-drag-ghost').count()).toBe(0);
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+// ===== 第三批：手機分頁、折疊段落展開、游標索引、超長段落、自動捲 =====
+const panelState = page => page.evaluate(() => ({
+    left: document.getElementById('leftPanel').classList.contains('collapsed'),
+    right: document.getElementById('rightPanel').classList.contains('collapsed'),
+}));
+const settled = page => page.waitForFunction(() => document.getAnimations().every(a => a.playState !== 'running'));
+// 手機：先開 AI 分頁，長按詞卡再往上移一點，讓拖曳開始
+async function phoneHold(page, touch, n = 0) {
+    await page.evaluate(() => { if (document.getElementById('rightPanel').classList.contains('collapsed')) mobileTab('ai'); });
+    await waitStill(page);
+    const [x, y] = await centerOf(card(page, n));
+    await touch.down(x, y);
+    await page.waitForTimeout(450);
+    await touch.move(x, y - 20);
+    return [x, y];
+}
+
+test('拖詞：手機自動切到歌詞', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, { device: DEVICES.phone, storage: ONE('', { leftPanelCollapsed: 'true', rightPanelCollapsed: 'true' }) });
+    await putCards(page, ['花開', '月光']);
+    const touch = await touchSession(page);
+    const [x, y] = await phoneHold(page, touch);
+    await expect.poll(async () => (await panelState(page)).left, { message: '手指還按著，歌詞已經打開' }).toBe(false);
+    expect((await panelState(page)).right).toBe(true);
+    await settled(page);
+    const to = await centerOf(ta(page));
+    await touch.move(...to);
+    await touch.up();
+    await expect(ta(page)).toHaveValue('花開');
+    expect(await panelState(page)).toEqual({ left: false, right: true });   // 成功就留在歌詞
+    expect(await noTrace(page)).toEqual(CLEAN);
+    // 再來一次，這次放在歌詞外面 → 回到 AI 分頁
+    await page.evaluate(() => mobileTab('ai'));
+    await waitStill(page);
+    await phoneHold(page, touch, 1);
+    await expect.poll(async () => (await panelState(page)).left).toBe(false);
+    await settled(page);
+    const head = await centerOf(page.locator('.lyrics-head'));
+    await touch.move(...head);
+    await touch.up();
+    await expect(ta(page)).toHaveValue('花開');
+    expect(await panelState(page)).toEqual({ left: true, right: false });
+    expect(await noTrace(page)).toEqual(CLEAN);
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('拖詞：手機中斷會回到原分頁', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, { device: DEVICES.phone, storage: ONE('', { leftPanelCollapsed: 'true', rightPanelCollapsed: 'true' }) });
+    await putCards(page, ['花開']);
+    const touch = await touchSession(page);
+    await phoneHold(page, touch);
+    await expect.poll(async () => (await panelState(page)).left).toBe(false);
+    await page.evaluate(() => renderLyricsSections());   // 被打斷
+    await touch.up();
+    await expect.poll(() => panelState(page)).toEqual({ left: true, right: false });
+    expect(await noTrace(page)).toEqual(CLEAN);
+    await expect(ta(page)).toHaveValue('');
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('拖詞：大螢幕不切分頁', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, { device: DEVICES.desktop, storage: ONE() });
+    await putCards(page, ['花開']);
+    const before = await panelState(page);
+    expect(before).toEqual({ left: false, right: false });
+    const to = await pointForIndex(page, ta(page), 2);
+    await page.mouse.move(...await centerOf(card(page)));
+    await page.mouse.down();
+    await page.mouse.move(...to, { steps: 6 });
+    expect(await panelState(page)).toEqual(before);
+    await page.mouse.up();
+    expect(await panelState(page)).toEqual(before);
+    await expect(ta(page)).toHaveValue('春天花開來了');
+    // 取消也不動
+    await mouseDrag(page, await centerOf(card(page)), [720, 880]);
+    expect(await panelState(page)).toEqual(before);
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('拖詞：停在收合段落會展開', async ({ browser }) => {
+    const store = () => v2Storage([song([typed('sa', 'verse', '春天來了'), typed('sb', 'chorus', '夏天', { collapsed: true })])]);
+    const { context, page, errors } = await bootPage(browser, { device: DEVICES.desktop, storage: store(), beforeGoto: ({ page }) => page.clock.install() });
+    await putCards(page, ['花開']);
+    const sec = n => page.locator('#lyricsSections .lyrics-section').nth(n);
+    const hdr = await centerOf(sec(1).locator('.lyrics-section-header'));
+    await page.mouse.move(...await centerOf(card(page)));
+    await page.mouse.down();
+    await page.mouse.move(hdr[0] + 40, hdr[1], { steps: 6 });
+    await page.clock.runFor(100);
+    await expect(sec(1)).toHaveClass(/dwell/);
+    await expect(sec(1)).toHaveClass(/collapsed/);
+    await page.clock.runFor(600);
+    await expect(sec(1)).not.toHaveClass(/collapsed/);
+    // 放到歌詞外面：自己展開的要收回去
+    await page.mouse.move(720, 880, { steps: 4 });
+    await page.mouse.up();
+    await expect(sec(1)).toHaveClass(/collapsed/);
+    expect((await activeSongRaw(page)).sections[1].collapsed).toBe(true);
+    expect(await noTrace(page)).toEqual(CLEAN);
+    // 再來一次，這次把詞放進展開的那段：留在展開
+    await page.waitForTimeout(400);   // 收合的版面動畫跑完再量（假時鐘下不能用 waitStill）
+    const hdr2 = await centerOf(sec(1).locator('.lyrics-section-header'));
+    await page.mouse.move(...await centerOf(card(page)));
+    await page.mouse.down();
+    await page.mouse.move(hdr2[0] + 40, hdr2[1], { steps: 6 });
+    await page.clock.runFor(700);
+    await expect(sec(1)).not.toHaveClass(/collapsed/);
+    await page.waitForTimeout(400);
+    await page.mouse.move(...await centerOf(ta(page, 1)), { steps: 4 });
+    await page.mouse.up();
+    await expect(ta(page, 1)).toHaveValue(/花開/);
+    await expect(sec(1)).not.toHaveClass(/collapsed/);
+    expect((await activeSongRaw(page)).sections[1].collapsed).toBe(false);
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+// 在一個 textarea 上取一格點，比對 lhCaretIndexAt 與真的點下去的 selectionStart
+async function gridCompare(page, textarea, label) {
+    const info = await textarea.evaluate(el => {
+        const cs = getComputedStyle(el), b = el.getBoundingClientRect();
+        return { left: b.left, top: b.top, width: b.width, height: b.height, pt: parseFloat(cs.paddingTop), pl: parseFloat(cs.paddingLeft), lh: parseFloat(cs.lineHeight) || parseFloat(cs.fontSize) * 1.5, clientW: el.clientWidth };
+    });
+    const bad = [];
+    let n = 0;
+    for (let y = info.top + info.pt + info.lh * 0.5; y < info.top + info.height - 24; y += info.lh) {
+        for (const fx of [0.03, 0.2, 0.37, 0.55, 0.71, 0.9]) {
+            const x = info.left + info.pl + (info.clientW - info.pl * 2) * fx + 2;
+            const want = await caretOracle(page, textarea, x, y);
+            const got = await textarea.evaluate((el, [px, py]) => lhCaretIndexAt(el, px, py), [x, y]);
+            n++;
+            if (want !== got) bad.push({ x: Math.round(x), y: Math.round(y), want, got });
+        }
+    }
+    expect(n, label + ' 取樣點數').toBeGreaterThan(12);
+    expect(bad, label + ' 與真實點擊不一致').toEqual([]);
+}
+
+test('拖詞：游標索引對得上', async ({ browser }) => {
+    const text = '春天來了 hello world\n\n花開滿山 Lucky Hawaii 好韻器\n歌詞 lyrics 一二三四五六七八九十 and more words to wrap around the line\n\n結尾';
+    const { context, page, errors } = await bootPage(browser, { device: DEVICES.desktop, storage: ONE(text) });
+    const t = ta(page);
+    await t.evaluate(el => { el.style.width = '220px'; el.style.height = '260px'; });
+    await gridCompare(page, t, '未捲動');
+    // 捲動中的 textarea
+    const long = Array.from({ length: 40 }, (_, i) => '第' + i + '行 line ' + i + ' 歌詞').join('\n');
+    await t.evaluate((el, v) => { el.value = v; el.scrollTop = 150; }, long);
+    expect(await t.evaluate(el => el.scrollTop)).toBeGreaterThan(100);
+    await gridCompare(page, t, '捲動後');
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('拖詞：長句換行游標', async ({ browser }) => {
+    const line = Array.from({ length: 20 }, (_, i) => '春天' + i + 'abc來了').join('');   // 約 200 字、沒有換行字元
+    expect(line.length).toBeGreaterThan(150);
+    const { context, page, errors } = await bootPage(browser, { device: DEVICES.desktop, storage: ONE(line) });
+    const t = ta(page);
+    await t.evaluate(el => { el.style.width = '150px'; el.style.height = '420px'; });
+    expect(await t.evaluate(el => el.scrollHeight)).toBeGreaterThan(200);
+    await gridCompare(page, t, '長句換行');
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('拖詞：超長段落', async ({ browser }) => {
+    const big = '春天來了'.repeat(62500);   // 250,000 字
+    const { context, page, errors } = await bootPage(browser, { device: DEVICES.desktop, storage: ONE(big) });
+    await putCards(page, ['花開']);
+    const t = ta(page);
+    const b = await t.boundingBox();
+    const pt = [b.x + 60, b.y + 30];
+    const want = await caretOracle(page, t, ...pt);
+    await t.evaluate(el => el.blur());
+    await page.mouse.move(...await centerOf(card(page)));
+    await page.mouse.down();
+    await page.mouse.move(...pt, { steps: 6 });
+    await expect(page.locator('.word-drag-ghost')).toHaveCount(1);
+    expect(await page.locator('.drop-caret').count(), '超長段落不即時畫游標').toBe(0);
+    await page.mouse.up();
+    await expect.poll(() => t.evaluate(el => el.value.length)).toBe(250002);
+    expect(await t.evaluate((el, i) => el.value.slice(i, i + 2), want)).toBe('花開');
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('拖詞：不切開罕用字', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, { device: DEVICES.desktop, storage: ONE('甲𠀀乙') });
+    await putCards(page, ['花開']);
+    const t = ta(page);
+    // 掃第一行，找出落在 𠀀 中間的像素（其中每個點都不可切開代理對）
+    const b = await t.boundingBox();
+    const idx = new Set();
+    for (let x = b.x + 6; x < b.x + 80; x += 2) idx.add(await t.evaluate((el, [px, py]) => lhCaretIndexAt(el, px, py), [x, b.y + 22]));
+    expect([...idx].sort()).not.toContain(2);   // 索引 2 在 𠀀 的兩半中間
+    expect([...idx].sort()).toEqual([0, 1, 3, 4]);
+    // 實際拖到 𠀀 的正中間
+    const glyph = await t.evaluate(el => {
+        const m = lhMirror(el), r = document.createRange();
+        r.setStart(m.firstChild, 1); r.setEnd(m.firstChild, 3);
+        const g = r.getBoundingClientRect(), mr = m.getBoundingClientRect(), tb = el.getBoundingClientRect();
+        m.remove();
+        return [tb.left + (g.left - mr.left) + g.width / 2, tb.top + (g.top - mr.top) + g.height / 2];
+    });
+    await mouseDrag(page, await centerOf(card(page)), glyph);
+    const v = await t.inputValue();
+    expect(['甲花開𠀀乙', '甲𠀀花開乙']).toContain(v);
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('拖詞：靠邊自動捲', async ({ browser }) => {
+    const many = v2Storage([song(Array.from({ length: 12 }, (_, i) => typed('s' + i, i % 3 === 1 ? 'chorus' : 'verse', '第' + i + '段')))], { leftPanelCollapsed: 'true', rightPanelCollapsed: 'true' });
+    const { context, page, errors } = await bootPage(browser, { device: DEVICES.phone, storage: many });
+    await putCards(page, ['花開']);
+    const touch = await touchSession(page);
+    await phoneHold(page, touch);
+    await expect.poll(async () => (await panelState(page)).left).toBe(false);
+    await settled(page);
+    const r = await page.evaluate(() => { const a = document.getElementById('lyricsSections'); for (let el = a; el && el !== document.body; el = el.parentElement) { const oy = getComputedStyle(el).overflowY; if ((oy === 'auto' || oy === 'scroll') && el.scrollHeight > el.clientHeight) { el.dataset.wdScroller = '1'; const b = el.getBoundingClientRect(); return { x: b.left + b.width / 2, bottom: b.bottom, top: b.top }; } } return null; });
+    expect(r).not.toBeNull();
+    const top0 = await aiScrollTop(page);
+    await touch.move(r.x, r.bottom - 12);
+    await page.waitForTimeout(700);
+    expect(await aiScrollTop(page), '靠下緣列表往下捲').toBeGreaterThan(top0);
+    await touch.up();
+    expect(await noTrace(page)).toEqual(CLEAN);
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('拖詞：讀屏提示', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, { device: DEVICES.desktop, storage: ONE() });
+    const long = '一二三四五六七八九十甲乙丙丁戊己庚辛壬';   // 19 字
+    await putCards(page, [long]);
+    const to = await pointForIndex(page, ta(page), 2);
+    await mouseDrag(page, await centerOf(card(page)), to);
+    await expect(page.locator('#lhLive')).toHaveText('已插入「一二三四五六七八九十甲乙丙丁戊己…」到Verse');
     expect(errors).toEqual([]);
     await context.close();
 });

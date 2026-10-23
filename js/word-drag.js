@@ -7,6 +7,7 @@
 const LH_WD_MOUSE_PX = 5;        // 滑鼠移動超過這麼多 px 才算拖
 const LH_WD_TOUCH_PX = 10;       // 觸控：長按期間移動超過這麼多 px 就是捲動，不拖
 const LH_WD_HOLD_MS = 400;       // 觸控：按住這麼久不動才開始拖
+const LH_WD_DWELL_MS = 600;      // 停在收合段落的標題列上這麼久就展開（F8）
 const LH_WD_BIG = 200000;        // 超過這麼多字的段落不即時算游標，放開才算一次（鏡像排版太貴）
 
 let _lhWd = null;                // 進行中的手勢：{ card, word, pointerId, touch, sx, sy, x, y, state, ghost, caretEl, ta, mirror, raf }
@@ -31,6 +32,12 @@ function lhMirror(ta) {
     return m;
 }
 
+// 行高（px）：計算後樣式是 normal 時用字級的 1.5 倍估
+function _lhLineH(cs) {
+    const lh = parseFloat(cs.lineHeight);
+    return lh > 0 ? lh : (parseFloat(cs.fontSize) || 16) * 1.5;
+}
+
 // 第 i 個字的矩形（換行時取最後一塊）
 function _lhCharRect(node, i) {
     const r = document.createRange();
@@ -46,6 +53,12 @@ function lhCaretIndexAt(ta, clientX, clientY, mirror) {
     const m = mirror || lhMirror(ta), node = m.firstChild, n = ta.value.length, mr = m.getBoundingClientRect();
     const px = mr.left + (clientX - rect.left - parseFloat(cs.borderLeftWidth) + ta.scrollLeft);
     const py = mr.top + (clientY - rect.top - parseFloat(cs.borderTopWidth) + ta.scrollTop);
+    // 0) 指標在最後一行的下面（內容之外）：和真實點擊一樣放在全文最後
+    const end = _lhCharRect(node, n);
+    if (py > end.top + end.height / 2 + _lhLineH(cs) / 2) {
+        if (!mirror) m.remove();
+        return n;
+    }
     // 1) 找第一個「字形頂端在指標下方」的索引，指標所在的行就是它前一個字所在的行
     //    （不用 rect.bottom：CJK 字形矩形比行高矮，行與行的縫會落到下一行）
     let lo = 0, hi = n;
@@ -80,8 +93,7 @@ function lhCaretRect(ta, mirror, i) {
     const rect = ta.getBoundingClientRect(), cs = getComputedStyle(ta);
     const mr = mirror.getBoundingClientRect();
     const r = _lhCharRect(mirror.firstChild, Math.min(i, ta.value.length));
-    let lh = parseFloat(cs.lineHeight);
-    if (!(lh > 0)) lh = (parseFloat(cs.fontSize) || 16) * 1.5;
+    const lh = _lhLineH(cs);
     return {
         left: rect.left + parseFloat(cs.borderLeftWidth) + (r.left - mr.left) - ta.scrollLeft,
         top: rect.top + parseFloat(cs.borderTopWidth) + (r.top - mr.top) + r.height / 2 - lh / 2 - ta.scrollTop,
@@ -133,6 +145,30 @@ function _lhWdMirrorFor(d, ta) {
     return d.mirror.el;
 }
 
+// 指標停在收合段落的標題列上：加 dwell（淡底），600ms 後展開；離開就取消。自己展開的記在 d.expanded，結束時收回去
+function _lhWdDwell(d) {
+    const hit = document.elementsFromPoint(d.x, d.y)[0];
+    const hdr = hit && hit.closest ? hit.closest('.lyrics-section-header') : null;
+    const secEl = hdr && hdr.closest('.lyrics-section');
+    const target = secEl && secEl.classList.contains('collapsed') ? secEl : null;
+    if (target === d.dwellEl) return;
+    clearTimeout(d.dwellTimer);
+    if (d.dwellEl) d.dwellEl.classList.remove('dwell');
+    d.dwellEl = target;
+    if (!target) return;
+    target.classList.add('dwell');
+    d.dwellTimer = setTimeout(() => {
+        if (_lhWd !== d || d.dwellEl !== target) return;
+        target.classList.remove('dwell');
+        d.dwellEl = null;
+        const song = curSong();
+        const idx = song ? song.sections.findIndex(x => x.id === target.dataset.id) : -1;
+        if (idx < 0 || !song.sections[idx].collapsed) return;
+        toggleLyricsSection(idx);
+        d.expanded.add(target.dataset.id);
+    }, LH_WD_DWELL_MS);
+}
+
 // 每個 pointermove 排一個 rAF：殘影位置、找輸入框、算游標、畫插入線
 function _lhWdTick() {
     const d = _lhWd;
@@ -144,6 +180,17 @@ function _lhWdTick() {
     const gx = d.touch ? Math.max(0, d.x - d.ghost.offsetWidth / 2) : Math.max(0, d.x - 0.75 * rem);
     const gy = Math.max(0, d.y - (d.touch ? 3 : 0.75) * rem - h);
     d.ghost.style.transform = 'translate(' + gx + 'px, ' + gy + 'px)';
+    // 靠邊自動捲（同段落排序：3rem 範圍、越靠邊越快；滑鼠要在歌詞面板的左右範圍內才捲）
+    d.scroller = d.scroller || lhSecScroller();
+    const r = d.scroller.getBoundingClientRect();
+    const zone = 3 * rem;
+    if (d.x >= r.left && d.x <= r.right && (d.y < r.top + zone || d.y > r.bottom - zone)) {
+        const up = d.y < r.top + zone;
+        const depth = Math.min(1, Math.max(0, (zone - (up ? d.y - r.top : r.bottom - d.y)) / zone));
+        d.scroller.scrollTop += (up ? -1 : 1) * (0.25 + 0.5 * depth) * rem;
+        d.raf = requestAnimationFrame(_lhWdTick);   // 靠邊時持續排下一幀（指標不動也要繼續捲）
+    }
+    _lhWdDwell(d);
     const ta = _lhWdTextareaAt(d.x, d.y);
     if (ta !== d.ta) {
         _lhWdLeaveTa(d);
@@ -177,6 +224,11 @@ function _lhWdBegin(d) {
         _lhWdArmSwallow(false);
         _lhWdFinish(false);
         return;
+    }
+    // 手機 sheet 版型（F7）：歌詞 sheet 沒開就先切到歌詞，記下原本在哪個分頁，取消時切回去
+    if (lhIsSheetMode() && document.getElementById('leftPanel').classList.contains('collapsed')) {
+        d.origTab = document.getElementById('rightPanel').classList.contains('collapsed') ? 'search' : 'ai';
+        mobileTab('lyrics');
     }
     lhSecDragEnd(false);     // 同時只有一種手勢：收掉段落拖曳、拉高度、設定視窗
     lhSecResizeEnd(false);
@@ -227,11 +279,14 @@ window.addEventListener('contextmenu', e => {
 }, true);
 
 // 收尾：不論放開、取消或被打斷，每條路徑都把監聽、殘影、插入線、外框、class 清乾淨
-function _lhWdFinish(released) {
+// released：手指／滑鼠已放開；keepId：這次放進了哪一段（那段自動展開的不收回；也代表成功，留在歌詞分頁）
+function _lhWdFinish(released, keepId) {
     const d = _lhWd;
     if (!d) return;
     _lhWd = null;
     clearTimeout(d.timer);
+    clearTimeout(d.dwellTimer);
+    d.dwellEl?.classList.remove('dwell');
     if (d.touch) _lhWdTouchEnd = performance.now();
     if (d.state === 'dragging') _lhWdArmSwallow(released);
     cancelAnimationFrame(d.raf);
@@ -246,6 +301,17 @@ function _lhWdFinish(released) {
     d.caretEl?.remove();
     d.card.classList.remove('word-drag-source');
     document.body.classList.remove('is-word-dragging');
+    // 自己展開的段落收回去（收到字的那段除外）
+    const song = curSong();
+    for (const id of d.expanded) {
+        const idx = song ? song.sections.findIndex(x => x.id === id) : -1;
+        if (id !== keepId && idx >= 0 && !song.sections[idx].collapsed) toggleLyricsSection(idx);
+    }
+    // 沒插入就切回原本的分頁（只在 sheet 版型；再按同一個分頁會變成收起，所以只在目前不是那一頁時才切）
+    if (keepId === undefined && d.origTab && lhIsSheetMode()) {
+        const rp = document.getElementById('rightPanel');
+        if (d.origTab === 'search' || rp.classList.contains('collapsed')) mobileTab(d.origTab);
+    }
 }
 
 // 外面叫的取消：不插入任何東西
@@ -290,7 +356,7 @@ function _lhWdUp(e) {
         ? lhCaretIndexAt(ta, d.x, d.y)
         : lhCaretIndexAt(ta, d.x, d.y, _lhWdMirrorFor(d, ta));
     const word = d.word, touch = d.touch;
-    _lhWdFinish(true);
+    _lhWdFinish(true, ta.closest('.lyrics-section').dataset.id);
     _lhWdDrop(ta, i, word, touch);
 }
 
@@ -334,6 +400,7 @@ document.addEventListener('pointerdown', e => {
         card, word, pointerId: e.pointerId, touch: e.pointerType !== 'mouse',
         sx: e.clientX, sy: e.clientY, x: e.clientX, y: e.clientY, state: 'pending',
         ghost: null, hint: null, caretEl: null, ta: null, mirror: null, raf: 0, timer: 0,
+        scroller: null, dwellEl: null, dwellTimer: 0, expanded: new Set(), origTab: null,
     };
     if (_lhWd.touch) {
         const d = _lhWd;
