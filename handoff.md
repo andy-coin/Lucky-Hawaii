@@ -5,6 +5,26 @@
 - Pi Agent 預設連 ToshLLM (Qwen3.6)，profile: IQ50
 - `.devcontainer/docker-compose.yml` 的 ports 預設註解，web server 專案需取消註解
 
+## ▶ 夜間自動執行（2026-10-23，`/gsd-autonomous` 從 Phase 9 起，Andy 授權自主決定）
+
+- Phase 9 ✅（含審查修正 CR-01＋WR-01～05：0896b7d…4ceb60e，覆審 clean；`npm test` 847 過／27 跳過／0 失敗）；驗證 human_needed 5/5 → `09-UAT.md` 6 項
+- Phase 10 韻腳地圖 ✅ 計畫 10-01～10-08 全部做完（待審查與驗證）；見下一節
+- 刻意跳過：Phase 1／3 驗證報告「過期」沒重跑；Phase 12 需 Andy 指定詞庫組合；不 push、不部署
+
+## ✅ Phase 10 韻腳地圖：8/8 計畫完成（2026-10-23，分支 gsd/v0.96-stabilize，沒 push）
+
+- `npm test` **964 過／28 跳過／0 失敗**（Mac 的 Chromium，只比對 -darwin 截圖）；`LH_PERF=1 npx playwright test tests/rhyme-map-perf.spec.mjs --workers=1` **2 過**（150 行連打最長任務 0 ms、200 行分析中位數 0.30 ms）；`?v=` 全部 **0.96.14**（36 個標籤；10-03～10-07 改了 js/css 沒再升版，因為 0.96.14 從沒上線，發佈時一致即可），split-tags 的 JS_ORDER 28 支；`package.json`／`package-lock.json` 沒動
+- 新檔：`js/rhyme-core.js`（純函式：共用判定 lhRhymeMatch、讀音優先序、句尾字、分析、統計、設定與讀音清洗）、`js/rhyme-map.js`（鏡像層上色、200 ms 排程、「韻腳 ▾」選單、浮動列、指定讀音、標題字母條、統計視窗、`lhMapCloseAll`）；`js/lyrics.js` 每段多一層 `div.rhyme-mirror` 與 `button.section-rhyme`；`js/safety.js` 登記 `lh:map` 並在 `lhNormalizeSong` 清洗 `readings`
+- 新測試：`tests/rhyme-core|rhyme-parity|rhyme-map-ui|rhyme-map-perf.spec.mjs`，10-08 加 `rhyme-journey.spec.mjs`（整合：一次走完）與 `rhyme-audit.spec.mjs`（檢查：9 項，全部一次通過，沒有需要修的接縫）
+- 10-08 的測試對應 App 既有規則的地方：(1) 浮動列開著時游標還在輸入框，別的分頁改歌要等離開輸入框才套用（第 8 階段規則）；(2) 同一段反白範圍收起後不會再出現（10-05 刻意）；(3) 用假詞庫時 AI 走「造詞」分支，請求內容不含歌詞，所以「AI 用整首歌」改驗 `generateAISuggestions` 執行當下的歌詞與反白
+- 驗收清單已補：`.planning/TEST-CHECKLIST.md` Phase 10 一節（10-01-1…10-07-2、10-CTX-1…22）、`.planning/驗收清單-精簡版.md` 2-39～2-40、4-26～4-29、5-109～5-130，表頭題數 222
+
+**待 Andy 出手**
+- 在雲端容器執行 `npm run visual:update`，更新 -linux 截圖基準（本機只比對 -darwin；第 5～10 階段累積，第 10 階段新增「韻腳 ▾」按鈕）
+- 真機驗收（機器量不到）：iPad／iPhone Safari、Android Chrome 的顏色在日夜／戶外的樣子、16＋1 色分不分得出來、孤句會不會太淡；長按選字後的浮動列和系統拷貝選單／把手有沒有打架；注音組字有沒有閃或卡；手機標題列字母條擠不擠、「韻腳 ▾」位置；Safari／Firefox 對齊與 iOS 慣性捲動
+- 自主決定要點頭或搖頭（10-CTX-1～22）：B1 背景螢光筆、B2 嚴格模式顏色仍按韻族、B3 孤句較淡、C3 字母與統計預設關、D1 反白→浮動列而不是單擊、E1 了／的／嗎算語助詞、A3 手動讀音綁句尾 4 字；OQ1 嚴格下詩／知／字／思不同韻（寬韻歸空韻）、OQ2 人／風寬韻不同色、OQ6 多字選取一律查最後一字；D-06 組字／改句中時色塊先藏起來、D-10 改成從統計逐句查、D-11 沒有 hover 彈窗；計畫選擇：第 17 色中性灰、「指定讀音」按鈕與只在句尾出現、句中押韻略過語助詞、行尾字母等第 11 階段、浮動列 AI 建議送整首歌、讀音不算復原步驟、改設定所有段落一起重畫、Esc 後同範圍不再彈出、統計在長段落可能蓋住字母條
+- 下一步：Phase 10 審查（`/gsd-code-review 10`）與驗證（`/gsd-verify-work 10`）；MAP-09／10／11 在第 11 階段
+
 ## ✅ Phase 9 段落模組：10/10 計畫完成（2026-10-23，分支 gsd/v0.96-stabilize，沒 push）
 
 - `npm test` **843 過／27 跳過／0 失敗**（Mac 的 Chromium，只比對 -darwin 截圖）；`?v=` 全部 **0.96.13**（34 個標籤），split-tags 的 JS_ORDER 26 支
