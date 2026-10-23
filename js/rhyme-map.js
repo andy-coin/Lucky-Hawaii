@@ -156,6 +156,36 @@ document.getElementById('lyricsSections').addEventListener('scroll', e => {
     else mirror.scrollTop = ta.scrollTop;
 }, true);
 
+// 過期規則（UI-SPEC D-06）：行尾打字（含注音組字中的預選字）色塊照舊留著；
+// 行數變了、或改動不在行尾（改的是句中），色塊可能對到錯的字，就先藏起來（只切 class，鏡像層不增減節點、不量版面），重畫時解除。
+// 不看游標：組字中游標會停在預選字中間（CDP 與部分輸入法都是），改成比「這次輸入前後」的模型文字找出改動的範圍。
+// 比的是上一次 input 的文字（單次改動範圍很小）；藏起來的 class 一路留著，直到重畫才解除。lyrics.js 的 input 監聽先跑，模型已是新文字
+function _lhMapMovesBand(a, b) {
+    const n = Math.min(a.length, b.length);
+    let p = 0;
+    while (p < n && a.charCodeAt(p) === b.charCodeAt(p)) p++;
+    let s = 0;
+    while (s < n - p && a.charCodeAt(a.length - 1 - s) === b.charCodeAt(b.length - 1 - s)) s++;
+    const aEnd = a.length - s, bEnd = b.length - s;
+    if (a.indexOf('\n', p) !== -1 && a.indexOf('\n', p) < aEnd) return true;    // 動到換行
+    if (b.indexOf('\n', p) !== -1 && b.indexOf('\n', p) < bEnd) return true;
+    return a.length > aEnd && a[aEnd] !== '\n';   // 改動後面還接著同一行的字：句中修改
+}
+document.getElementById('lyricsSections').addEventListener('input', e => {
+    const ta = e.target;
+    if (!ta.classList || !ta.classList.contains('section-textarea')) return;
+    const secEl = ta.closest('.lyrics-section');
+    if (!secEl || !secEl.classList.contains('rm-on')) return;
+    const mirror = _lhMapMirrorOf(ta);
+    const hit = _lhMapCache.get(secEl.dataset.id);
+    const song = curSong();
+    const sec = song && song.sections.find(x => x.id === secEl.dataset.id);
+    if (!mirror || !hit || !sec) return;
+    const prev = hit.last !== undefined ? hit.last : hit.text;
+    hit.last = sec.text;
+    if (_lhMapMovesBand(prev, sec.text)) mirror.classList.add('rm-stale');
+}, false);
+
 // 就緒閘門（A5）：字典、詞庫、歌曲都結束（成功或失敗都算）才開始畫；之前不畫、也不顯示錯誤
 window.__lhMapReady = Promise.allSettled([window.__hoyunReady, window.__hoyunWordlistReady, window.__hoyunSongsReady]).then(() => {
     try {

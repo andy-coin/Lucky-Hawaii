@@ -2,7 +2,7 @@
 // 之後的計畫會在這支檔案繼續加（鏡像對齊、組字、開關、浮動列…）；標題的第一個詞對應 10-VALIDATION.md 的 -g 篩選
 import { test, expect } from '@playwright/test';
 import { readFileSync } from 'node:fs';
-import { bootPage } from './helpers.mjs';
+import { bootPage, compose } from './helpers.mjs';
 
 const FIXTURE = JSON.parse(readFileSync(new URL('./fixtures/v096-localStorage.json', import.meta.url), 'utf8'));
 const OPEN_PANELS = { leftPanelCollapsed: 'false', rightPanelCollapsed: 'false' };
@@ -106,6 +106,111 @@ test('上色：字典與詞庫載好前不上色', async ({ browser }) => {
     release();
     await page.evaluate(() => window.__lhMapReady);
     await expect.poll(() => bands(page)).toEqual([['光', '14'], ['窗', '14'], ['道', '8'], ['到', '8']]);
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+// 第 10-03 計畫：組字不動、過期規則、快取
+// 計數器：lhRhymeAnalyze 被叫幾次、所有鏡像層的 childList 變動幾筆（含還沒送出的紀錄）
+const installCounters = page => page.evaluate(() => {
+    window.__an = 0;
+    const o = window.lhRhymeAnalyze;
+    window.lhRhymeAnalyze = function (...a) { window.__an++; return o.apply(this, a); };
+    window.__mut = 0;
+    window.__mo = new MutationObserver(rs => { window.__mut += rs.length; });
+    document.querySelectorAll('.rhyme-mirror').forEach(m => window.__mo.observe(m, { childList: true, subtree: true }));
+});
+const counters = page => page.evaluate(() => ({ analyze: window.__an, mutations: window.__mut + window.__mo.takeRecords().length }));
+const isStale = page => page.locator('.rhyme-mirror').first().evaluate(m => m.classList.contains('rm-stale'));
+
+test('組字：組字中鏡像零變動，確認後才重畫', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, {
+        wordlist: 'stub', storage: v2Storage([song([typed('sa', 'verse', F_AABB)])]),
+    });
+    await installCounters(page);
+    // 游標在最後一行行尾：組字中色塊照舊、沒有任何變動、一次都沒分析
+    await caretToEnd(page);
+    let during = null;
+    await compose(page, ['ㄌ', 'ㄌㄧ', 'ㄌㄧㄤˋ'], '亮', async () => {
+        during = { ...(await counters(page)), stale: await isStale(page) };
+    });
+    expect(during).toEqual({ analyze: 0, mutations: 0, stale: false });
+    await expect.poll(() => bands(page), { timeout: 1500 }).toEqual([['光', '14'], ['窗', '14'], ['道', '8'], ['亮', '14']]);
+    expect((await counters(page)).analyze).toBeGreaterThanOrEqual(1);
+    // 游標在第一行最前面（句中改字）：組字中鏡像層只多一個 rm-stale，節點零變動；確認後重畫、藏起來的解除
+    await page.evaluate(() => { const ta = document.querySelector('.section-textarea'); ta.focus(); ta.setSelectionRange(0, 0); window.__mo.takeRecords(); window.__mut = 0; });
+    await compose(page, ['ㄏ', 'ㄏㄠˇ'], '好', async () => {
+        during = { ...(await counters(page)), stale: await isStale(page) };
+    });
+    expect(during.stale).toBe(true);
+    expect(during.mutations).toBe(0);
+    await expect.poll(() => isStale(page), { timeout: 1500 }).toBe(false);
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('組字：句尾打字時色塊留著，換行或句中修改時先藏起來', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, {
+        wordlist: 'stub', storage: v2Storage([song([typed('sa', 'verse', F_AABB)])]),
+    });
+    const visible = () => page.locator('.rhyme-mirror').first().evaluate(m => getComputedStyle(m).visibility);
+    await caretToEnd(page);
+    await page.keyboard.type('亮');   // 行尾打字：色塊留著
+    expect(await isStale(page)).toBe(false);
+    expect(await visible()).toBe('visible');
+    await page.keyboard.press('Enter');   // 行數變了：藏起來
+    expect(await isStale(page)).toBe(true);
+    expect(await visible()).toBe('hidden');
+    await expect.poll(() => isStale(page), { timeout: 1500 }).toBe(false);
+    expect((await bands(page)).map(b => b[0])).toEqual(['光', '窗', '道', '亮']);
+    await page.evaluate(() => { document.querySelector('.section-textarea').setSelectionRange(2, 2); });
+    await page.keyboard.type('好');   // 句中修改：藏起來，重畫後回來且仍在句尾字上
+    expect(await isStale(page)).toBe(true);
+    await expect.poll(() => isStale(page), { timeout: 1500 }).toBe(false);
+    expect((await bands(page)).map(b => b[0])).toEqual(['光', '窗', '道', '亮']);
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('快取：打一個字再刪掉不重畫', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, {
+        wordlist: 'stub', storage: v2Storage([song([typed('sa', 'verse', F_AABB)])]),
+    });
+    await page.evaluate(() => {
+        window.__n = document.querySelector('.rm-hl');
+        window.__paints = 0;
+        const o = window.lhMapPaint;
+        window.lhMapPaint = function (...a) { window.__paints++; return o.apply(this, a); };
+    });
+    await caretToEnd(page);
+    await page.keyboard.type('亮');
+    await page.keyboard.press('Backspace');
+    await page.waitForTimeout(500);
+    expect(await page.evaluate(() => window.__paints)).toBeGreaterThanOrEqual(1);
+    expect(await page.evaluate(() => window.__n.isConnected), '文字沒變：節點還在').toBe(true);
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('快取：只重畫打字的那一段', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, {
+        wordlist: 'stub', storage: v2Storage([song([typed('sa', 'verse', F_AABB), typed('sb', 'chorus', '你好嗎\n走回來')])]),
+    });
+    await installCounters(page);
+    await page.evaluate(() => {
+        window.__ids = [];
+        const o = window.lhMapPaint;
+        window.lhMapPaint = function (el, ...a) { window.__ids.push(el.dataset.id); return o.call(this, el, ...a); };
+    });
+    await caretToEnd(page);
+    await page.keyboard.type('一二三四五六七八九十', { delay: 30 });
+    await page.waitForTimeout(600);
+    const ids = await page.evaluate(() => window.__ids);
+    expect(ids.length).toBeGreaterThanOrEqual(1);
+    expect(ids.every(id => id === 'sa'), '只有被改的那一段重畫：' + ids).toBe(true);
+    const n = (await counters(page)).analyze;
+    expect(n).toBeGreaterThanOrEqual(1);
+    expect(n, '連續打字合併成少數幾次分析').toBeLessThanOrEqual(3);
     expect(errors).toEqual([]);
     await context.close();
 });
