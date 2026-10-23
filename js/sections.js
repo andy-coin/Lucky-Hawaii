@@ -23,6 +23,11 @@ function lhSecHandleLabel(label) {
     return '拖曳排序「' + label + '」，或按 Alt+上下鍵移動';
 }
 
+// 底邊拉桿的無障礙名稱（建立與原地更新共用）
+function lhSecResizeLabel(label) {
+    return '調整「' + label + '」高度（雙擊回到自動高度）';
+}
+
 // kind：動作名稱（之後記進歷史）；mutate(song) 改模型，回傳 false 代表沒改；opts.dom === 'render' 才整個重畫
 // 回傳這一步的歷史紀錄（真值）；沒改任何東西回傳 false
 function lhSecApply(kind, mutate, opts = {}) {
@@ -70,6 +75,8 @@ function lhSecRefreshMeta() {
         if (btn) lhSecFillTypeBtn(btn, s.label);
         const hd = el.querySelector('.section-handle');
         if (hd) hd.setAttribute('aria-label', lhSecHandleLabel(s.label));
+        const rz = el.querySelector('.section-resize');
+        if (rz) rz.setAttribute('aria-label', lhSecResizeLabel(s.label));
         const ta = el.querySelector('.section-textarea');
         if (ta) ta.placeholder = i === 0 ? '在這裡輸入或貼上歌詞…' : '在這裡輸入歌詞…';
         const rm = el.querySelector('.section-remove');
@@ -144,7 +151,9 @@ function lhSecMoveDom(id, beforeId /* null＝最後面 */) {
     const ae = document.activeElement;
     const focused = ae && el.contains(ae) ? ae : null;
     const tas = [...el.querySelectorAll('textarea')].map(t => [t, t.scrollTop, t.selectionStart, t.selectionEnd]);
+    const sc = lhSecScroller(), scTop = sc.scrollTop;
     area.insertBefore(el, ref);
+    sc.scrollTop = scTop;   // 瀏覽器的捲動錨點會把被搬動的段落當錨，整個列表跟著跳一格；放回原本的位置
     for (const [t, top, a, b] of tas) {   // 重新插入會讓 textarea 的捲動歸零
         t.scrollTop = top;
         if (t === focused) t.setSelectionRange(a, b);
@@ -301,9 +310,122 @@ function lhSecDragKey(e) {
     lhSecDragEnd(false);
 }
 
-// 給外面用：重畫列表、跨 900px、收起左面板時，把進行中的拖曳乾淨收掉（模型與高度不動）
+// ===== 高度（C4）：底邊拉桿；高度存在模型的 height（rem），不進復原歷史（D2），所以不走 lhSecApply =====
+
+// 套用高度：null＝自動高度（拿掉 data-h 與 --sec-h）；數字夾在 4～60 rem、取一位小數。
+// 只用 style.setProperty 寫「有限數字＋rem」，不拼 cssText（T-09-15）。回傳實際套用的值
+function lhSecSetHeight(secEl, rem) {
+    let v = null;
+    if (typeof rem === 'number' && Number.isFinite(rem)) {
+        v = Math.round(Math.min(LH_SEC_H_MAX, Math.max(LH_SEC_H_MIN, rem)) * 10) / 10;
+        secEl.dataset.h = String(v);
+        secEl.style.setProperty('--sec-h', v + 'rem');
+    } else {
+        delete secEl.dataset.h;
+        secEl.style.removeProperty('--sec-h');
+    }
+    lhSecBarNow(secEl);
+    return v;
+}
+
+const _lhRootPx = () => parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+
+// 現在的輸入框高度（rem）；段落收合或面板收起時量不到（0），回傳 null
+function lhSecNowRem(secEl) {
+    const ta = secEl.querySelector('.section-textarea');
+    const h = ta ? ta.getBoundingClientRect().height : 0;
+    return h > 0 ? h / _lhRootPx() : null;
+}
+
+// aria-valuenow 跟著畫面上的高度（夾在 min～max 之間，量不到就先不寫）
+function lhSecBarNow(secEl) {
+    const rz = secEl.querySelector('.section-resize');
+    const n = secEl.dataset.h ? Number(secEl.dataset.h) : lhSecNowRem(secEl);
+    if (!rz || n === null) return;
+    rz.setAttribute('aria-valuenow', String(Math.round(Math.min(LH_SEC_H_MAX, Math.max(LH_SEC_H_MIN, n)) * 10) / 10));
+}
+
+// 把畫面上的高度寫進模型並存檔（沒有歷史步驟；放開、鍵盤、重設共用）
+function lhSecSaveHeight(secEl) {
+    const song = curSong();
+    const s = song && song.sections.find(x => x.id === secEl.dataset.id);
+    if (!s) return;
+    s.height = secEl.dataset.h ? Number(secEl.dataset.h) : null;
+    markDirty(song.id);
+    flushSongs();
+}
+
+// 回到自動高度
+function lhSecResetHeight(secEl) {
+    if (!secEl.dataset.h) return;
+    lhSecSetHeight(secEl, null);
+    lhSecSaveHeight(secEl);
+}
+
+let _lhResize = null;   // 進行中的拉動：{ bar, secEl, pointerId, sy, startPx, stored, moved }
+let _lhLastTap = null;  // 上一次沒拉動的放開：{ bar, t, x, y }，用來認「連點兩下」（觸控沒有 dblclick）
+
+// 結束一次拉動：commit 為真才存；否則高度回到拉之前
+function lhSecResizeEnd(commit) {
+    const r = _lhResize;
+    if (!r) return;
+    _lhResize = null;
+    r.bar.removeEventListener('pointermove', lhSecResizeMove);
+    r.bar.removeEventListener('pointerup', lhSecResizeUp);
+    r.bar.removeEventListener('pointercancel', lhSecResizeCancel);
+    r.bar.removeEventListener('lostpointercapture', lhSecResizeCancel);
+    document.removeEventListener('keydown', lhSecResizeKey, true);
+    try { r.bar.releasePointerCapture(r.pointerId); } catch (err) { lhWarn('releasePointerCapture 失敗', err); }
+    document.body.classList.remove('is-section-resizing');
+    r.bar.classList.remove('resizing');
+    if (commit && r.moved) lhSecSaveHeight(r.secEl);
+    else if (r.moved) lhSecSetHeight(r.secEl, r.stored);
+}
+
+function lhSecResizeMove(e) {
+    const r = _lhResize;
+    if (!r || e.pointerId !== r.pointerId) return;
+    if (!r.moved) {
+        if (Math.abs(e.clientY - r.sy) < 3) return;   // 點一下不算拉
+        r.moved = true;
+        _lhLastTap = null;
+    }
+    lhSecSetHeight(r.secEl, (r.startPx + e.clientY - r.sy) / _lhRootPx());
+}
+
+function lhSecResizeUp(e) {
+    const r = _lhResize;
+    if (!r || e.pointerId !== r.pointerId) return;
+    if (r.moved) lhSecSetHeight(r.secEl, (r.startPx + e.clientY - r.sy) / _lhRootPx());
+    else if (e.pointerType !== 'mouse') {
+        // 連點兩下：300 毫秒內、20px 內的第二次放開（滑鼠走 dblclick）
+        const t = _lhLastTap;
+        if (t && t.bar === r.bar && e.timeStamp - t.t < 300 && Math.hypot(e.clientX - t.x, e.clientY - t.y) <= 20) {
+            _lhLastTap = null;
+            lhSecResizeEnd(false);
+            lhSecResetHeight(r.secEl);
+            return;
+        }
+        _lhLastTap = { bar: r.bar, t: e.timeStamp, x: e.clientX, y: e.clientY };
+    }
+    lhSecResizeEnd(true);
+}
+
+function lhSecResizeCancel() { lhSecResizeEnd(false); }
+
+// Esc 取消：跟排序拖曳一樣在 capture 階段攔下（≤ 900 的 sheet 才不會同時被收起）；組字中不攔
+function lhSecResizeKey(e) {
+    if (e.key !== 'Escape' || e.isComposing || e.keyCode === 229) return;
+    if (!_lhResize || !_lhResize.moved) return;
+    e.preventDefault();
+    e.stopPropagation();
+    lhSecResizeEnd(false);
+}
+
+// 給外面用：重畫列表、跨 900px、收起左面板時，把進行中的拖曳與拉動乾淨收掉（模型與高度不動）
 function lhSecAbortInteractions() {
     lhSecDragEnd(false);
+    lhSecResizeEnd(false);
 }
 LH_MQ_SHEET.addEventListener('change', lhSecAbortInteractions);
 new MutationObserver(() => {
@@ -311,6 +433,29 @@ new MutationObserver(() => {
 }).observe(document.getElementById('leftPanel'), { attributes: true, attributeFilter: ['class'] });
 
 document.getElementById('lyricsSections').addEventListener('pointerdown', e => {
+    const rbar = e.target.closest && e.target.closest('.section-resize');
+    if (rbar) {
+        if (_lhResize || !e.isPrimary) return;
+        if (e.pointerType === 'mouse' && e.button !== 0) return;
+        const secEl = rbar.closest('.lyrics-section');
+        if (!secEl) return;
+        lhSecDragEnd(false);   // 同時只有一種手勢
+        const startPx = secEl.querySelector('.section-textarea').getBoundingClientRect().height;
+        _lhResize = {
+            bar: rbar, secEl, pointerId: e.pointerId, sy: e.clientY, startPx,
+            stored: secEl.dataset.h ? Number(secEl.dataset.h) : null, moved: false,
+        };
+        try { rbar.setPointerCapture(e.pointerId); } catch (err) { lhWarn('setPointerCapture 失敗', err); }
+        rbar.addEventListener('pointermove', lhSecResizeMove);
+        rbar.addEventListener('pointerup', lhSecResizeUp);
+        rbar.addEventListener('pointercancel', lhSecResizeCancel);
+        rbar.addEventListener('lostpointercapture', lhSecResizeCancel);
+        document.addEventListener('keydown', lhSecResizeKey, true);
+        document.body.classList.add('is-section-resizing');
+        rbar.classList.add('resizing');
+        lhSecBarNow(secEl);
+        return;
+    }
     const handle = e.target.closest && e.target.closest('.section-handle');
     if (!handle || _lhDrag || !e.isPrimary) return;
     if (e.pointerType === 'mouse' && e.button !== 0) return;

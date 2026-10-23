@@ -70,7 +70,12 @@ test('排序：手指拖把手', async ({ browser }) => {
 test('排序：手指不會讓列表在指頭下捲動', async ({ browser }) => {
     const { context, page, errors } = await bootPage(browser, { device: DEVICES.tablet, storage: MANY(12) });
     await openSheet(page);
-    await area(page).evaluate(el => { el.scrollTop = 300; });
+    // 讓第 5 個把手落在可視區上緣下 230px（段落高度會隨拉桿等版面改變，不能寫死捲動量）
+    const scrolled = await area(page).evaluate(el => {
+        const h = el.querySelectorAll('.section-handle')[4].getBoundingClientRect();
+        el.scrollTop += h.top + h.height / 2 - el.getBoundingClientRect().top - 230;
+        return el.scrollTop;
+    });
     // 找一個離上下緣夠遠、往上拖 100px 還在捲動區外的把手
     const pick = await page.evaluate(() => {
         const r = document.getElementById('lyricsSections').getBoundingClientRect();
@@ -82,8 +87,8 @@ test('排序：手指不會讓列表在指頭下捲動', async ({ browser }) => 
     const before = await ids(page);
     const [x, y] = await centerOf(handle(page, pick));
     const touch = await touchSession(page);
-    await touch.drag([x, y], [x, y - 110]);
-    expect(await area(page).evaluate(el => el.scrollTop)).toBe(300);
+    await touch.drag([x, y], [x, (await aboveSection(page, pick - 1, 0.45))[1]]);   // 拖進前一段的上半（段落高度會變，不寫死距離；留在自動捲動區之外）
+    expect(await area(page).evaluate(el => el.scrollTop)).toBe(scrolled);
     const after = await ids(page);
     expect(after[pick - 1]).toBe(before[pick]);   // 往上跨過前一段
     expect(after[pick]).toBe(before[pick - 1]);
@@ -341,6 +346,39 @@ test('排序：鍵盤一步一個復原', async ({ browser }) => {
     await handle(page, 1).focus();
     await page.keyboard.press('ArrowUp');
     expect(await ids(page)).toEqual(['sb', 'sa', 'sc']);
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+// ===== 高度（第 9 階段 09-07，EDIT-02 後半）：段落底邊的拉桿 =====
+const bar = (page, n) => page.locator('#lyricsSections .lyrics-section').nth(n).locator('.section-resize');
+const taOf = (page, n) => page.locator('#lyricsSections .lyrics-section').nth(n).locator('.section-textarea');
+const taPx = async (page, n) => (await taOf(page, n).boundingBox()).height;
+const rootPx = page => page.evaluate(() => parseFloat(getComputedStyle(document.documentElement).fontSize));
+const rawH = async (page, n) => (await activeSongRaw(page)).sections[n].height;
+
+test('高度：拖拉桿改高度', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, { device: DEVICES.desktop, storage: ABC() });
+    await waitStill(page);
+    const disabled0 = await undoDisabled(page);
+    const before = await taPx(page, 0);
+    const root = await rootPx(page);
+    const [bx, by] = await centerOf(bar(page, 0));
+    await mouseDrag(page, [bx, by], [bx, by + 80]);
+    const after = await taPx(page, 0);
+    expect(Math.abs(after - before - 80)).toBeLessThanOrEqual(2);
+    const h = await rawH(page, 0);   // 不 flush：放開就要存
+    expect(Math.abs(h - (before + 80) / root)).toBeLessThan(0.2);
+    expect(Math.round(h * 10) / 10).toBe(h);
+    expect(await undoDisabled(page)).toBe(disabled0);
+    // 別段打字再 Cmd/Ctrl+Z：高度不動
+    await taOf(page, 1).click();
+    await page.keyboard.type('x');
+    await page.keyboard.press('ControlOrMeta+z');
+    expect(Math.abs((await taPx(page, 0)) - after)).toBeLessThanOrEqual(1);
+    await page.reload();
+    await waitStill(page);
+    expect(Math.abs((await taPx(page, 0)) - after)).toBeLessThanOrEqual(1);
     expect(errors).toEqual([]);
     await context.close();
 });

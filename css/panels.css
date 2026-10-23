@@ -1171,6 +1171,39 @@
             .section-handle:hover { color: var(--text-primary); }
         }
         body.is-section-dragging { user-select: none; cursor: grabbing; }
+        /* 底邊拉桿（C4、D-11）：在 textarea 下面的正常排版裡，不蓋住最後一行；拖、鍵盤上下、雙擊回自動高度 */
+        .section-resize {
+            position: relative;
+            flex-shrink: 0;
+            height: 0.75rem;
+            background: var(--container-bg);
+            border-top: 1px solid var(--border);
+            cursor: ns-resize;
+            touch-action: none;
+            user-select: none;
+            -webkit-touch-callout: none;
+        }
+        .section-resize::before {
+            content: '';
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            width: 2.5rem;
+            height: 0.25rem;
+            transform: translate(-50%, -50%);
+            border-radius: 0.125rem;
+            background: var(--border);
+        }
+        .section-resize:focus-visible::before, .section-resize.resizing::before { background: var(--text-secondary); }
+        @media (hover: hover) and (pointer: fine) {
+            .section-resize:hover::before { background: var(--text-secondary); }
+        }
+        .lyrics-section.collapsed .section-resize { display: none; }
+        body.is-section-resizing { user-select: none; cursor: ns-resize; }
+        /* 有存高度的段落：只有它不再被 Phase 5 的 9rem／7rem 下限與第一段 12rem 撐住（多寫一個 .lyrics-area 才壓得過那些規則）；收合時不看 data-h */
+        .lyrics-area .lyrics-section[data-h]:not(.collapsed) { flex: 0 0 auto; min-height: 0; }
+        .lyrics-area .lyrics-section[data-h]:not(.collapsed) .section-body { flex: 0 0 auto; }
+        .lyrics-area .lyrics-section[data-h]:not(.collapsed) .section-textarea { display: block; flex: none; height: var(--sec-h); min-height: 0; }
         #lyricsSections { position: relative; }
         .section-drop-line {
             position: absolute;
@@ -1393,6 +1426,8 @@
             .lyrics-section-header { padding-block: 0; }
             /* 排序把手：觸控一律實體 44×44（相鄰重疊 ≤ 4px） */
             .section-handle { width: var(--hit); min-width: var(--hit); min-height: var(--hit); }
+            /* 底邊拉桿：觸控一律 44px 高（D-11，這是為了好抓付出的版面代價，列入 UAT） */
+            .section-resize { height: var(--hit); }
             /* 段落刪除：觸控上沒有 hover，所以一律完整顯示；刪除不確認，改由下方提示的「復原」救回（js/sections.js） */
             .section-remove {
                 display: inline-flex;
