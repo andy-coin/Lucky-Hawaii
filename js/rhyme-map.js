@@ -72,7 +72,7 @@ function lhMapPaint(secEl) {
         res.rows.forEach((r, n) => {
             // 這一行要特別標示的字：句尾字（色塊，句尾上色開著才有）與句中押韻的字（底線）
             const marks = new Map();
-            if (r.t && _lhMapSet.end) marks.set(r.t.i, { cls: r.solo ? 'rm-hl rm-solo' : 'rm-hl', f: r.f });
+            if (r.t && _lhMapSet.end) marks.set(r.t.i, { cls: (r.solo ? 'rm-hl rm-solo' : 'rm-hl') + (r.manual ? ' rm-manual' : ''), f: r.f });
             for (const m of r.inner) marks.set(m.i, { cls: 'rm-inner', f: m.f });
             if (!marks.size) frag.append(r.line);
             else {
@@ -443,14 +443,29 @@ function lhMapBarBuild() {
     look.append(icon('🔍'), _lhMk('span', 'rm-bar-t', ' 查韻：'));
     const ai = _lhMkBtn('section-menu-btn rm-bar-ai', '');
     ai.append(icon('✨'), _lhMk('span', '', ' AI 建議'));
-    bar.append(look, ai);
+    const rd = _lhMkBtn('section-menu-btn rm-bar-rd', '指定讀音');   // 只有句尾的破音字才顯示（lhMapShowBar）
+    rd.hidden = true;
+    rd.setAttribute('aria-expanded', 'false');
+    const row = _lhMk('div', 'rm-bar-reading');   // 讀音那一列：標籤＋晶片，按「指定讀音」才展開
+    row.id = 'rhymeReadingRow';
+    row.hidden = true;
+    rd.setAttribute('aria-controls', row.id);
+    bar.append(look, ai, rd, row);
     // 按鈕不能搶走輸入框的焦點與選取（手機鍵盤也才不會收起來）
     for (const t of ['pointerdown', 'mousedown']) bar.addEventListener(t, e => e.preventDefault());
     look.addEventListener('click', e => lhMapLookup(_lhMapBarSnap && _lhMapBarSnap.char, false, e.detail === 0));
     ai.addEventListener('click', e => lhMapLookup(_lhMapBarSnap && _lhMapBarSnap.char, true, e.detail === 0));
+    rd.addEventListener('click', e => lhMapReadingToggle(e.detail === 0));
+    row.addEventListener('click', e => {
+        const c = e.target.closest && e.target.closest('.rm-chip');
+        const sn = _lhMapBarSnap;
+        if (!c || !sn || !sn.rd) return;
+        lhMapSetReading(sn.secId, sn.rd.tail, c.dataset.r || null);
+        if (e.detail === 0) _lhMapBarRestore(sn);
+    });
     bar.addEventListener('keydown', e => {
         if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
-        const items = [...bar.querySelectorAll('button')], i = items.indexOf(document.activeElement);
+        const items = [...bar.querySelectorAll('button')].filter(b => b.offsetParent !== null), i = items.indexOf(document.activeElement);
         if (i < 0) return;
         e.preventDefault();
         items[(i + (e.key === 'ArrowRight' ? 1 : -1) + items.length) % items.length].focus({ preventScroll: true });
@@ -464,7 +479,11 @@ function lhMapHideBar(keepTimer) {
     if (keepTimer !== true) { clearTimeout(_lhMapBarTimer); _lhMapBarTimer = 0; }
     if (_lhMapBarSnap) _lhMapBarSnap.ta.removeAttribute('aria-keyshortcuts');
     _lhMapBarSnap = null;
-    if (_lhMapBar) _lhMapBar.classList.remove('show');
+    if (_lhMapBar) {
+        _lhMapBar.classList.remove('show');
+        _lhMapBar.querySelector('.rm-bar-reading').hidden = true;
+        _lhMapBar.querySelector('.rm-bar-rd').setAttribute('aria-expanded', 'false');
+    }
 }
 
 // 放在選取結尾那一行的下方；放不下（lhPlaceMenu 夾進可見範圍）就貼在可見範圍底部
@@ -489,11 +508,31 @@ function _lhMapBarPlace() {
 
 function lhMapShowBar(snap) {
     const bar = lhMapBarBuild();
-    if (_lhMapBarSnap && _lhMapBarSnap.ta !== snap.ta) _lhMapBarSnap.ta.removeAttribute('aria-keyshortcuts');
+    const prev = _lhMapBarSnap;
+    if (prev && prev.ta !== snap.ta) prev.ta.removeAttribute('aria-keyshortcuts');
+    // 同一個選取重複判斷（例如焦點移進列裡）時，讀音那一列維持原樣；換了選取就收起來
+    if (!(prev && prev.ta === snap.ta && prev.a === snap.a && prev.b === snap.b && prev.secId === snap.secId)) {
+        bar.querySelector('.rm-bar-reading').hidden = true;
+        bar.querySelector('.rm-bar-rd').setAttribute('aria-expanded', 'false');
+    }
+    bar.querySelector('.rm-bar-rd').hidden = !snap.rd;
     _lhMapBarSnap = snap;
     snap.ta.setAttribute('aria-keyshortcuts', 'Alt+ArrowDown');
     bar.querySelector('.rm-bar-t').textContent = ' 查韻：' + snap.char;
     _lhMapBarPlace();
+}
+
+// 「指定讀音」只在選取的最後一個中文字正好是那一行的有效句尾（跳過標點與語助詞之後）、且是破音字時才有意義：
+// 手動讀音只綁句尾（A3），在別處指定不會改變任何顏色（OQ12）。回傳 { tail, char } 或 null
+function _lhMapReadingTarget(ta, a, text, char) {
+    if (!isPolyphonic(char)) return null;
+    const pos = a + text.lastIndexOf(char);   // 選取裡最後一個該字的位置
+    const v = ta.value;
+    const ls = v.lastIndexOf('\n', pos - 1) + 1;
+    let le = v.indexOf('\n', pos);
+    if (le < 0) le = v.length;
+    const t = lhRhymeTarget(v.slice(ls, le), _lhMapSet.skipParticles);
+    return t && t.char === char && t.i === Array.from(v.slice(ls, pos)).length ? { tail: t.tail, char } : null;
 }
 
 // 判斷這個輸入框現在的選取該不該出現浮動列
@@ -510,7 +549,7 @@ function _lhMapSelCheck(ta) {
         const han = chars.filter(c => LH_MAP_HAN.test(c));
         if (!han.length) return lhMapHideBar();
         const end = b - (text.length - text.trimEnd().length);   // 三連點選會多選到換行：浮動列放在最後一個字那一行
-        lhMapShowBar({ ta, secId: ta.closest('.lyrics-section').dataset.id, a, b, end, char: han[han.length - 1] });
+        lhMapShowBar({ ta, secId: ta.closest('.lyrics-section').dataset.id, a, b, end, char: han[han.length - 1], rd: _lhMapReadingTarget(ta, a, text, han[han.length - 1]) });
     } catch (e) {
         lhWarn('韻腳地圖選字列失敗', e);
         lhMapHideBar();
@@ -568,6 +607,56 @@ function _lhMapBarRestore(s) {
     if (!s.ta.isConnected) return;
     s.ta.focus({ preventScroll: true });
     s.ta.setSelectionRange(s.a, s.b);
+}
+
+// 展開／收起讀音那一列：「自動」加上字典裡這個字的每個讀音（字典順序）；目前生效的讀音標 aria-pressed，鍵盤打開時焦點先到它
+function lhMapReadingToggle(byKeyboard) {
+    const s = _lhMapBarSnap;
+    if (!s || !s.rd || !_lhMapBar) return;
+    const row = _lhMapBar.querySelector('.rm-bar-reading'), btn = _lhMapBar.querySelector('.rm-bar-rd');
+    if (!row.hidden) { row.hidden = true; btn.setAttribute('aria-expanded', 'false'); _lhMapBarPlace(); return; }
+    const song = curSong();
+    const t = { char: s.rd.char, tail: s.rd.tail };
+    const cur = lhRhymeReading(t, song && song.readings);
+    const chip = (text, r) => {
+        const c = _lhMkBtn('rm-chip', text);
+        c.dataset.r = r;
+        c.setAttribute('aria-pressed', String(r !== '' && r === cur));
+        return c;
+    };
+    row.replaceChildren(_lhMk('span', 'rm-bar-reading-label', '「' + t.char + '」讀音'), chip('自動', ''),
+        ...getCharAllReadings(t.char).map(x => chip(x.reading, x.reading)));
+    row.hidden = false;
+    btn.setAttribute('aria-expanded', 'true');
+    _lhMapBarPlace();   // 列變高了：重新夾進可見範圍
+    if (byKeyboard) (row.querySelector('[aria-pressed="true"]') || row.querySelector('.rm-chip')).focus({ preventScroll: true });
+}
+
+// 指定（或用 null 清掉）某個句尾的讀音：只寫這首歌的 readings，不是復原步驟（D-08）；
+// 馬上重畫那一段、朗讀、收掉浮動列。鍵只認「句尾連續漢字（最多 4 個）完全相同」，改了句尾就自動不再套用（A3）
+function lhMapSetReading(secId, tail, reading) {
+    const song = curSong();
+    if (!song || typeof tail !== 'string' || !tail) return;
+    const char = Array.from(tail).pop();
+    if (reading !== null && !getCharAllReadings(char).some(r => r.reading === reading)) return;
+    if (reading === null) {
+        if (song.readings) {
+            delete song.readings[tail];
+            if (!Object.keys(song.readings).length) delete song.readings;
+        }
+    } else {
+        if (!song.readings) song.readings = {};
+        song.readings[tail] = reading;
+    }
+    markDirty(song.id);
+    flushSongs();
+    _lhMapReadVer++;
+    const sn = _lhMapBarSnap;
+    if (sn) _lhMapBarSkip = _lhMapSelSig(sn.ta);
+    lhMapHideBar();
+    const el = lhSecEl(secId);
+    if (el) lhMapPaint(el);
+    lhAnnounce(reading === null ? '「' + char + '」讀音改回自動' : '已指定「' + char + '」讀音為 ' + reading);
 }
 
 // 查韻（withAI＝false）或查韻後問 AI（true）：做的事和搜尋框的 input 處理一樣（清已選字、更新提示、_handleSearch），不另寫第二套查詢

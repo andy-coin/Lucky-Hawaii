@@ -2,7 +2,7 @@
 // 之後的計畫會在這支檔案繼續加（鏡像對齊、組字、開關、浮動列…）；標題的第一個詞對應 10-VALIDATION.md 的 -g 篩選
 import { test, expect, chromium } from '@playwright/test';
 import { readFileSync } from 'node:fs';
-import { bootPage, compose, openTwoTabs } from './helpers.mjs';
+import { bootPage, compose, openTwoTabs, activeSongRaw } from './helpers.mjs';
 import { DEVICES, setScale, waitStill, emulateKeyboard, readKeyboard, insideVisible, auditTouchTargets } from './layout-lib.mjs';
 
 const FIXTURE = JSON.parse(readFileSync(new URL('./fixtures/v096-localStorage.json', import.meta.url), 'utf8'));
@@ -1168,6 +1168,144 @@ test('浮動列：超長段落不量版面、直接貼底', async ({ browser }) 
     const b = await barBox(page);
     expect(b.y + b.height).toBeGreaterThanOrEqual(page.viewportSize().height - 12);
     expect(inViewport(b, page.viewportSize())).toBe(true);
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+// ===== 第 10-06 計畫：手動讀音（指定讀音） =====
+const RD = '#rhymeSelBar .rm-bar-rd';
+const CHIPS = '#rhymeSelBar .rm-chip';
+const READ_TXT = '我們一起行\n我望著遠方的光';
+const READ_TAIL = '們一起行';
+// 「行」的所有讀音、自動讀音，以及家族和自動讀音不同的另一個讀音（期望值全從頁面上的字典算出來）
+const polyInfo = page => page.evaluate(() => {
+    const rs = getCharAllReadings('行').map(x => x.reading);
+    const fam = r => RHYME_TO_FAMILY[getZhuyinRhyme(r)];
+    const auto = lhRhymeReading({ char: '行', tail: '們一起行' }, null);
+    const other = rs.find(r => fam(r) !== fam(auto));
+    return { rs, auto, other, fa: String(fam(auto)), fo: String(fam(other)) };
+});
+const bootRead = (browser, txt = READ_TXT, extra = {}) => bootPage(browser, {
+    wordlist: 'stub', storage: v2Storage([song([typed('sa', 'verse', txt)], extra)]),
+});
+const manualCount = page => page.locator('.rhyme-mirror .rm-hl.rm-manual').count();
+
+test('讀音：破音字句尾可以指定讀音', async ({ browser }) => {
+    const { context, page, errors } = await bootRead(browser);
+    const info = await polyInfo(page);
+    expect(info.rs.length, '行有多個讀音').toBeGreaterThan(1);
+    expect(info.other, '有家族不同的讀音').toBeTruthy();
+    expect(await bands(page)).toEqual([['行', info.fa], ['光', '14']]);
+    await pick(page, 4, 5);
+    await waitBar(page);
+    await expect(page.locator(RD)).toBeVisible();
+    await expect(page.locator(RD)).toHaveText('指定讀音');
+    await expect(page.locator(RD)).toHaveAttribute('aria-expanded', 'false');
+    await expect(page.locator(CHIPS)).toHaveCount(0);
+    await page.locator(RD).click();
+    await expect(page.locator(RD)).toHaveAttribute('aria-expanded', 'true');
+    expect(await page.locator('.rm-bar-reading-label').textContent()).toBe('「行」讀音');
+    expect(await page.locator(CHIPS).allTextContents()).toEqual(['自動', ...info.rs]);
+    // 目前生效的讀音（沒指定時是自動判的那個）標 aria-pressed，其他沒有
+    expect(await page.locator(CHIPS + '[aria-pressed="true"]').allTextContents()).toEqual([info.auto]);
+    expect(await page.locator(CHIPS + '[aria-pressed="true"]').evaluate(c => getComputedStyle(c).fontWeight)).toBe('700');
+    expect(await taState(page), '點按鈕不搶輸入框的焦點與選取').toEqual({ ta: true, a: 4, b: 5 });
+    await page.locator(CHIPS, { hasText: info.other }).click();
+    // 馬上換色、出現虛線提示、朗讀、浮動列收掉
+    expect(await bands(page)).toEqual([['行', info.fo], ['光', '14']]);
+    expect(await manualCount(page)).toBe(1);
+    await expect(page.locator('#lhLive')).toHaveText('已指定「行」讀音為 ' + info.other);
+    await expect(page.locator(BAR)).toBeHidden();
+    expect((await activeSongRaw(page)).readings).toEqual({ [READ_TAIL]: info.other });
+    // 重新整理還在
+    await page.reload();
+    await page.evaluate(() => Promise.all([window.__hoyunReady, window.__hoyunWordlistReady, window.__hoyunSongsReady, window.__lhMapReady]));
+    expect(await bands(page)).toEqual([['行', info.fo], ['光', '14']]);
+    expect(await manualCount(page)).toBe(1);
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('讀音：自動改回字典讀音', async ({ browser }) => {
+    const { context, page, errors } = await bootRead(browser);
+    const info = await polyInfo(page);
+    await pick(page, 4, 5);
+    await waitBar(page);
+    await page.locator(RD).click();
+    await page.locator(CHIPS, { hasText: info.other }).click();
+    expect(await bands(page)).toEqual([['行', info.fo], ['光', '14']]);
+    // 換個選取範圍（同一個範圍按過按鈕後不會自己再跳出來），目前讀音應該是剛指定的那個
+    await pick(page, 3, 5);
+    await waitBar(page);
+    await page.locator(RD).click();
+    expect(await page.locator(CHIPS + '[aria-pressed="true"]').allTextContents()).toEqual([info.other]);
+    await page.locator(CHIPS, { hasText: '自動' }).click();
+    expect(await bands(page)).toEqual([['行', info.fa], ['光', '14']]);
+    expect(await manualCount(page)).toBe(0);
+    await expect(page.locator('#lhLive')).toHaveText('「行」讀音改回自動');
+    await expect(page.locator(BAR)).toBeHidden();
+    const raw = await activeSongRaw(page);
+    expect('readings' in raw, '空了就整個欄位拿掉').toBe(false);
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('讀音：不是句尾或不是破音字就沒有指定讀音', async ({ browser }) => {
+    const txt = '我們一起行\n我望著遠方的光\n行走天涯\n我們都笑了';
+    const { context, page, errors } = await bootRead(browser, txt);
+    const at = (s, k = 0) => { let i = -1; while (k-- >= 0) i = txt.indexOf(s, i + 1); return i; };
+    const cases = {
+        '句中的字（們）': [at('們'), at('們') + 1],
+        '破音字但在句中（行走）': [at('行', 1), at('行', 1) + 1],
+        '不是破音字的句尾（光）': [at('光'), at('光') + 1],
+        '句尾語助詞（了，忽略語助詞開著）': [at('了'), at('了') + 1],
+    };
+    for (const [name, [a, b]] of Object.entries(cases)) {
+        await pick(page, a, b);
+        await waitBar(page);
+        await expect(page.locator(RD), name).toBeHidden();
+        await page.keyboard.press('Escape');
+        await expect(page.locator(BAR)).toBeHidden();
+    }
+    // 對照：「行」在句尾就有
+    await pick(page, 4, 5);
+    await waitBar(page);
+    await expect(page.locator(RD)).toBeVisible();
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('讀音：觸控時指定讀音按鈕與每個晶片至少 44×44', async ({ browser }) => {
+    for (const [name, device] of [['手機', DEVICES.phone], ['平板', DEVICES.tablet], ['橫放平板', DEVICES.tabletLandscape]]) {
+        const b = await bootPage(browser, { wordlist: 'stub', device, storage: v2Storage([song([typed('sa', 'verse', READ_TXT)])]) });
+        if (await b.page.evaluate(() => lhIsSheetMode())) { await b.page.locator('#mtab-lyrics').click(); await waitStill(b.page); }
+        await pick(b.page, 4, 5);
+        await waitBar(b.page);
+        await b.page.locator(RD).click();
+        const sizes = await b.page.locator('#rhymeSelBar button:visible').evaluateAll(els => els.map(e => { const r = e.getBoundingClientRect(); return [e.textContent, Math.round(r.width), Math.round(r.height)]; }));
+        expect(sizes.length, name + '：查韻、AI、指定讀音加上晶片').toBeGreaterThan(4);
+        for (const [t, w, h] of sizes) { expect(w, name + ' ' + t + ' 寬').toBeGreaterThanOrEqual(44); expect(h, name + ' ' + t + ' 高').toBeGreaterThanOrEqual(44); }
+        expect(b.errors).toEqual([]);
+        await b.context.close();
+    }
+});
+
+test('讀音：鍵盤打開時焦點先到目前的讀音，Enter 選定後焦點回輸入框', async ({ browser }) => {
+    const { context, page, errors } = await bootRead(browser);
+    const info = await polyInfo(page);
+    await pick(page, 4, 5);
+    await waitBar(page);
+    await page.keyboard.press('Alt+ArrowDown');
+    await page.keyboard.press('ArrowRight');
+    await page.keyboard.press('ArrowRight');
+    await expect(page.locator(RD)).toBeFocused();
+    await page.keyboard.press('Enter');
+    await expect(page.locator(CHIPS + '[aria-pressed="true"]')).toBeFocused();
+    expect(await page.locator(CHIPS + '[aria-pressed="true"]').textContent()).toBe(info.auto);
+    await page.locator(CHIPS, { hasText: info.other }).focus();
+    await page.keyboard.press('Enter');
+    expect(await bands(page)).toEqual([['行', info.fo], ['光', '14']]);
+    expect(await taState(page)).toEqual({ ta: true, a: 4, b: 5 });
     expect(errors).toEqual([]);
     await context.close();
 });

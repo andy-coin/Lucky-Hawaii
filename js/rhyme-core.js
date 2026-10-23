@@ -79,12 +79,18 @@ function lhRhymeTarget(line, skipParticles) {
     return { i, char, tail: cs.slice(s, i + 1).join('') };
 }
 
+// 這個句尾的手動讀音：只在句尾鍵完全相同、且該值是這個字的合法讀音時才算，否則 null（A3，不會套到別的字或別的句）
+function lhRhymeManual(t, readings) {
+    const man = readings && Object.prototype.hasOwnProperty.call(readings, t.tail) ? readings[t.tail] : null;
+    return man && getCharAllReadings(t.char).some(r => r.reading === man) ? man : null;
+}
+
 // 讀音：手動（且對該字合法）→ 以目標字結尾的詞庫詞（4、3、2 字）的最後一個音節 → 字典第一讀音（A2）
 function lhRhymeReading(t, readings) {
     const infos = getCharAllReadings(t.char);
     if (!infos.length) return null;
-    const man = readings && Object.prototype.hasOwnProperty.call(readings, t.tail) ? readings[t.tail] : null;
-    if (man && infos.some(r => r.reading === man)) return man;
+    const man = lhRhymeManual(t, readings);
+    if (man) return man;
     for (let n = Math.min(4, t.tail.length); n >= 2; n--) {
         const z = wordPhoneticMap.get(t.tail.slice(-n));
         if (z) {
@@ -122,7 +128,7 @@ function lhRhymeAnalyze(text, opts, readings) {
         const reading = t && lhRhymeReading(t, readings);
         if (!t || !reading) return { line, blank: false, t: null, reading: null, rhyme: null, key: null, f: null, letter: '-', solo: false, inner: [] };
         const rhyme = getZhuyinRhyme(reading);
-        return { line, blank: false, t, reading, rhyme, key: lhRhymeKey(rhyme, strict), f: lhRhymeColor(rhyme), letter: '', solo: false, inner: [] };
+        return { line, blank: false, t, reading, rhyme, key: lhRhymeKey(rhyme, strict), f: lhRhymeColor(rhyme), letter: '', solo: false, inner: [], manual: lhRhymeManual(t, readings) === reading };
     });
     const letterOf = new Map(), count = new Map();
     let letters = '';
@@ -140,4 +146,25 @@ function lhRhymeAnalyze(text, opts, readings) {
         for (const r of rows) if (r.t) r.inner = lhRhymeInner(r.line, r.t, tailKeys, strict, skip);
     }
     return { rows, letters, count };
+}
+
+// 匯入／載入時整理手動讀音（T-10-12）：鍵是 1–4 個漢字（擋掉 __proto__、constructor）、值是注音加選用聲調，
+// 且必須是鍵的最後一個字的合法字典讀音；最多 2000 筆。回傳全新的普通物件，沒有任何一筆留下就回 null。
+// 字典查不到這個字（還沒載入或冷僻字）時無法判斷合法，先保留——套用時 lhRhymeManual 仍會再驗一次，不會套錯
+const LH_READINGS_MAX = 2000;
+const _LH_READING_KEY_RE = /^\p{Script=Han}{1,4}$/u;
+const _LH_READING_VAL_RE = /^[ㄅ-ㄩ]{1,4}[ˊˇˋ˙]?$/;
+function lhRhymeCleanReadings(raw) {
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+    const out = {};
+    let n = 0;
+    for (const k of Object.keys(raw)) {
+        const v = raw[k];
+        if (!_LH_READING_KEY_RE.test(k) || typeof v !== 'string' || !_LH_READING_VAL_RE.test(v)) continue;
+        const infos = getCharAllReadings(Array.from(k).pop());
+        if (infos.length && !infos.some(r => r.reading === v)) continue;
+        out[k] = v;
+        if (++n >= LH_READINGS_MAX) break;
+    }
+    return n ? out : null;
 }

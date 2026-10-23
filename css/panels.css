@@ -386,6 +386,21 @@
         .word-ctx-menu.rm-bar { padding: var(--sp-1); min-width: 0; }
         .word-ctx-menu.rm-bar.show { display: flex; gap: var(--sp-1); flex-wrap: wrap; }
         .rm-bar .section-menu-btn { min-height: 2rem; min-width: var(--hit); white-space: nowrap; }
+        /* 指定讀音那一列（10-06）：佔滿整列，標籤＋晶片；晶片外觀對齊字卡上的破音字 .poly-chip */
+        .rm-bar-reading { flex: 1 0 100%; display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-1); }
+        .rm-bar-reading[hidden] { display: none; }
+        .rm-bar-reading-label { font-size: 0.75rem; font-weight: 400; color: var(--text-secondary); }
+        .rm-chip {
+            padding: 0.125rem 0.625rem;
+            border-radius: 1.25rem;
+            border: 1.5px solid rgba(102, 126, 234, 0.5);
+            background: rgba(102, 126, 234, 0.08);
+            color: var(--text-primary);
+            font: 400 0.875rem 'Noto Sans TC', 'JetBrains Mono', sans-serif;
+            cursor: pointer;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .rm-chip[aria-pressed="true"] { font-weight: 700; border-left: 0.25rem solid var(--highlight-border); }
         /* 復原／重做後第一個變動的段落閃 700 毫秒外框（不用動畫） */
         .lyrics-section.sec-flash { outline: 2px solid var(--highlight-border); outline-offset: -2px; }
 
@@ -1559,6 +1574,7 @@
             box-decoration-break: clone;
         }
         .rm-hl.rm-solo { background: color-mix(in srgb, var(--rm-c) 17%, var(--card-bg)); }
+        .rm-hl.rm-manual { border-bottom: 0.125rem dotted var(--text-secondary); }   /* 手動指定讀音的提示：只有下緣，不改水平盒子，換行不受影響 */
         @supports not (background: color-mix(in srgb, red 50%, blue)) {
             .rm-hl { background: var(--rm-c); opacity: 0.34; }
             .rm-hl.rm-solo { opacity: 0.17; }
@@ -1727,6 +1743,7 @@
             .rhyme-menu-btn { min-width: var(--hit); min-height: var(--hit); }
             .rm-switch { min-height: var(--hit); }
             .rm-bar .section-menu-btn { min-height: var(--hit); }
+            .rm-chip { min-height: var(--hit); min-width: var(--hit); }
             .word-chip, .hashtag-chip { min-height: var(--hit); padding-block: 0; padding-right: 0; }
             .chip-remove {
                 display: inline-flex;
