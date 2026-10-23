@@ -734,7 +734,7 @@
            class 選擇器比元素選擇器強，所以每種輸入框都要明確列出（檔尾，同權重時這裡贏）。
            電腦（≥ 901 且滑鼠）維持原本字級。 ===== */
         @media (max-width: 900px), (pointer: coarse) {
-            .search-input, .section-textarea, .context-textarea, .hashtag-popup-input,
+            .search-input, .section-textarea, .rhyme-mirror, .context-textarea, .hashtag-popup-input,
             .hashtag-input-row input, .word-input-row input, .feedback-modal input, .feedback-modal textarea,
             .model-select, .song-name-input, .section-name-input {
                 font-size: max(16px, 1rem);
@@ -748,7 +748,7 @@
             /* 輸入模式按鈕：實體面積夠大，外圍再用透明區塊擴大可點範圍（UI-SPEC §5.2） */
             #inputModeBtn { min-width: 2.75rem; min-height: 2.5rem; }
             #inputModeBtn::after { content: ''; position: absolute; inset: -0.25rem; }
-            .section-textarea { overflow-wrap: anywhere; }
+            .section-textarea, .rhyme-mirror { overflow-wrap: anywhere; }
         }
 
         /* ===== 觸控目標下限（05-08，UI-SPEC §7，D-07）：本檔定義的控制項 =====

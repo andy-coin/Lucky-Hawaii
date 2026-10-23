@@ -78,9 +78,10 @@ test('組字：#標籤 視窗組字中按 Enter 不送出', async ({ browser }) 
 });
 
 // 打字與組字完全不碰畫面結構：沒有節點被換掉、游標不跳（D-17）
+// 鏡像層只是裝飾用的副本，這裡不看它；輸入框與面板結構仍然全部監看
 const watchLeftPanel = page => page.evaluate(() => {
     window.__muts = [];
-    window.__mo = new MutationObserver(list => { window.__muts.push(...list.filter(m => m.type === 'childList')); });
+    window.__mo = new MutationObserver(list => { window.__muts.push(...list.filter(m => m.type === 'childList' && !(m.target.closest && m.target.closest('.rhyme-mirror')))); });
     window.__mo.observe(document.getElementById('leftPanel'), { childList: true, subtree: true });
 });
 const takeMuts = page => page.evaluate(() => { window.__muts.push(...window.__mo.takeRecords()); return window.__muts.length; });

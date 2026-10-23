@@ -118,7 +118,7 @@ export async function bootPage(browser, { storage = {}, init = null, wordlist = 
     if (beforeGoto) await beforeGoto({ context, page });
     await page.goto('/index.html');
     // 未定義的訊號會直接 resolve，後續 plan 加新訊號時不必改這裡
-    await page.evaluate(w => Promise.all([window.__hoyunReady, w ? window.__hoyunWordlistReady : null, window.__hoyunSafetyReady, window.__hoyunSongsReady, window.__hoyunModelsReady]), waitWordlist);
+    await page.evaluate(w => Promise.all([window.__hoyunReady, w ? window.__hoyunWordlistReady : null, window.__hoyunSafetyReady, window.__hoyunSongsReady, window.__hoyunModelsReady, w ? window.__lhMapReady : null]), waitWordlist);
     return { context, page, errors, warnings, offOrigin };
 }
 
@@ -213,7 +213,7 @@ export async function openTwoTabs(browser, storage) {
     const pages = [await context.newPage(), await context.newPage()];
     const errs = pages.map(p => collectErrors(p));
     await Promise.all(pages.map(p => p.goto('/index.html')));
-    await Promise.all(pages.map(p => p.evaluate(() => Promise.all([window.__hoyunReady, window.__hoyunWordlistReady, window.__hoyunSafetyReady, window.__hoyunSongsReady]))));
+    await Promise.all(pages.map(p => p.evaluate(() => Promise.all([window.__hoyunReady, window.__hoyunWordlistReady, window.__hoyunSafetyReady, window.__hoyunSongsReady, window.__lhMapReady]))));
     // 兩邊同時開機時，先完成的一邊可能還在補寫 lh:songs，另一邊會收到事件並跳提示；等儲存安靜下來、收掉開機時的提示，後面的斷言才不受影響
     let last = null;
     for (let stable = 0; stable < 2;) {

@@ -261,9 +261,10 @@ test('字數：打字即時更新', async ({ browser }) => {
 });
 
 // 打字與組字不增減畫面節點（只改 Text node 的 .data）
+// 鏡像層只是裝飾用的副本，這裡不看它；輸入框與面板結構仍然全部監看
 const watchLeft = page => page.evaluate(() => {
     window.__muts = [];
-    window.__mo = new MutationObserver(list => { window.__muts.push(...list.filter(m => m.type === 'childList')); });
+    window.__mo = new MutationObserver(list => { window.__muts.push(...list.filter(m => m.type === 'childList' && !(m.target.closest && m.target.closest('.rhyme-mirror')))); });
     window.__mo.observe(document.getElementById('leftPanel'), { childList: true, subtree: true });
 });
 const takeMutCount = page => page.evaluate(() => { window.__muts.push(...window.__mo.takeRecords()); return window.__muts.length; });

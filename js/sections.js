@@ -547,6 +547,7 @@ function lhSecCountAll() {
         if (node) node.data = (_lhSecCounts.get(el.dataset.id) || 0) + ' 字';
     }
     _lhSecShowTotal();
+    if (typeof lhMapRenderAll === 'function') lhMapRenderAll();   // 韻腳地圖（js/rhyme-map.js 最後載入）：每次重畫列表都整個重上色
 }
 
 // 只重算一段（打字、組字確認之後）：從模型讀文字，絕不碰 textarea
@@ -559,6 +560,7 @@ function lhSecCountOne(secEl) {
     const node = secEl.querySelector('.section-count')?.firstChild;
     if (node) node.data = n + ' 字';
     _lhSecShowTotal();
+    if (typeof lhMapSchedule === 'function') lhMapSchedule(secEl);   // 韻腳地圖：只排程這一段（涵蓋打字、組字確認、復原、拖字）
 }
 
 // 事件用：只有段落輸入框才算（情境欄位不算字數）

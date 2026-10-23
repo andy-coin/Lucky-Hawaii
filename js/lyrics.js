@@ -204,6 +204,11 @@
 
                 const body = document.createElement('div');
                 body.className = 'section-body';
+                // 韻腳地圖的鏡像層（js/rhyme-map.js）：先於輸入框建好、之後只換它的子節點，輸入框完全不動
+                const mirror = document.createElement('div');
+                mirror.className = 'rhyme-mirror';
+                mirror.setAttribute('aria-hidden', 'true');
+                body.appendChild(mirror);
                 const ta = document.createElement('textarea');
                 ta.className = 'section-textarea';
                 ta.placeholder = i === 0 ? '在這裡輸入或貼上歌詞…' : '在這裡輸入歌詞…';

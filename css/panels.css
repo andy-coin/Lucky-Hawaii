@@ -1328,7 +1328,7 @@
             white-space: nowrap;
         }
         .lyrics-section.collapsed { flex: 0 0 2.125rem; min-height: 0; }
-        .section-body { flex: 1; min-height: 0; }
+        .section-body { flex: 1; min-height: 0; position: relative; }
         /* 排序（js/sections.js）：拖的那段半透明，殘影跟著指標，落點線標出會放在哪裡 */
         .lyrics-section.dragging { opacity: 0.5; }
         .section-handle {
@@ -1437,7 +1437,7 @@
         @media (hover: hover) and (pointer: fine) {
             .section-remove:hover { opacity: 1; color: #fc8181; }
         }
-        .section-textarea {
+        .section-textarea, .rhyme-mirror {
             width: 100%;
             padding: 0.625rem 0.75rem;
             border: none;
@@ -1450,6 +1450,57 @@
             outline: none;
             line-height: 1.7;
         }
+        /* 韻腳地圖（js/rhyme-map.js）：鏡像層在輸入框正後方，排版規則與輸入框共用上面那一條 */
+        .section-textarea { position: relative; }   /* 同為定位元素時，DOM 順序在後的輸入框畫在鏡像層上面，不必 z-index */
+        .rhyme-mirror {
+            position: absolute;
+            left: 0;
+            top: 0;
+            display: none;
+            overflow: hidden;
+            pointer-events: none;
+            user-select: none;
+            color: transparent;
+            background: none;
+            white-space: pre-wrap;
+            overflow-wrap: break-word;
+            word-break: normal;
+            box-sizing: border-box;
+            resize: none;
+            flex: none;
+        }
+        .lyrics-section.rm-on .rhyme-mirror { display: block; }
+        .lyrics-section.rm-on .section-body { background: var(--card-bg); }
+        .lyrics-section.rm-on .section-textarea { background: transparent; }
+        .rhyme-mirror.rm-stale { visibility: hidden; }   /* 組字中捲動：先藏起來，確認後重畫再對齊 */
+        .rm-hl {
+            background: color-mix(in srgb, var(--rm-c) 34%, var(--card-bg));
+            border-radius: 0.25rem;
+            -webkit-box-decoration-break: clone;
+            box-decoration-break: clone;
+        }
+        .rm-hl.rm-solo { background: color-mix(in srgb, var(--rm-c) 17%, var(--card-bg)); }
+        @supports not (background: color-mix(in srgb, red 50%, blue)) {
+            .rm-hl { background: var(--rm-c); opacity: 0.34; }
+            .rm-hl.rm-solo { opacity: 0.17; }
+        }
+        [data-f="0"] { --rm-c: var(--rm-c0); }
+        [data-f="1"] { --rm-c: var(--rm-c1); }
+        [data-f="2"] { --rm-c: var(--rm-c2); }
+        [data-f="3"] { --rm-c: var(--rm-c3); }
+        [data-f="4"] { --rm-c: var(--rm-c4); }
+        [data-f="5"] { --rm-c: var(--rm-c5); }
+        [data-f="6"] { --rm-c: var(--rm-c6); }
+        [data-f="7"] { --rm-c: var(--rm-c7); }
+        [data-f="8"] { --rm-c: var(--rm-c8); }
+        [data-f="9"] { --rm-c: var(--rm-c9); }
+        [data-f="10"] { --rm-c: var(--rm-c10); }
+        [data-f="11"] { --rm-c: var(--rm-c11); }
+        [data-f="12"] { --rm-c: var(--rm-c12); }
+        [data-f="13"] { --rm-c: var(--rm-c13); }
+        [data-f="14"] { --rm-c: var(--rm-c14); }
+        [data-f="15"] { --rm-c: var(--rm-c15); }
+        [data-f="16"] { --rm-c: var(--rm-c16); }
 
         /* AI 詞彙 grid（右側，多欄顯示）*/
         .ai-words-grid {
