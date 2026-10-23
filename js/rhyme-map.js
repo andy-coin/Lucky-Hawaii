@@ -227,6 +227,9 @@ function lhMapMenuBuild() {
     m.id = 'rhymeMenu';
     m.setAttribute('role', 'dialog');
     m.setAttribute('aria-label', '韻腳地圖設定');
+    // 詞庫還沒載好時的提示（A5）：載好後隱藏，控制項一直可用
+    const loading = _lhMk('div', 'section-menu-cap rm-loading', '詞庫載入中，載好後會自動上色');
+    loading.hidden = _lhMapOk;
     // 句中押韻的說明用 aria-describedby 接到開關上
     const innerSw = _lhMapSwitchRow('inner', '句中押韻');
     const innerHint = _lhMk('span', 'section-menu-cap', LH_MAP_HINT_INNER);
@@ -264,7 +267,7 @@ function lhMapMenuBuild() {
     legendBtn.setAttribute('aria-expanded', 'false');
     legendBtn.setAttribute('aria-controls', legend.id);
     const close = _lhMkBtn('section-menu-btn section-menu-close', '關閉韻腳設定');
-    m.append(_lhMk('div', 'section-menu-title', '韻腳地圖'), show, judge, _lhMkBlock('色票對照', legendBtn, legend), close);
+    m.append(_lhMk('div', 'section-menu-title', '韻腳地圖'), loading, show, judge, _lhMkBlock('色票對照', legendBtn, legend), close);
     document.body.appendChild(m);
     m.addEventListener('click', e => {
         const sw = e.target.closest && e.target.closest('.rm-switch');
@@ -317,6 +320,7 @@ function lhMapMenuSync() {
         r.tabIndex = on ? 0 : -1;
     });
     _lhMapMenu.querySelector('.rm-mode-help').textContent = LH_MAP_MODE_HELP[mode];
+    _lhMapMenu.querySelector('.rm-loading').hidden = _lhMapOk;
 }
 
 // 一個開關改了：存檔、全部段落重畫、選單文字跟著變（只認五個已知的鍵與真布林）
@@ -327,6 +331,15 @@ function lhMapSetSetting(key, value) {
     lhMapMenuSync();
     lhMapRenderAll();
 }
+
+// 別的分頁改了設定：先收掉這個分頁的浮層，重讀、重畫，選單文字跟著變
+window.addEventListener('storage', e => {
+    if (e.key !== 'lh:map') return;
+    lhMapCloseAll();
+    _lhMapSet = lhRhymeNormalizeSettings(lhGetJSON('lh:map', null));
+    lhMapMenuSync();
+    lhMapRenderAll();
+});
 
 // 選單放在按鈕正下方；下面放不下被擠上去蓋住按鈕時，翻到按鈕上方（跟段落設定選單一樣）
 function _lhMapPlaceMenu() {
@@ -405,6 +418,7 @@ if (window.visualViewport) {
 window.__lhMapReady = Promise.allSettled([window.__hoyunReady, window.__hoyunWordlistReady, window.__hoyunSongsReady]).then(() => {
     try {
         _lhMapOk = true;
+        lhMapMenuSync();   // 選單可能已經開著：把「詞庫載入中」收掉
         lhMapRenderAll();
     } catch (e) {
         lhWarn('韻腳地圖首次上色失敗', e);

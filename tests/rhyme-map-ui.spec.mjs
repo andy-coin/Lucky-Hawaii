@@ -2,7 +2,7 @@
 // 之後的計畫會在這支檔案繼續加（鏡像對齊、組字、開關、浮動列…）；標題的第一個詞對應 10-VALIDATION.md 的 -g 篩選
 import { test, expect, chromium } from '@playwright/test';
 import { readFileSync } from 'node:fs';
-import { bootPage, compose } from './helpers.mjs';
+import { bootPage, compose, openTwoTabs } from './helpers.mjs';
 import { DEVICES, setScale, waitStill } from './layout-lib.mjs';
 
 const FIXTURE = JSON.parse(readFileSync(new URL('./fixtures/v096-localStorage.json', import.meta.url), 'utf8'));
@@ -622,6 +622,144 @@ test('開關：色票對照', async ({ browser }) => {
     await page.locator('#rhymeMenuBtn').click();
     await expect(toggle).toHaveAttribute('aria-expanded', 'false');
     await expect(legend).toBeHidden();
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+// ===== 第 10-04 計畫：備份、壞值、多分頁、載入中、鍵盤焦點 =====
+const MAP_DEFAULT = '{"end":true,"letters":false,"inner":false,"strict":false,"skipParticles":true}';
+const buildBackup = page => page.evaluate(() => lhBuildBackup(songs, activeSongId, savedWords));
+
+test('備份：韻腳設定跟著備份走', async ({ browser }) => {
+    const A = await bootPage(browser, { wordlist: 'stub', storage: v2Storage([song([typed('sa', 'verse', F_AABB)])]) });
+    await A.page.locator('#rhymeMenuBtn').click();
+    await radio(A.page, '嚴格').click();
+    await sw(A.page, '句中押韻').click();
+    const want = '{"end":true,"letters":false,"inner":true,"strict":true,"skipParticles":true}';
+    expect(await lsGetMap(A.page)).toBe(want);
+    const backup = await buildBackup(A.page);
+    expect(backup.settings['lh:map'], '備份檔帶著 lh:map').toBe(want);
+    const text = JSON.stringify(backup);
+    expect(await A.page.evaluate(t => lhParseBackup(t).settings['lh:map'], text), '解析後仍是同一份（整理過的字串）').toBe(want);
+    await A.context.close();
+    // 乾淨瀏覽器走「全部還原」，重新整理後設定與畫面都是 A 的
+    const B = await bootPage(browser, { wordlist: 'stub', storage: { leftPanelCollapsed: 'false' } });
+    expect(await lsGetMap(B.page)).toBeNull();
+    await B.page.setInputFiles('#importFileInput', { name: 'backup.json', mimeType: 'application/json', buffer: Buffer.from(text) });
+    await expect(B.page.locator('#importOverlay')).toBeVisible();
+    await B.page.getByRole('button', { name: '全部還原（取代目前資料）' }).click();
+    await expect(B.page.locator('#copyToast')).toContainText('已還原');
+    expect(await lsGetMap(B.page)).toBe(want);
+    await B.page.reload();
+    await B.page.evaluate(() => Promise.all([window.__hoyunReady, window.__hoyunWordlistReady, window.__hoyunSongsReady, window.__lhMapReady]));
+    await expect.poll(() => B.page.locator('.rm-inner').count(), '還原後句中押韻是開的').toBeGreaterThan(0);
+    await B.page.locator('#rhymeMenuBtn').click();
+    await expect(radio(B.page, '嚴格')).toHaveAttribute('aria-checked', 'true');
+    expect(B.errors).toEqual([]);
+    await B.context.close();
+});
+
+test('備份：壞掉的韻腳設定', async ({ browser }) => {
+    const { context, page, errors, warnings } = await bootPage(browser, { wordlist: 'stub', storage: v2Storage([song([typed('sa', 'verse', F_AABB)])]) });
+    const parse = lhMap => {
+        const b = { format: 'lucky-hawaii-backup', version: 2, exportedAt: '2026-10-11T07:30:00.000Z', songs: [{ id: 'x', title: 'x', createdAt: 1, updatedAt: 1, sections: [{ id: 'y', label: '主歌', text: 'a', collapsed: false }], hashtags: [], context: '' }], activeSong: null, savedWords: [], settings: { 'lh:map': lhMap } };
+        return page.evaluate(t => lhParseBackup(t), JSON.stringify(b));
+    };
+    // 字串 'yes'、多出來的鍵：只留五個鍵的真布林，其餘用預設
+    const bad = await parse('{"end":"yes","strict":true,"evil":1}');
+    expect(bad.settings['lh:map']).toBe('{"end":true,"letters":false,"inner":false,"strict":true,"skipParticles":true}');
+    // 合法 JSON 但不是物件：整份退回預設
+    expect((await parse('[1,2]')).settings['lh:map']).toBe(MAP_DEFAULT);
+    // 不是 JSON：不收，記一則警告
+    const before = warnings.length;
+    const junk = await parse('not json');
+    expect(junk.ok).toBe(true);
+    expect(Object.prototype.hasOwnProperty.call(junk.settings, 'lh:map')).toBe(false);
+    await expect.poll(() => warnings.slice(before).filter(w => w.includes('[好韻器]') && w.includes('韻腳地圖設定')).length).toBe(1);
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('開關：儲存裡的值壞掉時用預設', async ({ browser }) => {
+    for (const bad of ['[1,2]', '{"end":"false","inner":1}']) {
+        const { context, page, errors } = await bootPage(browser, { wordlist: 'stub', storage: v2Storage([song([typed('sa', 'verse', F_AABB)])], { ...OPEN_PANELS, 'lh:map': bad }) });
+        expect((await bands(page)).length, bad + '：開機用預設，四個色塊').toBe(4);
+        await page.locator('#rhymeMenuBtn').click();
+        for (const [name, on] of [['句尾上色', true], ['句中押韻', false], ['忽略句尾語助詞', true]]) {
+            await expect(sw(page, name), bad + ' ' + name).toHaveAttribute('aria-checked', String(on));
+        }
+        await expect(radio(page, '寬韻')).toHaveAttribute('aria-checked', 'true');
+        await sw(page, '句尾上色').click();
+        expect(await lsGetMap(page), '下一次切換寫回乾淨的五鍵物件').toBe('{"end":false,"letters":false,"inner":false,"strict":false,"skipParticles":true}');
+        expect(errors).toEqual([]);
+        await context.close();
+    }
+});
+
+test('開關：別的分頁改了設定', async ({ browser }) => {
+    const { context, pages: [a, b], errs } = await openTwoTabs(browser, v2Storage([song([typed('sa', 'verse', F_AABB)])]));
+    expect((await bands(b)).length).toBe(4);
+    await b.locator('#rhymeMenuBtn').click();
+    await expect(b.locator('#rhymeMenu')).toBeVisible();
+    await a.evaluate(() => localStorage.setItem('lh:map', '{"end":false,"letters":false,"inner":false,"strict":false,"skipParticles":true}'));
+    await expect(b.locator('#rhymeMenu')).toBeHidden();
+    await expect(b.locator('#rhymeMenuBtn')).toHaveAttribute('aria-expanded', 'false');
+    await expect(b.locator('.rm-hl')).toHaveCount(0);
+    await b.locator('#rhymeMenuBtn').click();
+    await expect(sw(b, '句尾上色')).toHaveAttribute('aria-checked', 'false');
+    for (const e of errs) expect(e.errors).toEqual([]);
+    await context.close();
+});
+
+test('開關：詞庫載入中的提示', async ({ browser }) => {
+    let release;
+    const gate = new Promise(r => { release = r; });
+    const { context, page, errors } = await bootPage(browser, {
+        wordlist: 'stub', waitWordlist: false, storage: v2Storage([song([typed('sa', 'verse', F_AABB)])]),
+        beforeGoto: ({ context: c }) => c.route(/\/data\/wordlist-c0\d\.json(\?.*)?$/, async route => { await gate; await route.fallback(); }),
+    });
+    await page.locator('#rhymeMenuBtn').click();
+    const cap = page.locator('#rhymeMenu', { hasText: '詞庫載入中，載好後會自動上色' }).locator('.rm-loading');
+    await expect(cap).toBeVisible();
+    await expect(cap).toHaveText('詞庫載入中，載好後會自動上色');
+    await sw(page, '句中押韻').click();   // 載入中控制項照樣能用
+    await expect(sw(page, '句中押韻')).toHaveAttribute('aria-checked', 'true');
+    expect(await page.locator('.rm-hl, .rm-inner').count()).toBe(0);
+    release();
+    await page.evaluate(() => window.__lhMapReady);
+    await expect(cap).toBeHidden();
+    await expect.poll(() => bands(page)).toEqual([['光', '14'], ['窗', '14'], ['道', '8'], ['到', '8']]);
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('開關：鍵盤開選單的焦點', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, { wordlist: 'stub', storage: v2Storage([song([typed('sa', 'verse', F_AABB)])]) });
+    const inMenu = () => page.evaluate(() => document.getElementById('rhymeMenu').contains(document.activeElement));
+    await page.locator('#rhymeMenuBtn').focus();
+    await page.keyboard.press('Enter');
+    await expect(page.locator('#rhymeMenu')).toBeVisible();
+    await expect(sw(page, '句尾上色'), '鍵盤打開：第一個開關有焦點').toBeFocused();
+    await page.keyboard.press('Shift+Tab');
+    await expect(page.locator('#rhymeMenu .section-menu-close'), 'Shift+Tab 從第一個繞到最後').toBeFocused();
+    await page.keyboard.press('Tab');
+    await expect(sw(page, '句尾上色'), 'Tab 從最後繞到第一個').toBeFocused();
+    await page.keyboard.press('Escape');
+    await expect(page.locator('#rhymeMenu')).toBeHidden();
+    await expect(page.locator('#rhymeMenuBtn')).toBeFocused();
+    await expect(page.locator('#rhymeMenuBtn')).toHaveAttribute('aria-expanded', 'false');
+    // 滑鼠點開：不搶焦點
+    await page.locator('#rhymeMenuBtn').click();
+    await expect(page.locator('#rhymeMenu')).toBeVisible();
+    expect(await inMenu(), '指標打開：焦點不在選單裡').toBe(false);
+    // 點選單外面關掉
+    await page.locator('#songTotal').click();
+    await expect(page.locator('#rhymeMenu')).toBeHidden();
+    // 「關閉韻腳設定」關掉並把焦點還給按鈕
+    await page.locator('#rhymeMenuBtn').click();
+    await page.locator('#rhymeMenu .section-menu-close').click();
+    await expect(page.locator('#rhymeMenu')).toBeHidden();
+    await expect(page.locator('#rhymeMenuBtn')).toBeFocused();
     expect(errors).toEqual([]);
     await context.close();
 });

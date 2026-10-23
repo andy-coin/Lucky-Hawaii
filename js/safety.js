@@ -550,6 +550,10 @@ function _lhSettingFrom(src, key) {
             return JSON.stringify(lhCleanDictOverrides(o).clean);
         } catch (e) { lhWarn('備份檔裡的字庫覆寫不是合法 JSON，略過', e); return undefined; }
     }
+    if (key === 'lh:map') {   // 韻腳地圖設定：只收五個鍵的真布林，其餘（字串 'true'、多出來的鍵）丟掉，再重新序列化（T-10-07）
+        try { return JSON.stringify(lhRhymeNormalizeSettings(JSON.parse(v))); }
+        catch (e) { lhWarn('備份檔裡的韻腳地圖設定不是合法 JSON，略過', e); return undefined; }
+    }
     return v;
 }
 
