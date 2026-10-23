@@ -215,12 +215,12 @@ function initSongs() {
 // 這個分頁自己寫入不會收到自己的 storage 事件；lh:activeSong 的變動不處理（每個分頁各自看自己的那首）。
 let _pendingExternal = false;
 
-// 游標在歌詞、情境或歌名輸入框裡才算正在編輯；整個視窗失焦時不算（否則背景分頁永遠不更新）
+// 游標在歌詞、情境、歌名或段落設定選單的自訂名稱框裡才算正在編輯；整個視窗失焦時不算（否則背景分頁永遠不更新）
 function isEditingField() {
     if (!document.hasFocus()) return false;
     const ae = document.activeElement;
     // 只有文字欄位算：焦點停在 ⋮⋮ 把手、名稱鈕這類按鈕上時，別的分頁的更新要馬上套用（手勢會先被收掉），不能卡到失焦
-    return !!(ae && ae.closest && ae.matches('textarea, input') && ae.closest('#lyricsSections, #contextDescription, .song-name-input'));
+    return !!(ae && ae.closest && ae.matches('textarea, input') && ae.closest('#lyricsSections, #contextDescription, .song-name-input, #sectionMenu'));
 }
 
 // 側邊清單的順序：新的在前；建立時間相同就依 id，順序才固定

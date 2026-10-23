@@ -156,3 +156,20 @@ test('多分頁：兩個分頁同時升級只有一首', async ({ browser }) => 
     expect(errs.flatMap(e => e.errors)).toEqual([]);
     await context.close();
 });
+
+// 評審 WR-02：段落設定選單的自訂名稱框正在打字時，別頁的更新不能把選單收掉、丟掉打到一半的名稱
+test('多分頁：選單名稱框編輯中不重畫', async ({ browser }) => {
+    const { context, pages: [a, b], errs } = await openTwoTabs(browser, FIXTURE);
+    await b.evaluate(() => lhSecOpenMenu(document.querySelector('.lyrics-section'), 200, 200, true));
+    await b.locator('#sectionMenu .type-row[data-type="custom"]').click();
+    const input = b.locator('#sectionMenu input.section-name-input');
+    await input.focus();
+    await b.keyboard.type('Hook');
+    await ta0(a).fill('A頁新寫的歌詞');
+    await ta0(a).blur();
+    await b.waitForTimeout(500);
+    await expect(b.locator('#sectionMenu'), '選單還開著').toHaveClass(/show/);
+    await expect(input, '打到一半的名稱還在').toHaveValue('Hook');
+    expect(errs.flatMap(e => e.errors)).toEqual([]);
+    await context.close();
+});
