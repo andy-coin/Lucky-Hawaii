@@ -2,7 +2,7 @@
 import { test, expect } from '@playwright/test';
 import { readFileSync } from 'node:fs';
 import { bootPage, activeSongRaw, STORAGE_SPY } from './helpers.mjs';
-import { DEVICES, waitStill } from './layout-lib.mjs';
+import { DEVICES, waitStill, setScale } from './layout-lib.mjs';
 import { centerOf, mouseDrag, touchSession } from './drag-lib.mjs';
 
 const FIXTURE = JSON.parse(readFileSync(new URL('./fixtures/v096-localStorage.json', import.meta.url), 'utf8'));
@@ -379,6 +379,162 @@ test('高度：拖拉桿改高度', async ({ browser }) => {
     await page.reload();
     await waitStill(page);
     expect(Math.abs((await taPx(page, 0)) - after)).toBeLessThanOrEqual(1);
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+const HS = h => v2Storage([song([typed('sa', 'verse', 'A', { height: h }), typed('sb', 'chorus', 'B'), typed('sc', 'verse', 'C')])]);
+const barNow = (page, n) => bar(page, n).getAttribute('aria-valuenow');
+const dataH = (page, n) => page.locator('#lyricsSections .lyrics-section').nth(n).evaluate(el => el.dataset.h ?? null);
+
+test('高度：雙擊回自動', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, { device: DEVICES.desktop, storage: ABC() });
+    await waitStill(page);
+    const auto = await taPx(page, 0);
+    const [bx, by] = await centerOf(bar(page, 0));
+    await mouseDrag(page, [bx, by], [bx, by + 60]);
+    expect(await dataH(page, 0)).not.toBeNull();
+    expect(await rawH(page, 0)).not.toBeNull();
+    await bar(page, 0).dblclick();
+    expect(await dataH(page, 0)).toBeNull();
+    expect(await page.locator('#lyricsSections .lyrics-section').first().evaluate(el => el.style.getPropertyValue('--sec-h'))).toBe('');
+    expect(await rawH(page, 0)).toBeNull();
+    expect(Math.abs((await taPx(page, 0)) - auto)).toBeLessThanOrEqual(1);
+    expect(await undoDisabled(page)).toBe('true');
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('高度：連點兩下回自動', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, { device: DEVICES.tablet, storage: HS(8) });
+    await openSheet(page);
+    await bar(page, 0).scrollIntoViewIfNeeded();
+    expect(await dataH(page, 0)).toBe('8');
+    const [x, y] = await centerOf(bar(page, 0));
+    const touch = await touchSession(page);
+    await touch.down(x, y); await touch.up();
+    expect(await dataH(page, 0)).toBe('8');   // 點一下不算
+    await page.waitForTimeout(100);
+    await touch.down(x, y); await touch.up();
+    expect(await dataH(page, 0)).toBeNull();
+    expect(await rawH(page, 0)).toBeNull();
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('高度：連點兩下太慢不算', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, { device: DEVICES.tablet, storage: HS(8) });
+    await openSheet(page);
+    await bar(page, 0).scrollIntoViewIfNeeded();
+    const [x, y] = await centerOf(bar(page, 0));
+    const touch = await touchSession(page);
+    await touch.down(x, y); await touch.up();
+    await page.waitForTimeout(450);
+    await touch.down(x, y); await touch.up();
+    expect(await dataH(page, 0)).toBe('8');
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('高度：鍵盤', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, { device: DEVICES.desktop, storage: HS(10) });
+    await waitStill(page);
+    const undo0 = await undoDisabled(page);
+    await bar(page, 0).focus();
+    await page.keyboard.press('ArrowDown');
+    expect(await rawH(page, 0)).toBe(11);
+    expect(await barNow(page, 0)).toBe('11');
+    await page.keyboard.press('Shift+ArrowDown');
+    expect(await rawH(page, 0)).toBe(15);
+    await page.keyboard.press('ArrowUp');
+    expect(await rawH(page, 0)).toBe(14);
+    await page.keyboard.press('Shift+ArrowUp');
+    expect(await rawH(page, 0)).toBe(10);
+    expect(await barNow(page, 0)).toBe('10');
+    expect(Math.abs((await taPx(page, 0)) / (await rootPx(page)) - 10)).toBeLessThan(0.1);
+    for (let i = 0; i < 8; i++) await page.keyboard.press('ArrowUp');
+    expect(await rawH(page, 0)).toBe(4);   // 到下限就停
+    await page.keyboard.press('Home');
+    expect(await rawH(page, 0)).toBeNull();
+    expect(await dataH(page, 0)).toBeNull();
+    expect(await undoDisabled(page)).toBe(undo0);   // 都不進歷史
+    expect(await page.evaluate(() => document.activeElement.className)).toBe('section-resize');
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('高度：上下限', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, { device: DEVICES.desktop, storage: HS(10) });
+    await waitStill(page);
+    const [bx, by] = await centerOf(bar(page, 0));
+    await mouseDrag(page, [bx, by], [bx, by - 600]);
+    expect(await rawH(page, 0)).toBe(4);
+    const [cx, cy] = await centerOf(bar(page, 0));
+    await mouseDrag(page, [cx, cy], [cx, cy + 3000]);
+    expect(await rawH(page, 0)).toBe(60);
+    expect(await barNow(page, 0)).toBe('60');
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('高度：收合時看不到', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, { device: DEVICES.desktop, storage: HS(10) });
+    await waitStill(page);
+    await expect(bar(page, 0)).toBeVisible();
+    await page.locator('#lyricsSections .lyrics-section').first().locator('.lyrics-section-header').click({ position: { x: 150, y: 4 } });
+    await expect(page.locator('#lyricsSections .lyrics-section').first()).toHaveClass(/collapsed/);
+    await expect(bar(page, 0)).toBeHidden();
+    expect(await rawH(page, 0)).toBe(10);   // 收合不丟高度
+    await page.locator('#lyricsSections .lyrics-section').first().locator('.lyrics-section-header').click({ position: { x: 150, y: 4 } });
+    await expect(bar(page, 0)).toBeVisible();
+    expect(Math.abs((await taPx(page, 0)) / (await rootPx(page)) - 10)).toBeLessThan(0.1);
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('高度：縮放跟著變', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, { device: DEVICES.desktop, storage: HS(10) });
+    await waitStill(page);
+    await setScale(page, 100);
+    await waitStill(page);
+    const a = await taPx(page, 0);
+    await setScale(page, 150);
+    await waitStill(page);
+    const b = await taPx(page, 0);
+    expect(Math.abs(b / a - 1.5)).toBeLessThan(0.05);
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('高度：手指拉', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, { device: DEVICES.phone, storage: ABC() });
+    await openSheet(page);
+    await bar(page, 0).scrollIntoViewIfNeeded();
+    const before = await taPx(page, 0);
+    const [x, y] = await centerOf(bar(page, 0));
+    const touch = await touchSession(page);
+    await touch.drag([x, y], [x, y + 60]);
+    expect(Math.abs((await taPx(page, 0)) - before - 60)).toBeLessThanOrEqual(2);
+    expect(await rawH(page, 0)).not.toBeNull();
+    expect(await undoDisabled(page)).toBe('true');
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('高度：拖曳中被中止', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, { device: DEVICES.desktop, storage: HS(10) });
+    await waitStill(page);
+    const [x, y] = await centerOf(bar(page, 0));
+    await page.mouse.move(x, y);
+    await page.mouse.down();
+    await page.mouse.move(x, y + 60, { steps: 6 });
+    expect(await dataH(page, 0)).not.toBe('10');
+    await page.evaluate(() => renderLyricsSections());
+    await page.mouse.up();
+    await page.waitForTimeout(400);
+    expect(await dataH(page, 0)).toBe('10');   // 回到拉之前
+    expect(await rawH(page, 0)).toBe(10);
+    expect(await page.evaluate(() => document.body.classList.contains('is-section-resizing'))).toBe(false);
     expect(errors).toEqual([]);
     await context.close();
 });

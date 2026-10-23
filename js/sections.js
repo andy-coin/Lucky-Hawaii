@@ -474,6 +474,39 @@ document.getElementById('lyricsSections').addEventListener('pointerdown', e => {
     document.addEventListener('keydown', lhSecDragKey, true);
 });
 
+// 拉桿：滑鼠雙擊回自動高度（觸控的連點兩下在 pointerup 認）
+document.getElementById('lyricsSections').addEventListener('dblclick', e => {
+    const rz = e.target.closest && e.target.closest('.section-resize');
+    const secEl = rz && rz.closest('.lyrics-section');
+    if (secEl) lhSecResetHeight(secEl);
+});
+
+// 拉桿：點到或聚焦時，aria-valuenow 對上畫面上的高度（自動高度時才需要量）
+document.getElementById('lyricsSections').addEventListener('focusin', e => {
+    const rz = e.target.closest && e.target.closest('.section-resize');
+    if (rz) lhSecBarNow(rz.closest('.lyrics-section'));
+});
+
+// 拉桿鍵盤：↑／↓ 一次 1rem，Shift 一次 4rem，Home 回自動高度；每次都存，不進歷史
+document.getElementById('lyricsSections').addEventListener('keydown', e => {
+    if (e.altKey || e.ctrlKey || e.metaKey || e.isComposing || e.keyCode === 229) return;
+    const rz = e.target.closest && e.target.closest('.section-resize');
+    const secEl = rz && rz.closest('.lyrics-section');
+    if (!secEl) return;
+    if (e.key === 'Home') {
+        e.preventDefault();
+        lhSecResetHeight(secEl);
+        return;
+    }
+    if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
+    e.preventDefault();
+    const cur = secEl.dataset.h ? Number(secEl.dataset.h) : lhSecNowRem(secEl);
+    if (cur === null) return;   // 量不到（面板收起）就不動
+    const step = (e.shiftKey ? 4 : 1) * (e.key === 'ArrowUp' ? -1 : 1);
+    lhSecSetHeight(secEl, cur + step);
+    lhSecSaveHeight(secEl);
+});
+
 // 鍵盤：焦點在把手時 Alt+↑／↓ 移一格；移完焦點還在這一段的把手上，可以連按
 document.getElementById('lyricsSections').addEventListener('keydown', e => {
     if (!e.altKey || e.ctrlKey || e.metaKey || e.isComposing || e.keyCode === 229) return;

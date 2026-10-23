@@ -173,7 +173,7 @@ export function meetsHit(w, h, minW = 44, minH = 44) { return w >= minW - 0.5 &&
 
 // 每個畫面要檢查的控制項：button、a、select、input、有 onclick 的、字卡、分頁、同音字晶片，
 // 加上動態產生的詞卡／保留詞／標籤／刪除鈕（它們不一定帶 onclick 屬性）
-const TOUCH_SELECTOR = 'button, a, select, input, [onclick], .char-card, .mtab-btn, .poly-chip, .ai-word-card, .word-chip, .hashtag-chip, .section-remove, .chip-remove, .mark-badge';
+const TOUCH_SELECTOR = 'button, a, select, input, [onclick], .char-card, .mtab-btn, .poly-chip, .ai-word-card, .word-chip, .hashtag-chip, .section-remove, .chip-remove, .mark-badge, [role="separator"]:not(.word-ctx-divider)';
 
 // 掃整頁所有「看得見、點得到」的控制項，量真正的點擊範圍：
 //  - 範圍 = 元素自己的框 ＋ 往四個方向用 elementFromPoint 一格一格往外探到不再是它為止（::before／::after 擴大區也會被量到）
