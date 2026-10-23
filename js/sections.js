@@ -920,3 +920,22 @@ document.addEventListener('keydown', e => {
     lhSecCloseMenu();
     lhSecEl(id)?.querySelector('.section-type')?.focus({ preventScroll: true });
 }, true);
+
+// 螢幕鍵盤出現／收起，可見範圍跟著變：選單重新夾進可見範圍，正在打字的欄位捲到看得到
+// 等兩個 frame：js/layout.js 要先在自己的 rAF 更新 --app-h（選單的 max-height 看它）
+let _lhMenuRaf = 0;
+function _lhMenuReclamp() {
+    if (!_lhMenuId || _lhMenuRaf) return;
+    _lhMenuRaf = requestAnimationFrame(() => requestAnimationFrame(() => {
+        _lhMenuRaf = 0;
+        if (!_lhMenuId) return;
+        lhPlaceMenu(_lhMenu, parseFloat(_lhMenu.style.left) || 0, parseFloat(_lhMenu.style.top) || 0);
+        const ae = document.activeElement;
+        if (ae && _lhMenu.contains(ae)) ae.scrollIntoView({ block: 'nearest' });
+    }));
+}
+window.addEventListener('resize', _lhMenuReclamp);
+if (window.visualViewport) {
+    window.visualViewport.addEventListener('resize', _lhMenuReclamp);
+    window.visualViewport.addEventListener('scroll', _lhMenuReclamp);
+}

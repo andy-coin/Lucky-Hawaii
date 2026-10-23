@@ -1638,6 +1638,12 @@ const TOUCH_STATES = [
     }],
     ['歌詞開著', ['button.section-handle', 'button.section-remove', 'button.panel-add-btn', 'button.hashtag-add-btn', 'button.context-refresh-btn', 'span.chip-remove', 'span.hashtag-chip', 'button.section-type', 'button#undoBtn', 'button#redoBtn', 'div.context-section-header', '.lyrics-section.collapsed button.section-remove', 'div.section-resize'],
         (page, d) => toggleSide(page, d, 'lyrics')],
+    ['段落設定開著', ['button.swatch', 'input[type=color]', 'button.type-row', 'input.section-name-input', 'button.section-move-up', 'button.section-move-down', 'button.section-menu-close', 'button.section-color-none'], async (page, d) => {
+        await toggleSide(page, d, 'lyrics');
+        await page.evaluate(() => lhSecOpenMenu(document.querySelector('#lyricsSections .lyrics-section'), 20, 20, false));
+        await page.locator('#sectionMenu .type-row[data-type="custom"]').click();   // 自訂名稱的輸入框也要出現
+        await expect(page.locator('#sectionMenu input.section-name-input')).toBeVisible();
+    }],
     ['AI 開著', ['select#modelSelect', 'button.rhyme-mode-btn', 'button.filter-chip', 'button#generateBtn', 'div.ai-word-card', 'span.chip-remove', 'div.saved-pool-title', 'button.reset-pool-btn', 'button.hint-clear'], async (page, d) => {
         await page.fill('#searchInput', 'ㄢ');
         await settle(page);

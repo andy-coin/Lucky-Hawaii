@@ -2,7 +2,7 @@
 import { test, expect } from '@playwright/test';
 import { readFileSync } from 'node:fs';
 import { bootPage, activeSongRaw, compose } from './helpers.mjs';
-import { DEVICES, setScale, waitStill, rectsOverlap } from './layout-lib.mjs';
+import { DEVICES, setScale, waitStill, rectsOverlap, expectReallyClickable, meetsInputFloor, emulateKeyboard, restoreViewport, readKeyboard, insideVisible } from './layout-lib.mjs';
 import { centerOf, touchSession } from './drag-lib.mjs';
 
 const FIXTURE = JSON.parse(readFileSync(new URL('./fixtures/v096-localStorage.json', import.meta.url), 'utf8'));
@@ -886,6 +886,176 @@ test('設定：第一次提示', async ({ browser }) => {
     await page.waitForTimeout(150);
     await expect(page.locator('#copyToast'), '同一次開啟只提示一次').not.toHaveClass(/show/);
     expect(await page.evaluate(() => Object.keys(localStorage).sort()), '什麼都沒存').toEqual(keysBefore);
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+// ==================== 段落設定：對比、不出界、觸控、16px、鍵盤、純文字 ====================
+function rgbOf(value) {
+    let m = value.match(/^#([0-9a-f]{6})$/i);
+    if (m) return [0, 2, 4].map(i => parseInt(m[1].slice(i, i + 2), 16));
+    m = value.match(/^rgba?\(\s*(\d+)[,\s]+(\d+)[,\s]+(\d+)/);
+    if (m) return [+m[1], +m[2], +m[3]];
+    m = value.match(/^color\(srgb\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)/);
+    if (m) return [+m[1], +m[2], +m[3]].map(v => v * 255);
+    throw new Error('看不懂的顏色：' + value);
+}
+const lum = ([r, g, b]) => {
+    const f = c => { const x = c / 255; return x <= 0.03928 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4; };
+    return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b);
+};
+const contrastOf = (a, b) => { const [hi, lo] = [lum(a), lum(b)].sort((x, y) => y - x); return (hi + 0.05) / (lo + 0.05); };
+
+test('顏色：三種主題對比', async ({ browser }) => {
+    const PRESETS = ['#e05d5d', '#e98a3c', '#d69e2e', '#48a868', '#2c9fa0', '#4a7fd4', '#8d6bd0', '#d2649a'];
+    const EXTREME = ['#ffffff', '#000000', '#ff0000', '#00ff00', '#ffff00'];
+    expect(await (async () => {
+        // 預設色的清單要跟程式裡的一樣（測試自己不能漏掉或多出）
+        const { context, page } = await bootPage(browser, { storage: three3() });
+        const got = await page.evaluate(() => LH_SEC_COLORS.map(c => c.hex));
+        await context.close();
+        return got;
+    })()).toEqual(PRESETS);
+    const themes = [
+        ['淺色', { colorScheme: 'light', extra: {} }],
+        ['深色', { colorScheme: 'dark', extra: { hoyun_theme_mode: 'dark' } }],
+        ['自訂配色', { colorScheme: 'light', extra: { containerBg: '#fff7e6', textColor: '#1a202c', highlightColor: '#2b6cb0' } }],
+    ];
+    const worst = [];
+    let checked = 0;
+    for (const [name, t] of themes) {
+        const { context, page, errors } = await bootPage(browser, { device: DEVICES.desktop, colorScheme: t.colorScheme, storage: { ...three3(), ...t.extra } });
+        for (const hex of [...PRESETS, ...EXTREME]) {
+            const v = await page.evaluate(h => {
+                lhSecApply('color', song => { song.sections[0].color = h; });
+                const sec = document.querySelector('#lyricsSections .lyrics-section');
+                const btn = sec.querySelector('.section-type');
+                const cs = getComputedStyle(btn), root = getComputedStyle(document.documentElement);
+                return { text: cs.color, bg: cs.backgroundColor, sec: root.getPropertyValue('--sec-color').trim() || getComputedStyle(sec).getPropertyValue('--sec-color').trim(), card: root.getPropertyValue('--card-bg').trim(), supports: CSS.supports('background', 'color-mix(in srgb, red 50%, blue)') };
+            }, hex);
+            expect(v.supports, '測試瀏覽器要支援 color-mix').toBe(true);
+            // 自己用 14% 混一次，跟瀏覽器算出來的底色比（差 2/255 以內），再用算出來的底色量對比
+            const sec = rgbOf(hex), card = rgbOf(v.card);
+            const mix = sec.map((c, i) => c * 0.14 + card[i] * 0.86);
+            const actual = rgbOf(v.bg);
+            mix.forEach((c, i) => expect(Math.abs(c - actual[i]), `${name} ${hex}：底色是 14% 淡色`).toBeLessThanOrEqual(2));
+            const ratio = contrastOf(rgbOf(v.text), actual);
+            checked++;
+            worst.push([ratio, `${name} ${hex} = ${ratio.toFixed(2)}`]);
+            expect(ratio, `${name} ${hex} 文字對比 ${ratio.toFixed(2)}`).toBeGreaterThanOrEqual(4.5);
+        }
+        expect(errors).toEqual([]);
+        await context.close();
+    }
+    expect(checked, '13 色 × 3 種主題').toBe(39);
+    worst.sort((a, b) => a[0] - b[0]);
+    for (const [name] of themes) console.log('段落顏色對比 最低 ' + worst.find(w => w[1].startsWith(name + ' '))[1]);
+    // 自檢：量得到不合格的組合
+    expect(contrastOf([200, 200, 200], [255, 255, 255])).toBeLessThan(4.5);
+});
+
+test('設定：選單不出界', async ({ browser }) => {
+    const seven = v2Storage([song('s1', ['verse', 'chorus', 'bridge', 'outro', 'inter', 'prechorus', 'intro'].map((t, i) => typed('s' + i, t, '歌詞' + i)))]);
+    for (const [name, device, pct] of [['手機 150%', DEVICES.phone, 150], ['手機橫放', DEVICES.phoneLandscape, 100], ['手機橫放 150%', DEVICES.phoneLandscape, 150]]) {
+        const { context, page, errors } = await bootPage(browser, { device, storage: seven });
+        await setScale(page, pct);
+        await openLyrics(page);
+        await waitStill(page);
+        // 最後一段，指標落在可見範圍的右下角（最容易被切掉的位置）；150% 時最後一段的標題被分頁列蓋住點不到，所以直接呼叫開啟函式
+        await page.evaluate(() => {
+            const secs = document.querySelectorAll('#lyricsSections .lyrics-section');
+            lhSecOpenMenu(secs[secs.length - 1], window.visualViewport.width - 2, window.visualViewport.height - 2, false);
+        });
+        const menu = menuOf(page);
+        await expect(menu, name).toBeVisible();
+        await radio(page, 'Custom').click();   // 讓自訂名稱的輸入框也出現
+        const inside = () => page.evaluate(() => {
+            const r = document.getElementById('sectionMenu').getBoundingClientRect(), vv = window.visualViewport;
+            return { l: r.left - vv.offsetLeft, t: r.top - vv.offsetTop, r: vv.offsetLeft + vv.width - r.right, b: vv.offsetTop + vv.height - r.bottom, sh: document.getElementById('sectionMenu').scrollHeight, ch: document.getElementById('sectionMenu').clientHeight };
+        });
+        const box = await inside();
+        for (const [k, v] of Object.entries({ 左: box.l, 上: box.t, 右: box.r, 下: box.b })) expect(v, `${name}：選單${k}邊在可見範圍內`).toBeGreaterThanOrEqual(-0.5);
+        if (name !== '手機 150%') expect(box.sh, `${name}：橫放放不下，選單內部要能捲`).toBeGreaterThan(box.ch);
+        const controls = menu.locator('button, input');
+        const n = await controls.count();
+        expect(n).toBeGreaterThanOrEqual(8 + 1 + 1 + 8 + 1 + 2 + 1);
+        for (let i = 0; i < n; i++) {
+            const c = controls.nth(i);
+            if (!(await c.isVisible())) continue;
+            await expectReallyClickable(page, c, `${name} 第 ${i} 個控制項`);
+            const r = await c.evaluate(el => { const m = document.getElementById('sectionMenu').getBoundingClientRect(), b = el.getBoundingClientRect(); return b.top >= m.top - 1 && b.bottom <= m.bottom + 1 && b.left >= m.left - 1 && b.right <= m.right + 1; });
+            expect(r, `${name} 第 ${i} 個控制項在選單的框內`).toBe(true);
+        }
+        await menu.getByRole('button', { name: '關閉設定' }).click();
+        await expect(menu).toBeHidden();
+        expect(errors).toEqual([]);
+        await context.close();
+    }
+});
+
+test('設定：觸控點擊範圍與輸入框 16px', async ({ browser }) => {
+    for (const [name, device] of [['手機', DEVICES.phone], ['平板', DEVICES.tablet]]) {
+        for (const pct of [50, 100, 150]) {
+            const { context, page, errors } = await bootPage(browser, { device, storage: three3() });
+            await setScale(page, pct);
+            await openLyrics(page);
+            await waitStill(page);
+            await page.locator('#lyricsSections .section-type').nth(1).click({ button: 'right' });
+            await radio(page, 'Custom').click();
+            const input = menuOf(page).locator('input.section-name-input');
+            await expect(input).toBeVisible();
+            const px = parseFloat(await input.evaluate(el => getComputedStyle(el).fontSize));
+            expect(meetsInputFloor(px), `${name} ${pct}%：自訂名稱字級 ${px}px`).toBe(true);
+            if (pct === 100) {
+                // 觸控目標 ≥ 44×44（含色盤輸入與每個類型列）
+                const small = await menuOf(page).locator('button, input').evaluateAll(els => els.filter(e => e.offsetParent !== null).map(e => { const r = e.getBoundingClientRect(); return { n: e.className + ' ' + (e.textContent || e.getAttribute('aria-label')), w: r.width, h: r.height }; }).filter(r => r.w < 43.5 || r.h < 43.5));
+                expect(small, `${name}：這些控制項不到 44×44`).toEqual([]);
+            }
+            expect(errors).toEqual([]);
+            await context.close();
+        }
+    }
+});
+
+test('設定：鍵盤出現時看得到', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, { device: DEVICES.phone, storage: three3() });
+    await openLyrics(page);
+    await page.locator('#lyricsSections .section-type').nth(2).click({ button: 'right' });
+    await radio(page, 'Custom').click();
+    const input = menuOf(page).locator('input.section-name-input');
+    await input.tap();
+    const size = await emulateKeyboard(page, 336);
+    await expect.poll(async () => (await readKeyboard(page)).open, { message: '縮 336px 後應進入 kb-open' }).toBe(true);
+    await waitStill(page);
+    const kb = await readKeyboard(page);
+    expect(await page.locator('.mobile-tab-bar').evaluate(el => getComputedStyle(el).display), '鍵盤出現時分頁列藏起來').toBe('none');
+    const box = await input.boundingBox();
+    expect(insideVisible(box, kb), `自訂名稱輸入框 ${JSON.stringify(box)} 要完整在可見範圍內`).toBe(true);
+    const m = await menuOf(page).boundingBox();
+    expect(m.y + m.height, '選單在可見範圍內').toBeLessThanOrEqual(kb.vvOffsetTop + kb.vvHeight + 0.5);
+    await restoreViewport(page, size);
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('設定：名稱只當純文字', async ({ browser }) => {
+    const EVIL = '<img src=x onerror=alert(1)>';
+    const { context, page, errors } = await bootPage(browser, { device: DEVICES.desktop, storage: three3() });
+    const dialogs = [];
+    page.on('dialog', d => { dialogs.push(d.message()); d.dismiss(); });
+    const imgs = await page.evaluate(() => document.querySelectorAll('img').length);
+    await openMenuAt(page, 1);
+    await radio(page, 'Custom').click();
+    await page.keyboard.insertText(EVIL);
+    await page.keyboard.press('Enter');
+    const btn = page.locator('#lyricsSections .section-type').nth(1);
+    await expect(btn).toHaveText(EVIL);
+    await expect(menuOf(page).locator('.section-menu-title')).toHaveText('段落設定：' + Array.from(EVIL).slice(0, 16).join('') + '…');
+    expect(await btn.getAttribute('aria-label')).toBe(EVIL + '，段落類型，按一下切換');
+    expect(await page.evaluate(() => document.querySelectorAll('img').length), '名稱沒有變成 img 元素').toBe(imgs);
+    expect(await page.evaluate(() => document.getElementById('sectionMenu').querySelectorAll('img, script').length)).toBe(0);
+    await page.waitForTimeout(300);
+    expect(dialogs).toEqual([]);
     expect(errors).toEqual([]);
     await context.close();
 });
