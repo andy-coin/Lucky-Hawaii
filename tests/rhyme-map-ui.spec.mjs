@@ -3,7 +3,7 @@
 import { test, expect, chromium } from '@playwright/test';
 import { readFileSync } from 'node:fs';
 import { bootPage, compose, openTwoTabs } from './helpers.mjs';
-import { DEVICES, setScale, waitStill } from './layout-lib.mjs';
+import { DEVICES, setScale, waitStill, emulateKeyboard, readKeyboard, insideVisible, auditTouchTargets } from './layout-lib.mjs';
 
 const FIXTURE = JSON.parse(readFileSync(new URL('./fixtures/v096-localStorage.json', import.meta.url), 'utf8'));
 const OPEN_PANELS = { leftPanelCollapsed: 'false', rightPanelCollapsed: 'false' };
@@ -1031,6 +1031,143 @@ test('浮動列：鍵盤操作', async ({ browser }) => {
     await expect(ta).toBeFocused();
     expect(await taState(page)).toEqual({ ta: true, a: 5, b: 7 });
     await expect(page.locator(BAR)).toBeHidden();
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+// 最後一個可見行的中間：用鏡像算出可見範圍底邊那個點的索引，選它前後各一個字
+const pickLastVisible = (page, n = 0) => page.evaluate(n => {
+    const ta = document.querySelectorAll('.section-textarea')[n], r = ta.getBoundingClientRect();
+    const vv = window.visualViewport, bottom = Math.min(r.bottom, vv.offsetTop + vv.height) - 6;
+    const i = lhCaretIndexAt(ta, r.left + 30, bottom);
+    ta.focus(); ta.setSelectionRange(Math.max(0, i - 2), i);
+    return [Math.max(0, i - 2), i];
+}, n);
+const barBox = page => page.locator(BAR).boundingBox();
+const LONG = Array.from({ length: 80 }, (_, i) => '第' + i + '句歌詞在這裡').join('\n');
+const inViewport = (box, vp) => box.x >= -0.5 && box.y >= -0.5 && box.x + box.width <= vp.width + 0.5 && box.y + box.height <= vp.height + 0.5;
+
+test('浮動列：在選取下方，放不下就貼在可見範圍底部', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, {
+        wordlist: 'stub', device: { viewport: { width: 1280, height: 560 } },
+        storage: v2Storage([song([typed('sa', 'verse', F_AABB), typed('sb', 'chorus', LONG, { height: 700 })])]),
+    });
+    // 放得下：在選取那一行下方，左緣約在選取結尾（先把輸入框捲回最上面，第一行才看得到）
+    await pick(page, 5, 7);
+    await page.evaluate(() => { document.querySelector('.section-textarea').scrollTop = 0; });   // 聚焦時游標在最後，輸入框會捲到底
+    await waitBar(page);
+    const line = await lineBottom(page, 7);
+    const box = await barBox(page);
+    expect(box.y).toBeGreaterThanOrEqual(line.bottom - 0.5);
+    expect(box.y - line.bottom, '細指標：約 0.25rem').toBeLessThan(24);
+    expect(Math.abs(box.x - line.left)).toBeLessThan(40);
+    // 放不下：段落捲到底、選最後一個可見行 → 浮動列整個在可見範圍內，貼在底部
+    await page.evaluate(() => {
+        const box = document.getElementById('lyricsSections'), ta = document.querySelectorAll('.section-textarea')[1];
+        ta.scrollIntoView({ block: 'start' });   // 輸入框頂端對齊，底端超出畫面：最後一個可見行貼著畫面底邊
+    });
+    await waitStill(page);
+    await pickLastVisible(page, 1);
+    await waitBar(page);
+    const kb = await readKeyboard(page);
+    const b2 = await barBox(page);
+    expect(insideVisible(b2, kb), '浮動列在可見範圍內').toBe(true);
+    expect(inViewport(b2, page.viewportSize())).toBe(true);
+    expect(b2.y + b2.height, '貼在可見範圍底部').toBeGreaterThanOrEqual(page.viewportSize().height - 12);
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('浮動列：鍵盤打開時仍在可見範圍內', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, {
+        wordlist: 'stub', device: DEVICES.phone,
+        storage: v2Storage([song([typed('sa', 'verse', LONG, { height: 300 })])], {}),
+    });
+    await page.locator('#mtab-lyrics').click();
+    await waitStill(page);
+    await pickLastVisible(page, 0);
+    await waitBar(page);
+    const before = page.viewportSize();
+    await emulateKeyboard(page, 336);
+    const kb = await readKeyboard(page);
+    expect(kb.open, '模擬鍵盤已開').toBe(true);
+    await expect.poll(async () => insideVisible(await barBox(page), await readKeyboard(page))).toBe(true);
+    const b = await barBox(page);
+    expect(b.y + b.height, '不蓋到鍵盤').toBeLessThanOrEqual(before.height - 336 + 0.5);
+    await expect(page.locator('#mobileTabBar')).toBeHidden();
+    await expect(page.locator(BAR)).toBeVisible();
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('浮動列：手機長按選字，連續改選取只出現一次', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, {
+        wordlist: 'stub', device: DEVICES.phone,
+        storage: v2Storage([song([typed('sa', 'verse', F_AABB)])], {}),
+    });
+    await page.locator('#mtab-lyrics').click();
+    await waitStill(page);
+    await page.evaluate(() => {
+        window.__shows = []; window.__last = 0;
+        const bar = lhMapBarBuild();
+        let on = bar.classList.contains('show');
+        new MutationObserver(() => {
+            const now = bar.classList.contains('show');
+            if (now && !on) window.__shows.push(performance.now());
+            on = now;
+        }).observe(bar, { attributes: true, attributeFilter: ['class'] });
+    });
+    for (const [a, b] of [[0, 2], [0, 3], [1, 4], [2, 4], [3, 7]]) {
+        await page.evaluate(([a, b]) => { const ta = document.querySelector('.section-textarea'); ta.focus(); ta.setSelectionRange(a, b); window.__last = performance.now(); }, [a, b]);
+        await page.waitForTimeout(100);
+    }
+    await waitBar(page);
+    await quiet(page, 600);
+    const r = await page.evaluate(() => ({ shows: window.__shows, last: window.__last }));
+    expect(r.shows.length, '只出現一次').toBe(1);
+    expect(r.shows[0] - r.last, '最後一次改變之後約 400ms').toBeGreaterThan(300);
+    expect(r.shows[0] - r.last).toBeLessThan(900);
+    const line = await lineBottom(page, 7);
+    expect((await barBox(page)).y, '在選取下方').toBeGreaterThanOrEqual(line.bottom - 0.5);
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('浮動列：觸控按鈕夠大', async ({ browser }) => {
+    for (const [name, device] of [['手機', DEVICES.phone], ['平板', DEVICES.tablet], ['橫放平板', DEVICES.tabletLandscape]]) {
+        const { context, page, errors } = await bootPage(browser, {
+            wordlist: 'stub', device, storage: v2Storage([song([typed('sa', 'verse', F_AABB)])]),
+        });
+        if (await page.evaluate(() => lhIsSheetMode())) { await page.locator('#mtab-lyrics').click(); await waitStill(page); }
+        await pick(page, 5, 7);
+        await waitBar(page);
+        const a = await auditTouchTargets(page, { mustSee: ['#rhymeSelBar button'] });
+        expect(a.missing, name + '：兩顆按鈕都量到').toEqual([]);
+        // 只看浮動列自己的按鈕（橫放平板右面板打開時，別的控制項的既有狀況不在這裡管）
+        expect(a.failures.filter(f => /rm-bar/.test(f.selector)), name + '：每顆至少 44×44').toEqual([]);
+        expect(a.overlaps.filter(o => /rm-bar/.test(o.a + o.b)), name + '：不重疊').toEqual([]);
+        expect(errors).toEqual([]);
+        await context.close();
+    }
+});
+
+test('浮動列：超長段落不量版面、直接貼底', async ({ browser }) => {
+    const huge = '愛你到天亮\n'.repeat(45000);   // 超過 LH_WD_BIG（200000 字）
+    expect(huge.length).toBeGreaterThan(200000);
+    const { context, page, errors } = await bootPage(browser, {
+        wordlist: 'stub', storage: v2Storage([song([typed('sa', 'verse', huge)])]),
+    });
+    await page.evaluate(() => {
+        window.__mirrors = 0;
+        const o = window.lhMirror;
+        window.lhMirror = function (...a) { window.__mirrors++; return o.apply(this, a); };
+    });
+    await pick(page, 0, 4);
+    await waitBar(page);
+    expect(await page.evaluate(() => window.__mirrors), '沒有量版面').toBe(0);
+    const b = await barBox(page);
+    expect(b.y + b.height).toBeGreaterThanOrEqual(page.viewportSize().height - 12);
+    expect(inViewport(b, page.viewportSize())).toBe(true);
     expect(errors).toEqual([]);
     await context.close();
 });
