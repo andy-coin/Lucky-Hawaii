@@ -424,3 +424,20 @@ test('復原：段落設定選單的名稱框不被攔', async ({ browser }) => 
     expect(errors).toEqual([]);
     await context.close();
 });
+
+// 評審 WR-04：高度與收合只改模型、不更新歷史的「現在」；刪除段落再復原時要還原刪除前最後的高度與收合
+test('復原：刪除段落後復原帶回最新的高度與收合', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, { storage: two() });
+    await page.evaluate(() => { const a = curSong().sections[0]; a.height = 20; a.collapsed = true; });
+    await page.evaluate(() => lhSecRemove('sa'));
+    expect(await texts(page)).toEqual(['二']);
+    await page.locator('#undoBtn').click();
+    expect(await page.evaluate(() => curSong().sections.map(s => [s.text, s.height, s.collapsed]))).toEqual([['一', 20, true], ['二', null, false]]);
+    // 重做再復原一次，也不能退回舊值
+    await page.evaluate(() => { curSong().sections[0].height = 7; });
+    await page.locator('#redoBtn').click();
+    await page.locator('#undoBtn').click();
+    expect(await page.evaluate(() => curSong().sections.map(s => s.height))).toEqual([7, null]);
+    expect(errors).toEqual([]);
+    await context.close();
+});

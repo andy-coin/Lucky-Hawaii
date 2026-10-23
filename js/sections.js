@@ -33,7 +33,7 @@ function lhSecResizeLabel(label) {
 function lhSecApply(kind, mutate, opts = {}) {
     const song = curSong();
     if (!song) return false;
-    lhHistEnsure(song);   // 改之前先確認歷史的「現在」是改之前的樣子
+    lhHistEnsure(song).present = _snap(song);   // 改之前先確認歷史的「現在」是改之前的樣子（高度與收合不進歷史，但被刪的段落復原時要拿到最新值）
     if (mutate(song) === false) return false;
     lhSecFinalize(song.sections);
     const step = lhHistCommit(song, kind, opts.caret);

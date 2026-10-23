@@ -78,6 +78,7 @@ function _lhHistMove(from, to, msg, redo) {
     const h = song && lhHistEnsure(song);
     hideUndoToastAction();
     if (!h || !from(h).length) return false;
+    h.present = _snap(song);   // 高度與收合不進歷史：搬去另一邊的這一步要帶最新值
     h.run = null;
     const step = from(h).pop();
     to(h).push({ snap: h.present, kind: step.kind, caret: h.caret });
