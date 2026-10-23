@@ -1,8 +1,9 @@
 // 韻腳地圖（第 10 階段）的瀏覽器測試：句尾字依韻部上色、只重畫被改的那一段、不碰輸入框、就緒前不畫
 // 之後的計畫會在這支檔案繼續加（鏡像對齊、組字、開關、浮動列…）；標題的第一個詞對應 10-VALIDATION.md 的 -g 篩選
-import { test, expect } from '@playwright/test';
+import { test, expect, chromium } from '@playwright/test';
 import { readFileSync } from 'node:fs';
 import { bootPage, compose } from './helpers.mjs';
+import { DEVICES, setScale, waitStill } from './layout-lib.mjs';
 
 const FIXTURE = JSON.parse(readFileSync(new URL('./fixtures/v096-localStorage.json', import.meta.url), 'utf8'));
 const OPEN_PANELS = { leftPanelCollapsed: 'false', rightPanelCollapsed: 'false' };
@@ -211,6 +212,179 @@ test('快取：只重畫打字的那一段', async ({ browser }) => {
     const n = (await counters(page)).analyze;
     expect(n).toBeGreaterThanOrEqual(1);
     expect(n, '連續打字合併成少數幾次分析').toBeLessThanOrEqual(3);
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+// ===== 第 10-03 計畫：鏡像對齊與樣式一致 =====
+// Playwright 預設帶 --hide-scrollbars，輸入框永遠沒有捲軸；要測捲軸寬的補償，得自己啟動一個沒有這個參數的瀏覽器
+const launchWithBars = () => chromium.launch({ ignoreDefaultArgs: ['--hide-scrollbars'] });
+// on：15px 的實體捲軸；off：完全沒有捲軸
+const injectScrollbar = (page, on) => page.evaluate(on => {
+    let st = document.getElementById('rmTestBar');
+    if (!st) { st = document.createElement('style'); st.id = 'rmTestBar'; document.head.appendChild(st); }
+    st.textContent = on ? '.section-textarea::-webkit-scrollbar { width: 15px } .section-textarea::-webkit-scrollbar-thumb { background: #888 }'
+        : '.section-textarea::-webkit-scrollbar { display: none }';
+}, on);
+const frames = page => page.evaluate(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(r, 60)))));
+// 手機、平板要先把歌詞 sheet 打開；電腦的左面板本來就開著
+const openLyrics = async page => {
+    const tab = page.locator('#mtab-lyrics');
+    if (await tab.isVisible()) { await tab.tap(); await waitStill(page); }
+};
+
+// 第一段每個色塊的中心對上「句尾字」在輸入框裡的位置（用 lhMirror + lhCaretRect 量，容許左右 1px、上下 2px）；回傳每個色塊的誤差
+const bandErrors = page => page.evaluate(() => {
+    const ta = document.querySelector('.section-textarea'), secEl = ta.closest('.lyrics-section');
+    const res = lhRhymeAnalyze(ta.value, { strict: false, skipParticles: true }, curSong().readings);
+    const lines = ta.value.split('\n');
+    let off = 0;
+    const idx = [];
+    res.rows.forEach((r, n) => { if (r.t) idx.push(off + r.t.i); off += lines[n].length + 1; });
+    const hls = [...secEl.querySelectorAll('.rhyme-mirror .rm-hl')];
+    const m = lhMirror(ta);
+    const out = idx.map((i, k) => {
+        const c = lhCaretRect(ta, m, i), r = hls[k].getBoundingClientRect();
+        return { dx: Math.abs(r.left - c.left), dy: Math.abs((r.top + r.height / 2) - (c.top + c.height / 2)), ch: hls[k].textContent === ta.value[i] };
+    });
+    m.remove();
+    return { want: idx.length, got: hls.length, out };
+});
+const expectBandsAligned = async (page, tag) => {
+    const r = await bandErrors(page);
+    expect(r.got, tag + '：色塊數').toBe(r.want);
+    expect(r.want, tag + '：至少有一個色塊').toBeGreaterThan(0);
+    for (const e of r.out) {
+        expect(e.ch, tag + '：色塊包的是句尾字').toBe(true);
+        expect(e.dx, tag + '：左右誤差').toBeLessThanOrEqual(1);
+        expect(e.dy, tag + '：上下誤差').toBeLessThanOrEqual(2);
+    }
+};
+// 鏡像層的框等於輸入框的框（0.5px 內）
+const expectBoxesEqual = async (page, tag) => {
+    const b = await page.evaluate(() => {
+        const ta = document.querySelector('.section-textarea'), m = ta.previousElementSibling;
+        const r = e => { const x = e.getBoundingClientRect(); return [x.left, x.top, x.width, x.height]; };
+        return { ta: r(ta), m: r(m), shown: getComputedStyle(m).display !== 'none' };
+    });
+    expect(b.shown, tag + '：鏡像層有顯示').toBe(true);
+    b.ta.forEach((v, i) => expect(Math.abs(v - b.m[i]), `${tag}：框 ${['左', '上', '寬', '高'][i]}`).toBeLessThanOrEqual(0.5));
+};
+
+const LONG40 = Array.from({ length: 40 }, (_, k) => '歌詞很長很長'.repeat(2 + (k % 6)) + '光').join('\n');
+
+test('鏡像對齊：與文字框逐像素相同', async () => {
+    const browser = await launchWithBars();
+    const { context, page, errors } = await bootPage(browser, {
+        device: DEVICES.desktop, wordlist: 'stub', storage: v2Storage([song([typed('sa', 'verse', LONG40)])]),
+    });
+    await injectScrollbar(page, true);
+    await page.evaluate(() => document.fonts.ready);
+    await page.evaluate(() => document.activeElement && document.activeElement.blur());
+    await frames(page);
+    const bar = await page.evaluate(() => { const ta = document.querySelector('.section-textarea'); return ta.offsetWidth - ta.clientWidth; });
+    expect(bar, '輸入框真的有 15px 捲軸').toBeGreaterThanOrEqual(15);
+    const setMode = mode => page.evaluate(m => {
+        let st = document.getElementById('rmShot');
+        if (!st) { st = document.createElement('style'); st.id = 'rmShot'; document.head.appendChild(st); }
+        const taOn = '#222', off = 'transparent';
+        const col = (sel, c) => `${sel} { color: ${c} !important; -webkit-text-fill-color: ${c} !important; }`;
+        st.textContent = col('.section-textarea', m === 'ta' ? taOn : off) + col('.rhyme-mirror', m === 'ta' ? off : taOn)
+            + '.section-textarea { caret-color: transparent !important } .rm-hl { background: none !important; box-shadow: none !important; text-decoration: none !important }';
+    }, mode);
+    const shoot = async mode => {
+        await setMode(mode);
+        await frames(page);
+        const box = await page.locator('.section-textarea').first().boundingBox();
+        return page.screenshot({ clip: box });
+    };
+    const scrollTo = async frac => {
+        await page.evaluate(f => { const ta = document.querySelector('.section-textarea'); ta.scrollTop = Math.round((ta.scrollHeight - ta.clientHeight) * f); }, frac);
+        await frames(page);
+    };
+    for (const [name, frac] of [['頂', 0], ['中', 0.5], ['底', 1]]) {
+        await scrollTo(frac);
+        const a = await shoot('ta'), b = await shoot('mirror');
+        expect(a.equals(b), `捲動在${name}：兩張截圖逐像素相同`).toBe(true);
+    }
+    // 負向對照：把捲軸寬的補償拿掉，換行位置就不同，截圖必須不同（證明這個測試抓得到）
+    await scrollTo(0);
+    const a0 = await shoot('ta');
+    await page.evaluate(() => { const ta = document.querySelector('.section-textarea'); ta.previousElementSibling.style.paddingRight = getComputedStyle(ta).paddingRight; });
+    const bad = await shoot('mirror');
+    expect(a0.equals(bad), '拿掉補償後必須不同').toBe(false);
+    expect(errors).toEqual([]);
+    await context.close();
+    await browser.close();
+});
+
+test('樣式一致：鏡像與文字框的計算樣式相同', async ({ browser }) => {
+    const PROPS = ['fontFamily', 'fontSize', 'fontWeight', 'lineHeight', 'letterSpacing', 'paddingTop', 'paddingLeft', 'paddingBottom',
+        'whiteSpace', 'overflowWrap', 'wordBreak', 'tabSize', 'textIndent', 'textTransform'];
+    const text = '我望著遠方的光\n獨自站在窗\nHello world 愛';
+    for (const [name, device] of [['手機', DEVICES.phone], ['平板', DEVICES.tablet], ['電腦', DEVICES.desktop]]) {
+        for (const pct of [100, 150]) {
+            const { context, page, errors } = await bootPage(browser, { device, wordlist: 'stub', storage: v2Storage([song([typed('sa', 'verse', text)])]) });
+            await setScale(page, pct);
+            await openLyrics(page);
+            await waitStill(page);
+            await frames(page);
+            const got = await page.evaluate(props => {
+                const ta = document.querySelector('.section-textarea'), m = ta.previousElementSibling;
+                const a = getComputedStyle(ta), b = getComputedStyle(m);
+                return props.map(p => [p, a[p], b[p]]);
+            }, PROPS);
+            for (const [p, x, y] of got) expect(y, `${name} ${pct}%：${p}`).toBe(x);
+            await expectBoxesEqual(page, `${name} ${pct}%`);
+            expect(errors).toEqual([]);
+            await context.close();
+        }
+    }
+});
+
+test('鏡像對齊：長句換行的句尾仍在原字上', async () => {
+    const browser = await launchWithBars();
+    const LINE = '愛你ab路'.repeat(40);   // 200 個字元，中英交錯，最後是漢字
+    expect(Array.from(LINE).length).toBe(200);
+    for (const pct of [50, 100, 150]) {
+        const { context, page, errors } = await bootPage(browser, {
+            device: DEVICES.phone, wordlist: 'stub', storage: v2Storage([song([typed('sa', 'verse', LINE)])]),
+        });
+        await setScale(page, pct);
+        await openLyrics(page);
+        await waitStill(page);
+        for (const bar of [false, true]) {
+            await injectScrollbar(page, bar);
+            await frames(page);
+            expect(await page.evaluate(() => { const t = document.querySelector('.section-textarea'); return t.offsetWidth - t.clientWidth; }), '捲軸寬').toBe(bar ? 15 : 0);
+            await expectBandsAligned(page, `${pct}% ${bar ? '有' : '無'}捲軸`);
+            await expectBoxesEqual(page, `${pct}% ${bar ? '有' : '無'}捲軸`);
+        }
+        expect(errors).toEqual([]);
+        await context.close();
+    }
+    await browser.close();
+});
+
+test('鏡像對齊：英文長串、拉高度、縮放、收合展開之後', async ({ browser }) => {
+    const text = 'a'.repeat(60) + '愛\n我望著遠方的光\n獨自站在窗\n走過熟悉的街道\n終於我也回到\n' + 'b'.repeat(30) + '想你想到心慌';
+    const { context, page, errors } = await bootPage(browser, {
+        device: DEVICES.desktop, wordlist: 'stub', storage: v2Storage([song([typed('sa', 'verse', text), typed('sb', 'chorus', '你好嗎')])]),
+    });
+    const check = async tag => { await waitStill(page); await frames(page); await expectBoxesEqual(page, tag); await expectBandsAligned(page, tag); };
+    await check('一開始');
+    const rz = await page.locator('.section-resize').first().boundingBox();
+    const [bx, by] = [rz.x + rz.width / 2, rz.y + rz.height / 2];
+    await page.mouse.move(bx, by); await page.mouse.down(); await page.mouse.move(bx, by + 60, { steps: 6 }); await page.mouse.up();
+    await check('拉高 60px 之後');
+    await setScale(page, 150);
+    await check('縮放 150% 之後');
+    await page.locator('.lyrics-section').first().locator('.section-chevron').click();
+    await expect(page.locator('.lyrics-section').first()).toHaveClass(/\bcollapsed\b/);
+    await waitStill(page);
+    await page.locator('.lyrics-section').first().locator('.section-chevron').click();
+    await expect(page.locator('.lyrics-section').first()).not.toHaveClass(/\bcollapsed\b/);
+    await check('收合再展開之後');
     expect(errors).toEqual([]);
     await context.close();
 });
