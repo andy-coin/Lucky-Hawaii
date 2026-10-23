@@ -5,6 +5,21 @@
 - Pi Agent 預設連 ToshLLM (Qwen3.6)，profile: IQ50
 - `.devcontainer/docker-compose.yml` 的 ports 預設註解，web server 專案需取消註解
 
+## ✅ Phase 9 段落模組：10/10 計畫完成（2026-10-23，分支 gsd/v0.96-stabilize，沒 push）
+
+- `npm test` **843 過／27 跳過／0 失敗**（Mac 的 Chromium，只比對 -darwin 截圖）；`?v=` 全部 **0.96.13**（34 個標籤），split-tags 的 JS_ORDER 26 支
+- 新檔：`js/sections-core.js`（純函式：類型、羅馬數字、字數）、`js/sections.js`（類型鈕、顏色／設定視窗、⋮⋮ 拖曳排序、拉桿調高度、`lhSecAbortInteractions`）、`js/undo.js`（每首歌一條復原堆疊）、`js/word-drag.js`（詞卡／字卡拖進歌詞）
+- 新測試：`tests/sections-core|sections-ui|sections-drag|undo|word-drag.spec.mjs`，10-10 加 `sections-journey.spec.mjs`（整合：一次走完）與 `sections-audit.spec.mjs`（檢查：11 項）
+- 10-10 挖出並修掉的縫：(1) `css/panels.css` 電腦上段落很多時被壓成只剩標題列 → `.lyrics-section:not(.collapsed)` 加 `min-height: 9rem`，列表自己捲；(2) `js/songs.js` `isEditingField` 只算文字欄位，焦點在 ⋮⋮ 把手時別的分頁的更新也會立刻套用並收掉手勢；(3) 「復原：只換一格」偶發失敗＝測試太早量瀏覽器自己的捲動動畫（產品正確），測試改成等動畫停（600 次連跑全過）
+- 驗收清單已補：`.planning/TEST-CHECKLIST.md` Phase 9 一節（09-01-1…09-10-2、09-CTX-1…17）、`.planning/驗收清單-精簡版.md` 2-34～2-38、4-23～4-25、5-92～5-108
+
+**待 Andy 出手**
+- 在雲端容器執行 `npm run visual:update`，更新 -linux 截圖基準（本機只比對 -darwin；第 5～9 階段累積）
+- 真機驗收（機器量不到）：iPad／iPhone Safari、Android Chrome 的把手拖曳手感、詞卡按住 0.4 秒再拖、手機拖詞自動切到歌詞分頁、名稱長按 0.5 秒開設定視窗；拉桿 44px 的高度成本可不可以接受（D-11）；色票在日夜客製主題的樣子；注音打字時字數與復原；iOS 搖一搖復原／Android 外接鍵盤復原；點 ↶ ↷ 時 iOS 鍵盤有沒有保持開著
+- 自主決定要點頭或搖頭：B1 英文名稱、B2 單一類型不編號、B6 新段落猜類型、C5 刪除改復原提示條、E1 英文算一個詞、F1 字卡也能拖、F7 手機自動切歌詞、A3 舊歌匯出標題變英文、D-16（總字數在 .lyrics-tools 那一列）、D-10（↶ ↷ 用 aria-disabled）、收起面板時拖詞卡的提示、提示條按鈕邊框 currentColor、舊版單首模式不存顏色與高度、電腦段落很多時 9rem 下限、分頁更新只等文字欄位
+- 注意（RESEARCH A1／A6）：若 iOS Safari 長按後拖詞卡時頁面還是會捲，備案是在 touchstart 就掛非被動的 touchmove 擋住並暫時加 `touch-action: none`
+- 下一步：`/gsd-verify-work 09`（帶上面的真人項目）；之後 Phase 10 押韻上色
+
 ## ⏸ 暫停點（2026-10-11）：Phase 8 全部做完，依 Andy 指示停在這裡，尚未開始 Phase 9
 
 - 已完成：Phase 6 審查＋驗證、Phase 7（10 計畫＋審查兩輪＋驗證）、Phase 8（9 計畫＋審查兩輪＋驗證）；三個階段都是「自動驗證全過、等 Andy 真人驗收」（06／07／08-UAT.md）
