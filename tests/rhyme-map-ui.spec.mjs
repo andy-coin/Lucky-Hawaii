@@ -131,6 +131,9 @@ test('組字：組字中鏡像零變動，確認後才重畫', async ({ browser 
     await installCounters(page);
     // 游標在最後一行行尾：組字中色塊照舊、沒有任何變動、一次都沒分析
     await caretToEnd(page);
+    // 先把輸入框捲到底並等它停：游標移到行尾後輸入框會非同步捲動，組字中的捲動事件會（照設計）把鏡像層藏起來，測試就不穩
+    await page.evaluate(() => { const ta = document.querySelector('.section-textarea'); ta.scrollTop = ta.scrollHeight; });
+    await page.waitForTimeout(150);
     let during = null;
     await compose(page, ['ㄌ', 'ㄌㄧ', 'ㄌㄧㄤˋ'], '亮', async () => {
         during = { ...(await counters(page)), stale: await isStale(page) };
@@ -386,5 +389,56 @@ test('鏡像對齊：英文長串、拉高度、縮放、收合展開之後', as
     await expect(page.locator('.lyrics-section').first()).not.toHaveClass(/\bcollapsed\b/);
     await check('收合再展開之後');
     expect(errors).toEqual([]);
+    await context.close();
+});
+
+// ===== 第 10-03 計畫：主題、客製顏色、字典載不到 =====
+test('對比：日夜主題切換不必重新整理', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, {
+        wordlist: 'stub', storage: v2Storage([song([typed('sa', 'verse', F_AABB)])]),
+    });
+    const read = () => page.evaluate(() => {
+        const hl = document.querySelector('.rm-hl');
+        return { v: document.documentElement.style.getPropertyValue('--rm-c0'), bg: getComputedStyle(hl).backgroundColor, theme: document.documentElement.dataset.theme };
+    });
+    const pal = await page.evaluate(() => JSON.parse(JSON.stringify(LH_RHYME_COLORS)));
+    const light = await read();
+    expect(light).toMatchObject({ v: pal.light[0], theme: 'light' });
+    await page.evaluate(() => { window.__mark = 1; applyTheme(true, false); });
+    await expect.poll(async () => (await read()).v).toBe(pal.dark[0]);
+    const dark = await read();
+    expect(dark.theme).toBe('dark');
+    expect(dark.bg, '色塊的底色跟著變').not.toBe(light.bg);
+    expect(await page.evaluate(() => window.__mark), '沒有重新載入').toBe(1);
+    await page.evaluate(() => applyTheme(false, false));
+    await expect.poll(async () => (await read()).v).toBe(pal.light[0]);
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('上色：客製顏色也有色塊', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, {
+        wordlist: 'stub',
+        storage: v2Storage([song([typed('sa', 'verse', F_AABB)])], { ...OPEN_PANELS, containerBg: '#fff7e6', textColor: '#1a202c', highlightColor: '#2b6cb0' }),
+    });
+    expect((await bands(page)).length).toBe(4);
+    const bgs = await page.locator('.rhyme-mirror .rm-hl').evaluateAll(els => els.map(e => getComputedStyle(e).backgroundColor));
+    for (const bg of bgs) expect(bg, '客製配色下色塊底色不是透明').not.toMatch(/rgba\(0, 0, 0, 0\)|transparent/);
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('上色：字典載不到時不上色也不報錯', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, {
+        wordlist: 'stub', storage: v2Storage([song([typed('sa', 'verse', F_AABB)])]),
+        beforeGoto: ({ context: c }) => c.route(/\/data\/rhyme-dict\.js(\?.*)?$/, route => route.fulfill({ status: 404, body: 'nope' })),
+    });
+    await caretToEnd(page);
+    await page.keyboard.type('\n再打一行');
+    await page.waitForTimeout(500);
+    expect(await page.locator('.rhyme-mirror .rm-hl').count(), '沒有字典：不上色').toBe(0);
+    expect(await page.locator('.rhyme-mirror, .lyrics-section').evaluateAll(els => els.filter(e => e.classList.contains('rm-on')).length)).toBe(0);
+    const mine = errors.filter(e => /rhyme-core\.js|rhyme-map\.js/.test(String(e)));
+    expect(mine, '兩支新檔不報錯').toEqual([]);
     await context.close();
 });

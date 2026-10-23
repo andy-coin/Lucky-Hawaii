@@ -26,6 +26,8 @@ function lhMapApplyPalette() {
     });
 }
 lhMapApplyPalette();
+// 日夜主題切換（applyTheme 改 <html data-theme>）：換一組色票就好，不必重畫——色塊讀的是 CSS 變數
+new MutationObserver(lhMapApplyPalette).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
 
 // 鏡像層位置與大小由輸入框自己的框決定（桌機輸入框比 .section-body 矮，不能用 inset: 0）；
 // 右邊補上輸入框的捲軸寬，換行位置才會和輸入框逐字相同

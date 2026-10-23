@@ -211,3 +211,45 @@ test('效能：兩百行分析', () => {
     times.sort((a, b) => a - b);
     expect(times[2], '中位數 ' + times.join(', ')).toBeLessThan(20);
 });
+
+// ===== 對比（10-03，UI-SPEC 2.2–2.4）：WCAG 相對亮度、sRGB 逐頻道混色（四捨五入） =====
+const rgbOf = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
+const hexOf = a => '#' + a.map(v => v.toString(16).padStart(2, '0')).join('');
+const mixHex = (fg, bg, pct) => hexOf(rgbOf(fg).map((v, i) => Math.round(v * pct / 100 + rgbOf(bg)[i] * (100 - pct) / 100)));
+const lumOf = h => {
+    const [r, g, b] = rgbOf(h).map(v => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; });
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+};
+const contrastOf = (a, b) => { const x = lumOf(a), y = lumOf(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); };
+const PALETTES = ev('LH_RHYME_COLORS');
+const MIX = ev('LH_RHYME_MIX');
+// [色票組, 文字色, 卡片底色]：預設淺色用淺色組、預設深色用深色組；四個客製極端兩組都要過（UI-SPEC 2.2）
+const EXTREMES = [['#000000', '#ffffff'], ['#ffffff', '#000000'], ['#2d3748', '#fffaf0'], ['#d2c8b7', '#111c31']];
+const TEXT_ON_CARD = [['light', '#2d3748', '#f7fafc'], ['dark', '#d2c8b7', '#2d3748'],
+    ...['light', 'dark'].flatMap(set => EXTREMES.map(([t, c]) => [set, t, c]))];
+
+test('對比：色票格式與文字對比', () => {
+    for (const set of ['light', 'dark']) {
+        expect(PALETTES[set]).toHaveLength(17);
+        for (const hex of PALETTES[set]) expect(hex, set).toMatch(/^#[0-9a-f]{6}$/);
+    }
+    for (const [set, text, card] of TEXT_ON_CARD) {
+        PALETTES[set].forEach((color, n) => {
+            for (const pct of [MIX.end, MIX.orphan]) {
+                const c = contrastOf(text, mixHex(color, card, pct));
+                expect(c, `${set} 色 ${n} ${color} 混 ${pct}%，文字 ${text} 在 ${card}`).toBeGreaterThanOrEqual(4.5);
+            }
+        });
+    }
+});
+
+test('對比：句中底線', () => {
+    expect(MIX.inner).toBe(30);
+    for (const [set, text, card] of [['light', '#2d3748', '#f7fafc'], ['dark', '#d2c8b7', '#2d3748']]) {
+        PALETTES[set].forEach((color, n) => {
+            // 底線＝文字色 30% 混進家族色 70%
+            const c = contrastOf(mixHex(text, color, MIX.inner), card);
+            expect(c, `${set} 色 ${n} ${color} 底線對卡片`).toBeGreaterThanOrEqual(3);
+        });
+    }
+});
