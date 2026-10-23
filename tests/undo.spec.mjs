@@ -402,3 +402,24 @@ test('復原：組字中按按鈕不動輸入框', async ({ browser }) => {
     expect(errors).toEqual([]);
     await context.close();
 });
+
+// 評審 WR-01：段落設定選單的自訂名稱框按 Ctrl+Z 用原生復原（只退掉打的字），不能去復原歌詞歷史
+test('復原：段落設定選單的名稱框不被攔', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, { storage: one() });
+    await ta(page).focus();
+    await page.keyboard.press('End');
+    await page.keyboard.type('abc');
+    await page.evaluate(() => lhSecOpenMenu(document.querySelector('.lyrics-section'), 200, 200, true));
+    await page.locator('#sectionMenu .type-row[data-type="custom"]').click();
+    const input = page.locator('#sectionMenu input.section-name-input');
+    await input.focus();
+    await page.keyboard.type('Hook');
+    expect(await input.inputValue(), '名稱框真的有焦點、有字').toBe('Hook');
+    const past = (await hist(page)).past;
+    await page.keyboard.press('ControlOrMeta+z');
+    await expect(input, '原生復原退掉打的字').toHaveValue('');
+    expect((await hist(page)).past, '歌詞歷史沒動').toBe(past);
+    expect(await page.evaluate(() => curSong().sections[0].type), '段落類型沒被復原').toBe('custom');
+    expect(errors).toEqual([]);
+    await context.close();
+});

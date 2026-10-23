@@ -140,7 +140,7 @@ const lhHistUndo = () => _lhHistMove(h => h.past, h => h.future, '已復原');
 const lhHistRedo = () => _lhHistMove(h => h.future, h => h.past, '已重做');
 
 // 快捷鍵與瀏覽器自己的復原事件只在歌詞編輯區生效，組字中一律不攔；搜尋框、情境、標籤、歌名維持瀏覽器原生復原
-const _LH_UNDO_SCOPE = '#lyricsSections, .lyrics-tools, #sectionMenu';
+const _LH_UNDO_SCOPE = '#lyricsSections, .lyrics-tools';   // 段落設定選單裡的自訂名稱框用原生復原，不動歌詞
 const _lhInScope = t => !!(t && t.closest && t.closest(_LH_UNDO_SCOPE));
 
 document.addEventListener('keydown', e => {
