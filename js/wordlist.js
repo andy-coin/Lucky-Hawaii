@@ -424,12 +424,14 @@
                 let match = true;
                 if (isSingle) {
                     const lastRhyme = getZhuyinRhyme(syllables[targetLen - 1]);
-                    if (RHYME_TO_FAMILY[lastRhyme] !== RHYME_TO_FAMILY[rhymes[0].rhyme]) match = false;
+                    // 與韻腳地圖共用同一個判定（MAP-01）
+                    if (!lhRhymeMatch(lastRhyme, rhymes[0].rhyme, false)) match = false;
                 } else {
                     for (let i = 0; i < rhymes.length; i++) {
                         if (rhymes[i].isWild) continue;
                         if (rhymes[i].notFound) continue;
-                        if (RHYME_TO_FAMILY[getZhuyinRhyme(syllables[i])] !== RHYME_TO_FAMILY[rhymes[i].rhyme]) {
+                        // 與韻腳地圖共用同一個判定（MAP-01）
+                        if (!lhRhymeMatch(getZhuyinRhyme(syllables[i]), rhymes[i].rhyme, false)) {
                             match = false; break;
                         }
                     }

@@ -53,7 +53,6 @@
             const searchRhyme = currentRhymes[0]?.rhyme;
             const searchInitial = currentRhymes[0]?.initial;
             const isPureInitial = !searchRhyme && !!searchInitial;
-            const searchFamilyId = searchRhyme ? RHYME_TO_FAMILY[searchRhyme] : null;
             const searchTone = (charInfo[searchChar] || [])[0]?.tone;
             const candidates = [];
             for (const entry of wordlistData) {
@@ -75,11 +74,9 @@
                     // 純聲母搜尋（如 ㄅ）：末字聲母要符合
                     if (getZhuyinInitial(lastSyl) !== searchInitial) continue;
                 } else {
-                    const lastRhyme = getZhuyinRhyme(lastSyl);
-                    const rhymeMatch = filterNoExtRhyme
-                        ? lastRhyme === searchRhyme
-                        : RHYME_TO_FAMILY[lastRhyme] === searchFamilyId;
-                    if (!rhymeMatch) continue;
+                    // 與韻腳地圖共用同一個判定（MAP-01）；空韻母的請求永遠沒有候選
+                    if (!searchRhyme) continue;
+                    if (!lhRhymeMatch(getZhuyinRhyme(lastSyl), searchRhyme, filterNoExtRhyme)) continue;
                 }
                 candidates.push(entry.w);
             }
@@ -279,10 +276,8 @@
                 if (pureInitial) return infos.some(i => getZhuyinInitial(i.zhuyin) === req.initial);
                 const fam = RHYME_TO_FAMILY[req.rhyme];
                 if (fam === undefined) return false;
-                return infos.some(i => {
-                    const r = getZhuyinRhyme(i.zhuyin);   // 先取韻母再查家族（整個音節不在家族表裡）
-                    return rhymeMode === 'rhyme' && filterNoExtRhyme ? r === req.rhyme : RHYME_TO_FAMILY[r] === fam;
-                });
+                // 與韻腳地圖共用同一個判定（MAP-01）；先取韻母再比（整個音節不在家族表裡）
+                return infos.some(i => lhRhymeMatch(getZhuyinRhyme(i.zhuyin), req.rhyme, rhymeMode === 'rhyme' && filterNoExtRhyme));
             }
             if (L !== currentRhymes.length) return false;
             for (let i = 0; i < L; i++) {
@@ -290,8 +285,9 @@
                 if (req.isWild || req.notFound) continue;
                 const infos = charInfo[word[i]] || [];
                 if (!infos.length) return false;
+                // 韻母比對與韻腳地圖共用同一個判定（MAP-01）
                 const ok = rhymeMode === 'rhyme'
-                    ? infos.some(x => RHYME_TO_FAMILY[getZhuyinRhyme(x.zhuyin)] === RHYME_TO_FAMILY[req.rhyme])
+                    ? infos.some(x => lhRhymeMatch(getZhuyinRhyme(x.zhuyin), req.rhyme, false))
                     : infos.some(x => _effInitial(x.zhuyin) === (req.initial || req.rhyme));
                 if (!ok) return false;
             }
