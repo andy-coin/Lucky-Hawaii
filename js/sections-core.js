@@ -32,8 +32,8 @@ function lhInferSecType(label) {
     const raw = typeof label === 'string' ? label.trim() : '';
     if (!raw) return { type: 'verse', custom: '' };
     const k = raw.toLowerCase().replace(/[_\s]+/g, ' ')
-        // 尾端的阿拉伯數字、要有空白隔開的羅馬數字、中文數字都去掉
-        .replace(/(?:\s*[#.\-]?\s*\d+|\s+[ivxlc]+|\s*[一二三四五六七八九十]+)$/u, '')
+        // 尾端的阿拉伯數字、要有空白隔開的羅馬數字（I～XXXIX，不含 L／C：'Outro C' 這種是使用者自己的名字）、中文數字都去掉
+        .replace(/(?:\s*[#.\-]?\s*\d+|\s+(?=[ivx])x{0,3}(?:ix|iv|v?i{0,3})|\s*[一二三四五六七八九十]+)$/u, '')
         .trim().replace(/\s*-\s*/g, '-');
     return LH_SEC_KEY2TYPE.has(k)
         ? { type: LH_SEC_KEY2TYPE.get(k), custom: '' }

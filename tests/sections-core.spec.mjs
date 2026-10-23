@@ -11,7 +11,7 @@ const ev = code => JSON.parse(JSON.stringify(vm.runInContext(code, ctx)));
 const j = v => JSON.stringify(v);
 
 test('名稱：推斷表', () => {
-    const verse = ['', '歌詞', '新段落', '段落', '主歌', '主歌2', '主歌 二', 'Verse', 'verse 2', 'VERSE II', 'Verse iv', '  verse  '];
+    const verse = ['', '歌詞', '新段落', '段落', '主歌', '主歌2', '主歌 二', 'Verse', 'verse 2', 'VERSE II', 'Verse iv', 'Verse x', 'Verse XIV', 'Verse xxxix', '  verse  '];
     for (const l of verse) expect(ev(`lhInferSecType(${j(l)})`), l).toEqual({ type: 'verse', custom: '' });
     expect(ev('lhInferSecType(undefined)')).toEqual({ type: 'verse', custom: '' });
     expect(ev('lhInferSecType(123)')).toEqual({ type: 'verse', custom: '' });
@@ -24,7 +24,7 @@ test('名稱：推斷表', () => {
     };
     for (const [l, t] of Object.entries(table)) expect(ev(`lhInferSecType(${j(l)})`), l).toEqual({ type: t, custom: '' });
     // 認不得的一律 Custom，原名（去頭尾空白）保留
-    for (const l of ['A段', '副歌（重複）', 'Chorus x2', '甲', '<b>x</b>', 'Hook', 'Vi', 'Mix']) {
+    for (const l of ['A段', '副歌（重複）', 'Chorus x2', '甲', '<b>x</b>', 'Hook', 'Vi', 'Mix', 'Outro C', 'Bridge L', 'Verse C', 'Chorus C', 'Verse VV', 'Verse IIII']) {
         expect(ev(`lhInferSecType(${j(l)})`), l).toEqual({ type: 'custom', custom: l });
     }
 });
