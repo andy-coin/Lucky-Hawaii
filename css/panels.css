@@ -1224,6 +1224,43 @@
             cursor: pointer;
         }
         .section-menu-btn[aria-pressed="true"] { border-color: var(--text-primary); }
+        .section-menu-btn[aria-disabled="true"] { opacity: 0.4; cursor: not-allowed; }
+        .section-menu-row .section-move-up, .section-menu-row .section-move-down { flex: 1; }
+        .section-menu-close { width: 100%; }
+        .section-menu [hidden] { display: none; }
+        /* 類型：兩欄八列的單選；目前這個加粗並在左邊畫一條 --highlight-border（跟歌曲清單的「目前」同一種寫法） */
+        .type-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: var(--sp-1);
+        }
+        .type-row {
+            min-height: 2rem;
+            padding: var(--sp-1) var(--sp-2);
+            border: 1px solid var(--border);
+            border-radius: 0.5rem;
+            background: var(--card-bg);
+            color: var(--text-primary);
+            font-family: 'Noto Sans TC', sans-serif;
+            font-size: 0.875rem;
+            font-weight: 400;
+            text-align: left;
+            cursor: pointer;
+        }
+        .type-row[aria-checked="true"] { font-weight: 700; border-left: 0.25rem solid var(--highlight-border); }
+        .section-name-input {
+            min-height: 2rem;
+            padding: var(--sp-1) var(--sp-2);
+            border: 1px solid var(--border);
+            border-radius: 0.5rem;
+            background: var(--card-bg);
+            color: var(--text-primary);
+            font-family: 'Noto Sans TC', sans-serif;
+            font-size: 1rem;
+        }
+        .section-name-input:focus { border: 2px solid var(--highlight-border); padding: calc(var(--sp-1) - 1px) calc(var(--sp-2) - 1px); outline: none; }
+        /* 觸控按住名稱鈕時的深色（長按的提示）；放在顏色淡底之後，同權重時這裡贏 */
+        .lyrics-section .section-type.is-pressing { background: var(--border); }
         /* 每段字數：靠右，不縮、不換行；點它不會收合（js/sections.js 排除） */
         .section-count {
             margin-inline-start: auto;

@@ -736,7 +736,7 @@
         @media (max-width: 900px), (pointer: coarse) {
             .search-input, .section-textarea, .context-textarea, .hashtag-popup-input,
             .hashtag-input-row input, .word-input-row input, .feedback-modal input, .feedback-modal textarea,
-            .model-select, .song-name-input {
+            .model-select, .song-name-input, .section-name-input {
                 font-size: max(16px, 1rem);
             }
             /* 搜尋框：單行、長字串用 … 收尾不撐破；右邊讓出切換按鈕的位置 */
@@ -777,6 +777,11 @@
                 padding: 0;
             }
             .hashtag-popup-input, .feedback-modal input, .search-input { min-height: max(3rem, var(--hit)); }
+            /* 段落設定選單（Phase 9）：每個控制項實體框 ≥ 44，色票每列放得下 4 個 */
+            .swatch, .section-color-input { width: var(--hit); height: var(--hit); }
+            .swatch-grid { grid-template-columns: repeat(auto-fill, minmax(var(--hit), 1fr)); }
+            .swatch { justify-self: center; }
+            .type-row, .section-menu-btn, .section-name-input { min-height: var(--hit); }
         }
 
         /* 系統要求減少動態（D-19）：進場、淡入、面板滑動、算圖提示都不播；放在最後一個樣式檔的最後，蓋過前面的動畫與過渡 */

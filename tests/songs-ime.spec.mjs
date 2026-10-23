@@ -196,3 +196,26 @@ test('組字：組字到一半切到背景仍然存檔（不掉字）', async ({
     expect(errors).toEqual([]);
     await context.close();
 });
+
+// 自訂段落名稱在「段落設定」選單的輸入框：組字中的 Enter／Esc 是選字與取消組字，不是送出或關選單（UI-SPEC D-13）
+test('組字：自訂名稱組字中按 Enter 不送出', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, { storage: FIXTURE });
+    await page.locator('#lyricsSections .section-type').first().click({ button: 'right' });
+    const menu = page.locator('#sectionMenu');
+    await expect(menu).toBeVisible();
+    await menu.getByRole('radio', { name: 'Custom', exact: true }).click();
+    const input = menu.locator('input.section-name-input');
+    await input.focus();
+    const before = (await activeSongRaw(page)).sections[0].custom;
+    await compose(page, ['ㄏ', 'ㄏㄡ'], '後', async () => {
+        await page.keyboard.press('Enter');
+        await page.keyboard.press('Escape');
+        expect((await activeSongRaw(page)).sections[0].custom, '組字中按 Enter 沒有送出名稱').toBe(before);
+        await expect(menu, '組字中按 Esc 沒有關選單').toBeVisible();
+    });
+    await page.keyboard.press('Enter');
+    expect((await activeSongRaw(page)).sections[0].custom).toBe('後');
+    expect(await page.locator('#lyricsSections .section-type').first().textContent()).toBe('後');
+    expect(errors).toEqual([]);
+    await context.close();
+});

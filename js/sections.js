@@ -442,6 +442,7 @@ document.getElementById('lyricsSections').addEventListener('pointerdown', e => {
         if (e.pointerType === 'mouse' && e.button !== 0) return;
         const secEl = rbar.closest('.lyrics-section');
         if (!secEl) return;
+        lhSecCloseMenu();
         lhSecDragEnd(false);   // 同時只有一種手勢
         const startPx = secEl.querySelector('.section-textarea').getBoundingClientRect().height;
         _lhResize = {
@@ -464,6 +465,7 @@ document.getElementById('lyricsSections').addEventListener('pointerdown', e => {
     if (e.pointerType === 'mouse' && e.button !== 0) return;
     const secEl = handle.closest('.lyrics-section');
     if (!secEl) return;
+    lhSecCloseMenu();
     _lhDrag = {
         handle, secEl, id: secEl.dataset.id, pointerId: e.pointerId, touch: e.pointerType === 'touch',
         sx: e.clientX, sy: e.clientY, x: e.clientX, y: e.clientY,
@@ -563,16 +565,23 @@ function lhSecCountFrom(target) {
     if (target && target.classList && target.classList.contains('section-textarea')) lhSecCountOne(target.closest('.lyrics-section'));
 }
 
+let _lhHinted = false;   // 第一次換類型的提示是否已顯示過（只存在這個頁面的記憶體）
+
 // 標題列：型別按鈕換下一種、− 刪除、其餘空白處收合／展開
 document.getElementById('lyricsSections').addEventListener('click', e => {
     const secEl = e.target.closest('.lyrics-section');
     if (!secEl) return;
     if (e.target.closest('.section-type')) {
-        lhSecApply('type', song => {
+        const step = lhSecApply('type', song => {
             const s = song.sections.find(x => x.id === secEl.dataset.id);
             if (!s) return false;
             s.type = LH_SEC_TYPES[(LH_SEC_TYPES.indexOf(s.type) + 1) % LH_SEC_TYPES.length];
         });
+        // 長按與右鍵看不出來：這個頁面第一次換類型時提示一次（只記在變數裡，不存，D-12）
+        if (step && !_lhHinted) {
+            _lhHinted = true;
+            showToast('長按標籤（桌機按右鍵）可改顏色、名稱與順序', 3000);
+        }
     } else if (e.target.closest('.section-remove')) {
         lhSecRemove(secEl.dataset.id);
     } else if (e.target.closest('.lyrics-section-header') && !e.target.closest('.section-handle, .section-count')) {
@@ -587,6 +596,7 @@ const LH_SEC_COLORS = [
     { name: '青', hex: '#2c9fa0' }, { name: '藍', hex: '#4a7fd4' }, { name: '紫', hex: '#8d6bd0' }, { name: '粉', hex: '#d2649a' },
 ];
 const _LH_COLOR_OUT = /^#[0-9a-f]{6}$/;   // 只有這個格式的值才會進 style／dataset（T-09-16）
+const _LH_FINE = '(hover: hover) and (pointer: fine)';
 let _lhMenu = null;     // #sectionMenu 節點（第一次打開才建）
 let _lhMenuId = null;   // 開著的是哪一段（id）；null＝關著
 
@@ -614,6 +624,12 @@ function _lhMkBtn(cls, text, label) {
     if (label) b.setAttribute('aria-label', label);
     return b;
 }
+// 有標題文字的區塊
+function _lhMkBlock(cap, ...kids) {
+    const b = _lhMk('div', 'section-menu-block');
+    b.append(_lhMk('span', 'section-menu-cap', cap), ...kids);
+    return b;
+}
 
 function lhSecMenuBuild() {
     if (_lhMenu) return _lhMenu;
@@ -622,9 +638,7 @@ function lhSecMenuBuild() {
     m.setAttribute('role', 'dialog');
     m.setAttribute('aria-label', '段落設定');
     const title = _lhMk('div', 'section-menu-title');
-    title.id = 'sectionMenuTitle';
     // 顏色
-    const colorBlock = _lhMk('div', 'section-menu-block');
     const grid = _lhMk('div', 'swatch-grid');
     for (const c of LH_SEC_COLORS) {
         const sw = _lhMkBtn('swatch', '', '顏色：' + c.name);
@@ -632,16 +646,40 @@ function lhSecMenuBuild() {
         sw.style.setProperty('--sw', c.hex);
         grid.appendChild(sw);
     }
-    const row = _lhMk('div', 'section-menu-row');
     const pick = _lhMk('input', 'section-color-input');
     pick.type = 'color';
     pick.value = '#888888';
     pick.setAttribute('aria-label', '自訂顏色');
     const none = _lhMkBtn('section-menu-btn section-color-none', '無顏色');
+    const row = _lhMk('div', 'section-menu-row');
     row.append(pick, none);
-    colorBlock.append(_lhMk('span', 'section-menu-cap', '顏色'), grid, row);
-    m.append(title, colorBlock);
+    // 類型：8 個 radio，兩欄
+    const types = _lhMk('div', 'type-grid');
+    types.setAttribute('role', 'radiogroup');
+    types.setAttribute('aria-label', '段落類型');
+    for (const t of LH_SEC_TYPES) {
+        const r = _lhMkBtn('type-row', LH_SEC_NAMES[t]);
+        r.setAttribute('role', 'radio');
+        r.dataset.type = t;
+        types.appendChild(r);
+    }
+    // 自訂名稱（只有 Custom 才顯示）
+    const name = _lhMk('input', 'section-name-input');
+    name.type = 'text';
+    name.maxLength = LH_SEC_CUSTOM_MAX;
+    name.placeholder = '例如：Rap、Solo、Hook';
+    name.setAttribute('aria-label', '自訂段落名稱');
+    const nameBlock = _lhMkBlock('自訂名稱', name);
+    nameBlock.classList.add('section-menu-name');
+    // 位置
+    const up = _lhMkBtn('section-menu-btn section-move-up', '↑ 上移');
+    const down = _lhMkBtn('section-menu-btn section-move-down', '↓ 下移');
+    const moves = _lhMk('div', 'section-menu-row');
+    moves.append(up, down);
+    const close = _lhMkBtn('section-menu-btn section-menu-close', '關閉設定');
+    m.append(title, _lhMkBlock('顏色', grid, row), _lhMkBlock('類型', types), nameBlock, _lhMkBlock('位置', moves), close);
     document.body.appendChild(m);
+
     // 顏色：色票與「無顏色」馬上套用；原生選色盤拖動時只預覽（input），放開才記一步（change，D-06）
     grid.addEventListener('click', e => {
         const sw = e.target.closest && e.target.closest('.swatch');
@@ -652,8 +690,60 @@ function lhSecMenuBuild() {
         const el = _lhMenuId && lhSecEl(_lhMenuId);
         if (el && _LH_COLOR_OUT.test(pick.value)) lhSecApplyColor(el, pick.value);   // 只改畫面，不碰模型與歷史
     });
-    pick.addEventListener('change', () => {
-        if (_LH_COLOR_OUT.test(pick.value)) lhSecMenuColor(pick.value);
+    pick.addEventListener('change', () => lhSecMenuColor(pick.value));
+    // 類型：點一下就換；方向鍵只移焦點（頭尾相接），Enter／空白才是選
+    types.addEventListener('click', e => {
+        const r = e.target.closest && e.target.closest('.type-row');
+        if (!r) return;
+        lhSecMenuType(r.dataset.type);
+        // 桌機選 Custom 直接可以打名字；觸控不聚焦，免得鍵盤自己彈出來（D-13）
+        if (r.dataset.type === 'custom' && matchMedia(_LH_FINE).matches) {
+            name.focus({ preventScroll: true });
+            name.setSelectionRange(name.value.length, name.value.length);
+        }
+    });
+    types.addEventListener('keydown', e => {
+        const k = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }[e.key];
+        const rows = [...types.children];
+        const i = rows.indexOf(document.activeElement);
+        if (!k || i < 0 || e.isComposing || e.keyCode === 229) return;
+        e.preventDefault();
+        rows.forEach(r => r.tabIndex = -1);
+        const next = rows[(i + k + rows.length) % rows.length];
+        next.tabIndex = 0;
+        next.focus({ preventScroll: true });
+    });
+    // 自訂名稱：Enter 或離開欄位送出（一步）；Esc 還原文字、選單不關；組字中的 Enter／Esc 是選字與取消組字，一律不處理
+    name.addEventListener('keydown', e => {
+        if (e.isComposing || e.keyCode === 229) return;
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            lhSecMenuName(name.value);
+        } else if (e.key === 'Escape') {
+            e.preventDefault();
+            e.stopPropagation();   // 不讓 ≤ 900 的 sheet 一起收起
+            const s = _lhMenuSec();
+            name.value = s ? s.custom : '';
+        }
+    });
+    name.addEventListener('blur', () => lhSecMenuName(name.value));
+    // 位置：移完選單還開著（觸控沒有拖曳時的替代做法，C3）
+    for (const [btn, delta] of [[up, -1], [down, 1]]) {
+        btn.addEventListener('click', () => {
+            if (btn.getAttribute('aria-disabled') === 'true' || !_lhMenuId) return;
+            lhSecMoveBy(_lhMenuId, delta);
+            lhSecMenuSync();
+        });
+    }
+    close.addEventListener('click', () => lhSecCloseMenu(true));
+    // Tab 在選單裡頭尾相接（D-05）
+    m.addEventListener('keydown', e => {
+        if (e.key !== 'Tab') return;
+        const items = [...m.querySelectorAll('button, input')].filter(n => n.tabIndex >= 0 && n.offsetParent !== null);
+        if (!items.length) return;
+        const first = items[0], last = items[items.length - 1];
+        if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+        else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
     });
     _lhMenu = m;
     return m;
@@ -665,25 +755,57 @@ function _lhMenuSec() {
     return (song && _lhMenuId && song.sections.find(s => s.id === _lhMenuId)) || null;
 }
 
-// 把顏色寫進模型：一步一個歷史（沒變就不記）
-function lhSecMenuColor(color) {
+// 這一步只改一個欄位；沒變就不記歷史（lhSecApply 收到 false 就不動）
+function _lhMenuSet(kind, field, value) {
     const id = _lhMenuId;
     if (!id) return;
-    lhSecApply('color', song => {
+    lhSecApply(kind, song => {
         const s = song.sections.find(x => x.id === id);
-        if (!s || s.color === color) return false;
-        s.color = color;
+        if (!s || s[field] === value) return false;
+        s[field] = value;
     });
 }
 
-// 依模型更新選單上會變的部分（標題、色票按下狀態）；不動使用者正在打的輸入框
+// 顏色：'' 或 #rrggbb（轉小寫）；其他格式一律不存（T-09-16）
+function lhSecMenuColor(color) {
+    const c = typeof color === 'string' ? color.toLowerCase() : null;
+    if (c === '' || (c !== null && _LH_COLOR_OUT.test(c))) _lhMenuSet('color', 'color', c);
+}
+
+function lhSecMenuType(type) {
+    if (LH_SEC_TYPE_SET.has(type)) _lhMenuSet('type', 'type', type);
+}
+
+// 自訂名稱：去頭尾空白、最多 40 個字元；空白＝沒有名字（顯示 Custom）
+function lhSecMenuName(raw) {
+    const input = _lhMenu && _lhMenu.querySelector('.section-name-input');
+    if (!_lhMenuSec()) return;
+    const v = Array.from(String(raw).trim()).slice(0, LH_SEC_CUSTOM_MAX).join('');
+    _lhMenuSet('custom', 'custom', v);
+    if (input) input.value = v;
+}
+
+// 依模型更新選單上會變的部分；使用者正在打字的輸入框不動
 function lhSecMenuSync() {
     const s = _lhMenuSec();
     if (!_lhMenu || !s) return;
+    const song = curSong();
+    const i = song.sections.indexOf(s), n = song.sections.length;
     _lhMenu.querySelector('.section-menu-title').textContent = '段落設定：' + cutName(s.label, 16);
     _lhMenu.querySelectorAll('.swatch').forEach(sw => sw.setAttribute('aria-pressed', String(sw.dataset.hex === s.color)));
     _lhMenu.querySelector('.section-color-none').setAttribute('aria-pressed', String(!s.color));
     if (s.color) _lhMenu.querySelector('.section-color-input').value = s.color;
+    _lhMenu.querySelectorAll('.type-row').forEach(r => {
+        const on = r.dataset.type === s.type;
+        r.setAttribute('aria-checked', String(on));
+        r.tabIndex = on ? 0 : -1;
+    });
+    _lhMenu.querySelector('.section-menu-name').hidden = s.type !== 'custom';
+    const name = _lhMenu.querySelector('.section-name-input');
+    if (document.activeElement !== name) name.value = s.custom;
+    for (const [sel, off] of [['.section-move-up', i <= 0], ['.section-move-down', i >= n - 1]]) {
+        _lhMenu.querySelector(sel).setAttribute('aria-disabled', String(off));
+    }
 }
 
 // x、y：選單左上角想放的位置（滑鼠＝指標；觸控與鍵盤＝名稱鈕下方）
@@ -694,31 +816,104 @@ function lhSecOpenMenu(secEl, x, y, byKeyboard) {
     _lhMenuId = secEl.dataset.id;
     lhSecMenuSync();
     lhPlaceMenu(m, x, y);
+    // 鍵盤打開才把焦點放到目前類型那一列；滑鼠、觸控不搶焦點（手機鍵盤不要彈出來）
+    if (byKeyboard) m.querySelector('.type-row[aria-checked="true"]')?.focus({ preventScroll: true });
     return m;
 }
 
-function lhSecCloseMenu() {
+// commitName：使用者點選單外面時，輸入框裡還沒送出的名字先存起來（重畫造成的關閉不存）
+function lhSecCloseMenu(commitName) {
     if (!_lhMenu || !_lhMenuId) return;
+    const name = _lhMenu.querySelector('.section-name-input');
+    if (commitName && document.activeElement === name) lhSecMenuName(name.value);
     const el = lhSecEl(_lhMenuId), s = _lhMenuSec();
     _lhMenu.classList.remove('show');
     _lhMenuId = null;
     if (el && s) lhSecApplyColor(el, s.color);   // 選色盤預覽沒按確定就關：畫面回到模型的顏色
 }
 
-// 右鍵（桌機）：在指標位置開
+// 打開選單：滑鼠在指標位置；觸控與鍵盤在名稱鈕下方
+function _lhMenuUnder(btn, byKeyboard) {
+    const r = btn.getBoundingClientRect();
+    const m = lhSecOpenMenu(btn.closest('.lyrics-section'), r.left, r.bottom + 4, byKeyboard);
+    // 下面放不下被擠上去蓋住按鈕時，翻到按鈕上方（跟匯出選單一樣）；上下都放不下就維持夾進畫面
+    const b = m.getBoundingClientRect();
+    if (b.top < r.bottom && r.top - b.height - 4 >= 4) lhPlaceMenu(m, r.left, r.top - b.height - 4);
+}
+
+// 右鍵（桌機）：在指標位置開。觸控長按時 Android 也會送 contextmenu：交給長按計時器開，這裡只擋掉瀏覽器自己的選單
 document.getElementById('lyricsSections').addEventListener('contextmenu', e => {
     const btn = e.target.closest && e.target.closest('.section-type');
     if (!btn) return;
-    e.preventDefault();   // 瀏覽器自己的選單一律不要
-    lhSecOpenMenu(btn.closest('.lyrics-section'), e.clientX, e.clientY, false);
+    e.preventDefault();
+    if (_lhPress) return;
+    if (e.clientX === 0 && e.clientY === 0) _lhMenuUnder(btn, true);   // 鍵盤送來的 contextmenu 沒有座標
+    else lhSecOpenMenu(btn.closest('.lyrics-section'), e.clientX, e.clientY, false);
 });
+
+// 鍵盤：ContextMenu 鍵或 Shift+F10（Mac 的 Chrome 不會自己送 contextmenu，所以自己接）
+document.getElementById('lyricsSections').addEventListener('keydown', e => {
+    const btn = e.target.closest && e.target.closest('.section-type');
+    if (!btn || e.isComposing || e.keyCode === 229) return;
+    if (e.key === 'ContextMenu' || (e.shiftKey && e.key === 'F10')) {
+        e.preventDefault();
+        _lhMenuUnder(btn, true);
+    }
+});
+
+// 觸控長按（D-15）：按住 500 毫秒、移動不超過 10px 才算；按住時名稱鈕變深，開完選單後放開的那一下 click 要吞掉
+const LH_LONGPRESS_MS = 500, LH_LONGPRESS_SLOP = 10;
+let _lhPress = null;      // 按住中：{ btn, pointerId, x, y, timer }
+let _lhSwallow = false;   // 長按開了選單：下一個名稱鈕的 click 不換類型
+
+function lhSecPressEnd() {
+    const p = _lhPress;
+    if (!p) return;
+    clearTimeout(p.timer);
+    p.btn.classList.remove('is-pressing');
+    _lhPress = null;
+}
+document.getElementById('lyricsSections').addEventListener('pointerdown', e => {
+    const btn = e.target.closest && e.target.closest('.section-type');
+    if (!btn || e.pointerType === 'mouse' || !e.isPrimary) return;
+    lhSecPressEnd();
+    _lhSwallow = false;
+    btn.classList.add('is-pressing');
+    _lhPress = {
+        btn, pointerId: e.pointerId, x: e.clientX, y: e.clientY,
+        timer: setTimeout(() => {
+            if (typeof navigator.vibrate === 'function') navigator.vibrate(10);
+            _lhSwallow = true;
+            _lhMenuUnder(btn, false);
+        }, LH_LONGPRESS_MS),
+    };
+});
+document.addEventListener('pointermove', e => {
+    const p = _lhPress;
+    if (p && e.pointerId === p.pointerId && Math.hypot(e.clientX - p.x, e.clientY - p.y) > LH_LONGPRESS_SLOP) lhSecPressEnd();
+});
+for (const type of ['pointerup', 'pointercancel']) {
+    document.addEventListener(type, e => {
+        if (!_lhPress || e.pointerId !== _lhPress.pointerId) return;
+        lhSecPressEnd();
+        // click 緊接在 pointerup 後面；沒等到（手指移走）就別留著吞下一次真的點擊
+        if (_lhSwallow) setTimeout(() => { _lhSwallow = false; }, 400);
+    }, true);
+}
+document.addEventListener('click', e => {
+    if (!_lhSwallow || !(e.target.closest && e.target.closest('.section-type'))) return;
+    _lhSwallow = false;
+    e.preventDefault();
+    e.stopPropagation();
+}, true);
 
 // 點選單外面關掉；Esc 關掉並把焦點還給名稱鈕（capture：≤ 900 的 sheet 才不會同時被收起）
 document.addEventListener('pointerdown', e => {
-    if (_lhMenuId && !(e.target.closest && e.target.closest('#sectionMenu'))) lhSecCloseMenu();
+    if (_lhMenuId && !(e.target.closest && e.target.closest('#sectionMenu'))) lhSecCloseMenu(true);
 }, true);
 document.addEventListener('keydown', e => {
     if (e.key !== 'Escape' || !_lhMenuId || e.isComposing || e.keyCode === 229) return;
+    if (e.target.classList && e.target.classList.contains('section-name-input')) return;   // 輸入框自己處理：只還原文字
     const id = _lhMenuId;
     e.preventDefault();
     e.stopPropagation();

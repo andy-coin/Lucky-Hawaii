@@ -3,6 +3,7 @@ import { test, expect } from '@playwright/test';
 import { readFileSync } from 'node:fs';
 import { bootPage, activeSongRaw, compose } from './helpers.mjs';
 import { DEVICES, setScale, waitStill, rectsOverlap } from './layout-lib.mjs';
+import { centerOf, touchSession } from './drag-lib.mjs';
 
 const FIXTURE = JSON.parse(readFileSync(new URL('./fixtures/v096-localStorage.json', import.meta.url), 'utf8'));
 const labels = page => page.locator('#lyricsSections .section-type').evaluateAll(els => els.map(e => e.textContent));
@@ -583,6 +584,308 @@ test('顏色：右鍵選色', async ({ browser }) => {
     await page.reload();
     await page.waitForFunction(() => window.__hoyunSongsReady);
     await expect(page.locator('#lyricsSections .lyrics-section').nth(1)).toHaveAttribute('data-color', '#48a868');
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+// ==================== 段落設定：長按、鍵盤、選色、類型、自訂名稱、位置、關閉 ====================
+const pastLen = page => page.evaluate(() => _hists.get(curSong().id).past.length);
+const menuOf = page => page.locator('#sectionMenu');
+const three3 = () => v2Storage([song('s1', [typed('sa', 'verse', 'A'), typed('sb', 'chorus', 'B'), typed('sc', 'bridge', 'C')])]);
+const openMenuAt = async (page, i) => { await page.locator('#lyricsSections .section-type').nth(i).click({ button: 'right' }); await expect(menuOf(page)).toBeVisible(); };
+const radio = (page, name) => menuOf(page).getByRole('radio', { name, exact: true });
+
+test('設定：長按開啟不循環', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, { device: DEVICES.tablet, storage: v2Storage([song('s1', [typed('sa', 'verse', 'A'), typed('sb', 'chorus', 'B')])]) });
+    await openLyrics(page);
+    const btn = page.locator('#lyricsSections .section-type').nth(1);
+    const [x, y] = await centerOf(btn);
+    const t = await touchSession(page);
+    await t.down(x, y);
+    await page.waitForTimeout(200);
+    expect(await btn.evaluate(el => el.classList.contains('is-pressing')), '按住中有按下的樣子').toBe(true);
+    await page.waitForTimeout(350);
+    await t.up();
+    await expect(menuOf(page)).toBeVisible();
+    await page.waitForTimeout(300);
+    expect(await labels(page), '長按後沒有循環').toEqual(['Verse', 'Chorus']);
+    expect(await btn.evaluate(el => el.classList.contains('is-pressing')), '放開後按下的樣子消失').toBe(false);
+    const b = await btn.boundingBox(), m = await menuOf(page).boundingBox();
+    expect(m.y >= b.y + b.height - 1 || m.y + m.height <= b.y + 1, '選單不蓋住名稱鈕（下面放不下就放上面）').toBe(true);
+    // 100 毫秒輕點照常循環（同時點外面會把選單關掉）
+    await t.down(x, y);
+    await page.waitForTimeout(100);
+    await t.up();
+    await expect.poll(() => labels(page)).toEqual(['Verse', 'Inter']);
+    await expect(menuOf(page)).toBeHidden();
+    // 按住後手指移開超過 10px：不開選單
+    await t.down(x, y);
+    await t.move(x + 30, y);
+    await page.waitForTimeout(600);
+    await t.up();
+    await expect(menuOf(page)).toBeHidden();
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('設定：鍵盤開啟', async ({ browser }) => {
+    for (const [name, device] of [['電腦', DEVICES.desktop], ['手機', DEVICES.phone]]) {
+        const { context, page, errors } = await bootPage(browser, { device, storage: three3() });
+        await openLyrics(page);
+        const btn = page.locator('#lyricsSections .section-type').nth(1);
+        await btn.focus();
+        await page.keyboard.press('Shift+F10');
+        await expect(menuOf(page), name).toBeVisible();
+        const act = await page.evaluate(() => { const a = document.activeElement; return { role: a.getAttribute('role'), checked: a.getAttribute('aria-checked'), text: a.textContent }; });
+        expect(act, name + '：焦點在目前類型那一列').toEqual({ role: 'radio', checked: 'true', text: 'Chorus' });
+        await page.keyboard.press('Escape');
+        await expect(menuOf(page), name).toBeHidden();
+        expect(await page.evaluate(() => document.activeElement.className), name + '：焦點回到名稱鈕').toContain('section-type');
+        expect(await page.evaluate(() => document.activeElement.textContent)).toBe('Chorus');
+        expect(await page.locator('#leftPanel').evaluate(el => el.classList.contains('collapsed')), name + '：歌詞面板沒被一起收起').toBe(false);
+        // ContextMenu 鍵也一樣
+        await page.keyboard.press('ContextMenu');
+        await expect(menuOf(page), name).toBeVisible();
+        expect(errors).toEqual([]);
+        await context.close();
+    }
+});
+
+test('顏色：自訂色預覽與確定', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, { device: DEVICES.desktop, storage: three3() });
+    await openMenuAt(page, 0);
+    const input = menuOf(page).locator('input[type=color]');
+    const before = await pastLen(page);
+    const fire = (v, type) => input.evaluate((el, a) => { el.value = a[0]; el.dispatchEvent(new Event(a[1], { bubbles: true })); }, [v, type]);
+    for (const v of ['#112233', '#223344', '#334455']) await fire(v, 'input');
+    expect(await page.locator('#lyricsSections .lyrics-section').first().evaluate(el => getComputedStyle(el).getPropertyValue('--sec-color').trim()), '畫面預覽').toBe('#334455');
+    expect(await pastLen(page), '預覽不記歷史').toBe(before);
+    expect((await activeSongRaw(page)).sections[0].color, '預覽不存檔').toBe('');
+    expect(await page.evaluate(() => curSong().sections[0].color), '預覽不寫模型').toBe('');
+    await fire('#E05D5D', 'change');
+    expect(await pastLen(page), '確定只記一步').toBe(before + 1);
+    expect((await activeSongRaw(page)).sections[0].color).toBe('#e05d5d'.toLowerCase());
+    expect(await colorOf(page, 0)).toBe('#e05d5d');
+    // 不合格式的值不會被存（3 位數、色名）
+    await page.evaluate(() => { lhSecMenuColor('#abc'); lhSecMenuColor('red'); lhSecMenuColor('#GGGGGG'); });
+    expect(await pastLen(page)).toBe(before + 1);
+    expect(await colorOf(page, 0)).toBe('#e05d5d');
+    // 預覽後沒按確定就關：畫面回到模型的顏色
+    await fire('#00ff00', 'input');
+    await page.keyboard.press('Escape');
+    expect(await colorOf(page, 0)).toBe('#e05d5d');
+    // 重新整理與備份來回都還在
+    await page.reload();
+    await page.waitForFunction(() => window.__hoyunSongsReady);
+    expect(await colorOf(page, 0)).toBe('#e05d5d');
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('顏色：無顏色', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, { device: DEVICES.desktop, storage: three3() });
+    await openMenuAt(page, 1);
+    await menuOf(page).locator('.swatch[aria-label="顏色：綠"]').click();
+    await expect(menuOf(page).locator('.swatch[aria-label="顏色：綠"]')).toHaveAttribute('aria-pressed', 'true');
+    await expect(menuOf(page).getByRole('button', { name: '無顏色' })).toHaveAttribute('aria-pressed', 'false');
+    const before = await pastLen(page);
+    await menuOf(page).getByRole('button', { name: '無顏色' }).click();
+    expect(await colorOf(page, 1)).toBe('');
+    expect(await pastLen(page)).toBe(before + 1);
+    const sec = page.locator('#lyricsSections .lyrics-section').nth(1);
+    expect(await sec.evaluate(el => ({ bar: getComputedStyle(el, '::before').content, v: el.style.getPropertyValue('--sec-color') }))).toEqual({ bar: 'none', v: '' });
+    await expect(menuOf(page).getByRole('button', { name: '無顏色' })).toHaveAttribute('aria-pressed', 'true');
+    // 再按一次：沒變就不記
+    await menuOf(page).getByRole('button', { name: '無顏色' }).click();
+    expect(await pastLen(page)).toBe(before + 1);
+    expect((await activeSongRaw(page)).sections[1].color).toBe('');
+    // 沒有顏色的段落仍有把手、名稱、字數
+    await expect(sec.locator('.section-handle, .section-type, .section-count')).toHaveCount(3);
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('設定：直接選類型', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, { device: DEVICES.desktop, storage: three3() });
+    await openMenuAt(page, 1);
+    await expect(menuOf(page).getByRole('radiogroup', { name: '段落類型' })).toBeVisible();
+    await expect(menuOf(page).getByRole('radio')).toHaveCount(8);
+    expect(await menuOf(page).getByRole('radio').evaluateAll(els => els.map(e => e.textContent))).toEqual(['Intro', 'Verse', 'Pre-Chorus', 'Chorus', 'Inter', 'Bridge', 'Outro', 'Custom']);
+    await expect(radio(page, 'Chorus')).toHaveAttribute('aria-checked', 'true');
+    const before = await pastLen(page);
+    await radio(page, 'Verse').click();
+    expect(await labels(page), '兩個 Verse 要編號').toEqual(['Verse I', 'Verse II', 'Bridge']);
+    expect(await pastLen(page)).toBe(before + 1);
+    await expect(menuOf(page).locator('.section-menu-title')).toHaveText('段落設定：Verse II');
+    await expect(radio(page, 'Verse')).toHaveAttribute('aria-checked', 'true');
+    await expect(radio(page, 'Chorus')).toHaveAttribute('aria-checked', 'false');
+    expect((await activeSongRaw(page)).sections.map(s => s.type)).toEqual(['verse', 'verse', 'bridge']);
+    // 選一樣的：不記
+    await radio(page, 'Verse').click();
+    expect(await pastLen(page)).toBe(before + 1);
+    // 方向鍵只移動焦點，不改類型
+    await radio(page, 'Verse').focus();
+    await page.keyboard.press('ArrowRight');
+    expect(await page.evaluate(() => document.activeElement.textContent)).toBe('Pre-Chorus');
+    await page.keyboard.press('ArrowDown');
+    expect(await page.evaluate(() => document.activeElement.textContent)).toBe('Chorus');
+    await page.keyboard.press('ArrowLeft');
+    expect(await page.evaluate(() => document.activeElement.textContent)).toBe('Pre-Chorus');
+    await page.keyboard.press('ArrowUp');
+    expect(await page.evaluate(() => document.activeElement.textContent)).toBe('Verse');
+    await expect(radio(page, 'Verse')).toHaveAttribute('aria-checked', 'true');
+    await page.keyboard.press('Enter');   // Enter 或空白才是選
+    expect(await pastLen(page)).toBe(before + 1);
+    await page.keyboard.press('ArrowRight');
+    await page.keyboard.press('Enter');
+    expect(await labels(page)).toEqual(['Verse', 'Pre-Chorus', 'Bridge']);
+    // 復原一步回到 Verse II
+    await page.locator('#undoBtn').click();
+    expect(await labels(page)).toEqual(['Verse I', 'Verse II', 'Bridge']);
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('設定：自訂名稱', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, { device: DEVICES.desktop, storage: three3() });
+    await openMenuAt(page, 1);
+    const input = menuOf(page).locator('input.section-name-input');
+    await expect(input, '不是 Custom 時看不到').toBeHidden();
+    await radio(page, 'Custom').click();
+    await expect(input).toBeVisible();
+    expect(await input.evaluate(el => el === document.activeElement), '桌機選 Custom 直接聚焦').toBe(true);
+    expect(await input.getAttribute('maxlength')).toBe('40');
+    expect(await input.getAttribute('aria-label')).toBe('自訂段落名稱');
+    expect(await input.getAttribute('placeholder')).toBe('例如：Rap、Solo、Hook');
+    expect(await labels(page)).toEqual(['Verse', 'Custom', 'Bridge']);
+    let before = await pastLen(page);
+    await page.keyboard.type('Hook');
+    await page.keyboard.press('Enter');
+    expect(await labels(page)).toEqual(['Verse', 'Hook', 'Bridge']);
+    expect(await pastLen(page), 'Enter 記一步').toBe(before + 1);
+    expect((await activeSongRaw(page)).sections[1].custom).toBe('Hook');
+    // Esc：還原文字，選單還開著
+    await input.focus();
+    await page.keyboard.type('X');
+    await page.keyboard.press('Escape');
+    await expect(input).toHaveValue('Hook');
+    await expect(menuOf(page)).toBeVisible();
+    expect(await labels(page)).toEqual(['Verse', 'Hook', 'Bridge']);
+    // 只有空白：顯示 Custom
+    await input.fill('   ');
+    await page.keyboard.press('Enter');
+    expect(await labels(page)).toEqual(['Verse', 'Custom', 'Bridge']);
+    // 切走再切回：名字還在
+    await input.fill('Hook');
+    await input.blur();   // blur 也送出
+    expect(await labels(page)).toEqual(['Verse', 'Hook', 'Bridge']);
+    await radio(page, 'Chorus').click();
+    expect(await labels(page)).toEqual(['Verse', 'Chorus', 'Bridge']);
+    await expect(input).toBeHidden();
+    await radio(page, 'Custom').click();
+    expect(await labels(page)).toEqual(['Verse', 'Hook', 'Bridge']);
+    await expect(input).toHaveValue('Hook');
+    // 貼上 41 個字：只留 40
+    await input.fill('');
+    await page.keyboard.insertText('字'.repeat(41));
+    expect(Array.from(await input.inputValue()).length).toBeLessThanOrEqual(40);
+    await page.keyboard.press('Enter');
+    expect(Array.from((await activeSongRaw(page)).sections[1].custom).length).toBe(40);
+    // 40 字在標題列用 … 收尾，title 是全名；選單標題切成 16 字加 …
+    expect(await page.locator('#lyricsSections .section-type').nth(1).evaluate(el => ({ over: el.scrollWidth > el.clientWidth, title: el.title }))).toEqual({ over: true, title: '字'.repeat(40) });
+    await expect(menuOf(page).locator('.section-menu-title')).toHaveText('段落設定：' + '字'.repeat(16) + '…');
+    // 手機：選 Custom 不聚焦（鍵盤不要自己彈出來）
+    const ph = await bootPage(browser, { device: DEVICES.phone, storage: three3() });
+    await openLyrics(ph.page);
+    await ph.page.locator('#lyricsSections .section-type').nth(1).click({ button: 'right' });
+    await expect(menuOf(ph.page)).toBeVisible();
+    await radio(ph.page, 'Custom').tap();
+    await expect(menuOf(ph.page).locator('input.section-name-input')).toBeVisible();
+    expect(await ph.page.evaluate(() => document.activeElement.tagName)).not.toBe('INPUT');
+    expect(ph.errors).toEqual([]);
+    await ph.context.close();
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('設定：上移下移', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, { device: DEVICES.desktop, storage: three3() });
+    await openMenuAt(page, 1);
+    const up = menuOf(page).getByRole('button', { name: '↑ 上移' }), down = menuOf(page).getByRole('button', { name: '↓ 下移' });
+    await expect(up).toHaveAttribute('aria-disabled', 'false');
+    const before = await pastLen(page);
+    await up.click();
+    expect(await labels(page)).toEqual(['Chorus', 'Verse', 'Bridge']);
+    await expect(menuOf(page), '選單還開著').toBeVisible();
+    expect(await pastLen(page)).toBe(before + 1);
+    await expect(up).toHaveAttribute('aria-disabled', 'true');
+    await expect(down).toHaveAttribute('aria-disabled', 'false');
+    await up.click({ force: true });   // 已在最上面：什麼都不做
+    expect(await pastLen(page)).toBe(before + 1);
+    expect(await labels(page)).toEqual(['Chorus', 'Verse', 'Bridge']);
+    await down.click();
+    await down.click();
+    await expect(down).toHaveAttribute('aria-disabled', 'true');
+    expect(await labels(page)).toEqual(['Verse', 'Bridge', 'Chorus']);
+    expect((await activeSongRaw(page)).sections.map(s => s.id)).toEqual(['sa', 'sc', 'sb']);
+    await page.keyboard.press('Escape');
+    // 只有一段：兩個都灰
+    await page.evaluate(() => { lhSecRemove('sa'); lhSecRemove('sc'); });
+    await page.locator('#lyricsSections .section-type').first().click({ button: 'right' });
+    await expect(up).toHaveAttribute('aria-disabled', 'true');
+    await expect(down).toHaveAttribute('aria-disabled', 'true');
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('設定：關閉方式', async ({ browser }) => {
+    const two = v2Storage([song('s1', [typed('sa', 'verse', 'A'), typed('sb', 'chorus', 'B')]), song('s2', [typed('sx', 'verse', 'X')])], 's1');
+    const { context, page, errors } = await bootPage(browser, { device: DEVICES.desktop, storage: two });
+    const closes = {
+        '點外面': () => page.locator('.section-textarea').first().click(),
+        '關閉設定': () => menuOf(page).getByRole('button', { name: '關閉設定' }).click(),
+        'Esc': () => page.keyboard.press('Escape'),
+        '刪除這一段': () => page.evaluate(() => lhSecRemove('sb')),
+        '換歌': () => page.evaluate(() => switchSong('s2')),
+        '開始拖曳': async () => { const [x, y] = await centerOf(page.locator('.section-handle').first()); await page.mouse.move(x, y); await page.mouse.down(); await page.mouse.up(); },
+        '中止手勢': () => page.evaluate(() => lhSecAbortInteractions()),
+    };
+    for (const [name, close] of Object.entries(closes)) {
+        await page.evaluate(() => { switchSong('s1'); });
+        await page.evaluate(() => { if (curSong().sections.length < 2) { const s = makeEmptySection('chorus'); s.id = 'sb'; curSong().sections.push(s); renderLyricsSections(); } });
+        await openMenuAt(page, 1);
+        await close();
+        await expect(menuOf(page), name + '要關掉選單').toBeHidden();
+    }
+    // 聚焦色盤輸入不會關
+    await page.evaluate(() => switchSong('s1'));
+    await openMenuAt(page, 0);
+    await menuOf(page).locator('input[type=color]').focus();
+    await page.waitForTimeout(100);
+    await expect(menuOf(page)).toBeVisible();
+    // 打開選單會關掉匯出選單
+    await page.keyboard.press('Escape');
+    await page.evaluate(() => toggleExportMenu());
+    await expect(page.locator('#exportMenu')).toHaveClass(/show/);
+    await page.locator('#lyricsSections .section-type').first().click({ button: 'right' });
+    await expect(menuOf(page)).toBeVisible();
+    await expect(page.locator('#exportMenu')).not.toHaveClass(/show/);
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('設定：第一次提示', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, { device: DEVICES.desktop, storage: three3() });
+    await page.evaluate(() => document.getElementById('copyToast')?.classList.remove('show'));
+    const keysBefore = await page.evaluate(() => Object.keys(localStorage).sort());
+    await page.locator('#lyricsSections .section-type').first().click();
+    await expect(page.locator('#copyToast')).toHaveClass(/show/);
+    await expect(page.locator('#copyToast')).toHaveText('長按標籤（桌機按右鍵）可改顏色、名稱與順序');
+    await page.evaluate(() => document.getElementById('copyToast').classList.remove('show'));
+    await page.locator('#lyricsSections .section-type').first().click();
+    await page.waitForTimeout(150);
+    await expect(page.locator('#copyToast'), '同一次開啟只提示一次').not.toHaveClass(/show/);
+    expect(await page.evaluate(() => Object.keys(localStorage).sort()), '什麼都沒存').toEqual(keysBefore);
     expect(errors).toEqual([]);
     await context.close();
 });
