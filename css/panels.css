@@ -1450,6 +1450,10 @@
         @supports (background: color-mix(in srgb, red 50%, blue)) {
             .section-rhyme span[data-f], .rm-letters span[data-f] { border-bottom-color: color-mix(in srgb, var(--text-primary) 30%, var(--rm-c)); }
         }
+        /* 偏好設定裡的「韻腳地圖與句構分析」（第 11 階段）：開關列沿用選單的 .rm-switch；四個細項縮排在逐行標記底下 */
+        #mapSettingsSection .section-menu-block { margin-top: var(--sp-3); }
+        #mapSettingsSection .rm-sub { display: flex; flex-direction: column; gap: var(--sp-1); margin-inline-start: var(--sp-4); }
+        .rm-more { width: 100%; }
         /* 韻腳統計（10-07，UI-SPEC 4.2）：沿用段落設定選單的外殼，裡面超出可見範圍就在選單內捲動 */
         #rhymeStats { width: min(22rem, calc(100vw - 1rem)); }
         .rm-letters {
@@ -1687,6 +1691,8 @@
         .lm-t + .lm-t { margin-inline-start: 0.5em; }
         html[data-lm="right"] .lm-t-c { width: 1.5em; text-align: right; }
         html[data-lm="right"] .lm-t-s { width: 5.5em; overflow: clip; text-overflow: ellipsis; }
+        html[data-lm="right"] .lm-t-d { width: 2.25em; }
+        .lm-t-d { color: var(--text-primary); font-weight: 700; }   /* 唯一加粗的標記：字數不一樣才有，要一眼看到（UI-SPEC D-04、D-23） */
         .lm-guess { font-style: italic; }   /* 機器猜的那一段用斜體，自己標的維持正體（CONTEXT A2） */
 
         /* AI 詞彙 grid（右側，多欄顯示）*/

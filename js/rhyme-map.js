@@ -77,12 +77,18 @@ function _lhMapMirrorOf(ta) {
 // 行尾空白（半形、全形、tab）要留在換行旁邊、標記插在它前面：標記夾在行尾空白與換行之間，會破壞 pre-wrap 行尾空白的懸掛，讓該行多折一列（X1）
 const _LH_TRAIL_WS = /[ \t\u3000]+$/;
 
-// 一行的標記：字數與斷句結構，沒有可分析內容的行（空行、純標點）回 null（A3）。文字一律 textContent，不拼 HTML
-function _lhMapMarker(line) {
+// 一行的標記：字數與斷句結構（以及對照差異），沒有可分析內容的行（空行、純標點）回 null（A3）。文字一律 textContent。
+// diff：{ refN, k }，refN 是對照段落各「可分析行」的字數，k 是這個段落目前數到第幾個可分析行（CONTEXT B3：照可分析行的順序對，不是照原始行號）
+function _lhMapMarker(line, diff) {
     const r = lhLineAnalyze(line);
     if (r.n <= 0) return null;
     const mk = _lhMk('span', 'lm-mk');
     if (_lhMapSet.lnCount) mk.append(_lhMk('span', 'lm-t lm-t-c', String(r.n)));
+    if (_lhMapSet.lnDiff) {
+        const b = diff.refN[diff.k];   // 對照段落沒有這一行（比較短）就是 undefined，什麼都不加
+        mk.append(_lhMk('span', 'lm-t lm-t-d', b !== undefined && b !== r.n ? '≠' + b : ''));   // 空的 span 也要留著，欄位才對得齊
+    }
+    diff.k++;
     if (_lhMapSet.lnSplit) {
         const st = _lhMk('span', 'lm-t lm-t-s');   // 沒有結構（少於兩組）也要有這個欄位，欄位才對得齊
         for (const part of lhLineStructParts(r)) {
@@ -96,7 +102,7 @@ function _lhMapMarker(line) {
 
 // 把一段文字依目前設定建成鏡像層的 DocumentFragment（真實鏡像層與之後的預覽共用）。回傳 { frag, res, on }：
 // res 是韻腳分析結果（沒有任何韻腳功能開著就是 null），on 代表至少畫了一個色塊、底線或標記
-function _lhMapBuildFrag(text, readings) {
+function _lhMapBuildFrag(text, readings, refText) {
     const S = _lhMapSet;
     const needMk = !!_lhMapNeedMk();
     const needRhyme = S.end || S.inner || S.letters || (S.line && S.lnRhyme);
@@ -104,13 +110,15 @@ function _lhMapBuildFrag(text, readings) {
     const res = needRhyme ? lhRhymeAnalyze(text, { strict: S.strict, skipParticles: S.skipParticles, inner: S.inner }, readings) : null;
     const frag = document.createDocumentFragment();
     let on = false;
+    // 對照差異：對照段落每個可分析行的字數（只要字數，不猜斷句，所以傳一個永遠說「沒有這個詞」的判斷）
+    const diff = { refN: S.line && S.lnDiff ? lhLineRows(refText || '', () => false).map(x => x.n) : [], k: 0 };
     const rows = !paintRows ? [] : res ? res.rows : text.replace(/\r\n?/g, '\n').split('\n').map(line => ({ line, t: null, inner: [] }));
     rows.forEach((r, n) => {
         // 這一行要特別標示的字：句尾字（色塊，句尾上色開著才有）與句中押韻的字（底線）
         const marks = new Map();
         if (r.t && S.end) marks.set(r.t.i, { cls: (r.solo ? 'rm-hl rm-solo' : 'rm-hl') + (r.manual ? ' rm-manual' : ''), f: r.f });
         for (const m of r.inner) marks.set(m.i, { cls: 'rm-inner', f: m.f });
-        const mk = needMk ? _lhMapMarker(r.line) : null;
+        const mk = needMk ? _lhMapMarker(r.line, diff) : null;
         if (!marks.size && !mk) frag.append(r.line);
         else {
             const m = mk && _LH_TRAIL_WS.exec(r.line);
@@ -146,8 +154,14 @@ function lhMapPaint(secEl) {
     if (!sec || !mirror) return;
     const S = _lhMapSet;
     const sig = [S.end, S.letters, S.inner, S.strict, S.skipParticles, S.line, S.lnRhyme, S.lnCount, S.lnSplit, S.lnDiff].map(Number).join('') + '|' + _lhMapEpoch + '|' + _lhMapReadVer;   // pos／size／depth／colors 只改 CSS，不進簽名（E2）
+    // 對照段落的文字（同類型第一段，CONTEXT B1）：對照差異關著就不看；它改了，這一段的快取就失效（RESEARCH X9）
+    let refText = null;
+    if (S.line && S.lnDiff) {
+        const r = lhLineRefIndex(song.sections)[song.sections.indexOf(sec)];
+        refText = r >= 0 ? song.sections[r].text : null;
+    }
     const hit = _lhMapCache.get(sec.id);
-    if (hit && hit.text === sec.text && hit.sig === sig) {   // 沒變：只把「暫時藏起來」解除，不重畫
+    if (hit && hit.text === sec.text && hit.sig === sig && hit.ref === refText) {   // 沒變：只把「暫時藏起來」解除，不重畫
         mirror.classList.remove('rm-stale');
         _lhMapSync(ta, mirror);
         return;
@@ -159,7 +173,7 @@ function lhMapPaint(secEl) {
     if (!(S.end || S.inner || S.letters || _lhMapNeedMk()) || big) {
         mirror.replaceChildren();   // 關掉或太大：不分析，鏡像層留空
     } else {
-        const built = _lhMapBuildFrag(text, song.readings);
+        const built = _lhMapBuildFrag(text, song.readings, refText);
         res = built.res;
         on = built.on;
         mirror.replaceChildren(built.frag);
@@ -167,7 +181,7 @@ function lhMapPaint(secEl) {
     secEl.classList.toggle('rm-on', on);
     mirror.classList.remove('rm-stale');
     _lhMapSync(ta, mirror);   // 顯示出來之後才設得動 scrollTop，所以放在最後
-    _lhMapCache.set(sec.id, { text, sig, res });
+    _lhMapCache.set(sec.id, { text, sig, res, ref: refText });
     _lhMapStrip(secEl, res, big);
 }
 
@@ -236,6 +250,13 @@ function lhMapSchedule(secEl) {
     const now = Date.now();
     if (!_lhMapPending.size) _lhMapFirstAt = now;
     _lhMapPending.add(secEl.dataset.id);
+    // 對照差異開著：同類型的其他段落（它們拿這一段當對照）一起排；沒變的會在 lhMapPaint 的快取比對直接略過
+    const song = _lhMapSet.line && _lhMapSet.lnDiff ? curSong() : null;
+    const sec = song && song.sections.find(x => x.id === secEl.dataset.id);
+    if (sec) {
+        const key = lhLineGroupKey(sec);
+        for (const o of song.sections) if (o !== sec && lhLineGroupKey(o) === key && lhSecEl(o.id)) _lhMapPending.add(o.id);
+    }
     clearTimeout(_lhMapTimer);
     _lhMapTimer = setTimeout(_lhMapFlush, Math.max(0, Math.min(LH_MAP_DEBOUNCE, _lhMapFirstAt + LH_MAP_MAXWAIT - now)));
 }
@@ -307,6 +328,7 @@ let _lhMapMenu = null;
 let _lhMapMenuOn = false;
 // 文案照 UI-SPEC 第 7 節逐字
 const LH_MAP_HINT_LETTERS = '在每個段落標題列顯示 AABB 這類字母';
+const LH_MAP_HINT_LINE = '每行旁邊顯示字數與斷句；細項在「更多設定」';
 const LH_MAP_HINT_INNER = '句子裡面跟句尾押同韻的字，加底線（每行最多 3 個）';
 const LH_MAP_MODE_HELP = {
     wide: '寬韻：同一個韻族都算押韻（例：ㄤ、ㄧㄤ、ㄨㄤ）',
@@ -341,7 +363,11 @@ function lhMapMenuBuild() {
     const lettersHint = _lhMk('span', 'section-menu-cap', LH_MAP_HINT_LETTERS);
     lettersHint.id = 'rhymeHintLetters';
     lettersSw.setAttribute('aria-describedby', lettersHint.id);
-    const show = _lhMkBlock('顯示', _lhMapSwitchRow('end', '句尾上色'), lettersSw, lettersHint, innerSw, innerHint, _lhMapSwitchRow('line', '逐行標記'));
+    const lineSw = _lhMapSwitchRow('line', '逐行標記');
+    const lineHint = _lhMk('span', 'section-menu-cap', LH_MAP_HINT_LINE);
+    lineHint.id = 'rhymeHintLine';
+    lineSw.setAttribute('aria-describedby', lineHint.id);
+    const show = _lhMkBlock('顯示', _lhMapSwitchRow('end', '句尾上色'), lettersSw, lettersHint, innerSw, innerHint, lineSw, lineHint);
     // 判定：寬韻／嚴格兩個 radio（方向鍵移焦點，Enter／空白才選），下面只顯示目前模式的說明
     const modes = _lhMk('div', 'type-grid');
     modes.setAttribute('role', 'radiogroup');
@@ -372,8 +398,9 @@ function lhMapMenuBuild() {
     const legendBtn = _lhMkBtn('section-menu-btn rm-legend-toggle', '色票對照 ▾');
     legendBtn.setAttribute('aria-expanded', 'false');
     legendBtn.setAttribute('aria-controls', legend.id);
+    const more = _lhMkBtn('section-menu-btn rm-more', '更多設定…');   // 開偏好設定裡的完整設定（CONTEXT D1）
     const close = _lhMkBtn('section-menu-btn section-menu-close', '關閉韻腳設定');
-    m.append(_lhMk('div', 'section-menu-title', '韻腳地圖'), loading, show, judge, _lhMkBlock('色票對照', legendBtn, legend), close);
+    m.append(_lhMk('div', 'section-menu-title', '韻腳地圖'), loading, show, judge, _lhMkBlock('色票對照', legendBtn, legend), more, close);
     document.body.appendChild(m);
     m.addEventListener('click', e => {
         const sw = e.target.closest && e.target.closest('.rm-switch');
@@ -397,6 +424,7 @@ function lhMapMenuBuild() {
         next.tabIndex = 0;
         next.focus({ preventScroll: true });
     });
+    more.addEventListener('click', lhMapOpenPrefs);
     close.addEventListener('click', () => lhMapCloseMenu(true));
     // Tab 在選單裡頭尾相接
     m.addEventListener('keydown', e => {
@@ -411,14 +439,14 @@ function lhMapMenuBuild() {
     return m;
 }
 
-// 依目前設定更新選單上的字與 aria 狀態
+// 依目前設定更新兩處開關的字與 aria 狀態：「韻腳 ▾」選單與偏好設定裡的段落，一邊改了另一邊馬上跟著變（CONTEXT D1）
 function lhMapMenuSync() {
-    if (!_lhMapMenu) return;
-    _lhMapMenu.querySelectorAll('.rm-switch').forEach(b => {
+    document.querySelectorAll('#rhymeMenu .rm-switch, #mapSettingsSection .rm-switch').forEach(b => {
         const on = !!_lhMapSet[b.dataset.k];
         b.setAttribute('aria-checked', String(on));
         b.querySelector('.rm-pill').textContent = on ? '開' : '關';
     });
+    if (!_lhMapMenu) return;
     const mode = _lhMapSet.strict ? 'strict' : 'wide';
     _lhMapMenu.querySelectorAll('.type-row').forEach(r => {
         const on = r.dataset.m === mode;
@@ -427,6 +455,60 @@ function lhMapMenuSync() {
     });
     _lhMapMenu.querySelector('.rm-mode-help').textContent = LH_MAP_MODE_HELP[mode];
     _lhMapMenu.querySelector('.rm-loading').hidden = _lhMapOk;
+}
+
+// ==================== 偏好設定裡的「韻腳地圖與句構分析」（第 11 階段，CONTEXT D1／D2） ====================
+// 外殼是 index.html 的 <details id="mapSettingsSection">，內容第一次打開（或按「更多設定…」）才建，之後只靠 lhMapMenuSync 更新
+let _lhMapPrefsBuilt = false;
+
+// 一個開關加它的說明：說明有自己的 id，開關用 aria-describedby 接起來
+function _lhMapPrefRow(key, label, cap, capId) {
+    const sw = _lhMapSwitchRow(key, label);
+    const c = _lhMk('span', 'section-menu-cap', cap);
+    c.id = capId;
+    sw.setAttribute('aria-describedby', capId);
+    return [sw, c];
+}
+
+function lhMapPrefsBuild() {
+    const sec = document.getElementById('mapSettingsSection');
+    if (!sec || _lhMapPrefsBuilt) return;
+    _lhMapPrefsBuilt = true;
+    const hint = _lhMk('p', 'settings-backups-hint', '調整句尾上色、逐行字數與斷句標記的開關、位置、大小和顏色');
+    const sub = _lhMk('div', 'rm-sub');   // 四個細項縮排在逐行標記底下；總開關關著也照樣能設（UI-SPEC D-17）
+    sub.append(
+        ..._lhMapPrefRow('lnRhyme', '行尾韻腳字母', 'A、B…，跟著上面的寬韻／嚴格', 'rmPrefRhyme'),
+        ..._lhMapPrefRow('lnCount', '字數', '每行幾個字（空白、標點不算）', 'rmPrefCount'),
+        ..._lhMapPrefRow('lnSplit', '斷句結構', '例如 3+4。你自己打的空白和標點一定算；開頭有 ≈ 的是機器猜的', 'rmPrefSplit'),
+        ..._lhMapPrefRow('lnDiff', '對照差異', '跟同類型第一段的同一行字數不同時，標出 ≠ 和對方的字數', 'rmPrefDiff'),
+    );
+    const lineRow = _lhMapPrefRow('line', '逐行標記', '每行旁邊顯示淡色小字；下面四項決定要顯示什麼', 'rmPrefLine');
+    sec.append(hint, _lhMkBlock('句構分析', ...lineRow, sub));
+    // 整個段落共用一個點擊監聽（和選單一樣）：開關翻轉，改了就存、就畫
+    sec.addEventListener('click', e => {
+        const sw = e.target.closest && e.target.closest('.rm-switch');
+        if (sw) lhMapSetSetting(sw.dataset.k, sw.getAttribute('aria-checked') !== 'true');
+    });
+    lhMapMenuSync();
+}
+document.getElementById('mapSettingsSection').addEventListener('toggle', e => {
+    if (e.target.open) lhMapPrefsBuild();
+});
+
+// 「更多設定…」：關掉所有韻腳浮層，打開偏好設定（已經開著就留著，不能走 ⚙️ 的 toggle，那會把它關掉），
+// 展開這一段、捲到最上面、焦點放在標題。scrollIntoView 不給 behavior：立即捲動，也就自動尊重「減少動態效果」
+function lhMapOpenPrefs() {
+    lhMapCloseAll();
+    const ov = document.getElementById('settingsOverlay');
+    if (!ov.classList.contains('show')) {
+        ov.classList.add('show');
+        renderLexiconPackList();   // ⚙️ 打開時會做的事：詞庫包清單永遠對得上目前真正在用的包
+    }
+    const sec = document.getElementById('mapSettingsSection');
+    lhMapPrefsBuild();
+    sec.open = true;
+    sec.scrollIntoView({ block: 'start' });
+    sec.querySelector('summary').focus({ preventScroll: true });
 }
 
 // 一個設定改了：存檔、套用外觀、選單文字跟著變；只有會改變鏡像層內容的設定才全部段落重畫。

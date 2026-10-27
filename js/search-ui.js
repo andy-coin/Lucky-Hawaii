@@ -41,7 +41,12 @@
             const overlay = document.getElementById('settingsOverlay');
             overlay.classList.toggle('show');
             // 每次打開都重畫詞庫包清單：勾選永遠對得上目前真正在用的包
-            if (overlay.classList.contains('show')) renderLexiconPackList();
+            if (overlay.classList.contains('show')) {
+                renderLexiconPackList();
+                // 韻腳地圖的浮層會蓋在這個面板前面，先收掉；「韻腳地圖與句構分析」每次從齒輪打開都收著（「更多設定…」走自己的路打開它）
+                if (typeof lhMapCloseAll === 'function') lhMapCloseAll();
+                document.getElementById('mapSettingsSection').open = false;
+            }
         }
 
         // 詞庫包清單（偏好設定）：只用 createElement + textContent 組畫面，清單文字不會被當成 HTML（T-06-07）

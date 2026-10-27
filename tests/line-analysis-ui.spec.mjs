@@ -112,3 +112,71 @@ test('常駐：打開逐行標記，每行右邊出現字數與斷句', async ({
     expect(errors).toEqual([]);
     await context.close();
 });
+
+// ==================== 對照差異與偏好設定（11-02） ====================
+const menuSw = (page, label) => page.locator('#rhymeMenu .rm-switch').filter({ hasText: label });
+const prefSw = (page, label) => page.locator('#mapSettingsSection .rm-switch').filter({ hasText: label });
+// 每個段落鏡像層裡每個標記的對照差異欄文字
+const diffTokens = (page, n) => page.locator('.lyrics-section').nth(n).locator('.rhyme-mirror .lm-mk').evaluateAll(els => els.map(e => e.querySelector('.lm-t-d')?.textContent ?? null));
+
+test('對照：打開對照差異，同類型第一段的同一行字數不同就標 ≠', async ({ browser }) => {
+    const sections = [
+        typed('s1', 'verse', ['我望著遠方的光', '獨自站在窗', '走過熟悉的街道'].join('\n')),
+        typed('s2', 'chorus', '你笑著說天亮'),
+        typed('s3', 'verse', ['我望著遠方的光', '獨自站在窗前', '走過熟悉的街道', '終於我也回到'].join('\n')),
+        typed('s4', 'verse', '月光 灑在 窗前'),
+    ];
+    const { context, page, errors } = await bootPage(browser, { wordlist: 'stub', storage: v2Storage([song(sections)]) });
+    const headerBtns = () => page.locator('.lyrics-section-header button').count();
+    const btnsBefore = await headerBtns();
+
+    // 韻腳 ▾ → 逐行標記 → 更多設定…
+    await page.locator('#rhymeMenuBtn').click();
+    await menuSw(page, '逐行標記').click();
+    await expect(page.locator('#rhymeHintLine')).toHaveText('每行旁邊顯示字數與斷句；細項在「更多設定」');
+    await page.locator('#rhymeMenu .rm-more').click();
+    await expect(page.locator('#rhymeMenu')).toBeHidden();
+    await expect(page.locator('#settingsOverlay')).toHaveClass(/show/);
+    await expect(page.locator('#mapSettingsSection')).toHaveJSProperty('open', true);
+    await expect(page.locator('#mapSettingsSection > summary')).toBeFocused();
+
+    // 對照差異預設關：沒有差異欄
+    await expect(page.locator('.lm-t-d')).toHaveCount(0);
+    await prefSw(page, '對照差異').click();
+    await expect(prefSw(page, '對照差異')).toHaveAttribute('aria-checked', 'true');
+    expect(await lsGetMap(page)).toContain('"lnDiff":true');
+    expect(await lsGetMap(page)).toContain('"line":true');
+    expect(await diffTokens(page, 0), '第一段沒有對照').toEqual(['', '', '']);
+    expect(await diffTokens(page, 1), '第一個 Chorus 沒有對照').toEqual(['']);
+    expect(await diffTokens(page, 2)).toEqual(['', '≠5', '', '']);   // 第四行對照段落沒有，什麼都不加
+    expect(await diffTokens(page, 3), 'Verse III 也對 Verse I').toEqual(['≠7']);
+    expect(await page.locator('.lyrics-section').nth(2).locator('.lm-t-d').nth(1).evaluate(e => getComputedStyle(e).fontWeight)).toBe('700');
+
+    // 兩邊同一份設定
+    await expect(prefSw(page, '逐行標記')).toContainText('開');
+    // 已經開著時再叫一次，不會把面板關掉
+    await page.evaluate(() => lhMapOpenPrefs());
+    await expect(page.locator('#settingsOverlay')).toHaveClass(/show/);
+    await page.locator('#settingsOverlay').click({ position: { x: 4, y: 4 } });
+    await expect(page.locator('#settingsOverlay')).not.toHaveClass(/show/);
+    await page.locator('#rhymeMenuBtn').click();
+    await expect(menuSw(page, '逐行標記')).toHaveAttribute('aria-checked', 'true');
+    await page.keyboard.press('Escape');
+
+    // 改 Verse I：Verse II 的 ≠ 跟著更新，Verse II 的文字不動
+    const before2 = await page.locator('.lyrics-section .section-textarea').nth(2).inputValue();
+    await page.evaluate(() => {
+        const ta = document.querySelector('.section-textarea');
+        const at = ta.value.indexOf('窗') + 1;
+        ta.focus(); ta.setSelectionRange(at, at);
+    });
+    await page.keyboard.type('口');
+    await expect.poll(() => diffTokens(page, 2), { timeout: 1500 }).toEqual(['', '', '', '']);
+    expect(await page.locator('.lyrics-section .section-textarea').nth(2).inputValue()).toBe(before2);
+    expect(await diffTokens(page, 3)).toEqual(['≠7']);
+
+    // 標題列沒有多出按鈕
+    expect(await headerBtns()).toBe(btnsBefore);
+    expect(errors).toEqual([]);
+    await context.close();
+});
