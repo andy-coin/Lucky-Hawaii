@@ -195,7 +195,7 @@ test('偏好設定：內容與順序', async ({ browser }) => {
     await openPrefs(page);
     const sec = page.locator('#mapSettingsSection');
     await expect(sec.locator('> .settings-backups-hint')).toHaveText('調整句尾上色、逐行字數與斷句標記的開關、位置、大小和顏色');
-    expect(await sec.locator('.section-menu-block > .section-menu-cap:first-child').allTextContents()).toEqual(['韻腳地圖', '句構分析', '顯示方式', '韻族顏色']);
+    expect(await sec.locator('.section-menu-block > .section-menu-cap:first-child').allTextContents()).toEqual(['預覽', '韻腳地圖', '句構分析', '顯示方式', '韻族顏色']);
     expect(await sec.locator('.rm-switch-label').allTextContents()).toEqual(['句尾上色', '段落結構字母', '句中押韻', '忽略句尾語助詞', '逐行標記', '行尾韻腳字母', '字數', '斷句結構', '對照差異']);
     const particle = await page.evaluate(() => LH_MAP_PARTICLE_CAP);
     const caps = await sec.locator('.section-menu-cap').allTextContents();
@@ -264,12 +264,12 @@ test('偏好設定：別的分頁改了設定', async ({ browser }) => {
     const [a, b] = pages;
     await openPrefs(b);
     await expect(prefSw(b, '斷句結構')).toHaveAttribute('aria-checked', 'true');
-    expect(await b.locator('.rhyme-mirror .lm-t-s').count()).toBe(1);
+    expect(await b.locator('#lyricsSections .rhyme-mirror .lm-t-s').count()).toBe(1);
     await a.evaluate(() => localStorage.setItem('lh:map', '{"end":true,"letters":false,"inner":false,"strict":false,"skipParticles":true,"line":true,"lnSplit":false}'));
     await expect(prefSw(b, '斷句結構')).toHaveAttribute('aria-checked', 'false');
     await expect(prefSw(b, '斷句結構')).toContainText('關');
-    await expect(b.locator('.rhyme-mirror .lm-t-s')).toHaveCount(0);
-    await expect(b.locator('.rhyme-mirror .lm-t-c')).toHaveCount(1);
+    await expect(b.locator('#lyricsSections .rhyme-mirror .lm-t-s')).toHaveCount(0);
+    await expect(b.locator('#lyricsSections .rhyme-mirror .lm-t-c')).toHaveCount(1);
     for (const e of errs) expect(e.errors).toEqual([]);
     await context.close();
 });
@@ -285,14 +285,14 @@ test('偏好設定：四個細項都關', async ({ browser }) => {
     await prefSw(page, '斷句結構').click();
     await expect(none).toBeVisible();
     await expect(none).toHaveText('四個細項都關著，所以沒有東西可顯示');
-    await expect(page.locator('.lm-mk')).toHaveCount(0);
+    await expect(page.locator('#lyricsSections .lm-mk')).toHaveCount(0);
     expect(await page.evaluate(() => document.documentElement.getAttribute('data-lm'))).toBeNull();
     // 細項沒被禁用，值各自留著
     await expect(prefSw(page, '字數')).toBeEnabled();
     await expect(prefSw(page, '字數')).toHaveAttribute('aria-checked', 'false');
     await prefSw(page, '行尾韻腳字母').click();
     await expect(none).toBeHidden();
-    await expect(page.locator('.lm-mk')).toHaveCount(1);
+    await expect(page.locator('#lyricsSections .lm-mk')).toHaveCount(1);
     expect(errors).toEqual([]);
     await context.close();
 });
@@ -464,12 +464,12 @@ test('顯示方式：切到句尾後，標記貼在最後一個字後面，游�
 });
 
 // 非孤句色塊（.rm-hl 不含 .rm-solo）第一個的計算底色
-const bandBg = page => page.evaluate(() => { const e = document.querySelector('.rm-hl:not(.rm-solo)'); return e ? getComputedStyle(e).backgroundColor : null; });
+const bandBg = page => page.evaluate(() => { const e = document.querySelector('#lyricsSections .rm-hl:not(.rm-solo)'); return e ? getComputedStyle(e).backgroundColor : null; });
 // 第 n 個段落的 [輸入框右內距, 欄位上限 36% 的像素, 第一個 .lm-t 的字級, 根字級]
 const lookGeo = page => page.evaluate(() => {
     const ta = document.querySelector('.section-textarea');
     const rem = parseFloat(getComputedStyle(document.documentElement).fontSize);
-    return { pad: parseFloat(getComputedStyle(ta).paddingRight), cap: 0.36 * parseFloat(getComputedStyle(ta.parentElement).width), fs: parseFloat(getComputedStyle(document.querySelector('.rhyme-mirror .lm-t')).fontSize), rem };
+    return { pad: parseFloat(getComputedStyle(ta).paddingRight), cap: 0.36 * parseFloat(getComputedStyle(ta.parentElement).width), fs: parseFloat(getComputedStyle(document.querySelector('#lyricsSections .rhyme-mirror .lm-t')).fontSize), rem };
 });
 
 test('顯示方式：字級與濃淡馬上生效、不重畫', async ({ browser }) => {
@@ -478,10 +478,10 @@ test('顯示方式：字級與濃淡馬上生效、不重畫', async ({ browser 
         wordlist: 'stub',
         storage: v2Storage([song([typed('sa', 'verse', text)])], { ...OPEN_PANELS, 'lh:map': JSON.stringify({ line: true, lnCount: true, lnSplit: true }) }),
     });
-    await expect(page.locator('.lm-mk')).toHaveCount(16);
-    await expect.poll(() => page.locator('.rm-hl').count()).toBeGreaterThan(0);
-    await page.evaluate(() => { window.__mks = [...document.querySelectorAll('.lm-mk')]; window.__mirror = document.querySelector('.rhyme-mirror'); });
-    const same = () => page.evaluate(() => window.__mks.every(m => m.isConnected) && document.querySelectorAll('.lm-mk').length === 16 && document.querySelector('.rhyme-mirror') === window.__mirror);
+    await expect(page.locator('#lyricsSections .lm-mk')).toHaveCount(16);
+    await expect.poll(() => page.locator('#lyricsSections .rm-hl').count()).toBeGreaterThan(0);
+    await page.evaluate(() => { window.__mks = [...document.querySelectorAll('#lyricsSections .lm-mk')]; window.__mirror = document.querySelector('#lyricsSections .rhyme-mirror'); });
+    const same = () => page.evaluate(() => window.__mks.every(m => m.isConnected) && document.querySelectorAll('#lyricsSections .lm-mk').length === 16 && document.querySelector('#lyricsSections .rhyme-mirror') === window.__mirror);
     await page.evaluate(() => lhMapOpenPrefs());
     const depthHelp = page.locator('#mapSettingsSection .rm-depth-help');
 
@@ -533,7 +533,7 @@ test('顯示方式：字級與濃淡馬上生效、不重畫', async ({ browser 
     // 重新整理後小與淡還在
     await page.reload();
     await ready(page);
-    await expect(page.locator('.lm-mk')).toHaveCount(16);
+    await expect(page.locator('#lyricsSections .lm-mk')).toHaveCount(16);
     expect((await lookGeo(page)).fs).toBeCloseTo(0.75 * mid.rem, 1);
     expect(await bandBg(page)).toBe(lightBg);
     // 回到中、標準：lh:map 不再寫這兩個鍵
@@ -888,9 +888,9 @@ const live = page => page.evaluate(() => document.getElementById('lhLive').textC
 
 test('韻族顏色：改一個韻族的顏色，色塊馬上變、存起來、日夜共用', async ({ browser }) => {
     const { context, page, errors } = await bootPage(browser, { wordlist: 'stub', storage: v2Storage([song([typed('sa', 'verse', F_AABB)])]) });
-    await expect.poll(() => page.locator('.rm-hl').count()).toBeGreaterThan(0);
+    await expect.poll(() => page.locator('#lyricsSections .rm-hl').count()).toBeGreaterThan(0);
     // 光那一行句尾的家族編號從頁面讀，不寫死
-    const f = await page.evaluate(() => [...document.querySelectorAll('.rm-hl')].find(e => e.textContent === '光').dataset.f);
+    const f = await page.evaluate(() => [...document.querySelectorAll('#lyricsSections .rm-hl')].find(e => e.textContent === '光').dataset.f);
     const label = await page.evaluate(n => RHYME_FAMILIES[n].label, +f);
     await page.evaluate(() => lhMapOpenPrefs());
     await page.evaluate(() => lhMapMenuBuild());
@@ -899,10 +899,10 @@ test('韻族顏色：改一個韻族的顏色，色塊馬上變、存起來、�
     await expect(colorInput(page, f)).toHaveAttribute('aria-label', `「${label}」韻族顏色`);
     await expect(page.locator('#mapSettingsSection .rm-colors .rm-color-cell')).toHaveCount(17);
     expect(await page.locator('#mapSettingsSection .rm-colors input').count()).toBe(16);
-    const band = () => page.evaluate(() => getComputedStyle([...document.querySelectorAll('.rm-hl')].find(e => e.textContent === '光')).backgroundColor);
+    const band = () => page.evaluate(() => getComputedStyle([...document.querySelectorAll('#lyricsSections .rm-hl')].find(e => e.textContent === '光')).backgroundColor);
     const swatch = () => page.evaluate(f => getComputedStyle(document.querySelector(`#rhymeMenu .rm-sw[data-f="${f}"]`)).backgroundColor, f);
     const bg0 = await band(), sw0 = await swatch();
-    await page.evaluate(() => { window.__mirror = document.querySelector('.rhyme-mirror'); window.__hl = document.querySelector('.rm-hl'); });
+    await page.evaluate(() => { window.__mirror = document.querySelector('#lyricsSections .rhyme-mirror'); window.__hl = document.querySelector('#lyricsSections .rm-hl'); });
     const mapBefore = await lsGetMap(page);
 
     // 拖曳中（input）：變數、色塊、色票馬上變；不存、不重畫
@@ -911,7 +911,7 @@ test('韻族顏色：改一個韻族的顏色，色塊馬上變、存起來、�
     expect(await band()).not.toBe(bg0);
     expect(await swatch()).not.toBe(sw0);
     expect(await lsGetMap(page)).toBe(mapBefore);
-    expect(await page.evaluate(() => window.__mirror === document.querySelector('.rhyme-mirror') && window.__hl === document.querySelector('.rm-hl') && window.__hl.isConnected)).toBe(true);
+    expect(await page.evaluate(() => window.__mirror === document.querySelector('#lyricsSections .rhyme-mirror') && window.__hl === document.querySelector('#lyricsSections .rm-hl') && window.__hl.isConnected)).toBe(true);
 
     // 放開（change）：存進 lh:map，念給讀屏軟體聽
     await setColorInput(page, f, '#123456', 'change');
@@ -1100,6 +1100,130 @@ test('韻族顏色：手機上的原生色票', async ({ browser }) => {
     const box = await colorInput(page, 1).boundingBox();
     expect(box.width).toBeGreaterThanOrEqual(43.5);
     expect(box.height).toBeGreaterThanOrEqual(43.5);
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+// ==================== 預覽（11-04） ====================
+const PREVIEW_LINES = ['月光 灑在 窗前', '夢裡想起你的臉', '我想把時間留在這一天'];
+const PV_WORDS = ['夢裡', '想起', '你的', '我想', '時間', '留在', '這一'];
+// 鏡像層（或預覽）裡每個 span 的 [class, 文字, data-f]，外加整段純文字
+const spanSig = (page, sel) => page.evaluate(sel => {
+    const root = document.querySelector(sel);
+    return { spans: [...root.querySelectorAll('span')].map(e => [e.className, e.textContent, e.dataset.f ?? null]), text: root.textContent };
+}, sel);
+
+test('預覽：和真的歌詞畫出來一模一樣', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, {
+        wordlist: 'stub',
+        storage: v2Storage([song([typed('sa', 'verse', PREVIEW_LINES.join('\n'))])], { ...OPEN_PANELS, 'lh:map': JSON.stringify({ line: true, lnRhyme: true, lnCount: true, lnSplit: true, letters: true, inner: true }) }),
+    });
+    await page.evaluate(() => lhMapOpenPrefs());
+    await seedWords(page, PV_WORDS);
+    const same = async note => {
+        await expect.poll(async () => JSON.stringify(await spanSig(page, '#lyricsSections .rhyme-mirror')) === JSON.stringify(await spanSig(page, '#mapSettingsSection .lm-preview')), note).toBe(true);
+        return spanSig(page, '#mapSettingsSection .lm-preview');
+    };
+    const base = await same('預設');
+    // 真的有東西可比：色塊、底線或標記至少各一種
+    for (const c of ['rm-hl', 'lm-mk', 'lm-t-c', 'lm-t-s', 'lm-t-r']) expect(base.spans.some(s => s[0].split(' ').includes(c)), c).toBe(true);
+    expect(base.spans.some(s => s[0].includes('lm-guess')), '機器猜的斷句也畫').toBe(true);
+    await page.evaluate(() => lhMapSetSetting('strict', true));
+    const strict = await same('嚴格');
+    await page.evaluate(() => lhMapSetSetting('lnCount', false));
+    const noCount = await same('字數關');
+    expect(noCount.spans.some(s => s[0].includes('lm-t-c'))).toBe(false);
+    expect(strict.spans.length).toBeGreaterThan(0);
+    // 預覽自己不影響歌詞：歌詞那一段的內容沒有被改
+    expect(await page.evaluate(() => document.querySelector('#lyricsSections .section-textarea').value)).toBe(PREVIEW_LINES.join('\n'));
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('預覽：每個開關都看得到', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, {
+        wordlist: 'stub',
+        storage: v2Storage([song([typed('sa', 'verse', F_AABB)])], { ...OPEN_PANELS, 'lh:map': JSON.stringify({ line: true, lnRhyme: true, lnCount: true, lnSplit: true }) }),
+    });
+    await page.evaluate(() => lhMapOpenPrefs());
+    const pv = page.locator('#mapSettingsSection .lm-preview');
+    const diffCap = page.locator('#mapSettingsSection .rm-preview-diff');
+    await expect(pv).toHaveAttribute('aria-hidden', 'true');
+    await expect(pv).toContainText('月光');
+    await expect(page.locator('#mapSettingsSection .lm-preview-block > .section-menu-cap').first()).toHaveText('預覽');
+    await expect(pv.locator('.lm-t-c')).toHaveCount(3);
+    // 字數
+    await prefSw(page, '字數').click();
+    await expect(pv.locator('.lm-t-c')).toHaveCount(0);
+    await prefSw(page, '字數').click();
+    await expect(pv.locator('.lm-t-c')).toHaveCount(3);
+    // 對照差異：單獨一段看不到，所以出說明
+    await expect(diffCap).toBeHidden();
+    await prefSw(page, '對照差異').click();
+    await expect(diffCap).toBeVisible();
+    await expect(diffCap).toHaveText('對照差異要有同類型的前一段才看得到');
+    await prefSw(page, '對照差異').click();
+    await expect(diffCap).toBeHidden();
+    // 位置：句尾後 → 右內距回到 0.75rem，標記貼在最後一個字後面
+    const geo = () => page.evaluate(() => {
+        const el = document.querySelector('#mapSettingsSection .lm-preview'), rem = parseFloat(getComputedStyle(document.documentElement).fontSize);
+        const mk = el.querySelector('.lm-mk'), prev = mk.previousSibling;
+        const rg = document.createRange(); rg.setStart(prev, prev.textContent.length - 1); rg.setEnd(prev, prev.textContent.length);
+        return { pad: parseFloat(getComputedStyle(el).paddingRight) / rem, dx: (mk.getBoundingClientRect().left - rg.getBoundingClientRect().right) / rem, fs: parseFloat(getComputedStyle(el.querySelector('.lm-t')).fontSize) / rem };
+    });
+    const right = await geo();
+    expect(right.pad).toBeGreaterThan(1.5);
+    await lookRadio(page, 'pos', 'tail').click();
+    const tail = await geo();
+    expect(tail.pad).toBeCloseTo(0.75, 2);
+    expect(tail.dx).toBeGreaterThanOrEqual(0);
+    expect(tail.dx).toBeLessThan(1);
+    // 大小
+    expect(tail.fs).toBeCloseTo(0.875, 2);
+    await lookRadio(page, 'size', 'l').click();
+    expect((await geo()).fs).toBeCloseTo(1, 2);
+    // 顏色拖曳馬上看得到
+    const f = await pv.locator('.rm-hl').first().evaluate(e => e.dataset.f);
+    const bg = () => pv.locator('.rm-hl').first().evaluate(e => getComputedStyle(e).backgroundColor);
+    const bg0 = await bg();
+    await setColorInput(page, f, '#123456', 'input');
+    expect(await bg()).not.toBe(bg0);
+    await setColorInput(page, f, '#123456', 'change');
+    // 深色主題：文字用主題文字色
+    await setDark(page, true);
+    const same = await page.evaluate(() => getComputedStyle(document.querySelector('#mapSettingsSection .lm-preview')).color === getComputedStyle(document.querySelector('#mapSettingsSection .rm-probe')).color);
+    expect(same).toBe(true);
+    expect(await pv.evaluate(e => getComputedStyle(e).backgroundColor)).toBe(await page.evaluate(() => getComputedStyle(document.querySelector('#mapSettingsSection .rm-probe')).backgroundColor));
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('預覽：高的螢幕上固定在上面', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, { wordlist: 'stub', storage: v2Storage([song([typed('sa', 'verse', F_AABB)])]) });
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await page.evaluate(() => lhMapOpenPrefs());
+    const blk = page.locator('#mapSettingsSection .lm-preview-block');
+    expect(await blk.evaluate(e => getComputedStyle(e).position)).toBe('sticky');
+    // 往下捲設定視窗：預覽留在視窗上緣
+    const tops = await page.evaluate(async () => {
+        const dd = document.querySelector('.settings-dropdown'), b = document.querySelector('#mapSettingsSection .lm-preview-block');
+        document.querySelector('#mapSettingsSection').open = true;
+        dd.scrollTop = dd.scrollHeight;
+        await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+        return { dd: dd.getBoundingClientRect().top + dd.clientTop, b: b.getBoundingClientRect().top, scrolled: dd.scrollTop };
+    });
+    expect(tops.scrolled, '設定視窗真的捲動了').toBeGreaterThan(0);
+    expect(Math.abs(tops.b - tops.dd), '預覽貼著視窗上緣').toBeLessThan(2);
+    // 預覽不在 Tab 順序裡，讀屏軟體也略過
+    const pv = page.locator('#mapSettingsSection .lm-preview');
+    expect(await pv.evaluate(e => [e.tabIndex, e.querySelectorAll('button, a, input, [tabindex]').length, e.getAttribute('aria-hidden')])).toEqual([-1, 0, 'true']);
+    for (let i = 0; i < 70; i++) {
+        await page.keyboard.press('Tab');
+        expect(await page.evaluate(() => !!document.activeElement.closest('.lm-preview'))).toBe(false);
+    }
+    // 矮的螢幕（橫放的手機）不固定
+    await page.setViewportSize({ width: 844, height: 390 });
+    expect(await blk.evaluate(e => getComputedStyle(e).position)).toBe('static');
     expect(errors).toEqual([]);
     await context.close();
 });

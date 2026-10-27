@@ -527,6 +527,7 @@ function lhMapMenuSync() {
     if (wait) wait.hidden = wordPhoneticMap.size > 0;
     const none = document.querySelector('#mapSettingsSection .rm-none');
     if (none) none.hidden = !(_lhMapSet.line && !_lhMapSet.lnRhyme && !_lhMapSet.lnCount && !_lhMapSet.lnSplit && !_lhMapSet.lnDiff);
+    _lhMapPreviewPaint();   // 預覽跟著任何設定變動重畫（設定、別的分頁、詞庫載好、主題都會走到這裡）
 }
 
 // ==================== 偏好設定裡的「韻腳地圖與句構分析」（第 11 階段，CONTEXT D1／D2） ====================
@@ -618,7 +619,14 @@ function lhMapPrefsBuild() {
         const t = e.target;
         if (t.dataset && t.dataset.n !== undefined) lhMapSetColor(t.dataset.n, t.value);
     });
-    sec.append(hint, _lhMkBlock('韻腳地圖', ...mapRows), _lhMkBlock('句構分析', ...lineRow, sub), look, colors);
+    // 預覽（D-13、D-23）：永遠在最上面，唯讀、讀屏軟體略過；內容由 _lhMapPreviewPaint 用真正的鏡像層渲染器畫，所以每個設定都看得到
+    const pv = _lhMk('div', 'rhyme-mirror lm-preview');
+    pv.setAttribute('aria-hidden', 'true');
+    const pvDiff = _lhMk('span', 'section-menu-cap rm-preview-diff', '對照差異要有同類型的前一段才看得到');
+    pvDiff.hidden = true;
+    const preview = _lhMkBlock('預覽', pv, pvDiff);
+    preview.classList.add('lm-preview-block');
+    sec.append(hint, preview, _lhMkBlock('韻腳地圖', ...mapRows), _lhMkBlock('句構分析', ...lineRow, sub), look, colors);
     // 整個段落共用一個點擊監聽（和選單一樣）：開關翻轉、寬韻／嚴格選一個，改了就存、就畫
     sec.addEventListener('click', e => {
         const sw = e.target.closest && e.target.closest('.rm-switch');
@@ -668,6 +676,15 @@ function _lhMapDisarm(btn) {
     clearTimeout(btn._armTimer);
     delete btn.dataset.armed;
     btn.textContent = LH_MAP_RESET_TEXT;
+}
+// 預覽用的三行範例（含空白斷句、七字句、十字句）：和真正的歌詞走同一個渲染器 _lhMapBuildFrag，所以不可能和歌詞畫得不一樣
+const LH_MAP_PREVIEW_TEXT = ['月光 灑在 窗前', '夢裡想起你的臉', '我想把時間留在這一天'].join('\n');
+function _lhMapPreviewPaint() {
+    const pv = document.querySelector('#mapSettingsSection .lm-preview');
+    if (!pv) return;
+    const { frag } = _lhMapBuildFrag(LH_MAP_PREVIEW_TEXT, null, null);   // 單一段落沒有可對照的前一段
+    pv.replaceChildren(frag);
+    document.querySelector('#mapSettingsSection .rm-preview-diff').hidden = !(_lhMapSet.line && _lhMapSet.lnDiff);
 }
 // 恢復預設顏色：清掉全部自訂色（lh:map 的 colors 鍵跟著消失）；不碰「重設顏色!」管的頁面主題色
 function lhMapResetColors() {

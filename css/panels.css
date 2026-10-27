@@ -1641,6 +1641,25 @@
             flex: none;
         }
         .lyrics-section.rm-on .rhyme-mirror { display: block; }
+        /* 偏好設定裡的預覽（第 11 階段，UI-SPEC D-13）：同一個 .rhyme-mirror 的排版規則，只是改成一般流動的唯讀區塊；
+           文字顏色用主題文字色（真正的鏡像層是透明字蓋在輸入框上） */
+        .rhyme-mirror.lm-preview {
+            position: relative;
+            display: block;
+            height: auto;
+            overflow: hidden;
+            color: var(--text-primary);
+            pointer-events: none;
+            user-select: none;
+            border: 1px solid var(--border);
+            border-radius: 0.5rem;
+            background: var(--card-bg);
+        }
+        html[data-lm="right"] .lm-preview { padding-right: calc(0.75rem + min(var(--lm-cols), 36%) + var(--sp-2)); }
+        /* 夠高的螢幕：預覽固定在設定視窗最上面。設定視窗上內距是 1.5rem，top 取負值才貼齊視窗上緣（不然捲動的內容會從預覽上方那條縫露出來） */
+        @media (min-height: 37.5rem) {
+            .lm-preview-block { position: sticky; top: -1.5rem; z-index: 1; background: var(--card-bg); border-bottom: 1px solid var(--border); padding-bottom: var(--sp-2); }
+        }
         .lyrics-section.rm-on .section-body { background: var(--card-bg); }
         .lyrics-section.rm-on .section-textarea { background: transparent; }
         .rhyme-mirror.rm-stale { visibility: hidden; }   /* 組字中捲動：先藏起來，確認後重畫再對齊 */
