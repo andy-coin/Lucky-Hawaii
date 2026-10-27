@@ -92,3 +92,20 @@ function lhLineRows(text, has) {
     });
     return out;
 }
+
+// 對照用的「同類」鍵：內建類型就是類型本身，自訂段落以去頭尾空白後的名稱算同類。
+// 前綴 'custom:' 讓自訂段落取名叫 verse 也不會和內建 Verse 混在一起；11-02 的排程與下面的對照索引共用這一支，兩邊才會對「同類型」意見一致
+function lhLineGroupKey(sec) {
+    return sec.type === 'custom' ? 'custom:' + String(sec.custom || '').trim() : sec.type;
+}
+
+// 每一段的對照段落索引（沒有就是 -1）：同類型的第一段（CONTEXT B1，RESEARCH X4：Verse II、III 都對 Verse I，不是「最近的前一段」）。
+// 用 Map 不用物件：'__proto__'、'constructor' 這類名稱打不到原型鍵
+function lhLineRefIndex(sections) {
+    const first = new Map();
+    return sections.map((s, i) => {
+        const k = lhLineGroupKey(s);
+        if (!first.has(k)) { first.set(k, i); return -1; }
+        return first.get(k);
+    });
+}

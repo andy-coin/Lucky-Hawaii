@@ -334,6 +334,64 @@ test('設定：整理成固定的鍵', () => {
     expect(Object.keys(norm({ evil: true })).sort()).toEqual(Object.keys(D).sort());
 });
 
+test('設定：新鍵逐鍵退回預設', () => {
+    const norm = v => ev(`lhRhymeNormalizeSettings(${j(v)})`);
+    // 列舉值不在清單內：只有那一鍵退回預設，其他好的鍵照收
+    const bad = norm({ pos: 'left', size: 'xl', depth: 'max', line: true, lnDiff: true });
+    expect(bad.pos).toBe('right');
+    expect(bad.size).toBe('m');
+    expect(bad.depth).toBe('std');
+    expect(bad.line).toBe(true);
+    expect(bad.lnDiff).toBe(true);
+    const good = norm({ pos: 'tail', size: 's', depth: 'heavy' });
+    expect([good.pos, good.size, good.depth]).toEqual(['tail', 's', 'heavy']);
+    // 開關不是真布林：退回那一鍵的預設（lnCount 預設是 true）
+    const sw = norm({ line: 'true', lnCount: 0, lnSplit: 'false', autoHover: 1 });
+    expect([sw.line, sw.lnCount, sw.lnSplit, sw.autoHover]).toEqual([false, true, true, false]);
+    // 列舉值不能是物件、陣列、數字
+    expect(norm({ pos: ['right'], size: 1, depth: {} })).toMatchObject({ pos: 'right', size: 'm', depth: 'std' });
+    // 整個值是 null、陣列、字串
+    for (const v of [null, [], 'x', 5, true]) expect(norm(v).colors).toEqual({});
+});
+
+test('設定：顏色只收十六個鍵與小寫色碼', () => {
+    const norm = txt => ev(`lhRhymeNormalizeSettings(JSON.parse(${j(txt)}))`);   // 用 JSON.parse 才會有真正自己的 __proto__ 鍵
+    const c = txt => norm(txt).colors;
+    expect(c('{"colors":{"3":"#ABCDEF","4":"#12345","5":"#a1b2c3","6":"red","7":123,"8":{"x":1},"99":"#000000","16":"#000000"}}')).toEqual({ 5: '#a1b2c3' });
+    expect(c('{"colors":{"0":"#000000","15":"#ffffff"}}')).toEqual({ 0: '#000000', 15: '#ffffff' });
+    expect(c('{"colors":{"__proto__":"#aabbcc","constructor":"#aabbcc","toString":"#aabbcc","1":"#aabbcc"}}')).toEqual({ 1: '#aabbcc' });
+    expect(Object.keys(c('{"colors":{"__proto__":{"polluted":true}}}'))).toEqual([]);
+    expect(ev('({}).polluted')).toBeUndefined();
+    // colors 本身不是普通物件：丟掉
+    for (const t of ['{"colors":[]}', '{"colors":"x"}', '{"colors":null}', '{"colors":["#aabbcc"]}']) expect(c(t), t).toEqual({});
+    // 輸出是全新的普通物件，不是輸入的同一個
+    expect(ev(`(() => { const i = JSON.parse('{"colors":{"1":"#aabbcc"}}'); const o = lhRhymeNormalizeSettings(i); return o.colors !== i.colors && Object.getPrototypeOf(o.colors) === Object.prototype; })()`)).toBe(true);
+});
+
+test('設定：最小序列化不改舊字串', () => {
+    const ser = v => ev(`lhRhymeSerialize(${j(v)})`);
+    // 第 10 階段留下的五鍵字串（rhyme-map-ui／rhyme-audit 測試用的那幾種）逐字不變
+    const FIVE = [
+        '{"end":true,"letters":false,"inner":false,"strict":false,"skipParticles":true}',
+        '{"end":false,"letters":false,"inner":false,"strict":false,"skipParticles":true}',
+        '{"end":true,"letters":false,"inner":true,"strict":true,"skipParticles":true}',
+        '{"end":true,"letters":true,"inner":true,"strict":true,"skipParticles":false}',
+    ];
+    for (const s of FIVE) expect(ser(JSON.parse(s)), s).toBe(s);
+    // 新鍵：只寫與預設不同的，接在五個舊鍵後面
+    expect(ser({ line: true })).toBe('{"end":true,"letters":false,"inner":false,"strict":false,"skipParticles":true,"line":true}');
+    expect(ser({ line: true, lnCount: true, pos: 'right', size: 'm', depth: 'std' })).toBe('{"end":true,"letters":false,"inner":false,"strict":false,"skipParticles":true,"line":true}');
+    expect(ser({ lnCount: false, pos: 'tail', size: 'l' })).toBe('{"end":true,"letters":false,"inner":false,"strict":false,"skipParticles":true,"lnCount":false,"pos":"tail","size":"l"}');
+    // colors 有東西才寫
+    expect(ser({ colors: {} })).toBe(FIVE[0]);
+    expect(ser({ colors: { 2: '#aabbcc' } })).toBe('{"end":true,"letters":false,"inner":false,"strict":false,"skipParticles":true,"colors":{"2":"#aabbcc"}}');
+    // 壞值不會寫出去
+    expect(ser({ pos: 'evil', line: 'yes', colors: { 1: 'red' } })).toBe(FIVE[0]);
+    // 序列化再讀回來是同一份設定
+    const s = { end: false, letters: true, line: true, lnRhyme: true, lnDiff: true, autoHover: true, pos: 'tail', size: 's', depth: 'light', colors: { 4: '#010203' } };
+    expect(ev(`lhRhymeNormalizeSettings(JSON.parse(lhRhymeSerialize(${j(s)})))`)).toEqual(ev(`lhRhymeNormalizeSettings(${j(s)})`));
+});
+
 // ===== 第 10-06 計畫：手動讀音清洗 =====
 const clean = js => ev(`lhRhymeCleanReadings(${js})`);
 test('讀音：清洗——合法的原樣留下', () => {
