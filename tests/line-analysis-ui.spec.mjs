@@ -196,7 +196,7 @@ test('偏好設定：內容與順序', async ({ browser }) => {
     const sec = page.locator('#mapSettingsSection');
     await expect(sec.locator('> .settings-backups-hint')).toHaveText('調整句尾上色、逐行字數與斷句標記的開關、位置、大小和顏色');
     expect(await sec.locator('.section-menu-block > .section-menu-cap:first-child').allTextContents()).toEqual(['預覽', '韻腳地圖', '句構分析', '顯示方式', '韻族顏色']);
-    expect(await sec.locator('.rm-switch-label').allTextContents()).toEqual(['句尾上色', '段落結構字母', '句中押韻', '忽略句尾語助詞', '逐行標記', '行尾韻腳字母', '字數', '斷句結構', '對照差異']);
+    expect(await sec.locator('.rm-switch-label').allTextContents()).toEqual(['句尾上色', '段落結構字母', '句中押韻', '忽略句尾語助詞', '逐行標記', '行尾韻腳字母', '字數', '斷句結構', '對照差異', '反白停留自動分析']);
     const particle = await page.evaluate(() => LH_MAP_PARTICLE_CAP);
     const caps = await sec.locator('.section-menu-cap').allTextContents();
     for (const c of [
@@ -204,9 +204,10 @@ test('偏好設定：內容與順序', async ({ browser }) => {
         '寬韻：同一個韻族都算押韻（例：ㄤ、ㄧㄤ、ㄨㄤ）',
         '每行旁邊顯示淡色小字；下面四項決定要顯示什麼', 'A、B…，跟著上面的寬韻／嚴格', '每行幾個字（空白、標點不算）',
         '例如 3+4。你自己打的空白和標點一定算；開頭有 ≈ 的是機器猜的', '跟同類型第一段的同一行字數不同時，標出 ≠ 和對方的字數',
+        '反白後滑鼠停著不動 1.5 秒，自動打開句構面板；只有接了滑鼠的電腦會自動出現，觸控請按「分析」',
     ]) expect(caps, c).toContain(c);
     // 每個說明都有 id，開關用 aria-describedby 接起來
-    expect(await sec.locator('.rm-switch[aria-describedby]').evaluateAll(els => els.map(e => !!document.getElementById(e.getAttribute('aria-describedby'))))).toEqual(Array(8).fill(true));   // 句尾上色沒有說明
+    expect(await sec.locator('.rm-switch[aria-describedby]').evaluateAll(els => els.map(e => !!document.getElementById(e.getAttribute('aria-describedby'))))).toEqual(Array(9).fill(true));   // 句尾上色沒有說明
     // 四個細項縮排在 .rm-sub 裡，從不禁用
     expect(await sec.locator('.rm-sub .rm-switch .rm-switch-label').allTextContents()).toEqual(['行尾韻腳字母', '字數', '斷句結構', '對照差異']);
     expect(await sec.locator('.rm-switch[disabled], .rm-switch[aria-disabled]').count()).toBe(0);
@@ -1707,6 +1708,103 @@ test('分析面板：貼底與鍵盤打開時看得到', async ({ browser }) => 
     expect(await panel.locator('.rm-an-scroll').evaluate(e => e.scrollHeight > e.clientHeight), '放不下的部分在面板內捲動').toBe(true);
     expect(await panel.locator('.section-menu-close').evaluate(e => { const r = e.getBoundingClientRect(), v = window.visualViewport; return r.top >= v.offsetTop - 0.5 && r.bottom <= v.offsetTop + v.height + 0.5; }), '「關閉句構」看得到').toBe(true);
     await expect(page.locator(ANBAR)).toBeVisible();
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+// ==================== hover：反白停留自動分析（11-06） ====================
+// 時鐘用 page.clock.install() 在導航前裝好，開機之後 pauseAt 暫停：之後時間只靠 runFor 前進，1499／1500ms 才量得準。
+// 反白一律程式化（setSelectionRange）再送 mouseup 走滑鼠路徑（RESEARCH Pattern 6：假時鐘下真拖曳選不到字）；指標用真的 page.mouse.move
+const HV_MAP = { 'lh:map': JSON.stringify({ autoHover: true }) };
+const HV_TEXT = ['我望著遠方的光', '獨自站在窗前', '走過熟悉的街道'].join('\n');
+const hvStorage = (map = HV_MAP) => v2Storage([song([typed('sa', 'verse', HV_TEXT)])], { ...OPEN_PANELS, ...map });
+const hvBoot = async (browser, opts = {}) => {
+    const r = await bootPage(browser, {
+        wordlist: 'stub', storage: hvStorage(), beforeGoto: ({ page }) => page.clock.install(), ...opts,
+    });
+    // 記下每次「啟動計時」的假時間：之後用它算出 1499／1500ms 的精確時間點
+    await r.page.evaluate(() => {
+        const o = window._lhDwellArm;
+        window.__hvArm = [];
+        window._lhDwellArm = function (...a) { const v = o.apply(this, a); window.__hvArm.push({ at: Date.now(), on: _lhDwellTimer !== 0 }); return v; };
+    });
+    return r;
+};
+// 左面板開機時還在滑進來（CSS 動畫不受假時鐘管）：先等它停，再暫停時鐘
+const hvPause = async page => { await waitStill(page); const t = await page.evaluate(() => Date.now()); await page.clock.pauseAt(t + 1000); };
+// 第 i 個字的位置（用 lhMirror 量一次，只在測試裡）
+const hvPoint = (page, i) => page.evaluate(i => {
+    const ta = document.querySelector('.section-textarea'), m = lhMirror(ta);
+    try { const p = lhCaretRect(ta, m, i); return { x: p.left + 4, y: p.top + p.height / 2 }; } finally { m.remove(); }
+}, i);
+// 滑鼠停到第 0 個字附近、反白 [a, b)、送 mouseup，往前走幾個 frame 讓浮動列出現。回傳指標位置
+const hvArm = async (page, a = 0, b = 7) => {
+    await page.evaluate(() => document.querySelector('.section-textarea').focus());   // 聚焦後版面才定下來，先聚焦再量位置
+    const pt = await hvPoint(page, 1);
+    await page.mouse.move(pt.x, pt.y);
+    await page.evaluate(([a, b]) => {
+        const ta = document.querySelector('.section-textarea');
+        ta.focus(); ta.setSelectionRange(a, b);
+        ta.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+    }, [a, b]);
+    await page.waitForTimeout(100);   // 同上：select／selectionchange 先送完，再讓假時鐘前進
+    await page.clock.runFor(60);
+    await expect(page.locator(ANBAR)).toBeVisible();
+    return pt;
+};
+// 計時是不是真的啟動了（用 window.__hvArm 的最後一筆）
+const hvArmAt = page => page.evaluate(() => { const l = window.__hvArm.filter(x => x.on); return l.length ? l[l.length - 1].at : null; });
+// 從啟動點再過 ms 毫秒（假時間）
+const hvAfterArm = async (page, ms) => {
+    const at = await hvArmAt(page), now = await page.evaluate(() => Date.now());
+    expect(at, '浮動列出現時有啟動計時').not.toBeNull();
+    await page.clock.runFor(Math.max(0, at + ms - now));
+};
+const hvReset = async page => {
+    await page.evaluate(() => { lhMapHideBar(); const ta = document.querySelector('.section-textarea'); ta.setSelectionRange(0, 0); });
+    await page.waitForTimeout(100);   // 真實時間：讓收合選取送出的 select／selectionchange 事件先送完，不會漏進下一個案例
+    await page.clock.runFor(600);
+    await expect(page.locator(ANBAR)).toBeHidden();
+};
+
+test('hover：偏好設定有「反白停留自動分析」開關與說明，預設關', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, { wordlist: 'stub', storage: v2Storage([song([typed('sa', 'verse', HV_TEXT)])]) });
+    await openPrefs(page);
+    const sw = prefSw(page, '反白停留自動分析');
+    await expect(sw).toHaveCount(1);
+    await expect(sw).toHaveAttribute('aria-checked', 'false');
+    await expect(sw.locator('.rm-pill')).toHaveText('關');
+    const cap = page.locator('#rmPrefHover');
+    await expect(cap).toHaveText('反白後滑鼠停著不動 1.5 秒，自動打開句構面板；只有接了滑鼠的電腦會自動出現，觸控請按「分析」');
+    await expect(sw).toHaveAttribute('aria-describedby', 'rmPrefHover');
+    // 是「句構分析」區塊的最後一項，不縮排
+    expect(await sw.evaluate(b => ({ last: b.parentElement.lastElementChild.id, sub: !!b.closest('.rm-sub') }))).toEqual({ last: 'rmPrefHover', sub: false });
+    await sw.click();
+    await expect(sw).toHaveAttribute('aria-checked', 'true');
+    await expect(sw.locator('.rm-pill')).toHaveText('開');
+    expect(JSON.parse(await lsGetMap(page))).toMatchObject({ autoHover: true });
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('hover：滑鼠反白停 1.5 秒自動打開句構面板，不搶焦點', async ({ browser }) => {
+    const { context, page, errors } = await hvBoot(browser);
+    await hvPause(page);
+    const panel = page.locator(AN);
+    await hvArm(page, 0, 7);
+    await expect(panel).toBeHidden();
+    await hvAfterArm(page, 1499);
+    await expect(panel, '1499ms 還沒開').toBeHidden();
+    await page.clock.runFor(1);
+    await expect(panel, '1500ms 開了').toBeVisible();
+    await expect(panel.locator('.section-menu-title')).toHaveText('句構：Verse');
+    // 沒搶焦點：輸入框還在、選取不變
+    expect(await anTa(page)).toEqual({ ta: true, a: 0, b: 7 });
+    await expect(page.locator(AN_BTN)).toHaveAttribute('aria-expanded', 'true');
+    // 面板開了之後，指標離開區域不關
+    await page.mouse.move(5, 5);
+    await page.clock.runFor(3000);
+    await expect(panel).toBeVisible();
     expect(errors).toEqual([]);
     await context.close();
 });

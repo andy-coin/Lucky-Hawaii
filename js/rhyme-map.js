@@ -33,7 +33,7 @@ function lhMapApplyPalette() {
 }
 // 版面外觀（第 11 階段）：位置、字級、欄寬都只改 <html> 的屬性與 CSS 變數，不重畫、不重新分析（RESEARCH Pattern 8）。
 // 寫進 style.setProperty 的值一律來自下面這幾張常數表，絕不直接用儲存裡的字串
-const LH_MAP_LOOK_KEYS = new Set(['pos', 'size', 'depth']);   // 這幾個設定只影響 CSS，改了不必重畫鏡像層
+const LH_MAP_LOOK_KEYS = new Set(['pos', 'size', 'depth', 'autoHover']);   // 這幾個設定只影響 CSS 或行為，改了不必重畫鏡像層
 const LH_MAP_SIZE_REM = { s: 0.75, m: 0.875, l: 1 };           // 標記字級（UI-SPEC D-21）
 const LH_MAP_COL_EM = { lnRhyme: 1.25, lnCount: 1.5, lnDiff: 2.25, lnSplit: 5.5 };   // 靠右欄各欄寬度（單位 em，UI-SPEC 3.2）；欄與欄之間再加 0.5em
 // 逐行標記有沒有內容要顯示：總開關開著，而且四個內容項至少開一個
@@ -408,6 +408,7 @@ function _lhMapLookRadios(label, key, items, cols3) {
     _lhMapRadioKeys(g);
     return g;
 }
+const LH_MAP_HOVER_HINT = '反白後滑鼠停著不動 1.5 秒，自動打開句構面板；只有接了滑鼠的電腦會自動出現，觸控請按「分析」';
 const LH_MAP_DEPTH_HELP = '濃：色塊比較明顯，深色主題下有些顏色的字會比較不好讀';   // 只有選「濃」時才顯示
 // 目前位置的說明文字（UI-SPEC 第 7 節逐字）
 const LH_MAP_POS_HELP = {
@@ -634,7 +635,8 @@ function lhMapPrefsBuild() {
     pvDiff.hidden = true;
     const preview = _lhMkBlock('預覽', pv, pvDiff);
     preview.classList.add('lm-preview-block');
-    sec.append(hint, preview, _lhMkBlock('韻腳地圖', ...mapRows), _lhMkBlock('句構分析', ...lineRow, sub), look, colors);
+    sec.append(hint, preview, _lhMkBlock('韻腳地圖', ...mapRows), _lhMkBlock('句構分析', ...lineRow, sub,
+        ..._lhMapPrefRow('autoHover', '反白停留自動分析', LH_MAP_HOVER_HINT, 'rmPrefHover')), look, colors);
     // 整個段落共用一個點擊監聽（和選單一樣）：開關翻轉、寬韻／嚴格選一個，改了就存、就畫
     sec.addEventListener('click', e => {
         const sw = e.target.closest && e.target.closest('.rm-switch');
@@ -756,6 +758,7 @@ function _lhMapPlaceMenu() {
 
 // byKeyboard：鍵盤打開才把焦點放到第一個開關；滑鼠、觸控不搶焦點（手機鍵盤不要彈出來）
 function lhMapOpenMenu(byKeyboard) {
+    _lhDwellCancel();
     const m = lhMapMenuBuild();
     if (typeof lhSecCloseMenu === 'function') lhSecCloseMenu();
     if (typeof closeExportMenu === 'function') closeExportMenu();
@@ -782,6 +785,7 @@ function lhMapCloseMenu(refocus) {
 
 // 關掉所有韻腳相關的浮層（重畫列表、跨 900px、收面板、段落選單打開時都會叫）
 function lhMapCloseAll() {
+    _lhDwellCancel();
     lhMapCloseMenu(false);
     lhMapHideAnalysis();
     lhMapHideBar();
@@ -1001,6 +1005,10 @@ let _lhMapBarSkip = '';          // 按過按鈕或 Esc 收掉的那個選取（
 let _lhMapBarGrace = 0;          // 這個時間點之前的捲動不算使用者捲動（鍵盤開關時瀏覽器自己會捲）
 let _lhMapAn = null;             // #rhymeAnalysis（句構分析面板，和浮動列算同一個浮層）
 let _lhMapAnOn = false;
+// 反白停留自動分析（C4／D-10）：只給接了滑鼠的電腦。計時中就是 _lhDwellTimer 非 0，_lhDwellAt 是起算時指標的位置
+const LH_MAP_DWELL_MS = 1500, LH_MAP_DWELL_PX = 3;
+let _lhPtr = { x: 0, y: 0, mouse: false };   // 最後一次指標事件（只記座標，移動時絕不量版面）
+let _lhDwellTimer = 0, _lhDwellAt = null;
 
 const _lhMapSelSig = ta => (ta.closest('.lyrics-section')?.dataset.id || '') + ':' + ta.selectionStart + ':' + ta.selectionEnd;
 
@@ -1056,6 +1064,7 @@ function lhMapBarBuild() {
 }
 
 function lhMapHideBar(keepTimer) {
+    _lhDwellCancel();
     if (keepTimer !== true) { clearTimeout(_lhMapBarTimer); _lhMapBarTimer = 0; }
     lhMapHideAnalysis();   // 浮動列和分析面板算同一層：列收了面板跟著收
     if (_lhMapBarSnap) _lhMapBarSnap.ta.removeAttribute('aria-keyshortcuts');
@@ -1074,10 +1083,13 @@ function _lhMapBarPlace() {
     const vv = window.visualViewport;
     const r = ta.getBoundingClientRect();
     let x = r.left, y = (vv ? vv.offsetTop + vv.height : innerHeight);
+    s.zone = null;   // 太長的段落不量版面，也就沒有停留自動分析
     if (ta.value.length <= LH_WD_BIG) {
         const m = lhMirror(ta);
-        let pos;
-        try { pos = lhCaretRect(ta, m, s.end); } finally { m.remove(); }
+        let pos, p0;
+        try { pos = lhCaretRect(ta, m, s.end); p0 = lhCaretRect(ta, m, s.a); } finally { m.remove(); }
+        // 停留偵測的區域：輸入框的寬、選取第一個視覺列頂到最後一個視覺列底。放置時量這一次，之後 pointermove 只比座標（C4）
+        s.zone = { left: r.left, right: r.right, top: Math.max(r.top, p0.top), bottom: Math.min(r.bottom, pos.top + pos.height) };
         if (pos.top + pos.height >= r.top && pos.top <= r.bottom) {
             const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
             x = pos.left;
@@ -1124,7 +1136,8 @@ function _lhMapReadingTarget(ta, a, text, char) {
 }
 
 // 判斷這個輸入框現在的選取該不該出現浮動列
-function _lhMapSelCheck(ta) {
+// byMouse：滑鼠放開走的路徑才可能啟動停留計時；鍵盤、觸控的 400ms 路徑永遠不會
+function _lhMapSelCheck(ta, byMouse) {
     _lhMapBarTimer = 0;
     try {
         const a = ta.selectionStart, b = ta.selectionEnd;
@@ -1146,6 +1159,7 @@ function _lhMapSelCheck(ta) {
             if (chars.length <= LH_MAP_SEL_MAX) char = chars.filter(c => LH_MAP_HAN.test(c)).pop() || null;
         }
         lhMapShowBar({ ta, secId: ta.closest('.lyrics-section').dataset.id, a, b, end, char, rd: char ? _lhMapReadingTarget(ta, a, text, char) : null });
+        if (byMouse) _lhDwellArm();
     } catch (e) {
         lhWarn('韻腳地圖選字列失敗', e);
         lhMapHideBar();
@@ -1171,7 +1185,7 @@ function _lhMapBarOnChange(e) {
         if (!ta.classList || !ta.classList.contains('section-textarea')) return;
         _lhMapBarSkip = '';
         clearTimeout(_lhMapBarTimer);
-        requestAnimationFrame(() => _lhMapSelCheck(ta));
+        requestAnimationFrame(() => _lhMapSelCheck(ta, true));
     });
     area.addEventListener('compositionstart', () => lhMapHideBar());
     // 捲動只收已經出現的列，不取消等著判斷的計時（聚焦時瀏覽器常會順手捲一下）
@@ -1183,6 +1197,41 @@ function _lhMapBarOnChange(e) {
         [..._lhMapBar.querySelectorAll('button')].find(b => b.offsetParent !== null).focus({ preventScroll: true });   // 第一顆看得到的（可能沒有「查韻」）
     });
 }
+// ==================== 反白停留自動分析（MAP-10、CONTEXT C4／C5、UI-SPEC D-10） ====================
+// 滑鼠反白後、指標停在選取範圍內不動 1.5 秒，自己打開句構面板（和「📏 分析」同一個面板、不搶焦點）。
+// 動 3px 以上就取消，而且不會重新起算：要再等，只有重新用滑鼠反白一次。
+// 為什麼不動就不重新起算：使用者一動手，多半是要做別的事（拖、點、捲），這時跳出面板只會干擾
+function _lhDwellOk() {
+    const s = _lhMapBarSnap, z = s && s.zone;
+    return !!(z && _lhMapSet.autoHover && _lhPtr.mouse && !_lhMapAnOn && !_lhComposing && !_lhMapMenuOn && _lhMenuId === null
+        && matchMedia('(hover: hover) and (pointer: fine)').matches
+        && _lhPtr.x >= z.left && _lhPtr.x <= z.right && _lhPtr.y >= z.top && _lhPtr.y <= z.bottom);
+}
+function _lhDwellCancel() {
+    clearTimeout(_lhDwellTimer);
+    _lhDwellTimer = 0;
+    _lhDwellAt = null;
+}
+function _lhDwellArm() {
+    _lhDwellCancel();
+    if (!_lhDwellOk()) return;
+    const { ta, a, b } = _lhMapBarSnap;
+    _lhDwellAt = { x: _lhPtr.x, y: _lhPtr.y };
+    _lhDwellTimer = setTimeout(() => {
+        _lhDwellCancel();
+        const s = _lhMapBarSnap;   // 放開滑鼠後的 400ms 路徑可能重建過快照，所以比選取範圍，不比物件
+        if (s && s.ta === ta && s.a === a && s.b === b && _lhDwellOk()) lhMapOpenAnalysis(s, false);   // 同一個選取、條件還成立才開
+    }, LH_MAP_DWELL_MS);
+}
+// 指標事件只記座標（pointerdown 也記：觸控的相容滑鼠事件之前，最後一個指標必須是手指而不是舊的滑鼠）
+for (const t of ['pointermove', 'pointerdown']) document.addEventListener(t, e => {
+    _lhPtr = { x: e.clientX, y: e.clientY, mouse: e.pointerType === 'mouse' };
+    if (!_lhDwellAt) return;
+    if (Math.hypot(e.clientX - _lhDwellAt.x, e.clientY - _lhDwellAt.y) >= LH_MAP_DWELL_PX || (e.target.closest && e.target.closest('#rhymeSelBar, #rhymeAnalysis'))) _lhDwellCancel();
+}, true);
+document.addEventListener('wheel', _lhDwellCancel, { capture: true, passive: true });
+for (const t of ['keydown', 'compositionstart']) document.addEventListener(t, _lhDwellCancel, true);
+
 // 點浮動列以外的地方收掉
 document.addEventListener('pointerdown', e => {
     if (_lhMapBarSnap && !(e.target.closest && e.target.closest('#rhymeSelBar, #rhymeAnalysis'))) lhMapHideBar();
@@ -1365,6 +1414,7 @@ function lhMapOpenAnalysis(snap, byKeyboard) {
 
 // refocus：按「關閉句構」或 Esc 才把焦點與選取還給輸入框
 function lhMapHideAnalysis(refocus) {
+    _lhDwellCancel();
     if (!_lhMapAn || !_lhMapAnOn) return;
     _lhMapAnOn = false;
     _lhMapAn.classList.remove('show');
