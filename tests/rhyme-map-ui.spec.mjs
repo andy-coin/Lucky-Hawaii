@@ -1729,6 +1729,68 @@ test('統計：關閉與焦點', async ({ browser }) => {
     await context.close();
 });
 
+test('統計：縮放時不重建清單', async ({ browser }) => {
+    const long = Array.from({ length: 60 }, (_, i) => F_ABAB.split('\n')[i % 4] + '，第' + i + '行').join('\n');
+    const { context, page, errors } = await bootPage(browser, {
+        wordlist: 'stub', device: { viewport: { width: 1280, height: 560 } }, storage: withLetters([song([typed('sa', 'verse', long)])]),
+    });
+    await openStats(page);
+    const before = await page.evaluate(async () => {
+        const m = document.getElementById('rhymeStats');
+        m.scrollTop = 150;
+        await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+        window.__row = m.querySelectorAll('.rm-row')[5];
+        return { top: m.scrollTop, rows: m.querySelectorAll('.rm-row').length, scrollable: m.scrollHeight > m.clientHeight };
+    });
+    expect(before.scrollable, '清單放不下才會捲').toBe(true);
+    expect(before.top).toBeGreaterThan(100);
+    // 視窗縮放、視覺視窗縮放（螢幕鍵盤）：同一個節點、同一個捲動位置
+    const after = await page.evaluate(async () => {
+        window.dispatchEvent(new Event('resize'));
+        if (window.visualViewport) window.visualViewport.dispatchEvent(new Event('resize'));
+        await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+        const m = document.getElementById('rhymeStats');
+        return { same: window.__row.isConnected && m.contains(window.__row), top: m.scrollTop, rows: m.querySelectorAll('.rm-row').length, shown: m.classList.contains('show') };
+    });
+    expect(after).toEqual({ same: true, top: before.top, rows: before.rows, shown: true });
+    // 真的縮小視窗：還是同一個清單，且仍在可見範圍內
+    await page.setViewportSize({ width: 1280, height: 420 });
+    await page.evaluate(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))));
+    const box = await page.locator(STATS).boundingBox();
+    expect(box.y + box.height, '還在可見範圍內').toBeLessThanOrEqual(420.5);
+    expect(await page.evaluate(() => window.__row.isConnected)).toBe(true);
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('統計：重畫時只建一次', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, {
+        wordlist: 'stub', storage: withLetters([song([typed('sa', 'verse', F_AABB)])]),
+    });
+    // 先把彈窗節點建好並掛上觀察者，再讓那一段的快取過期（模型文字變了、還沒重畫）
+    await page.evaluate(() => {
+        window.__builds = 0;
+        new MutationObserver(recs => { window.__builds += recs.filter(r => r.type === 'childList').length; }).observe(lhMapStatsBuild(), { childList: true });
+        curSong().sections[0].text += '\n我愛你到天亮';
+    });
+    await page.locator(STRIP).first().click();
+    await expect(page.locator(STATS)).toBeVisible();
+    await page.evaluate(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))));
+    expect(await page.evaluate(() => window.__builds), '開著的統計只建一次').toBe(1);
+    // 補畫之後清單是新的（5 句）
+    await expect(statsRows(page)).toHaveCount(5);
+    // 已經是最新的：再開一次也只建一次
+    await page.locator(STRIP).first().click();
+    await expect(page.locator(STATS)).toBeHidden();
+    await page.evaluate(() => { window.__builds = 0; });
+    await page.locator(STRIP).first().click();
+    await expect(page.locator(STATS)).toBeVisible();
+    await page.evaluate(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))));
+    expect(await page.evaluate(() => window.__builds)).toBe(1);
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
 test('統計：名稱太長時截斷', async ({ browser }) => {
     const long = '一二三四五六七八九十甲乙丙丁戊己庚辛壬癸子丑寅卯辰巳午未申酉戌亥天地玄黃宇宙洪荒';
     expect(Array.from(long)).toHaveLength(40);

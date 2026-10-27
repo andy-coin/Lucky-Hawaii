@@ -1474,3 +1474,239 @@ test('分析面板：手機上長選取只出現一次，只有分析', async ({
     expect(errors).toEqual([]);
     await context.close();
 });
+
+// ==================== 分析面板：收起、焦點、同一層、觸控、鍵盤（11-05 Task 3） ====================
+const AN_BTN = ANBAR + ' .rm-bar-an';
+const anExpanded = page => page.locator(AN_BTN).getAttribute('aria-expanded');
+const AN_LONG80 = Array.from({ length: 80 }, (_, i) => '第' + i + '句歌詞在這裡').join('\n');
+// 選 [a, b)、等浮動列出現、按「分析」打開面板（滑鼠）
+const anShow = async (page, a, b, n = 0) => {
+    await anPick(page, a, b, n);
+    await expect(page.locator(ANBAR)).toBeVisible();
+    await page.locator(AN_BTN).click();
+    await expect(page.locator(AN)).toBeVisible();
+};
+
+test('分析面板：收起來的各種情況', async ({ browser }) => {
+    const mk = id => song([typed('sa', 'verse', AN_V1), typed('sb', 'verse', AN_V2), typed('sc', 'chorus', AN_LONG80, { height: 160 })], { id });
+    const { context, page, errors } = await bootPage(browser, {
+        wordlist: 'stub', storage: v2Storage([mk('s1'), { ...mk('s2'), title: '第二首' }]),
+    });
+    const panel = page.locator(AN), bar = page.locator(ANBAR);
+    const closed = async why => { await expect(panel, why).toBeHidden(); expect(await anExpanded(page), why + '：aria-expanded').toBe('false'); };
+    // Esc：只收面板，焦點與選取回輸入框，浮動列還在；第二次 Esc 才收浮動列
+    await anShow(page, 11, 26, 1);
+    await page.keyboard.press('Escape');
+    await closed('Esc');
+    await expect(bar).toBeVisible();
+    expect(await anTa(page)).toEqual({ ta: true, a: 11, b: 26 });
+    await page.keyboard.press('Escape');
+    await expect(bar).toBeHidden();
+    expect(await anTa(page)).toEqual({ ta: true, a: 11, b: 26 });
+    // 「關閉句構」：收面板、焦點回輸入框
+    await anShow(page, 10, 26, 1);
+    await panel.locator('.section-menu-close').click();
+    await closed('關閉句構');
+    await expect(bar).toBeVisible();
+    expect(await anTa(page)).toEqual({ ta: true, a: 10, b: 26 });
+    // 點外面
+    await page.locator('#songTotal').click();
+    await closed('點外面');
+    await expect(bar).toBeHidden();
+    // 選取改變
+    await anShow(page, 9, 26, 1);
+    await page.keyboard.press('Shift+ArrowRight');
+    await closed('選取改變');
+    // 捲動歌詞區
+    await anShow(page, 0, 3, 2);
+    await page.evaluate(() => {
+        const ta = document.querySelectorAll('.section-textarea')[2], box = document.getElementById('lyricsSections');
+        if (ta.scrollHeight > ta.clientHeight) ta.scrollTop = 80; else box.scrollTop = box.scrollTop + 80;
+    });
+    await closed('捲動');
+    // 組字：開始組字就收，組字中、組字後都不在
+    await anShow(page, 8, 26, 1);
+    let during = null;
+    await compose(page, ['ㄌ'], '你', async () => { during = await panel.isVisible(); });
+    expect(during, '組字中').toBe(false);
+    await closed('組字後');
+    // 別的分頁改了設定（storage 事件）
+    await anShow(page, 7, 26, 1);
+    await page.evaluate(() => window.dispatchEvent(new StorageEvent('storage', { key: 'lh:map' })));
+    await closed('storage 事件');
+    // 換歌
+    await anShow(page, 6, 26, 1);
+    await page.evaluate(() => switchSong('s2'));
+    await closed('換歌');
+    await page.waitForTimeout(300);   // 新輸入框建好時瀏覽器會補送幾個 selectionchange，等它們過去再選字
+    // 收左面板
+    await anShow(page, 5, 26, 1);
+    await page.evaluate(() => toggleLeftPanel());
+    await closed('收左面板');
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('分析面板：鍵盤與焦點', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, {
+        wordlist: 'stub', storage: v2Storage([song([typed('sa', 'verse', AN_V2), typed('sb', 'chorus', AN_LONG80, { height: 160 })])]),
+    });
+    const panel = page.locator(AN), ta0 = page.locator('.section-textarea').first();
+    const inPanel = () => page.evaluate(() => !!document.activeElement.closest('#rhymeAnalysis'));
+    // 滑鼠按「分析」：不搶焦點
+    await anShow(page, 11, 26);
+    expect((await page.evaluate(() => document.activeElement.className))).toContain('section-textarea');
+    await page.keyboard.press('Escape');
+    await page.keyboard.press('Escape');
+    await expect(page.locator(ANBAR)).toBeHidden();
+    // 鍵盤：Alt+↓ 到第一顆、→ 到「分析」、Enter 打開，焦點進面板
+    await anPick(page, 10, 26);
+    await expect(page.locator(ANBAR)).toBeVisible();
+    await page.keyboard.press('Alt+ArrowDown');
+    await expect(page.locator(ANBAR + ' .rm-bar-look')).toBeFocused();
+    await page.keyboard.press('ArrowRight');
+    await page.keyboard.press('ArrowRight');
+    await expect(page.locator(AN_BTN)).toBeFocused();
+    await page.keyboard.press('Enter');
+    await expect(panel).toBeVisible();
+    await expect(panel).toBeFocused();
+    expect(await live(page)).toBe('句構分析：選到 3 行');
+    // 這麼短的表格沒有溢出：Tab 只到「關閉句構」，兩個方向都不跑出面板
+    expect(await panel.locator('.rm-an-scroll').getAttribute('tabindex')).toBeNull();
+    for (const k of ['Tab', 'Tab', 'Shift+Tab', 'Shift+Tab', 'Shift+Tab']) {
+        await page.keyboard.press(k);
+        expect(await inPanel(), k).toBe(true);
+        await expect(panel.locator('.section-menu-close')).toBeFocused();
+    }
+    // Esc：面板收起，焦點與選取回輸入框
+    await page.keyboard.press('Escape');
+    await expect(panel).toBeHidden();
+    await expect(ta0).toBeFocused();
+    expect(await anTa(page)).toEqual({ ta: true, a: 10, b: 26 });
+    await expect(page.locator(ANBAR)).toBeVisible();
+    // 溢出時（80 行整段）捲動區可用 Tab 聚焦：Tab 在「捲動區」與「關閉句構」之間繞
+    await page.keyboard.press('Escape');
+    await anPick(page, 0, AN_LONG80.length, 1);
+    await expect(page.locator(ANBAR)).toBeVisible();
+    await page.keyboard.press('Alt+ArrowDown');
+    await expect(page.locator(AN_BTN)).toBeFocused();   // 沒有查韻（太長）：第一顆就是「分析」
+    await page.keyboard.press('Enter');
+    await expect(panel).toBeFocused();
+    const sc = panel.locator('.rm-an-scroll');
+    await expect(sc).toHaveAttribute('tabindex', '0');
+    await page.keyboard.press('Tab');
+    await expect(sc).toBeFocused();
+    await page.keyboard.press('Tab');
+    await expect(panel.locator('.section-menu-close')).toBeFocused();
+    await page.keyboard.press('Tab');
+    await expect(sc).toBeFocused();
+    await page.keyboard.press('Shift+Tab');
+    await expect(panel.locator('.section-menu-close')).toBeFocused();
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('分析面板：只算一個浮層', async ({ browser }) => {
+    const MAP_LETTERS = JSON.stringify({ end: true, letters: true, inner: false, strict: false, skipParticles: true });
+    const { context, page, errors } = await bootPage(browser, {
+        wordlist: 'stub', storage: v2Storage([song([typed('sa', 'verse', '我們一起行\n我望著遠方的光')])], { ...OPEN_PANELS, 'lh:map': MAP_LETTERS }),
+    });
+    const panel = page.locator(AN), row = page.locator('#rhymeReadingRow'), rd = page.locator(ANBAR + ' .rm-bar-rd');
+    // 統計開著、浮動列也在（用鍵盤打開，不經過「點外面就收統計」）：打開面板 → 統計收起
+    await anPick(page, 4, 5);
+    await expect(page.locator(ANBAR)).toBeVisible();
+    await page.evaluate(() => { lhMapStatsBuild(); _lhMapStatsSec = 'sa'; _lhMapStatsOn = true; _lhMapStatsFill(); });
+    await expect(page.locator('#rhymeStats')).toBeVisible();
+    await page.keyboard.press('Alt+ArrowDown');
+    await page.keyboard.press('ArrowRight');
+    await page.keyboard.press('ArrowRight');
+    await page.keyboard.press('Enter');
+    await expect(panel).toBeVisible();
+    await expect(page.locator('#rhymeStats')).toBeHidden();
+    expect(await page.evaluate(() => document.querySelector('.section-rhyme').getAttribute('aria-expanded'))).toBe('false');
+    await page.keyboard.press('Escape');
+    // 指定讀音：打開 → 再開面板，讀音列收起；再開讀音 → 面板收起
+    await expect(rd).toBeVisible();
+    await rd.click();
+    await expect(row).toBeVisible();
+    await expect(rd).toHaveAttribute('aria-expanded', 'true');
+    await page.locator(AN_BTN).click();
+    await expect(panel).toBeVisible();
+    await expect(row).toBeHidden();
+    await expect(rd).toHaveAttribute('aria-expanded', 'false');
+    await expect(page.locator(ANBAR)).toBeVisible();
+    await rd.click();
+    await expect(panel).toBeHidden();
+    await expect(row).toBeVisible();
+    await expect(page.locator(AN_BTN)).toHaveAttribute('aria-expanded', 'false');
+    await page.locator(AN_BTN).click();
+    await expect(panel).toBeVisible();
+    await expect(row).toBeHidden();
+    // 開統計（點字母條）：浮動列和面板都收
+    await page.locator('.section-rhyme').click();
+    await expect(page.locator('#rhymeStats')).toBeVisible();
+    await expect(panel).toBeHidden();
+    await expect(page.locator(ANBAR)).toBeHidden();
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('分析面板：觸控保留選取', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, {
+        wordlist: 'stub', device: DEVICES.phone, storage: v2Storage([song([typed('sa', 'verse', TAIL_A)])], {}),
+    });
+    await page.locator('#mtab-lyrics').click();
+    await waitStill(page);
+    await anPick(page, 0, TAIL_A.length);   // 60 行整段
+    await expect(page.locator(ANBAR)).toBeVisible();
+    await page.locator(AN_BTN).tap();
+    const panel = page.locator(AN);
+    await expect(panel).toBeVisible();
+    // 點面板的標題：選取與焦點都還在（手機鍵盤也不會收）
+    await panel.locator('.section-menu-title').tap();
+    expect(await anTa(page)).toEqual({ ta: true, a: 0, b: TAIL_A.length });
+    await expect(panel).toBeVisible();
+    // 捲動區用手指拖得動，選取仍在
+    const sc = panel.locator('.rm-an-scroll'), box = await sc.boundingBox();
+    expect(await sc.evaluate(e => e.scrollHeight > e.clientHeight), '60 行放不下，需要捲動').toBe(true);
+    const cdp = await page.context().newCDPSession(page);
+    await cdp.send('Input.synthesizeScrollGesture', { x: box.x + box.width / 2, y: box.y + box.height / 2, yDistance: -150, gestureSourceType: 'touch', speed: 800 });
+    await expect.poll(() => sc.evaluate(e => e.scrollTop)).toBeGreaterThan(40);
+    expect(await anTa(page)).toEqual({ ta: true, a: 0, b: TAIL_A.length });
+    await expect(panel).toBeVisible();
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('分析面板：貼底與鍵盤打開時看得到', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, {
+        wordlist: 'stub', device: DEVICES.phone, storage: v2Storage([song([typed('sa', 'verse', AN_LONG80, { height: 300 })])], {}),
+    });
+    await page.locator('#mtab-lyrics').click();
+    await waitStill(page);
+    // 選到最後一個可見行，往上 40 行（面板有很多列）
+    await page.evaluate(async () => {
+        const ta = document.querySelector('.section-textarea');
+        ta.scrollTop = ta.scrollHeight;   // 先捲到最底，最後一個可見行才是第 80 句附近，往上 40 行才選得到
+        await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+        const r = ta.getBoundingClientRect(), vv = window.visualViewport;
+        const bottom = Math.min(r.bottom, vv.offsetTop + vv.height) - 6, i = lhCaretIndexAt(ta, r.left + 30, bottom);
+        ta.focus(); ta.setSelectionRange(Math.max(0, i - 400), i);
+    });
+    await expect(page.locator(ANBAR)).toBeVisible();
+    await page.locator(AN_BTN).tap();
+    const panel = page.locator(AN);
+    await expect(panel).toBeVisible();
+    const before = page.viewportSize();
+    await emulateKeyboard(page, 336);
+    const kb = await readKeyboard(page);
+    expect(kb.open, '模擬鍵盤已開').toBe(true);
+    await expect.poll(async () => insideVisible(await panel.boundingBox(), await readKeyboard(page))).toBe(true);
+    const b = await panel.boundingBox();
+    expect(b.y + b.height, '不蓋到鍵盤').toBeLessThanOrEqual(before.height - 336 + 0.5);
+    expect(await panel.locator('.rm-an-scroll').evaluate(e => e.scrollHeight > e.clientHeight), '放不下的部分在面板內捲動').toBe(true);
+    expect(await panel.locator('.section-menu-close').evaluate(e => { const r = e.getBoundingClientRect(), v = window.visualViewport; return r.top >= v.offsetTop - 0.5 && r.bottom <= v.offsetTop + v.height + 0.5; }), '「關閉句構」看得到').toBe(true);
+    await expect(page.locator(ANBAR)).toBeVisible();
+    expect(errors).toEqual([]);
+    await context.close();
+});
