@@ -350,7 +350,39 @@ Plans:
   5. 把 AI 候選詞卡拖到歌詞指定位置就插入該處（手機長按啟動拖曳），單純點擊詞卡不會插入〔自動〕
 
 **Human check**: 平板／手機實機的拖曳與長按手感
-**Plans**: TBD
+**Plans:** 10/10 plans executed
+
+Plans:
+**Wave 1**
+- [x] 09-01-PLAN.md — 結構化段落名稱（Tracer）：舊歌讀進來自動推斷 Verse／Chorus…、羅馬數字編號、新段落猜下一段、備份匯入驗證新欄位、讀取不寫回、?v=0.96.13
+
+**Wave 2** *(blocked on Wave 1 completion)*
+- [x] 09-02-PLAN.md — 段落名稱改成按鈕：點一下循環類型、原地更新不重畫、單一入口 lhSecApply
+
+**Wave 3** *(blocked on Wave 2 completion)*
+- [x] 09-03-PLAN.md — 每段「N 字」與「共 N 字」（新的 .lyrics-tools 列）、組字中不跳動
+
+**Wave 4** *(blocked on Wave 3 completion)*
+- [x] 09-04-PLAN.md — Undo／Redo：每首歌一條記憶體歷史、連打合併、注音一詞一步、↶ ↷ 與快捷鍵、別頁改了就清空
+
+**Wave 5** *(blocked on Wave 4 completion)*
+- [x] 09-05-PLAN.md — 刪除段落不再確認：「已刪除」提示附「復原」、最後一段不能刪
+
+**Wave 6** *(blocked on Wave 5 completion)*
+- [x] 09-06-PLAN.md — ⋮⋮ 拖把手排序（滑鼠＋手指＋Alt+↑↓）、插入線、靠邊自動捲、Esc 取消，取代舊拖曳
+
+**Wave 7** *(blocked on Wave 6 completion)*
+- [x] 09-07-PLAN.md — 段落底邊拉桿調高度：存檔、雙擊回自動、鍵盤、不進 Undo
+
+**Wave 8** *(blocked on Wave 7 completion)*
+- [x] 09-08-PLAN.md — 右鍵／長按「段落設定」：8 色票＋自訂色、直接選類型、自訂名稱、上移下移、三種主題對比
+
+**Wave 9** *(blocked on Wave 8 completion)*
+- [x] 09-09-PLAN.md — AI 詞卡／字卡拖進歌詞指定位置（滑鼠拖、手指長按 0.4 秒），點擊不插入、手機自動切到歌詞
+
+**Wave 10** *(blocked on Wave 9 completion)*
+- [x] 09-10-PLAN.md — 整段流程端到端＋跨介面檢查＋npm test 全綠＋Andy 驗收清單與 handoff（-linux 截圖基準留給 Andy）
+
 **UI hint**: yes
 
 ### Phase 10: Rhyme Map 韻腳地圖
@@ -367,7 +399,31 @@ Plans:
   5. 注音組字過程中不執行分析；100 行以上的長篇歌詞編輯時不卡頓〔自動：量測長任務〕
 
 **Human check**: 上色在實機上的可讀性與美觀；實機注音組字不受影響
-**Plans**: TBD
+**Plans:** 8/8 plans executed
+
+Plans:
+**Wave 1**
+- [x] 10-01-PLAN.md — 句尾自動上色（Tracer）：rhyme-core.js 共用判定與句尾／讀音／字母純函式、rhyme-map.js 背景鏡像層與排程、兩個掛鉤、?v=0.96.14、Node 固定歌詞範例
+
+**Wave 2** *(blocked on Wave 1 completion)*
+- [x] 10-02-PLAN.md — 查韻與韻腳地圖共用同一個判定：九千八百組三邊對照、四處等價改寫、golden 不變、換詞庫包重新判讀
+- [x] 10-03-PLAN.md — 對得準、跟主題、長歌不卡：組字零變動與 rm-stale、快取只重畫被改的段、逐像素對齊、晝夜色票與對比、效能量測
+
+**Wave 3** *(blocked on Wave 2 completion)*
+- [x] 10-04-PLAN.md — 「韻腳 ▾」選單：句尾上色／句中押韻／寬韻嚴格／忽略語助詞／色票對照、lh:map 設定與備份、別的分頁同步
+
+**Wave 4** *(blocked on Wave 3 completion)*
+- [x] 10-05-PLAN.md — 選字浮動列：反白後「查韻」「AI 建議」、手機切分頁、鍵盤操作、貼底與觸控大小
+
+**Wave 5** *(blocked on Wave 4 completion)*
+- [x] 10-06-PLAN.md — 指定讀音：破音字句尾在浮動列選讀音、顏色跟著換、句尾改了自動失效、備份白名單
+
+**Wave 6** *(blocked on Wave 5 completion)*
+- [x] 10-07-PLAN.md — 段落結構字母（AABB）與統計：標題列字母條、統計視窗逐句查韻、各尺寸放得下
+
+**Wave 7** *(blocked on Wave 6 completion)*
+- [x] 10-08-PLAN.md — 整合與驗收：一次走完、跨介面檢查、全部測試與效能、Andy 驗收清單與 handoff
+
 **UI hint**: yes
 
 ### Phase 11: Line Analysis & Settings 句構分析與設定頁
@@ -414,7 +470,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 6. Lexicon Packs 台灣詞庫包 | 8/8 | In Progress|  |
 | 7. Feedback & Correction Layer 回報與修正層 | 10/10 | In Progress|  |
 | 8. Songs & Editor Model 歌曲管理與資料模型 | 9/9 | In Progress|  |
-| 9. Section Modules 段落模組 | 0/TBD | Not started | - |
-| 10. Rhyme Map 韻腳地圖 | 0/TBD | Not started | - |
+| 9. Section Modules 段落模組 | 10/10 | In Progress|  |
+| 10. Rhyme Map 韻腳地圖 | 8/8 | In Progress|  |
 | 11. Line Analysis & Settings 句構分析與設定頁 | 0/TBD | Not started | - |
 | 12. Official Lexicon 官方詞庫 | 0/TBD | Not started | - |

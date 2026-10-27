@@ -1,19 +1,19 @@
 ---
 gsd_state_version: "1.0"
 milestone: v0.96
-current_phase: 08
-current_phase_name: Songs & Editor Model 歌曲管理與資料模型
+current_phase: 10
+current_phase_name: Rhyme Map 韻腳地圖
 status: verifying
-stopped_at: Completed 08-09-PLAN.md
-last_updated: "2026-10-11T04:02:27.846Z"
-last_activity: 2026-10-11
-last_activity_desc: Phase 08 execution started
-state_head: 75b8d6dc02f563e884c890cf51c93c8c4016b77b
+stopped_at: Completed 10-08-PLAN.md
+last_updated: "2026-10-23T10:59:24.859Z"
+last_activity: 2026-10-23
+last_activity_desc: Phase 10 execution started
+state_head: 947620e7f9e8fbfe7bed68e43bb33b4f74c21ed1
 progress:
   total_phases: 12
   completed_phases: 2
-  total_plans: 60
-  completed_plans: 60
+  total_plans: 78
+  completed_plans: 78
 ---
 
 # Project State
@@ -23,14 +23,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-10-03)
 
 **Core value:** 輸入一個字或音，就能快速拿到「符合台灣日常語感、真的能寫進歌詞」的押韻字詞——查得到、查得快、查得準。
-**Current focus:** Phase 08 — Songs & Editor Model 歌曲管理與資料模型
+**Current focus:** Phase 10 — Rhyme Map 韻腳地圖
 
 ## Current Position
 
-Phase: 08 (Songs & Editor Model 歌曲管理與資料模型) — EXECUTING
-Plan: 9 of 9
+Phase: 10 (Rhyme Map 韻腳地圖) — EXECUTING
+Plan: 8 of 8
 Status: Phase complete — ready for verification
-Last activity: 2026-10-11 — Phase 08 execution started
+Last activity: 2026-10-23 — Phase 10 execution started
 
 Progress: [██░░░░░░░░] 17%
 
@@ -117,6 +117,24 @@ Progress: [██░░░░░░░░] 17%
 | Phase 08 P07 | 17 min | 3 tasks | 15 files |
 | Phase 08 P08 | 17 min | 3 tasks | 8 files |
 | Phase 08 P09 | 18 min | 2 tasks | 5 files |
+| Phase 09 P01 | 25 min | 3 tasks | 15 files |
+| Phase 09 P02 | 20min | 2 tasks | 13 files |
+| Phase 09 P03 | 15min | 2 tasks | 10 files |
+| Phase 09 P04 | 25min | 3 tasks | 11 files |
+| Phase 09 P05 | 20min | 2 tasks | 8 files |
+| Phase 09 P06 | 25 min | 3 tasks | 8 files |
+| Phase 09 P07 | 30min | 2 tasks | 9 files |
+| Phase 09 P08 | 55 min | 3 tasks | 7 files |
+| Phase 09 P09 | 75 min | 3 tasks | 7 files |
+| Phase 09 P10 | 95min | 3 tasks | 8 files |
+| Phase 10 P01 | 12 min | 2 tasks | 15 files |
+| Phase 10 P02 | 10 min | 2 tasks | 4 files |
+| Phase 10 P03 | 25min | 3 tasks | 4 files |
+| Phase 10 P04 | 50min | 3 tasks | 13 files |
+| Phase 10 P05 | unattended | 3 tasks | 3 files |
+| Phase 10 P06 | 30 min | 2 tasks | 6 files |
+| Phase 10 P07 | 40min | 3 tasks | 7 files |
+| Phase 10 P08 | 20min | 3 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -212,6 +230,32 @@ Recent decisions affecting current work:
 - [Phase 08]: 08-08: delete and restore backup ids carry a random tail; a failed write after the backup restores the pre-delete snapshot so 這首歌還在 is true
 - [Phase 08]: 第 8 階段九份計畫已完成，歌曲整合流程與九項跨介面檢查全綠（npm test 688 過／27 跳過／0 失敗），沒有改動產品程式碼
 - [Phase 08]: 第 8 階段留給 Andy：在雲端容器執行 npm run visual:update 更新 -linux 截圖基準（共 7 張 -darwin 有變動）；真人項目為注音組字手感、PDF 排版、iOS 下載檔名與列印、兩台裝置搬家
+- [Phase 09]: 09-01: section names recomputed in memory on load, never written until the song is next edited (A2 lazy normalization, no schema 3)
+- [Phase 09]: 09-01: backups are built from memory, so unedited Phase 8 songs export with inferred English names and new section fields; round-trip specs compare against in-memory songs
+- [Phase 09]: 09-02: lhSecApply is the single structural entry point; type cycle patches DOM in place, only add renders; Custom name not renameable until 09-08
+- [Phase 09]: 09-03: total 「共 N 字」 lives in new .lyrics-tools row (D-16 deviation), counts written via Text node .data only outside composition
+- [Phase 09]: 09-04: undo buttons use aria-disabled (overrides CONTEXT D5 disabled wording in mechanism only); cross-tab history clears by content signature; beforeinput historyUndo cancelled when focus is outside the editor (Chromium native stack is page-wide)
+- [Phase 09]: 09-05: undo toast 復原 acts only if lhHistTop is the delete's own step; toast border uses currentColor
+- [Phase 09]: 09-06: pointer and keyboard reorder share lhSecMoveTo; drag only draws overlays and writes the model once on pointerup; a drop on the original slot is a no-op
+- [Phase 09]: 09-07: section height is written straight to the model (no lhSecApply, no history step); only data-h sections opt out of the Phase 5 height floors
+- [Phase 09]: 09-08: section settings popover is non-modal, every control is one lhSecApply step; native color input previews only (input) and commits once (change); pending custom name saved on outside click but not on re-render close
+- [Phase 09]: 09-09: word drag draws overlays only and writes once on release via lhSecApply('insert'); desktop with the lyrics panel collapsed shows a toast instead of dragging; phone switches to 歌詞 on drag start and back on cancel; no live caret above 200,000 chars
+- [Phase 09]: 09-10: Fix seams in the owning file only; many sections on desktop get min-height 9rem so the list scrolls, and cross-tab reload no longer waits when focus is on a button
+- [Phase 09]: 09-10: Flaky undo spec was test timing (leftover browser caret-reveal scroll animation), not product; test now waits for scroll to rest
+- [Phase 10]: 10-01: all-particle line uses the LAST character; particle walk-back also skips punctuation between particles
+- [Phase 10]: 10-01: mirror geometry from the textarea's own offset box plus computed right padding and scrollbar width (not inset 0); only class toggles during composition
+- [Phase 10]: 10-02: 查韻篩選與驗證共用 lhRhymeMatch；validateWordRhyme 保留 fam===undefined 的 AI 專用擋；字卡與地圖唯一差別是 ㄣ／ㄥ 借韻（UAT OQ2）
+- [Phase 10]: 10-03: 色塊過期判斷看前後模型文字的差異範圍而非游標（組字中游標停在預選字中間）
+- [Phase 10]: 10-03: 捲軸寬補償測試自己啟動沒有 --hide-scrollbars 的 Chromium；色票對比：預設淺配淺組、預設深配深組、四個極端兩組都過
+- [Phase 10]: 把句尾上色等五個鍵存成 lh:map（22 個登記鍵之一），讀取、備份還原、跨分頁一律先整理成五個真布林
+- [Phase 10]: 韻腳選單的觸控稽核不要求選單開著時還點得到「韻腳 ▾」，因為手機上高選單會蓋住它
+- [Phase 10]: 句中押韻忽略語助詞（開著時）、沒有句尾字的行不畫底線；色票多一格空韻
+- [Phase 10]: 10-05: 選字列的查韻沿用搜尋框 input 處理的三個呼叫；同一個選取被 Esc／按鈕收掉後不會自己再出現（用段落:起:迄記號）
+- [Phase 10]: 10-06: 指定讀音按鈕只在選取的最後一個字正好是有效句尾的破音字時出現；手動讀音以句尾連續漢字（最多 4 字）為鍵存進 song.readings
+- [Phase 10]: 10-06: 匯入 readings 對字典查不到的字（字典未載入或冷僻字）先保留，因為套用時 lhRhymeManual 會再驗一次合法讀音
+- [Phase 10]: 10-07: 結構字母條只在 lhMapPaint 內更新；統計列點選走既有 lhMapLookup；手機放大 150% 時名稱先縮、字母條後縮，兩者各留 44px 觸控下限
+- [Phase 10]: 10-08: gate passed without any code change; AI whole-song verified at generateAISuggestions call time (stub wordlist takes the invent-words branch with no lyrics in the prompt)
+- [Phase 10]: 10-08: 22 autonomous decisions (10-CTX-1..22 = 5-109..5-130) queued for Andy; -linux baselines remain an Andy to-do (npm run visual:update in cloud container)
 
 ### Pending Todos
 
@@ -244,6 +288,7 @@ Recent decisions affecting current work:
 | 06 | verification_deferred_human | /gsd-verify-work 06（審查 WR-01～06 已修、自動驗證 3/5＋2 項需真 AI；UAT 清單 06-UAT.md：AI 判斷、抽查刪除報告、高頻中國用語 3-15、切包手感） |
 | 07 | verification_deferred_human | /gsd-verify-work 07（審查 CR-01/02＋WR 全修、自動驗證 14/14；UAT 清單 07-UAT.md：正式環境走一次、手機實機、Linux 截圖基準、審查後改變 5-64） |
 | 08 | verification_deferred_human | /gsd-verify-work 08（審查兩輪 CR-01＋WR-01～12 全修、自動驗證 13/13；UAT 清單 08-UAT.md：實機注音、PDF、iOS、兩台裝置還原、Linux 截圖、自主決定 5-69～5-91） |
+| 09 | verification_deferred_human | /gsd-verify-work 09（自動 5/5、審查 CR-01＋WR-01～05 全修、npm test 847 過；UAT 清單 09-UAT.md：實機拖曳、iPhone 復原、顏色、游標、Linux 截圖、17 項自主決定） |
 
 ## Deferred Items
 
@@ -255,6 +300,6 @@ Items acknowledged and deferred at milestone close, most recent first:
 
 ## Session Continuity
 
-Last session: 2026-10-11T04:02:27.785Z
-Stopped at: Completed 08-09-PLAN.md
+Last session: 2026-10-23T10:59:24.795Z
+Stopped at: Completed 10-08-PLAN.md
 Resume file: None

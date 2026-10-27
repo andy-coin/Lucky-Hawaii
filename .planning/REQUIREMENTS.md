@@ -20,7 +20,7 @@
 - [x] **AI-03**: 候選詞數量 ≥ 目標數時，結果一定填滿目標數量（AI 只負責排序挑選，數量由程式保證），不得觸發造詞
 - [x] **AI-04**: 候選詞不足時才造詞，且只造一輪；每個造出的詞必須通過原有韻腳判定邏輯（以該詞自身讀音判定），不合格的丟棄
 - [x] **AI-05**: Worker 每日自動健康檢查各模型，並自動更新模型清單，只保留近半年內發布、仍可用的模型
-- [ ] **AI-06**: 候選詞卡可「拖曳」到歌詞編輯器指定位置插入（只支援拖曳，不支援點擊插入；行動端以長按啟動拖曳）
+- [x] **AI-06**: 候選詞卡可「拖曳」到歌詞編輯器指定位置插入（只支援拖曳，不支援點擊插入；行動端以長按啟動拖曳）
 - [x] **AI-07**: Worker 防濫用：只接受白名單模型、限制請求內容大小與輸出 token 上限
 
 ### Performance & Stability（效能與穩定）
@@ -58,29 +58,29 @@
 ### Editor（歌詞編輯器）
 
 - [x] **EDIT-01**: 歌詞以資料模型為準（不再從畫面讀回），編輯時游標、注音輸入法組字不被打斷
-- [ ] **EDIT-02**: 段落模組可縱向拖曳排序、可調整高度，桌機與觸控裝置都可操作；修正現有拖曳 bug
-- [ ] **EDIT-03**: Undo / Redo 涵蓋文字編輯與段落操作（新增、刪除、排序、標籤）
+- [x] **EDIT-02**: 段落模組可縱向拖曳排序、可調整高度，桌機與觸控裝置都可操作；修正現有拖曳 bug
+- [x] **EDIT-03**: Undo / Redo 涵蓋文字編輯與段落操作（新增、刪除、排序、標籤）
 - [x] **EDIT-04**: 多首歌管理：Google Docs 式側邊分頁，可顯示／隱藏，可新增、切換、刪除、重新命名；舊的單首歌詞自動遷移成第一首
-- [ ] **EDIT-05**: 段落標籤結構化：預設 Intro / Verse / Pre-Chorus / Chorus / Inter（獨立標籤）/ Bridge / Outro / Custom；同類型依拖曳後順序自動編號，使用羅馬數字（Verse I、Verse II…）
-- [ ] **EDIT-06**: 左鍵點段落標籤按鈕在選項間循環切換；右鍵開啟 color picker 變更該段落顏色
-- [ ] **EDIT-07**: 段落字數統計
+- [x] **EDIT-05**: 段落標籤結構化：預設 Intro / Verse / Pre-Chorus / Chorus / Inter（獨立標籤）/ Bridge / Outro / Custom；同類型依拖曳後順序自動編號，使用羅馬數字（Verse I、Verse II…）
+- [x] **EDIT-06**: 左鍵點段落標籤按鈕在選項間循環切換；右鍵開啟 color picker 變更該段落顏色
+- [x] **EDIT-07**: 段落字數統計
 - [x] **EDIT-08**: 匯出：預設 TXT，另支援 PDF 與 Markdown；可一鍵複製整首
 - [x] **EDIT-09**: JSON 備份與還原（全部歌曲＋設定），可換裝置匯入
 
 ### Rhyme Map & Line Analysis（韻腳地圖與句構分析）
 
-- [ ] **MAP-01**: 韻腳判定一律沿用 Andy 現有的核心押韻演算法（含嚴格／寬韻規則），不另寫一套新判定邏輯
-- [ ] **MAP-02**: 句尾依韻部自動上色
-- [ ] **MAP-03**: 句中多押／內部押韻偵測（預設關閉）
-- [ ] **MAP-04**: 段落韻腳統計，並顯示押韻結構字母（AABB / ABAB）
-- [ ] **MAP-05**: 點歌詞中的字即可查同韻字／AI 建議
-- [ ] **MAP-06**: 嚴格／寬韻規則以 toggle 切換（使用既有規則）
-- [ ] **MAP-07**: 可忽略句尾語助詞（啊、呢、喔、了…），可開關
-- [ ] **MAP-08**: 破音字可手動指定讀音，沿用既有破音字程式碼
+- [x] **MAP-01**: 韻腳判定一律沿用 Andy 現有的核心押韻演算法（含嚴格／寬韻規則），不另寫一套新判定邏輯
+- [x] **MAP-02**: 句尾依韻部自動上色
+- [x] **MAP-03**: 句中多押／內部押韻偵測（預設關閉）
+- [x] **MAP-04**: 段落韻腳統計，並顯示押韻結構字母（AABB / ABAB）
+- [x] **MAP-05**: 點歌詞中的字即可查同韻字／AI 建議
+- [x] **MAP-06**: 嚴格／寬韻規則以 toggle 切換（使用既有規則）
+- [x] **MAP-07**: 可忽略句尾語助詞（啊、呢、喔、了…），可開關
+- [x] **MAP-08**: 破音字可手動指定讀音，沿用既有破音字程式碼
 - [ ] **MAP-09**: 逐行句構分析：每行字數、斷句結構（如 3+4、2+2+3）、與對應段落比對（如 Verse I vs Verse II）
 - [ ] **MAP-10**: 句構分析觸發方式：設定頁 toggle 常駐顯示，或反白後按「分析」，或反白後 hover 數秒出現（觸控裝置以按鈕替代 hover）
 - [ ] **MAP-11**: 設定頁：使用者可逐項開關韻腳地圖與句構分析功能，並調整顯示方式（標記位置、標記文字大小、顏色）；預設只開句尾上色，避免眼花撩亂
-- [ ] **MAP-12**: 分析不在注音組字過程中執行，長篇歌詞不卡頓
+- [x] **MAP-12**: 分析不在注音組字過程中執行，長篇歌詞不卡頓
 
 ## v2 Requirements
 
@@ -127,7 +127,7 @@
 | AI-03 | Phase 4 | Complete |
 | AI-04 | Phase 4 | Complete |
 | AI-05 | Phase 2 | Complete |
-| AI-06 | Phase 9 | Pending |
+| AI-06 | Phase 9 | Complete |
 | AI-07 | Phase 2 | Complete |
 | PERF-01 | Phase 5 | Complete |
 | PERF-02 | Phase 5 | Complete |
@@ -150,26 +150,26 @@
 | FB-04 | Phase 7 | Complete |
 | FB-05 | Phase 7 | Complete |
 | EDIT-01 | Phase 8 | Complete |
-| EDIT-02 | Phase 9 | Pending |
-| EDIT-03 | Phase 9 | Pending |
+| EDIT-02 | Phase 9 | Complete |
+| EDIT-03 | Phase 9 | Complete |
 | EDIT-04 | Phase 8 | Complete |
-| EDIT-05 | Phase 9 | Pending |
-| EDIT-06 | Phase 9 | Pending |
-| EDIT-07 | Phase 9 | Pending |
+| EDIT-05 | Phase 9 | Complete |
+| EDIT-06 | Phase 9 | Complete |
+| EDIT-07 | Phase 9 | Complete |
 | EDIT-08 | Phase 8 | Complete |
 | EDIT-09 | Phase 8 | Complete |
-| MAP-01 | Phase 10 | Pending |
-| MAP-02 | Phase 10 | Pending |
-| MAP-03 | Phase 10 | Pending |
-| MAP-04 | Phase 10 | Pending |
-| MAP-05 | Phase 10 | Pending |
-| MAP-06 | Phase 10 | Pending |
-| MAP-07 | Phase 10 | Pending |
-| MAP-08 | Phase 10 | Pending |
+| MAP-01 | Phase 10 | Complete |
+| MAP-02 | Phase 10 | Complete |
+| MAP-03 | Phase 10 | Complete |
+| MAP-04 | Phase 10 | Complete |
+| MAP-05 | Phase 10 | Complete |
+| MAP-06 | Phase 10 | Complete |
+| MAP-07 | Phase 10 | Complete |
+| MAP-08 | Phase 10 | Complete |
 | MAP-09 | Phase 11 | Pending |
 | MAP-10 | Phase 11 | Pending |
 | MAP-11 | Phase 11 | Pending |
-| MAP-12 | Phase 10 | Pending |
+| MAP-12 | Phase 10 | Complete |
 
 **Coverage:**
 - v1 requirements: 53 total
