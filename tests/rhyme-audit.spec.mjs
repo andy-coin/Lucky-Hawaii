@@ -490,7 +490,7 @@ test('檢查：顏色以外的線索', async ({ browser }) => {
     // 選單：開關用「開／關」字並帶 aria-checked；色票對照 17 格都有文字標籤
     await page.locator('#rhymeMenuBtn').click();
     const switches = await page.locator('#rhymeMenu .rm-switch').evaluateAll(els => els.map(e => [e.dataset.k, e.getAttribute('aria-checked'), e.querySelector('.rm-pill').textContent]));
-    expect(switches).toEqual([['end', 'true', '開'], ['letters', 'true', '開'], ['inner', 'false', '關'], ['skipParticles', 'true', '開']]);
+    expect(switches).toEqual([['end', 'true', '開'], ['letters', 'true', '開'], ['inner', 'false', '關'], ['line', 'false', '關'], ['skipParticles', 'true', '開']]);
     await page.locator('#rhymeMenu .rm-legend-toggle').click();
     const labels = await page.locator('#rhymeLegend .rm-cell-label').allTextContents();
     expect(labels).toHaveLength(17);

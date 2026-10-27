@@ -121,6 +121,13 @@ function _normalizeSong(s) {
         s.sections.push(makeEmptySection('verse'));
         changed = true;
     }
+    // 手動讀音（第 10 階段）：儲存裡可能被手改成字串或陣列，那會讓之後「指定讀音」寫入失敗。讀入時清掉壞的，同樣不寫回
+    // （和下面的 label 一樣，等這首歌下次被編輯才進儲存）。rhyme-core.js 比 songs.js 晚載入，只在執行期呼叫，並用 typeof 守門
+    if ('readings' in s) {
+        const clean = typeof lhRhymeCleanReadings === 'function' ? lhRhymeCleanReadings(s.readings) : null;
+        if (clean) s.readings = clean;
+        else delete s.readings;
+    }
     // 補類型並重算顯示名稱（A2 延遲正規化）：刻意不設 changed——讀取不寫入，
     // 重算後的名稱要等這首歌下次被編輯才會進儲存；舊版程式回退時儲存裡的原 label 仍可讀
     lhSecFinalize(s.sections);

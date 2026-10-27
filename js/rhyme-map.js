@@ -341,7 +341,7 @@ function lhMapMenuBuild() {
     const lettersHint = _lhMk('span', 'section-menu-cap', LH_MAP_HINT_LETTERS);
     lettersHint.id = 'rhymeHintLetters';
     lettersSw.setAttribute('aria-describedby', lettersHint.id);
-    const show = _lhMkBlock('顯示', _lhMapSwitchRow('end', '句尾上色'), lettersSw, lettersHint, innerSw, innerHint);
+    const show = _lhMkBlock('顯示', _lhMapSwitchRow('end', '句尾上色'), lettersSw, lettersHint, innerSw, innerHint, _lhMapSwitchRow('line', '逐行標記'));
     // 判定：寬韻／嚴格兩個 radio（方向鍵移焦點，Enter／空白才選），下面只顯示目前模式的說明
     const modes = _lhMk('div', 'type-grid');
     modes.setAttribute('role', 'radiogroup');

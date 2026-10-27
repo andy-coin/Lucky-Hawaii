@@ -497,6 +497,10 @@ test('開關：預設只開句尾上色', async ({ browser }) => {
     await expect(sw(page, '句尾上色')).toHaveText(/開$/);
     expect(await page.locator('#rhymeMenu .rm-switch').evaluateAll(els => els.filter(e => e.getAttribute('aria-checked') === 'true').map(e => e.dataset.k)), '預設開著的').toEqual(['end', 'skipParticles']);
     expect(await lsGetMap(page), '只是打開選單不寫').toBeNull();
+    // 第 11 階段：預設沒有逐行標記，也沒有欄位
+    await expect(sw(page, '逐行標記')).toHaveText(/關$/);
+    await expect(page.locator('.lm-mk')).toHaveCount(0);
+    expect(await page.evaluate(() => document.documentElement.getAttribute('data-lm'))).toBeNull();
     expect(errors).toEqual([]);
     await context.close();
 });
@@ -1463,8 +1467,8 @@ test('標題字母：打開後顯示 AABB', async ({ browser }) => {
     await page.locator('#rhymeMenuBtn').click();
     const s = sw(page, '段落結構字母');
     await expect(s).toHaveAttribute('aria-checked', 'false');
-    // 開關在「句尾上色」和「句中押韻」之間，旁邊有說明
-    expect(await page.locator('#rhymeMenu .rm-switch').evaluateAll(els => els.map(e => e.dataset.k))).toEqual(['end', 'letters', 'inner', 'skipParticles']);
+    // 開關在「句尾上色」和「句中押韻」之間，旁邊有說明；第 11 階段的「逐行標記」接在句中押韻後面
+    expect(await page.locator('#rhymeMenu .rm-switch').evaluateAll(els => els.map(e => e.dataset.k))).toEqual(['end', 'letters', 'inner', 'line', 'skipParticles']);
     await expect(page.locator('#rhymeHintLetters')).toHaveText('在每個段落標題列顯示 AABB 這類字母');
     await expect(s).toHaveAttribute('aria-describedby', 'rhymeHintLetters');
     await s.click();
@@ -1891,6 +1895,96 @@ test('標題字母：觸控大小與可見範圍', async ({ browser }) => {
         await expect(page.locator(STATS + ' .section-menu-close')).toBeAttached();
         await page.locator(STATS + ' .section-menu-close').scrollIntoViewIfNeeded();
         await expectFullyInViewport(page, page.locator(STATS + ' .section-menu-close'));
+        expect(errors).toEqual([]);
+        await context.close();
+    }
+});
+
+// ===== 第 11-01 計畫：「逐行標記」開關與新設定的安全性 =====
+const LM_TXT = '月光 灑在 窗前\n夢裡想起你的臉';
+const MAP_LINE = '{"end":true,"letters":false,"inner":false,"strict":false,"skipParticles":true,"line":true}';
+
+test('開關：從選單打開逐行標記', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, { wordlist: 'stub', storage: v2Storage([song([typed('sa', 'verse', LM_TXT)])]) });
+    await page.locator('#rhymeMenuBtn').click();
+    const s = sw(page, '逐行標記');
+    await s.click();
+    await expect(s).toHaveText(/開$/);
+    await expect(s).toHaveAttribute('aria-checked', 'true');
+    await expect(page.locator('#rhymeMenu'), '選單還開著').toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.getAttribute('data-lm'))).toBe('right');
+    await expect(page.locator('.rhyme-mirror .lm-mk')).toHaveCount(2);
+    expect(await page.locator('.rhyme-mirror .lm-mk .lm-t-c').allTextContents()).toEqual(['6', '7']);
+    expect(await lsGetMap(page)).toBe(MAP_LINE);
+    await s.click();
+    await expect(s).toHaveText(/關$/);
+    await expect(page.locator('.lm-mk')).toHaveCount(0);
+    expect(await page.evaluate(() => document.documentElement.getAttribute('data-lm'))).toBeNull();
+    expect(await lsGetMap(page)).toBe(MAP_DEFAULT);
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('備份：句構設定跟著備份走', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, { wordlist: 'stub', storage: v2Storage([song([typed('sa', 'verse', LM_TXT)])]) });
+    await page.locator('#rhymeMenuBtn').click();
+    await sw(page, '逐行標記').click();
+    await page.evaluate(() => { lhMapSetSetting('pos', 'tail'); lhMapSetSetting('size', 'l'); });
+    const live = await page.evaluate(() => lhRhymeSerialize(_lhMapSet));
+    expect(live).toContain('"line":true,"pos":"tail","size":"l"');
+    expect(await lsGetMap(page)).toBe(live);
+    const backup = await buildBackup(page);
+    expect(backup.settings['lh:map'], '備份檔帶著新設定').toBe(live);
+    expect(await page.evaluate(t => lhParseBackup(t).settings['lh:map'], JSON.stringify(backup)), '解析後同一份').toBe(live);
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('備份：壞掉的句構設定', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, { wordlist: 'stub', storage: v2Storage([song([typed('sa', 'verse', LM_TXT)])]) });
+    const parse = lhMap => page.evaluate(t => lhParseBackup(t).settings['lh:map'], JSON.stringify({
+        format: 'lucky-hawaii-backup', version: 2, exportedAt: '2026-10-11T07:30:00.000Z',
+        songs: [{ id: 'x', title: 'x', createdAt: 1, updatedAt: 1, sections: [{ id: 'y', label: '主歌', text: 'a', collapsed: false }], hashtags: [], context: '' }],
+        activeSong: null, savedWords: [], settings: { 'lh:map': lhMap },
+    }));
+    // __proto__ 要寫在 JSON 文字裡才會變成自己的鍵
+    const evil = '{"line":"yes","pos":"evil","size":"l","colors":{"3":"#ABCDEF","4":"#12345","5":"#a1b2c3","99":"#000000","__proto__":{"polluted":true}}}';
+    expect(await parse(evil)).toBe('{"end":true,"letters":false,"inner":false,"strict":false,"skipParticles":true,"size":"l","colors":{"5":"#a1b2c3"}}');
+    expect(await page.evaluate(() => ({}).polluted)).toBeUndefined();
+    expect(await parse('{"colors":"red","depth":["heavy"]}')).toBe(MAP_DEFAULT);
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('開關：舊版設定開機不改寫', async ({ browser }) => {
+    const old = '{"end":true,"letters":true,"inner":true,"strict":true,"skipParticles":false}';
+    const { context, page, errors } = await bootPage(browser, { wordlist: 'stub', storage: { ...v2Storage([song([typed('sa', 'verse', LM_TXT)])]), 'lh:map': old } });
+    expect(await lsGetMap(page), '開機後').toBe(old);
+    await expect(page.locator('.lm-mk')).toHaveCount(0);
+    expect(await page.evaluate(() => document.documentElement.getAttribute('data-lm'))).toBeNull();
+    await page.locator('#rhymeMenuBtn').click();
+    await expect(sw(page, '逐行標記')).toHaveText(/關$/);
+    await page.locator('#rhymeMenu .section-menu-close').click();
+    expect(await lsGetMap(page), '開關選單後').toBe(old);
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('讀音：儲存裡壞掉的讀音', async ({ browser }) => {
+    for (const bad of ['x', ['們一起行']]) {
+        const storage = v2Storage([song([typed('sa', 'verse', READ_TXT)], { readings: bad })]);
+        const { context, page, errors } = await bootPage(browser, { wordlist: 'stub', storage });
+        expect(await page.evaluate(() => localStorage.getItem('lh:songs')), JSON.stringify(bad) + '：開機不寫回').toBe(storage['lh:songs']);
+        const info = await polyInfo(page);
+        await pick(page, 4, 5);
+        await waitBar(page);
+        await page.locator(RD).click();
+        await page.locator(CHIPS, { hasText: info.other }).click();
+        expect(await bands(page), JSON.stringify(bad) + '：指定讀音照常運作').toEqual([['行', info.fo], ['光', '14']]);
+        await page.reload();
+        await page.evaluate(() => Promise.all([window.__hoyunReady, window.__hoyunWordlistReady, window.__hoyunSongsReady, window.__lhMapReady]));
+        expect(await bands(page), '重新整理後還在').toEqual([['行', info.fo], ['光', '14']]);
+        expect((await storedSongsRaw(page))[0].readings).toEqual({ [READ_TAIL]: info.other });
         expect(errors).toEqual([]);
         await context.close();
     }
