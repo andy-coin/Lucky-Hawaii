@@ -1227,3 +1227,77 @@ test('預覽：高的螢幕上固定在上面', async ({ browser }) => {
     expect(errors).toEqual([]);
     await context.close();
 });
+
+// ==================== 分析面板（11-05） ====================
+const AN = '#rhymeAnalysis', ANBAR = '#rhymeSelBar';
+const AN_V1 = ['我望著遠方的光', '獨自站在窗', '走過熟悉的街道'].join('\n');
+const AN_V2 = ['我望著遠方的光', '獨自站在窗前', '走過熟悉的街道', '終於我也回到'].join('\n');
+const AN_WORDS = ['走過', '熟悉', '街道', '終於', '我也', '回到'];
+// 第 n 段輸入框聚焦並選 [a, b)；setSelectionRange 會觸發 select，浮動列 400ms 後出現
+const anPick = (page, a, b, n = 0) => page.evaluate(([a, b, n]) => {
+    const ta = document.querySelectorAll('.section-textarea')[n];
+    ta.focus(); ta.setSelectionRange(a, b);
+}, [a, b, n]);
+const anTa = page => page.evaluate(() => {
+    const ta = document.activeElement;
+    return { ta: ta.classList.contains('section-textarea'), a: ta.selectionStart, b: ta.selectionEnd };
+});
+const anRows = page => page.locator(AN + ' tbody tr').evaluateAll(trs => trs.map(tr => ({
+    ref: tr.classList.contains('rm-an-ref'),
+    cells: [...tr.children].map(c => c.textContent),
+    guess: [...tr.querySelectorAll('.lm-guess')].map(g => [g.textContent, getComputedStyle(g).fontStyle]),
+    verdict: [...tr.querySelectorAll('.rm-an-v')].map(v => [v.textContent, v.getAttribute('aria-label')]),
+})));
+
+test('分析面板：選幾行按分析，逐行列出字數、結構與對照', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, {
+        wordlist: 'stub', storage: v2Storage([song([typed('sa', 'verse', AN_V1), typed('sb', 'verse', AN_V2)])]),
+    });
+    await seedWords(page, AN_WORDS);
+    await anPick(page, 11, 26, 1);   // 第二段：第 2 行中間到第 4 行中間（15 個字）
+    await expect(page.locator(ANBAR)).toBeVisible();
+    // 20 字內有中文字：查韻、AI、分析，依序
+    const btns = page.locator(ANBAR + ' button:visible');
+    await expect(btns).toHaveText(['🔍 查韻：我', '✨ AI 建議', '📏 分析']);
+    const an = page.locator(ANBAR + ' .rm-bar-an');
+    await expect(an).toHaveAttribute('aria-label', '分析選取範圍的句構');
+    await expect(an).toHaveAttribute('aria-expanded', 'false');
+    await expect(an).toHaveAttribute('aria-controls', 'rhymeAnalysis');
+    await expect(page.locator(AN)).toBeHidden();
+
+    await an.click();
+    const panel = page.locator(AN);
+    await expect(panel).toBeVisible();
+    await expect(panel).toHaveAttribute('role', 'dialog');
+    await expect(panel).toHaveAttribute('aria-label', '句構分析');
+    await expect(an).toHaveAttribute('aria-expanded', 'true');
+    await expect(panel.locator('.section-menu-title')).toHaveText('句構：Verse II');
+    await expect(panel.locator('.rm-sum')).toHaveText('選到 3 行，共 19 字');
+    await expect(panel.locator('.section-menu-cap').first()).toHaveText('對照：Verse I（同類型第一段）');
+    await expect(panel.locator('caption')).toHaveText('逐行句構');
+    expect(await panel.locator('thead th').evaluateAll(t => t.map(x => [x.textContent, x.scope]))).toEqual([['行', 'col'], ['文字', 'col'], ['字數', 'col'], ['結構', 'col']]);
+
+    const rows = await anRows(page);
+    expect(rows).toEqual([
+        { ref: false, cells: ['第 2 行', '獨自站在窗前', '6', '—'], guess: [], verdict: [] },
+        { ref: true, cells: ['對照 Verse I 第 2 行：5 字　—≠'], guess: [], verdict: [['≠', '字數不同']] },
+        { ref: false, cells: ['第 3 行', '走過熟悉的街道', '7', '≈2+3+2'], guess: [['≈2+3+2', 'italic']], verdict: [] },
+        { ref: true, cells: ['對照 Verse I 第 3 行：7 字　≈2+3+2✓'], guess: [['≈2+3+2', 'italic']], verdict: [['✓', '字數相同']] },
+        { ref: false, cells: ['第 4 行', '終於我也回到', '6', '≈2+2+2'], guess: [['≈2+2+2', 'italic']], verdict: [] },
+        { ref: true, cells: ['對照段落沒有第 4 行'], guess: [], verdict: [] },
+    ]);
+    expect(await live(page)).toBe('句構分析：選到 3 行');
+    // 沒有搶走輸入框：焦點、選取都在
+    expect(await anTa(page)).toEqual({ ta: true, a: 11, b: 26 });
+    // 面板在浮動列下方（放得下時），不蓋住浮動列
+    const bb = await page.locator(ANBAR).boundingBox(), pb = await panel.boundingBox();
+    expect(pb.y >= bb.y + bb.height - 0.5 || pb.y + pb.height <= bb.y + 0.5, '面板和浮動列不重疊').toBe(true);
+    // 再按一次關閉
+    await an.click();
+    await expect(panel).toBeHidden();
+    await expect(an).toHaveAttribute('aria-expanded', 'false');
+    await expect(page.locator(ANBAR)).toBeVisible();
+    expect(await anTa(page)).toEqual({ ta: true, a: 11, b: 26 });
+    expect(errors).toEqual([]);
+    await context.close();
+});

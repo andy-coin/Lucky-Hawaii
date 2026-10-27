@@ -897,22 +897,30 @@ test('浮動列：手機查韻與 AI 建議切分頁', async ({ browser }) => {
     await context.close();
 });
 
-test('浮動列：這些情況不出現', async ({ browser }) => {
+test('浮動列：這些情況不出現，或只剩「分析」', async ({ browser }) => {
     const { context, page, errors } = await bootPage(browser, {
         wordlist: 'stub',
-        storage: v2Storage([song([typed('sa', 'verse', F_AABB), typed('sb', 'chorus', 'abc def'), typed('sc', 'bridge', CHINESE21)])]),
+        storage: v2Storage([song([typed('sa', 'verse', F_AABB), typed('sb', 'chorus', 'abc def'), typed('sc', 'bridge', CHINESE21), typed('sd', 'outro', '你好\n\n再見')])]),
     });
     const hidden = async () => { await quiet(page); await expect(page.locator(BAR)).toBeHidden(); };
+    const shown = () => page.locator(BAR + ' button').evaluateAll(bs => bs.filter(b => b.offsetParent !== null).map(b => b.className.match(/rm-bar-(\w+)/)[1]));
     await pick(page, 3, 3);
     await hidden();                                    // 只有游標
+    // D-07（覆寫第 10 階段）：沒有中文字、或太長，只剩「分析」；碰到的行沒有可數的字才完全不出現
     await pick(page, 0, 3, 1);
-    await hidden();                                    // 'abc'：沒有中文字
+    await waitBar(page);                               // 'abc'：英文歌詞也能分析
+    expect(await shown(), "'abc'：只剩「分析」").toEqual(['an']);
     await pick(page, 0, 21, 2);
-    await hidden();                                    // 21 個字：太長
+    await waitBar(page);
+    expect(await shown(), '21 個字：只剩「分析」').toEqual(['an']);
     await pick(page, 0, 20, 2);
-    await waitBar(page);                               // 20 個字剛好可以
+    await expect(page.locator(BAR + ' .rm-bar-look')).toBeVisible();
+    expect(await shown(), '20 個字剛好：查韻、AI、分析').toEqual(['look', 'ai', 'an']);
+    await expect(page.locator(BAR + ' .rm-bar-look')).toHaveText('🔍 查韻：' + CHINESE21[19]);
     await pick(page, 3, 3);
     await expect(page.locator(BAR)).toBeHidden();
+    await pick(page, 3, 4, 3);                          // 只選中間那個空白行（它的換行）：碰到的行沒有可數的字
+    await hidden();
     // 組字中：有選取也不出現
     await pick(page, 5, 7);
     await waitBar(page);
@@ -1146,7 +1154,7 @@ test('浮動列：觸控按鈕夠大', async ({ browser }) => {
         await pick(page, 5, 7);
         await waitBar(page);
         const a = await auditTouchTargets(page, { mustSee: ['#rhymeSelBar button'] });
-        expect(a.missing, name + '：兩顆按鈕都量到').toEqual([]);
+        expect(a.missing, name + '：每顆按鈕都量到').toEqual([]);
         // 只看浮動列自己的按鈕（橫放平板右面板打開時，別的控制項的既有狀況不在這裡管）
         expect(a.failures.filter(f => /rm-bar/.test(f.selector)), name + '：每顆至少 44×44').toEqual([]);
         expect(a.overlaps.filter(o => /rm-bar/.test(o.a + o.b)), name + '：不重疊').toEqual([]);
@@ -1302,6 +1310,7 @@ test('讀音：鍵盤打開時焦點先到目前的讀音，Enter 選定後焦�
     await page.keyboard.press('Alt+ArrowDown');
     await page.keyboard.press('ArrowRight');
     await page.keyboard.press('ArrowRight');
+    await page.keyboard.press('ArrowRight');   // 查韻、AI 建議、分析之後才是指定讀音（11-05 新增「分析」）
     await expect(page.locator(RD)).toBeFocused();
     await page.keyboard.press('Enter');
     await expect(page.locator(CHIPS + '[aria-pressed="true"]')).toBeFocused();

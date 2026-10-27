@@ -1498,6 +1498,22 @@
         @media (hover: hover) and (pointer: fine) {
             .rm-row:not([aria-disabled="true"]):hover { background: var(--container-bg); }
         }
+        /* 句構分析面板（11-05，UI-SPEC D-08／4.2）：沿用段落設定選單的外殼；標題、摘要、關閉鈕固定，表格在自己的捲動區裡捲 */
+        #rhymeAnalysis { width: min(24rem, calc(100vw - 1rem)); max-height: calc(var(--app-h) - 1rem); overflow: hidden; }
+        #rhymeAnalysis .rm-an-scroll { flex: 0 1 auto; min-height: 0; overflow-y: auto; }
+        .rm-an-table { width: 100%; table-layout: fixed; border-collapse: collapse; font-size: 0.875rem; font-weight: 400; color: var(--text-primary); }
+        .rm-an-table th { font-size: 0.75rem; font-weight: 400; color: var(--text-secondary); text-align: left; }
+        .rm-an-table th, .rm-an-table td { padding: var(--sp-1) var(--sp-2) var(--sp-1) 0; vertical-align: top; text-align: left; }
+        .rm-an-table th:nth-child(1) { width: 4rem; }
+        .rm-an-table th:nth-child(3) { width: 2.5rem; }
+        .rm-an-table th:nth-child(4) { width: 6.5rem; }
+        .rm-an-no { white-space: nowrap; }
+        .rm-an-t { color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .rm-an-n { font-variant-numeric: tabular-nums; }
+        .rm-an-s { overflow-wrap: anywhere; }
+        .rm-an-ref td { padding-top: 0; font-size: 0.75rem; color: var(--text-secondary); overflow-wrap: anywhere; }
+        .rm-an-end td { border-bottom: 1px solid var(--border); }
+        .rm-an-v { margin-left: var(--sp-1); font-weight: 700; color: var(--text-primary); }
         .lyrics-section.collapsed { flex: 0 0 2.125rem; min-height: 0; }
         .section-body { flex: 1; min-height: 0; position: relative; }
         /* 排序（js/sections.js）：拖的那段半透明，殘影跟著指標，落點線標出會放在哪裡 */
