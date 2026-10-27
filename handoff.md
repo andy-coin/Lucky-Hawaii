@@ -5,6 +5,12 @@
 - Pi Agent 預設連 ToshLLM (Qwen3.6)，profile: IQ50
 - `.devcontainer/docker-compose.yml` 的 ports 預設註解，web server 專案需取消註解
 
+## ▶ 夜間自動執行（2026-10-28，`/gsd-autonomous --from 10 --to 11`，Andy 睡覺授權自主決定；不 push 不部署）
+
+- Phase 10 收尾 ✅：審查 0 嚴重／3 警告全修（55b0404：`js/rhyme-map.js` 指定讀音改重畫整首、`js/wordlist.js` 詞庫載入完成一律重畫韻腳地圖、`tests/rhyme-map-perf.spec.mjs` 門檻乘 LH_PERF_SCALE、刪 `_lhMapDeferred`）；`npm test` 964 過／28 跳過／0 失敗；驗證 5/5 → human_needed，`10-UAT.md` 6 項（真機顏色、組字捲動、長按浮動列、SC4 要不要改「單擊就查」、自主決定、Linux 截圖）
+- Phase 11 句構分析與設定頁 ▶ 進行中：`11-CONTEXT.md`（自主決定 A～E）、`11-UI-SPEC.md`（核准，D-01～D-24）完成；研究 → 計畫 → 執行中
+- Phase 11 待 Andy 點頭的自主決定（CONTEXT 末段）：自動猜斷句（最長詞＋單字併前、「≈」標示）、對照對象自動（同類型前一段）、不做手動指定、只標差異、預設「靠右欄」、停留 1.5 秒自動分析且預設關、設定放進 ⚙️ 偏好設定、自訂色晝夜共用；UI-SPEC 覆寫：猜的結構用斜體不是淡色（淡色對比不夠）、選字浮動列不再限 20 字（整段反白才能分析）、「濃」在深色主題對比 4.14 不到 4.5（自選才有）
+
 ## ▶ 夜間自動執行（2026-10-23，`/gsd-autonomous` 從 Phase 9 起，Andy 授權自主決定）
 
 - Phase 9 ✅（含審查修正 CR-01＋WR-01～05：0896b7d…4ceb60e，覆審 clean；`npm test` 847 過／27 跳過／0 失敗）；驗證 human_needed 5/5 → `09-UAT.md` 6 項
