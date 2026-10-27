@@ -194,7 +194,7 @@ test('偏好設定：內容與順序', async ({ browser }) => {
     await openPrefs(page);
     const sec = page.locator('#mapSettingsSection');
     await expect(sec.locator('> .settings-backups-hint')).toHaveText('調整句尾上色、逐行字數與斷句標記的開關、位置、大小和顏色');
-    expect(await sec.locator('.section-menu-block > .section-menu-cap:first-child').allTextContents()).toEqual(['韻腳地圖', '句構分析']);
+    expect(await sec.locator('.section-menu-block > .section-menu-cap:first-child').allTextContents()).toEqual(['韻腳地圖', '句構分析', '顯示方式']);
     expect(await sec.locator('.rm-switch-label').allTextContents()).toEqual(['句尾上色', '段落結構字母', '句中押韻', '忽略句尾語助詞', '逐行標記', '行尾韻腳字母', '字數', '斷句結構', '對照差異']);
     const particle = await page.evaluate(() => LH_MAP_PARTICLE_CAP);
     const caps = await sec.locator('.section-menu-cap').allTextContents();
@@ -358,6 +358,106 @@ test('詞庫載入：先只有字數與明確斷點，載好後補上 ≈', asyn
     await page.evaluate(() => window.__lhMapReady);
     await expect.poll(() => markers(page)).toEqual([['6', '2+2+2'], ['7', '≈2+2+3']]);
     await expect(page.locator('#mapSettingsSection .rm-lex-wait')).toBeHidden();
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+// ==================== 顯示方式（11-03） ====================
+const lookRadio = (page, k, v) => page.locator(`#mapSettingsSection .type-row[data-k="${k}"][data-v="${v}"]`);
+const LOOK_ON = { 'lh:map': JSON.stringify({ line: true, lnRhyme: true, lnCount: true, lnSplit: true, lnDiff: true }) };
+// 一段 n 行：「月光 灑在 窗前」，odd 行多一個「啊」（和 6 字的對照段落字數不同，標 ≠）
+const TAIL_A = Array.from({ length: 60 }, () => '月光 灑在 窗前').join('\n');
+const TAIL_B = Array.from({ length: 60 }, (_, n) => '月光 灑在 窗前' + (n % 2 ? '啊' : '')).join('\n');
+
+// 第 n 個標記相對於它那一行最後一個非空白字元的位置：{ dx: 標記左緣 - 字右緣, dTop: 標記上緣 - 該字所在視覺列的上緣, text }
+// 視覺列上緣＝字的 client rect 上緣 - (行高 - 字框高) / 2（文字框在行盒裡置中）
+const markGeo = (page, secIdx, idxs) => page.evaluate(([secIdx, idxs]) => {
+    const mirror = document.querySelectorAll('.lyrics-section')[secIdx].querySelector('.rhyme-mirror');
+    const mks = [...mirror.querySelectorAll('.lm-mk')];
+    return idxs.map(i => {
+        const m = mks[i];
+        let node = m.previousSibling;
+        while (node && node.nodeType !== 3) node = node.lastChild;   // 最後一個字可能包在色塊 span 裡
+        const rg = document.createRange();
+        rg.setStart(node, node.length - 1);
+        rg.setEnd(node, node.length);
+        const rects = rg.getClientRects(), c = rects[rects.length - 1], mr = m.getBoundingClientRect();
+        const lh = parseFloat(getComputedStyle(mirror).lineHeight);
+        return { dx: mr.left - c.right, dTop: mr.top - (c.top - (lh - c.height) / 2) };
+    });
+}, [secIdx, idxs]);
+
+test('顯示方式：切到句尾後，標記貼在最後一個字後面，游標選取捲動都不動', async ({ browser }) => {
+    const sections = [typed('sa', 'verse', TAIL_A), typed('sb', 'verse', TAIL_B)];
+    const { context, page, errors } = await bootPage(browser, { wordlist: 'stub', storage: v2Storage([song(sections)], { ...OPEN_PANELS, ...LOOK_ON }) });
+    await expect(page.locator('.lyrics-section').nth(1).locator('.lm-mk')).toHaveCount(60);
+    const ta = page.locator('.lyrics-section .section-textarea').nth(1);
+    await page.evaluate(() => {
+        const t = document.querySelectorAll('.section-textarea')[1];
+        t.focus(); t.setSelectionRange(3, 5); t.scrollTop = 120;
+        window.__ta = t;
+        window.__mks = [...document.querySelectorAll('.lyrics-section')[1].querySelectorAll('.lm-mk')];
+    });
+    await expect.poll(() => page.evaluate(() => document.querySelectorAll('.rhyme-mirror')[1].scrollTop)).toBe(120);
+    const state = () => page.evaluate(() => {
+        const t = document.querySelectorAll('.section-textarea')[1];
+        const rem = parseFloat(getComputedStyle(document.documentElement).fontSize);
+        return {
+            same: t === window.__ta, sel: [t.selectionStart, t.selectionEnd], top: t.scrollTop,
+            nodes: window.__mks.every(m => m.isConnected), count: document.querySelectorAll('.lyrics-section')[1].querySelectorAll('.lm-mk').length,
+            lm: document.documentElement.getAttribute('data-lm'), pad: parseFloat(getComputedStyle(t).paddingRight), base: 0.75 * rem,
+        };
+    });
+    const right = await state();
+    expect(right.lm).toBe('right');
+    expect(right.pad).toBeGreaterThan(right.base + 20);
+
+    await page.evaluate(() => lhMapOpenPrefs());
+    await expect(lookRadio(page, 'pos', 'right')).toHaveAttribute('aria-checked', 'true');
+    await expect(page.locator('#mapSettingsSection .rm-pos-help')).toHaveText('靠右欄：輸入框右邊留一條欄位，數字上下對齊，但寫字的寬度會少一點');
+    await lookRadio(page, 'pos', 'tail').click();
+    const tail = await state();
+    expect(tail.lm).toBe('tail');
+    expect(tail.same, '輸入框還是同一個節點').toBe(true);
+    expect(tail.sel, '選取不動').toEqual([3, 5]);
+    expect(tail.top, '捲動位置不動').toBe(120);
+    expect(tail.nodes, '標記節點沒有被重建').toBe(true);
+    expect(tail.count).toBe(60);
+    expect(tail.pad, '句尾後不加內距').toBeCloseTo(tail.base, 1);
+    await expect(lookRadio(page, 'pos', 'tail')).toHaveAttribute('aria-checked', 'true');
+    await expect(lookRadio(page, 'pos', 'right')).toHaveAttribute('aria-checked', 'false');
+    await expect(page.locator('#mapSettingsSection .rm-pos-help')).toHaveText('句尾後：標記緊貼每行最後一個字，不佔寬度；行太滿時會被輸入框邊緣切掉');
+    expect(await lsGetMap(page)).toContain('"pos":"tail"');
+
+    // 標記緊貼最後一個字：左緣在字的右邊 0.5em 內（0.95rem 的 0.5em ≈ 7.6px），上緣在同一個視覺列
+    for (const g of await markGeo(page, 1, [1, 5, 41])) {
+        expect(g.dx, '標記在字的右邊').toBeGreaterThanOrEqual(-0.5);
+        expect(g.dx, '標記離字不遠').toBeLessThan(12);
+        expect(Math.abs(g.dTop), '標記在字所在的視覺列').toBeLessThanOrEqual(1);
+    }
+    // 讀起來是「字母 · 字數 ≠對方 · 斷句」，空欄位不出現；· 是 ::before，所以逐個欄位組字串
+    const text = await page.evaluate(() => {
+        const m = document.querySelectorAll('.lyrics-section')[1].querySelectorAll('.lm-mk')[1];
+        return [...m.querySelectorAll('.lm-t')].filter(t => getComputedStyle(t).display !== 'none').map((t, n) => {
+            const b = getComputedStyle(t, '::before').content;
+            return (b === 'none' || b === 'normal' ? (n ? ' ' : '') : ' ' + JSON.parse(b)) + t.textContent;
+        }).join('');
+    });
+    expect(text.replace(/\s+/g, ' ')).toMatch(/^\S · 7 ≠6 · 2\+2\+3$/);
+    // 沒有對照差異的偶數行：沒有 ≠ 欄位
+    const even = await page.evaluate(() => [...document.querySelectorAll('.lyrics-section')[1].querySelectorAll('.lm-mk')[0].querySelectorAll('.lm-t')].filter(t => getComputedStyle(t).display !== 'none').map(t => t.className.replace('lm-t ', '')));
+    expect(even).toEqual(['lm-t-r', 'lm-t-c', 'lm-t-s']);
+
+    // 切回靠右欄：內距回來、標記還是同一批節點、游標選取捲動照舊
+    await lookRadio(page, 'pos', 'right').click();
+    const back = await state();
+    expect(back.lm).toBe('right');
+    expect(back.pad).toBeGreaterThan(back.base + 20);
+    expect(back.same && back.nodes && back.count === 60).toBe(true);
+    expect(back.sel).toEqual([3, 5]);
+    expect(back.top).toBe(120);
+    expect(await lsGetMap(page)).not.toContain('"pos"');
+    expect(await ta.evaluate(t => t.value.length)).toBeGreaterThan(0);
     expect(errors).toEqual([]);
     await context.close();
 });

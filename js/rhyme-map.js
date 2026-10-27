@@ -373,6 +373,28 @@ function _lhMapModeRadios() {
     return modes;
 }
 
+// 「顯示方式」的單選組：每個選項是 .type-row[data-k][data-v]，值只是列舉字串，點了走 lhMapSetSetting（它會驗證）。
+// cols3：三個選項排三欄
+function _lhMapLookRadios(label, key, items, cols3) {
+    const g = _lhMk('div', cols3 ? 'type-grid type-grid-3' : 'type-grid');
+    g.setAttribute('role', 'radiogroup');
+    g.setAttribute('aria-label', label);
+    for (const [v, name] of items) {
+        const r = _lhMkBtn('type-row', name);
+        r.setAttribute('role', 'radio');
+        r.dataset.k = key;
+        r.dataset.v = v;
+        g.appendChild(r);
+    }
+    _lhMapRadioKeys(g);
+    return g;
+}
+// 目前位置的說明文字（UI-SPEC 第 7 節逐字）
+const LH_MAP_POS_HELP = {
+    right: '靠右欄：輸入框右邊留一條欄位，數字上下對齊，但寫字的寬度會少一點',
+    tail: '句尾後：標記緊貼每行最後一個字，不佔寬度；行太滿時會被輸入框邊緣切掉',
+};
+
 // 開關一列：文字＋右邊的「開／關」藥丸（狀態用字不用色，D-14）
 function _lhMapSwitchRow(key, label) {
     const b = _lhMkBtn('rm-switch', '');
@@ -465,12 +487,19 @@ function lhMapMenuSync() {
         b.querySelector('.rm-pill').textContent = on ? '開' : '關';
     });
     const mode = _lhMapSet.strict ? 'strict' : 'wide';
-    document.querySelectorAll('#rhymeMenu .type-row, #mapSettingsSection .type-row').forEach(r => {
+    document.querySelectorAll('#rhymeMenu .type-row[data-m], #mapSettingsSection .type-row[data-m]').forEach(r => {
         const on = r.dataset.m === mode;
         r.setAttribute('aria-checked', String(on));
         r.tabIndex = on ? 0 : -1;
     });
     document.querySelectorAll('#rhymeMenu .rm-mode-help, #mapSettingsSection .rm-mode-help').forEach(h => { h.textContent = LH_MAP_MODE_HELP[mode]; });
+    // 顯示方式的單選：目前值加粗、roving tabindex；說明文字跟著目前值
+    document.querySelectorAll('#mapSettingsSection .type-row[data-k]').forEach(r => {
+        const on = String(_lhMapSet[r.dataset.k]) === r.dataset.v;
+        r.setAttribute('aria-checked', String(on));
+        r.tabIndex = on ? 0 : -1;
+    });
+    document.querySelectorAll('#mapSettingsSection .rm-pos-help').forEach(h => { h.textContent = LH_MAP_POS_HELP[_lhMapSet.pos]; });
     if (_lhMapMenu) _lhMapMenu.querySelector('.rm-loading').hidden = _lhMapWl;
     // 偏好設定的兩行提醒：詞庫還沒載好（猜的斷句稍後補上）、四個細項都關著（Pitfall 7、UI-SPEC D-17、D-18）
     const wait = document.querySelector('#mapSettingsSection .rm-lex-wait');
@@ -520,13 +549,18 @@ function lhMapPrefsBuild() {
         _lhMapModeRadios(),
         _lhMk('span', 'section-menu-cap rm-mode-help'),
     ];
-    sec.append(hint, _lhMkBlock('韻腳地圖', ...mapRows), _lhMkBlock('句構分析', ...lineRow, sub));
+    const posHelp = _lhMk('span', 'section-menu-cap rm-pos-help');
+    const look = _lhMkBlock('顯示方式',
+        _lhMk('span', 'section-menu-cap', '標記位置'), _lhMapLookRadios('標記位置', 'pos', [['right', '靠右欄'], ['tail', '句尾後']], false), posHelp);
+    sec.append(hint, _lhMkBlock('韻腳地圖', ...mapRows), _lhMkBlock('句構分析', ...lineRow, sub), look);
     // 整個段落共用一個點擊監聽（和選單一樣）：開關翻轉、寬韻／嚴格選一個，改了就存、就畫
     sec.addEventListener('click', e => {
         const sw = e.target.closest && e.target.closest('.rm-switch');
         if (sw) lhMapSetSetting(sw.dataset.k, sw.getAttribute('aria-checked') !== 'true');
         const r = e.target.closest && e.target.closest('.type-row[data-m]');
         if (r) lhMapSetSetting('strict', r.dataset.m === 'strict');
+        const lk = e.target.closest && e.target.closest('.type-row[data-k]');
+        if (lk) lhMapSetSetting(lk.dataset.k, lk.dataset.v);
     });
     lhMapMenuSync();
 }

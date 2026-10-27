@@ -1683,8 +1683,8 @@
             width: min(var(--lm-cols), 36%);
             overflow: hidden;   /* 欄位塞不下時在標記這一層裁掉，不要溢出輸入框 */
         }
-        /* 句尾後：緊接在最後一個字後面，不佔寬度 */
-        html[data-lm="tail"] .lm-mk { margin-inline-start: var(--sp-2); }
+        /* 句尾後：緊接在最後一個字後面 0.5em，不佔寬度、不動內距；行太滿時被鏡像層邊緣裁掉，換行位置不變（UI-SPEC D-03） */
+        html[data-lm="tail"] .lm-mk { margin-inline-start: 0.5em; }
         /* 內層小字：繼承鏡像層的字級與行高，只縮小字，基線自然和歌詞對齊；不給 inline-block 設 overflow（會讓基線掉到底邊），
            需要裁切的欄位用 overflow: clip（不是捲動容器，基線不變） */
         .lm-t { display: inline-block; font-size: var(--lm-fs); font-variant-numeric: tabular-nums; }
@@ -1698,6 +1698,13 @@
         @supports (background: color-mix(in srgb, red 50%, blue)) {
             .lm-t-r[data-f] { border-bottom-color: color-mix(in srgb, var(--text-primary) 30%, var(--rm-c)); }
         }
+        /* 句尾後的分隔：空的欄位整個藏起來；前面有內容的欄位才有間距與「· 」，對照差異直接接在字數後面（「7 ≠8」）。
+           靠右欄的間距與固定欄寬照舊（上面 html[data-lm="right"] 的規則） */
+        html[data-lm="tail"] .lm-t:empty { display: none; }
+        html[data-lm="tail"] .lm-t + .lm-t { margin-inline-start: 0; }
+        html[data-lm="tail"] .lm-t:not(:empty) ~ .lm-t:not(:empty) { margin-inline-start: 0.5em; }
+        html[data-lm="tail"] .lm-t:not(:empty) ~ .lm-t:not(:empty)::before { content: '· '; }
+        html[data-lm="tail"] .lm-t-c:not(:empty) + .lm-t-d:not(:empty)::before { content: none; }
         .lm-t-d { color: var(--text-primary); font-weight: 700; }   /* 唯一加粗的標記：字數不一樣才有，要一眼看到（UI-SPEC D-04、D-23） */
         .lm-guess { font-style: italic; }   /* 機器猜的那一段用斜體，自己標的維持正體（CONTEXT A2） */
 
