@@ -1,9 +1,10 @@
 // 句構分析與設定頁（第 11 階段）的瀏覽器測試：逐行標記、對照、換行不變、分析面板、偏好設定…
 // 標題的第一個詞（常駐／對照／換行不變／最後視覺列／詞庫載入／分析面板／hover／組字／偏好設定／顯示方式／韻族顏色／預覽）
 // 對應 11-VALIDATION.md 的 -g 篩選；之後的計畫會在這支檔案繼續加
-import { test, expect } from '@playwright/test';
+import { test, expect, chromium } from '@playwright/test';
 import { readFileSync } from 'node:fs';
-import { bootPage, openTwoTabs, stubWordlist } from './helpers.mjs';
+import { bootPage, compose, openTwoTabs, stubWordlist } from './helpers.mjs';
+import { DEVICES, setScale, waitStill } from './layout-lib.mjs';
 
 const FIXTURE = JSON.parse(readFileSync(new URL('./fixtures/v096-localStorage.json', import.meta.url), 'utf8'));
 const OPEN_PANELS = { leftPanelCollapsed: 'false', rightPanelCollapsed: 'false' };
@@ -555,4 +556,321 @@ test('顯示方式：字級與濃淡馬上生效、不重畫', async ({ browser 
     for (const [k, v] of [['pos', 'right'], ['size', 'm'], ['depth', 'std']]) await expect(lookRadio(page, k, v)).toHaveAttribute('aria-checked', 'true');
     expect(errors).toEqual([]);
     await context.close();
+});
+
+// ==================== 換行不變與最後視覺列（11-03，held-out） ====================
+// 15px 的實體捲軸（和 tests/rhyme-map-ui.spec.mjs 同一套）；on=false 完全沒有捲軸
+const launchWithBars = () => chromium.launch({ ignoreDefaultArgs: ['--hide-scrollbars'] });
+const injectScrollbar = (page, on) => page.evaluate(on => {
+    let st = document.getElementById('rmTestBar');
+    if (!st) { st = document.createElement('style'); st.id = 'rmTestBar'; document.head.appendChild(st); }
+    st.textContent = on ? '.section-textarea::-webkit-scrollbar { width: 15px } .section-textarea::-webkit-scrollbar-thumb { background: #888 }'
+        : '.section-textarea::-webkit-scrollbar { display: none }';
+}, on);
+const frames = page => page.evaluate(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(r, 60)))));
+// ≤900 是底部 sheet：歌詞 sheet 沒開就開（再按同一個 tab 會關掉，所以先看狀態）
+const ensureLyrics = page => page.evaluate(() => { if (lhIsSheetMode() && document.getElementById('leftPanel').classList.contains('collapsed')) mobileTab('lyrics'); });
+const loadCoreSnap = page => page.evaluate(() => {
+    // 鏡像層裡「不在標記裡」的每個字：位置（相對鏡像層）、螢幕座標、每個邏輯行的視覺列數
+    const ZW = '​';
+    window.__wt = {
+        snap(mirror) {
+            const mr = mirror.getBoundingClientRect(), wk = document.createTreeWalker(mirror, NodeFilter.SHOW_TEXT);
+            const pos = [], rel = [], nums = [], rows = [], tops = [new Set()];
+            let text = '';
+            for (let n; (n = wk.nextNode());) {
+                if (n.parentNode.closest('.lm-mk')) continue;
+                for (let i = 0; i < n.data.length; i++) {
+                    const c = n.data[i];
+                    text += c;
+                    if (c === '\n') { pos.push(null); rel.push('\n'); tops.push(new Set()); continue; }
+                    const r = document.createRange(); r.setStart(n, i); r.setEnd(n, i + 1);
+                    const q = r.getClientRects(), z = q[q.length - 1];
+                    if (!z) { pos.push(null); rel.push('x'); continue; }
+                    pos.push([z.left, z.top + z.height / 2]);
+                    rel.push((z.top - mr.top).toFixed(2) + ':' + (z.left - mr.left).toFixed(2));
+                    nums.push(z.top - mr.top, z.left - mr.left);
+                    if (c !== ' ' && c !== '\t' && c !== '　' && c !== ZW) tops[tops.length - 1].add(Math.round(z.top));
+                }
+            }
+            return { text, pos, sig: rel.join(','), nums, rows: tops.map(t => t.size) };
+        },
+        // 輸入框每個字的位置：用 lhMirror 建一個排版相同的隱形 div，算法和 lhCaretRect 一樣（左緣、行中心）
+        ta(ta) {
+            const m = lhMirror(ta), cs = getComputedStyle(ta), rect = ta.getBoundingClientRect(), mr = m.getBoundingClientRect();
+            const lh = parseFloat(cs.lineHeight), bl = parseFloat(cs.borderLeftWidth), bt = parseFloat(cs.borderTopWidth);
+            const pos = [], rel = [], nums = [];
+            for (let i = 0; i < ta.value.length; i++) {
+                if (ta.value[i] === '\n') { pos.push(null); rel.push('\n'); continue; }
+                const r = _lhCharRect(m.firstChild, i);
+                pos.push([rect.left + bl + (r.left - mr.left) - ta.scrollLeft, rect.top + bt + (r.top - mr.top) + r.height / 2 - ta.scrollTop]);
+                rel.push((r.top - mr.top).toFixed(2) + ':' + (r.left - mr.left).toFixed(2));
+                nums.push(r.top - mr.top, r.left - mr.left);
+            }
+            m.remove();
+            return { pos, sig: rel.join(','), nums };
+        },
+    };
+});
+// 標記暫時從版面拿掉（display: none）再量一次：和有標記時比，字的位置必須一樣
+const withoutMarkers = async (page, fn) => {
+    await page.evaluate(() => { const st = document.createElement('style'); st.id = 'noMk'; st.textContent = '.lm-mk { display: none !important }'; document.head.appendChild(st); });
+    try { return await fn(); } finally { await page.evaluate(() => document.getElementById('noMk').remove()); }
+};
+const mirrorSnap = page => page.evaluate(() => { const ta = document.querySelector('.section-textarea'); ta.scrollTop = 0; ta.previousElementSibling.scrollTop = 0; return window.__wt.snap(ta.previousElementSibling); });
+const taSnap = page => page.evaluate(() => window.__wt.ta(document.querySelector('.section-textarea')));
+// 位置逐個比，容許 0.05px 的浮點誤差（插入一個 style 重算版面會讓 278.875 變成 278.87 或 278.88）；1px 的位移不會被藏起來
+const sameNums = (a, b) => a.length === b.length && a.every((v, i) => Math.abs(v - b[i]) < 0.05);
+const setViewport = async (page, w) => { await page.setViewportSize({ width: w, height: 900 }); await ensureLyrics(page); await frames(page); };
+
+// 45 行：41 行「N 個字＋行尾空白」（N=5…45，空白依序輪流半形、全形、tab）＋純標點＋英文長串＋中英混排＋200 字元
+const WS_KINDS = [' ', '　', '\t'];
+const CJK = '愛你月光灑在窗前夢裡想起遠方的光走過熟悉的街道終於我也回到天亮不怕路遙';
+const WRAP_LINES = [
+    ...Array.from({ length: 41 }, (_, k) => Array.from(CJK.repeat(2)).slice(0, k + 5).join('') + WS_KINDS[k % 3]),
+    '，。', 'Supercalifragilisticexpialidocious'.repeat(2), '愛你ab路'.repeat(8), '愛你ab路'.repeat(40),
+];
+const WRAP_TEXT = WRAP_LINES.join('\n');
+const WRAP_MAP = { line: true, lnRhyme: true, lnCount: true, lnSplit: true };
+const wrapStorage = () => v2Storage([song([typed('sa', 'verse', WRAP_TEXT)])], { ...OPEN_PANELS, 'lh:map': JSON.stringify(WRAP_MAP) });
+const mkIdx = line => (line < 41 ? line : line - 1);   // 純標點那行沒有標記
+// 每個「N 字＋空白」行（0…40）的視覺列數
+const wsRows = async page => (await mirrorSnap(page)).rows.slice(0, 41);
+// 在 [330, 900]（sheet 模式，輸入框寬度跟著視窗變）找第一個在這個範圍內會換行的「N 字＋空白」行 j，和它剛好從兩列變一列的最小寬度 w（w-1 還是兩列）
+async function findBoundary(page) {
+    await setViewport(page, 330);
+    const lo = await wsRows(page);
+    await setViewport(page, 900);
+    const hi = await wsRows(page);
+    const j = lo.findIndex((r, k) => r > hi[k]);
+    if (j < 0) return null;
+    let a = 330, b = 900;   // rows(a) > rows(b)
+    while (b - a > 1) {
+        const mid = (a + b) >> 1;
+        await setViewport(page, mid);
+        if ((await wsRows(page))[j] > hi[j]) a = mid; else b = mid;
+    }
+    return { j, w: b };
+}
+
+test('換行不變：標記開關前後每個字的位置都一樣', async () => {
+    test.setTimeout(420000);
+    const browser = await launchWithBars();
+    const WIDTHS = [330, 360, 390, 430, 520, 640, 760, 900, 1000, 1200, 1500];
+    let matrix = 0;
+    for (const pct of [50, 100, 150]) {
+        const { context, page, errors } = await bootPage(browser, { device: DEVICES.desktop, wordlist: 'stub', storage: wrapStorage() });
+        await setScale(page, pct);
+        await expect(page.locator('.lm-mk').first()).toBeAttached();
+        await loadCoreSnap(page);
+        for (const pos of ['right', 'tail']) {
+            await page.evaluate(p => lhMapSetSetting('pos', p), pos);
+            for (const bar of [false, true]) {
+                await injectScrollbar(page, bar);
+                await setViewport(page, 640);
+                expect(await page.evaluate(() => { const t = document.querySelector('.section-textarea'); return t.offsetWidth - t.clientWidth; }), '捲軸寬').toBe(bar ? 15 : 0);
+                const b = await findBoundary(page);
+                expect(b, `${pct}% ${pos} ${bar}：範圍內有會換行的行`).not.toBeNull();
+                const widths = [...WIDTHS, b.w - 1, b.w];
+                for (const w of widths) {
+                    const tag = `${pct}% ${pos} ${bar ? '有' : '無'}捲軸 ${w}px`;
+                    await setViewport(page, w);
+                    const on = await mirrorSnap(page);
+                    const off = await withoutMarkers(page, () => mirrorSnap(page));
+                    expect(sameNums(on.nums, off.nums), `${tag}：有／無標記時鏡像層每個字的位置相同`).toBe(true);
+                    expect(on.rows.slice(0, 41), `${tag}：行尾空白的行沒有多一個視覺列`).toEqual(off.rows.slice(0, 41));
+                    const value = await page.evaluate(() => document.querySelector('.section-textarea').value);
+                    expect(on.text, `${tag}：鏡像層文字就是輸入框文字`).toBe(value + '​');
+                    const ta = await taSnap(page);
+                    // 左緣差 1px 以內、而且每個字落在同一個視覺列。不比上下的絕對座標：lhMirror 把行高複製成 px，長文字每列會差 1/64px，
+                    // 一百多列累積到 2px（這是量測用的隱形 div 的誤差，真正的鏡像層與輸入框在「鏡像對齊：與文字框逐像素相同」已逐像素比過）
+                    const rowIdx = pos => { let r = -1, last = -1e9; return pos.map(p => { if (!p) return null; if (Math.abs(p[1] - last) > 3) r++; last = p[1]; return r; }); };
+                    const mRows = rowIdx(on.pos), tRows = rowIdx(ta.pos);
+                    on.pos.forEach((m, i) => {
+                        const t = ta.pos[i];
+                        if (!m || !t) return;
+                        if (Math.abs(m[0] - t[0]) > 1 || mRows[i] !== tRows[i]) expect.soft(false, `${tag}：第 ${i} 個字 (${value[i]}) 鏡像 ${m} 列 ${mRows[i]}，輸入框 ${t} 列 ${tRows[i]}`).toBe(true);
+                    });
+                    matrix++;
+                    // 句尾後不加內距：標記開關前後輸入框每個字的位置也一樣
+                    if (pos === 'tail' && (w === b.w - 1 || w === b.w || w === 330 || w === 1500)) {
+                        await page.evaluate(() => lhMapSetSetting('line', false));
+                        await frames(page);
+                        const taOff = await taSnap(page);
+                        await page.evaluate(() => lhMapSetSetting('line', true));
+                        await frames(page);
+                        expect(sameNums(ta.nums, taOff.nums), `${tag}：輸入框每個字的位置在標記開關前後相同`).toBe(true);
+                    }
+                }
+            }
+        }
+        expect(errors, `${pct}%：沒有任何頁面錯誤（含 ResizeObserver）`).toEqual([]);
+        await context.close();
+    }
+    expect(matrix).toBe(3 * 2 * 2 * 13);
+    await browser.close();
+});
+
+test('最後視覺列：換行的行標記在最後一個視覺列', async () => {
+    test.setTimeout(300000);
+    const browser = await launchWithBars();
+    for (const pct of [50, 100, 150]) {
+        const { context, page, errors } = await bootPage(browser, { device: DEVICES.desktop, wordlist: 'stub', storage: wrapStorage() });
+        await setScale(page, pct);
+        await expect(page.locator('.lm-mk').first()).toBeAttached();
+        await loadCoreSnap(page);
+        for (const pos of ['right', 'tail']) {
+            await page.evaluate(p => lhMapSetSetting('pos', p), pos);
+            for (const bar of [false, true]) {
+                await injectScrollbar(page, bar);
+                await setViewport(page, 640);
+                const b = await findBoundary(page);
+                expect(b).not.toBeNull();
+                for (const w of [b.w - 2, b.w - 1, b.w, b.w + 1]) {
+                    const tag = `${pct}% ${pos} ${bar ? '有' : '無'}捲軸 ${w}px`;
+                    await setViewport(page, w);
+                    // 兩列的那一行（N 字＋空白）與 200 字元那一行：標記的上緣都在最後一個字的視覺列
+                    const geo = await markGeo(page, 0, [mkIdx(b.j), mkIdx(44)]);
+                    const rows = (await mirrorSnap(page)).rows;
+                    expect(rows[44], `${tag}：200 字元那行真的折成很多列`).toBeGreaterThan(2);
+                    geo.forEach((g, k) => {
+                        expect(Math.abs(g.dTop), `${tag}：${k ? '200 字元' : '兩列'}那行的標記在最後一個視覺列`).toBeLessThanOrEqual(1);
+                        if (pos === 'tail') {
+                            expect(g.dx, `${tag}：標記在字的右邊`).toBeGreaterThanOrEqual(-0.5);
+                        }
+                    });
+                    if (pos === 'right') {
+                        const err = await page.evaluate(() => {
+                            const ta = document.querySelector('.section-textarea'), mirror = ta.previousElementSibling;
+                            const rem = parseFloat(getComputedStyle(document.documentElement).fontSize);
+                            const bar = ta.offsetWidth - ta.clientWidth;
+                            const want = ta.getBoundingClientRect().right - bar - 0.75 * rem;
+                            return [...mirror.querySelectorAll('.lm-mk')].slice(0, 44).map(m => Math.abs(m.getBoundingClientRect().right - want));
+                        });
+                        for (const e of err) expect(e, `${tag}：欄位右緣離捲軸 0.75rem`).toBeLessThanOrEqual(1.5);
+                        if (w === b.w) (test.info().annotations).push({ type: 'gutter-edge-error', description: `${tag}：${Math.max(...err).toFixed(3)}px` });
+                    }
+                }
+            }
+        }
+        expect(errors).toEqual([]);
+        await context.close();
+    }
+    await browser.close();
+});
+
+test('最後視覺列：手機放大 150% 欄位不超過 36%，結構太長時裁切', async () => {
+    test.setTimeout(120000);
+    const browser = await launchWithBars();
+    const LONG = '我 你 他 她 它 們 好 壞 大 小 多';
+    const { context, page, errors } = await bootPage(browser, {
+        device: DEVICES.phone, wordlist: 'stub',
+        storage: v2Storage([song([typed('sa', 'verse', ['月光 灑在 窗前', LONG].join('\n'))])], { ...OPEN_PANELS, 'lh:map': JSON.stringify(WRAP_MAP) }),
+    });
+    await setScale(page, 150);
+    await page.locator('#mtab-lyrics').tap();
+    await waitStill(page);
+    await injectScrollbar(page, true);
+    await frames(page);
+    await expect(page.locator('.lm-mk')).toHaveCount(2);
+    const r = await page.evaluate(() => {
+        const ta = document.querySelector('.section-textarea'), mirror = ta.previousElementSibling;
+        const mks = [...mirror.querySelectorAll('.lm-mk')], m = mks[1], s = m.querySelector('.lm-t-s');
+        // 第二行最後一個字的右緣
+        let node = m.previousSibling;
+        while (node && node.nodeType !== 3) node = node.lastChild;
+        const rg = document.createRange(); rg.setStart(node, node.length - 1); rg.setEnd(node, node.length);
+        const rects = rg.getClientRects(), c = rects[rects.length - 1];
+        return { w: m.getBoundingClientRect().width, body: ta.parentElement.getBoundingClientRect().width, sw: s.scrollWidth, cw: s.clientWidth, gap: m.getBoundingClientRect().left - c.right, text: s.textContent };
+    });
+    expect(r.text).toBe('1+1+1+1+1+1+1+1+1+1+1');
+    expect(r.w, '欄位寬度不超過輸入框的 36%').toBeLessThanOrEqual(0.36 * r.body + 1);
+    expect(r.sw, '結構太長：被裁切').toBeGreaterThan(r.cw);
+    expect(r.gap, '歌詞的字不會伸到欄位底下').toBeGreaterThanOrEqual(-0.5);
+    expect(errors).toEqual([]);
+    await context.close();
+    await browser.close();
+});
+
+// ==================== 組字與打字中的過期處理（11-03） ====================
+const installCounters = page => page.evaluate(() => {
+    window.__an = 0; window.__paint = 0;
+    const o = window.lhRhymeAnalyze;
+    window.lhRhymeAnalyze = function (...a) { window.__an++; return o.apply(this, a); };
+    const p = window.lhMapPaint;
+    window.lhMapPaint = function (...a) { window.__paint++; return p.apply(this, a); };
+    window.__mut = 0;
+    window.__mo = new MutationObserver(rs => { window.__mut += rs.length; });
+    document.querySelectorAll('.rhyme-mirror').forEach(m => window.__mo.observe(m, { childList: true, subtree: true }));
+});
+const counters = page => page.evaluate(() => ({ analyze: window.__an, paint: window.__paint, mutations: window.__mut + window.__mo.takeRecords().length }));
+const mirrorCls = page => page.locator('.rhyme-mirror').first().evaluate(m => ({ stale: m.classList.contains('rm-stale'), typing: m.classList.contains('lm-typing') }));
+const lastCount = page => page.locator('.rhyme-mirror .lm-mk').last().evaluate(m => m.querySelector('.lm-t-c').textContent);
+const F_TAIL = ['我望著遠方的光', '走過熟悉的街道', '你笑著說天亮', '不怕前方的路遙'].join('\n');
+const tailStorage = pos => v2Storage([song([typed('sa', 'verse', F_TAIL)])], { ...OPEN_PANELS, 'lh:map': JSON.stringify({ line: true, lnCount: true, ...(pos === 'tail' ? { pos } : {}) }) });
+const caretToEnd = page => page.evaluate(() => { const ta = document.querySelector('.section-textarea'); ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length); ta.scrollTop = ta.scrollHeight; });
+
+test('組字：標記開著時組字中鏡像零變動', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, { wordlist: 'stub', storage: tailStorage('tail') });
+    await expect(page.locator('.rhyme-mirror .lm-mk')).toHaveCount(4);
+    expect(await lastCount(page)).toBe('7');
+    await installCounters(page);
+    await caretToEnd(page);
+    await page.waitForTimeout(150);
+    let during = null;
+    await compose(page, ['ㄌ', 'ㄌㄧ', 'ㄌㄧㄤˋ'], '亮', async () => {
+        during = { ...(await counters(page)), ...(await mirrorCls(page)) };
+    });
+    expect(during.analyze, '組字中不分析').toBe(0);
+    expect(during.paint, '組字中不重畫').toBe(0);
+    expect(during.mutations, '組字中鏡像層零個節點變動').toBe(0);
+    expect(during.stale, '行尾打字不整層藏').toBe(false);
+    await expect.poll(async () => (await mirrorCls(page)).typing, { timeout: 2000 }).toBe(false);
+    await expect.poll(() => lastCount(page), { timeout: 2000 }).toBe('8');
+    const c = await counters(page);
+    expect(c.paint, '確認後只重畫一次').toBe(1);
+    expect(c.analyze, '確認後只分析一次').toBe(1);
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('組字：句尾打字標記先藏、換行或句中修改整層藏，重畫後恢復', async ({ browser }) => {
+    for (const pos of ['tail', 'right']) {
+        const { context, page, errors } = await bootPage(browser, { wordlist: 'stub', storage: tailStorage(pos) });
+        await expect(page.locator('.rhyme-mirror .lm-mk')).toHaveCount(4);
+        const vis = () => page.evaluate(() => {
+            const m = document.querySelector('.rhyme-mirror');
+            return { mirror: getComputedStyle(m).visibility, mk: getComputedStyle(m.querySelector('.lm-mk')).visibility, hl: m.querySelector('.rm-hl') ? getComputedStyle(m.querySelector('.rm-hl')).visibility : 'none' };
+        });
+        await caretToEnd(page);
+        await page.keyboard.type('亮');   // 行尾打字
+        let cls = await mirrorCls(page);
+        expect(cls.stale, pos + '：行尾打字不整層藏').toBe(false);
+        expect(cls.typing, pos + '：只有句尾後才藏標記').toBe(pos === 'tail');
+        const v = await vis();
+        expect(v.mirror).toBe('visible');
+        expect(v.mk, pos + '：標記').toBe(pos === 'tail' ? 'hidden' : 'visible');
+        expect(v.hl, pos + '：色塊照舊').not.toBe('hidden');
+        await expect.poll(() => lastCount(page), { timeout: 2000, message: pos + '：重畫後字數更新' }).toBe('8');
+        expect(await mirrorCls(page)).toEqual({ stale: false, typing: false });
+        // Enter：行數變了，整層藏
+        await page.keyboard.press('Enter');
+        expect((await mirrorCls(page)).stale).toBe(true);
+        expect((await mirrorCls(page)).typing).toBe(false);
+        await expect.poll(async () => JSON.stringify(await mirrorCls(page)), { timeout: 2000 }).toBe('{"stale":false,"typing":false}');
+        await page.keyboard.type('天亮');
+        await expect.poll(async () => JSON.stringify(await mirrorCls(page)), { timeout: 2000 }).toBe('{"stale":false,"typing":false}');
+        await expect(page.locator('.rhyme-mirror .lm-mk')).toHaveCount(5);
+        // 新的一行標記在它的最後一個視覺列
+        const g = await markGeo(page, 0, [4]);
+        expect(Math.abs(g[0].dTop)).toBeLessThanOrEqual(1);
+        // 句中修改：整層藏，重畫後解除
+        await page.evaluate(() => { const ta = document.querySelector('.section-textarea'); ta.focus(); ta.setSelectionRange(3, 3); });
+        await page.keyboard.type('X');
+        expect((await mirrorCls(page)).stale, pos + '：句中修改整層藏').toBe(true);
+        await expect.poll(async () => JSON.stringify(await mirrorCls(page)), { timeout: 2000 }).toBe('{"stale":false,"typing":false}');
+        expect(await page.locator('.rhyme-mirror .lm-mk').first().locator('.lm-t-c').textContent()).toBe('8');
+        expect(errors).toEqual([]);
+        await context.close();
+    }
 });

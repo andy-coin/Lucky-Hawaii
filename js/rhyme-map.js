@@ -172,7 +172,7 @@ function lhMapPaint(secEl) {
     }
     const hit = _lhMapCache.get(sec.id);
     if (hit && hit.text === sec.text && hit.sig === sig && hit.ref === refText) {   // 沒變：只把「暫時藏起來」解除，不重畫
-        mirror.classList.remove('rm-stale');
+        mirror.classList.remove('rm-stale', 'lm-typing');
         _lhMapSync(ta, mirror);
         return;
     }
@@ -189,7 +189,7 @@ function lhMapPaint(secEl) {
         mirror.replaceChildren(built.frag);
     }
     secEl.classList.toggle('rm-on', on);
-    mirror.classList.remove('rm-stale');
+    mirror.classList.remove('rm-stale', 'lm-typing');
     _lhMapSync(ta, mirror);   // 顯示出來之後才設得動 scrollTop，所以放在最後
     _lhMapCache.set(sec.id, { text, sig, res, ref: refText });
     _lhMapStrip(secEl, res, big);
@@ -332,6 +332,9 @@ document.getElementById('lyricsSections').addEventListener('input', e => {
     const prev = hit.last !== undefined ? hit.last : hit.text;
     hit.last = sec.text;
     if (_lhMapMovesBand(prev, sec.text)) mirror.classList.add('rm-stale');
+    // 句尾後：標記緊貼在行尾，剛打的字會蓋到還沒更新的舊標記，所以先只把標記藏起來（色塊照舊）；靠右欄的標記在欄位裡，不會撞到字（UI-SPEC D-06）。
+    // 一樣只切 class、不增減鏡像層的節點，組字中也合法；重畫時一起解除
+    else if (_lhMapSet.pos === 'tail' && mirror.querySelector('.lm-mk')) mirror.classList.add('lm-typing');
 }, false);
 
 // ==================== 「韻腳 ▾」選單（E3、UI-SPEC D-12／D-13／D-14） ====================

@@ -1636,6 +1636,7 @@
         .lyrics-section.rm-on .section-body { background: var(--card-bg); }
         .lyrics-section.rm-on .section-textarea { background: transparent; }
         .rhyme-mirror.rm-stale { visibility: hidden; }   /* 組字中捲動：先藏起來，確認後重畫再對齊 */
+        html[data-lm="tail"] .rhyme-mirror.lm-typing .lm-mk { visibility: hidden; }   /* 句尾後打字中：只藏標記，色塊留著（UI-SPEC D-06） */
         .rm-hl {
             background: color-mix(in srgb, var(--rm-c) var(--rm-end, 34%), var(--card-bg));
             border-radius: 0.25rem;
