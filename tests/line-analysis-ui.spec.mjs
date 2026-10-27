@@ -4,7 +4,7 @@
 import { test, expect, chromium } from '@playwright/test';
 import { readFileSync } from 'node:fs';
 import { bootPage, compose, openTwoTabs, stubWordlist, STORAGE_SPY } from './helpers.mjs';
-import { DEVICES, setScale, waitStill } from './layout-lib.mjs';
+import { DEVICES, setScale, waitStill, emulateKeyboard, readKeyboard, insideVisible } from './layout-lib.mjs';
 
 const FIXTURE = JSON.parse(readFileSync(new URL('./fixtures/v096-localStorage.json', import.meta.url), 'utf8'));
 const OPEN_PANELS = { leftPanelCollapsed: 'false', rightPanelCollapsed: 'false' };
@@ -1298,6 +1298,179 @@ test('分析面板：選幾行按分析，逐行列出字數、結構與對照',
     await expect(an).toHaveAttribute('aria-expanded', 'false');
     await expect(page.locator(ANBAR)).toBeVisible();
     expect(await anTa(page)).toEqual({ ta: true, a: 11, b: 26 });
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+// 直接呼叫（不經浮動列）：snap 只需要 ta、secId、a、end
+const anOpen = (page, secId, a, end, n = 0) => page.evaluate(([secId, a, end, n]) => {
+    lhMapBarBuild();
+    const ta = document.querySelectorAll('.section-textarea')[n];
+    lhMapOpenAnalysis({ ta, secId, a, b: end, end, char: null, rd: null }, false);
+}, [secId, a, end, n]);
+
+test('分析面板：零、一、多、超過八十行', async ({ browser }) => {
+    const HUNDRED = Array.from({ length: 100 }, (_, i) => '第' + i + '句歌詞在這裡' + '啊'.repeat(i % 4)).join('\n');
+    const { context, page, errors } = await bootPage(browser, {
+        wordlist: 'stub', storage: v2Storage([song([typed('sa', 'verse', '你好\n\n再見'), typed('sb', 'chorus', HUNDRED)])]),
+    });
+    const panel = page.locator(AN);
+    // 零：只選到空白行 → 沒有表格
+    await anOpen(page, 'sa', 3, 3);
+    await expect(panel).toBeVisible();
+    await expect(panel.locator('.section-menu-cap')).toHaveText('選取的範圍沒有可分析的行');
+    await expect(panel.locator('table')).toHaveCount(0);
+    await expect(panel.locator('.rm-sum')).toHaveCount(0);
+    // 一：只碰到一行（部分選取算整行）→ 一列
+    await anOpen(page, 'sa', 4, 5);
+    await expect(panel.locator('.rm-sum')).toHaveText('選到 1 行，共 2 字');
+    expect((await anRows(page)).map(r => r.cells)).toEqual([['第 2 行', '再見', '2', '—']]);   // 空白行不算，所以「再見」是第 2 個可分析的行
+    await expect(panel.locator('.section-menu-cap').first()).toHaveText('沒有對照段落：這是第一個「Verse」');
+    // 選取剛好停在下一行開頭：下一行不算碰到
+    await anOpen(page, 'sa', 0, 3);
+    await expect(panel.locator('.rm-sum')).toHaveText('選到 1 行，共 2 字');
+    // 多：100 行整段 → 只畫 80 行，摘要仍是 100 行與全部字數
+    const total = await page.evaluate(() => lhLineRows(document.querySelectorAll('.section-textarea')[1].value).reduce((s, r) => s + r.n, 0));
+    await anOpen(page, 'sb', 0, HUNDRED.length, 1);
+    await expect(panel.locator('.rm-sum')).toHaveText('選到 100 行，共 ' + total + ' 字');
+    await expect(panel.locator('tbody tr')).toHaveCount(80);
+    await expect(panel.locator('.rm-an-scroll > .section-menu-cap')).toHaveText('只顯示前 80 行');
+    await expect(panel.locator('.rm-an-scroll')).toHaveAttribute('tabindex', '0');   // 超出可見範圍：鍵盤才捲得動
+    // 只有 80 行以內：沒有「只顯示前」
+    await anOpen(page, 'sb', 0, 40, 1);
+    await expect(panel.locator('.rm-an-scroll > .section-menu-cap')).toHaveCount(0);
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('分析面板：段落太長', async ({ browser }) => {
+    const huge = '愛你到天亮\n'.repeat(45000);   // 超過 LH_WD_BIG（200000 字）
+    expect(huge.length).toBeGreaterThan(200000);
+    const { context, page, errors } = await bootPage(browser, {
+        wordlist: 'stub', storage: v2Storage([song([typed('sa', 'verse', huge)])]),
+    });
+    await page.evaluate(() => {
+        window.__mirrors = 0;
+        const o = window.lhMirror;
+        window.lhMirror = function (...a) { window.__mirrors++; return o.apply(this, a); };
+    });
+    await anPick(page, 0, 4);
+    await expect(page.locator(ANBAR)).toBeVisible();
+    await expect(page.locator(ANBAR + ' button:visible')).toHaveText(['🔍 查韻：天', '✨ AI 建議', '📏 分析']);
+    await page.locator(ANBAR + ' .rm-bar-an').click();
+    const panel = page.locator(AN);
+    await expect(panel).toBeVisible();
+    await expect(panel.locator('.section-menu-title')).toHaveText(/^句構：/);
+    await expect(panel.locator('.section-menu-cap')).toHaveText('段落太長，不做句構分析');
+    await expect(panel.locator('table')).toHaveCount(0);
+    await expect(panel.locator('.rm-sum')).toHaveCount(0);
+    expect(await page.evaluate(() => window.__mirrors), '沒有量版面').toBe(0);
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('分析面板：名稱與結構很長，文字只當文字', async ({ browser }) => {
+    const NAME = Array.from({ length: 40 }, (_, i) => '段落名稱很長很長很長很長'[i % 12]).join('');
+    expect(Array.from(NAME)).toHaveLength(40);
+    const CUT = Array.from(NAME).slice(0, 16).join('') + '…';
+    const TWELVE = '我 你 他 我 你 他 我 你 他 我 你 他';
+    const HOSTILE = '<img src=x onerror=alert(1)>你';
+    const { context, page, errors } = await bootPage(browser, {
+        wordlist: 'stub', storage: v2Storage([song([
+            typed('sa', 'custom', '我望著遠方的光', { custom: NAME }),
+            typed('sb', 'custom', [TWELVE, HOSTILE].join('\n'), { custom: NAME }),
+        ])]),
+    });
+    await anPick(page, 0, TWELVE.length + 1 + 4, 1);
+    await expect(page.locator(ANBAR)).toBeVisible();
+    await page.locator(ANBAR + ' .rm-bar-an').click();
+    const panel = page.locator(AN);
+    await expect(panel).toBeVisible();
+    await expect(panel.locator('.section-menu-title')).toHaveText('句構：' + CUT);
+    await expect(panel.locator('.section-menu-cap').first()).toHaveText('對照：' + CUT + '（同類型第一段）');
+    const rows = await anRows(page);
+    // 十二個單字詞：完整顯示 1+1+…+1，不用 …
+    const one12 = Array(12).fill(1).join('+');
+    expect(rows[0].cells).toEqual(['第 1 行', Array.from(TWELVE).slice(0, 12).join('') + '…', '12', one12]);   // 文字欄切在 12 字，結構欄不切
+    expect(rows[0].cells[3]).not.toContain('…');
+    expect(rows[1].cells[0]).toBe('對照 ' + CUT + ' 第 1 行：7 字　—≠');
+    // 結構格換行而不是被切掉
+    expect(await panel.locator('.rm-an-s').first().evaluate(e => e.scrollWidth <= e.clientWidth + 1)).toBe(true);
+    // 惡意文字：只是文字，沒有任何元素被建出來
+    expect(rows[2].cells[1]).toBe(HOSTILE.slice(0, 12) + '…');
+    expect(await panel.locator('img, script, b, i').count()).toBe(0);
+    expect(await page.evaluate(() => window.__xss === undefined)).toBe(true);
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('分析面板：詞庫載入中', async ({ browser }) => {
+    const MINI = ['{"w":"夢裡","z":"ㄇㄥˋ ㄌㄧˇ","p":0}', '{"w":"想起","z":"ㄒㄧㄤˇ ㄑㄧˇ","p":0}', '{"w":"你的","z":"ㄋㄧˇ ㄉㄜ˙","p":0}'].join('\n') + '\n';
+    let release;
+    const gate = new Promise(r => { release = r; });
+    const { context, page, errors } = await bootPage(browser, {
+        waitWordlist: false,
+        storage: v2Storage([song([typed('sa', 'verse', '月光 灑在 窗前\n夢裡想起你的臉')])]),
+        beforeGoto: async ({ context: c }) => {
+            await stubWordlist(c, MINI);
+            await c.route(/\/data\/wordlist-c0\d\.json(\?.*)?$/, async route => { await gate; await route.fallback(); });
+        },
+    });
+    await page.evaluate(() => window.__hoyunSongsReady);
+    await anPick(page, 9, 12);
+    await expect(page.locator(ANBAR)).toBeVisible();
+    await page.locator(ANBAR + ' .rm-bar-an').click();
+    const panel = page.locator(AN);
+    await expect(panel.locator('.section-menu-cap').filter({ hasText: '詞庫載入中，≈ 的自動斷句稍後補上' })).toBeVisible();
+    expect((await anRows(page))[0].cells).toEqual(['第 2 行', '夢裡想起你的臉', '7', '—']);   // 還沒詞庫：不猜
+    release();
+    await page.evaluate(() => window.__lhMapReady);
+    await page.evaluate(() => lhMapHideBar());
+    await anPick(page, 9, 13);
+    await expect(page.locator(ANBAR)).toBeVisible();
+    await page.locator(ANBAR + ' .rm-bar-an').click();
+    await expect(panel).toBeVisible();
+    await expect(panel.locator('.section-menu-cap').filter({ hasText: '詞庫載入中' })).toHaveCount(0);
+    expect((await anRows(page))[0].cells).toEqual(['第 2 行', '夢裡想起你的臉', '7', '≈2+2+3']);
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('分析面板：手機上長選取只出現一次，只有分析', async ({ browser }) => {
+    const LONGER = Array.from({ length: 60 }, (_, i) => '第' + i + '句歌詞在這裡').join('\n');
+    const { context, page, errors } = await bootPage(browser, {
+        wordlist: 'stub', device: DEVICES.phone, storage: v2Storage([song([typed('sa', 'verse', LONGER, { height: 300 })])], {}),
+    });
+    await page.locator('#mtab-lyrics').click();
+    await waitStill(page);
+    await page.evaluate(() => {
+        window.__shows = []; window.__last = 0;
+        const bar = lhMapBarBuild();
+        let on = bar.classList.contains('show');
+        new MutationObserver(() => {
+            const now = bar.classList.contains('show');
+            if (now && !on) window.__shows.push(performance.now());
+            on = now;
+        }).observe(bar, { attributes: true, attributeFilter: ['class'] });
+    });
+    for (const b of [100, 200, 260, 300]) {
+        await page.evaluate(b => { const ta = document.querySelector('.section-textarea'); ta.focus(); ta.setSelectionRange(0, b); window.__last = performance.now(); }, b);
+        await page.waitForTimeout(100);
+    }
+    await expect(page.locator(ANBAR)).toBeVisible();
+    await page.waitForTimeout(600);
+    const r = await page.evaluate(() => ({ shows: window.__shows, last: window.__last }));
+    expect(r.shows.length, '只出現一次').toBe(1);
+    expect(r.shows[0] - r.last, '最後一次改變之後約 400ms').toBeGreaterThan(300);
+    expect(r.shows[0] - r.last).toBeLessThan(900);
+    await expect(page.locator(ANBAR + ' button:visible')).toHaveText(['📏 分析']);
+    await page.locator(ANBAR + ' .rm-bar-an').tap();
+    const panel = page.locator(AN);
+    await expect(panel).toBeVisible();
+    const kb = await readKeyboard(page), box = await panel.boundingBox(), vp = page.viewportSize();
+    expect(insideVisible(box, kb), '面板在可見範圍內').toBe(true);
+    expect(box.x >= -0.5 && box.x + box.width <= vp.width + 0.5, '左右都在螢幕內').toBe(true);
+    expect(await live(page)).toMatch(/^句構分析：選到 \d+ 行$/);
     expect(errors).toEqual([]);
     await context.close();
 });
