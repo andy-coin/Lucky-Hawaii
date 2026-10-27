@@ -1661,6 +1661,34 @@
         [data-f="15"] { --rm-c: var(--rm-c15); }
         [data-f="16"] { --rm-c: var(--rm-c16); }
 
+        /* 逐行標記（js/rhyme-map.js，第 11 階段）：標記是鏡像層裡的絕對定位元素，不佔 inline 空間，所以不可能移動換行位置；
+           不設 left／top，讓它落在「該行最後一個非空白字元之後」的靜態位置，也就是折行後的最後一個視覺列 */
+        .lm-mk {
+            position: absolute;
+            white-space: nowrap;
+            pointer-events: none;
+            color: var(--text-secondary);
+            font-weight: 400;
+            font-style: normal;
+        }
+        /* 靠右欄：輸入框與鏡像層一起把右內距加寬（鏡像層的內距由 _lhMapSync 從輸入框複製），欄寬以 36% 為上限，寫字的地方永遠留得出來。
+           純 CSS 的 calc，輸入框與鏡像層會解析成同一個像素值，不必用 JS 量寬度，也就沒有 ResizeObserver 迴圈的風險 */
+        html[data-lm="right"] .section-textarea { padding-right: calc(0.75rem + min(var(--lm-cols), 36%) + var(--sp-2)); }
+        html[data-lm="right"] .lm-mk {
+            right: calc(var(--lm-bar, 0px) + 0.75rem);
+            width: min(var(--lm-cols), 36%);
+            overflow: hidden;   /* 欄位塞不下時在標記這一層裁掉，不要溢出輸入框 */
+        }
+        /* 句尾後：緊接在最後一個字後面，不佔寬度 */
+        html[data-lm="tail"] .lm-mk { margin-inline-start: var(--sp-2); }
+        /* 內層小字：繼承鏡像層的字級與行高，只縮小字，基線自然和歌詞對齊；不給 inline-block 設 overflow（會讓基線掉到底邊），
+           需要裁切的欄位用 overflow: clip（不是捲動容器，基線不變） */
+        .lm-t { display: inline-block; font-size: var(--lm-fs); font-variant-numeric: tabular-nums; }
+        .lm-t + .lm-t { margin-inline-start: 0.5em; }
+        html[data-lm="right"] .lm-t-c { width: 1.5em; text-align: right; }
+        html[data-lm="right"] .lm-t-s { width: 5.5em; overflow: clip; text-overflow: ellipsis; }
+        .lm-guess { font-style: italic; }   /* 機器猜的那一段用斜體，自己標的維持正體（CONTEXT A2） */
+
         /* AI 詞彙 grid（右側，多欄顯示）*/
         .ai-words-grid {
             display: grid;

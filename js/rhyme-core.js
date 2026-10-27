@@ -8,19 +8,52 @@
 const LH_RHYME_PARTICLES = new Set(Array.from('啊呀哪呢喔哦噢吧啦嘛耶欸囉唷了的嗎'));
 // 字母表：先大寫再小寫共 52 個，再多就用 '*'
 const LH_RHYME_ALPHA = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
-// 開關預設（CONTEXT B4、C3、E1、E2）：只有句尾上色預設開
+// 開關預設（CONTEXT B4、C3、E1、E2）：只有句尾上色預設開。這五個鍵是第 10 階段就存在的，順序與預設值不可動（備份與測試逐字比對）
 const LH_RHYME_DEFAULTS = Object.freeze({ end: true, letters: false, inner: false, strict: false, skipParticles: true });
+// 第 11 階段的完整設定預設（CONTEXT D4）：前五個鍵同上；逐行標記總開關預設關，打開後內容項預設是字數＋斷句開、韻腳字母與對照差異關
+// （D4 括號的說法——第一次打開就有東西看、但不擠）。總開關沒開時什麼都不顯示，所以全新使用者仍然只看到句尾上色
+const LH_MAP_DEFAULTS = Object.freeze(Object.assign({}, LH_RHYME_DEFAULTS, {
+    line: false, lnRhyme: false, lnCount: true, lnSplit: true, lnDiff: false, autoHover: false,
+    pos: 'right', size: 'm', depth: 'std',
+}));
+// 列舉值只收清單裡的；顏色鍵固定 '0'…'15'（16 個韻族，空韻 16 不開放自訂），色碼只收小寫 #rrggbb（與 rhyme-map.js 的 LH_MAP_HEX 同形）
+const LH_MAP_ENUM = Object.freeze({ pos: Object.freeze(['right', 'tail']), size: Object.freeze(['s', 'm', 'l']), depth: Object.freeze(['light', 'std', 'heavy']) });
+const LH_MAP_COLOR_RE = /^#[0-9a-f]{6}$/;
+const LH_MAP_COLOR_KEYS = Object.freeze(Array.from({ length: 16 }, (_, i) => String(i)));
 
-// 把任何來源（儲存、備份檔、別的分頁）的 lh:map 整理成五個真布林：不是物件就全用預設；每個鍵只收 typeof boolean 的自己的屬性，
-// 多出來的鍵與字串 'true'、數字等一律丟掉（T-10-07）
+// 把任何來源（儲存、備份檔、別的分頁）的 lh:map 整理成固定形狀：不是物件就全用預設；每個鍵獨立檢查，壞的只退回那一鍵的預設。
+// 開關只收自己的 typeof boolean 屬性、列舉只收清單內的字串、colors 只讀固定 16 把鍵再驗色碼（絕不迭代輸入的鍵，
+// 所以 __proto__ 之類的鍵打不到任何東西，也不會被惡意大物件拖慢）；回傳的永遠是全新物件（T-10-07、T-11-01、T-11-02）
 function lhRhymeNormalizeSettings(o) {
-    const out = Object.assign({}, LH_RHYME_DEFAULTS);
+    const out = Object.assign({}, LH_MAP_DEFAULTS, { colors: {} });
     if (o && typeof o === 'object' && !Array.isArray(o)) {
-        for (const k of Object.keys(LH_RHYME_DEFAULTS)) {
-            if (Object.prototype.hasOwnProperty.call(o, k) && typeof o[k] === 'boolean') out[k] = o[k];
+        const own = (x, k) => Object.prototype.hasOwnProperty.call(x, k);
+        for (const k of Object.keys(LH_MAP_DEFAULTS)) {
+            if (typeof LH_MAP_DEFAULTS[k] === 'boolean' && own(o, k) && typeof o[k] === 'boolean') out[k] = o[k];
+        }
+        for (const k of Object.keys(LH_MAP_ENUM)) {
+            if (own(o, k) && LH_MAP_ENUM[k].includes(o[k])) out[k] = o[k];
+        }
+        const c = own(o, 'colors') ? o.colors : null;
+        if (c && typeof c === 'object' && !Array.isArray(c)) {
+            for (const k of LH_MAP_COLOR_KEYS) {
+                if (own(c, k) && typeof c[k] === 'string' && LH_MAP_COLOR_RE.test(c[k])) out.colors[k] = c[k];
+            }
         }
     }
     return out;
+}
+
+// 最小序列化：第 10 階段的五個鍵永遠照原順序寫，新鍵只在與預設不同時才寫，colors 有東西才寫。
+// 這樣第 10 階段留下的設定、備份與測試讀回來逐字相同，新版也不會把一整排預設值灌進每個人的儲存（X5）
+function lhRhymeSerialize(set) {
+    const s = lhRhymeNormalizeSettings(set), o = {};
+    for (const k of Object.keys(LH_RHYME_DEFAULTS)) o[k] = s[k];
+    for (const k of Object.keys(LH_MAP_DEFAULTS)) {
+        if (!Object.prototype.hasOwnProperty.call(LH_RHYME_DEFAULTS, k) && s[k] !== LH_MAP_DEFAULTS[k]) o[k] = s[k];
+    }
+    if (Object.keys(s.colors).length) o.colors = s.colors;
+    return JSON.stringify(o);
 }
 // 17 色：0–15 依 RHYME_FAMILIES 順序，16 是沒有家族的韻（空韻 ㄓㄔㄕㄖㄗㄘㄙ 等）用的中性灰
 const LH_RHYME_COLORS = Object.freeze({

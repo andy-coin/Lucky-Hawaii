@@ -25,7 +25,33 @@ function lhMapApplyPalette() {
         if (LH_MAP_HEX.test(hex)) document.documentElement.style.setProperty('--rm-c' + n, hex);
     });
 }
-lhMapApplyPalette();
+// 版面外觀（第 11 階段）：位置、字級、欄寬都只改 <html> 的屬性與 CSS 變數，不重畫、不重新分析（RESEARCH Pattern 8）。
+// 寫進 style.setProperty 的值一律來自下面這幾張常數表，絕不直接用儲存裡的字串
+const LH_MAP_LOOK_KEYS = new Set(['pos', 'size', 'depth']);   // 這幾個設定只影響 CSS，改了不必重畫鏡像層
+const LH_MAP_SIZE_REM = { s: 0.75, m: 0.875, l: 1 };           // 標記字級（UI-SPEC D-21）
+const LH_MAP_COL_EM = { lnRhyme: 1.25, lnCount: 1.5, lnDiff: 2.25, lnSplit: 5.5 };   // 靠右欄各欄寬度（單位 em，UI-SPEC 3.2）；欄與欄之間再加 0.5em
+// 逐行標記有沒有內容要顯示：總開關開著，而且四個內容項至少開一個
+function _lhMapNeedMk() {
+    return _lhMapSet.line && (_lhMapSet.lnRhyme || _lhMapSet.lnCount || _lhMapSet.lnSplit || _lhMapSet.lnDiff);
+}
+function lhMapApplyLook() {
+    const root = document.documentElement;
+    // 欄位的有無只看設定、不看文字內容（X3）：不然打下第一個字的瞬間輸入框內距會變，輸入框會跳版
+    if (_lhMapNeedMk()) root.setAttribute('data-lm', _lhMapSet.pos);
+    else root.removeAttribute('data-lm');
+    const rem = LH_MAP_SIZE_REM[_lhMapSet.size];
+    const cols = Object.keys(LH_MAP_COL_EM).filter(k => _lhMapSet[k]);
+    const em = cols.reduce((a, k) => a + LH_MAP_COL_EM[k], 0) + 0.5 * Math.max(0, cols.length - 1);
+    root.style.setProperty('--lm-fs', rem + 'rem');
+    root.style.setProperty('--lm-cols', (em * rem) + 'rem');
+    lhMapApplyPalette();
+    if (_lhComposing) return;   // 組字中不量版面；下一次畫的時候會對齊
+    document.querySelectorAll('#lyricsSections .section-textarea').forEach(ta => {
+        const mirror = _lhMapMirrorOf(ta);
+        if (mirror) _lhMapSync(ta, mirror);   // 輸入框內距變了，鏡像層要馬上複製，ResizeObserver 不會因為內距改變而觸發
+    });
+}
+lhMapApplyLook();
 // 日夜主題切換（applyTheme 改 <html data-theme>）：換一組色票就好，不必重畫——色塊讀的是 CSS 變數
 new MutationObserver(lhMapApplyPalette).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
 
@@ -38,13 +64,77 @@ function _lhMapSync(ta, mirror) {
     mirror.style.top = ta.offsetTop + 'px';
     mirror.style.width = ta.offsetWidth + 'px';
     mirror.style.height = ta.offsetHeight + 'px';
-    mirror.style.paddingRight = ((parseFloat(cs.paddingRight) || 0) + Math.max(0, bar)) + 'px';
+    mirror.style.paddingRight = ((parseFloat(cs.paddingRight) || 0) + Math.max(0, bar)) + 'px';   // 靠右欄開著時，輸入框的內距已含欄寬，一併複製
+    mirror.style.setProperty('--lm-bar', Math.max(0, bar) + 'px');   // 標記靠右欄時要讓開捲軸
     mirror.scrollTop = ta.scrollTop;
 }
 
 function _lhMapMirrorOf(ta) {
     const m = ta.previousElementSibling;
     return m && m.classList.contains('rhyme-mirror') ? m : null;
+}
+
+// 行尾空白（半形、全形、tab）要留在換行旁邊、標記插在它前面：標記夾在行尾空白與換行之間，會破壞 pre-wrap 行尾空白的懸掛，讓該行多折一列（X1）
+const _LH_TRAIL_WS = /[ \t\u3000]+$/;
+
+// 一行的標記：字數與斷句結構，沒有可分析內容的行（空行、純標點）回 null（A3）。文字一律 textContent，不拼 HTML
+function _lhMapMarker(line) {
+    const r = lhLineAnalyze(line);
+    if (r.n <= 0) return null;
+    const mk = _lhMk('span', 'lm-mk');
+    if (_lhMapSet.lnCount) mk.append(_lhMk('span', 'lm-t lm-t-c', String(r.n)));
+    if (_lhMapSet.lnSplit) {
+        const st = _lhMk('span', 'lm-t lm-t-s');   // 沒有結構（少於兩組）也要有這個欄位，欄位才對得齊
+        for (const part of lhLineStructParts(r)) {
+            if (part.guess) st.append(_lhMk('span', 'lm-guess', part.text));
+            else st.append(part.text);
+        }
+        mk.append(st);
+    }
+    return mk;
+}
+
+// 把一段文字依目前設定建成鏡像層的 DocumentFragment（真實鏡像層與之後的預覽共用）。回傳 { frag, res, on }：
+// res 是韻腳分析結果（沒有任何韻腳功能開著就是 null），on 代表至少畫了一個色塊、底線或標記
+function _lhMapBuildFrag(text, readings) {
+    const S = _lhMapSet;
+    const needMk = !!_lhMapNeedMk();
+    const needRhyme = S.end || S.inner || S.letters || (S.line && S.lnRhyme);
+    const paintRows = S.end || S.inner || needMk;   // 只開結構字母：鏡像層不必逐行排版
+    const res = needRhyme ? lhRhymeAnalyze(text, { strict: S.strict, skipParticles: S.skipParticles, inner: S.inner }, readings) : null;
+    const frag = document.createDocumentFragment();
+    let on = false;
+    const rows = !paintRows ? [] : res ? res.rows : text.replace(/\r\n?/g, '\n').split('\n').map(line => ({ line, t: null, inner: [] }));
+    rows.forEach((r, n) => {
+        // 這一行要特別標示的字：句尾字（色塊，句尾上色開著才有）與句中押韻的字（底線）
+        const marks = new Map();
+        if (r.t && S.end) marks.set(r.t.i, { cls: (r.solo ? 'rm-hl rm-solo' : 'rm-hl') + (r.manual ? ' rm-manual' : ''), f: r.f });
+        for (const m of r.inner) marks.set(m.i, { cls: 'rm-inner', f: m.f });
+        const mk = needMk ? _lhMapMarker(r.line) : null;
+        if (!marks.size && !mk) frag.append(r.line);
+        else {
+            const m = mk && _LH_TRAIL_WS.exec(r.line);
+            const core = m ? r.line.slice(0, m.index) : r.line;
+            let buf = '';
+            Array.from(core).forEach((c, i) => {
+                const hit = marks.get(i);
+                if (!hit) { buf += c; return; }
+                if (buf) { frag.append(buf); buf = ''; }
+                const sp = document.createElement('span');
+                sp.className = hit.cls;
+                sp.dataset.f = String(hit.f);
+                sp.textContent = c;
+                frag.append(sp);
+            });
+            if (buf) frag.append(buf);
+            if (mk) frag.append(mk);
+            if (m) frag.append(m[0]);
+            on = true;
+        }
+        if (n < rows.length - 1) frag.append('\n');
+    });
+    if (paintRows) frag.append('​');   // 結尾零寬字元：文字以換行結尾時，和輸入框一樣多出一個空行
+    return { frag, res, on };
 }
 
 // 畫一段：從模型讀文字（不讀輸入框，G2），一次 replaceChildren
@@ -54,7 +144,8 @@ function lhMapPaint(secEl) {
     const ta = secEl && secEl.querySelector('.section-textarea');
     const mirror = ta && _lhMapMirrorOf(ta);
     if (!sec || !mirror) return;
-    const sig = [_lhMapSet.end, _lhMapSet.letters, _lhMapSet.inner, _lhMapSet.strict, _lhMapSet.skipParticles].map(Number).join('') + '|' + _lhMapEpoch + '|' + _lhMapReadVer;
+    const S = _lhMapSet;
+    const sig = [S.end, S.letters, S.inner, S.strict, S.skipParticles, S.line, S.lnRhyme, S.lnCount, S.lnSplit, S.lnDiff].map(Number).join('') + '|' + _lhMapEpoch + '|' + _lhMapReadVer;   // pos／size／depth／colors 只改 CSS，不進簽名（E2）
     const hit = _lhMapCache.get(sec.id);
     if (hit && hit.text === sec.text && hit.sig === sig) {   // 沒變：只把「暫時藏起來」解除，不重畫
         mirror.classList.remove('rm-stale');
@@ -64,38 +155,14 @@ function lhMapPaint(secEl) {
     const text = sec.text;
     let on = false, res = null;
     const big = text.length > LH_WD_BIG || text.split('\n').length > LH_MAP_MAX_LINES;
-    // 句尾上色、句中押韻、結構字母全關：完全不分析，和第 9 階段一樣（D-18）
-    if (!(_lhMapSet.end || _lhMapSet.inner || _lhMapSet.letters) || big) {
+    // 句尾上色、句中押韻、結構字母、逐行標記全關，或段落太大：完全不分析，和第 9 階段一樣（D-18、D-17）
+    if (!(S.end || S.inner || S.letters || _lhMapNeedMk()) || big) {
         mirror.replaceChildren();   // 關掉或太大：不分析，鏡像層留空
     } else {
-        res = lhRhymeAnalyze(text, { strict: _lhMapSet.strict, skipParticles: _lhMapSet.skipParticles, inner: _lhMapSet.inner }, song.readings);
-        const frag = document.createDocumentFragment();
-        const paintRows = _lhMapSet.end || _lhMapSet.inner;   // 只開結構字母：鏡像層不必逐行排版
-        (paintRows ? res.rows : []).forEach((r, n) => {
-            // 這一行要特別標示的字：句尾字（色塊，句尾上色開著才有）與句中押韻的字（底線）
-            const marks = new Map();
-            if (r.t && _lhMapSet.end) marks.set(r.t.i, { cls: (r.solo ? 'rm-hl rm-solo' : 'rm-hl') + (r.manual ? ' rm-manual' : ''), f: r.f });
-            for (const m of r.inner) marks.set(m.i, { cls: 'rm-inner', f: m.f });
-            if (!marks.size) frag.append(r.line);
-            else {
-                let buf = '';
-                Array.from(r.line).forEach((c, i) => {
-                    const mk = marks.get(i);
-                    if (!mk) { buf += c; return; }
-                    if (buf) { frag.append(buf); buf = ''; }
-                    const sp = document.createElement('span');
-                    sp.className = mk.cls;
-                    sp.dataset.f = String(mk.f);
-                    sp.textContent = c;
-                    frag.append(sp);
-                });
-                if (buf) frag.append(buf);
-                on = true;
-            }
-            if (n < res.rows.length - 1) frag.append('\n');
-        });
-        if (paintRows) frag.append('​');   // 結尾零寬字元：文字以換行結尾時，和輸入框一樣多出一個空行
-        mirror.replaceChildren(frag);
+        const built = _lhMapBuildFrag(text, song.readings);
+        res = built.res;
+        on = built.on;
+        mirror.replaceChildren(built.frag);
     }
     secEl.classList.toggle('rm-on', on);
     mirror.classList.remove('rm-stale');
@@ -362,13 +429,17 @@ function lhMapMenuSync() {
     _lhMapMenu.querySelector('.rm-loading').hidden = _lhMapOk;
 }
 
-// 一個開關改了：存檔、全部段落重畫、選單文字跟著變（只認五個已知的鍵與真布林）
+// 一個設定改了：存檔、套用外觀、選單文字跟著變；只有會改變鏡像層內容的設定才全部段落重畫。
+// 只認 LH_MAP_DEFAULTS 的鍵，而且值經過整理後必須原封不動（壞值、不認得的字串都進不來）；colors 不走這裡
 function lhMapSetSetting(key, value) {
-    if (!Object.prototype.hasOwnProperty.call(LH_RHYME_DEFAULTS, key) || typeof value !== 'boolean') return;
-    _lhMapSet = lhRhymeNormalizeSettings(Object.assign({}, _lhMapSet, { [key]: value }));
-    lhSet('lh:map', JSON.stringify(_lhMapSet));
+    if (!Object.prototype.hasOwnProperty.call(LH_MAP_DEFAULTS, key)) return;
+    const next = lhRhymeNormalizeSettings(Object.assign({}, _lhMapSet, { [key]: value }));
+    if (next[key] !== value) return;
+    _lhMapSet = next;
+    lhSet('lh:map', lhRhymeSerialize(_lhMapSet));
+    lhMapApplyLook();
     lhMapMenuSync();
-    lhMapRenderAll();
+    if (!LH_MAP_LOOK_KEYS.has(key)) lhMapRenderAll();
 }
 
 // 別的分頁改了設定：先收掉這個分頁的浮層，重讀、重畫，選單文字跟著變
@@ -376,6 +447,7 @@ window.addEventListener('storage', e => {
     if (e.key !== 'lh:map') return;
     lhMapCloseAll();
     _lhMapSet = lhRhymeNormalizeSettings(lhGetJSON('lh:map', null));
+    lhMapApplyLook();
     lhMapMenuSync();
     lhMapRenderAll();
 });

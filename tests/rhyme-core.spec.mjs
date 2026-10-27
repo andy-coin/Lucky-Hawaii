@@ -320,9 +320,12 @@ test('句中：語助詞開關決定句尾字（愛你到天亮啊）', () => {
     expect(target('愛你到天亮啊', false).char).toBe('啊');
 });
 
-test('設定：整理成五個真布林', () => {
+test('設定：整理成固定的鍵', () => {
     const norm = v => ev(`lhRhymeNormalizeSettings(${j(v)})`);
-    const D = { end: true, letters: false, inner: false, strict: false, skipParticles: true };
+    // 第 11 階段：十四個設定鍵加 colors（五個舊開關＋逐行標記、三個內容項、對照差異、停留自動分析、位置、大小、濃淡）
+    const D = { end: true, letters: false, inner: false, strict: false, skipParticles: true,
+        line: false, lnRhyme: false, lnCount: true, lnSplit: true, lnDiff: false, autoHover: false,
+        pos: 'right', size: 'm', depth: 'std', colors: {} };
     expect(norm(null)).toEqual(D);
     expect(norm([1, 2])).toEqual(D);
     expect(norm('x')).toEqual(D);

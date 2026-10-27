@@ -550,8 +550,10 @@ function _lhSettingFrom(src, key) {
             return JSON.stringify(lhCleanDictOverrides(o).clean);
         } catch (e) { lhWarn('備份檔裡的字庫覆寫不是合法 JSON，略過', e); return undefined; }
     }
-    if (key === 'lh:map') {   // 韻腳地圖設定：只收五個鍵的真布林，其餘（字串 'true'、多出來的鍵）丟掉，再重新序列化（T-10-07）
-        try { return JSON.stringify(lhRhymeNormalizeSettings(JSON.parse(v))); }
+    if (key === 'lh:map') {   // 韻腳地圖設定：逐鍵驗證（開關要真布林、列舉要在清單內、顏色要小寫 #rrggbb），壞的退回預設，再用最小序列化寫回（T-10-07、T-11-01）
+        // rhyme-core.js 比 safety.js 晚載入，這裡只在匯入時（執行期）呼叫；真的沒載到就略過這一項，不讓整個匯入丟例外
+        if (typeof lhRhymeSerialize !== 'function') { lhWarn('韻腳地圖設定的整理程式沒有載入，略過這一項', null); return undefined; }
+        try { return lhRhymeSerialize(JSON.parse(v)); }
         catch (e) { lhWarn('備份檔裡的韻腳地圖設定不是合法 JSON，略過', e); return undefined; }
     }
     return v;
@@ -632,7 +634,7 @@ function lhNormalizeSong(raw, takenIds, stats) {
     const createdAt = Number.isFinite(raw.createdAt) ? raw.createdAt : Date.now();
     // 第 10 階段（A3）：手動讀音逐筆驗證，壞的只丟那一筆；一筆都不剩就不寫這個欄位（沒有讀音的歌備份裡也沒有）。
     // rhyme-core.js 比 safety.js 晚載入，這裡只在匯入時（執行期）呼叫，載入順序不影響
-    const readings = lhRhymeCleanReadings(raw.readings);
+    const readings = typeof lhRhymeCleanReadings === 'function' ? lhRhymeCleanReadings(raw.readings) : null;
     return {
         id, title, sections, hashtags,
         context: typeof raw.context === 'string' ? _lhCut(raw.context, LH_IMPORT_CAPS.context, stats) : '',
