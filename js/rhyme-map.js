@@ -10,7 +10,8 @@ const LH_MAP_MAX_LINES = 5000;     // 超過這麼多行的段落不分析（字
 const LH_MAP_HEX = /^#[0-9a-f]{6}$/;
 
 let _lhMapSet = lhRhymeNormalizeSettings(lhGetJSON('lh:map', null));   // 目前的開關；儲存裡的值壞了就退回預設（UI-SPEC 9.1 error）
-let _lhMapOk = false;              // 字典、詞庫、歌曲都就緒才畫（A5）
+let _lhMapOk = false;              // 字典、歌曲就緒就可以畫逐行標記的字數與明確斷點（詞庫沒載好也行，CONTEXT A4）
+let _lhMapWl = false;              // 詞庫也結束（成功或失敗）才做韻腳分析與猜斷句（A5）
 let _lhMapEpoch = 0;               // 詞庫換包時加一，讓快取失效
 let _lhMapReadVer = 0;             // 手動讀音變動時加一，讓快取失效
 const _lhMapCache = new Map();     // 段落 id → { text, sig }：同文字同設定就不重畫
@@ -78,11 +79,17 @@ function _lhMapMirrorOf(ta) {
 const _LH_TRAIL_WS = /[ \t\u3000]+$/;
 
 // 一行的標記：字數與斷句結構（以及對照差異），沒有可分析內容的行（空行、純標點）回 null（A3）。文字一律 textContent。
+// row：韻腳分析的這一行（沒有分析就是 undefined，行尾韻腳字母留空欄位）。
 // diff：{ refN, k }，refN 是對照段落各「可分析行」的字數，k 是這個段落目前數到第幾個可分析行（CONTEXT B3：照可分析行的順序對，不是照原始行號）
-function _lhMapMarker(line, diff) {
+function _lhMapMarker(line, diff, row) {
     const r = lhLineAnalyze(line);
     if (r.n <= 0) return null;
     const mk = _lhMk('span', 'lm-mk');
+    if (_lhMapSet.lnRhyme) {
+        const t = _lhMk('span', 'lm-t lm-t-r', row ? row.letter || '-' : '');   // 沒有韻腳是「-」；有韻腳的字母底下畫家族色（和標題列字母條同一套）
+        if (row && row.key !== null) t.dataset.f = String(row.f);
+        mk.append(t);
+    }
     if (_lhMapSet.lnCount) mk.append(_lhMk('span', 'lm-t lm-t-c', String(r.n)));
     if (_lhMapSet.lnDiff) {
         const b = diff.refN[diff.k];   // 對照段落沒有這一行（比較短）就是 undefined，什麼都不加
@@ -105,8 +112,8 @@ function _lhMapMarker(line, diff) {
 function _lhMapBuildFrag(text, readings, refText) {
     const S = _lhMapSet;
     const needMk = !!_lhMapNeedMk();
-    const needRhyme = S.end || S.inner || S.letters || (S.line && S.lnRhyme);
-    const paintRows = S.end || S.inner || needMk;   // 只開結構字母：鏡像層不必逐行排版
+    const needRhyme = _lhMapWl && (S.end || S.inner || S.letters || (S.line && S.lnRhyme));   // 詞庫沒載好前不做韻腳分析
+    const paintRows = (_lhMapWl && (S.end || S.inner)) || needMk;   // 只開結構字母：鏡像層不必逐行排版
     const res = needRhyme ? lhRhymeAnalyze(text, { strict: S.strict, skipParticles: S.skipParticles, inner: S.inner }, readings) : null;
     const frag = document.createDocumentFragment();
     let on = false;
@@ -118,7 +125,7 @@ function _lhMapBuildFrag(text, readings, refText) {
         const marks = new Map();
         if (r.t && S.end) marks.set(r.t.i, { cls: (r.solo ? 'rm-hl rm-solo' : 'rm-hl') + (r.manual ? ' rm-manual' : ''), f: r.f });
         for (const m of r.inner) marks.set(m.i, { cls: 'rm-inner', f: m.f });
-        const mk = needMk ? _lhMapMarker(r.line, diff) : null;
+        const mk = needMk ? _lhMapMarker(r.line, diff, res ? r : undefined) : null;
         if (!marks.size && !mk) frag.append(r.line);
         else {
             const m = mk && _LH_TRAIL_WS.exec(r.line);
@@ -170,7 +177,7 @@ function lhMapPaint(secEl) {
     let on = false, res = null;
     const big = text.length > LH_WD_BIG || text.split('\n').length > LH_MAP_MAX_LINES;
     // 句尾上色、句中押韻、結構字母、逐行標記全關，或段落太大：完全不分析，和第 9 階段一樣（D-18、D-17）
-    if (!(S.end || S.inner || S.letters || _lhMapNeedMk()) || big) {
+    if (!((_lhMapWl && (S.end || S.inner || S.letters)) || _lhMapNeedMk()) || big) {
         mirror.replaceChildren();   // 關掉或太大：不分析，鏡像層留空
     } else {
         const built = _lhMapBuildFrag(text, song.readings, refText);
@@ -279,6 +286,7 @@ function _lhMapFlush() {
 // 詞庫換包（之後由 switchLexiconPack 呼叫）：讀音來源變了，全部重算
 function lhMapOnLexiconChange() {
     _lhMapEpoch++;
+    lhMapMenuSync();   // 偏好設定裡「詞庫載入中」的提醒跟著收起來
     lhMapRenderAll();
 }
 
@@ -336,6 +344,34 @@ const LH_MAP_MODE_HELP = {
 };
 const LH_MAP_PARTICLE_CAP = '略過：' + Array.from(LH_RHYME_PARTICLES).join('、');   // 順序與 UI-SPEC 一致：啊、呀、哪…
 
+// 判定：寬韻／嚴格兩個 radio。選單與偏好設定各建一組，行為一樣：方向鍵只移焦點（roving tabindex），Enter／空白才選（走外層的點擊）
+function _lhMapRadioKeys(group) {
+    group.addEventListener('keydown', e => {
+        const k = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }[e.key];
+        const rows = [...group.children];
+        const i = rows.indexOf(document.activeElement);
+        if (!k || i < 0 || e.isComposing || e.keyCode === 229) return;
+        e.preventDefault();
+        rows.forEach(r => r.tabIndex = -1);
+        const next = rows[(i + k + rows.length) % rows.length];
+        next.tabIndex = 0;
+        next.focus({ preventScroll: true });
+    });
+}
+function _lhMapModeRadios() {
+    const modes = _lhMk('div', 'type-grid');
+    modes.setAttribute('role', 'radiogroup');
+    modes.setAttribute('aria-label', '押韻判定');
+    for (const [id, name] of [['wide', '寬韻'], ['strict', '嚴格']]) {
+        const r = _lhMkBtn('type-row', name);
+        r.setAttribute('role', 'radio');
+        r.dataset.m = id;
+        modes.appendChild(r);
+    }
+    _lhMapRadioKeys(modes);
+    return modes;
+}
+
 // 開關一列：文字＋右邊的「開／關」藥丸（狀態用字不用色，D-14）
 function _lhMapSwitchRow(key, label) {
     const b = _lhMkBtn('rm-switch', '');
@@ -353,7 +389,7 @@ function lhMapMenuBuild() {
     m.setAttribute('aria-label', '韻腳地圖設定');
     // 詞庫還沒載好時的提示（A5）：載好後隱藏，控制項一直可用
     const loading = _lhMk('div', 'section-menu-cap rm-loading', '詞庫載入中，載好後會自動上色');
-    loading.hidden = _lhMapOk;
+    loading.hidden = _lhMapWl;
     // 句中押韻的說明用 aria-describedby 接到開關上
     const innerSw = _lhMapSwitchRow('inner', '句中押韻');
     const innerHint = _lhMk('span', 'section-menu-cap', LH_MAP_HINT_INNER);
@@ -368,16 +404,8 @@ function lhMapMenuBuild() {
     lineHint.id = 'rhymeHintLine';
     lineSw.setAttribute('aria-describedby', lineHint.id);
     const show = _lhMkBlock('顯示', _lhMapSwitchRow('end', '句尾上色'), lettersSw, lettersHint, innerSw, innerHint, lineSw, lineHint);
-    // 判定：寬韻／嚴格兩個 radio（方向鍵移焦點，Enter／空白才選），下面只顯示目前模式的說明
-    const modes = _lhMk('div', 'type-grid');
-    modes.setAttribute('role', 'radiogroup');
-    modes.setAttribute('aria-label', '押韻判定');
-    for (const [id, name] of [['wide', '寬韻'], ['strict', '嚴格']]) {
-        const r = _lhMkBtn('type-row', name);
-        r.setAttribute('role', 'radio');
-        r.dataset.m = id;
-        modes.appendChild(r);
-    }
+    // 判定：寬韻／嚴格兩個 radio，下面只顯示目前模式的說明
+    const modes = _lhMapModeRadios();
     const help = _lhMk('span', 'section-menu-cap rm-mode-help');
     const skipSw = _lhMapSwitchRow('skipParticles', '忽略句尾語助詞');
     const skipCap = _lhMk('span', 'section-menu-cap', LH_MAP_PARTICLE_CAP);
@@ -413,17 +441,6 @@ function lhMapMenuBuild() {
         legendBtn.setAttribute('aria-expanded', String(!legend.hidden));
         _lhMapPlaceMenu();   // 選單變高了：重新夾進可見範圍，關閉鈕才不會掉到畫面外
     });
-    modes.addEventListener('keydown', e => {
-        const k = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }[e.key];
-        const rows = [...modes.children];
-        const i = rows.indexOf(document.activeElement);
-        if (!k || i < 0 || e.isComposing || e.keyCode === 229) return;
-        e.preventDefault();
-        rows.forEach(r => r.tabIndex = -1);
-        const next = rows[(i + k + rows.length) % rows.length];
-        next.tabIndex = 0;
-        next.focus({ preventScroll: true });
-    });
     more.addEventListener('click', lhMapOpenPrefs);
     close.addEventListener('click', () => lhMapCloseMenu(true));
     // Tab 在選單裡頭尾相接
@@ -446,15 +463,19 @@ function lhMapMenuSync() {
         b.setAttribute('aria-checked', String(on));
         b.querySelector('.rm-pill').textContent = on ? '開' : '關';
     });
-    if (!_lhMapMenu) return;
     const mode = _lhMapSet.strict ? 'strict' : 'wide';
-    _lhMapMenu.querySelectorAll('.type-row').forEach(r => {
+    document.querySelectorAll('#rhymeMenu .type-row, #mapSettingsSection .type-row').forEach(r => {
         const on = r.dataset.m === mode;
         r.setAttribute('aria-checked', String(on));
         r.tabIndex = on ? 0 : -1;
     });
-    _lhMapMenu.querySelector('.rm-mode-help').textContent = LH_MAP_MODE_HELP[mode];
-    _lhMapMenu.querySelector('.rm-loading').hidden = _lhMapOk;
+    document.querySelectorAll('#rhymeMenu .rm-mode-help, #mapSettingsSection .rm-mode-help').forEach(h => { h.textContent = LH_MAP_MODE_HELP[mode]; });
+    if (_lhMapMenu) _lhMapMenu.querySelector('.rm-loading').hidden = _lhMapWl;
+    // 偏好設定的兩行提醒：詞庫還沒載好（猜的斷句稍後補上）、四個細項都關著（Pitfall 7、UI-SPEC D-17、D-18）
+    const wait = document.querySelector('#mapSettingsSection .rm-lex-wait');
+    if (wait) wait.hidden = wordPhoneticMap.size > 0;
+    const none = document.querySelector('#mapSettingsSection .rm-none');
+    if (none) none.hidden = !(_lhMapSet.line && !_lhMapSet.lnRhyme && !_lhMapSet.lnCount && !_lhMapSet.lnSplit && !_lhMapSet.lnDiff);
 }
 
 // ==================== 偏好設定裡的「韻腳地圖與句構分析」（第 11 階段，CONTEXT D1／D2） ====================
@@ -482,12 +503,29 @@ function lhMapPrefsBuild() {
         ..._lhMapPrefRow('lnSplit', '斷句結構', '例如 3+4。你自己打的空白和標點一定算；開頭有 ≈ 的是機器猜的', 'rmPrefSplit'),
         ..._lhMapPrefRow('lnDiff', '對照差異', '跟同類型第一段的同一行字數不同時，標出 ≠ 和對方的字數', 'rmPrefDiff'),
     );
+    // 詞庫沒載好時，斷句結構的 ≈ 還出不來：提醒一句，載好就自己收起來
+    const wait = _lhMk('span', 'section-menu-cap rm-lex-wait', '詞庫載入中，≈ 的自動斷句稍後補上');
+    sub.children[5].after(wait);   // 緊接在斷句結構的說明後面
+    const none = _lhMk('span', 'section-menu-cap rm-none', '四個細項都關著，所以沒有東西可顯示');
+    none.hidden = true;
+    sub.append(none);
     const lineRow = _lhMapPrefRow('line', '逐行標記', '每行旁邊顯示淡色小字；下面四項決定要顯示什麼', 'rmPrefLine');
-    sec.append(hint, _lhMkBlock('句構分析', ...lineRow, sub));
-    // 整個段落共用一個點擊監聽（和選單一樣）：開關翻轉，改了就存、就畫
+    const mapRows = [
+        _lhMapSwitchRow('end', '句尾上色'),
+        ..._lhMapPrefRow('letters', '段落結構字母', LH_MAP_HINT_LETTERS, 'rmPrefLetters'),
+        ..._lhMapPrefRow('inner', '句中押韻', LH_MAP_HINT_INNER, 'rmPrefInner'),
+        ..._lhMapPrefRow('skipParticles', '忽略句尾語助詞', LH_MAP_PARTICLE_CAP, 'rmPrefSkip'),
+        _lhMk('span', 'section-menu-cap', '押韻判定'),
+        _lhMapModeRadios(),
+        _lhMk('span', 'section-menu-cap rm-mode-help'),
+    ];
+    sec.append(hint, _lhMkBlock('韻腳地圖', ...mapRows), _lhMkBlock('句構分析', ...lineRow, sub));
+    // 整個段落共用一個點擊監聽（和選單一樣）：開關翻轉、寬韻／嚴格選一個，改了就存、就畫
     sec.addEventListener('click', e => {
         const sw = e.target.closest && e.target.closest('.rm-switch');
         if (sw) lhMapSetSetting(sw.dataset.k, sw.getAttribute('aria-checked') !== 'true');
+        const r = e.target.closest && e.target.closest('.type-row[data-m]');
+        if (r) lhMapSetSetting('strict', r.dataset.m === 'strict');
     });
     lhMapMenuSync();
 }
@@ -1033,10 +1071,19 @@ async function lhMapLookup(char, withAI, byKeyboard) {
     }
 }
 
-// 就緒閘門（A5）：字典、詞庫、歌曲都結束（成功或失敗都算）才開始畫；之前不畫、也不顯示錯誤
-window.__lhMapReady = Promise.allSettled([window.__hoyunReady, window.__hoyunWordlistReady, window.__hoyunSongsReady]).then(() => {
+// 就緒閘門（A5）：字典、歌曲結束（成功或失敗都算）就開始畫逐行標記（字數、明確斷點不需要詞庫，CONTEXT A4）；
+// 詞庫也結束才做韻腳分析與猜斷句，之前不畫、也不顯示錯誤。__lhMapReady 是「全部都結束」的訊號。
+Promise.allSettled([window.__hoyunReady, window.__hoyunSongsReady]).then(() => {
     try {
         _lhMapOk = true;
+        lhMapRenderAll();
+    } catch (e) {
+        lhWarn('韻腳地圖首次畫標記失敗', e);
+    }
+});
+window.__lhMapReady = Promise.allSettled([window.__hoyunReady, window.__hoyunWordlistReady, window.__hoyunSongsReady]).then(() => {
+    try {
+        _lhMapWl = true;
         lhMapMenuSync();   // 選單可能已經開著：把「詞庫載入中」收掉
         lhMapRenderAll();
     } catch (e) {

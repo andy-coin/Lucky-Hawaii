@@ -3,7 +3,7 @@
 // 對應 11-VALIDATION.md 的 -g 篩選；之後的計畫會在這支檔案繼續加
 import { test, expect } from '@playwright/test';
 import { readFileSync } from 'node:fs';
-import { bootPage } from './helpers.mjs';
+import { bootPage, openTwoTabs, stubWordlist } from './helpers.mjs';
 
 const FIXTURE = JSON.parse(readFileSync(new URL('./fixtures/v096-localStorage.json', import.meta.url), 'utf8'));
 const OPEN_PANELS = { leftPanelCollapsed: 'false', rightPanelCollapsed: 'false' };
@@ -177,6 +177,187 @@ test('對照：打開對照差異，同類型第一段的同一行字數不同�
 
     // 標題列沒有多出按鈕
     expect(await headerBtns()).toBe(btnsBefore);
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+const F_ABAB = ['我望著遠方的光', '走過熟悉的街道', '你笑著說天亮', '不怕前方的路遙'].join('\n');
+const openPrefs = page => page.evaluate(() => lhMapOpenPrefs());
+
+test('偏好設定：內容與順序', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, {
+        wordlist: 'stub',
+        storage: v2Storage([song([typed('sa', 'verse', ['我望著遠方的光', '獨自站在窗'].join('\n')), typed('sb', 'verse', ['我望著遠方的光', '獨自站在窗前'].join('\n'))])]),
+    });
+    // 沒打開前只有外殼，標題在自動備份之後、意見回饋之前
+    expect(await page.evaluate(() => [...document.querySelectorAll('.settings-dropdown > details, .settings-dropdown > .settings-feedback-btn')].map(e => e.id || e.className))).toEqual(['autoBackupSection', 'mapSettingsSection', 'settings-feedback-btn save-load-btn']);
+    await openPrefs(page);
+    const sec = page.locator('#mapSettingsSection');
+    await expect(sec.locator('> .settings-backups-hint')).toHaveText('調整句尾上色、逐行字數與斷句標記的開關、位置、大小和顏色');
+    expect(await sec.locator('.section-menu-block > .section-menu-cap:first-child').allTextContents()).toEqual(['韻腳地圖', '句構分析']);
+    expect(await sec.locator('.rm-switch-label').allTextContents()).toEqual(['句尾上色', '段落結構字母', '句中押韻', '忽略句尾語助詞', '逐行標記', '行尾韻腳字母', '字數', '斷句結構', '對照差異']);
+    const particle = await page.evaluate(() => LH_MAP_PARTICLE_CAP);
+    const caps = await sec.locator('.section-menu-cap').allTextContents();
+    for (const c of [
+        '在每個段落標題列顯示 AABB 這類字母', '句子裡面跟句尾押同韻的字，加底線（每行最多 3 個）', particle, '押韻判定',
+        '寬韻：同一個韻族都算押韻（例：ㄤ、ㄧㄤ、ㄨㄤ）',
+        '每行旁邊顯示淡色小字；下面四項決定要顯示什麼', 'A、B…，跟著上面的寬韻／嚴格', '每行幾個字（空白、標點不算）',
+        '例如 3+4。你自己打的空白和標點一定算；開頭有 ≈ 的是機器猜的', '跟同類型第一段的同一行字數不同時，標出 ≠ 和對方的字數',
+    ]) expect(caps, c).toContain(c);
+    // 每個說明都有 id，開關用 aria-describedby 接起來
+    expect(await sec.locator('.rm-switch[aria-describedby]').evaluateAll(els => els.map(e => !!document.getElementById(e.getAttribute('aria-describedby'))))).toEqual(Array(8).fill(true));   // 句尾上色沒有說明
+    // 四個細項縮排在 .rm-sub 裡，從不禁用
+    expect(await sec.locator('.rm-sub .rm-switch .rm-switch-label').allTextContents()).toEqual(['行尾韻腳字母', '字數', '斷句結構', '對照差異']);
+    expect(await sec.locator('.rm-switch[disabled], .rm-switch[aria-disabled]').count()).toBe(0);
+
+    // 逐行標記關著：細項照樣能設、值留著；總開關打開後立刻生效
+    await expect(prefSw(page, '逐行標記')).toHaveAttribute('aria-checked', 'false');
+    await prefSw(page, '對照差異').click();
+    await expect(prefSw(page, '對照差異')).toHaveAttribute('aria-checked', 'true');
+    await expect(prefSw(page, '逐行標記')).toHaveAttribute('aria-checked', 'false');
+    await expect(page.locator('.lm-mk')).toHaveCount(0);
+    await prefSw(page, '逐行標記').click();
+    await expect(prefSw(page, '對照差異')).toHaveAttribute('aria-checked', 'true');
+    expect(await diffTokens(page, 1)).toEqual(['', '≠5']);
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('偏好設定：兩邊同步', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, { wordlist: 'stub', storage: v2Storage([song([typed('sa', 'verse', F_ABAB)])]) });
+    await openPrefs(page);
+    await prefSw(page, '段落結構字母').click();
+    await expect(page.locator('.section-rhyme').first()).toBeVisible();
+    await page.locator('#settingsOverlay').click({ position: { x: 4, y: 4 } });
+    await page.locator('#rhymeMenuBtn').click();
+    await expect(menuSw(page, '段落結構字母')).toHaveAttribute('aria-checked', 'true');
+    await expect(menuSw(page, '段落結構字母')).toContainText('開');
+    await page.locator('#rhymeMenu .type-row[data-m="strict"]').click();
+    await page.locator('#rhymeMenu .rm-more').click();
+    const strictRow = page.locator('#mapSettingsSection .type-row[data-m="strict"]');
+    await expect(strictRow).toHaveAttribute('aria-checked', 'true');
+    await expect(page.locator('#mapSettingsSection .rm-mode-help')).toHaveText(await page.evaluate(() => LH_MAP_MODE_HELP.strict));
+    // 反過來：在偏好設定改回寬韻，選單跟著
+    await page.locator('#mapSettingsSection .type-row[data-m="wide"]').click();
+    await page.locator('#settingsOverlay').click({ position: { x: 4, y: 4 } });
+    await page.locator('#rhymeMenuBtn').click();
+    await expect(page.locator('#rhymeMenu .type-row[data-m="wide"]')).toHaveAttribute('aria-checked', 'true');
+    await page.locator('#rhymeMenu .type-row[data-m="strict"]').click();
+    await page.keyboard.press('Escape');
+    // 重新整理後兩邊都記得
+    await page.reload();
+    await ready(page);
+    await page.locator('#rhymeMenuBtn').click();
+    await expect(page.locator('#rhymeMenu .type-row[data-m="strict"]')).toHaveAttribute('aria-checked', 'true');
+    await expect(menuSw(page, '段落結構字母')).toHaveAttribute('aria-checked', 'true');
+    await page.locator('#rhymeMenu .rm-more').click();
+    await expect(page.locator('#mapSettingsSection .type-row[data-m="strict"]')).toHaveAttribute('aria-checked', 'true');
+    await expect(prefSw(page, '段落結構字母')).toHaveAttribute('aria-checked', 'true');
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('偏好設定：別的分頁改了設定', async ({ browser }) => {
+    const storage = { ...v2Storage([song([typed('sa', 'verse', '月光 灑在 窗前')])]), 'lh:map': '{"end":true,"letters":false,"inner":false,"strict":false,"skipParticles":true,"line":true}' };
+    const { context, pages, errs } = await openTwoTabs(browser, storage);
+    const [a, b] = pages;
+    await openPrefs(b);
+    await expect(prefSw(b, '斷句結構')).toHaveAttribute('aria-checked', 'true');
+    expect(await b.locator('.rhyme-mirror .lm-t-s').count()).toBe(1);
+    await a.evaluate(() => localStorage.setItem('lh:map', '{"end":true,"letters":false,"inner":false,"strict":false,"skipParticles":true,"line":true,"lnSplit":false}'));
+    await expect(prefSw(b, '斷句結構')).toHaveAttribute('aria-checked', 'false');
+    await expect(prefSw(b, '斷句結構')).toContainText('關');
+    await expect(b.locator('.rhyme-mirror .lm-t-s')).toHaveCount(0);
+    await expect(b.locator('.rhyme-mirror .lm-t-c')).toHaveCount(1);
+    for (const e of errs) expect(e.errors).toEqual([]);
+    await context.close();
+});
+
+test('偏好設定：四個細項都關', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, { wordlist: 'stub', storage: v2Storage([song([typed('sa', 'verse', '月光 灑在 窗前')])]) });
+    await openPrefs(page);
+    const none = page.locator('#mapSettingsSection .rm-none');
+    await expect(none).toBeHidden();
+    await prefSw(page, '逐行標記').click();
+    await expect(none).toBeHidden();   // 字數與斷句預設開著
+    await prefSw(page, '字數').click();
+    await prefSw(page, '斷句結構').click();
+    await expect(none).toBeVisible();
+    await expect(none).toHaveText('四個細項都關著，所以沒有東西可顯示');
+    await expect(page.locator('.lm-mk')).toHaveCount(0);
+    expect(await page.evaluate(() => document.documentElement.getAttribute('data-lm'))).toBeNull();
+    // 細項沒被禁用，值各自留著
+    await expect(prefSw(page, '字數')).toBeEnabled();
+    await expect(prefSw(page, '字數')).toHaveAttribute('aria-checked', 'false');
+    await prefSw(page, '行尾韻腳字母').click();
+    await expect(none).toBeHidden();
+    await expect(page.locator('.lm-mk')).toHaveCount(1);
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('偏好設定：每次從齒輪打開都收著，Esc 關掉', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, { wordlist: 'stub', storage: v2Storage([song([typed('sa', 'verse', F_ABAB)])]) });
+    await openPrefs(page);
+    await expect(page.locator('#mapSettingsSection')).toHaveJSProperty('open', true);
+    await page.keyboard.press('Escape');
+    await expect(page.locator('#settingsOverlay')).not.toHaveClass(/show/);
+    await page.evaluate(() => toggleSettings());
+    await expect(page.locator('#settingsOverlay')).toHaveClass(/show/);
+    await expect(page.locator('#mapSettingsSection')).toHaveJSProperty('open', false);
+    // 自己點開也行；方向鍵只移焦點，Enter 才選
+    await page.locator('#mapSettingsSection > summary').click();
+    await expect(page.locator('#mapSettingsSection')).toHaveJSProperty('open', true);
+    const wide = page.locator('#mapSettingsSection .type-row[data-m="wide"]');
+    const strict = page.locator('#mapSettingsSection .type-row[data-m="strict"]');
+    await wide.focus();
+    await page.keyboard.press('ArrowRight');
+    await expect(strict).toBeFocused();
+    await expect(strict).toHaveAttribute('aria-checked', 'false');
+    await page.keyboard.press('Enter');
+    await expect(strict).toHaveAttribute('aria-checked', 'true');
+    await page.keyboard.press('Escape');
+    await expect(page.locator('#settingsOverlay')).not.toHaveClass(/show/);
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('常駐：行尾韻腳字母跟著寬韻嚴格', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, { wordlist: 'stub', storage: v2Storage([song([typed('sa', 'verse', F_ABAB)])]) });
+    await page.evaluate(() => { lhMapSetSetting('line', true); lhMapSetSetting('lnRhyme', true); });
+    const letters = () => page.locator('.lyrics-section').first().locator('.rhyme-mirror .lm-t-r').evaluateAll(els => els.map(e => [e.textContent, e.dataset.f !== undefined]));
+    for (const strict of [false, true]) {
+        await page.evaluate(v => lhMapSetSetting('strict', v), strict);
+        const want = await page.evaluate(([t, st]) => Array.from(lhRhymeAnalyze(t, { strict: st, skipParticles: true }, null).letters), [F_ABAB, strict]);
+        const got = await letters();
+        expect(got.map(x => x[0]), strict ? '嚴格' : '寬韻').toEqual(want);
+        for (const [t, hasF] of got) expect(hasF, '有韻腳的字母才有家族色').toBe(t !== '-');
+    }
+    expect((await letters()).length).toBe(4);
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('詞庫載入：先只有字數與明確斷點，載好後補上 ≈', async ({ browser }) => {
+    const MINI = ['{"w":"夢裡","z":"ㄇㄥˋ ㄌㄧˇ","p":0}', '{"w":"想起","z":"ㄒㄧㄤˇ ㄑㄧˇ","p":0}', '{"w":"你的","z":"ㄋㄧˇ ㄉㄜ˙","p":0}'].join('\n') + '\n';
+    let release;
+    const gate = new Promise(r => { release = r; });
+    const { context, page, errors } = await bootPage(browser, {
+        waitWordlist: false,
+        storage: { ...v2Storage([song([typed('sa', 'verse', '月光 灑在 窗前\n夢裡想起你的臉')])]), 'lh:map': '{"end":true,"letters":false,"inner":false,"strict":false,"skipParticles":true,"line":true}' },
+        beforeGoto: async ({ context: c }) => {
+            await stubWordlist(c, MINI);
+            await c.route(/\/data\/wordlist-c0\d\.json(\?.*)?$/, async route => { await gate; await route.fallback(); });
+        },
+    });
+    await expect.poll(() => markers(page)).toEqual([['6', '2+2+2'], ['7', '']]);
+    await openPrefs(page);
+    await expect(page.locator('#mapSettingsSection .rm-lex-wait')).toHaveText('詞庫載入中，≈ 的自動斷句稍後補上');
+    await expect(page.locator('#mapSettingsSection .rm-lex-wait')).toBeVisible();
+    release();
+    await page.evaluate(() => window.__lhMapReady);
+    await expect.poll(() => markers(page)).toEqual([['6', '2+2+2'], ['7', '≈2+2+3']]);
+    await expect(page.locator('#mapSettingsSection .rm-lex-wait')).toBeHidden();
     expect(errors).toEqual([]);
     await context.close();
 });

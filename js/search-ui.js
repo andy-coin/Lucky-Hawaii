@@ -101,6 +101,15 @@
             document.querySelectorAll('#lexiconPackList input[name="lexiconPack"]').forEach(r => { r.checked = r.value === activeId; });
         });
 
+        // Esc 關掉偏好設定（注音組字中的 Esc、別處已經處理過的 Esc 不算）
+        document.addEventListener('keydown', e => {
+            if (e.key !== 'Escape' || e.isComposing || e.keyCode === 229 || e.defaultPrevented) return;
+            const ov = document.getElementById('settingsOverlay');
+            if (!ov.classList.contains('show')) return;
+            ov.classList.remove('show');
+            e.preventDefault();
+        });
+
         function closeSettingsOverlay(event) {
             // 點擊遮罩本身才關閉（內容區已 stopPropagation）
             if (event.target === event.currentTarget) {
