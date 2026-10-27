@@ -64,6 +64,9 @@ const LH_RHYME_COLORS = Object.freeze({
 });
 // 底色混合比例（百分比）：句尾字、孤句、句中押韻
 const LH_RHYME_MIX = Object.freeze({ end: 34, orphan: 17, inner: 30 });
+// 句尾上色濃淡（第 11 階段）：[主色塊, 孤句] 的混合百分比。std 必須永遠等於上面的 LH_RHYME_MIX（第 10 階段的預設外觀不能變）；
+// 淡、標準的文字對比測試保證 4.5:1，濃是使用者自己選的，深色主題有 5 色會低於 4.5（UI-SPEC D-14）
+const LH_MAP_DEPTH = Object.freeze({ light: Object.freeze([26, 14]), std: Object.freeze([34, 17]), heavy: Object.freeze([40, 20]) });
 const LH_RHYME_NONE = 16;
 
 const _LH_RHYME_TAIL_RE = /[^\p{L}\p{N}]+$/u;   // 行尾的標點、空白、符號、emoji 先去掉（A4）

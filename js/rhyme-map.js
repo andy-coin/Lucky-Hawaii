@@ -45,6 +45,9 @@ function lhMapApplyLook() {
     const em = cols.reduce((a, k) => a + LH_MAP_COL_EM[k], 0) + 0.5 * Math.max(0, cols.length - 1);
     root.style.setProperty('--lm-fs', rem + 'rem');
     root.style.setProperty('--lm-cols', (em * rem) + 'rem');
+    const dp = LH_MAP_DEPTH[_lhMapSet.depth];   // 句尾上色濃淡：[主色塊, 孤句] 百分比，只從常數表取
+    root.style.setProperty('--rm-end', dp[0] + '%');
+    root.style.setProperty('--rm-orph', dp[1] + '%');
     lhMapApplyPalette();
     if (_lhComposing) return;   // 組字中不量版面；下一次畫的時候會對齊
     document.querySelectorAll('#lyricsSections .section-textarea').forEach(ta => {
@@ -389,6 +392,7 @@ function _lhMapLookRadios(label, key, items, cols3) {
     _lhMapRadioKeys(g);
     return g;
 }
+const LH_MAP_DEPTH_HELP = '濃：色塊比較明顯，深色主題下有些顏色的字會比較不好讀';   // 只有選「濃」時才顯示
 // 目前位置的說明文字（UI-SPEC 第 7 節逐字）
 const LH_MAP_POS_HELP = {
     right: '靠右欄：輸入框右邊留一條欄位，數字上下對齊，但寫字的寬度會少一點',
@@ -500,6 +504,7 @@ function lhMapMenuSync() {
         r.tabIndex = on ? 0 : -1;
     });
     document.querySelectorAll('#mapSettingsSection .rm-pos-help').forEach(h => { h.textContent = LH_MAP_POS_HELP[_lhMapSet.pos]; });
+    document.querySelectorAll('#mapSettingsSection .rm-depth-help').forEach(h => { h.hidden = _lhMapSet.depth !== 'heavy'; });
     if (_lhMapMenu) _lhMapMenu.querySelector('.rm-loading').hidden = _lhMapWl;
     // 偏好設定的兩行提醒：詞庫還沒載好（猜的斷句稍後補上）、四個細項都關著（Pitfall 7、UI-SPEC D-17、D-18）
     const wait = document.querySelector('#mapSettingsSection .rm-lex-wait');
@@ -550,8 +555,11 @@ function lhMapPrefsBuild() {
         _lhMk('span', 'section-menu-cap rm-mode-help'),
     ];
     const posHelp = _lhMk('span', 'section-menu-cap rm-pos-help');
+    const depthHelp = _lhMk('span', 'section-menu-cap rm-depth-help', LH_MAP_DEPTH_HELP);
     const look = _lhMkBlock('顯示方式',
-        _lhMk('span', 'section-menu-cap', '標記位置'), _lhMapLookRadios('標記位置', 'pos', [['right', '靠右欄'], ['tail', '句尾後']], false), posHelp);
+        _lhMk('span', 'section-menu-cap', '標記位置'), _lhMapLookRadios('標記位置', 'pos', [['right', '靠右欄'], ['tail', '句尾後']], false), posHelp,
+        _lhMk('span', 'section-menu-cap', '標記文字大小'), _lhMapLookRadios('標記文字大小', 'size', [['s', '小'], ['m', '中'], ['l', '大']], true),
+        _lhMk('span', 'section-menu-cap', '句尾上色濃淡'), _lhMapLookRadios('句尾上色濃淡', 'depth', [['light', '淡'], ['std', '標準'], ['heavy', '濃']], true), depthHelp);
     sec.append(hint, _lhMkBlock('韻腳地圖', ...mapRows), _lhMkBlock('句構分析', ...lineRow, sub), look);
     // 整個段落共用一個點擊監聽（和選單一樣）：開關翻轉、寬韻／嚴格選一個，改了就存、就畫
     sec.addEventListener('click', e => {

@@ -376,7 +376,7 @@
             background: var(--rm-c);
         }
         @supports (background: color-mix(in srgb, red 50%, blue)) {
-            .rm-sw { background: color-mix(in srgb, var(--rm-c) 34%, var(--card-bg)); }
+            .rm-sw { background: color-mix(in srgb, var(--rm-c) var(--rm-end, 34%), var(--card-bg)); }
         }
         @media (hover: hover) and (pointer: fine) {
             .rhyme-menu-btn:hover { background: var(--container-bg); }
@@ -1384,6 +1384,7 @@
             grid-template-columns: 1fr 1fr;
             gap: var(--sp-1);
         }
+        .type-grid-3 { grid-template-columns: repeat(3, 1fr); }   /* 小中大、淡標準濃：三欄 */
         .type-row {
             min-height: 2rem;
             padding: var(--sp-1) var(--sp-2);
@@ -1636,12 +1637,12 @@
         .lyrics-section.rm-on .section-textarea { background: transparent; }
         .rhyme-mirror.rm-stale { visibility: hidden; }   /* 組字中捲動：先藏起來，確認後重畫再對齊 */
         .rm-hl {
-            background: color-mix(in srgb, var(--rm-c) 34%, var(--card-bg));
+            background: color-mix(in srgb, var(--rm-c) var(--rm-end, 34%), var(--card-bg));
             border-radius: 0.25rem;
             -webkit-box-decoration-break: clone;
             box-decoration-break: clone;
         }
-        .rm-hl.rm-solo { background: color-mix(in srgb, var(--rm-c) 17%, var(--card-bg)); }
+        .rm-hl.rm-solo { background: color-mix(in srgb, var(--rm-c) var(--rm-orph, 17%), var(--card-bg)); }
         .rm-hl.rm-manual { border-bottom: 0.125rem dotted var(--text-secondary); }   /* 手動指定讀音的提示：只有下緣，不改水平盒子，換行不受影響 */
         @supports not (background: color-mix(in srgb, red 50%, blue)) {
             .rm-hl { background: var(--rm-c); opacity: 0.34; }

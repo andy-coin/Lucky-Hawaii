@@ -461,3 +461,98 @@ test('顯示方式：切到句尾後，標記貼在最後一個字後面，游�
     expect(errors).toEqual([]);
     await context.close();
 });
+
+// 非孤句色塊（.rm-hl 不含 .rm-solo）第一個的計算底色
+const bandBg = page => page.evaluate(() => { const e = document.querySelector('.rm-hl:not(.rm-solo)'); return e ? getComputedStyle(e).backgroundColor : null; });
+// 第 n 個段落的 [輸入框右內距, 欄位上限 36% 的像素, 第一個 .lm-t 的字級, 根字級]
+const lookGeo = page => page.evaluate(() => {
+    const ta = document.querySelector('.section-textarea');
+    const rem = parseFloat(getComputedStyle(document.documentElement).fontSize);
+    return { pad: parseFloat(getComputedStyle(ta).paddingRight), cap: 0.36 * parseFloat(getComputedStyle(ta.parentElement).width), fs: parseFloat(getComputedStyle(document.querySelector('.rhyme-mirror .lm-t')).fontSize), rem };
+});
+
+test('顯示方式：字級與濃淡馬上生效、不重畫', async ({ browser }) => {
+    const text = Array.from({ length: 4 }, () => F_ABAB).join('\n');
+    const { context, page, errors } = await bootPage(browser, {
+        wordlist: 'stub',
+        storage: v2Storage([song([typed('sa', 'verse', text)])], { ...OPEN_PANELS, 'lh:map': JSON.stringify({ line: true, lnCount: true, lnSplit: true }) }),
+    });
+    await expect(page.locator('.lm-mk')).toHaveCount(16);
+    await expect.poll(() => page.locator('.rm-hl').count()).toBeGreaterThan(0);
+    await page.evaluate(() => { window.__mks = [...document.querySelectorAll('.lm-mk')]; window.__mirror = document.querySelector('.rhyme-mirror'); });
+    const same = () => page.evaluate(() => window.__mks.every(m => m.isConnected) && document.querySelectorAll('.lm-mk').length === 16 && document.querySelector('.rhyme-mirror') === window.__mirror);
+    await page.evaluate(() => lhMapOpenPrefs());
+    const depthHelp = page.locator('#mapSettingsSection .rm-depth-help');
+
+    // 預設：中、標準
+    await expect(lookRadio(page, 'size', 'm')).toHaveAttribute('aria-checked', 'true');
+    await expect(lookRadio(page, 'depth', 'std')).toHaveAttribute('aria-checked', 'true');
+    await expect(depthHelp).toBeHidden();
+    const mid = await lookGeo(page);
+    expect(mid.fs).toBeCloseTo(0.875 * mid.rem, 1);
+    const stdBg = await bandBg(page);
+    expect(stdBg).not.toBeNull();
+    await page.evaluate(() => lhMapMenuBuild());
+    const swBg = () => page.evaluate(() => getComputedStyle(document.querySelector('#rhymeMenu .rm-sw[data-f="0"]')).backgroundColor);
+    const stdSw = await swBg();
+
+    // 大：1rem，欄位變寬（不超過 36%），節點不重建
+    await lookRadio(page, 'size', 'l').click();
+    const big = await lookGeo(page);
+    expect(big.fs).toBeCloseTo(big.rem, 1);
+    if (7.5 * big.rem < big.cap) expect(big.pad).toBeGreaterThan(mid.pad + 1);
+    expect(big.pad).toBeLessThanOrEqual(0.75 * big.rem + big.cap + 0.5 * big.rem + 1);
+    expect(await same()).toBe(true);
+    expect(await lsGetMap(page)).toContain('"size":"l"');
+    // 小：0.75 倍
+    await lookRadio(page, 'size', 's').click();
+    const small = await lookGeo(page);
+    expect(small.fs).toBeCloseTo(0.75 * small.rem, 1);
+    expect(small.pad).toBeLessThan(mid.pad - 1);
+    expect(await same()).toBe(true);
+    expect(await lsGetMap(page)).toContain('"size":"s"');
+
+    // 濃：底色不同、說明出現、節點不變；淡：說明收起
+    await lookRadio(page, 'depth', 'heavy').click();
+    expect(await bandBg(page)).not.toBe(stdBg);
+    await expect(depthHelp).toBeVisible();
+    await expect(depthHelp).toHaveText('濃：色塊比較明顯，深色主題下有些顏色的字會比較不好讀');
+    expect(await swBg(), '色票對照的色塊跟著變').not.toBe(stdSw);
+    expect(await same()).toBe(true);
+    expect(await lsGetMap(page)).toContain('"depth":"heavy"');
+    const heavyBg = await bandBg(page);
+    await lookRadio(page, 'depth', 'light').click();
+    const lightBg = await bandBg(page);
+    expect(lightBg).not.toBe(stdBg);
+    expect(lightBg).not.toBe(heavyBg);
+    await expect(depthHelp).toBeHidden();
+    expect(await same()).toBe(true);
+    expect(await page.evaluate(() => [document.documentElement.style.getPropertyValue('--rm-end'), document.documentElement.style.getPropertyValue('--rm-orph')])).toEqual(['26%', '14%']);
+
+    // 重新整理後小與淡還在
+    await page.reload();
+    await ready(page);
+    await expect(page.locator('.lm-mk')).toHaveCount(16);
+    expect((await lookGeo(page)).fs).toBeCloseTo(0.75 * mid.rem, 1);
+    expect(await bandBg(page)).toBe(lightBg);
+    // 回到中、標準：lh:map 不再寫這兩個鍵
+    await page.evaluate(() => lhMapOpenPrefs());
+    await lookRadio(page, 'size', 'm').click();
+    await lookRadio(page, 'depth', 'std').click();
+    expect(await lsGetMap(page)).not.toMatch(/"size"|"depth"/);
+    expect(await bandBg(page)).toBe(stdBg);
+
+    // 壞值：位置、字級、濃淡都退回預設，別的東西不受影響
+    await page.evaluate(() => localStorage.setItem('lh:map', JSON.stringify({ line: true, lnCount: true, pos: 'left', size: 'xl', depth: 'x;}body{display:none' })));
+    await page.reload();
+    await ready(page);
+    expect(await page.evaluate(() => document.documentElement.getAttribute('data-lm'))).toBe('right');
+    expect((await lookGeo(page)).fs).toBeCloseTo(0.875 * mid.rem, 1);
+    expect(await bandBg(page)).toBe(stdBg);
+    expect(await page.evaluate(() => getComputedStyle(document.body).display)).not.toBe('none');
+    expect(await page.evaluate(() => [document.documentElement.style.getPropertyValue('--rm-end'), document.documentElement.style.getPropertyValue('--lm-fs')])).toEqual(['34%', '0.875rem']);
+    await page.evaluate(() => lhMapOpenPrefs());
+    for (const [k, v] of [['pos', 'right'], ['size', 'm'], ['depth', 'std']]) await expect(lookRadio(page, k, v)).toHaveAttribute('aria-checked', 'true');
+    expect(errors).toEqual([]);
+    await context.close();
+});

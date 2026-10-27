@@ -243,6 +243,37 @@ test('對比：色票格式與文字對比', () => {
     }
 });
 
+// 濃淡三段（11-03，UI-SPEC D-14）：標準＝第 10 階段；淡、標準兩段每個組合都要 4.5:1；濃是使用者自己選的，淺色最差 6.32、深色最差 4.14，且深色 16 色有 5 色低於 4.5
+test('對比：濃淡三段', () => {
+    const DEPTH = ev('LH_MAP_DEPTH');
+    expect(Object.keys(DEPTH)).toEqual(['light', 'std', 'heavy']);
+    expect(DEPTH.light).toEqual([26, 14]);
+    expect(DEPTH.std, '標準必須和第 10 階段一樣').toEqual([MIX.end, MIX.orphan]);
+    expect(DEPTH.heavy).toEqual([40, 20]);
+    expect(ev('Object.isFrozen(LH_MAP_DEPTH)')).toBe(true);
+    for (const depth of ['light', 'std']) {
+        for (const [set, text, card] of TEXT_ON_CARD) {
+            PALETTES[set].forEach((color, n) => {
+                for (const pct of DEPTH[depth]) {
+                    const c = contrastOf(text, mixHex(color, card, pct));
+                    expect(c, `${depth} ${set} 色 ${n} ${color} 混 ${pct}%，文字 ${text} 在 ${card}`).toBeGreaterThanOrEqual(4.5);
+                }
+            });
+        }
+    }
+    // 濃：只量預設兩組（16 個韻族，空韻不開放自訂）
+    const worst = (set, text, card) => PALETTES[set].slice(0, 16).map(color => contrastOf(text, mixHex(color, card, DEPTH.heavy[0])));
+    const light = worst('light', '#2d3748', '#f7fafc'), dark = worst('dark', '#d2c8b7', '#2d3748');
+    expect(Math.min(...light).toFixed(2)).toBe('6.32');
+    expect(Math.min(...dark).toFixed(2)).toBe('4.14');
+    expect(dark.filter(c => c < 4.5)).toHaveLength(5);
+    expect(light.filter(c => c < 4.5)).toHaveLength(0);
+    // 孤句（較淡的那一層）濃也不會比標準差：混合比例比主色塊小
+    for (const color of PALETTES.dark.slice(0, 16)) {
+        expect(contrastOf('#d2c8b7', mixHex(color, '#2d3748', DEPTH.heavy[1]))).toBeGreaterThanOrEqual(4.5);
+    }
+});
+
 test('對比：句中底線', () => {
     expect(MIX.inner).toBe(30);
     for (const [set, text, card] of [['light', '#2d3748', '#f7fafc'], ['dark', '#d2c8b7', '#2d3748']]) {
