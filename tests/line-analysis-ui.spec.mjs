@@ -1808,3 +1808,116 @@ test('hover：滑鼠反白停 1.5 秒自動打開句構面板，不搶焦點', a
     expect(errors).toEqual([]);
     await context.close();
 });
+
+test('hover：會取消的動作', async ({ browser }) => {
+    const { context, page, errors } = await hvBoot(browser);
+    await hvPause(page);
+    const panel = page.locator(AN);
+    const cases = {
+        '指標移出區域': async pt => { await page.mouse.move(pt.x + 600, pt.y + 400); },
+        '滾輪': async () => { await page.mouse.wheel(0, 40); },
+        '按鍵': async () => { await page.keyboard.down('Shift'); await page.keyboard.up('Shift'); },
+        '選取改變': async () => { await page.evaluate(() => document.querySelector('.section-textarea').setSelectionRange(1, 5)); },
+        '開始組字': async () => { await page.evaluate(() => document.querySelector('.section-textarea').dispatchEvent(new CompositionEvent('compositionstart', { bubbles: true }))); },
+        '打開韻腳選單': async () => { await page.locator('#rhymeMenuBtn').dispatchEvent('click'); },
+        '指標進到浮動列': async () => { const b = await page.locator(ANBAR).boundingBox(); await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2); },
+        '區域內移動 5px': async pt => { await page.mouse.move(pt.x + 5, pt.y); },
+    };
+    for (const [why, act] of Object.entries(cases)) {
+        const pt = await hvArm(page);
+        await page.clock.runFor(1000);
+        await act(pt);
+        await page.clock.runFor(2000);
+        await expect(panel, why + '：不開').toBeHidden();
+        // 清乾淨給下一個案例：組字要送 compositionend、選單要關
+        await page.evaluate(() => {
+            const ta = document.querySelector('.section-textarea');
+            ta.dispatchEvent(new CompositionEvent('compositionend', { bubbles: true, data: '' }));
+            lhMapCloseMenu(false);
+        });
+        await hvReset(page);
+    }
+    // 正向對照：區域內只動 2px，1000ms 時動一下，1500ms 還是照開
+    let pt = await hvArm(page);
+    await page.clock.runFor(1000);
+    await page.mouse.move(pt.x + 2, pt.y);
+    await hvAfterArm(page, 1500);
+    await expect(panel, '2px 不取消').toBeVisible();
+    await hvReset(page);
+    // 取消之後不會自己重新起算：動 5px 之後等再久也不開；重新反白一次才重新等 1.5 秒
+    pt = await hvArm(page);
+    await page.mouse.move(pt.x + 5, pt.y);
+    await page.clock.runFor(10000);
+    await expect(panel, '取消了就不重新起算').toBeHidden();
+    await hvArm(page, 0, 6);
+    await hvAfterArm(page, 1499);
+    await expect(panel).toBeHidden();
+    await page.clock.runFor(1);
+    await expect(panel, '重新反白後再等 1.5 秒').toBeVisible();
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('hover：觸控、鍵盤選取或沒打開都不會自動出現', async ({ browser }) => {
+    // 開關關著：同樣的滑鼠流程，等多久都不開
+    let r = await hvBoot(browser, { storage: hvStorage({ 'lh:map': JSON.stringify({ autoHover: false }) }) });
+    await hvPause(r.page);
+    await hvArm(r.page);
+    await r.page.clock.runFor(5000);
+    await expect(r.page.locator(AN), '開關關著').toBeHidden();
+    await expect(r.page.locator(ANBAR)).toBeVisible();
+    expect(r.errors).toEqual([]);
+    await r.context.close();
+    // 全新使用者（沒有 lh:map）
+    r = await hvBoot(browser, { storage: hvStorage({}) });
+    await hvPause(r.page);
+    await hvArm(r.page);
+    await r.page.clock.runFor(5000);
+    await expect(r.page.locator(AN), '全新 profile').toBeHidden();
+    expect(await lsGetMap(r.page)).toBeNull();
+    await r.context.close();
+    // 鍵盤選取：滑鼠停在字上，Shift+→ 三下，浮動列 400ms 後出現但面板不會自己開
+    r = await hvBoot(browser);
+    await hvPause(r.page);
+    const pt = await hvPoint(r.page, 1);
+    await r.page.mouse.move(pt.x, pt.y);
+    await r.page.evaluate(() => { const ta = document.querySelector('.section-textarea'); ta.focus(); ta.setSelectionRange(0, 0); });
+    for (let i = 0; i < 3; i++) await r.page.keyboard.press('Shift+ArrowRight');
+    await r.page.clock.runFor(450);
+    await expect(r.page.locator(ANBAR), '鍵盤選取也出現浮動列').toBeVisible();
+    await r.page.clock.runFor(5000);
+    await expect(r.page.locator(AN), '鍵盤選取').toBeHidden();
+    expect((await r.page.evaluate(() => window.__hvArm)).length, '沒有啟動過計時').toBe(0);
+    await r.context.close();
+    // 手機（觸控、粗略指標）：開關開著，反白（連相容的 mouseup 都送）再久也不開；「📏 分析」照樣能點開
+    r = await hvBoot(browser, { device: DEVICES.phone, storage: hvStorage() });
+    await r.page.locator('#mtab-lyrics').click();
+    await waitStill(r.page);
+    await anPick(r.page, 0, 7);
+    await r.page.evaluate(() => document.querySelector('.section-textarea').dispatchEvent(new MouseEvent('mouseup', { bubbles: true })));
+    await expect(r.page.locator(ANBAR)).toBeVisible();
+    await r.page.clock.runFor(5000);
+    await expect(r.page.locator(AN), '手機').toBeHidden();
+    await r.page.locator(AN_BTN).tap();
+    await expect(r.page.locator(AN)).toBeVisible();
+    expect(r.errors).toEqual([]);
+    await r.context.close();
+});
+
+test('hover：不在移動時量版面', async ({ browser }) => {
+    const { context, page, errors } = await hvBoot(browser);
+    await hvPause(page);
+    const pt = await hvArm(page);
+    await page.evaluate(() => {
+        window.__mirrors = 0;
+        const o = window.lhMirror;
+        window.lhMirror = function (...a) { window.__mirrors++; return o.apply(this, a); };
+    });
+    // 計時中在區域內來回動 20 次（都離起算點不到 3px）
+    for (let i = 0; i < 20; i++) await page.mouse.move(pt.x + (i % 2), pt.y);
+    expect(await page.evaluate(() => window.__mirrors), 'pointermove 不量版面').toBe(0);
+    await hvAfterArm(page, 1500);
+    await expect(page.locator(AN), '小動作不取消，照開').toBeVisible();
+    expect(errors).toEqual([]);
+    await context.close();
+});
