@@ -67,6 +67,19 @@ const LH_RHYME_MIX = Object.freeze({ end: 34, orphan: 17, inner: 30 });
 // 句尾上色濃淡（第 11 階段）：[主色塊, 孤句] 的混合百分比。std 必須永遠等於上面的 LH_RHYME_MIX（第 10 階段的預設外觀不能變）；
 // 淡、標準的文字對比測試保證 4.5:1，濃是使用者自己選的，深色主題有 5 色會低於 4.5（UI-SPEC D-14）
 const LH_MAP_DEPTH = Object.freeze({ light: Object.freeze([26, 14]), std: Object.freeze([34, 17]), heavy: Object.freeze([40, 20]) });
+// 提醒用的混色與對比（第 11 階段，UI-SPEC D-15）：輸入輸出都是 0–255 整數陣列 [r, g, b]，不讀 DOM。
+// 混色是 sRGB 逐頻道、四捨五入（pct 是第一個顏色的百分比，和 CSS color-mix 的結果一致）；對比是 WCAG 相對亮度，門檻 0.03928
+function lhRhymeMixRgb(fg, bg, pct) {
+    return fg.map((v, i) => Math.round(v * pct / 100 + bg[i] * (100 - pct) / 100));
+}
+function lhRhymeContrast(a, b) {
+    const lum = c => {
+        const [r, g, bl] = c.map(v => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; });
+        return 0.2126 * r + 0.7152 * g + 0.0722 * bl;
+    };
+    const x = lum(a), y = lum(b);
+    return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05);
+}
 const LH_RHYME_NONE = 16;
 
 const _LH_RHYME_TAIL_RE = /[^\p{L}\p{N}]+$/u;   // 行尾的標點、空白、符號、emoji 先去掉（A4）

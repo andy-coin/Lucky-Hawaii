@@ -502,3 +502,20 @@ test('統計：超過 52 種韻母字母用 * 且不出現 undefined', () => {
     expect(s.groups).toHaveLength(60);
     expect(JSON.stringify(s)).not.toContain('undefined');
 });
+
+// 提醒用的純函式（11-04，UI-SPEC D-15）：頁面上讀到 rgb 整數陣列後用，和上面測試用的 mixHex／contrastOf 逐值相同
+test('對比：提醒用的混色與對比', () => {
+    const mix = (fg, bg, pct) => ev(`lhRhymeMixRgb(${j(rgbOf(fg))}, ${j(rgbOf(bg))}, ${pct})`);
+    const con = (a, b) => ev(`lhRhymeContrast(${j(rgbOf(a))}, ${j(rgbOf(b))})`);
+    for (const [fg, bg, pct] of [['#d9534f', '#f7fafc', 34], ['#c9524e', '#2d3748', 40], ['#ffffff', '#2d3748', 34], ['#000000', '#ffffff', 17], ['#8a8f98', '#f7fafc', 26]]) {
+        expect(mix(fg, bg, pct), `${fg} 混 ${pct}% 進 ${bg}`).toEqual(rgbOf(mixHex(fg, bg, pct)));
+    }
+    for (const [a, b] of [['#2d3748', '#f7fafc'], ['#d2c8b7', '#2d3748'], ['#d2c8b7', mixHex('#ffffff', '#2d3748', 34)], ['#000000', '#ffffff']]) {
+        expect(con(a, b), `${a} / ${b}`).toBeCloseTo(contrastOf(a, b), 10);
+    }
+    // 順序不影響；UI-SPEC 2.3 深色純白 34% 混進卡片約 2.58
+    expect(con('#f7fafc', '#2d3748')).toBe(con('#2d3748', '#f7fafc'));
+    expect(con('#d2c8b7', mixHex('#ffffff', '#2d3748', 34))).toBeCloseTo(2.58, 1);
+    // 純函式：不改傳入的陣列
+    expect(ev('(() => { const a = [10, 20, 30], b = [200, 210, 220]; lhRhymeMixRgb(a, b, 50); lhRhymeContrast(a, b); return [a, b]; })()')).toEqual([[10, 20, 30], [200, 210, 220]]);
+});

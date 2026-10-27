@@ -3,7 +3,7 @@
 // 對應 11-VALIDATION.md 的 -g 篩選；之後的計畫會在這支檔案繼續加
 import { test, expect, chromium } from '@playwright/test';
 import { readFileSync } from 'node:fs';
-import { bootPage, compose, openTwoTabs, stubWordlist } from './helpers.mjs';
+import { bootPage, compose, openTwoTabs, stubWordlist, STORAGE_SPY } from './helpers.mjs';
 import { DEVICES, setScale, waitStill } from './layout-lib.mjs';
 
 const FIXTURE = JSON.parse(readFileSync(new URL('./fixtures/v096-localStorage.json', import.meta.url), 'utf8'));
@@ -942,6 +942,164 @@ test('韻族顏色：改一個韻族的顏色，色塊馬上變、存起來、�
     });
     expect(saved).toContain('"#123456"');
     expect(parsed).toBe(saved);
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+// 按真正的主題按鈕（會連 loadColors 一起跑：深色主題的文字色是反轉後的，直接呼叫 applyTheme 不會換）
+const setDark = (page, dark) => page.evaluate(d => { if (isDark !== d) document.getElementById('themeToggle').click(); }, dark);
+const resetBtn = page => page.locator('#mapSettingsSection .rm-color-reset');
+const advice = page => page.locator('#mapSettingsSection .rm-color-advice');
+
+test('韻族顏色：恢復預設要按兩次', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, { wordlist: 'stub', storage: v2Storage([song([typed('sa', 'verse', F_AABB)])]) });
+    await page.evaluate(() => lhMapOpenPrefs());
+    const btn = resetBtn(page);
+    // 沒有自訂色：禁用，按了沒反應
+    await expect(btn).toHaveAttribute('aria-disabled', 'true');
+    await expect(btn).toHaveText('恢復預設顏色');
+    await btn.evaluate(b => b.click());   // aria-disabled 的按鈕 Playwright 不肯點，直接送出點擊
+    await expect(btn).toHaveText('恢復預設顏色');
+    await expect(btn).not.toHaveAttribute('data-armed', '1');
+
+    await setColorInput(page, 3, '#112233', 'change');
+    await setColorInput(page, 5, '#445566', 'change');
+    await expect(btn).toHaveAttribute('aria-disabled', 'false');
+    // 第一下：武裝；4 秒後自己解除
+    await btn.click();
+    await expect(btn).toHaveAttribute('data-armed', '1');
+    await expect(btn).toHaveText('再按一次確定恢復');
+    expect(await lsGetMap(page)).toContain('"colors"');
+    await page.waitForTimeout(4100);
+    await expect(btn).not.toHaveAttribute('data-armed', '1');
+    await expect(btn).toHaveText('恢復預設顏色');
+    expect(await lsGetMap(page)).toContain('"colors"');
+    // 離開按鈕也解除
+    await btn.click();
+    await expect(btn).toHaveAttribute('data-armed', '1');
+    await btn.evaluate(b => b.blur());
+    await expect(btn).not.toHaveAttribute('data-armed', '1');
+
+    // 舊的「重設顏色!」不碰韻族顏色
+    await page.getByRole('button', { name: '重設顏色!' }).evaluate(b => b.click());
+    expect(await lsGetMap(page)).toContain('"3":"#112233"');
+    await expect(colorInput(page, 3)).toHaveValue('#112233');
+
+    // 按兩次：全清，lh:map 不再有 colors，輸入框回到預設，念出結果
+    await btn.click();
+    await btn.click();
+    expect(await lsGetMap(page)).not.toContain('colors');
+    for (const n of [3, 5]) {
+        await expect(colorInput(page, n)).toHaveValue(await page.evaluate(n => LH_RHYME_COLORS.light[n], n));
+        expect(await rootVar(page, n)).toBe(await page.evaluate(n => LH_RHYME_COLORS.light[n], n));
+    }
+    expect(await live(page)).toBe('已恢復預設顏色');
+    await expect(btn).toHaveAttribute('aria-disabled', 'true');
+    await expect(btn).toHaveText('恢復預設顏色');
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('韻族顏色：對比提醒', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, { wordlist: 'stub', storage: v2Storage([song([typed('sa', 'verse', F_AABB)])]) });
+    await page.evaluate(() => lhMapOpenPrefs());
+    await expect(advice(page)).toBeHidden();
+    await setDark(page, true);
+    await expect(advice(page)).toBeHidden();   // 深色預設色在標準濃淡下都夠
+    // 一個純白（混 34% 進深色卡片，對淡色文字只有約 2.6:1）
+    const label = await page.evaluate(() => RHYME_FAMILIES[7].label);
+    await setColorInput(page, 7, '#ffffff', 'change');
+    await expect(advice(page)).toBeVisible();
+    await expect(advice(page)).toHaveText(`${label}顏色在目前主題下讓字不太好讀（對比低於 4.5:1），可以選淡一點的顏色，或調低「句尾上色濃淡」`);
+    await setDark(page, false);   // 淺色卡片上純白底更淡，文字是深色，反而夠
+    await expect(advice(page)).toBeHidden();
+    await setDark(page, true);
+    await expect(advice(page)).toBeVisible();
+    // 不擋存檔
+    expect(await lsGetMap(page)).toContain('"7":"#ffffff"');
+    await page.locator('#mapSettingsSection .rm-color-reset').click();
+    await page.locator('#mapSettingsSection .rm-color-reset').click();
+    await expect(advice(page)).toBeHidden();
+    // 濃：深色預設色有一批讀不太清楚，列三個再加「等 n 個」
+    await lookRadio(page, 'depth', 'heavy').click();
+    await expect(advice(page)).toBeVisible();
+    const worst = await page.evaluate(() => {
+        const cs = getComputedStyle(document.querySelector('#mapSettingsSection .rm-probe'));
+        const t = cs.color.match(/\d+/g).slice(0, 3).map(Number), c = cs.backgroundColor.match(/\d+/g).slice(0, 3).map(Number);
+        const bad = [];
+        for (let n = 0; n < 16; n++) {
+            const rgb = [1, 3, 5].map(i => parseInt(LH_RHYME_COLORS.dark[n].slice(i, i + 2), 16));
+            if (lhRhymeContrast(t, lhRhymeMixRgb(rgb, c, 40)) < 4.5) bad.push(RHYME_FAMILIES[n].label);
+        }
+        return bad;
+    });
+    expect(worst.length, '深色 濃 的預設色有幾個讀不清楚').toBe(5);
+    await expect(advice(page)).toHaveText(`${worst.slice(0, 3).join('、')}等 5 個顏色在目前主題下讓字不太好讀（對比低於 4.5:1），可以選淡一點的顏色，或調低「句尾上色濃淡」`);
+    // 標準：消失
+    await lookRadio(page, 'depth', 'std').click();
+    await expect(advice(page)).toBeHidden();
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('韻族顏色：別的分頁改了顏色', async ({ browser }) => {
+    const { context, pages, errs } = await openTwoTabs(browser, v2Storage([song([typed('sa', 'verse', F_AABB)])]));
+    const [a, b] = pages;
+    await b.evaluate(() => lhMapOpenPrefs());
+    const def = await b.evaluate(() => LH_RHYME_COLORS.light[2]);
+    await expect(colorInput(b, 2)).toHaveValue(def);
+    await a.evaluate(() => localStorage.setItem('lh:map', JSON.stringify({ end: true, letters: false, inner: false, strict: false, skipParticles: true, colors: { 2: '#00aa00' } })));
+    await expect.poll(() => rootVar(b, 2)).toBe('#00aa00');
+    await expect(colorInput(b, 2)).toHaveValue('#00aa00');
+    await expect(resetBtn(b)).toHaveAttribute('aria-disabled', 'false');
+    // 另一邊清掉：回到預設
+    await a.evaluate(() => localStorage.setItem('lh:map', JSON.stringify({ end: true, letters: false, inner: false, strict: false, skipParticles: true })));
+    await expect.poll(() => rootVar(b, 2)).toBe(def);
+    await expect(colorInput(b, 2)).toHaveValue(def);
+    for (const e of errs) expect(e.errors).toEqual([]);
+    await context.close();
+});
+
+test('韻族顏色：壞色碼被丟掉', async ({ browser }) => {
+    const bad = '{"end":true,"colors":{"2":"#ABCDEF","3":"#abc","4":"red","5":"#12345g","6":"url(x)","16":"#000000","__proto__":{"7":"#ff0000"},"constructor":"#00ff00"}}';
+    const { context, page, errors } = await bootPage(browser, { wordlist: 'stub', storage: v2Storage([song([typed('sa', 'verse', F_AABB)])], { ...OPEN_PANELS, 'lh:map': bad }) });
+    await page.evaluate(() => lhMapOpenPrefs());
+    const defs = await page.evaluate(() => LH_RHYME_COLORS.light);
+    for (let n = 0; n < 16; n++) {
+        await expect(colorInput(page, n)).toHaveValue(defs[n]);
+        expect(await rootVar(page, n), '韻族 ' + n).toBe(defs[n]);
+    }
+    expect(await rootVar(page, 16)).toBe(defs[16]);
+    await expect(resetBtn(page)).toHaveAttribute('aria-disabled', 'true');
+    await expect(page.locator('.rm-hl').first()).toBeVisible();
+    // 直接呼叫也一樣：壞值進不來
+    await page.evaluate(() => { lhMapSetColor(2, '#ABCDEF'); lhMapSetColor(16, '#000000'); lhMapSetColor('__proto__', '#000000'); lhMapSetColor(3, 'red'); });
+    expect(await lsGetMap(page)).toBe(bad);
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('韻族顏色：手機上的原生色票', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, { wordlist: 'stub', device: DEVICES.phone, init: STORAGE_SPY, storage: v2Storage([song([typed('sa', 'verse', F_AABB)])]) });
+    await page.evaluate(() => lhMapOpenPrefs());
+    const writes = () => page.evaluate(() => window.__lsWrites.filter(w => w.k === 'lh:map').length);
+    const w0 = await writes();
+    for (const [n, v] of [[1, '#0a0b0c'], [9, '#c0b0a0']]) {
+        const before = await writes();
+        await setColorInput(page, n, v, 'input');
+        await setColorInput(page, n, v, 'input');
+        expect(await rootVar(page, n)).toBe(v);
+        expect(await writes(), '拖曳中不寫').toBe(before);
+        expect((await lsGetMap(page)) ?? '').not.toContain(v);
+        await setColorInput(page, n, v, 'change');
+        expect(await writes(), '放開寫一次').toBe(before + 1);
+        expect(await lsGetMap(page)).toContain(`"${n}":"${v}"`);
+    }
+    expect(await writes()).toBe(w0 + 2);
+    // 色票夠大，好按
+    const box = await colorInput(page, 1).boundingBox();
+    expect(box.width).toBeGreaterThanOrEqual(43.5);
+    expect(box.height).toBeGreaterThanOrEqual(43.5);
     expect(errors).toEqual([]);
     await context.close();
 });

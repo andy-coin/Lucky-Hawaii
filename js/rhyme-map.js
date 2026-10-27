@@ -515,6 +515,13 @@ function lhMapMenuSync() {
     document.querySelectorAll('#mapSettingsSection .rm-depth-help').forEach(h => { h.hidden = _lhMapSet.depth !== 'heavy'; });
     if (_lhMapMenu) _lhMapMenu.querySelector('.rm-loading').hidden = _lhMapWl;
     document.querySelectorAll('#mapSettingsSection .rm-colors input[data-n]').forEach(i => { i.value = _lhMapEffColor(+i.dataset.n); });
+    const rst = document.querySelector('#mapSettingsSection .rm-color-reset');
+    if (rst) {
+        const none = !Object.keys(_lhMapSet.colors).length;
+        rst.setAttribute('aria-disabled', String(none));
+        if (none) _lhMapDisarm(rst);
+    }
+    _lhMapColorAdvice();
     // 偏好設定的兩行提醒：詞庫還沒載好（猜的斷句稍後補上）、四個細項都關著（Pitfall 7、UI-SPEC D-17、D-18）
     const wait = document.querySelector('#mapSettingsSection .rm-lex-wait');
     if (wait) wait.hidden = wordPhoneticMap.size > 0;
@@ -586,7 +593,22 @@ function lhMapPrefsBuild() {
     const noneCell = _lhMk('div', 'rm-color-cell');
     noneCell.append(noneSw, _lhMk('span', 'rm-cell-label', '空韻'));
     grid.append(noneCell);
-    const colors = _lhMkBlock('韻族顏色', _lhMk('span', 'section-menu-cap', '點色塊換顏色，日夜主題共用；「空韻」固定為灰色'), grid);
+    const advice = _lhMk('span', 'section-menu-cap rm-color-advice');   // 看不清楚時的提醒（_lhMapColorAdvice 填，沒事就藏）
+    advice.hidden = true;
+    advice.setAttribute('role', 'note');
+    // 兩下確認：第一下變成「再按一次確定恢復」，4 秒或離開按鈕就解除（和自動備份的還原一樣）；沒有自訂色時按了沒反應
+    const reset = _lhMkBtn('backup-restore-btn rm-color-reset', LH_MAP_RESET_TEXT);
+    reset.setAttribute('aria-disabled', 'true');
+    reset.addEventListener('click', () => {
+        if (reset.getAttribute('aria-disabled') === 'true') return;
+        if (reset.dataset.armed === '1') { _lhMapDisarm(reset); lhMapResetColors(); return; }
+        reset.dataset.armed = '1';
+        reset.textContent = '再按一次確定恢復';
+        reset._armTimer = setTimeout(() => _lhMapDisarm(reset), 4000);
+    });
+    reset.addEventListener('blur', () => _lhMapDisarm(reset));
+    // 讀目前主題的文字色與卡片底色用的隱形探針（樣式由 CSS 的變數決定，這裡只讀它算出來的 rgb，不解析 color-mix，RESEARCH Pitfall 11）
+    const colors = _lhMkBlock('韻族顏色', _lhMk('span', 'section-menu-cap', '點色塊換顏色，日夜主題共用；「空韻」固定為灰色'), grid, advice, reset, _lhMk('span', 'rm-probe'));
     // 拖曳中（input）只改 CSS 變數，放開（change）才存；兩者都先驗過小寫 #rrggbb，變數名稱只由固定的家族編號組成（T-11-11）
     grid.addEventListener('input', e => {
         const t = e.target;
@@ -639,6 +661,41 @@ function lhMapSetSetting(key, value) {
     lhMapApplyLook();
     lhMapMenuSync();
     if (!LH_MAP_LOOK_KEYS.has(key)) lhMapRenderAll();
+}
+
+const LH_MAP_RESET_TEXT = '恢復預設顏色';
+function _lhMapDisarm(btn) {
+    clearTimeout(btn._armTimer);
+    delete btn.dataset.armed;
+    btn.textContent = LH_MAP_RESET_TEXT;
+}
+// 恢復預設顏色：清掉全部自訂色（lh:map 的 colors 鍵跟著消失）；不碰「重設顏色!」管的頁面主題色
+function lhMapResetColors() {
+    _lhMapSet = lhRhymeNormalizeSettings(Object.assign({}, _lhMapSet, { colors: {} }));
+    lhSet('lh:map', lhRhymeSerialize(_lhMapSet));
+    lhMapApplyLook();
+    lhMapMenuSync();
+    lhAnnounce('已恢復預設顏色');
+}
+// 看不清楚的提醒（D-15）：用目前真正的文字色與卡片底色，算每個韻族色在目前濃淡下混出來的底色對文字的對比；
+// 低於 4.5:1 的列出名字（最多三個，其餘寫「等 n 個」）。只提醒，不擋存檔。偏好設定還沒建好時什麼都不做
+function _lhMapColorAdvice() {
+    const cap = document.querySelector('#mapSettingsSection .rm-color-advice');
+    if (!cap) return;
+    const cs = getComputedStyle(cap.parentNode.querySelector('.rm-probe'));
+    const text = (cs.color.match(/\d+/g) || []).slice(0, 3).map(Number), card = (cs.backgroundColor.match(/\d+/g) || []).slice(0, 3).map(Number);
+    const bad = [];
+    if (text.length === 3 && card.length === 3) {
+        const pct = LH_MAP_DEPTH[_lhMapSet.depth][0];
+        for (let n = 0; n < 16; n++) {
+            const hex = _lhMapEffColor(n);
+            const rgb = [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16));
+            if (lhRhymeContrast(text, lhRhymeMixRgb(rgb, card, pct)) < 4.5) bad.push(RHYME_FAMILIES[n].label);
+        }
+    }
+    cap.hidden = !bad.length;
+    cap.textContent = !bad.length ? '' : bad.slice(0, 3).join('、') + (bad.length > 3 ? '等 ' + bad.length + ' 個' : '')
+        + '顏色在目前主題下讓字不太好讀（對比低於 4.5:1），可以選淡一點的顏色，或調低「句尾上色濃淡」';
 }
 
 // 改一個韻族的顏色（色票放開時）：只收固定的家族編號 '0'…'15' 與小寫 #rrggbb；顏色純 CSS，不必重畫鏡像層
