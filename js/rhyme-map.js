@@ -19,12 +19,17 @@ const _lhMapPending = new Set();   // 等著重算的段落 id
 let _lhMapTimer = 0;
 let _lhMapFirstAt = 0;             // 這一批第一次編輯的時間
 
-// 17 色寫成 CSS 變數 --rm-c0…--rm-c16：深色主題用 dark 組，其餘 light 組（色碼只存在 JS，CSS 不寫色碼）
+// 一個韻族目前實際用的顏色：使用者自訂的（lh:map.colors，日夜共用，已整理成小寫 #rrggbb），沒有就用目前主題的預設色
+function _lhMapEffColor(n) {
+    const c = n < 16 ? _lhMapSet.colors[String(n)] : undefined;
+    return c || (document.documentElement.getAttribute('data-theme') === 'dark' ? LH_RHYME_COLORS.dark : LH_RHYME_COLORS.light)[n];
+}
+// 17 色寫成 CSS 變數 --rm-c0…--rm-c16：自訂色優先，其次深色主題用 dark 組、其餘 light 組（色碼只存在 JS 與 lh:map，CSS 不寫色碼）
 function lhMapApplyPalette() {
-    const set = document.documentElement.getAttribute('data-theme') === 'dark' ? LH_RHYME_COLORS.dark : LH_RHYME_COLORS.light;
-    set.forEach((hex, n) => {
+    for (let n = 0; n <= LH_RHYME_NONE; n++) {
+        const hex = _lhMapEffColor(n);
         if (LH_MAP_HEX.test(hex)) document.documentElement.style.setProperty('--rm-c' + n, hex);
-    });
+    }
 }
 // 版面外觀（第 11 階段）：位置、字級、欄寬都只改 <html> 的屬性與 CSS 變數，不重畫、不重新分析（RESEARCH Pattern 8）。
 // 寫進 style.setProperty 的值一律來自下面這幾張常數表，絕不直接用儲存裡的字串
@@ -56,8 +61,8 @@ function lhMapApplyLook() {
     });
 }
 lhMapApplyLook();
-// 日夜主題切換（applyTheme 改 <html data-theme>）：換一組色票就好，不必重畫——色塊讀的是 CSS 變數
-new MutationObserver(lhMapApplyPalette).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+// 日夜主題切換（applyTheme 改 <html data-theme>）：換一組色票就好，不必重畫——色塊讀的是 CSS 變數；偏好設定的色票跟著顯示新主題的預設色
+new MutationObserver(() => { lhMapApplyPalette(); lhMapMenuSync(); }).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
 
 // 鏡像層位置與大小由輸入框自己的框決定（桌機輸入框比 .section-body 矮，不能用 inset: 0）；
 // 右邊補上輸入框的捲軸寬，換行位置才會和輸入框逐字相同
@@ -509,6 +514,7 @@ function lhMapMenuSync() {
     document.querySelectorAll('#mapSettingsSection .rm-pos-help').forEach(h => { h.textContent = LH_MAP_POS_HELP[_lhMapSet.pos]; });
     document.querySelectorAll('#mapSettingsSection .rm-depth-help').forEach(h => { h.hidden = _lhMapSet.depth !== 'heavy'; });
     if (_lhMapMenu) _lhMapMenu.querySelector('.rm-loading').hidden = _lhMapWl;
+    document.querySelectorAll('#mapSettingsSection .rm-colors input[data-n]').forEach(i => { i.value = _lhMapEffColor(+i.dataset.n); });
     // 偏好設定的兩行提醒：詞庫還沒載好（猜的斷句稍後補上）、四個細項都關著（Pitfall 7、UI-SPEC D-17、D-18）
     const wait = document.querySelector('#mapSettingsSection .rm-lex-wait');
     if (wait) wait.hidden = wordPhoneticMap.size > 0;
@@ -563,7 +569,34 @@ function lhMapPrefsBuild() {
         _lhMk('span', 'section-menu-cap', '標記位置'), _lhMapLookRadios('標記位置', 'pos', [['right', '靠右欄'], ['tail', '句尾後']], false), posHelp,
         _lhMk('span', 'section-menu-cap', '標記文字大小'), _lhMapLookRadios('標記文字大小', 'size', [['s', '小'], ['m', '中'], ['l', '大']], true),
         _lhMk('span', 'section-menu-cap', '句尾上色濃淡'), _lhMapLookRadios('句尾上色濃淡', 'depth', [['light', '淡'], ['std', '標準'], ['heavy', '濃']], true), depthHelp);
-    sec.append(hint, _lhMkBlock('韻腳地圖', ...mapRows), _lhMkBlock('句構分析', ...lineRow, sub), look);
+    // 韻族顏色（D-15）：16 個原生色票 + 不能點的「空韻」；顏色日夜共用，存在 lh:map.colors
+    const grid = _lhMk('div', 'rm-colors');
+    for (let n = 0; n < 16; n++) {
+        const label = RHYME_FAMILIES[n].label;
+        const inp = _lhMk('input', 'section-color-input');
+        inp.type = 'color';
+        inp.dataset.n = String(n);
+        inp.setAttribute('aria-label', '「' + label + '」韻族顏色');
+        const cell = _lhMk('div', 'rm-color-cell');
+        cell.append(inp, _lhMk('span', 'rm-cell-label', label));
+        grid.append(cell);
+    }
+    const noneSw = _lhMk('span', 'rm-sw');
+    noneSw.dataset.f = String(LH_RHYME_NONE);
+    const noneCell = _lhMk('div', 'rm-color-cell');
+    noneCell.append(noneSw, _lhMk('span', 'rm-cell-label', '空韻'));
+    grid.append(noneCell);
+    const colors = _lhMkBlock('韻族顏色', _lhMk('span', 'section-menu-cap', '點色塊換顏色，日夜主題共用；「空韻」固定為灰色'), grid);
+    // 拖曳中（input）只改 CSS 變數，放開（change）才存；兩者都先驗過小寫 #rrggbb，變數名稱只由固定的家族編號組成（T-11-11）
+    grid.addEventListener('input', e => {
+        const t = e.target;
+        if (t.dataset && LH_MAP_COLOR_KEYS.includes(t.dataset.n) && LH_MAP_COLOR_RE.test(t.value)) document.documentElement.style.setProperty('--rm-c' + t.dataset.n, t.value);
+    });
+    grid.addEventListener('change', e => {
+        const t = e.target;
+        if (t.dataset && t.dataset.n !== undefined) lhMapSetColor(t.dataset.n, t.value);
+    });
+    sec.append(hint, _lhMkBlock('韻腳地圖', ...mapRows), _lhMkBlock('句構分析', ...lineRow, sub), look, colors);
     // 整個段落共用一個點擊監聽（和選單一樣）：開關翻轉、寬韻／嚴格選一個，改了就存、就畫
     sec.addEventListener('click', e => {
         const sw = e.target.closest && e.target.closest('.rm-switch');
@@ -606,6 +639,17 @@ function lhMapSetSetting(key, value) {
     lhMapApplyLook();
     lhMapMenuSync();
     if (!LH_MAP_LOOK_KEYS.has(key)) lhMapRenderAll();
+}
+
+// 改一個韻族的顏色（色票放開時）：只收固定的家族編號 '0'…'15' 與小寫 #rrggbb；顏色純 CSS，不必重畫鏡像層
+function lhMapSetColor(n, hex) {
+    n = String(n);
+    if (!LH_MAP_COLOR_KEYS.includes(n) || typeof hex !== 'string' || !LH_MAP_COLOR_RE.test(hex)) return;
+    _lhMapSet = lhRhymeNormalizeSettings(Object.assign({}, _lhMapSet, { colors: Object.assign({}, _lhMapSet.colors, { [n]: hex }) }));
+    lhSet('lh:map', lhRhymeSerialize(_lhMapSet));
+    lhMapApplyLook();
+    lhMapMenuSync();
+    lhAnnounce('已更新「' + RHYME_FAMILIES[+n].label + '」韻族顏色');
 }
 
 // 別的分頁改了設定：先收掉這個分頁的浮層，重讀、重畫，選單文字跟著變

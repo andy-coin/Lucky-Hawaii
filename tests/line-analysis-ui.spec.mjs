@@ -195,7 +195,7 @@ test('偏好設定：內容與順序', async ({ browser }) => {
     await openPrefs(page);
     const sec = page.locator('#mapSettingsSection');
     await expect(sec.locator('> .settings-backups-hint')).toHaveText('調整句尾上色、逐行字數與斷句標記的開關、位置、大小和顏色');
-    expect(await sec.locator('.section-menu-block > .section-menu-cap:first-child').allTextContents()).toEqual(['韻腳地圖', '句構分析', '顯示方式']);
+    expect(await sec.locator('.section-menu-block > .section-menu-cap:first-child').allTextContents()).toEqual(['韻腳地圖', '句構分析', '顯示方式', '韻族顏色']);
     expect(await sec.locator('.rm-switch-label').allTextContents()).toEqual(['句尾上色', '段落結構字母', '句中押韻', '忽略句尾語助詞', '逐行標記', '行尾韻腳字母', '字數', '斷句結構', '對照差異']);
     const particle = await page.evaluate(() => LH_MAP_PARTICLE_CAP);
     const caps = await sec.locator('.section-menu-cap').allTextContents();
@@ -873,4 +873,75 @@ test('組字：句尾打字標記先藏、換行或句中修改整層藏，重�
         expect(errors).toEqual([]);
         await context.close();
     }
+});
+
+// ==================== 韻族顏色（11-04） ====================
+const F_AABB = ['我望著遠方的光', '獨自站在窗', '走過熟悉的街道', '終於我也回到'].join('\n');
+const colorInput = (page, n) => page.locator(`#mapSettingsSection .rm-colors input[data-n="${n}"]`);
+const rootVar = (page, n) => page.evaluate(n => document.documentElement.style.getPropertyValue('--rm-c' + n), n);
+const setColorInput = (page, n, value, ev) => page.evaluate(([n, value, ev]) => {
+    const i = document.querySelector(`#mapSettingsSection .rm-colors input[data-n="${n}"]`);
+    i.value = value;
+    i.dispatchEvent(new Event(ev, { bubbles: true }));
+}, [n, value, ev]);
+const live = page => page.evaluate(() => document.getElementById('lhLive').textContent);
+
+test('韻族顏色：改一個韻族的顏色，色塊馬上變、存起來、日夜共用', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, { wordlist: 'stub', storage: v2Storage([song([typed('sa', 'verse', F_AABB)])]) });
+    await expect.poll(() => page.locator('.rm-hl').count()).toBeGreaterThan(0);
+    // 光那一行句尾的家族編號從頁面讀，不寫死
+    const f = await page.evaluate(() => [...document.querySelectorAll('.rm-hl')].find(e => e.textContent === '光').dataset.f);
+    const label = await page.evaluate(n => RHYME_FAMILIES[n].label, +f);
+    await page.evaluate(() => lhMapOpenPrefs());
+    await page.evaluate(() => lhMapMenuBuild());
+    const light = await page.evaluate(f => LH_RHYME_COLORS.light[f], +f);
+    await expect(colorInput(page, f)).toHaveValue(light);
+    await expect(colorInput(page, f)).toHaveAttribute('aria-label', `「${label}」韻族顏色`);
+    await expect(page.locator('#mapSettingsSection .rm-colors .rm-color-cell')).toHaveCount(17);
+    expect(await page.locator('#mapSettingsSection .rm-colors input').count()).toBe(16);
+    const band = () => page.evaluate(() => getComputedStyle([...document.querySelectorAll('.rm-hl')].find(e => e.textContent === '光')).backgroundColor);
+    const swatch = () => page.evaluate(f => getComputedStyle(document.querySelector(`#rhymeMenu .rm-sw[data-f="${f}"]`)).backgroundColor, f);
+    const bg0 = await band(), sw0 = await swatch();
+    await page.evaluate(() => { window.__mirror = document.querySelector('.rhyme-mirror'); window.__hl = document.querySelector('.rm-hl'); });
+    const mapBefore = await lsGetMap(page);
+
+    // 拖曳中（input）：變數、色塊、色票馬上變；不存、不重畫
+    await setColorInput(page, f, '#123456', 'input');
+    expect(await rootVar(page, f)).toBe('#123456');
+    expect(await band()).not.toBe(bg0);
+    expect(await swatch()).not.toBe(sw0);
+    expect(await lsGetMap(page)).toBe(mapBefore);
+    expect(await page.evaluate(() => window.__mirror === document.querySelector('.rhyme-mirror') && window.__hl === document.querySelector('.rm-hl') && window.__hl.isConnected)).toBe(true);
+
+    // 放開（change）：存進 lh:map，念給讀屏軟體聽
+    await setColorInput(page, f, '#123456', 'change');
+    expect(await lsGetMap(page)).toContain(`"colors":{"${f}":"#123456"}`);
+    expect(await live(page)).toBe(`已更新「${label}」韻族顏色`);
+    expect(await page.evaluate(() => window.__hl.isConnected), '放開也不重畫').toBe(true);
+
+    // 深色主題：自訂色照用，色票顯示它
+    await page.evaluate(() => applyTheme(true, false));
+    expect(await rootVar(page, f)).toBe('#123456');
+    await expect(colorInput(page, f)).toHaveValue('#123456');
+    const other = (+f + 1) % 16;
+    await expect(colorInput(page, other)).toHaveValue(await page.evaluate(n => LH_RHYME_COLORS.dark[n], other));   // 沒改的家族換成深色預設
+    await page.evaluate(() => applyTheme(false, false));
+
+    // 重新整理還在
+    await page.reload();
+    await ready(page);
+    expect(await rootVar(page, f)).toBe('#123456');
+    await page.evaluate(() => lhMapOpenPrefs());
+    await expect(colorInput(page, f)).toHaveValue('#123456');
+
+    // 備份帶著它，匯入整理後逐字相同
+    const [saved, parsed] = await page.evaluate(() => {
+        const bk = lhBuildBackup(songs, activeSongId, []);
+        const r = lhParseBackup(JSON.stringify(bk));
+        return [bk.settings['lh:map'], r.settings['lh:map']];
+    });
+    expect(saved).toContain('"#123456"');
+    expect(parsed).toBe(saved);
+    expect(errors).toEqual([]);
+    await context.close();
 });

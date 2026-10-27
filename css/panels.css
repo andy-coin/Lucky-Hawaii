@@ -1455,6 +1455,11 @@
         #mapSettingsSection .section-menu-block { margin-top: var(--sp-3); }
         #mapSettingsSection .rm-sub { display: flex; flex-direction: column; gap: var(--sp-1); margin-inline-start: var(--sp-4); }
         .rm-more { width: 100%; }
+        /* 韻族顏色：16 個原生色票（下面是家族名）加不能點的空韻，每格至少 --hit 寬 */
+        .rm-colors { display: grid; grid-template-columns: repeat(auto-fill, minmax(var(--hit), 1fr)); gap: var(--sp-1); }
+        .rm-color-cell { display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 0.125rem; }
+        .rm-color-cell .rm-cell-label { color: var(--text-secondary); }
+        .rm-color-cell .rm-sw { margin-block: 0.5rem; }   /* 空韻色塊垂直置中在 2rem 的色票高度裡 */
         /* 韻腳統計（10-07，UI-SPEC 4.2）：沿用段落設定選單的外殼，裡面超出可見範圍就在選單內捲動 */
         #rhymeStats { width: min(22rem, calc(100vw - 1rem)); }
         .rm-letters {
