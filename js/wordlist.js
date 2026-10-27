@@ -288,6 +288,8 @@
                 // 記下「真的載入成功」的包與當時的設定值：換包失敗要退回這個，而不是退回載到一半的包
                 if (out !== null) _lastGoodPack = { desc, stored: lhGet(LH_PACK_KEY) };
                 updateWordlistProgress(n, n);
+                // 詞庫讀音表換了（換包、退回、第一次失敗後重試成功）：韻腳地圖重讀句尾（CONTEXT A5）；開機時就緒閘門還沒開，這裡不會畫
+                if (out !== null && typeof lhMapOnLexiconChange === 'function') lhMapOnLexiconChange();
             }
             await cacheP;
         }
@@ -331,20 +333,16 @@
                     const rbGen = _wlGen;
                     const back = loadWordlist();
                     window.__hoyunWordlistReady = back;
-                    // 換包時 AI 字卡已清掉：退回後補重跑目前搜尋（中途又換包就不重跑）
-                    // 新詞庫的讀音表不同，韻腳地圖也要重讀句尾（退回後同樣重畫一次）
+                    // 換包時 AI 字卡已清掉：退回後補重跑目前搜尋（中途又換包就不重跑）；韻腳地圖由載入完成時重畫
                     back.then(() => {
                         if (rbGen === _wlGen && wordlistData !== null) {
                             _refreshFromCurrentInput();
-                            if (typeof lhMapOnLexiconChange === 'function') lhMapOnLexiconChange();
                         }
                     });
                 }
                 return false;
             }
             _refreshFromCurrentInput();
-            // 詞庫包換了，句尾字的詞庫讀音跟著變：韻腳地圖重讀（CONTEXT A5）
-            if (typeof lhMapOnLexiconChange === 'function') lhMapOnLexiconChange();
             return true;
         }
 

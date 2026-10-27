@@ -1,5 +1,5 @@
 // 韻腳地圖的效能（10-03）：長歌不卡。計時的那一個只在 LH_PERF=1 且單一 worker 時跑（和 tests/perf.spec.mjs 一樣，要獨占 CPU）；
-// 結構檢查（兩百行分析的耗時）每次都跑。門檻 50ms 乘上 LH_PERF_SCALE（機器比 Mac 慢時調大，預設 1）。
+// 結構檢查（兩百行分析的耗時）每次都跑。門檻（打字 50ms、分析 20ms）都乘上 LH_PERF_SCALE（機器比 Mac 慢時調大，預設 1）。
 import { test, expect } from '@playwright/test';
 import { readFileSync } from 'node:fs';
 import { bootPage } from './helpers.mjs';
@@ -58,8 +58,10 @@ test('效能：兩百行分析在 20ms 內', async ({ browser }) => {
         }
         return runs.sort((a, b) => a - b)[2];
     }, lines(200));
-    console.log(`[perf] lhRhymeAnalyze 200 行中位數 ${ms.toFixed(2)}ms`);
-    expect(ms).toBeLessThan(20);
+    // 一般測試是多個 worker 搶 CPU：門檻也乘上 LH_PERF_SCALE；實測 Mac 約 0.3ms，20ms 只抓「變成平方級」這種退步
+    const limit = 20 * Number(process.env.LH_PERF_SCALE || 1);
+    console.log(`[perf] lhRhymeAnalyze 200 行中位數 ${ms.toFixed(2)}ms（門檻 ${limit}ms）`);
+    expect(ms).toBeLessThan(limit);
     expect(errors).toEqual([]);
     await context.close();
 });

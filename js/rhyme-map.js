@@ -138,14 +138,12 @@ function _lhMapStrip(secEl, res, big) {
 }
 
 // 同步量位置：所有輸入框共用一個 ResizeObserver（捲軸出現／消失、拖高度、縮放、收合展開都會觸發）。
-// 組字中只記下來，下一次畫的時候才對齊，不在組字中改鏡像層
-const _lhMapDeferred = new Set();
+// 組字中不動，下一次畫的時候才對齊，不在組字中改鏡像層
 const _lhMapRO = new ResizeObserver(entries => {
     for (const e of entries) {
         const mirror = _lhMapMirrorOf(e.target);
         if (!mirror) continue;
-        if (_lhComposing) _lhMapDeferred.add(e.target);
-        else _lhMapSync(e.target, mirror);
+        if (!_lhComposing) _lhMapSync(e.target, mirror);
     }
 });
 
@@ -156,7 +154,6 @@ function lhMapRenderAll() {
     if (!box) return;
     _lhMapCache.clear();
     _lhMapPending.clear();
-    _lhMapDeferred.clear();
     _lhMapRO.disconnect();
     if (_lhMapStatsOn && !lhSecEl(_lhMapStatsSec)) lhMapCloseStats(false);   // 開著統計的段落已經不在了
     for (const el of box.children) {
@@ -852,8 +849,7 @@ function lhMapSetReading(secId, tail, reading) {
     const sn = _lhMapBarSnap;
     if (sn) _lhMapBarSkip = _lhMapSelSig(sn.ta);
     lhMapHideBar();
-    const el = lhSecEl(secId);
-    if (el) lhMapPaint(el);
+    lhMapRenderAll();   // readings 是整首歌共用（key＝句尾文字），別段同樣句尾的行也要跟著變
     lhAnnounce(reading === null ? '「' + char + '」讀音改回自動' : '已指定「' + char + '」讀音為 ' + reading);
 }
 
