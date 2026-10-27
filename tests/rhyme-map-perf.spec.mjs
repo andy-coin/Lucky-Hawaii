@@ -1,4 +1,4 @@
-// 韻腳地圖的效能（10-03）：長歌不卡。計時的那一個只在 LH_PERF=1 且單一 worker 時跑（和 tests/perf.spec.mjs 一樣，要獨占 CPU）；
+// 韻腳地圖的效能（10-03、11-02）：長歌不卡（句尾上色，以及全部標記＋對照差異都開）。計時的那兩個只在 LH_PERF=1 且單一 worker 時跑（和 tests/perf.spec.mjs 一樣，要獨占 CPU）；
 // 結構檢查（兩百行分析的耗時）每次都跑。門檻（打字 50ms、分析 20ms）都乘上 LH_PERF_SCALE（機器比 Mac 慢時調大，預設 1）。
 import { test, expect } from '@playwright/test';
 import { readFileSync } from 'node:fs';
@@ -42,6 +42,43 @@ test('效能：一百五十行連續打字沒有超過 50ms 的長任務', async
     const longest = durs.length ? Math.max(...durs) : 0;
     const limit = 50 * Number(process.env.LH_PERF_SCALE || 1);
     console.log(`[perf] 韻腳地圖 150 行 4× 最長任務 ${Math.round(longest)}ms（${durs.length} 個長任務，門檻 ${limit}ms）`);
+    expect(longest).toBeLessThanOrEqual(limit);
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('效能：一百五十行全部標記開著連續打字沒有超過 50ms 的長任務', async ({ browser }) => {
+    test.skip(process.env.LH_PERF !== '1', '計時測試：LH_PERF=1 並用 --workers=1');
+    test.setTimeout(120_000);
+    const { context, page, errors } = await bootPage(browser, {
+        storage: {
+            ...storage([typed('sa', 'verse', lines(150)), typed('sb', 'chorus', lines(50)), typed('sc', 'verse', lines(150))]),
+            'lh:map': JSON.stringify({ end: true, letters: true, inner: true, strict: false, skipParticles: true, line: true, lnRhyme: true, lnCount: true, lnSplit: true, lnDiff: true }),
+        },
+    });
+    await page.evaluate(() => {
+        window.__perfEntries = [];
+        new PerformanceObserver(l => { for (const e of l.getEntries()) window.__perfEntries.push({ duration: e.duration }); }).observe({ type: 'longtask' });
+        const ta = document.querySelector('.section-textarea');
+        ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length);
+    });
+    const first = page.locator('.lyrics-section').first();
+    expect(await first.locator('.lm-mk').count(), '先確認一百五十行真的畫了標記').toBeGreaterThan(100);
+    const cdp = await context.newCDPSession(page);
+    await cdp.send('Emulation.setCPUThrottlingRate', { rate: 4 });
+    for (let i = 0; i < 40; i++) {
+        if (i === 10 || i === 20 || i === 30) await page.keyboard.press('Enter');
+        else await page.keyboard.type('韻愛光窗'[i % 4]);
+        await page.waitForTimeout(60);
+    }
+    await page.waitForTimeout(1500);
+    await cdp.send('Emulation.setCPUThrottlingRate', { rate: 1 });
+    expect(await page.evaluate(() => document.querySelector('.section-textarea').value.split('\n').length), '打進去了：三個 Enter').toBe(153);
+    expect(await first.locator('.lm-mk').count(), '打完之後重畫過').toBeGreaterThan(150);
+    const durs = await page.evaluate(() => window.__perfEntries.map(e => e.duration));
+    const longest = durs.length ? Math.max(...durs) : 0;
+    const limit = 50 * Number(process.env.LH_PERF_SCALE || 1);
+    console.log(`[perf] 全部標記 150 行 + 對照 4× 最長任務 ${Math.round(longest)}ms（${durs.length} 個長任務，門檻 ${limit}ms）`);
     expect(longest).toBeLessThanOrEqual(limit);
     expect(errors).toEqual([]);
     await context.close();

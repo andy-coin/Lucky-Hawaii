@@ -270,14 +270,15 @@ function lhMapSchedule(secEl) {
 
 function _lhMapFlush() {
     _lhMapTimer = 0;
+    // 一次只畫一段，畫完還有就再排一次：對照差異開著時同類型的段落會一起排，全塞在同一個任務裡會變成長任務（11-02 實測）
     const run = () => {
         if (_lhComposing) return;   // 組字中完全不動；確認後會重新排程，待算的段落還留在清單裡
-        const ids = Array.from(_lhMapPending);
-        _lhMapPending.clear();
-        for (const id of ids) {
-            const el = lhSecEl(id);
-            if (el) lhMapPaint(el);
-        }
+        const id = _lhMapPending.values().next().value;
+        if (id === undefined) return;
+        _lhMapPending.delete(id);
+        const el = lhSecEl(id);
+        if (el) lhMapPaint(el);
+        if (_lhMapPending.size && !_lhMapTimer) _lhMapFlush();
     };
     if (typeof requestIdleCallback === 'function') requestIdleCallback(run, { timeout: 500 });
     else setTimeout(run, 0);
