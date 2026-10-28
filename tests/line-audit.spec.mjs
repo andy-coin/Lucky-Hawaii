@@ -388,3 +388,254 @@ test('檢查：列印與匯出沒有句構標記', async ({ browser }) => {
     expect(errors).toEqual([]);
     await context.close();
 });
+
+// ==================== 惡意文字只當文字 ====================
+test('檢查：惡意文字只當文字（句構分析）', async ({ browser }) => {
+    test.setTimeout(90_000);
+    const NAME = '<b>x</b>';
+    const H1 = '<img src=x onerror=alert(1)>你';
+    const TEXT_A = [H1, '我望著遠方的光'].join('\n');
+    const { context, page, errors } = await bootPage(browser, {
+        device: DEVICES.desktop, wordlist: 'stub',
+        storage: v2Storage([song([
+            typed('sa', 'verse', TEXT_A),
+            typed('sb', 'custom', '你好嗎\n再見', { custom: NAME }),
+            typed('sc', 'custom', '你好嗎啊\n再見啊', { custom: NAME }),
+        ])], { ...OPEN_PANELS, 'lh:map': MAP_LINE }),
+    });
+    let dialogs = 0;
+    page.on('dialog', () => { dialogs++; });
+    await waitStill(page);
+    const bare = sel => page.locator(sel).evaluateAll(els => els.reduce((n, el) => n + el.querySelectorAll('img, b').length, 0));
+    const SURFACES = '#lyricsSections, #rhymeAnalysis, #mapSettingsSection';
+    // 標記：那一行的字數照頁面自己的算法，不寫死
+    const want = await page.evaluate(l => String(lhCountWords(l)), H1);
+    expect(await secs(page).first().locator('.lm-t-c').first().textContent(), '惡意那一行的字數標記').toBe(want);
+    expect(await bare(SURFACES)).toBe(0);
+    // 分析面板：選到惡意那一行
+    await pick(page, 0, H1.length, 0);
+    await page.locator(AN_BTN).click();
+    await expect(page.locator(AN)).toBeVisible();
+    await expect(page.locator(AN + ' .rm-an-t').first()).toContainText('<img src=x o');
+    expect(await bare(SURFACES)).toBe(0);
+    await page.keyboard.press('Escape');
+    // 第二個同名的自訂段落：標題與對照說明都帶著名稱，而且是文字
+    await pick(page, 0, 4, 2);
+    await page.locator(AN_BTN).click();
+    await expect(page.locator(AN)).toBeVisible();
+    await expect(page.locator(AN + ' .section-menu-title')).toContainText(NAME);
+    await expect(page.locator(AN)).toContainText('對照：' + NAME);
+    expect(await page.locator(AN + ' .section-menu-title').evaluate(e => e.children.length)).toBe(0);
+    expect(await bare(SURFACES)).toBe(0);
+    await page.keyboard.press('Escape');
+    // 偏好設定的預覽與各區塊
+    await page.evaluate(() => lhMapOpenPrefs());
+    expect(await bare(SURFACES)).toBe(0);
+    expect(await page.locator('body > *:not(script)').evaluateAll(els => els.reduce((n, el) => n + el.querySelectorAll('img, b').length, 0)), '整頁沒有 img／b 元素').toBe(0);
+    expect(dialogs, 'alert 沒有被觸發').toBe(0);
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+// ==================== 新程式沒有拼 HTML ====================
+// 用語法樹找：不能對 innerHTML／outerHTML 賦值、不能呼叫 insertAdjacentHTML／document.write、不能 setAttribute('on…')、不能 .onxxx = 賦值
+function htmlSinks(code) {
+    const hits = [];
+    walk(parseAny(code), node => {
+        const prop = n => n && n.type === 'MemberExpression' && (n.property.name || n.property.value);
+        if (node.type === 'AssignmentExpression') {
+            const p = prop(node.left) || '';
+            if (/^(innerHTML|outerHTML)$/.test(p)) hits.push('賦值 ' + p);
+            else if (/^on[a-z]+$/.test(p)) hits.push('賦值 ' + p);
+        }
+        if (node.type === 'CallExpression') {
+            const p = prop(node.callee);
+            if (p === 'insertAdjacentHTML' || p === 'write' && node.callee.object.name === 'document') hits.push('呼叫 ' + p);
+            if (p === 'setAttribute' && node.arguments[0] && node.arguments[0].type === 'Literal' && /^on/i.test(String(node.arguments[0].value))) hits.push('setAttribute(' + node.arguments[0].value + ')');
+        }
+    });
+    return hits;
+}
+test('檢查：句構分析新程式沒有拼 HTML', () => {
+    for (const f of ['js/line-core.js', 'js/rhyme-map.js']) {
+        const code = readFileSync(f, 'utf8');
+        expect(code.length, f + ' 有讀到').toBeGreaterThan(500);
+        expect(htmlSinks(code), f).toEqual([]);
+    }
+    // 自檢：掃描器真的抓得到
+    expect(htmlSinks('el.innerHTML = x;')).toEqual(['賦值 innerHTML']);
+    expect(htmlSinks('el.outerHTML = x;')).toEqual(['賦值 outerHTML']);
+    expect(htmlSinks('el.insertAdjacentHTML("beforeend", x); document.write(x);')).toEqual(['呼叫 insertAdjacentHTML', '呼叫 write']);
+    expect(htmlSinks('el.setAttribute("onclick", "x()");')).toEqual(['setAttribute(onclick)']);
+    expect(htmlSinks('el.onclick = "x()";')).toEqual(['賦值 onclick']);
+    expect(htmlSinks('el.textContent = x; el.setAttribute("aria-label", x);')).toEqual([]);
+});
+
+// ==================== setProperty 只在固定的地方、新樣式沒有動畫 ====================
+// 最近的外層具名函式（函式宣告，或指給變數的函式）
+function setPropertyOwners(code) {
+    const out = [];
+    walk(parseAny(code), (node, anc) => {
+        if (node.type !== 'CallExpression' || node.callee.type !== 'MemberExpression' || node.callee.property.name !== 'setProperty') return;
+        let owner = '(最上層)';
+        for (let i = anc.length - 1; i >= 0; i--) {
+            const a = anc[i];
+            if (a.type === 'FunctionDeclaration') { owner = a.id.name; break; }
+            if ((a.type === 'FunctionExpression' || a.type === 'ArrowFunctionExpression') && anc[i - 1] && anc[i - 1].type === 'VariableDeclarator') { owner = anc[i - 1].id.name; break; }
+            if (a.type === 'FunctionExpression' || a.type === 'ArrowFunctionExpression') { owner = '(匿名函式)'; break; }
+        }
+        out.push(owner);
+    });
+    return out;
+}
+test('檢查：setProperty 只在固定的地方、新樣式沒有動畫', () => {
+    // 調色盤、版面外觀、鏡像層同步、色票拖曳——這四處的值都來自常數表或驗過的 #rrggbb
+    const ALLOWED = new Set(['lhMapApplyPalette', 'lhMapApplyLook', '_lhMapSync', '_lhMapColorInput']);
+    const owners = setPropertyOwners(readFileSync('js/rhyme-map.js', 'utf8'));
+    expect(owners.length, '有掃到 setProperty').toBeGreaterThanOrEqual(4);
+    expect([...new Set(owners)].filter(o => !ALLOWED.has(o)), '不在允許名單內的位置').toEqual([]);
+    expect(new Set(owners), '四個位置都有用到').toEqual(ALLOWED);
+    // 自檢
+    expect(setPropertyOwners('function a(){ el.style.setProperty("--x", 1); } const b = () => r.style.setProperty("--y", 2); el.addEventListener("x", () => s.setProperty("a", 1));')).toEqual(['a', 'b', '(匿名函式)']);
+    // CSS：第 11 階段的規則（選擇器提到這些名稱）不能有 transition／animation，檔案裡也不能新增 @keyframes
+    const MINE = /lm-|rm-an|rm-color|rm-more|rm-sub|mapSettingsSection|rhymeAnalysis|data-lm/;
+    const cssRules = css => [...css.replace(/\/\*[\s\S]*?\*\//g, '').matchAll(/([^{}]+)\{([^{}]*)\}/g)].map(m => ({ sel: m[1].trim(), body: m[2] }));
+    let seen = 0;
+    for (const f of ['css/panels.css', 'css/responsive.css']) {
+        const css = readFileSync(f, 'utf8');
+        const mine = cssRules(css).filter(r => MINE.test(r.sel));
+        seen += mine.length;
+        expect(mine.filter(r => /transition|animation/.test(r.body)).map(r => r.sel), f + ' 第 11 階段的規則沒有動畫').toEqual([]);
+        // 兩個檔案目前都沒有 @keyframes（動畫都放在 css/base.css，是第 10 階段之前就有的）；註解裡的字不算
+        expect((css.replace(/\/\*[\s\S]*?\*\//g, '').match(/@keyframes/g) || []).length, f + ' 沒有新增 @keyframes').toBe(0);
+    }
+    expect(seen, '有掃到第 11 階段的規則').toBeGreaterThan(20);
+    // 自檢
+    expect(cssRules('/* a */ .lm-mk { transition: all 1s; } .x { color: red; }').filter(r => MINE.test(r.sel) && /transition/.test(r.body)).length).toBe(1);
+});
+
+// ==================== 舊歌與舊資料 ====================
+test('檢查：舊歌與舊資料（句構分析）', async ({ browser }) => {
+    test.setTimeout(120_000);
+    const P10_MAP = '{"end":true,"letters":true,"inner":true,"strict":false,"skipParticles":true}';
+    const READ = { '們一起行': 'ㄒㄧㄥˊ' };
+    // (a) 第 10 階段的使用者：五個鍵的 lh:map、讀音、歌
+    const songsRaw = JSON.stringify([song([typed('sa', 'verse', '我們一起行\n我望著遠方的光'), typed('sb', 'chorus', V1)], { readings: READ })]);
+    const A = await bootPage(browser, {
+        device: DEVICES.desktop, wordlist: 'stub',
+        storage: { ...FIXTURE, 'lh:schema': '2', 'lh:songs': songsRaw, 'lh:activeSong': 's1', ...OPEN_PANELS, 'lh:map': P10_MAP },
+    });
+    await waitStill(A.page);
+    await expect.poll(() => A.page.locator('#lyricsSections .rm-hl').count(), { message: '開機後畫好色塊' }).toBeGreaterThan(0);
+    const calm = async what => {
+        expect(await mapOf(A.page), what + '：lh:map 逐字相同').toBe(P10_MAP);
+        expect(await A.page.locator('.lm-mk').count(), what + '：沒有標記').toBe(0);
+        expect(await A.page.evaluate(() => document.documentElement.getAttribute('data-lm')), what + '：沒有 data-lm').toBeNull();
+        expect(await A.page.evaluate(() => localStorage.getItem('lh:songs')), what + '：歌沒被改').toBe(songsRaw);
+    };
+    await calm('開機後');
+    await A.page.locator('#rhymeMenuBtn').click();
+    await A.page.locator('#rhymeMenu .section-menu-close').click();
+    await calm('開關過韻腳選單');
+    await A.page.evaluate(() => lhMapOpenPrefs());
+    await expect(A.page.locator(PREFS)).toHaveJSProperty('open', true);
+    await calm('打開偏好設定');
+    await A.page.reload();
+    await A.page.evaluate(() => Promise.all([window.__hoyunReady, window.__hoyunWordlistReady, window.__hoyunSongsReady, window.__lhMapReady]));
+    await calm('重新整理後');
+    // (c) 第 10 階段的備份檔整理後，lh:map 還是同一個字串、讀音還在
+    const parsed = await A.page.evaluate(([map, songs]) => lhParseBackup(JSON.stringify({
+        format: LH_BACKUP_FORMAT, version: 2, exportedAt: '2026-10-01T00:00:00.000Z', songs: JSON.parse(songs), activeSong: 's1', savedWords: [], settings: { 'lh:map': map },
+    })), [P10_MAP, songsRaw]);
+    expect(parsed.ok).toBe(true);
+    expect(parsed.settings['lh:map'], '備份讀回來 lh:map 一字不差').toBe(P10_MAP);
+    expect(parsed.songs[0].readings).toEqual(READ);
+    expect(A.errors).toEqual([]);
+    await A.context.close();
+    // (b) 第 9 階段的使用者：有歌、沒有 lh:map
+    const songs9 = JSON.stringify([song([typed('sa', 'verse', '我們一起行\n我望著遠方的光')])]);
+    const B = await bootPage(browser, {
+        device: DEVICES.desktop, wordlist: 'stub',
+        storage: { ...FIXTURE, 'lh:schema': '2', 'lh:songs': songs9, 'lh:activeSong': 's1', ...OPEN_PANELS },
+    });
+    await waitStill(B.page);
+    await expect.poll(() => B.page.locator('#lyricsSections .rm-hl').count()).toBeGreaterThan(0);
+    expect(await mapOf(B.page), '開機後不寫 lh:map').toBeNull();
+    await B.page.evaluate(() => lhMapOpenPrefs());
+    await expect(B.page.locator(PREFS)).toHaveJSProperty('open', true);
+    expect(await mapOf(B.page), '打開偏好設定也不寫 lh:map').toBeNull();
+    await B.page.reload();
+    await B.page.evaluate(() => Promise.all([window.__hoyunReady, window.__hoyunWordlistReady, window.__hoyunSongsReady, window.__lhMapReady]));
+    expect(await mapOf(B.page), '重新整理後還是沒有 lh:map').toBeNull();
+    expect(await B.page.evaluate(() => localStorage.getItem('lh:songs')), '歌沒被改').toBe(songs9);
+    expect(B.errors).toEqual([]);
+    await B.context.close();
+});
+
+// ==================== 顏色以外的線索 ====================
+test('檢查：顏色以外的線索（句構分析）', async ({ browser }) => {
+    test.setTimeout(90_000);
+    const MIX = '月光 灑在 窗前 夢裡想起你的臉';
+    const { context, page, errors } = await bootPage(browser, {
+        device: DEVICES.desktop, wordlist: 'stub',
+        storage: v2Storage([song([
+            typed('sa', 'verse', MIX + '\n我望著遠方的光'),
+            typed('sb', 'verse', MIX + '\n獨自站在窗前'),
+        ])], { ...OPEN_PANELS, 'lh:map': MAP_LINE }),
+    });
+    await waitStill(page);
+    await page.evaluate(ws => {
+        for (const w of ws) wordPhoneticMap.set(w, Array.from(w).map(c => getCharAllReadings(c)[0].reading).join(' '));
+        lhMapOnLexiconChange();
+    }, ['夢裡', '想起', '你的', '望著', '遠方']);
+    // 逐行標記：機器猜的那一段「≈」開頭、斜體；自己標的維持正體
+    const mk = await secs(page).first().locator('.lm-mk').first().evaluate(m => {
+        const t = m.querySelector('.lm-t-s');
+        return { style: getComputedStyle(t).fontStyle, text: t.textContent, guesses: [...t.querySelectorAll('.lm-guess')].map(g => [g.textContent, getComputedStyle(g).fontStyle]) };
+    });
+    expect(mk.style, '自己標的那一段是正體').toBe('normal');
+    expect(mk.text).toBe('2+2+2+≈2+2+3');
+    expect(mk.guesses, '只有一段猜的').toEqual([['≈2+2+3', 'italic']]);
+    const allGuess = await page.locator('#lyricsSections .lm-guess').evaluateAll(els => els.map(e => [e.textContent.startsWith('≈'), getComputedStyle(e).fontStyle]));
+    expect(allGuess.length).toBeGreaterThan(0);
+    expect(allGuess.every(([a, b]) => a && b === 'italic'), '每一段猜的都有 ≈ 且斜體').toBe(true);
+    // 差異：≠ 加粗（第二段第 2 行 6 字，對照 7 字）
+    const diffs = await page.locator('#lyricsSections .lm-t-d:not(:empty)').evaluateAll(els => els.map(e => [e.textContent, getComputedStyle(e).fontWeight]));
+    expect(diffs, '差異 ≠ 且粗體').toEqual([['≠7', '700']]);
+    // 分析面板：選第二段全部
+    await pick(page, 0, MIX.length + 8, 1);
+    await page.locator(AN_BTN).click();
+    await expect(page.locator(AN)).toBeVisible();
+    const an = await page.locator(AN).evaluate(m => ({
+        role: m.getAttribute('role'),
+        ths: [...m.querySelectorAll('th')].map(th => th.getAttribute('scope')),
+        verdicts: [...m.querySelectorAll('.rm-an-v')].map(v => [v.textContent, v.getAttribute('aria-label')]),
+        guesses: [...m.querySelectorAll('.lm-guess')].map(g => [g.textContent.startsWith('≈'), getComputedStyle(g).fontStyle]),
+    }));
+    expect(an.role).toBe('dialog');
+    expect(an.ths.length).toBeGreaterThan(0);
+    expect(an.ths.every(x => x === 'col')).toBe(true);
+    expect(an.verdicts).toEqual([['✓', '字數相同'], ['≠', '字數不同']]);
+    expect(an.guesses.length).toBeGreaterThan(0);
+    expect(an.guesses.every(([a, b]) => a && b === 'italic'), '面板裡猜的也是 ≈ 加斜體').toBe(true);
+    await page.keyboard.press('Escape');
+    // 開關寫「開／關」，濃淡是有名字的 radio
+    await page.locator('#rhymeMenuBtn').click();
+    const menuSw = await page.locator('#rhymeMenu .rm-switch').evaluateAll(els => els.map(e => e.textContent.trim().slice(-1)));
+    expect(menuSw.length).toBeGreaterThan(0);
+    expect(menuSw.every(c => c === '開' || c === '關'), '選單的開關').toBe(true);
+    await page.keyboard.press('Escape');
+    await page.evaluate(() => lhMapOpenPrefs());
+    const sws = await page.locator(PREFS + ' .rm-switch').evaluateAll(els => els.map(e => [e.textContent.trim().slice(-1), e.getAttribute('aria-checked')]));
+    expect(sws.length).toBeGreaterThan(4);
+    expect(sws.every(([c, a]) => (c === '開' || c === '關') && (a === 'true') === (c === '開')), '偏好設定的開關文字與 aria-checked 一致').toBe(true);
+    const radios = await page.locator(PREFS + ' .type-row[data-k="depth"]').evaluateAll(els => els.map(e => [e.getAttribute('role'), e.textContent.trim()]));
+    expect(radios).toEqual([['radio', '淡'], ['radio', '標準'], ['radio', '濃']]);
+    // 鏡像層（含預覽）只是裝飾
+    const mirrors = await page.locator('.rhyme-mirror').evaluateAll(els => els.map(e => e.getAttribute('aria-hidden')));
+    expect(mirrors.length).toBeGreaterThan(2);
+    expect(mirrors.every(a => a === 'true')).toBe(true);
+    expect(await page.locator(PREFS + ' .lm-preview').getAttribute('aria-hidden')).toBe('true');
+    expect(errors).toEqual([]);
+    await context.close();
+});

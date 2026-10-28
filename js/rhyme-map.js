@@ -620,10 +620,11 @@ function lhMapPrefsBuild() {
     // 讀目前主題的文字色與卡片底色用的隱形探針（樣式由 CSS 的變數決定，這裡只讀它算出來的 rgb，不解析 color-mix，RESEARCH Pitfall 11）
     const colors = _lhMkBlock('韻族顏色', _lhMk('span', 'section-menu-cap', '點色塊換顏色，日夜主題共用；「空韻」固定為灰色'), grid, advice, reset, _lhMk('span', 'rm-probe'));
     // 拖曳中（input）只改 CSS 變數，放開（change）才存；兩者都先驗過小寫 #rrggbb，變數名稱只由固定的家族編號組成（T-11-11）
-    grid.addEventListener('input', e => {
+    function _lhMapColorInput(e) {   // 有名字，檢查才找得到 setProperty 只出現在固定的地方
         const t = e.target;
         if (t.dataset && LH_MAP_COLOR_KEYS.includes(t.dataset.n) && LH_MAP_COLOR_RE.test(t.value)) document.documentElement.style.setProperty('--rm-c' + t.dataset.n, t.value);
-    });
+    }
+    grid.addEventListener('input', _lhMapColorInput);
     grid.addEventListener('change', e => {
         const t = e.target;
         if (t.dataset && t.dataset.n !== undefined) lhMapSetColor(t.dataset.n, t.value);
