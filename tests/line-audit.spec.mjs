@@ -4,6 +4,7 @@
 import { test, expect } from '@playwright/test';
 import { readFileSync } from 'node:fs';
 import { bootPage, openTwoTabs } from './helpers.mjs';
+import { parseAny, walk } from './scan-lib.mjs';
 import { DEVICES, waitStill, setScale, auditTouchTargets, expectFullyInViewport, emulateKeyboard, readKeyboard, insideVisible, restoreViewport } from './layout-lib.mjs';
 
 const FIXTURE = JSON.parse(readFileSync(new URL('./fixtures/v096-localStorage.json', import.meta.url), 'utf8'));
@@ -302,4 +303,88 @@ test('檢查：另一個分頁改了設定或歌（句構分析）', async ({ br
         expect(errs.flatMap(e => e.errors), what).toEqual([]);
         await context.close();
     }
+});
+
+// ==================== 列印與匯出沒有句構標記 ====================
+// 所有標記全開、自訂顏色、分析面板開著：TXT／Markdown／PDF／備份都只該有資料，一個標記都不能漏進去（UI-SPEC D-20）
+// 字數與斷句預設就是開的，所以序列化後不寫；用已整理好的形式存，備份讀到的才會和 lhRhymeSerialize 一字不差
+const MAP_ALL = '{"end":true,"letters":true,"inner":true,"strict":false,"skipParticles":true,"line":true,"lnRhyme":true,"lnDiff":true,"colors":{"3":"#aa3377"}}';
+const WORDS = ['望著', '遠方', '熟悉', '街道', '終於', '我也', '回到'];
+// 詞放進詞庫（只為了讓斷句有詞可猜 ≈），再通知韻腳地圖重畫
+const seedWords = page => page.evaluate(ws => {
+    for (const w of ws) wordPhoneticMap.set(w, Array.from(w).map(c => getCharAllReadings(c)[0].reading).join(' '));
+    lhMapOnLexiconChange();
+}, WORDS);
+async function readDownload(dl) {
+    const chunks = [];
+    for await (const c of await dl.createReadStream()) chunks.push(c);
+    return Buffer.concat(chunks).toString('utf8');
+}
+test('檢查：列印與匯出沒有句構標記', async ({ browser }) => {
+    test.setTimeout(120_000);
+    const { context, page, errors } = await bootPage(browser, {
+        device: DEVICES.desktop, wordlist: 'stub',
+        storage: v2Storage([TWO()], { ...OPEN_PANELS, 'lh:map': MAP_ALL }),
+        init: () => { window.__printCount = 0; window.print = () => { window.__printCount++; }; },
+    });
+    await waitStill(page);
+    await seedWords(page);
+    // 前置：畫面上真的有標記，而且有 ≈（機器猜的）和 ≠（和對照段落不同的字數）
+    const marks = await page.locator('.lm-mk').evaluateAll(els => els.map(e => e.textContent).join('|'));
+    expect(marks, '前置：有 ≈').toContain('≈');
+    expect(marks, '前置：有 ≠').toContain('≠');
+    // 開著分析面板（對選取的幾行）
+    await openLyricsTab(page);
+    await pick(page, 0, 14, 1);
+    await expect(page.locator(AN_BTN)).toBeVisible();
+    await page.locator(AN_BTN).click();
+    await expect(page.locator(AN)).toBeVisible();
+    // 偏好設定的預覽也要先存在（建好之後收起來，列印時它不能被看見）
+    await page.evaluate(() => { lhMapOpenPrefs(); });
+    await expect(page.locator(PREFS + ' .lm-preview')).toHaveCount(1);
+    await page.keyboard.press('Escape');
+    const clean = (t, tag) => {
+        for (const bad of ['lm-', 'rm-', 'rhyme-mirror', '\u200b', '≈', '≠', '✓']) expect(t, tag + '：不含 ' + JSON.stringify(bad)).not.toContain(bad);
+    };
+    const item = label => page.locator('#exportMenu .export-item').filter({ has: page.locator('.export-label', { hasText: label }) });
+    const download = async label => {
+        await page.locator('#exportToggle').click();
+        const [dl] = await Promise.all([page.waitForEvent('download'), item(label).click()]);
+        return readDownload(dl);
+    };
+    const txt = await download('TXT');
+    expect(txt).toContain('獨自站在窗前');
+    clean(txt, 'TXT');
+    const md = await download('Markdown');
+    expect(md).toContain('獨自站在窗前');
+    clean(md, 'Markdown');
+    // PDF 列印頁：只有標題與歌詞；標記、預覽、分析面板在列印時不顯示
+    await page.locator('#exportToggle').click();
+    await item('PDF').click();
+    expect(await page.evaluate(() => window.__printCount)).toBe(1);
+    await page.emulateMedia({ media: 'print' });
+    const sheet = await page.evaluate(() => {
+        const s = document.getElementById('printSheet');
+        return { html: s.innerHTML, text: s.textContent, marks: s.querySelectorAll('[class*="lm-"], [class*="rm-"]').length };
+    });
+    expect(sheet.text).toContain('獨自站在窗前');
+    expect(sheet.marks, '列印頁沒有 lm-／rm- 元素').toBe(0);
+    clean(sheet.html, '列印頁 HTML');
+    clean(sheet.text, '列印頁文字');
+    const visible = await page.evaluate(() => ['.lm-mk', '.lm-preview', '#rhymeAnalysis', '.rhyme-mirror'].map(q => [q, document.querySelectorAll(q).length, [...document.querySelectorAll(q)].filter(e => e.checkVisibility()).length]));
+    for (const [q, total, shownN] of visible) {
+        if (q !== '#rhymeAnalysis') expect(total, '前置：' + q + ' 存在').toBeGreaterThan(0);
+        expect(shownN, '列印時看不見 ' + q).toBe(0);
+    }
+    await page.emulateMedia({ media: 'screen' });
+    // 備份全部：JSON 只有資料，lh:map 是 lhRhymeSerialize 的輸出
+    const [bk] = await Promise.all([page.waitForEvent('download'), page.locator('.save-load-controls .save-load-btn >> nth=0').click()]);
+    const text = await readDownload(bk);
+    expect(text).not.toContain('lm-mk');
+    expect(text).not.toContain('rhymeAnalysis');
+    clean(JSON.stringify(JSON.parse(text).songs), '備份的歌曲');
+    expect(JSON.parse(text).settings['lh:map']).toBe(await page.evaluate(() => lhRhymeSerialize(_lhMapSet)));
+    expect(JSON.parse(text).settings['lh:map']).toBe(MAP_ALL);
+    expect(errors).toEqual([]);
+    await context.close();
 });
