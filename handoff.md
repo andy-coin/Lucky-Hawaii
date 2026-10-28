@@ -5,11 +5,19 @@
 - Pi Agent 預設連 ToshLLM (Qwen3.6)，profile: IQ50
 - `.devcontainer/docker-compose.yml` 的 ports 預設註解，web server 專案需取消註解
 
-## ▶ 夜間自動執行（2026-10-28，`/gsd-autonomous --from 10 --to 11`，Andy 睡覺授權自主決定；不 push 不部署）
+## ✅ Phase 11 句構分析與設定頁：8/8 計畫完成（2026-10-28，分支 gsd/v0.96-stabilize，沒 push；夜間 `/gsd-autonomous --from 10 --to 11`，停在這裡等 Andy）
 
-- Phase 10 收尾 ✅：審查 0 嚴重／3 警告全修（55b0404：`js/rhyme-map.js` 指定讀音改重畫整首、`js/wordlist.js` 詞庫載入完成一律重畫韻腳地圖、`tests/rhyme-map-perf.spec.mjs` 門檻乘 LH_PERF_SCALE、刪 `_lhMapDeferred`）；`npm test` 964 過／28 跳過／0 失敗；驗證 5/5 → human_needed，`10-UAT.md` 6 項（真機顏色、組字捲動、長按浮動列、SC4 要不要改「單擊就查」、自主決定、Linux 截圖）
-- Phase 11 句構分析與設定頁 ▶ 進行中：`11-CONTEXT.md`（自主決定 A～E）、`11-UI-SPEC.md`（核准，D-01～D-24）完成；研究 → 計畫 → 執行中
-- Phase 11 待 Andy 點頭的自主決定（CONTEXT 末段）：自動猜斷句（最長詞＋單字併前、「≈」標示）、對照對象自動（同類型前一段）、不做手動指定、只標差異、預設「靠右欄」、停留 1.5 秒自動分析且預設關、設定放進 ⚙️ 偏好設定、自訂色晝夜共用；UI-SPEC 覆寫：猜的結構用斜體不是淡色（淡色對比不夠）、選字浮動列不再限 20 字（整段反白才能分析）、「濃」在深色主題對比 4.14 不到 4.5（自選才有）
+- 狀態：Phase 10 收尾 ✅（審查 0 嚴重／3 警告全修）；Phase 11 計畫 11-01～11-08 全部做完，**待審查（`/gsd-code-review 11`）與驗證（`/gsd-verify-work 11`）**。GSD 的狀態、決策、各計畫摘要看 `.planning/phases/11-line-analysis-settings/`，這裡只記 GSD 沒記的。
+- 數字：`npm test` **1037 過／29 跳過／0 失敗**；`LH_PERF=1 npx playwright test tests/rhyme-map-perf.spec.mjs --workers=1` 3 過（150 行連打與全部標記開著連打最長任務 0 ms、200 行分析中位數 0.4 ms）；截圖 -darwin 全部沒變（預設沒有新畫面），-linux 沒動。
+- 新檔：`js/line-core.js`（字數、斷句、對照純函式）；`js/rhyme-map.js` 加逐行標記 `_lhMapMarker`（約 103 行）、偏好設定區塊 `lhMapPrefsBuild`（約 555 行）、分析面板 `lhMapAnalysisBuild`／`_lhMapAnContent`（約 1288 行）、反白停留 `_lhDwellArm`（約 1216 行）；`css/panels.css` 約 1450～1760 行是新樣式（靠右欄、`.lm-*`、`.rm-colors`、預覽）。
+- 11-08 補的檢查在 `tests/line-audit.spec.mjs` 後半（列印與匯出、惡意文字、不拼 HTML、setProperty 位置與無動畫、舊資料、顏色以外的線索）；唯一動到產品程式的是 `js/rhyme-map.js` 約 623 行，色票 input 監聽改成具名函式 `_lhMapColorInput`（讓掃描找得到），行為沒變。
+- 驗收清單已補：`.planning/TEST-CHECKLIST.md` Phase 11 一節（11-01-1…11-04-2、11-CTX-1…24）、`.planning/驗收清單-精簡版.md` 2-41～2-44、4-30～4-35、5-131～5-154，表頭題數 256。
+
+**待 Andy 出手**
+- 雲端容器執行 `npm run visual:update` 更新 -linux 截圖基準（第 5～11 階段累積）。
+- 真機／真眼睛才能判斷的（精簡版 2-41～2-44、4-30～4-35）：≈ 自動斷句合不合語感（已知誤切：風吹過熟悉的街道 → 2+4+2、不怕前方的路遙 → 2+5，自己加空白可改）；手機 390 寬靠右欄留的寫字寬度；標記字級與淡色日夜好不好讀；濃淡三段、深色「濃」可讀性、孤句在「淡」；長按選整段的浮動列＋分析面板位置；反白停留 1.5 秒手感；iOS／Android 原生色票；偏好設定在手機會不會太長；Safari／Firefox 標記不改換行；iPad 接觸控板會不會誤觸。這些全都沒有被自動測試當成已驗證。
+- 自主決定要點頭或搖頭（5-131～5-154）：最容易被推翻的是 ≈ 規則、預設靠右欄（36% 上限）、停留 1.5 秒預設關、「濃」＝40%、對照放每行下面一整列（不是 CONTEXT 說的多一欄）、「≈」只標猜的那一段（推翻 UI-SPEC D-04）、原生色票放在偏好設定而不是選單的色票對照（推翻 CONTEXT D3）。
+- 尚未解決／要留意：Safari／Firefox 沒有可測的瀏覽器，標記垂直對齊與 `.lm-t-s` 的 `overflow: clip` 只在 Chromium 量過；`__lhMapReady` 要等字典＋歌曲＋詞庫三件事（詞庫沒好時只有字數與明確斷點，≈ 稍後補上）。Phase 12 需 Andy 指定詞庫組合，沒開始。
 
 ## ▶ 夜間自動執行（2026-10-23，`/gsd-autonomous` 從 Phase 9 起，Andy 授權自主決定）
 
