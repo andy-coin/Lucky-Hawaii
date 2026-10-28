@@ -284,6 +284,12 @@ function lhMapSchedule(secEl) {
     _lhMapTimer = setTimeout(_lhMapFlush, Math.max(0, Math.min(LH_MAP_DEBOUNCE, _lhMapFirstAt + LH_MAP_MAXWAIT - now)));
 }
 
+// 段落的類型、名稱或順序改了（lhSecRefreshMeta）：對照段落可能換人，對照差異開著時每段都重排；沒變的會被快取略過
+function lhMapOnSectionsChanged() {
+    if (!_lhMapSet.line || !_lhMapSet.lnDiff) return;
+    for (const el of document.getElementById('lyricsSections').children) lhMapSchedule(el);
+}
+
 function _lhMapFlush() {
     _lhMapTimer = 0;
     // 一次只畫一段，畫完還有就再排一次：對照差異開著時同類型的段落會一起排，全塞在同一個任務裡會變成長任務（11-02 實測）

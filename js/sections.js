@@ -87,6 +87,7 @@ function lhSecRefreshMeta() {
         }
     });
     lhSecMenuSync();
+    if (typeof lhMapOnSectionsChanged === 'function') lhMapOnSectionsChanged();   // 對照差異跟著新的對照段落走
 }
 
 // 刪除段落（C5）：不問、立刻刪，下方 5 秒內可按「復原」；只剩一段時什麼都不做

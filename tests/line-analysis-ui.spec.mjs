@@ -182,6 +182,28 @@ test('對照：打開對照差異，同類型第一段的同一行字數不同�
     await context.close();
 });
 
+// 審查 WR-01：改段落類型只走 lhSecRefreshMeta，不經過打字排程；對照段落換人後 ≠ 也要跟著換
+test('對照：改了段落類型，對照段落換人，≠ 跟著更新', async ({ browser }) => {
+    const sections = [
+        typed('s1', 'verse', ['我望著遠方的光', '獨自站在窗', '走過熟悉的街道'].join('\n')),
+        typed('s3', 'verse', ['我望著遠方的光', '獨自站在窗前', '走過熟悉的街道'].join('\n')),
+        typed('s4', 'verse', '月光 灑在 窗前'),
+    ];
+    const { context, page, errors } = await bootPage(browser, {
+        wordlist: 'stub',
+        storage: v2Storage([song(sections)], { ...OPEN_PANELS, 'lh:map': JSON.stringify({ line: true, lnDiff: true }) }),
+    });
+    expect(await diffTokens(page, 1)).toEqual(['', '≠5', '']);
+    expect(await diffTokens(page, 2)).toEqual(['≠7']);
+    // 第一段 Verse → 下一個類型：原本的 Verse II 變成第一個 Verse，自己沒有對照；Verse III 改對它
+    await page.locator('.lyrics-section').first().locator('.section-type').click();
+    expect(await page.evaluate(() => curSong().sections[0].type)).not.toBe('verse');
+    await expect.poll(() => diffTokens(page, 1), { timeout: 1500 }).toEqual(['', '', '']);
+    expect(await diffTokens(page, 2)).toEqual(['≠7']);
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
 const F_ABAB = ['我望著遠方的光', '走過熟悉的街道', '你笑著說天亮', '不怕前方的路遙'].join('\n');
 const openPrefs = page => page.evaluate(() => lhMapOpenPrefs());
 
