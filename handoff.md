@@ -7,8 +7,8 @@
 
 ## ✅ Phase 11 句構分析與設定頁：8/8 計畫完成（2026-10-28，分支 gsd/v0.96-stabilize，沒 push；夜間 `/gsd-autonomous --from 10 --to 11`，停在這裡等 Andy）
 
-- 狀態：Phase 10 收尾 ✅（審查 0 嚴重／3 警告全修）；Phase 11 計畫 11-01～11-08 全部做完，**待審查（`/gsd-code-review 11`）與驗證（`/gsd-verify-work 11`）**。GSD 的狀態、決策、各計畫摘要看 `.planning/phases/11-line-analysis-settings/`，這裡只記 GSD 沒記的。
-- 數字：`npm test` **1037 過／29 跳過／0 失敗**；`LH_PERF=1 npx playwright test tests/rhyme-map-perf.spec.mjs --workers=1` 3 過（150 行連打與全部標記開著連打最長任務 0 ms、200 行分析中位數 0.4 ms）；截圖 -darwin 全部沒變（預設沒有新畫面），-linux 沒動。
+- 狀態：Phase 10 收尾 ✅（審查 0 嚴重／3 警告全修）；Phase 11 計畫 11-01～11-08 全部做完；審查 0 嚴重／1 警告已修（03709a9：`js/sections.js:90` `lhSecRefreshMeta` 呼叫新的 `lhMapOnSectionsChanged`（`js/rhyme-map.js`），段落改類型／名稱／順序後 ≠ 跟著換）；驗證 3/3 → human_needed，`11-UAT.md` 7 項，下一步 `/gsd-verify-work 11`。GSD 的狀態、決策、各計畫摘要看 `.planning/phases/11-line-analysis-settings/`，這裡只記 GSD 沒記的。
+- 數字：`npm test` **1038 過／29 跳過／0 失敗**；`LH_PERF=1 npx playwright test tests/rhyme-map-perf.spec.mjs --workers=1` 3 過（150 行連打與全部標記開著連打最長任務 0 ms、200 行分析中位數 0.4 ms）；截圖 -darwin 全部沒變（預設沒有新畫面），-linux 沒動。
 - 新檔：`js/line-core.js`（字數、斷句、對照純函式）；`js/rhyme-map.js` 加逐行標記 `_lhMapMarker`（約 103 行）、偏好設定區塊 `lhMapPrefsBuild`（約 555 行）、分析面板 `lhMapAnalysisBuild`／`_lhMapAnContent`（約 1288 行）、反白停留 `_lhDwellArm`（約 1216 行）；`css/panels.css` 約 1450～1760 行是新樣式（靠右欄、`.lm-*`、`.rm-colors`、預覽）。
 - 11-08 補的檢查在 `tests/line-audit.spec.mjs` 後半（列印與匯出、惡意文字、不拼 HTML、setProperty 位置與無動畫、舊資料、顏色以外的線索）；唯一動到產品程式的是 `js/rhyme-map.js` 約 623 行，色票 input 監聽改成具名函式 `_lhMapColorInput`（讓掃描找得到），行為沒變。
 - 驗收清單已補：`.planning/TEST-CHECKLIST.md` Phase 11 一節（11-01-1…11-04-2、11-CTX-1…24）、`.planning/驗收清單-精簡版.md` 2-41～2-44、4-30～4-35、5-131～5-154，表頭題數 256。
