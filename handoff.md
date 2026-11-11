@@ -1,3 +1,11 @@
+## 🌙 夜間三線並行（2026-11-12，分支 overnight/2026-11-12，進行中）
+
+- 三個 subagent 各在自己的 worktree 工作，完成後由主 session 合併回 `overnight/2026-11-12`，再統一升 `?v=`：
+  - `../Lucky Hawaii-wt-ui`（overnight/ui）：1-a 整體視覺重設計、1-b AI 參考內容可視化、1-c 新手導覽 spotlight、1-d 標籤多筆新增＋inline 輸入＋標籤摘要板塊移到歌詞上方。待決 → `OVERNIGHT-ui.md`
+  - `../Lucky Hawaii-wt-lexicon`（overnight/lexicon）：2 潮流用語／人名／作品名研究與自建詞庫，疊加在所有詞庫包上。待決 → `OVERNIGHT-lexicon.md`
+  - `../Lucky Hawaii-wt-rhyme`（overnight/rhyme）：3-a 標點與空格前也算句尾、3-b 雙押多押偵測、1-e 韻腳色票依背景亮度重配。待決 → `OVERNIGHT-rhyme.md`
+- 測試埠：ui 4311／lexicon 4312／rhyme 4313
+
 ## Docker 開發容器
 
 - 已設定完成，容器名稱：`lucky-hawaii-dev`
