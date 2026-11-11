@@ -1056,8 +1056,8 @@ test('韻族顏色：對比提醒', async ({ browser }) => {
         }
         return bad;
     });
-    expect(worst.length, '深色 濃 的預設色有幾個讀不清楚').toBe(5);
-    await expect(advice(page)).toHaveText(`${worst.slice(0, 3).join('、')}等 5 個顏色在目前主題下讓字不太好讀（對比低於 4.5:1），可以選淡一點的顏色，或調低「句尾上色濃淡」`);
+    expect(worst.length, '深色 濃 的預設色有幾個讀不清楚（overnight/rhyme 重配色後 8 個）').toBe(8);
+    await expect(advice(page)).toHaveText(`${worst.slice(0, 3).join('、')}等 8 個顏色在目前主題下讓字不太好讀（對比低於 4.5:1），可以選淡一點的顏色，或調低「句尾上色濃淡」`);
     // 標準：消失
     await lookRadio(page, 'depth', 'std').click();
     await expect(advice(page)).toBeHidden();

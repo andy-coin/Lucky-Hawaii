@@ -2087,3 +2087,21 @@ test('子句與多押：行中句尾上色、雙押標示、統計與開關', as
     expect(errors).toEqual([]);
     await context.close();
 });
+
+// overnight/rhyme：色票組看卡片底色的實際亮度，不看主題名稱（UI 改版換了底色也會自動跟上）
+test('配色：依底色亮度自動選組', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, { wordlist: 'stub', storage: v2Storage([song([typed('sa', 'verse', F_AABB)])]) });
+    const c0 = () => page.evaluate(() => document.documentElement.style.getPropertyValue('--rm-c0'));
+    expect(await c0()).toBe(await page.evaluate(() => LH_RHYME_COLORS.light[0]));
+    // 淺色主題但底色被改成很暗：用 dark 組
+    await page.evaluate(() => { document.documentElement.style.setProperty('--card-bg', '#202020'); lhMapApplyPalette(); });
+    expect(await c0()).toBe(await page.evaluate(() => LH_RHYME_COLORS.dark[0]));
+    // 深色主題但底色是亮的：用 light 組
+    await page.evaluate(() => { document.documentElement.style.setProperty('--card-bg', '#fafafa'); applyTheme(true, false); });
+    expect(await c0()).toBe(await page.evaluate(() => LH_RHYME_COLORS.light[0]));
+    // 底色透明量不到：退回看主題
+    await page.evaluate(() => { document.documentElement.style.setProperty('--card-bg', 'transparent'); lhMapApplyPalette(); });
+    expect(await c0()).toBe(await page.evaluate(() => LH_RHYME_COLORS.dark[0]));
+    expect(errors).toEqual([]);
+    await context.close();
+});

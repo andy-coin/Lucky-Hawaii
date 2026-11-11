@@ -223,10 +223,11 @@ const lumOf = h => {
 const contrastOf = (a, b) => { const x = lumOf(a), y = lumOf(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); };
 const PALETTES = ev('LH_RHYME_COLORS');
 const MIX = ev('LH_RHYME_MIX');
-// [色票組, 文字色, 卡片底色]：預設淺色用淺色組、預設深色用深色組；四個客製極端兩組都要過（UI-SPEC 2.2）
-const EXTREMES = [['#000000', '#ffffff'], ['#ffffff', '#000000'], ['#2d3748', '#fffaf0'], ['#d2c8b7', '#111c31']];
+// [色票組, 文字色, 卡片底色]：預設淺色用淺色組、預設深色用深色組；客製極端（UI-SPEC 2.2）。
+// overnight/rhyme 起哪一組由卡片底色的亮度決定（亮底只會用 light 組、暗底只會用 dark 組），所以極端值各測自己那一側
+const EXTREMES = { light: [['#000000', '#ffffff'], ['#2d3748', '#fffaf0']], dark: [['#ffffff', '#000000'], ['#d2c8b7', '#111c31']] };
 const TEXT_ON_CARD = [['light', '#2d3748', '#f7fafc'], ['dark', '#d2c8b7', '#2d3748'],
-    ...['light', 'dark'].flatMap(set => EXTREMES.map(([t, c]) => [set, t, c]))];
+    ...['light', 'dark'].flatMap(set => EXTREMES[set].map(([t, c]) => [set, t, c]))];
 
 test('對比：色票格式與文字對比', () => {
     for (const set of ['light', 'dark']) {
@@ -243,7 +244,7 @@ test('對比：色票格式與文字對比', () => {
     }
 });
 
-// 濃淡三段（11-03，UI-SPEC D-14）：標準＝第 10 階段；淡、標準兩段每個組合都要 4.5:1；濃是使用者自己選的，淺色最差 6.32、深色最差 4.14，且深色 16 色有 5 色低於 4.5
+// 濃淡三段（11-03，UI-SPEC D-14）：標準＝第 10 階段；淡、標準兩段每個組合都要 4.5:1；濃是使用者自己選的，淺色最差 5.30、深色最差 4.28，且深色 16 色有 8 色低於 4.5（overnight/rhyme 重配色後）
 test('對比：濃淡三段', () => {
     const DEPTH = ev('LH_MAP_DEPTH');
     expect(Object.keys(DEPTH)).toEqual(['light', 'std', 'heavy']);
@@ -264,9 +265,9 @@ test('對比：濃淡三段', () => {
     // 濃：只量預設兩組（16 個韻族，空韻不開放自訂）
     const worst = (set, text, card) => PALETTES[set].slice(0, 16).map(color => contrastOf(text, mixHex(color, card, DEPTH.heavy[0])));
     const light = worst('light', '#2d3748', '#f7fafc'), dark = worst('dark', '#d2c8b7', '#2d3748');
-    expect(Math.min(...light).toFixed(2)).toBe('6.32');
-    expect(Math.min(...dark).toFixed(2)).toBe('4.14');
-    expect(dark.filter(c => c < 4.5)).toHaveLength(5);
+    expect(Math.min(...light).toFixed(2)).toBe('5.30');
+    expect(Math.min(...dark).toFixed(2)).toBe('4.28');
+    expect(dark.filter(c => c < 4.5)).toHaveLength(8);
     expect(light.filter(c => c < 4.5)).toHaveLength(0);
     // 孤句（較淡的那一層）濃也不會比標準差：混合比例比主色塊小
     for (const color of PALETTES.dark.slice(0, 16)) {
@@ -582,4 +583,21 @@ test('多押：嚴格模式跟著 lhRhymeMatch', () => {
     // 走（ㄡ）／我（ㄨㄛ）同在ㄛ韻族：寬韻算雙押，嚴格韻母不同就不算
     expect(ends('轉身走開\n換我來', { multi: true })).toEqual(['開×2', '來×2']);
     expect(ends('轉身走開\n換我來', { multi: true, strict: true })).toEqual(['開', '來']);
+});
+
+// 重配色（overnight/rhyme C）：色塊對卡片底色要夠明顯；編號相鄰、發音相近的韻族色差要夠大（OKLab ΔE×100，實際混進卡片後的色塊比）
+test('對比：色塊明顯、相近韻族分得開', () => {
+    const lin = v => { v /= 255; return v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; };
+    const lab = h => {
+        const [r, g, b] = rgbOf(h).map(lin);
+        const l = Math.cbrt(0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b), m = Math.cbrt(0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b), s = Math.cbrt(0.0883024619 * r + 0.2817188376 * g + 0.6299787005 * b);
+        return [0.2104542553 * l + 0.793617785 * m - 0.0040720468 * s, 1.9779984951 * l - 2.428592205 * m + 0.4505937099 * s, 0.0259040371 * l + 0.7827717662 * m - 0.808675766 * s];
+    };
+    const dE = (a, b) => { const x = lab(a), y = lab(b); return Math.hypot(x[0] - y[0], x[1] - y[1], x[2] - y[2]) * 100; };
+    const NEAR = [...Array.from({ length: 15 }, (_, i) => [i, i + 1]), [0, 2], [9, 10], [11, 12], [11, 13], [12, 13], [12, 15], [14, 15], [6, 7], [4, 5], [3, 7], [8, 4], [1, 4], [1, 15], [10, 13], [9, 11]];
+    for (const [set, card, minSal] of [['light', '#f7fafc', 1.6], ['dark', '#2d3748', 1.38]]) {
+        const fills = PALETTES[set].map(c => mixHex(c, card, MIX.end));
+        for (let n = 0; n < 16; n++) expect(contrastOf(fills[n], card), `${set} 色 ${n} 對底色`).toBeGreaterThanOrEqual(minSal);
+        for (const [a, b] of NEAR) expect(dE(fills[a], fills[b]), `${set} 韻族 ${a}／${b}`).toBeGreaterThanOrEqual(4.5);
+    }
 });

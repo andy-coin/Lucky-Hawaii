@@ -19,13 +19,31 @@ const _lhMapPending = new Set();   // 等著重算的段落 id
 let _lhMapTimer = 0;
 let _lhMapFirstAt = 0;             // 這一批第一次編輯的時間
 
-// 一個韻族目前實際用的顏色：使用者自訂的（lh:map.colors，日夜共用，已整理成小寫 #rrggbb），沒有就用目前主題的預設色
+// 色塊混進去的底（--card-bg）夠暗就用 dark 組：量的是實際算出來的顏色，不是主題名稱，所以主題的底色以後怎麼改都會跟著。
+// 判斷法和「這個底上該放白字還是黑字」一樣：對白色的對比比對黑色高就算暗。量不到（還沒有 body、底色透明）才退回看 data-theme
+let _lhMapBgDark = false;
+let _lhMapBgProbe = null;
+function _lhMapMeasureBg() {
+    if (!document.body) return document.documentElement.getAttribute('data-theme') === 'dark';
+    if (!_lhMapBgProbe) {
+        _lhMapBgProbe = document.createElement('span');
+        _lhMapBgProbe.hidden = true;
+        _lhMapBgProbe.style.background = 'var(--card-bg)';
+    }
+    if (!_lhMapBgProbe.isConnected) document.body.appendChild(_lhMapBgProbe);
+    const m = getComputedStyle(_lhMapBgProbe).backgroundColor.match(/[\d.]+/g);
+    if (!m || m.length < 3 || (m.length > 3 && +m[3] === 0)) return document.documentElement.getAttribute('data-theme') === 'dark';
+    const bg = m.slice(0, 3).map(Number);
+    return lhRhymeContrast(bg, [255, 255, 255]) > lhRhymeContrast(bg, [0, 0, 0]);
+}
+// 一個韻族目前實際用的顏色：使用者自訂的（lh:map.colors，日夜共用，已整理成小寫 #rrggbb），沒有就用目前底色那一組的預設色
 function _lhMapEffColor(n) {
     const c = n < 16 ? _lhMapSet.colors[String(n)] : undefined;
-    return c || (document.documentElement.getAttribute('data-theme') === 'dark' ? LH_RHYME_COLORS.dark : LH_RHYME_COLORS.light)[n];
+    return c || (_lhMapBgDark ? LH_RHYME_COLORS.dark : LH_RHYME_COLORS.light)[n];
 }
-// 17 色寫成 CSS 變數 --rm-c0…--rm-c16：自訂色優先，其次深色主題用 dark 組、其餘 light 組（色碼只存在 JS 與 lh:map，CSS 不寫色碼）
+// 17 色寫成 CSS 變數 --rm-c0…--rm-c16：自訂色優先，其次依底色亮度選 dark／light 組（色碼只存在 JS 與 lh:map，CSS 不寫色碼）
 function lhMapApplyPalette() {
+    _lhMapBgDark = _lhMapMeasureBg();
     for (let n = 0; n <= LH_RHYME_NONE; n++) {
         const hex = _lhMapEffColor(n);
         if (LH_MAP_HEX.test(hex)) document.documentElement.style.setProperty('--rm-c' + n, hex);

@@ -56,12 +56,16 @@ function lhRhymeSerialize(set) {
     if (Object.keys(s.colors).length) o.colors = s.colors;
     return JSON.stringify(o);
 }
-// 17 色：0–15 依 RHYME_FAMILIES 順序，16 是沒有家族的韻（空韻 ㄓㄔㄕㄖㄗㄘㄙ 等）用的中性灰
+// 17 色：0–15 依 RHYME_FAMILIES 順序，16 是沒有家族的韻（空韻 ㄓㄔㄕㄖㄗㄘㄙ 等）用的中性灰。
+// 選色方式（overnight/rhyme，數字見 OVERNIGHT-rhyme.md）：用 OKLCH 每 22.5° 取一個色相，在「混進卡片底色後的亮度」固定的前提下把彩度拉到最高，
+// 再把顏色重新分配給韻族，讓編號相鄰與發音相近的韻族（ㄢ／ㄧㄢ、ㄣ／ㄥ／ㄧㄣ、ㄤ／ㄨㄥ、ㄝ／ㄞ…）色差最大（含紅綠色盲模擬）。
+// light 組給亮底：色塊比舊版深，對底色更明顯，深色字仍 ≥ 6:1；dark 組給暗底：色塊亮度壓在淺色字 4.5:1 的上限附近、彩度拉高。
+// 哪一組由卡片底色的實際亮度決定（rhyme-map.js 的 _lhMapBgDark），不是看主題名稱
 const LH_RHYME_COLORS = Object.freeze({
-    light: Object.freeze(['#d9534f', '#e8833a', '#d4a017', '#9aab2a', '#4caf50', '#2e9e74', '#1fa5a5', '#2f8fd0',
-        '#4a6fd6', '#7b61d6', '#a255cf', '#c94fb0', '#d94f86', '#8a6d4b', '#6b7f8f', '#8a4f7d', '#8a8f98']),
-    dark: Object.freeze(['#c9524e', '#d9803a', '#b58910', '#8a9b22', '#3f9e44', '#2a9270', '#1c9696', '#2a82c2',
-        '#4a63c8', '#6a50d0', '#a24cc0', '#b9479f', '#c94a7a', '#7d6144', '#607382', '#b06a8a', '#7a808a'])
+    light: Object.freeze(['#017967', '#4f26a7', '#5b3403', '#951283', '#3d3d02', '#067490', '#074a28', '#427300',
+        '#0f4064', '#9744c1', '#034649', '#7d600a', '#cf387c', '#3b5edf', '#be0c32', '#c04a06', '#828288']),
+    dark: Object.freeze(['#0e9ca2', '#e2590e', '#4a70f2', '#04a35e', '#df5fc8', '#d37e01', '#e64a8e', '#9476ff',
+        '#ff5e69', '#ab55d7', '#9b7802', '#078d78', '#90910f', '#0593e6', '#508809', '#0e87a7', '#7c7c82'])
 });
 // 底色混合比例（百分比）：句尾字、孤句、句中押韻
 const LH_RHYME_MIX = Object.freeze({ end: 34, orphan: 17, inner: 30 });
