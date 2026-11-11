@@ -461,7 +461,6 @@ test('設定：矮螢幕上對話框不超出、可以捲', async ({ browser }) 
             ['設定', '#settingsOverlay', '.settings-dropdown', 'toggleSettings()'],
             ['關於', '#aboutOverlay', '.about-content', 'toggleAbout()'],
             ['回報', '#feedbackModalOverlay', '.feedback-modal', 'openFeedbackModal()'],
-            ['標籤', '#hashtagPopupOverlay', '.hashtag-popup', 'openHashtagPopup()'],
         ];
         for (const [name, overlay, box, open] of dialogs) {
             await page.evaluate(open);
@@ -971,7 +970,6 @@ test('版面：圖層順序', async ({ browser }) => {
             ['遮罩', await z(page, '#mobileBackdrop')],
             ['底部面板', await z(page, '#leftPanel')],
             ['分頁列', await z(page, '#mobileTabBar')],
-            ['標籤視窗', await z(page, '#hashtagPopupOverlay')],
             ['設定／關於', await z(page, '#settingsOverlay')],
             ['關於', await z(page, '#aboutOverlay')],
             ['複製提示', await z(page, '.copy-toast')],
@@ -1487,17 +1485,17 @@ test('鍵盤：寫歌詞時情境區自動收起、回報視窗輸入框看得�
 // 電腦視窗加上 isMobile＋hasTouch：這個組合在 Chromium 會回報 pointer: coarse（平板接鍵盤滑鼠之外的純觸控大螢幕）
 const TOUCH_DESKTOP = { ...DEVICES.desktop, isMobile: true, hasTouch: true };
 const FLOOR_CONTEXTS = [['手機 390×844', DEVICES.phone], ['平板 820×1180', DEVICES.tablet], ['橫放手機 844×390', DEVICES.phoneLandscape], ['觸控電腦 1440×900', TOUCH_DESKTOP]];
-const OVERLAY_OPEN = { settings: ['#settingsOverlay', 'toggleSettings()'], feedback: ['#feedbackModalOverlay', 'openFeedbackModal()'], hashtag: ['#hashtagPopupOverlay', 'openHashtagPopup()'] };
+const OVERLAY_OPEN = { settings: ['#settingsOverlay', 'toggleSettings()'], feedback: ['#feedbackModalOverlay', 'openFeedbackModal()'] };
 // 每個狀態：開啟、該狀態一定要掃到的控制項（防止「掃了個寂寞」）、關閉
 const INPUT_STATES = [
     ['閒置', ['input#searchInput'], async () => {}, async () => {}],
-    ['歌詞開著', ['textarea.section-textarea', 'textarea#contextDescription'],
+    ['歌詞開著', ['textarea.section-textarea', 'textarea#contextDescription', 'input#hashtagInput'],
         (page, d) => toggleSide(page, d, 'lyrics'), (page, d) => isWide(d) ? toggleSide(page, d, 'lyrics') : closeSheet(page, d)],
     ['AI 開著', ['select#modelSelect'],
         (page, d) => toggleSide(page, d, 'ai'), (page, d) => isWide(d) ? toggleSide(page, d, 'ai') : closeSheet(page, d)],
-    ...Object.entries({ 設定開著: 'settings', 回報開著: 'feedback', 標籤開著: 'hashtag' }).map(([name, key]) => [
+    ...Object.entries({ 設定開著: 'settings', 回報開著: 'feedback' }).map(([name, key]) => [
         name,
-        key === 'feedback' ? ['input#feedbackSubject', 'textarea#feedbackBody'] : key === 'hashtag' ? ['input#hashtagPopupInput'] : ['input#searchInput'],
+        key === 'feedback' ? ['input#feedbackSubject', 'textarea#feedbackBody'] : ['input#searchInput'],
         // 對話框跟其他測試一樣直接呼叫開啟函式（橫放手機的標題區被藏起來，設定鈕本來就點不到）
         async page => { await page.evaluate(OVERLAY_OPEN[key][1]); await expect(page.locator(OVERLAY_OPEN[key][0])).toHaveClass(/show/); },
         page => page.evaluate(sel => document.querySelector(sel).classList.remove('show'), OVERLAY_OPEN[key][0]),
@@ -1646,7 +1644,7 @@ const TOUCH_STATES = [
         await page.fill('#searchInput', '樂');
         await settle(page);
     }],
-    ['歌詞開著', ['button.section-handle', 'button.section-remove', 'button.panel-add-btn', 'button.hashtag-add-btn', 'button.context-refresh-btn', 'span.chip-remove', 'span.hashtag-chip', 'button.section-type', 'button#undoBtn', 'button#redoBtn', 'button#rhymeMenuBtn', 'div.context-section-header', '.lyrics-section.collapsed button.section-remove', 'div.section-resize'],
+    ['歌詞開著', ['button.section-handle', 'button.section-remove', 'button.panel-add-btn', 'button.hashtag-add-btn', 'input#hashtagInput', 'button.context-refresh-btn', 'span.chip-remove', 'span.hashtag-chip', 'button.section-type', 'button#undoBtn', 'button#redoBtn', 'button#rhymeMenuBtn', 'div.context-section-header', '.lyrics-section.collapsed button.section-remove', 'div.section-resize'],
         (page, d) => toggleSide(page, d, 'lyrics')],
     ['段落設定開著', ['button.swatch', 'input[type=color]', 'button.type-row', 'input.section-name-input', 'button.section-move-up', 'button.section-move-down', 'button.section-menu-close', 'button.section-color-none'], async (page, d) => {
         await toggleSide(page, d, 'lyrics');
@@ -1667,9 +1665,6 @@ const TOUCH_STATES = [
     }],
     ['回報開著', ['button.feedback-send-btn', 'button.feedback-cancel-btn', 'input#feedbackSubject'], async page => {
         await page.evaluate(() => openFeedbackModal()); await expect(page.locator('#feedbackModalOverlay')).toHaveClass(/show/);
-    }],
-    ['標籤開著', ['button.hashtag-popup-cancel', 'button.hashtag-popup-confirm', 'input#hashtagPopupInput'], async page => {
-        await page.evaluate(() => openHashtagPopup()); await expect(page.locator('#hashtagPopupOverlay')).toHaveClass(/show/);
     }],
 ];
 const bootTouch = (browser, device, extra = {}) => bootPage(browser, { device, storage: TOUCH_STORAGE, ...extra });

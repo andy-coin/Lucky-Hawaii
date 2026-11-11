@@ -355,23 +355,28 @@
                     <p id="songListHint" class="song-list-hint">按「＋ 新增歌曲」可以再寫一首</p>
                 </aside>
                 <div class="lyrics-main">
-                    <div class="lyrics-tools"><div class="undo-group" role="group" aria-label="復原與重做"><button type="button" id="undoBtn" class="undo-btn" aria-label="復原上一步" aria-disabled="true">↶</button><button type="button" id="redoBtn" class="undo-btn" aria-label="重做上一步" aria-disabled="true">↷</button></div><button type="button" id="rhymeMenuBtn" class="rhyme-menu-btn" aria-haspopup="dialog" aria-expanded="false" aria-label="韻腳地圖設定">韻腳 ▾</button><span id="songTotal" class="lyrics-total">共 0 字</span></div>
-                    <div class="lyrics-area" id="lyricsSections">載入歌詞中…</div>
+                    <!-- 標籤 ＆ 情境放在歌詞上面（Andy 1-d）：先定方向，再往下寫歌詞；兩者都會送給 AI 參考 -->
                     <div class="context-section" id="contextSection">
                         <div class="context-section-header" onclick="toggleContextSection()">
-                            <span class="context-section-title">情境 ＆ 標籤</span>
-                            <button class="hashtag-add-btn" onclick="openHashtagPopup();event.stopPropagation()" title="新增標籤">+</button>
-                            <button class="context-refresh-btn" title="從歌詞自動生成" onclick="generateContextFromLyrics();event.stopPropagation()">↻</button>
-                            <span class="context-chevron" id="contextChevron">▾</span>
+                            <span class="context-section-title">標籤 ＆ 情境</span>
+                            <button type="button" class="hashtag-add-btn" onclick="openHashtagPopup();event.stopPropagation()" title="新增標籤" aria-label="新增標籤">+</button>
+                            <button type="button" class="context-refresh-btn" title="從歌詞自動生成情境與標籤" aria-label="從歌詞自動生成情境與標籤" onclick="generateContextFromLyrics();event.stopPropagation()">↻</button>
+                            <span class="context-chevron" id="contextChevron" aria-hidden="true">▾</span>
                         </div>
                         <div class="context-body" id="contextBody">
-                            <textarea class="context-textarea" id="contextDescription" rows="5"
-                                placeholder="描述歌曲情境、風格、主題…"></textarea>
-                            <div class="hashtag-chips" id="hashtagChips">
-                                <span style="color:var(--text-secondary);font-size:0.83rem;">新增標籤來引導 AI</span>
+                            <div class="hashtag-field">
+                                <div class="hashtag-chips" id="hashtagChips">
+                                    <span style="color:var(--text-secondary);font-size:0.83rem;">新增標籤來引導 AI</span>
+                                </div>
+                                <input type="text" id="hashtagInput" class="hashtag-input" enterkeyhint="done" autocomplete="off"
+                                    placeholder="加標籤，按 Enter（可用、或空白一次加多個）" aria-label="新增標籤，可用頓號、逗號或空白一次加多個">
                             </div>
+                            <textarea class="context-textarea" id="contextDescription" rows="3"
+                                placeholder="一兩句話寫下這首歌的情境、風格、主題…"></textarea>
                         </div>
                     </div>
+                    <div class="lyrics-tools"><div class="undo-group" role="group" aria-label="復原與重做"><button type="button" id="undoBtn" class="undo-btn" aria-label="復原上一步" aria-disabled="true">↶</button><button type="button" id="redoBtn" class="undo-btn" aria-label="重做上一步" aria-disabled="true">↷</button></div><button type="button" id="rhymeMenuBtn" class="rhyme-menu-btn" aria-haspopup="dialog" aria-expanded="false" aria-label="韻腳地圖設定">韻腳 ▾</button><span id="songTotal" class="lyrics-total">共 0 字</span></div>
+                    <div class="lyrics-area" id="lyricsSections">載入歌詞中…</div>
                 </div>
             </div>
         </div>
@@ -425,20 +430,6 @@
                         <span style="color:var(--text-secondary);font-size:0.82rem;">點擊上方詞彙保留</span>
                     </div>
                 </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- 標籤新增 Popup -->
-    <div class="hashtag-popup-overlay" id="hashtagPopupOverlay" onclick="if(event.target===this)closeHashtagPopup()">
-        <div class="hashtag-popup">
-            <div class="hashtag-popup-title"># 新增標籤</div>
-            <input type="text" id="hashtagPopupInput" class="hashtag-popup-input"
-                placeholder="輸入標籤名稱（不需加 #）"
-                onkeydown="if(event.isComposing||event.keyCode===229)return;if(event.key==='Enter'){confirmHashtagPopup();event.preventDefault()}if(event.key==='Escape')closeHashtagPopup()">
-            <div class="hashtag-popup-btns">
-                <button class="hashtag-popup-cancel" onclick="closeHashtagPopup()">取消</button>
-                <button class="hashtag-popup-confirm" onclick="confirmHashtagPopup()">新增</button>
             </div>
         </div>
     </div>

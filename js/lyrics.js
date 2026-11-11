@@ -5,36 +5,53 @@
             lhSet('recentPanelCollapsed', panel.classList.contains('collapsed'));
         }
 
-        function addHashtag(tagValue) {
-            const tag = (tagValue || '').trim().replace(/^#/, '');
-            const song = curSong();
-            if (!tag || !song) return;
-            if (!song.hashtags.includes(tag)) {
-                song.hashtags.push(tag);
-                markDirty(song.id);
-                flushSongs();
-                renderHashtags();
+        // 一次可以加好幾個：頓號、逗號、分號、空白、# 都當分隔；去掉空的與重複的（Andy 1-d）
+        // 和「從歌詞自動生成」解析 AI 回覆的標籤用同一套分隔
+        function lhParseTags(str) {
+            const out = [];
+            for (const t of String(str || '').split(/[,，、;；\s#＃]+/)) {
+                const tag = t.trim();
+                if (tag && !out.includes(tag)) out.push(tag);
             }
+            return out;
         }
 
+        // 回傳實際新增了幾個（已經有的不重複加）
+        function addHashtag(tagValue) {
+            const song = curSong();
+            if (!song) return 0;
+            const fresh = lhParseTags(tagValue).filter(t => !song.hashtags.includes(t));
+            if (!fresh.length) return 0;
+            song.hashtags.push(...fresh);
+            markDirty(song.id);
+            flushSongs();
+            renderHashtags();
+            return fresh.length;
+        }
+
+        // 標籤輸入直接在板塊上（不再彈視窗）。+ 鈕：框裡有字就加進去，沒字就展開板塊並把游標放進框
         function openHashtagPopup() {
-            const overlay = document.getElementById('hashtagPopupOverlay');
-            const input = document.getElementById('hashtagPopupInput');
-            if (!overlay) return;
+            const input = document.getElementById('hashtagInput');
+            if (!input) return;
+            if (input.value.trim()) { commitHashtagInput(); return; }
+            const s = document.getElementById('contextSection');
+            if (s && s.classList.contains('collapsed')) toggleContextSection();
+            input.focus();
+        }
+
+        function commitHashtagInput() {
+            const input = document.getElementById('hashtagInput');
+            if (!input) return;
+            const n = addHashtag(input.value);
             input.value = '';
-            overlay.classList.add('show');
-            setTimeout(() => input.focus(), 80);
+            if (n > 1) lhAnnounce('已新增 ' + n + ' 個標籤');
         }
 
-        function closeHashtagPopup() {
-            document.getElementById('hashtagPopupOverlay')?.classList.remove('show');
-        }
-
-        function confirmHashtagPopup() {
-            const input = document.getElementById('hashtagPopupInput');
-            addHashtag(input?.value || '');
-            closeHashtagPopup();
-        }
+        document.getElementById('hashtagInput')?.addEventListener('keydown', e => {
+            if (e.isComposing || e.keyCode === 229) return;   // 組字中的 Enter 是選字
+            if (e.key === 'Enter') { e.preventDefault(); commitHashtagInput(); }
+            else if (e.key === 'Escape') { e.target.value = ''; }
+        });
 
         function removeHashtag(tag) {
             const song = curSong();

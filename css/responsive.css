@@ -67,7 +67,7 @@
             .lyrics-section .section-body { display: flex; flex-direction: column; flex: 1 1 auto; }
             .lyrics-section .section-textarea { flex: 1 1 auto; min-height: 7rem; }
             .section-type { min-width: var(--hit); text-overflow: ellipsis; }
-            .context-section { flex: 0 0 33%; }
+            .context-section { flex: 0 1 auto; max-height: 40%; }
             .context-section.collapsed { flex: 0 0 calc(var(--hit) + 1px); }
             .context-section-header { min-height: var(--hit); }
             .hashtag-chip { min-width: 0; max-width: 100%; overflow-wrap: anywhere; }
@@ -388,71 +388,22 @@
         /* 情境 textarea 填滿剩餘空間 */
         .context-textarea { flex: 1; min-height: 3.75rem; }
 
-        /* 標籤 Popup */
-        .hashtag-popup-overlay {
-            position: fixed;
-            inset: 0;
-            background: rgba(0,0,0,0.35);
-            z-index: 960;
-            display: none;
-            align-items: center;
-            justify-content: center;
-        }
-        .hashtag-popup-overlay.show { display: flex; }
-        .hashtag-popup {
-            background: var(--card-bg);
-            border: 1px solid var(--border);
-            border-radius: 0.875rem;
-            padding: 1.25rem;
-            width: min(18.75rem, 92vw);
-            max-height: calc(var(--app-h) - 2rem);
-            overflow-y: auto;
-            overscroll-behavior: contain;
-            box-shadow: 0 12px 40px rgba(0,0,0,0.2);
-            display: flex;
-            flex-direction: column;
-            gap: 0.625rem;
-        }
-        .hashtag-popup > * { flex-shrink: 0; }
-        .hashtag-popup-title {
-            font-size: 0.95rem;
-            font-weight: 700;
-            color: var(--text-primary);
-        }
-        .hashtag-popup-input {
+        /* 標籤輸入（Andy 1-d）：直接在板塊上，不彈視窗；外觀和情境框同一套 */
+        .hashtag-field { display: flex; flex-direction: column; gap: 0.375rem; flex-shrink: 0; }
+        .hashtag-input {
             width: 100%;
-            padding: 0.5rem 0.625rem;
+            min-height: 2rem;
+            padding: 0.3125rem 0.625rem;
             border: 1px solid var(--border);
-            border-radius: 0.5rem;
-            font-size: 0.9rem;
-            font-family: 'Noto Sans TC', sans-serif;
+            border-radius: 0.375rem;
+            font: inherit;
+            font-size: 0.875rem;
             background: var(--container-bg);
             color: var(--text-primary);
             outline: none;
         }
-        .hashtag-popup-input:focus { border-color: #667eea; }
-        .hashtag-popup-btns {
-            display: flex;
-            gap: 0.5rem;
-            justify-content: flex-end;
-        }
-        .hashtag-popup-cancel, .hashtag-popup-confirm {
-            padding: 0.375rem 1rem;
-            border-radius: 0.5rem;
-            font-size: 0.85rem;
-            font-family: 'Noto Sans TC', sans-serif;
-            cursor: pointer;
-            border: 1px solid var(--border);
-            transition: all 0.2s;
-        }
-        .hashtag-popup-cancel { background: var(--container-bg); color: var(--text-secondary); }
-        @media (hover: hover) and (pointer: fine) {
-            .hashtag-popup-cancel:hover { background: var(--border); }
-        }
-        .hashtag-popup-confirm { background: var(--highlight-border); color: white; border-color: transparent; }
-        @media (hover: hover) and (pointer: fine) {
-            .hashtag-popup-confirm:hover { background: #c97422; }
-        }
+        .hashtag-input::placeholder { color: var(--text-secondary); opacity: 0.85; }
+        .hashtag-input:focus { border-color: var(--highlight-border); }
 
         @media (max-width: 440px) {
 
@@ -714,8 +665,7 @@
             /* 對話框遮罩只蓋可見範圍，置中的對話框才會置中在鍵盤上方 */
             html.kb-open .settings-overlay,
             html.kb-open .about-overlay,
-            html.kb-open .hashtag-popup-overlay,
-            html.kb-open .feedback-modal-overlay {
+                        html.kb-open .feedback-modal-overlay {
                 top: var(--vv-top);
                 bottom: auto;
                 height: var(--app-h);
@@ -734,7 +684,7 @@
            class 選擇器比元素選擇器強，所以每種輸入框都要明確列出（檔尾，同權重時這裡贏）。
            電腦（≥ 901 且滑鼠）維持原本字級。 ===== */
         @media (max-width: 900px), (pointer: coarse) {
-            .search-input, .section-textarea, .rhyme-mirror, .context-textarea, .hashtag-popup-input,
+            .search-input, .section-textarea, .rhyme-mirror, .context-textarea, .hashtag-input,
             .hashtag-input-row input, .word-input-row input, .feedback-modal input, .feedback-modal textarea,
             .model-select, .song-name-input, .section-name-input {
                 font-size: max(16px, 1rem);
@@ -776,7 +726,7 @@
                 min-height: var(--hit);
                 padding: 0;
             }
-            .hashtag-popup-input, .feedback-modal input, .search-input { min-height: max(3rem, var(--hit)); }
+            .hashtag-input, .feedback-modal input, .search-input { min-height: max(3rem, var(--hit)); }
             /* 段落設定選單（Phase 9）：每個控制項實體框 ≥ 44，色票每列放得下 4 個 */
             .swatch, .section-color-input { width: var(--hit); height: var(--hit); }
             .swatch-grid { grid-template-columns: repeat(auto-fill, minmax(var(--hit), 1fr)); }

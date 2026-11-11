@@ -113,7 +113,7 @@
             // 注音／拼音輸入法組字中按 Esc 是「取消組字」，不是收起面板（WR-03）；keyCode 229 是部分瀏覽器的組字訊號
             if (e.isComposing || e.keyCode === 229) return;
             // 有對話框蓋在面板上時，Esc 屬於最上面的對話框，不要把底下的 sheet 收掉
-            if (e.defaultPrevented || document.querySelector('.settings-overlay.show, .about-overlay.show, .hashtag-popup-overlay.show, .feedback-modal-overlay.show')) return;
+            if (e.defaultPrevented || document.querySelector('.settings-overlay.show, .about-overlay.show, .feedback-modal-overlay.show')) return;
             const lp = document.getElementById('leftPanel');
             const rp = document.getElementById('rightPanel');
             if (!lp || !rp || (lp.classList.contains('collapsed') && rp.classList.contains('collapsed'))) return;

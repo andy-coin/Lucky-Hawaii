@@ -613,9 +613,7 @@
             .settings-saveload .save-load-btn,
             .settings-feedback-btn,
             .reset-color,
-            .feedback-modal-actions button,
-            .hashtag-popup-cancel,
-            .hashtag-popup-confirm { min-height: var(--hit); }
+            .feedback-modal-actions button { min-height: var(--hit); }
             .settings-color-section .color-item { min-height: var(--hit); }
             .color-item input[type="color"] { min-width: var(--hit); min-height: var(--hit); }
         }

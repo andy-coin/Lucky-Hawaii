@@ -204,8 +204,7 @@ test('復原：其他欄位用原生復原', async ({ browser }) => {
     await ta(page).focus();
     await page.keyboard.press('End');
     await page.keyboard.type('abc');
-    await page.evaluate(() => openHashtagPopup());
-    for (const sel of ['#searchInput', '#contextDescription', '#hashtagPopupInput']) {
+    for (const sel of ['#searchInput', '#contextDescription', '#hashtagInput']) {
         await page.locator(sel).focus();
         await page.keyboard.press('ControlOrMeta+z');
         expect(await page.evaluate(() => window.__dp), sel + ' 不攔').toBe(false);

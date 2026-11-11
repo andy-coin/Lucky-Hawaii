@@ -60,18 +60,18 @@ const rawSong = page => page.evaluate(() => {
     return songs.find(s => s.id === localStorage.getItem('lh:activeSong'));
 });
 
-test('組字：#標籤 視窗組字中按 Enter 不送出', async ({ browser }) => {
+test('組字：#標籤 輸入框組字中按 Enter 不送出', async ({ browser }) => {
     const { context, page, errors } = await bootPage(browser, { storage: FIXTURE });
     const before = (await rawSong(page)).hashtags;
     await page.evaluate(() => openHashtagPopup());
-    await page.locator('#hashtagPopupInput').focus();
+    await expect(page.locator('#hashtagInput')).toBeFocused();
     await compose(page, ['ㄅ', 'ㄅㄚ'], '吧', async () => {
         await page.keyboard.press('Enter');
         expect((await activeSongRaw(page)).hashtags, '組字中按 Enter 沒有新增標籤').toEqual(before);
-        await expect(page.locator('#hashtagPopupOverlay')).toHaveClass(/show/);
     });
+    await expect(page.locator('#hashtagInput')).toHaveValue('吧');
     await page.keyboard.press('Enter');
-    await expect(page.locator('#hashtagPopupOverlay')).not.toHaveClass(/show/);
+    await expect(page.locator('#hashtagInput')).toHaveValue('');
     expect((await activeSongRaw(page)).hashtags).toEqual([...before, '吧']);
     expect(errors).toEqual([]);
     await context.close();

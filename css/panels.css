@@ -121,12 +121,13 @@
         .ai-scroll-area::-webkit-scrollbar-track { background: transparent; }
         .ai-scroll-area::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.15); border-radius: 0.125rem; }
 
-        /* 左側底部：情境 & 標籤 */
+        /* 左側上方：標籤 & 情境（Andy 1-d：放在歌詞上面）；高度跟著內容，最多佔四成，歌詞吃剩下的 */
         .context-section {
-            flex: 0 0 33%;
+            flex: 0 1 auto;
+            max-height: 42%;
             overflow: hidden;
             transition: flex-basis 0.25s ease;
-            border-top: 1px solid var(--border);
+            border-bottom: 1px solid var(--border);
             display: flex;
             flex-direction: column;
             min-height: 0;
@@ -162,7 +163,7 @@
             display: flex;
             flex-direction: column;
             gap: 0.4375rem;
-            padding-bottom: 0.25rem;
+            padding-bottom: 0.5rem;
             scrollbar-width: thin;
         }
         .context-section-subtitle {

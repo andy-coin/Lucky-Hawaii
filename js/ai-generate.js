@@ -240,7 +240,7 @@
                         target.context = val;
                         gotContext = true;
                     } else if (key.includes('標籤') && !gotTags) {
-                        const tags = val.split(/[,，、\s#]+/).map(t => t.trim()).filter(Boolean);
+                        const tags = lhParseTags(val);
                         if (tags.length) {
                             target.hashtags = tags;
                             gotTags = true;
