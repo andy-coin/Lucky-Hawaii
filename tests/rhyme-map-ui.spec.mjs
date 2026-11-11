@@ -2060,3 +2060,30 @@ test('讀音：儲存裡壞掉的讀音', async ({ browser }) => {
         await context.close();
     }
 });
+
+// overnight/rhyme：逗號、空白前的字也是句尾；雙押的前一個字淡一層＋細線，統計列出雙押／多押數；開關只在偏好設定
+test('子句與多押：行中句尾上色、雙押標示、統計與開關', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, {
+        wordlist: 'stub', storage: withLetters([song([typed('sa', 'verse', '我望著光，你在窗旁\n我要離開\n等你來')])]),
+    });
+    expect(await bands(page)).toEqual([['光', '14'], ['旁', '14'], ['開', '7'], ['來', '7']]);
+    const multi = () => page.locator('#lyricsSections .rhyme-mirror .rm-multi').evaluateAll(els => els.map(e => [e.textContent, e.dataset.f]));
+    expect(await multi()).toEqual([['離', '7'], ['你', '7']]);   // 雙押的前一個字用句尾的顏色
+    expect(await page.locator('#lyricsSections .rm-hl.rm-mx').evaluateAll(els => els.map(e => e.textContent))).toEqual(['開', '來']);
+    await openStats(page);
+    await expect(page.locator(STATS + ' .rm-sum-multi')).toHaveText('雙押 2 句，三押以上 0 句');
+    await page.keyboard.press('Escape');
+    // 快速選單沒有這個開關；偏好設定裡關掉：前字不再上色，統計那一行消失
+    await page.locator('#rhymeMenuBtn').click();
+    await expect(page.locator('#rhymeMenu .rm-switch[data-k="multi"]')).toHaveCount(0);
+    await page.evaluate(() => lhMapOpenPrefs());
+    const sw = page.locator('#mapSettingsSection .rm-switch[data-k="multi"]');
+    await expect(sw).toHaveAttribute('aria-checked', 'true');
+    await expect(sw).toHaveAttribute('aria-describedby', 'rmPrefMulti');
+    await sw.click();
+    await expect.poll(multi).toEqual([]);
+    expect(await bands(page)).toHaveLength(4);
+    expect(await page.evaluate(() => localStorage.getItem('lh:map'))).toContain('"multi":false');
+    expect(errors).toEqual([]);
+    await context.close();
+});

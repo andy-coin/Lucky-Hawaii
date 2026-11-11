@@ -314,7 +314,7 @@ test('句中：標點、空行、沒有句尾字的行都沒有標記', () => {
     reset();
     // 「，」「！」不是漢字；英文行沒有句尾字；空行沒有
     const rows = inner('你想，我望！天亮\n\nOh baby\n走過窗光');
-    expect(rows[0]).toEqual([{ i: 1, f: 14 }, { i: 4, f: 14 }]);   // 想、望（「，」在位置 2，跳過）
+    expect(rows[0]).toEqual([]);   // 想、望在「，」「！」前面，本身就是句尾（色塊），不再畫句中底線
     expect(rows[1]).toEqual([]);
     expect(rows[2]).toEqual([]);
     expect(rows[3].map(m => m.i)).toEqual([2]);   // 窗；光是句尾
@@ -353,9 +353,9 @@ test('句中：語助詞開關決定句尾字（愛你到天亮啊）', () => {
 
 test('設定：整理成固定的鍵', () => {
     const norm = v => ev(`lhRhymeNormalizeSettings(${j(v)})`);
-    // 第 11 階段：十四個設定鍵加 colors（五個舊開關＋逐行標記、三個內容項、對照差異、停留自動分析、位置、大小、濃淡）
+    // 十五個設定鍵加 colors（五個舊開關＋雙押多押、逐行標記、三個內容項、對照差異、停留自動分析、位置、大小、濃淡）
     const D = { end: true, letters: false, inner: false, strict: false, skipParticles: true,
-        line: false, lnRhyme: false, lnCount: true, lnSplit: true, lnDiff: false, autoHover: false,
+        multi: true, line: false, lnRhyme: false, lnCount: true, lnSplit: true, lnDiff: false, autoHover: false,
         pos: 'right', size: 'm', depth: 'std', colors: {} };
     expect(norm(null)).toEqual(D);
     expect(norm([1, 2])).toEqual(D);
@@ -492,8 +492,8 @@ test('統計：空韻', () => {
 
 test('統計：沒有任何文字', () => {
     reset();
-    expect(summary('')).toEqual({ n: 0, k: 0, p: 0, groups: [] });
-    expect(summary('\n  \n')).toEqual({ n: 0, k: 0, p: 0, groups: [] });
+    expect(summary('')).toEqual({ n: 0, k: 0, p: 0, groups: [], m2: 0, m3: 0 });
+    expect(summary('\n  \n')).toEqual({ n: 0, k: 0, p: 0, groups: [], m2: 0, m3: 0 });
 });
 
 test('統計：超過 52 種韻母字母用 * 且不出現 undefined', () => {
@@ -518,4 +518,68 @@ test('對比：提醒用的混色與對比', () => {
     expect(con('#d2c8b7', mixHex('#ffffff', '#2d3748', 34))).toBeCloseTo(2.58, 1);
     // 純函式：不改傳入的陣列
     expect(ev('(() => { const a = [10, 20, 30], b = [200, 210, 220]; lhRhymeMixRgb(a, b, 50); lhRhymeContrast(a, b); return [a, b]; })()')).toEqual([[10, 20, 30], [200, 210, 220]]);
+});
+
+// ===== 句尾看標點與空白（overnight/rhyme A）：逗號、句號、問號、頓號、引號、括號、刪節號、破折號、空白前的字都是一個句尾 =====
+const targets = (line, skip = true) => ev(`lhRhymeTargets(${j(line)}, ${skip})`).map(t => t.char).join('');
+const ends = (text, opts = {}) => ev(`lhRhymeAnalyze(${j(text)}, ${j({ skipParticles: true, ...opts })}, null).rows.map(r => r.ends.map(e => e.t.char + (e.multi > 1 ? '×' + e.multi : '')).join(''))`);
+
+test('子句句尾：全形半形標點與空白都是斷點', () => {
+    reset();
+    expect(targets('我走過，你來過')).toBe('過過');
+    expect(targets('你好嗎?我很好!')).toBe('好好');   // 嗎是語助詞
+    expect(targets('天亮、日落；風起：雲湧')).toBe('亮落起湧');
+    expect(targets('「月光」（窗前）')).toBe('光前');
+    expect(targets('等待……回來——離開')).toBe('待來開');
+    expect(targets('月光 灑在　窗前')).toBe('光在前');   // 半形與全形空白
+    expect(targets('，，我愛你！！？')).toBe('你');   // 行首標點、連續標點不會多出空句尾
+});
+
+test('子句句尾：英文、語助詞、行尾英文', () => {
+    reset();
+    expect(targets('Oh baby 我愛你')).toBe('你');   // 英文單字之間的空白是斷點，但英文不上色
+    expect(targets('我愛你 so much')).toBe('你');
+    expect(target('我愛你 so much')).toMatchObject({ char: '你', i: 2 });   // 行尾是英文：退到前面最近的中文句尾
+    expect(targets('好想好想你，嗎')).toBe('你');   // 整個子句都是語助詞，不算一個句尾
+    expect(targets('你好啊，我很好呀')).toBe('好好');
+    expect(targets('啊！呀！')).toBe('呀');   // 整行都是語助詞：最後一個字
+    expect(targets('你好啊，我很好呀', false)).toBe('啊呀');
+    expect(target('（Oh baby）')).toBeNull();
+});
+
+test('子句句尾：行中的句尾也上色、計入押韻，字母照舊每行一個', () => {
+    reset();
+    const r = ev(`lhRhymeAnalyze('我望著光，你在窗旁\\n走過街道', {}, null)`);
+    expect(r.letters).toBe('AB');
+    expect(r.rows[0].ends.map(e => [e.t.char, e.t.i, e.solo])).toEqual([['光', 3, false], ['旁', 8, false]]);
+    expect(r.rows[0].t.char).toBe('旁');
+    expect(run(`lhRhymeAnalyze('我望著光，你在窗旁\\n走過街道', {}, null).count.get('f14')`)).toBe(2);
+    expect(r.rows[1].solo).toBe(true);
+    expect(summary('我望著光，你在窗旁\n走過街道').groups.map(g => g.count)).toEqual([2, 1]);
+});
+
+// ===== 雙押／多押（overnight/rhyme B）：句尾往前逐字比韻母，重用 lhRhymeMatch =====
+test('多押：離開／你來是雙押，關著時都是 ×1', () => {
+    reset();
+    expect(ends('我要離開\n等你來', { multi: true })).toEqual(['開×2', '來×2']);
+    expect(ends('我要離開\n等你來')).toEqual(['開', '來']);
+    expect(ends('離開，你來', { multi: true })).toEqual(['開×2來×2']);   // 同一行的兩個句尾也算
+});
+
+test('多押：同字不算、韻母不同就停、三押', () => {
+    reset();
+    expect(ends('沒有人\n某個人', { multi: true })).toEqual(['人', '人']);   // 有（ㄡ）／個（ㄜ）不同韻族
+    expect(ends('我是某個人\n你是這個人', { multi: true })).toEqual(['人', '人']);   // 個＝個：重複不算押
+    expect(ends('我愛你\n我愛你', { multi: true })).toEqual(['你', '你']);   // 重複句不亮起來
+    expect(ends('心裡的期待\n夢裡依賴', { multi: true })).toEqual(['待×2', '賴×2']);   // 期／依、待／賴押；的（ㄜ）／裡（ㄧ）不押
+    expect(ends('我心裡的期待\n不捨得離開', { multi: true })).toEqual(['待×3', '開×3']);   // 的期待／得離開：ㄜ ㄧ ㄞ 三個都押
+    expect(summary('我要離開\n等你來', false).m2).toBe(0);   // summary 沒開多押
+    expect(ev(`lhRhymeSummary(lhRhymeAnalyze('我要離開\\n等你來\\n我心裡的期待\\n不捨得離開', { multi: true }, null), false)`)).toMatchObject({ m2: 2, m3: 2 });
+});
+
+test('多押：嚴格模式跟著 lhRhymeMatch', () => {
+    reset();
+    // 走（ㄡ）／我（ㄨㄛ）同在ㄛ韻族：寬韻算雙押，嚴格韻母不同就不算
+    expect(ends('轉身走開\n換我來', { multi: true })).toEqual(['開×2', '來×2']);
+    expect(ends('轉身走開\n換我來', { multi: true, strict: true })).toEqual(['開', '來']);
 });

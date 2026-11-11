@@ -218,7 +218,7 @@ test('偏好設定：內容與順序', async ({ browser }) => {
     const sec = page.locator('#mapSettingsSection');
     await expect(sec.locator('> .settings-backups-hint')).toHaveText('調整句尾上色、逐行字數與斷句標記的開關、位置、大小和顏色');
     expect(await sec.locator('.section-menu-block > .section-menu-cap:first-child').allTextContents()).toEqual(['預覽', '韻腳地圖', '句構分析', '顯示方式', '韻族顏色']);
-    expect(await sec.locator('.rm-switch-label').allTextContents()).toEqual(['句尾上色', '段落結構字母', '句中押韻', '忽略句尾語助詞', '逐行標記', '行尾韻腳字母', '字數', '斷句結構', '對照差異', '反白停留自動分析']);
+    expect(await sec.locator('.rm-switch-label').allTextContents()).toEqual(['句尾上色', '雙押／多押', '段落結構字母', '句中押韻', '忽略句尾語助詞', '逐行標記', '行尾韻腳字母', '字數', '斷句結構', '對照差異', '反白停留自動分析']);
     const particle = await page.evaluate(() => LH_MAP_PARTICLE_CAP);
     const caps = await sec.locator('.section-menu-cap').allTextContents();
     for (const c of [
@@ -229,7 +229,7 @@ test('偏好設定：內容與順序', async ({ browser }) => {
         '反白後滑鼠停著不動 1.5 秒，自動打開句構面板；只有接了滑鼠的電腦會自動出現，觸控請按「分析」',
     ]) expect(caps, c).toContain(c);
     // 每個說明都有 id，開關用 aria-describedby 接起來
-    expect(await sec.locator('.rm-switch[aria-describedby]').evaluateAll(els => els.map(e => !!document.getElementById(e.getAttribute('aria-describedby'))))).toEqual(Array(9).fill(true));   // 句尾上色沒有說明
+    expect(await sec.locator('.rm-switch[aria-describedby]').evaluateAll(els => els.map(e => !!document.getElementById(e.getAttribute('aria-describedby'))))).toEqual(Array(10).fill(true));   // 句尾上色沒有說明
     // 四個細項縮排在 .rm-sub 裡，從不禁用
     expect(await sec.locator('.rm-sub .rm-switch .rm-switch-label').allTextContents()).toEqual(['行尾韻腳字母', '字數', '斷句結構', '對照差異']);
     expect(await sec.locator('.rm-switch[disabled], .rm-switch[aria-disabled]').count()).toBe(0);

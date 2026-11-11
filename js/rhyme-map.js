@@ -130,17 +130,24 @@ function _lhMapBuildFrag(text, readings, refText) {
     const needMk = !!_lhMapNeedMk();
     const needRhyme = _lhMapWl && (S.end || S.inner || S.letters || (S.line && S.lnRhyme));   // 詞庫沒載好前不做韻腳分析
     const paintRows = (_lhMapWl && (S.end || S.inner)) || needMk;   // 只開結構字母：鏡像層不必逐行排版
-    const res = needRhyme ? lhRhymeAnalyze(text, { strict: S.strict, skipParticles: S.skipParticles, inner: S.inner }, readings) : null;
+    const res = needRhyme ? lhRhymeAnalyze(text, { strict: S.strict, skipParticles: S.skipParticles, inner: S.inner, multi: S.multi }, readings) : null;
     const frag = document.createDocumentFragment();
     let on = false;
     // 對照差異：對照段落每個可分析行的字數（只要字數，不猜斷句，所以傳一個永遠說「沒有這個詞」的判斷）
     const diff = { refN: S.line && S.lnDiff ? lhLineRows(refText || '', () => false).map(x => x.n) : [], k: 0 };
-    const rows = !paintRows ? [] : res ? res.rows : text.replace(/\r\n?/g, '\n').split('\n').map(line => ({ line, t: null, inner: [] }));
+    const rows = !paintRows ? [] : res ? res.rows : text.replace(/\r\n?/g, '\n').split('\n').map(line => ({ line, t: null, inner: [], ends: [] }));
     rows.forEach((r, n) => {
-        // 這一行要特別標示的字：句尾字（色塊，句尾上色開著才有）與句中押韻的字（底線）
+        // 這一行要特別標示的字：每個句尾字（色塊，句尾上色開著才有；行中逗號、空白前的也算）、
+        // 雙押／多押時句尾前面跟著押的字（同色淡一層，底下一條同色細線把整組連起來）與句中押韻的字（底線）
         const marks = new Map();
-        if (r.t && S.end) marks.set(r.t.i, { cls: (r.solo ? 'rm-hl rm-solo' : 'rm-hl') + (r.manual ? ' rm-manual' : ''), f: r.f });
         for (const m of r.inner) marks.set(m.i, { cls: 'rm-inner', f: m.f });
+        if (S.end) {
+            for (const e of r.ends) {
+                const mx = S.multi && e.multi > 1 ? ' rm-mx' : '';
+                marks.set(e.t.i, { cls: (e.solo ? 'rm-hl rm-solo' : 'rm-hl') + (e.manual ? ' rm-manual' : '') + mx, f: e.f });
+                if (mx) for (let k = 1; k < e.multi; k++) marks.set(e.t.i - k, { cls: 'rm-multi rm-mx', f: e.f });
+            }
+        }
         const mk = needMk ? _lhMapMarker(r.line, diff, res ? r : undefined) : null;
         if (!marks.size && !mk) frag.append(r.line);
         else {
@@ -176,7 +183,7 @@ function lhMapPaint(secEl) {
     const mirror = ta && _lhMapMirrorOf(ta);
     if (!sec || !mirror) return;
     const S = _lhMapSet;
-    const sig = [S.end, S.letters, S.inner, S.strict, S.skipParticles, S.line, S.lnRhyme, S.lnCount, S.lnSplit, S.lnDiff].map(Number).join('') + '|' + _lhMapEpoch + '|' + _lhMapReadVer;   // pos／size／depth／colors 只改 CSS，不進簽名（E2）
+    const sig = [S.end, S.letters, S.inner, S.multi, S.strict, S.skipParticles, S.line, S.lnRhyme, S.lnCount, S.lnSplit, S.lnDiff].map(Number).join('') + '|' + _lhMapEpoch + '|' + _lhMapReadVer;   // pos／size／depth／colors 只改 CSS，不進簽名（E2）
     // 對照段落的文字（同類型第一段，CONTEXT B1）：對照差異關著就不看；它改了，這一段的快取就失效（RESEARCH X9）
     let refText = null;
     if (S.line && S.lnDiff) {
@@ -363,6 +370,7 @@ let _lhMapMenuOn = false;
 // 文案照 UI-SPEC 第 7 節逐字
 const LH_MAP_HINT_LETTERS = '在每個段落標題列顯示 AABB 這類字母';
 const LH_MAP_HINT_LINE = '每行旁邊顯示字數與斷句；細項在「更多設定」';
+const LH_MAP_HINT_MULTI = '句尾倒數兩、三個字都押韻時（例：離開／你來），前面的字也淡淡上同色，底下一條細線連起來';
 const LH_MAP_HINT_INNER = '句子裡面跟句尾押同韻的字，加底線（每行最多 3 個）';
 const LH_MAP_MODE_HELP = {
     wide: '寬韻：同一個韻族都算押韻（例：ㄤ、ㄧㄤ、ㄨㄤ）',
@@ -453,6 +461,7 @@ function lhMapMenuBuild() {
     const lineHint = _lhMk('span', 'section-menu-cap', LH_MAP_HINT_LINE);
     lineHint.id = 'rhymeHintLine';
     lineSw.setAttribute('aria-describedby', lineHint.id);
+    // 雙押／多押的開關只放在偏好設定（「更多設定…」）：快速選單再多一列，打開色票對照時會蓋住「韻腳 ▾」按鈕
     const show = _lhMkBlock('顯示', _lhMapSwitchRow('end', '句尾上色'), lettersSw, lettersHint, innerSw, innerHint, lineSw, lineHint);
     // 判定：寬韻／嚴格兩個 radio，下面只顯示目前模式的說明
     const modes = _lhMapModeRadios();
@@ -579,6 +588,7 @@ function lhMapPrefsBuild() {
     const lineRow = _lhMapPrefRow('line', '逐行標記', '每行旁邊顯示淡色小字；下面四項決定要顯示什麼', 'rmPrefLine');
     const mapRows = [
         _lhMapSwitchRow('end', '句尾上色'),
+        ..._lhMapPrefRow('multi', '雙押／多押', LH_MAP_HINT_MULTI, 'rmPrefMulti'),
         ..._lhMapPrefRow('letters', '段落結構字母', LH_MAP_HINT_LETTERS, 'rmPrefLetters'),
         ..._lhMapPrefRow('inner', '句中押韻', LH_MAP_HINT_INNER, 'rmPrefInner'),
         ..._lhMapPrefRow('skipParticles', '忽略句尾語助詞', LH_MAP_PARTICLE_CAP, 'rmPrefSkip'),
@@ -888,6 +898,7 @@ function _lhMapStatsFill() {
         }
         kids.push(letters);
         kids.push(_lhMk('div', 'rm-sum', '共 ' + sm.n + ' 句，押韻 ' + sm.k + ' 句（' + sm.p + '%）'));
+        if (_lhMapSet.multi) kids.push(_lhMk('div', 'rm-sum-multi', '雙押 ' + sm.m2 + ' 句，三押以上 ' + sm.m3 + ' 句'));
         kids.push(_lhMk('span', 'section-menu-cap', '判定：' + (strict ? '嚴格' : '寬韻')));
         const groups = _lhMk('div', 'section-menu-block');
         for (const g of sm.groups) {
@@ -1138,8 +1149,9 @@ function _lhMapReadingTarget(ta, a, text, char) {
     const ls = v.lastIndexOf('\n', pos - 1) + 1;
     let le = v.indexOf('\n', pos);
     if (le < 0) le = v.length;
-    const t = lhRhymeTarget(v.slice(ls, le), _lhMapSet.skipParticles);
-    return t && t.char === char && t.i === Array.from(v.slice(ls, pos)).length ? { tail: t.tail, char } : null;
+    const i = Array.from(v.slice(ls, pos)).length;
+    const t = lhRhymeTargets(v.slice(ls, le), _lhMapSet.skipParticles).find(x => x.i === i);   // 行中逗號、空白前的句尾也能指定
+    return t && t.char === char ? { tail: t.tail, char } : null;
 }
 
 // 判斷這個輸入框現在的選取該不該出現浮動列

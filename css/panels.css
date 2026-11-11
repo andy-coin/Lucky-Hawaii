@@ -1472,7 +1472,7 @@
             overflow-wrap: anywhere;
             color: var(--text-primary);
         }
-        .rm-sum { font-size: 0.875rem; font-weight: 400; color: var(--text-primary); }
+        .rm-sum, .rm-sum-multi { font-size: 0.875rem; font-weight: 400; color: var(--text-primary); }
         .rm-group { display: flex; align-items: center; gap: var(--sp-2); font-size: 0.875rem; font-weight: 400; color: var(--text-primary); }
         .rm-g-letter { flex: none; min-width: 1rem; font-weight: 700; }
         .rm-row {
@@ -1687,10 +1687,19 @@
             box-decoration-break: clone;
         }
         .rm-hl.rm-solo { background: color-mix(in srgb, var(--rm-c) var(--rm-orph, 17%), var(--card-bg)); }
-        .rm-hl.rm-manual { border-bottom: 0.125rem dotted var(--text-secondary); }   /* 手動指定讀音的提示：只有下緣，不改水平盒子，換行不受影響 */
+        .rm-hl.rm-manual { border-bottom: 0.125rem dotted var(--text-secondary); }
+        /* 雙押／多押：句尾前面跟著押的字淡一層（和孤句同濃度，但一定緊貼在句尾色塊左邊），整組底下一條同色細線；
+           inset 陰影不佔版面，換行位置和輸入框一樣 */
+        .rm-multi {
+            background: color-mix(in srgb, var(--rm-c) var(--rm-orph, 17%), var(--card-bg));
+            border-radius: 0.25rem;
+            -webkit-box-decoration-break: clone;
+            box-decoration-break: clone;
+        }
+        .rm-mx { box-shadow: inset 0 -0.125rem 0 var(--rm-c); }   /* 手動指定讀音的提示：只有下緣，不改水平盒子，換行不受影響 */
         @supports not (background: color-mix(in srgb, red 50%, blue)) {
             .rm-hl { background: var(--rm-c); opacity: 0.34; }
-            .rm-hl.rm-solo { opacity: 0.17; }
+            .rm-hl.rm-solo, .rm-multi { background: var(--rm-c); opacity: 0.17; }
         }
         [data-f="0"] { --rm-c: var(--rm-c0); }
         [data-f="1"] { --rm-c: var(--rm-c1); }
