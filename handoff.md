@@ -5,6 +5,12 @@
 - Pi Agent 預設連 ToshLLM (Qwen3.6)，profile: IQ50
 - `.devcontainer/docker-compose.yml` 的 ports 預設註解，web server 專案需取消註解
 
+## ▶ 夜間 overnight/rhyme（2026-11-12，worktree `Lucky Hawaii-wt-rhyme`，沒 push、`?v=` 沒升）
+
+- 完成：A 標點／空白前的字也算句尾（`js/rhyme-core.js` `lhRhymeTargets`）；B 雙押／多押（`lhRhymeTailRhymes`、`lhRhymeMulti`，`js/rhyme-map.js` `_lhMapBuildFrag` 畫 `.rm-multi`／`.rm-mx`，統計 `.rm-sum-multi`，偏好設定開關 `multi`）；C 新色票＋依卡片底色亮度選組（`_lhMapMeasureBg`）。
+- 數字：`npm test` 1047 過／29 跳過／0 失敗；perf 3 過（高負載時連原程式都會超標，重跑過）。
+- 待 Andy：`OVERNIGHT-rhyme.md` 8 題（字母要不要按小句、空白算不算句尾、雙押開關位置、新配色…）。
+
 ## ✅ Phase 11 句構分析與設定頁：8/8 計畫完成（2026-10-28，分支 gsd/v0.96-stabilize，沒 push；夜間 `/gsd-autonomous --from 10 --to 11`，停在這裡等 Andy）
 
 - 狀態：Phase 10 收尾 ✅（審查 0 嚴重／3 警告全修）；Phase 11 計畫 11-01～11-08 全部做完；審查 0 嚴重／1 警告已修（03709a9：`js/sections.js:90` `lhSecRefreshMeta` 呼叫新的 `lhMapOnSectionsChanged`（`js/rhyme-map.js`），段落改類型／名稱／順序後 ≠ 跟著換）；驗證 3/3 → human_needed，`11-UAT.md` 7 項，下一步 `/gsd-verify-work 11`。GSD 的狀態、決策、各計畫摘要看 `.planning/phases/11-line-analysis-settings/`，這裡只記 GSD 沒記的。
