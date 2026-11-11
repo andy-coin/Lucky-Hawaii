@@ -391,6 +391,8 @@
                 <span>✨ AI 建議</span>
                 <select id="modelSelect" class="model-select" title="選擇 AI 模型（自動＝由伺服器挑選並自動換手）" onchange="onModelChange()"></select>
             </div>
+            <!-- AI 會參考什麼（Andy 1-b）：即時顯示左邊哪些內容會送給 AI，點了跳過去；js/ai-generate.js lhAiRefRender -->
+            <div class="ai-ref" id="aiRef" role="group" aria-label="AI 會參考的內容" title="從詞庫挑詞時參考這些；詞庫不夠、AI 自己造詞時只看韻腳"></div>
             <div class="ai-scroll-area">
                 <div class="ai-rhyme-display" id="aiRhymeDisplay">請先搜尋一個字或是詞確認韻腳</div>
                 <div class="selected-chars-hint" id="selectedCharsHint">

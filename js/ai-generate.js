@@ -83,6 +83,7 @@
             const lyricsText = lastLyricsSelection ||
                 song.sections.map(s => s.text.trim()).filter(Boolean).join('\n');
 
+            lhAiRefPulse();
             const btn = document.getElementById('generateBtn');
             const loading = document.getElementById('aiLoading');
             const container = document.getElementById('aiWordsContainer');
@@ -126,7 +127,7 @@
                         : rhymeMode === 'rhyme' ? '以下詞語的押韻符合要求' : '以下詞語的聲母（字首）符合要求';
                     const selectedLine = selectedChars.size > 0 ? `\n【指定${posStr}字】：${[...selectedChars].join('、')}` : '';
                     const ctxBlock = contextFull ? `\n【情境與#標籤】（請重點優先參考）：${contextFull}` : '';
-                    const lyricsBlock = lyricsText ? `\n【歌詞風格參考】：${lyricsText.slice(0, 200)}` : '';
+                    const lyricsBlock = lyricsText ? `\n【歌詞風格參考】：${lyricsText.slice(0, AI_LYRICS_MAX)}` : '';
                     const savedBlock = savedWords.length > 0 ? `\n已保留（不可重複）：${savedWords.slice(-30).join('、')}` : '';
                     // 只限制送給 AI 的清單；補滿仍用整個候選池（AI_POOL_MAX）
                     const prompt = `你是歌詞創作助手。${lead}，請挑出最適合此創作情境的 ${AI_TARGET} 個詞語，最適合的排前面。
@@ -267,3 +268,106 @@
             }
         }
 
+
+        // ===== AI 會參考什麼（Andy 1-b）：右邊 AI 面板頂部的即時狀態列 =====
+        // 只宣稱真的有送的東西（對照 generateAISuggestions 的挑詞 prompt）：
+        //   情境＋#標籤 全部送；歌詞送「反白的那段」或整首的前 AI_LYRICS_MAX 字。
+        //   候選詞不夠、改成 AI 自己造詞時（buildGenPrompt）只看韻腳，這點寫在提示文字裡。
+        const AI_LYRICS_MAX = 200;   // 挑詞 prompt 的歌詞上限（上面 lyricsBlock 用同一個常數）
+        function lhAiRefState() {
+            const song = curSong();
+            if (!song) return null;
+            const tags = song.hashtags.length;
+            const ctx = song.context.trim().length > 0;
+            const full = song.sections.map(s => s.text.trim()).filter(Boolean).join('\n');
+            const sel = lastLyricsSelection;
+            const lines = full ? full.split('\n').filter(l => l.trim()).length : 0;
+            return { tags, ctx, lines, sel: sel ? Array.from(sel).length : 0, cut: !sel && full.length > AI_LYRICS_MAX };
+        }
+
+        function lhAiRefRender() {
+            const bar = document.getElementById('aiRef');
+            const st = lhAiRefState();
+            if (!bar || !st) return;
+            const items = [];
+            const mk = (ref, text, title) => {
+                const b = document.createElement('button');
+                b.type = 'button';
+                b.className = 'ai-ref-item';
+                b.dataset.ref = ref;
+                b.textContent = text;
+                b.title = title;
+                return b;
+            };
+            if (st.tags) items.push(mk('tags', '標籤 ' + st.tags, '跳到標籤'));
+            if (st.ctx) items.push(mk('context', '情境', '跳到情境描述'));
+            if (st.sel) items.push(mk('lyrics', '反白歌詞 ' + st.sel + ' 字', '你在歌詞裡反白的那段'));
+            else if (st.lines) items.push(mk('lyrics', st.cut ? '歌詞前 ' + AI_LYRICS_MAX + ' 字' : '歌詞 ' + st.lines + ' 行', st.cut ? '歌詞很長時只送開頭 ' + AI_LYRICS_MAX + ' 字；反白一段就改送那段' : '跳到歌詞'));
+            const label = document.createElement('span');
+            label.className = 'ai-ref-label';
+            if (items.length) {
+                label.textContent = 'AI 會參考';
+                bar.classList.remove('is-empty');
+                bar.replaceChildren(label, ...items);
+            } else {
+                label.textContent = '先寫幾句歌詞或加標籤，AI 會更懂你';
+                bar.classList.add('is-empty');
+                bar.replaceChildren(label, mk('context', '去寫 →', '打開左邊的標籤與歌詞'));
+            }
+        }
+
+        let _aiRefRaf = 0;
+        function lhAiRefRefresh() {
+            if (_aiRefRaf) return;
+            _aiRefRaf = requestAnimationFrame(() => { _aiRefRaf = 0; lhAiRefRender(); });
+        }
+        // 打字、組字確認、反白都會改變要送的內容；模型在各自的監聽器裡已經更新，這裡只重畫狀態列
+        for (const ev of ['input', 'compositionend', 'mouseup', 'keyup']) {
+            document.addEventListener(ev, e => {
+                if (e.target && e.target.closest && e.target.closest('#lyricsSections, #contextDescription')) lhAiRefRefresh();
+            });
+        }
+
+        // 讓左邊對應的區塊被看見：桌機打開左面板、手機切到歌詞分頁，捲過去並閃一下
+        function lhAiRefJump(ref) {
+            const lp = document.getElementById('leftPanel');
+            if (lp && lp.classList.contains('collapsed')) {
+                if (lhIsSheetMode()) mobileTab('lyrics');
+                else toggleLeftPanel();
+            }
+            const cs = document.getElementById('contextSection');
+            if (ref !== 'lyrics' && cs && cs.classList.contains('collapsed')) toggleContextSection();
+            const target = document.getElementById(ref === 'tags' ? 'hashtagChips' : ref === 'context' ? 'contextDescription' : 'lyricsSections');
+            if (!target) return;
+            target.scrollIntoView({ block: 'nearest', behavior: lhReducedMotion() ? 'auto' : 'smooth' });
+            lhFlash(ref === 'tags' ? target.closest('.hashtag-field') || target : target);
+            // 滑鼠裝置直接把游標放進去；觸控不聚焦（避免鍵盤自己彈出來）
+            if (matchMedia('(hover: hover) and (pointer: fine)').matches) {
+                const f = ref === 'tags' ? document.getElementById('hashtagInput') : ref === 'context' ? target : target.querySelector('.section-textarea');
+                if (f) f.focus({ preventScroll: true });
+            }
+        }
+        document.getElementById('aiRef')?.addEventListener('click', e => {
+            const b = e.target.closest('.ai-ref-item');
+            if (b) lhAiRefJump(b.dataset.ref);
+        });
+
+        function lhReducedMotion() { return matchMedia('(prefers-reduced-motion: reduce)').matches; }
+        // 短暫的外框呼應（CSS .lh-flash）；重複觸發時重新播放
+        function lhFlash(el) {
+            if (!el) return;
+            el.classList.remove('lh-flash');
+            void el.offsetWidth;
+            el.classList.add('lh-flash');
+            setTimeout(() => el.classList.remove('lh-flash'), 1300);
+        }
+        // 按「提供詞語建議」時：狀態列與左邊被參考的區塊一起閃一下（左邊收著就只閃狀態列）
+        function lhAiRefPulse() {
+            const st = lhAiRefState();
+            if (!st) return;
+            document.querySelectorAll('#aiRef .ai-ref-item').forEach(lhFlash);
+            const lp = document.getElementById('leftPanel');
+            if (!lp || lp.classList.contains('collapsed')) return;
+            if (st.tags || st.ctx) lhFlash(document.getElementById('contextSection'));
+            if (st.lines) lhFlash(document.getElementById('lyricsSections'));
+        }

@@ -74,6 +74,7 @@
                 empty.style.color = 'var(--text-secondary)';
                 empty.style.fontSize = '0.85rem';
                 container.replaceChildren(empty);
+                if (typeof lhAiRefRefresh === 'function') lhAiRefRefresh();
                 return;
             }
             container.replaceChildren(...tags.map(t => {
@@ -87,6 +88,7 @@
                 chip.appendChild(x);
                 return chip;
             }));
+            if (typeof lhAiRefRefresh === 'function') lhAiRefRefresh();
         }
 
         // ===== 左側面板：歌詞段落 =====
@@ -159,6 +161,7 @@
             const ctx = document.getElementById('contextDescription');
             const song = curSong();
             if (ctx && song) ctx.value = song.context;
+            if (typeof lhAiRefRefresh === 'function') lhAiRefRefresh();
         }
 
         // 用 createElement / textContent / .value 組節點，歌詞與名稱不經過 HTML 解析（T-08-01）
