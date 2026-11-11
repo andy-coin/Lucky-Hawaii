@@ -77,9 +77,9 @@
 - [x] **MAP-06**: 嚴格／寬韻規則以 toggle 切換（使用既有規則）
 - [x] **MAP-07**: 可忽略句尾語助詞（啊、呢、喔、了…），可開關
 - [x] **MAP-08**: 破音字可手動指定讀音，沿用既有破音字程式碼
-- [ ] **MAP-09**: 逐行句構分析：每行字數、斷句結構（如 3+4、2+2+3）、與對應段落比對（如 Verse I vs Verse II）
-- [ ] **MAP-10**: 句構分析觸發方式：設定頁 toggle 常駐顯示，或反白後按「分析」，或反白後 hover 數秒出現（觸控裝置以按鈕替代 hover）
-- [ ] **MAP-11**: 設定頁：使用者可逐項開關韻腳地圖與句構分析功能，並調整顯示方式（標記位置、標記文字大小、顏色）；預設只開句尾上色，避免眼花撩亂
+- [x] **MAP-09**: 逐行句構分析：每行字數、斷句結構（如 3+4、2+2+3）、與對應段落比對（如 Verse I vs Verse II）
+- [x] **MAP-10**: 句構分析觸發方式：設定頁 toggle 常駐顯示，或反白後按「分析」，或反白後 hover 數秒出現（觸控裝置以按鈕替代 hover）
+- [x] **MAP-11**: 設定頁：使用者可逐項開關韻腳地圖與句構分析功能，並調整顯示方式（標記位置、標記文字大小、顏色）；預設只開句尾上色，避免眼花撩亂
 - [x] **MAP-12**: 分析不在注音組字過程中執行，長篇歌詞不卡頓
 
 ## v2 Requirements
@@ -166,9 +166,9 @@
 | MAP-06 | Phase 10 | Complete |
 | MAP-07 | Phase 10 | Complete |
 | MAP-08 | Phase 10 | Complete |
-| MAP-09 | Phase 11 | Pending |
-| MAP-10 | Phase 11 | Pending |
-| MAP-11 | Phase 11 | Pending |
+| MAP-09 | Phase 11 | Complete |
+| MAP-10 | Phase 11 | Complete |
+| MAP-11 | Phase 11 | Complete |
 | MAP-12 | Phase 10 | Complete |
 
 **Coverage:**

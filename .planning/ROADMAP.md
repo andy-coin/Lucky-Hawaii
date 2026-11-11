@@ -438,7 +438,33 @@ Plans:
   3. 設定頁可逐項開關韻腳地圖與句構分析，並調整標記位置、文字大小、顏色；全新使用者預設只開句尾上色〔自動〕
 
 **Human check**: 用幾首真實歌詞抽查斷句是否符合 Andy 的語感；標記版面是否美觀
-**Plans**: TBD
+**Plans:** 8/8 plans executed
+
+Plans:
+**Wave 1**
+- [x] 11-01-PLAN.md — 逐行標記（Tracer）：line-core.js 字數與斷句純函式、lh:map 新鍵與最小序列化、靠右欄標記、「逐行標記」開關、?v=0.96.15、固定歌詞範例斷言、備份與舊資料相容
+
+**Wave 2** *(blocked on Wave 1 completion)*
+- [x] 11-02-PLAN.md — 偏好設定區塊與「更多設定…」：韻腳地圖＋句構分析全部開關、行尾韻腳字母、對照差異（同類型第一段）、詞庫載入補上 ≈、兩邊同步、Esc、長歌效能
+
+**Wave 3** *(blocked on Wave 2 completion)*
+- [x] 11-03-PLAN.md — 顯示方式：靠右欄／句尾後、字級三段、濃淡三段（不重畫）、換行不變與最後視覺列、打字與組字中的過期處理
+
+**Wave 4** *(blocked on Wave 3 completion)*
+- [x] 11-04-PLAN.md — 韻族顏色（自訂、晝夜共用、恢復預設、對比提醒）與預覽區塊
+
+**Wave 5** *(blocked on Wave 4 completion)*
+- [x] 11-05-PLAN.md — 選字浮動列「📏 分析」與句構面板：逐行字數、結構、對照 ✓／≠，長選取只剩分析，收合與焦點規則
+
+**Wave 6** *(blocked on Wave 5 completion)*
+- [x] 11-06-PLAN.md — 反白停留自動分析（只對滑鼠、1.5 秒、預設關）
+
+**Wave 7** *(blocked on Wave 6 completion)*
+- [x] 11-07-PLAN.md — 整合：句構分析一次走完；三種裝置觸控、小螢幕、鍵盤、切版型、另一個分頁
+
+**Wave 8** *(blocked on Wave 7 completion)*
+- [x] 11-08-PLAN.md — 列印匯出不帶標記、惡意文字、程式掃描、舊資料、顏色以外的線索、全部測試與 Andy 驗收清單
+
 **UI hint**: yes
 
 ### Phase 12: Official Lexicon 官方詞庫
@@ -472,5 +498,5 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 8. Songs & Editor Model 歌曲管理與資料模型 | 9/9 | In Progress|  |
 | 9. Section Modules 段落模組 | 10/10 | In Progress|  |
 | 10. Rhyme Map 韻腳地圖 | 8/8 | In Progress|  |
-| 11. Line Analysis & Settings 句構分析與設定頁 | 0/TBD | Not started | - |
+| 11. Line Analysis & Settings 句構分析與設定頁 | 8/8 | In Progress|  |
 | 12. Official Lexicon 官方詞庫 | 0/TBD | Not started | - |

@@ -1,19 +1,19 @@
 ---
 gsd_state_version: "1.0"
 milestone: v0.96
-current_phase: 10
-current_phase_name: Rhyme Map 韻腳地圖
+current_phase: 11
+current_phase_name: Line Analysis & Settings 句構分析與設定頁
 status: verifying
-stopped_at: Completed 10-08-PLAN.md
-last_updated: "2026-10-23T10:59:24.859Z"
-last_activity: 2026-10-23
-last_activity_desc: Phase 10 execution started
-state_head: 947620e7f9e8fbfe7bed68e43bb33b4f74c21ed1
+stopped_at: Completed 11-08-PLAN.md（Phase 11 全部計畫完成，等 Andy 驗收）
+last_updated: "2026-10-28T02:04:45.303Z"
+last_activity: 2026-10-28
+last_activity_desc: Phase 11 execution started
+state_head: 2cc4b8ba1f2ba36bca2d4ca170f0b36bd4102d68
 progress:
   total_phases: 12
   completed_phases: 2
-  total_plans: 78
-  completed_plans: 78
+  total_plans: 86
+  completed_plans: 86
 ---
 
 # Project State
@@ -23,14 +23,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-10-03)
 
 **Core value:** 輸入一個字或音，就能快速拿到「符合台灣日常語感、真的能寫進歌詞」的押韻字詞——查得到、查得快、查得準。
-**Current focus:** Phase 10 — Rhyme Map 韻腳地圖
+**Current focus:** Phase 11 — Line Analysis & Settings 句構分析與設定頁
 
 ## Current Position
 
-Phase: 10 (Rhyme Map 韻腳地圖) — EXECUTING
+Phase: 11 (Line Analysis & Settings 句構分析與設定頁) — EXECUTING
 Plan: 8 of 8
 Status: Phase complete — ready for verification
-Last activity: 2026-10-23 — Phase 10 execution started
+Last activity: 2026-10-28 — Phase 11 execution started
 
 Progress: [██░░░░░░░░] 17%
 
@@ -135,6 +135,14 @@ Progress: [██░░░░░░░░] 17%
 | Phase 10 P06 | 30 min | 2 tasks | 6 files |
 | Phase 10 P07 | 40min | 3 tasks | 7 files |
 | Phase 10 P08 | 20min | 3 tasks | 5 files |
+| Phase 11 P01 | 11min | 3 tasks | 14 files |
+| Phase 11 P02 | 30min | 3 tasks | 6 files |
+| Phase 11 P03 | 35min | 3 tasks | 5 files |
+| Phase 11 P04 | 35min | 3 tasks | 5 files |
+| Phase 11 P05 | 40min | 3 tasks | 4 files |
+| Phase 11 P06 | 40min | 2 tasks | 2 files |
+| Phase 11 P07 | ~25min | 2 tasks | 2 files |
+| Phase 11 P08 | 25min | 3 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -256,6 +264,18 @@ Recent decisions affecting current work:
 - [Phase 10]: 10-07: 結構字母條只在 lhMapPaint 內更新；統計列點選走既有 lhMapLookup；手機放大 150% 時名稱先縮、字母條後縮，兩者各留 44px 觸控下限
 - [Phase 10]: 10-08: gate passed without any code change; AI whole-song verified at generateAISuggestions call time (stub wordlist takes the invent-words branch with no lyrics in the prompt)
 - [Phase 10]: 10-08: 22 autonomous decisions (10-CTX-1..22 = 5-109..5-130) queued for Andy; -linux baselines remain an Andy to-do (npm run visual:update in cloud container)
+- [Phase 11]: 只有機器猜的那一段加 ≈ 與斜體（覆蓋 UI-SPEC D-04）；lh:map 最小序列化，舊五鍵字串逐字不變
+- [Phase 11]: lnCount／lnSplit 預設 true（依 CONTEXT D4 括號說法），總開關 line 預設 false，新使用者仍只看到句尾上色
+- [Phase 11]: 11-02: 閘門拆兩段，_lhMapOk(字典+歌曲)可畫字數與明確斷點，_lhMapWl(詞庫)才做韻腳分析與猜斷句
+- [Phase 11]: 11-02: 對照差異說明文字照 RESEARCH X4 寫「同類型第一段」，不用 UI-SPEC 的「前一段」；重畫排程一次只畫一段
+- [Phase 11]: 11-03: 句尾後欄位間距用 margin 0.5em加「· 」，對照差異接在字數後面；lm-typing 的 CSS 限 html[data-lm=tail]
+- [Phase 11]: 11-04: 對比提醒與預覽重畫統一放在 lhMapMenuSync；主題觀察者也呼叫它，色票才顯示新主題預設色
+- [Phase 11]: 11-04: sticky 預覽 top 取 -1.5rem 貼齊設定視窗上緣（視窗上內距 1.5rem）
+- [Phase 11]: 11-05: 浮動列依 D-07 在任何有字的選取都出現（超過 20 字或沒有中文字只剩「分析」）；對照放在每行下面的整列，不多一欄
+- [Phase 11]: 11-06: 停留動 3px 以上就取消且不重新起算；只有新的滑鼠反白才重新等 1.5 秒（採 CONTEXT C4，不採 RESEARCH 草稿）
+- [Phase 11]: 11-06: 停留計時到點比對選取範圍（ta、a、b）而非快照物件，因為 400ms 路徑會重建快照
+- [Phase 11]: 11-07: 色票聚焦不算叫出鍵盤（layout.js 排除 color），鍵盤備援改量色票在可見範圍且不被分頁列蓋住；整合與跨裝置檢查全部原樣通過，沒有改 js/css
+- [Phase 11]: 11-08: 色票拖曳監聽具名為 _lhMapColorInput，setProperty 掃描名單固定為四個函式；備份檢查以正規化的 lh:map 為種子
 
 ### Pending Todos
 
@@ -289,6 +309,8 @@ Recent decisions affecting current work:
 | 07 | verification_deferred_human | /gsd-verify-work 07（審查 CR-01/02＋WR 全修、自動驗證 14/14；UAT 清單 07-UAT.md：正式環境走一次、手機實機、Linux 截圖基準、審查後改變 5-64） |
 | 08 | verification_deferred_human | /gsd-verify-work 08（審查兩輪 CR-01＋WR-01～12 全修、自動驗證 13/13；UAT 清單 08-UAT.md：實機注音、PDF、iOS、兩台裝置還原、Linux 截圖、自主決定 5-69～5-91） |
 | 09 | verification_deferred_human | /gsd-verify-work 09（自動 5/5、審查 CR-01＋WR-01～05 全修、npm test 847 過；UAT 清單 09-UAT.md：實機拖曳、iPhone 復原、顏色、游標、Linux 截圖、17 項自主決定） |
+| 10 | verification_deferred_human | /gsd-verify-work 10（自動 5/5、審查 WR-01～03＋IN-01 已修、npm test 964 過；UAT 清單 10-UAT.md：真機顏色、組字與捲動、長按浮動列、SC4 點字查韻方式、自主決定、Linux 截圖） |
+| 11 | verification_deferred_human | /gsd-verify-work 11（自動 3/3、審查 WR-01 已修、npm test 1038 過；UAT 清單 11-UAT.md：真實歌詞斷句語感、標記美觀、Safari 換行、iOS 色票、iPad 停留、自主決定、Linux 截圖） |
 
 ## Deferred Items
 
@@ -300,6 +322,6 @@ Items acknowledged and deferred at milestone close, most recent first:
 
 ## Session Continuity
 
-Last session: 2026-10-23T10:59:24.795Z
-Stopped at: Completed 10-08-PLAN.md
+Last session: 2026-10-28T02:04:45.228Z
+Stopped at: Completed 11-08-PLAN.md（Phase 11 全部計畫完成，等 Andy 驗收）
 Resume file: None
