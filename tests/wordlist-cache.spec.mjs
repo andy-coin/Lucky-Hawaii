@@ -1,7 +1,7 @@
 // Phase 4 詞庫載入：慢速載入與 AI 建議的競態、版本更新整套換新、非 200 留記錄
 import { test, expect } from '@playwright/test';
 import { readFileSync } from 'node:fs';
-import { bootPage, settle, CONTEXT_OPTS, routeExternal, collectErrors, stubManifest, stubPack, packEntry } from './helpers.mjs';
+import { bootPage, settle, CONTEXT_OPTS, routeExternal, collectErrors, stubManifest, stubPack, packEntry, stubSlangEmpty } from './helpers.mjs';
 
 const clickGenerate = page => page.evaluate(() => document.getElementById('generateBtn').click());
 
@@ -73,6 +73,7 @@ test('版本：改版時整套換新、缺一段就保留舊的整套、網址�
     const state = { ver: 'V1', metaDown: false, failChunk: null, delay0: false };
     const context = await browser.newContext(CONTEXT_OPTS);
     await routeExternal(context, { aiReply: '' });
+    await stubSlangEmpty(context);
     await context.route(/\/data\/wordlist-meta\.json$/, r => state.metaDown
         ? r.fulfill({ status: 500, body: 'x' })
         : r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ version: state.ver, chunks: 10, total: 10 }) }));
@@ -250,6 +251,7 @@ for (const mode of ['throw', 'abort']) {
         const state = { ver: 'V1' };
         const context = await browser.newContext(CONTEXT_OPTS);
         await routeExternal(context, { aiReply: '' });
+        await stubSlangEmpty(context);
         await context.route(/\/data\/wordlist-meta\.json$/, r => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ version: state.ver, chunks: 10, total: 10 }) }));
         await context.route(/\/data\/wordlist-c0(\d)\.json(\?.*)?$/, r => {
             const i = Number(/c0(\d)\.json/.exec(r.request().url())[1]);
@@ -324,6 +326,7 @@ test('版本：兩個分頁同時換版不會看到混合的詞庫', async ({ br
     const state = { vers: ['V1'] };   // meta 依序回這份清單，用完就一直回最後一個
     const context = await browser.newContext(CONTEXT_OPTS);
     await routeExternal(context, { aiReply: '' });
+    await stubSlangEmpty(context);
     await context.route(/\/data\/wordlist-meta\.json$/, r => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ version: state.vers.length > 1 ? state.vers.shift() : state.vers[0], chunks: 10, total: 10 }) }));
     const MARK = { V1: '舊', V2: '新', V3: '甲' };
     let gateOn = false, arrived = 0, openGate;
@@ -390,6 +393,7 @@ test('版本：非預設詞庫包改版時只換該包、缺段保留舊版', as
     const alpha = { version: 'V1', chunks: mk('V1'), fail: null, notice: 'x', requests: [] };
     const context = await browser.newContext(CONTEXT_OPTS);
     await routeExternal(context, { aiReply: '' });
+    await stubSlangEmpty(context);
     await context.addInitScript(() => localStorage.setItem('lh:lexiconPack', 'alpha'));
     await stubManifest(context, { schema: 1, default: 'v096', packs: [v096Entry, packEntry('alpha', 'Alpha', { entries: 3 })] });
     await stubPack(context, 'alpha', alpha);

@@ -88,7 +88,12 @@ export async function stubWordlist(context, ndjson) {
         const isFirst = new URL(route.request().url()).pathname.endsWith('wordlist-c00.json');   // 網址可能帶 ?v=
         return route.fulfill({ status: 200, contentType: 'application/json', body: isFirst ? ndjson : filler });
     });
+    await stubSlangEmpty(context);
 }
+
+// 自建潮流詞庫換成空的：自己組小詞庫的測試要的是可預測的詞（data/slang/words.json 會疊加三千多個詞）
+export const stubSlangEmpty = context => context.route(/\/data\/slang\/words\.json(\?.*)?$/,
+    route => route.fulfill({ status: 200, contentType: 'application/json', body: '{"version":"stub","count":0,"added":[]}' }));
 
 // 每次都是全新 profile（D-06）；storage 為 { key: value } 預先放進 localStorage
 // wordlist: 'real'（預設，golden 用）或 'stub'（讀 tests/fixtures/wordlist-stub.ndjson）
