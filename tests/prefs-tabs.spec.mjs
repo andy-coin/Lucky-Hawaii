@@ -7,7 +7,7 @@ import { DEVICES, waitStill } from './layout-lib.mjs';
 const FIXTURE = JSON.parse(readFileSync(new URL('./fixtures/v096-localStorage.json', import.meta.url), 'utf8'));
 const v2Storage = songs => ({ ...FIXTURE, 'lh:schema': '2', 'lh:songs': JSON.stringify(songs), 'lh:activeSong': songs[0].id, leftPanelCollapsed: 'false', rightPanelCollapsed: 'false' });
 const song = { id: 's1', title: '測試歌', sections: [{ id: 'sa', type: 'verse', custom: '', color: '', height: null, label: '', text: '我望著遠方的光\n獨自站在窗', collapsed: false }], hashtags: [], context: '', createdAt: 1, updatedAt: 1 };
-const TABS = ['外觀', '查詢與詞庫', '韻腳與句構', '資料與備份', '說明與回饋'];
+const TABS = ['外觀', '查詢與詞庫', '韻腳與句構', 'AI', '資料與備份', '說明與回饋'];
 const tab = (page, name) => page.getByRole('tab', { name });
 const selected = page => page.locator('#prefsTabs [aria-selected="true"]').textContent();
 
@@ -23,13 +23,13 @@ test('分頁：結構、無障礙屬性、每個設定都在某個分頁裡', as
         const p = document.getElementById(t.getAttribute('aria-controls'));
         return [p.getAttribute('role'), p.getAttribute('aria-labelledby') === t.id, t.getAttribute('aria-selected'), p.hidden, t.tabIndex];
     }));
-    expect(rel).toEqual([['tabpanel', true, 'true', false, 0], ...Array(4).fill(['tabpanel', true, 'false', true, -1])]);
+    expect(rel).toEqual([['tabpanel', true, 'true', false, 0], ...Array(5).fill(['tabpanel', true, 'false', true, -1])]);
     // 原本的設定都還在（id 不變），各在自己的分頁
-    const where = await page.evaluate(() => Object.fromEntries(['sBgColor1', 'sContainerBg', 'sTextColor', 'sHighlightColor', 'showPinyin', 'highlightSearch', 'hideRare', 'filterDuplicate', 'lexiconPackList', 'autoBackupSection', 'mapSettingsSection', 'importFileInput']
+    const where = await page.evaluate(() => Object.fromEntries(['sBgColor1', 'sContainerBg', 'sTextColor', 'sHighlightColor', 'showPinyin', 'highlightSearch', 'hideRare', 'filterDuplicate', 'lexiconPackList', 'byokKey-gemini', 'byokKey-groq', 'autoBackupSection', 'mapSettingsSection', 'importFileInput']
         .map(id => [id, document.getElementById(id)?.closest('[role=tabpanel]')?.id ?? null])));
     expect(where).toEqual({
         sBgColor1: 'prefsPanel-look', sContainerBg: 'prefsPanel-look', sTextColor: 'prefsPanel-look', sHighlightColor: 'prefsPanel-look',
-        showPinyin: 'prefsPanel-search', highlightSearch: 'prefsPanel-search', hideRare: 'prefsPanel-search', filterDuplicate: 'prefsPanel-search', lexiconPackList: 'prefsPanel-search',
+        showPinyin: 'prefsPanel-search', highlightSearch: 'prefsPanel-search', hideRare: 'prefsPanel-search', filterDuplicate: 'prefsPanel-search', lexiconPackList: 'prefsPanel-search', 'byokKey-gemini': 'prefsPanel-ai', 'byokKey-groq': 'prefsPanel-ai',
         autoBackupSection: 'prefsPanel-data', mapSettingsSection: 'mapSettingsSection', importFileInput: null,
     });
     const btnTab = async text => page.locator('.settings-dropdown button', { hasText: text }).first().evaluate(b => b.closest('[role=tabpanel]').id);
@@ -116,13 +116,13 @@ test('分頁：手機上分頁列橫向捲動、每個分頁 ≥ 44px、選到�
     await page.evaluate(() => toggleSettings());
     await waitStill(page);
     const tabs = page.locator('#prefsTabs [role=tab]');
-    for (let i = 0; i < 5; i++) {
+    for (let i = 0; i < TABS.length; i++) {
         const b = await tabs.nth(i).boundingBox();
         expect(b.height, TABS[i] + ' 高度').toBeGreaterThanOrEqual(43.5);
     }
     const list = await page.locator('#prefsTabs').evaluate(n => ({ sw: n.scrollWidth, cw: n.clientWidth, ox: getComputedStyle(n).overflowX }));
     if (list.sw > list.cw + 1) expect(list.ox).toBe('auto');
-    await tabs.nth(4).tap();
+    await tabs.nth(TABS.length - 1).tap();
     const inView = await page.evaluate(() => { const t = document.getElementById('prefsTab-help').getBoundingClientRect(), l = document.getElementById('prefsTabs').getBoundingClientRect(); return t.left >= l.left - 1 && t.right <= l.right + 1; });
     expect(inView, '選到的最後一個分頁整個看得到').toBe(true);
     await expect(page.locator('#prefsPanel-help')).toBeVisible();

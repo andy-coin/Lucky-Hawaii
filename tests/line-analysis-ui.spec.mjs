@@ -213,7 +213,7 @@ test('偏好設定：內容與順序', async ({ browser }) => {
         storage: v2Storage([song([typed('sa', 'verse', ['我望著遠方的光', '獨自站在窗'].join('\n')), typed('sb', 'verse', ['我望著遠方的光', '獨自站在窗前'].join('\n'))])]),
     });
     // 沒打開前只有外殼，標題在自動備份之後、意見回饋之前
-    expect(await page.evaluate(() => [...document.querySelectorAll('.settings-dropdown > [role=tabpanel]')].map(e => e.id))).toEqual(['prefsPanel-look', 'prefsPanel-search', 'mapSettingsSection', 'prefsPanel-data', 'prefsPanel-help']);
+    expect(await page.evaluate(() => [...document.querySelectorAll('.settings-dropdown > [role=tabpanel]')].map(e => e.id))).toEqual(['prefsPanel-look', 'prefsPanel-search', 'mapSettingsSection', 'prefsPanel-ai', 'prefsPanel-data', 'prefsPanel-help']);
     expect(await page.locator('#mapSettingsSection').evaluate(e => e.childElementCount), '沒切到這個分頁前只有外殼').toBe(0);
     await openPrefs(page);
     const sec = page.locator('#mapSettingsSection');

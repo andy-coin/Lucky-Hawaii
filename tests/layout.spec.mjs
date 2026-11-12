@@ -1256,8 +1256,8 @@ test('底部面板：長段落名、長標籤、長模型名不撐破', async ({
             await toggleSide(page, device, 'ai');
             expect(await wideOnes('#rightPanel'), `${name}：AI 面板有元素超出`).toEqual([]);
             const sel = await page.evaluate(() => {
-                const s = document.getElementById('modelSelect');
-                return { w: s.getBoundingClientRect().width, max: 10 * parseFloat(getComputedStyle(document.documentElement).fontSize), label: s.options[s.options.length - 1].text.length };
+                const s = document.getElementById('modelSelect');   // 隱藏的 select 是選項來源；看得到的是自製下拉鈕
+                return { w: document.getElementById('modelPicker').getBoundingClientRect().width, max: 10 * parseFloat(getComputedStyle(document.documentElement).fontSize), label: s.options[s.options.length - 1].text.length };
             });
             expect(sel.label, '模型選單真的放進長名字').toBe(60);
             expect(sel.w, `${name}：模型選單寬 ${sel.w}px，上限 10rem = ${sel.max}px`).toBeLessThanOrEqual(sel.max + 1);
@@ -1496,8 +1496,12 @@ const INPUT_STATES = [
     ['閒置', ['input#searchInput'], async () => {}, async () => {}],
     ['歌詞開著', ['textarea.section-textarea', 'textarea#contextDescription', 'input#hashtagInput'],
         (page, d) => toggleSide(page, d, 'lyrics'), (page, d) => isWide(d) ? toggleSide(page, d, 'lyrics') : closeSheet(page, d)],
-    ['AI 開著', ['select#modelSelect'],
+    // 模型選單改成自製下拉（button，不會觸發 iOS 放大），AI 面板裡沒有輸入框了；搜尋框仍看得到
+    ['AI 開著', ['input#searchInput'],
         (page, d) => toggleSide(page, d, 'ai'), (page, d) => isWide(d) ? toggleSide(page, d, 'ai') : closeSheet(page, d)],
+    ['設定開著·AI', ['input#byokKey-gemini', 'input#byokKey-groq'],
+        async page => { await page.evaluate(() => lhOpenAiPrefs()); await expect(page.locator('#prefsPanel-ai')).toBeVisible(); },
+        page => page.evaluate(() => document.getElementById('settingsOverlay').classList.remove('show'))],
     ...Object.entries({ 設定開著: 'settings', 回報開著: 'feedback' }).map(([name, key]) => [
         name,
         key === 'feedback' ? ['input#feedbackSubject', 'textarea#feedbackBody'] : ['input#searchInput'],
@@ -1507,7 +1511,7 @@ const INPUT_STATES = [
     ]),
 ];
 
-test('輸入：手機平板所有輸入框字級 ≥ 16px（3 縮放 × 6 狀態）', async ({ browser }) => {
+test('輸入：手機平板所有輸入框字級 ≥ 16px（3 縮放 × 7 狀態）', async ({ browser }) => {
     test.setTimeout(180_000);   // 設定分頁各掃一次（R2）後畫面變多，全部一起跑時 60 秒不夠
     // 負向對照：掃描器抓得到小字、放得過大字（用一個臨時的 8px 輸入框驗證，之後移除）
     {
@@ -1547,16 +1551,16 @@ test('輸入：16px 剛好通過、900 套用、901 桌機不變', async ({ brow
     const { context, page } = await bootPage(browser, { device: DEVICES.desktop });
     try {
         expect(await page.evaluate(() => matchMedia('(pointer: fine)').matches), '這個 context 是滑鼠').toBe(true);
-        const fonts = () => page.evaluate(() => Object.fromEntries(['#modelSelect', '#searchInput', '.context-textarea', '.section-textarea'].map(s => [s, parseFloat(getComputedStyle(document.querySelector(s)).fontSize)])));
+        const fonts = () => page.evaluate(() => Object.fromEntries(['#modelPicker', '#searchInput', '.context-textarea', '.section-textarea'].map(s => [s, parseFloat(getComputedStyle(document.querySelector(s)).fontSize)])));
         const desktop = await fonts();
-        expect(desktop['#modelSelect'], '1440 桌機維持原字級').toBeLessThan(16);
+        expect(desktop['#modelPicker'], '1440 桌機維持原字級').toBeLessThan(16);
         await page.setViewportSize({ width: 901, height: 900 });
-        expect((await fonts())['#modelSelect'], '901 滑鼠：桌機字級不變').toBe(desktop['#modelSelect']);
+        expect((await fonts())['#modelPicker'], '901 滑鼠：桌機字級不變').toBe(desktop['#modelPicker']);
         await page.setViewportSize({ width: 900, height: 900 });
         const at900 = await fonts();
         for (const [sel, px] of Object.entries(at900)) expect(meetsInputFloor(px), `900 寬滑鼠 ${sel} ${px}px`).toBe(true);
         await page.setViewportSize({ width: 901, height: 900 });
-        expect((await fonts())['#modelSelect'], '回到 901 又變回桌機字級').toBe(desktop['#modelSelect']);
+        expect((await fonts())['#modelPicker'], '回到 901 又變回桌機字級').toBe(desktop['#modelPicker']);
     } finally { await context.close(); }
 });
 
@@ -1659,7 +1663,7 @@ const TOUCH_STATES = [
         await expect(page.locator('#sectionMenu input.section-name-input')).toBeVisible();
     }],
     ['韻腳選單開著', RHYME_MENU_MUST, openRhymeMenu],
-    ['AI 開著', ['select#modelSelect', 'button.rhyme-mode-btn', 'button.filter-chip', 'button#generateBtn', 'div.ai-word-card', 'span.chip-remove', 'div.saved-pool-title', 'button.reset-pool-btn', 'button.hint-clear'], async (page, d) => {
+    ['AI 開著', ['button#modelPicker', 'button.rhyme-mode-btn', 'button.filter-chip', 'button#generateBtn', 'div.ai-word-card', 'span.chip-remove', 'div.saved-pool-title', 'button.reset-pool-btn', 'button.hint-clear'], async (page, d) => {
         await page.fill('#searchInput', 'ㄢ');
         await settle(page);
         await page.locator('.char-card .char-main').first().click();   // 選一個字：AI 面板才會出現「已選字」提示與 ✕
@@ -1668,7 +1672,7 @@ const TOUCH_STATES = [
     }],
     // 偏好設定分頁式（R2）：每個分頁各掃一次
     ...[['外觀', 'look', ['button[role=tab]', 'input[type=color]', 'button.reset-color']], ['查詢與詞庫', 'search', ['button[role=tab]', 'input[type=checkbox]']],
-        ['資料與備份', 'data', ['button.save-load-btn', 'button.reset-color']], ['說明與回饋', 'help', ['button.save-load-btn']]].map(([n, tab, must]) => [`設定開著·${n}`, must, async page => {
+        ['AI', 'ai', ['input.byok-input', 'button.byok-eye', 'button.save-load-btn', 'a.byok-video']], ['資料與備份', 'data', ['button.save-load-btn', 'button.reset-color']], ['說明與回饋', 'help', ['button.save-load-btn']]].map(([n, tab, must]) => [`設定開著·${n}`, must, async page => {
         await page.evaluate(t => { toggleSettings(); lhPrefsSelectTab(t); }, tab); await expect(page.locator('#settingsOverlay')).toHaveClass(/show/);
     }]),
     ['回報開著', ['button.feedback-send-btn', 'button.feedback-cancel-btn', 'input#feedbackSubject'], async page => {

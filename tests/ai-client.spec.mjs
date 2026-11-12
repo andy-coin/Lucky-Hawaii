@@ -153,7 +153,10 @@ test('選單：標籤只當文字', async ({ browser }) => {
 test('選單：使用者改選才寫入', async ({ browser }) => {
     await withPage(browser, { storage: FIXTURE }, async ({ page }) => {
         expect(await page.evaluate(() => localStorage.getItem('selectedModel'))).toBe(FIXTURE.selectedModel);
-        await page.selectOption('#modelSelect', GPT);
+        await page.locator('#modelPicker').click();   // 自製下拉（BYOK）：點按鈕、點選項
+        await page.locator(`#modelList [role=option][data-id="${GPT}"]`).click();
+        await expect(page.locator('#modelList')).toBeHidden();
+        expect(await page.locator('#modelSelect').inputValue()).toBe(GPT);
         expect(await page.evaluate(() => localStorage.getItem('selectedModel'))).toBe(GPT);
     });
 });

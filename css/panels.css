@@ -2097,3 +2097,75 @@
             .tour-btn { min-height: var(--hit); }
             .tour-dots span { width: 0.3125rem; }
         }
+
+        /* ===== 用自己的金鑰（BYOK，js/ai-client.js）：標題旁的鑰匙、自製模型下拉、偏好設定「AI」分頁 ===== */
+        .ai-title-group { display: inline-flex; align-items: center; gap: var(--sp-1); min-width: 0; }
+        /* 鑰匙：無外框；沒在用自己的金鑰時淡淡的，用的時候亮起來慢慢呼吸（沿用既有的 lhPulse，不新增 @keyframes） */
+        .ai-key-btn {
+            display: inline-flex; align-items: center; justify-content: center;
+            border: 0; background: none; padding: var(--sp-1); margin: 0; cursor: pointer;
+            color: var(--text-secondary); opacity: 0.45; border-radius: var(--radius-s); font-size: 0.95rem;
+        }
+        .ai-key-btn[data-on="true"] { color: var(--highlight-border); opacity: 1; animation: lhPulse 2.6s ease-in-out infinite; }
+        @media (hover: hover) and (pointer: fine) { .ai-key-btn:hover { opacity: 1; } }
+        .ai-key-btn:focus-visible { outline: 2px solid var(--highlight-border); outline-offset: 1px; opacity: 1; }
+        @media (prefers-reduced-motion: reduce) { .ai-key-btn[data-on="true"] { animation: none; } }
+
+        .model-picker { position: relative; min-width: 0; display: flex; }
+        #modelPicker { display: inline-flex; align-items: center; gap: var(--sp-1); min-width: 0; text-align: left; }
+        .model-picker-label { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .model-picker-caret { font-size: 0.9em; }
+        .model-list {
+            position: absolute; top: calc(100% + var(--sp-1)); right: 0; z-index: 60;
+            min-width: 100%; width: max-content; max-width: min(18rem, 85vw); max-height: min(70vh, 32rem); overflow-y: auto; overscroll-behavior: contain;
+            padding: var(--sp-1); background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--radius-m);
+            box-shadow: 0 6px 20px var(--shadow); font-size: 0.8rem; font-weight: 400; letter-spacing: 0;
+        }
+        .model-list[hidden] { display: none; }
+        .model-list:focus-visible { outline: 2px solid var(--accent-line); outline-offset: 1px; }
+        .model-group-label { padding: var(--sp-2) var(--sp-2) var(--sp-1); font-size: 0.75rem; color: var(--text-secondary); }
+        .model-list [role="group"] + [role="group"] { border-top: 1px solid var(--border); margin-top: var(--sp-1); }
+        .model-opt {
+            display: flex; align-items: center; gap: var(--sp-3); min-height: 2rem; padding: 0 var(--sp-2);
+            border-radius: var(--radius-s); color: var(--text-primary); cursor: pointer;
+        }
+        .model-opt-name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .model-opt[aria-selected="true"] { font-weight: 700; box-shadow: inset 2px 0 0 var(--highlight-border); }
+        .model-opt.active { background: var(--accent-soft); }
+        @media (hover: hover) and (pointer: fine) { .model-opt:hover { background: var(--fill-soft); } }
+        /* 用量訊號格：靠右，亮的格數＝吃免費額度的多寡 */
+        .model-opt-usage { flex: none; margin-left: auto; display: inline-flex; align-items: center; color: var(--text-secondary); }
+        .usage-bars { width: 1.05em; height: 0.85em; }
+        .usage-bars rect { fill: currentColor; opacity: 0.25; }
+        .usage-bars rect.on { opacity: 1; }
+
+        /* 偏好設定「AI」分頁 */
+        .byok-intro { margin: 0; font-size: 0.85rem; line-height: 1.6; color: var(--text-secondary); }
+        .byok-intro strong { color: var(--text-primary); }
+        .byok-provider { display: flex; flex-direction: column; gap: var(--sp-2); padding-top: var(--sp-3); border-top: 1px solid var(--border); }
+        .byok-row { display: flex; align-items: stretch; gap: var(--sp-1); }
+        .byok-input {
+            flex: 1 1 auto; min-width: 0; min-height: 2.25rem; padding: 0 var(--sp-2);
+            border: 1px solid var(--border); border-radius: var(--radius-s); background: var(--card-bg); color: var(--text-primary);
+            font-family: var(--font-mono); font-size: 0.85rem;
+        }
+        .byok-input:focus-visible { outline: 2px solid var(--highlight-border); outline-offset: 0; }
+        .byok-eye {
+            flex: none; min-width: 2.25rem; display: inline-flex; align-items: center; justify-content: center;
+            border: 1px solid var(--border); border-radius: var(--radius-s); background: var(--container-bg); color: var(--text-secondary); cursor: pointer;
+        }
+        .byok-eye[aria-pressed="true"] { color: var(--text-primary); }
+        .byok-eye:focus-visible { outline: 2px solid var(--highlight-border); outline-offset: 1px; }
+        .byok-actions { display: flex; gap: var(--sp-2); }
+        .byok-actions .save-load-btn { flex: 1; text-align: center; }
+        .byok-status { font-size: 0.8rem; color: var(--text-secondary); min-height: 1.2em; line-height: 1.5; }
+        .byok-status[data-kind="err"] { color: var(--danger-line); }
+        .byok-status[data-kind="ok"] { color: var(--text-primary); }
+        .byok-video { font-size: 0.85rem; color: var(--accent-strong); align-self: flex-start; }
+
+        @media (pointer: coarse), (max-width: 900px) {
+            .ai-key-btn, .byok-eye, .prefs-tabs [role="tab"] { min-width: var(--hit); min-height: var(--hit); }
+            .model-opt, .byok-actions .save-load-btn, .byok-video { min-height: var(--hit); }
+            .byok-video { display: inline-flex; align-items: center; }
+            .byok-input { min-height: var(--hit); font-size: max(16px, 1rem); }
+        }
