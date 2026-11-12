@@ -1,4 +1,11 @@
 ## 🔄 第二輪三線並行（2026-11-12 下午，基準 1cc4407，進行中）
+## ▶ R2 BYOK 用自己的金鑰（2026-11-12，worktree `Lucky Hawaii-wt-byok`，分支 r2/byok，沒 push、`?v=` 沒升）
+
+- `js/ai-client.js`：最上面 `BYOK_PROVIDERS`（Gemini 3.5 Flash-Lite／3.8 Flash、Groq GPT-OSS 20B／120B，含用量格）；`callLLM` 遇到 `byok:` 開頭的模型改走 `_callByok` 直連（Gemini 用 x-goog-api-key、Groq 用 Bearer），錯誤經 `_byokErrorMsg` 轉白話，不退回 Worker；自製下拉 `_renderModelPicker`／`modelPickerOpen`（隱藏的 `#modelSelect` 仍是值的來源）；鑰匙 `_syncKeyBtn`、`lhOpenAiPrefs`；AI 分頁 `byokSaveKey`／`byokTest`。舊 `saveApiKey` 空殼已刪。
+- `index.html`：AI 面板標題（約 437 行）鑰匙＋自製下拉；偏好設定新增 `#prefsTab-ai`／`#prefsPanel-ai`（約 167、208 行），拿掉「查詢與詞庫」裡 Groq 那行。`js/search-ui.js` 切到 ai 分頁時重填金鑰欄。
+- `css/panels.css` 檔尾 BYOK 區塊（鑰匙沿用 `lhPulse` 呼吸，不新增 @keyframes）。
+- 測試：新增 `tests/byok.spec.mjs`（11 題，page.route 攔服務商）；`prefs-tabs`、`layout`、`line-analysis-ui`、`ai-client` 跟著改成六分頁＋自製下拉。截圖腳本 `tests/_shots-byok.mjs`（不進版本）→ `r2-shots/byok-*`。待決 → `R2-byok.md`。
+
 ## ▶ R2 偏好設定分頁（2026-11-12，worktree `Lucky Hawaii-wt-prefs`，分支 r2/prefs，沒 push、`?v=` 沒升）
 
 - 偏好設定改成五個分頁（`index.html` 約 159～210 行的 `#prefsTabs`、`.prefs-panel`）：外觀／查詢與詞庫／韻腳與句構（`#mapSettingsSection` 本身就是 tabpanel）／資料與備份／說明與回饋。切換邏輯 `lhPrefsSelectTab` 在 `js/search-ui.js` 的 `toggleSettings` 底下（記住上次的分頁、方向鍵、Home、End）；背景動畫開關 `#prefsBgFx` 等主題那條分支的 `lhBgFxSet`／`lhBgFxGet`。
