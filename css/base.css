@@ -1,7 +1,11 @@
-        /* ===== 設計變數（夜間 UI 重設計）=====
-           方向：「錄音室裡的手稿」——米白紙張、墨色文字、一個朱紅強調色；細線分隔，少用陰影與漸層。
-           顏色常數只寫在這兩組變數裡（亮／暗），元件一律用 var()。
-           客製顏色（js/theme.js）只覆寫四個：--bg-gradient-1/2（頁面底）、--container-bg、--text-primary、--highlight-border */
+        /* ===== 設計變數（R2 多主題）=====
+           字體與版面沿用「紙墨極簡」；顏色改成五個主題：Plain 素墨、Moon 月光、City 城市、Midnight 午夜、自訂（js/theme.js 切換）。
+           :root＝「自訂」的底（米白紙＋墨字＋朱紅），四個命名主題在下面用 html[data-lh-theme="…"] 整組覆寫。
+           data-theme 仍是 light／dark（主題的明暗，給韻腳地圖與既有規則用）；data-lh-theme 是主題名。
+           顏色常數只寫在這些變數宣告裡，元件一律用 var()。
+           重點色分工：--highlight-border＝主重點（選中、焦點、分組線）；--action-bg＝主要行動鈕；
+           --accent-2＝注音韻母標記；--accent-3＝標籤（常用／冷僻、hashtag）；--accent-4＝AI 區。
+           客製顏色（js/theme.js，只在「自訂」主題）覆寫四個：--bg-gradient-1/2、--container-bg、--text-primary、--highlight-border */
         :root {
             --bg-gradient-1: #e7e2d8;
             --bg-gradient-2: #e7e2d8;
@@ -14,6 +18,21 @@
             --shadow: rgba(0, 0, 0, 0.08);
             --header-gradient-1: #f6f3ec;
             --header-gradient-2: #f6f3ec;
+            --accent-2: #2a6f8f;
+            --accent-3: #8a5a14;
+            --accent-4: #4f6b2a;
+            /* 搜尋結果裡的注音高亮（第 1 個是韻母，最常見） */
+            --hl-1: var(--accent-2);
+            --hl-2: var(--accent-4);
+            --hl-3: var(--accent-3);
+            --hl-4: var(--highlight-border);
+            --hl-5: var(--danger-line);
+            --hl-6: var(--text-primary);
+            /* 質地：data URI 的 SVG 雜訊／網紋，瀏覽器只算一次就重複貼，不會每幀運算；列印時拿掉（print.css） */
+            --tex-page: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .35 0 0 0 0 .28 0 0 0 0 .18 0 0 0 .10 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+            --tex-panel: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .35 0 0 0 0 .28 0 0 0 0 .18 0 0 0 .06 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+            /* 背景飄字（js/bgfx.js）的顏色與濃度 */
+            --fx-opacity: 0.16;
             /* 強調色的淡底與按下去的深色，跟著客製的強調色走 */
             --accent-soft: color-mix(in srgb, var(--highlight-border) 11%, transparent);
             --accent-line: color-mix(in srgb, var(--highlight-border) 45%, var(--border));
@@ -86,6 +105,110 @@
             --action-bg-hover: #ffffff;
             --action-text: #181715;
             --danger-line: #fc8181;
+            --accent-2: #6fb6d6;
+            --accent-3: #d8a657;
+            --accent-4: #9cc06a;
+            --tex-page: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 .05 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+            --tex-panel: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 .05 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+        }
+
+        /* ===== 四個命名主題（取色自 Andy 的 VS Code 參考圖）=====
+           選擇器多一層 html，權重高過上面的 [data-theme="dark"]；全部文字對比 ≥ 4.5（tests/theme.spec.mjs 量） */
+
+        /* Plain 素墨：中性深灰（VS Code Dark），橘金／青綠／藍／黃；質地像細布紋 */
+        html[data-lh-theme="plain"] {
+            --bg-gradient-1: #161616;
+            --bg-gradient-2: #161616;
+            --container-bg: #1f1f1f;
+            --header-gradient-1: #1f1f1f;
+            --header-gradient-2: #1f1f1f;
+            --card-bg: #262626;
+            --text-primary: #d4d4d4;
+            --text-secondary: #a0a0a0;
+            --border: #383838;
+            --shadow: rgba(0, 0, 0, 0.45);
+            --highlight-border: #e0954f;
+            --accent-2: #6fbfae;
+            --accent-3: #e2c86b;
+            --accent-4: #79a8dc;
+            --action-bg: #e0954f;
+            --action-bg-hover: #eaa866;
+            --action-text: #1a1a1a;
+            --tex-page: repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.016) 0 1px, transparent 1px 5px), repeating-linear-gradient(-45deg, rgba(255, 255, 255, 0.016) 0 1px, transparent 1px 5px), url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.75' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 .07 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+            --tex-panel: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 .045 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+            --fx-opacity: 0.13;
+        }
+
+        /* Moon 月光：奶油米底（Solarized Light），金黃行動列／藍／深紅／青綠；質地像紙（細纖維＋大片斑駁） */
+        html[data-lh-theme="moon"] {
+            --bg-gradient-1: #eee8d5;
+            --bg-gradient-2: #eee8d5;
+            --container-bg: #fdf6e3;
+            --header-gradient-1: #fdf6e3;
+            --header-gradient-2: #fdf6e3;
+            --card-bg: #fffaee;
+            --text-primary: #073642;
+            --text-secondary: #55686e;
+            --border: #e2d9c0;
+            --shadow: rgba(88, 70, 20, 0.12);
+            --highlight-border: #8a6700;
+            --accent-2: #1f6fae;
+            --accent-3: #a8331f;
+            --accent-4: #16766f;
+            --action-bg: #c9a43a;
+            --action-bg-hover: #d6b350;
+            --action-text: #2b2100;
+            --tex-page: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='400'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.012' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.55 0 0 0 0 0.42 0 0 0 0 0.12 0 0 0 .18 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"), url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.4 0 0 0 0 0.3 0 0 0 0 0.1 0 0 0 .12 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+            --tex-panel: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.7 .9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.45 0 0 0 0 0.35 0 0 0 0 0.12 0 0 0 .08 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+            --fx-opacity: 0.2;
+        }
+
+        /* City 城市：深海軍藍（Tomorrow Night Blue），珊瑚紅／黃／粉紅／淡藍；質地像夜色微光 */
+        html[data-lh-theme="city"] {
+            --bg-gradient-1: #001733;
+            --bg-gradient-2: #001733;
+            --container-bg: #002451;
+            --header-gradient-1: #002451;
+            --header-gradient-2: #002451;
+            --card-bg: #062d5c;
+            --text-primary: #f2f5fc;
+            --text-secondary: #a6b6dc;
+            --border: #1c4275;
+            --shadow: rgba(0, 8, 24, 0.5);
+            --highlight-border: #ff9da4;
+            --accent-2: #ffeead;
+            --accent-3: #ebbbff;
+            --accent-4: #bbdaff;
+            --action-bg: #ff9da4;
+            --action-bg-hover: #ffb3b9;
+            --action-text: #001733;
+            --tex-page: radial-gradient(60rem 40rem at 12% -10%, rgba(255, 157, 164, 0.10), transparent 65%), radial-gradient(55rem 45rem at 95% 110%, rgba(187, 218, 255, 0.09), transparent 65%), url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 .06 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+            --tex-panel: radial-gradient(40rem 30rem at 50% -20%, rgba(187, 218, 255, 0.06), transparent 70%), url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 .04 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+            --fx-opacity: 0.2;
+        }
+
+        /* Midnight 午夜：近黑藍，藍強調／桃紅／黃／青；質地像夜空微光 */
+        html[data-lh-theme="midnight"] {
+            --bg-gradient-1: #000b18;
+            --bg-gradient-2: #000b18;
+            --container-bg: #050f1f;
+            --header-gradient-1: #050f1f;
+            --header-gradient-2: #050f1f;
+            --card-bg: #0b1830;
+            --text-primary: #e3e8f4;
+            --text-secondary: #94a2c4;
+            --border: #1b2a48;
+            --shadow: rgba(0, 0, 0, 0.6);
+            --highlight-border: #5b96ff;
+            --accent-2: #f484d4;
+            --accent-3: #f5d76e;
+            --accent-4: #4fd1c5;
+            --action-bg: #5b96ff;
+            --action-bg-hover: #7aaaff;
+            --action-text: #000b18;
+            --tex-page: radial-gradient(60rem 40rem at 85% -10%, rgba(91, 150, 255, 0.10), transparent 65%), radial-gradient(50rem 40rem at 5% 105%, rgba(244, 132, 212, 0.07), transparent 65%), url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 .06 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+            --tex-panel: radial-gradient(40rem 30rem at 50% -20%, rgba(91, 150, 255, 0.06), transparent 70%), url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 .04 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+            --fx-opacity: 0.22;
         }
 
         * {
@@ -104,6 +227,8 @@
         body {
             font-family: var(--font-ui);
             background: var(--bg-gradient-1);
+            background-image: var(--tex-page);
+            background-attachment: fixed;
             -webkit-font-smoothing: antialiased;
             min-height: var(--app-h);
             padding: var(--pad-t) max(var(--page-pad), env(safe-area-inset-right)) var(--pad-b) max(var(--page-pad), env(safe-area-inset-left));
@@ -112,11 +237,22 @@
             transition: background 0.3s ease;
         }
         
+        /* 背景飄字（js/bgfx.js）：最底層、不吃滑鼠，面板都蓋在它上面 */
+        #lhBgFx {
+            position: fixed;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            pointer-events: none;
+        }
+
         .container {
             width: 100%;
             max-width: min(56.25rem, 100%);
             margin: 0 auto;
             background: var(--container-bg);
+            background-image: var(--tex-panel);
             border-radius: 0.75rem;
             border: 1px solid var(--border);
             box-shadow: 0 1px 2px var(--shadow);
@@ -856,13 +992,13 @@
         /* 常用／一般／冷僻：不靠顏色也分得出（淡底／細框／虛線框）；常用最多，所以最安靜 */
         .mark-badge.common {
             background: var(--fill-soft);
-            color: var(--text-secondary);
+            color: var(--accent-3);
         }
 
         .mark-badge.normal {
             background: transparent;
             box-shadow: inset 0 0 0 1px var(--border);
-            color: var(--text-secondary);
+            color: var(--accent-3);
         }
         
         .mark-badge.rare {
@@ -873,12 +1009,12 @@
         }
         
         /* 搜尋內容高亮樣式 - 多顏色 */
-        .search-highlight-1 { color: #ed8936; font-weight: 700; }
-        .search-highlight-2 { color: #48bb78; font-weight: 700; }
-        .search-highlight-3 { color: #4299e1; font-weight: 700; }
-        .search-highlight-4 { color: #b343fd; font-weight: 700; }
-        .search-highlight-5 { color: #fd51a4; font-weight: 700; }
-        .search-highlight-6 { color: #000000; font-weight: 700; }
+        .search-highlight-1 { color: var(--hl-1); font-weight: 700; }
+        .search-highlight-2 { color: var(--hl-2); font-weight: 700; }
+        .search-highlight-3 { color: var(--hl-3); font-weight: 700; }
+        .search-highlight-4 { color: var(--hl-4); font-weight: 700; }
+        .search-highlight-5 { color: var(--hl-5); font-weight: 700; }
+        .search-highlight-6 { color: var(--hl-6); font-weight: 700; }
         
         /* 最近點擊浮動面板 */
         .recent-panel {

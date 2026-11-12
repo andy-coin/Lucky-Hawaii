@@ -5,7 +5,7 @@
 const LH_LOG_PREFIX = '[好韻器]';
 
 // === 已知儲存鍵清單（備份與測試共用；D-13） ===
-// 以 AST 掃描驗證過的 23 個固定鍵（Phase 5 加入 lh:uiScale，Phase 6 加入 lh:lexiconPack，Phase 8 加入 lh:songs / lh:activeSong / lh:songListOpen，Phase 10 加入 lh:map，夜間 UI 加入 lh:tourSeen）
+// 以 AST 掃描驗證過的 23 個固定鍵（Phase 5 加入 lh:uiScale，Phase 6 加入 lh:lexiconPack，Phase 8 加入 lh:songs / lh:activeSong / lh:songListOpen，Phase 10 加入 lh:map，夜間 UI 加入 lh:tourSeen，R2 主題加入 lh:bgFx）
 const LH_KEYS = [
     { key: 'haiku_lyrics', group: 'data' },
     { key: 'haiku_hashtags', group: 'data' },
@@ -29,7 +29,8 @@ const LH_KEYS = [
     { key: 'lh:activeSong', group: 'data' },
     { key: 'lh:songListOpen', group: 'ui' },
     { key: 'lh:map', group: 'setting' },
-    { key: 'lh:tourSeen', group: 'ui' }
+    { key: 'lh:tourSeen', group: 'ui' },
+    { key: 'lh:bgFx', group: 'ui' }
 ];
 // secret 旗標讓之後的匯出（Phase 8）可以排除金鑰
 const LH_KEY_PREFIXES = [{ prefix: 'apiKey_', group: 'setting', secret: true }];
@@ -514,7 +515,7 @@ const LH_IMPORT_CAPS = { songs: 5000, title: 60, sections: 2000, label: 200, tex
 // 設定值的形狀：app 自己會寫的值才收，壞值開機時會讓畫面壞掉（顏色反轉成 NaN 等）；沒列在這裡的設定只看長度
 const LH_SETTING_SHAPES = {
     haoYunQi_inputMode: /^(auto|zhuyin|pinyin)$/,
-    hoyun_theme_mode: /^(light|dark)$/,
+    hoyun_theme_mode: /^(light|dark|plain|moon|city|midnight|custom)$/,   // light／dark 是 R2 之前的舊值，開機時遷移（js/theme.js）
     bgColor1: /^#[0-9a-fA-F]{6}$/,
     containerBg: /^#[0-9a-fA-F]{6}$/,
     textColor: /^#[0-9a-fA-F]{6}$/,

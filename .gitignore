@@ -5,3 +5,6 @@ tests/_shots*.mjs
 node_modules
 test-results/
 playwright-report/
+
+# R2 主題截圖（留在磁碟給 Andy 看，不進版本）
+r2-shots/
