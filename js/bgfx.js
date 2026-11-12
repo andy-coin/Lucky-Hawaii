@@ -14,6 +14,7 @@ let _lhBgRaf = 0;
 let _lhBgLast = 0;
 let _lhBgColors = ['#888'];
 let _lhBgAlpha = 0.16;
+let _lhBgFont = 'serif';
 let _lhBgW = 0;
 let _lhBgH = 0;
 
@@ -58,7 +59,6 @@ function _lhBgDraw(dt) {
     ctx.clearRect(0, 0, _lhBgW, _lhBgH);
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    const font = getComputedStyle(document.documentElement).getPropertyValue('--font-serif') || 'serif';
     for (let i = 0; i < _lhBgFlakes.length; i++) {
         let f = _lhBgFlakes[i];
         if (dt) {
@@ -72,7 +72,7 @@ function _lhBgDraw(dt) {
         ctx.rotate(f.rot);
         ctx.globalAlpha = _lhBgAlpha * f.a;
         ctx.fillStyle = _lhBgColors[f.color % _lhBgColors.length];
-        ctx.font = Math.round(f.size) + 'px ' + font;
+        ctx.font = Math.round(f.size) + 'px ' + _lhBgFont;
         ctx.fillText(f.ch, 0, 0);
         ctx.restore();
     }
@@ -117,6 +117,7 @@ function lhBgFxRefresh() {
         .map(v => cs.getPropertyValue(v).trim()).filter(Boolean);
     if (!_lhBgColors.length) _lhBgColors = ['#888'];
     _lhBgAlpha = parseFloat(cs.getPropertyValue('--fx-opacity')) || 0.16;
+    _lhBgFont = cs.getPropertyValue('--font-serif').trim() || 'serif';   // 每幀不再讀樣式
     if (_lhBgCanvas && !_lhBgRaf) _lhBgDraw(0);
 }
 
