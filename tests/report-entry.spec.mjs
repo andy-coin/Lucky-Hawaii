@@ -532,8 +532,9 @@ test('回報入口：主題', async ({ browser }) => {
             seen.push(r.token);
         } finally { await context.close(); }
     }
-    // 重設計後行動色跟著晝夜走（淺色墨底、深色米白底）；自訂配色只改背景／字／強調，不動行動色
-    expect(seen[2], '自訂配色改不到行動色').toBe(seen[0]);
+    // R2：行動色跟著主題走（月光金黃、素墨橘金）；自訂主題的行動色固定是紙墨的墨色，自訂顏色只改背景／字／強調，不動它
+    expect(seen[0], '月光的行動色').toBe('rgb(201, 164, 58)');
+    expect(seen[2], '自訂配色改不到行動色').toBe('rgb(42, 39, 36)');
 });
 
 test('回報入口：切換斷點', async ({ browser }) => {

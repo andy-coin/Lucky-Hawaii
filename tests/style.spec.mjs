@@ -300,7 +300,7 @@ test('視覺：行動色只在變數定義裡', () => {
         });
     }
     expect(bad, '行動色出現在變數定義以外的地方（請改用 var(--action-bg)／var(--action-bg-hover)）').toEqual([]);
-    expect(defs, '亮色與暗色各定義 --action-bg 與 --action-bg-hover').toBe(4);
+    expect(defs, '亮色、暗色與四個 R2 主題各定義 --action-bg 與 --action-bg-hover').toBe(12);
 });
 
 test('視覺：Phase 7 沒有新的動畫', () => {

@@ -970,7 +970,8 @@ test('韻族顏色：改一個韻族的顏色，色塊馬上變、存起來、�
 });
 
 // 按真正的主題按鈕（會連 loadColors 一起跑：深色主題的文字色是反轉後的，直接呼叫 applyTheme 不會換）
-const setDark = (page, dark) => page.evaluate(d => { if (isDark !== d) document.getElementById('themeToggle').click(); }, dark);
+// R2：主題鈕循環五個主題，按到明暗對了為止
+const setDark = (page, dark) => page.evaluate(d => { for (let i = 0; i < 5 && isDark !== d; i++) document.getElementById('themeToggle').click(); }, dark);
 const resetBtn = page => page.locator('#mapSettingsSection .rm-color-reset');
 const advice = page => page.locator('#mapSettingsSection .rm-color-advice');
 

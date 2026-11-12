@@ -22,7 +22,11 @@
 
         // 有沒有存過自訂顏色（舊版的預設色不算）
         function lhHasCustomColors() {
-            return Object.keys(LH_OLD_DEFAULTS).some(k => { const v = lhGet(k); return !!v && v.toLowerCase() !== LH_OLD_DEFAULTS[k]; });
+            for (const k of Object.keys(LH_OLD_DEFAULTS)) {
+                const v = lhGet(k);
+                if (v && v.toLowerCase() !== LH_OLD_DEFAULTS[k]) return true;
+            }
+            return false;
         }
         // 存的值 → 主題名。舊版只存 light／dark（或沒存）：有自訂顏色→自訂；暗（或沒存且系統是深色）→Plain；其餘→Moon。
         // 舊值不改寫儲存（備份檔、舊版程式照樣讀得懂），使用者按一次主題鈕才存新名字
@@ -45,7 +49,9 @@
             themeToggle.innerHTML = LH_ICON_PALETTE + (lhIsPhone() ? '' : '<span>' + LH_THEME_NAMES[lhTheme] + '</span>');
             themeToggle.setAttribute('aria-label', label + '（點一下換下一個）');
             themeToggle.title = label + '（點一下換下一個）';
-            if (typeof lhMapApplyPalette === 'function') lhMapApplyPalette();   // 韻腳色組依新的 --card-bg 亮度重選
+            // 韻腳色組依新的 --card-bg 亮度重選、偏好設定的色票與對比提醒跟著新主題（明暗沒變時 rhyme-map.js 的 data-theme 監聽不會觸發）
+            if (typeof lhMapApplyPalette === 'function') lhMapApplyPalette();
+            if (typeof lhMapMenuSync === 'function') lhMapMenuSync();
             if (typeof lhBgFxRefresh === 'function') lhBgFxRefresh();
         }
         // 自訂主題的明暗：看使用者存的容器底色（沒存＝紙墨底，亮）。不能量算出來的變數：上一個主題的 data-theme 還掛著，會量到它的底

@@ -125,3 +125,12 @@ test('背景飄字：自動化測試下不畫、開關記住、減少動態時�
     expect(await still.page.evaluate(() => [!!document.getElementById('lhBgFx'), !!_lhBgRaf]), '減少動態：靜態一張、不跑').toEqual([true, false]);
     await still.context.close();
 });
+
+test('主題：韻腳上色在每個主題、標準濃淡下字都讀得清楚（偏好設定的對比提醒不出現）', async ({ browser }) => {
+    for (const name of ORDER) {
+        const { context, page } = await bootPage(browser, { wordlist: 'stub', storage: { hoyun_theme_mode: name } });
+        await page.evaluate(() => lhMapOpenPrefs());
+        await expect(page.locator('#mapSettingsSection .rm-color-advice'), name).toBeHidden();
+        await context.close();
+    }
+});
