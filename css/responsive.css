@@ -62,16 +62,15 @@
             .lyrics-area { overflow-y: auto; overscroll-behavior: contain; }
             .lyrics-section { flex: 0 0 auto; min-height: 9rem; }
             .lyrics-section[data-index="0"] { flex: 1 0 12rem; }
-            /* 收合時標題列本身就要 44px：另外加上外框 2px＋標題底線 1px，才不會把按鈕的下緣裁掉（05-08） */
-            .lyrics-section.collapsed { flex: 0 0 calc(var(--hit) + 3px); min-height: 0; }
-            .lyrics-section .section-body { display: flex; flex-direction: column; flex: 1 1 auto; }
+            /* 收合：高度跟著標題列（壓過上面第一段的 12rem） */
+            .lyrics-section.collapsed { flex: 0 0 auto; min-height: 0; }
+            .lyrics-section .section-body { flex: 1 1 auto; }
             .lyrics-section .section-textarea { flex: 1 1 auto; min-height: 7rem; }
             .section-type { min-width: var(--hit); text-overflow: ellipsis; }
             /* 標籤＆情境在歌詞上面：不限高（限 40% 會把情境框裁掉），整個歌詞欄一起往下捲 */
             .context-section { flex: 0 0 auto; max-height: none; }
             .lyrics-main { overflow-y: auto; overscroll-behavior: contain; }
             .lyrics-main > .lyrics-area { flex: 0 0 auto; overflow: visible; }
-            .context-section.collapsed { flex: 0 0 calc(var(--hit) + 1px); }
             .context-section-header { min-height: var(--hit); }
             .hashtag-chip { min-width: 0; max-width: 100%; overflow-wrap: anywhere; }
 
@@ -678,7 +677,7 @@
             /* 鍵盤開著：回到「結果區吃剩下的高度」，不要整頁再多出一段捲動 */
             html.kb-short .results-section { flex: 1 1 0; height: auto; }
             /* 寫歌詞時把「情境 ＆ 標籤」收到只剩標題列，讓出高度給歌詞框 */
-            .side-panel:has(.section-textarea:focus) .context-section { flex-basis: var(--hit); }
+            .side-panel:has(.section-textarea:focus) .context-section, .lyrics-editor:has(.section-textarea:focus) .context-section { flex-basis: var(--hit); }
         }
 
         /* ===== 輸入框字級下限（D-08）：手機、平板、觸控裝置所有文字欄位至少 16px，iOS 點進去才不會自動放大 =====
@@ -708,7 +707,7 @@
            「i」與 ✕ 用 ::after／實體大小。 ===== */
         @media (pointer: coarse), (max-width: 900px) {
             /* 歌曲清單（Phase 8，§9）：新增的控制項實體框 ≥ 44，相鄰的不重疊 */
-            .song-toggle, .export-toggle, .lyrics-head .panel-add-btn, .song-new-btn, .song-pick, .song-name-input { min-height: var(--hit); }
+            .song-toggle, .export-toggle, .section-add-btn, .editor-tab, .editor-close, .song-new-btn, .song-pick, .song-name-input { min-height: var(--hit); }
             .song-act { width: var(--hit); height: var(--hit); }
             #songDeleteCancel, #songDeleteConfirm, .backup-restore-btn { min-height: var(--hit); }
             .settings-backups summary { line-height: var(--hit); padding-block: 0; }   /* 單行文字：行高撐成 44，不用 flex（會吃掉展開箭頭） */

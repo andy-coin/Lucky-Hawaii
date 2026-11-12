@@ -1842,7 +1842,7 @@ test('hover：會取消的動作', async ({ browser }) => {
     const panel = page.locator(AN);
     const cases = {
         '指標移出區域': async pt => { await page.mouse.move(pt.x + 600, pt.y + 400); },
-        '滾輪': async () => { await page.mouse.wheel(0, 40); },
+        '滾輪': async () => { await page.mouse.wheel(0, 40); await page.waitForTimeout(100); },   // 真實時間：滾輪事件是非同步送的，先送到再讓假時鐘前進（R2 輸入框撐滿後滾輪落在不會捲的地方，送達變慢）
         '按鍵': async () => { await page.keyboard.down('Shift'); await page.keyboard.up('Shift'); },
         '選取改變': async () => { await page.evaluate(() => document.querySelector('.section-textarea').setSelectionRange(1, 5)); },
         '開始組字': async () => { await page.evaluate(() => document.querySelector('.section-textarea').dispatchEvent(new CompositionEvent('compositionstart', { bubbles: true }))); },

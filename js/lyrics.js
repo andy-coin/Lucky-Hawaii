@@ -303,3 +303,157 @@
             area.addEventListener('focusout', () => { _lhComposing = false; flushSongs(); });
         });
 
+
+        // ===== 完整歌詞編輯器（R2）：大的浮動面板 =====
+        // 不另做一份：打開時把左側的「歌詞區」（工具列、標籤＆情境、新增段落、段落列表）整塊搬進 #lyricsEditorBody、
+        // 「匯出」鈕搬到分頁列右邊，關閉時搬回原位（用註解節點佔位）。
+        // 事件都掛在 #lyricsSections 等容器本身，跟著節點走；捲動容器由 lhSecScroller 往上找，搬家後自然換成浮動面板裡的。
+        // 浮動面板 z-index 低於選單、浮動列、提示（10000）與對話框，所以那些照常疊在上面。
+        let _lhEdMoved = null;    // 打開中：[[節點, 佔位註解]…]
+        let _lhEdOpener = null;   // 關閉後焦點要回去的元素（滑鼠裝置）
+        const _lhEdMouse = () => matchMedia('(hover: hover) and (pointer: fine)').matches;
+
+        function lhEditorIsOpen() { return !!_lhEdMoved; }
+
+        // 搬節點會讓 textarea 的捲動歸零、焦點丟掉：先記下來，搬完放回去
+        function _lhEdMove(fn) {
+            const ae = document.activeElement;
+            if (_lhComposing && ae && ae.blur) ae.blur();   // 組字中先失焦（瀏覽器會把組字確認掉），再搬
+            const tas = [...document.querySelectorAll('#lyricsSections .section-textarea')].map(t => [t, t.scrollTop]);
+            lhSecAbortInteractions();   // 拖曳、拉高度、段落選單、韻腳選單先收乾淨
+            fn();
+            for (const [t, top] of tas) t.scrollTop = top;
+            if (typeof lhMapRenderAll === 'function') lhMapRenderAll();   // 寬度變了：鏡像層重新對齊
+        }
+
+        // ta／sel：觸控點歌詞或雙擊打開時，把游標放回同一段、同一個位置
+        function lhEditorOpen(ta, sel) {
+            if (_lhEdMoved) return;
+            const layout = document.querySelector('#leftPanel .lyrics-layout');
+            const box = document.getElementById('lyricsEditorBody');
+            const exp = document.getElementById('exportToggle');
+            if (!layout || !box) return;
+            _lhEdOpener = ta || document.activeElement;
+            _lhEdMove(() => {
+                _lhEdMoved = [[layout, box], [exp, document.querySelector('#lyricsEditor .editor-close')]].filter(([n]) => n).map(([n, to]) => {
+                    const ph = document.createComment('lyrics-editor');
+                    n.before(ph);
+                    if (to === box) box.appendChild(n); else to.before(n);
+                    return [n, ph];
+                });
+            });
+            document.getElementById('lyricsEditor').hidden = false;
+            document.body.classList.add('editor-open');
+            lhEditorRenderTabs();
+            if (ta && ta.isConnected) {
+                ta.focus({ preventScroll: true });
+                if (sel) ta.setSelectionRange(sel[0], sel[1]);
+                ta.closest('.lyrics-section')?.scrollIntoView({ block: 'nearest' });
+            } else {
+                document.querySelector('#lyricsEditor .lyrics-editor').focus({ preventScroll: true });
+            }
+        }
+
+        function lhEditorClose() {
+            if (!_lhEdMoved) return;
+            const moved = _lhEdMoved;
+            _lhEdMove(() => {
+                for (const [n, ph] of moved) ph.replaceWith(n);
+            });
+            _lhEdMoved = null;
+            document.getElementById('lyricsEditor').hidden = true;
+            document.body.classList.remove('editor-open');
+            // 滑鼠裝置焦點回到打開它的地方；觸控不聚焦歌詞（不然鍵盤又彈出來、而且又會自動打開）
+            const back = _lhEdOpener;
+            _lhEdOpener = null;
+            if (_lhEdMouse() && back && back.isConnected && back.focus) back.focus({ preventScroll: true });
+            else if (document.activeElement && document.getElementById('leftPanel').contains(document.activeElement)) document.activeElement.blur();
+        }
+
+        // 上方一排歌曲分頁：舊的在左、新的在右，最後是「＋」；點了換歌、雙擊改名
+        function lhEditorRenderTabs() {
+            const bar = document.getElementById('editorTabs');
+            if (!bar || !_lhEdMoved) return;
+            const hadFocus = bar.contains(document.activeElement) && !document.activeElement.classList.contains('song-name-input');
+            if (bar.querySelector('.song-name-input')) return;   // 改名中不重畫（改完會再畫一次）
+            const tabs = sortedSongs().reverse().map(s => {
+                const b = document.createElement('button');
+                b.type = 'button';
+                b.className = 'editor-tab';
+                b.dataset.songId = s.id;
+                b.textContent = s.title;
+                b.title = s.title + '（雙擊改名）';
+                if (s.id === activeSongId) b.setAttribute('aria-current', 'true');
+                return b;
+            });
+            const add = document.createElement('button');
+            add.type = 'button';
+            add.className = 'editor-tab editor-tab-add';
+            add.textContent = '＋';
+            add.title = '新增歌曲';
+            add.setAttribute('aria-label', '新增一首歌曲');
+            bar.replaceChildren(...tabs, add);
+            const cur = bar.querySelector('[aria-current="true"]');
+            if (cur) cur.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+            if (hadFocus && cur) cur.focus({ preventScroll: true });
+        }
+
+        document.getElementById('editorTabs')?.addEventListener('click', e => {
+            const t = e.target.closest('.editor-tab');
+            if (!t) return;
+            if (t.classList.contains('editor-tab-add')) {
+                const before = activeSongId;
+                createSong({ rename: false });
+                if (activeSongId === before) return;
+                const tab = [...document.querySelectorAll('#editorTabs .editor-tab')].find(b => b.dataset.songId === activeSongId);
+                if (tab) startRenameSong(activeSongId, { isNew: true, anchor: tab });
+            } else if (t.dataset.songId) switchSong(t.dataset.songId);
+        });
+        document.getElementById('editorTabs')?.addEventListener('dblclick', e => {
+            const t = e.target.closest('.editor-tab');
+            if (t && t.dataset.songId) startRenameSong(t.dataset.songId, { anchor: t });
+        });
+
+        // 電腦（滑鼠）：雙擊歌詞打開，單擊不打開；手指／觸控筆：點歌詞就打開，游標留在點的位置
+        // 觸控等到 click 才搬：那時游標已經放好，而且還在使用者手勢裡，重新聚焦鍵盤才會照常出現。
+        // 不看 click 落在哪：聚焦會讓版面移動（鍵盤讓位），click 常落在旁邊；按下時記住是哪一段，click 時它還有焦點就打開
+        let _lhEdTapTa = null;
+        document.getElementById('lyricsSections')?.addEventListener('dblclick', e => {
+            const ta = e.target.closest && e.target.closest('.section-textarea');
+            if (ta && !_lhEdMoved) lhEditorOpen(ta, [ta.selectionStart, ta.selectionEnd]);
+        });
+        document.getElementById('lyricsSections')?.addEventListener('pointerdown', e => {
+            _lhEdTapTa = !_lhEdMoved && e.pointerType !== 'mouse' && e.target.closest && e.target.closest('.section-textarea') || null;
+        });
+        document.addEventListener('click', () => {
+            const ta = _lhEdTapTa;
+            _lhEdTapTa = null;
+            if (ta && !_lhEdMoved && document.activeElement === ta) lhEditorOpen(ta, [ta.selectionStart, ta.selectionEnd]);
+        }, true);
+
+        // 點遮罩（按下與放開都在遮罩上）關閉；在面板裡選字拖到外面放開不算
+        let _lhEdDownOnMask = false;
+        document.getElementById('lyricsEditor')?.addEventListener('pointerdown', e => { _lhEdDownOnMask = e.target === e.currentTarget; });
+        document.getElementById('lyricsEditor')?.addEventListener('click', e => {
+            if (_lhEdDownOnMask && e.target === e.currentTarget) lhEditorClose();
+            _lhEdDownOnMask = false;
+        });
+
+        // Esc 關閉（選單、浮動列、拖曳在 capture 階段先用掉 Esc；組字中的 Esc 是取消組字）；Tab 在面板內循環
+        document.addEventListener('keydown', e => {
+            if (!_lhEdMoved || e.isComposing || e.keyCode === 229) return;
+            if (e.key === 'Escape') {
+                if (e.defaultPrevented || document.querySelector('.word-ctx-menu.show, .settings-overlay.show, .about-overlay.show, .feedback-modal-overlay.show')) return;
+                if (e.target.classList && e.target.classList.contains('song-name-input')) return;
+                e.preventDefault();   // 手機版「Esc 收起 sheet」看 defaultPrevented，不會連 sheet 一起收
+                lhEditorClose();
+            } else if (e.key === 'Tab') {
+                const dlg = document.querySelector('#lyricsEditor .lyrics-editor');
+                if (!dlg.contains(e.target) && e.target !== document.body) return;   // 焦點在選單、對話框裡：不管
+                const f = [...dlg.querySelectorAll('button, textarea, input, select, [tabindex="0"]')].filter(x => !x.disabled && x.offsetParent !== null);
+                if (!f.length) return;
+                const first = f[0], last = f[f.length - 1];
+                if (e.shiftKey && (e.target === first || e.target === dlg)) { e.preventDefault(); last.focus(); }
+                else if (!e.shiftKey && e.target === last) { e.preventDefault(); first.focus(); }
+            }
+        });

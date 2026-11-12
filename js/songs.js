@@ -316,6 +316,7 @@ function renderSongHeader() {
     if (cur && song) { cur.textContent = song.title; cur.title = song.title; }
     const btn = document.getElementById('songListToggle');
     if (btn) btn.hidden = songsMode !== 'v2';
+    if (typeof lhEditorRenderTabs === 'function') lhEditorRenderTabs();   // 完整編輯器的歌曲分頁（js/lyrics.js）
 }
 
 // 歌名一律用 createElement／textContent／setAttribute 進 DOM，動作用 data-song-id 加委派監聽（T-08-12）
@@ -359,6 +360,7 @@ function renderSongList() {
     if (cap) cap.textContent = '歌曲（' + list.length + '）';
     const hint = document.getElementById('songListHint');
     if (hint) hint.hidden = list.length !== 1;
+    if (typeof lhEditorRenderTabs === 'function') lhEditorRenderTabs();
 }
 
 // 換歌、開機、別分頁更新後：編輯器、標題列、清單一起依目前這首歌重畫
@@ -449,7 +451,8 @@ function nextUntitledNumber() {
     return max + 1;
 }
 
-function createSong() {
+// opts.rename === false：不在清單裡改名（完整編輯器自己在分頁上改）
+function createSong(opts = {}) {
     if (songsMode !== 'v2' || !requireSongsReady()) return;
     flushSongs();
     const song = makeEmptySong('未命名歌曲 ' + nextUntitledNumber());
@@ -460,7 +463,7 @@ function createSong() {
     _refreshSongUI();
     const area = document.getElementById('lyricsSections');
     if (area) area.scrollTop = 0;
-    startRenameSong(song.id, { isNew: true });   // 新歌直接改名（D-07）；Esc 或不改就保留預設名稱
+    if (opts.rename !== false) startRenameSong(song.id, { isNew: true });   // 新歌直接改名（D-07）；Esc 或不改就保留預設名稱
 }
 
 // ==================== 改名 ====================
@@ -469,11 +472,12 @@ const _songPick = id => Array.from(document.querySelectorAll('#songItems .song-p
 
 // 在清單那一列原地換成輸入框：Enter／失焦存檔，Esc 取消；空白或沒改就維持原名且不跳提示（D-18）
 // opts.isNew：剛新增的歌，改完後覆蓋層關起來，焦點回到 ☰ 歌曲而不是歌詞框（手機鍵盤不會又彈出來）
+// opts.anchor：換成輸入框的那顆按鈕（完整編輯器的分頁）；沒給就是清單裡的歌名
 function startRenameSong(id, opts = {}) {
     const song = songs.find(s => s.id === id);
-    const pick = _songPick(id);
+    const pick = opts.anchor || _songPick(id);
     if (!song || !pick) return;
-    const row = pick.closest('.song-item');
+    const row = pick.closest('.song-item') || pick.parentElement;
     if (row.querySelector('.song-name-input')) return;
     const input = document.createElement('input');
     input.type = 'text';
@@ -496,6 +500,7 @@ function startRenameSong(id, opts = {}) {
             markDirty(id);
             flushSongs();
         }
+        if (opts.anchor) { input.remove(); row.classList.remove('renaming'); }   // 分頁列要先拿掉輸入框，下面才會重畫分頁
         renderSongList();
         if (id === activeSongId) renderSongHeader();   // 改的不是目前這首就不動標題列（§9）
         const overlay = _songListOpen() && !_MQ_SONG_PUSH.matches;
@@ -504,7 +509,7 @@ function startRenameSong(id, opts = {}) {
             const btn = document.getElementById('songListToggle');
             if (refocus && btn) btn.focus();
         } else if (refocus) {
-            const p = _songPick(id);
+            const p = opts.anchor ? [...document.querySelectorAll('#editorTabs .editor-tab')].find(b => b.dataset.songId === id) : _songPick(id);
             if (p) p.focus();
         }
     };
