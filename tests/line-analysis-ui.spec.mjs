@@ -220,7 +220,7 @@ test('偏好設定：內容與順序', async ({ browser }) => {
     const sec = page.locator('#mapSettingsSection');
     await expect(sec.locator('> .settings-backups-hint')).toHaveText('調整句尾上色、逐行字數與斷句標記的開關、位置、大小和顏色');
     expect(await sec.locator('.section-menu-block > .section-menu-cap:first-child').allTextContents()).toEqual(['預覽', '韻腳地圖', '句構分析', '顯示方式', '韻族顏色']);
-    expect(await sec.locator('.rm-switch-label').allTextContents()).toEqual(['句尾上色', '雙押／多押', '自動配色', '段落結構字母', '句中押韻', '忽略句尾語助詞', '逐行標記', '行尾韻腳字母', '字數', '斷句結構', '對照差異', '反白停留自動分析']);
+    expect(await sec.locator('.rm-switch-label').allTextContents()).toEqual(['句尾上色', '雙押／多押', '滑過才顯示', '自動配色', '段落結構字母', '句中押韻', '忽略句尾語助詞', '逐行標記', '行尾韻腳字母', '字數', '斷句結構', '對照差異', '反白停留自動分析']);
     const particle = await page.evaluate(() => LH_MAP_PARTICLE_CAP);
     const caps = await sec.locator('.section-menu-cap').allTextContents();
     for (const c of [
@@ -231,7 +231,7 @@ test('偏好設定：內容與順序', async ({ browser }) => {
         '反白後滑鼠停著不動 1.5 秒，自動打開句構面板；只有接了滑鼠的電腦會自動出現，觸控請按「分析」',
     ]) expect(caps, c).toContain(c);
     // 每個說明都有 id，開關用 aria-describedby 接起來
-    expect(await sec.locator('.rm-switch[aria-describedby]').evaluateAll(els => els.map(e => !!document.getElementById(e.getAttribute('aria-describedby'))))).toEqual(Array(11).fill(true));   // 句尾上色沒有說明
+    expect(await sec.locator('.rm-switch[aria-describedby]').evaluateAll(els => els.map(e => !!document.getElementById(e.getAttribute('aria-describedby'))))).toEqual(Array(12).fill(true));   // 句尾上色沒有說明
     // 四個細項縮排在 .rm-sub 裡，從不禁用
     expect(await sec.locator('.rm-sub .rm-switch .rm-switch-label').allTextContents()).toEqual(['行尾韻腳字母', '字數', '斷句結構', '對照差異']);
     expect(await sec.locator('.rm-switch[disabled], .rm-switch[aria-disabled]').count()).toBe(0);
@@ -534,7 +534,7 @@ test('顯示方式：字級與濃淡馬上生效、不重畫', async ({ browser 
     await lookRadio(page, 'size', 'l').click();
     const big = await lookGeo(page);
     expect(big.fs).toBeCloseTo(big.rem, 1);
-    if (7.5 * big.rem < big.cap) expect(big.pad).toBeGreaterThan(mid.pad + 1);
+    if (9.5 * big.rem < big.cap) expect(big.pad).toBeGreaterThan(mid.pad + 1);   // 字數 1.5em＋斷句 7.5em＋間距 0.5em
     expect(big.pad).toBeLessThanOrEqual(0.75 * big.rem + big.cap + 0.5 * big.rem + 1);
     expect(await same()).toBe(true);
     expect(await lsGetMap(page)).toContain('"size":"l"');
@@ -542,7 +542,9 @@ test('顯示方式：字級與濃淡馬上生效、不重畫', async ({ browser 
     await lookRadio(page, 'size', 's').click();
     const small = await lookGeo(page);
     expect(small.fs).toBeCloseTo(0.75 * small.rem, 1);
-    expect(small.pad).toBeLessThan(mid.pad - 1);
+    // 中字的欄寬可能已被 36% 上限夾住，這時小字只保證不比較寬
+    if (9.5 * 0.875 * small.rem < small.cap) expect(small.pad).toBeLessThan(mid.pad - 1);
+    else expect(small.pad).toBeLessThanOrEqual(mid.pad + 0.5);
     expect(await same()).toBe(true);
     expect(await lsGetMap(page)).toContain('"size":"s"');
 
@@ -920,7 +922,8 @@ const setColorInput = (page, n, value, ev) => page.evaluate(([n, value, ev]) => 
 const live = page => page.evaluate(() => document.getElementById('lhLive').textContent);
 
 test('韻族顏色：改一個韻族的顏色，色塊馬上變、存起來、日夜共用', async ({ browser }) => {
-    const { context, page, errors } = await bootPage(browser, { wordlist: 'stub', storage: v2Storage([song([typed('sa', 'verse', F_AABB)])]) });
+    // 這題測「韻族固定色」：關掉自動配色
+    const { context, page, errors } = await bootPage(browser, { wordlist: 'stub', storage: v2Storage([song([typed('sa', 'verse', F_AABB)])], { ...OPEN_PANELS, 'lh:map': JSON.stringify({ end: true, letters: false, inner: false, strict: false, skipParticles: true, autoColor: false }) }) });
     await expect.poll(() => page.locator('#lyricsSections .rm-hl').count()).toBeGreaterThan(0);
     // 光那一行句尾的家族編號從頁面讀，不寫死
     const f = await page.evaluate(() => [...document.querySelectorAll('#lyricsSections .rm-hl')].find(e => e.textContent === '光').dataset.f);
@@ -1220,7 +1223,7 @@ test('預覽：每個開關都看得到', async ({ browser }) => {
     await lookRadio(page, 'size', 'l').click();
     expect((await geo()).fs).toBeCloseTo(1, 2);
     // 顏色拖曳馬上看得到
-    const f = await pv.locator('.rm-hl').first().evaluate(e => e.dataset.f);
+    const f = await pv.locator('.rm-hl').first().evaluate(e => e.dataset.c ?? e.dataset.f);   // 畫面實際用的顏色編號
     const bg = () => pv.locator('.rm-hl').first().evaluate(e => getComputedStyle(e).backgroundColor);
     const bg0 = await bg();
     await setColorInput(page, f, '#123456', 'input');
@@ -1280,8 +1283,14 @@ const anTa = page => page.evaluate(() => {
 });
 const anRows = page => page.locator(AN + ' tbody tr').evaluateAll(trs => trs.map(tr => ({
     ref: tr.classList.contains('rm-an-ref'),
-    cells: [...tr.children].map(c => c.textContent),
-    guess: [...tr.querySelectorAll('.lm-guess')].map(g => [g.textContent, getComputedStyle(g).fontStyle]),
+    // 面板改成 行（含字數）｜整行歌詞（每組下面有括號與字數）｜結構；這裡換算回 [行, 文字, 字數, 結構] 方便比對
+    cells: tr.classList.contains('rm-an-ref') ? [...tr.children].map(c => c.textContent) : [
+        tr.querySelector('.rm-an-l').textContent,
+        [...tr.querySelectorAll('.rm-br-t, .rm-br-gap')].map(e => e.textContent).join(''),
+        tr.querySelector('.rm-an-n').textContent.replace(' 字', ''),
+        tr.children[2].textContent,
+    ],
+    guess: [...tr.querySelectorAll('.lm-guess:not(.rm-br-n)')].map(g => [g.textContent, getComputedStyle(g).fontStyle]),
     verdict: [...tr.querySelectorAll('.rm-an-v')].map(v => [v.textContent, v.getAttribute('aria-label')]),
 })));
 
@@ -1311,7 +1320,7 @@ test('分析面板：選幾行按分析，逐行列出字數、結構與對照',
     await expect(panel.locator('.rm-sum')).toHaveText('選到 3 行，共 19 字');
     await expect(panel.locator('.section-menu-cap').first()).toHaveText('對照：Verse I（同類型第一段）');
     await expect(panel.locator('caption')).toHaveText('逐行句構');
-    expect(await panel.locator('thead th').evaluateAll(t => t.map(x => [x.textContent, x.scope]))).toEqual([['行', 'col'], ['文字', 'col'], ['字數', 'col'], ['結構', 'col']]);
+    expect(await panel.locator('thead th').evaluateAll(t => t.map(x => [x.textContent, x.scope]))).toEqual([['行', 'col'], ['文字', 'col'], ['結構', 'col']]);   // 字數移到行號下面
 
     const rows = await anRows(page);
     expect(rows).toEqual([
@@ -1427,13 +1436,13 @@ test('分析面板：名稱與結構很長，文字只當文字', async ({ brows
     const rows = await anRows(page);
     // 十二個單字詞：完整顯示 1+1+…+1，不用 …
     const one12 = Array(12).fill(1).join('+');
-    expect(rows[0].cells).toEqual(['第 1 行', Array.from(TWELVE).slice(0, 12).join('') + '…', '12', one12]);   // 文字欄切在 12 字，結構欄不切
+    expect(rows[0].cells).toEqual(['第 1 行', TWELVE, '12', one12]);   // 整行完整顯示（面板跟著變寬或左右捲），結構欄不切
     expect(rows[0].cells[3]).not.toContain('…');
     expect(rows[1].cells[0]).toBe('對照 ' + CUT + ' 第 1 行：7 字　—≠');
-    // 結構格換行而不是被切掉
+    // 結構格不換行也不被切掉
     expect(await panel.locator('.rm-an-s').first().evaluate(e => e.scrollWidth <= e.clientWidth + 1)).toBe(true);
     // 惡意文字：只是文字，沒有任何元素被建出來
-    expect(rows[2].cells[1]).toBe(HOSTILE.slice(0, 12) + '…');
+    expect(rows[2].cells[1]).toBe(HOSTILE);
     expect(await panel.locator('img, script, b, i').count()).toBe(0);
     expect(await page.evaluate(() => window.__xss === undefined)).toBe(true);
     expect(errors).toEqual([]);
@@ -1967,7 +1976,7 @@ test('分析面板：點結構手動改、改回自動、AI 斷句', async ({ br
     await page.evaluate(() => { window.__sent = null; window.callLLM = async (m, p) => { window.__sent = p; return '{"lines":[[3,3],[1,6],[9]]}'; }; });
     await anShow(page, 11, 26);
     const panel = page.locator(AN);
-    const cell = n => panel.locator('tbody tr').nth(n).locator('td').nth(3);
+    const cell = n => panel.locator('tbody tr').nth(n).locator('td.rm-an-s');
     // 手動：字數不對不收；對了就存、標「手動」、鏡像層的設定也跟著
     await panel.locator('.rm-an-edit').nth(1).click();
     const inp = panel.locator('.rm-an-input');
@@ -1987,6 +1996,25 @@ test('分析面板：點結構手動改、改回自動、AI 斷句', async ({ br
     await expect(cell(0)).toHaveText('6（3·3）AI');
     expect(await page.evaluate(() => window.__sent)).toBe('X 1. 獨自站在窗前\n2. 走過熟悉的街道\n3. 終於我也回到');
     expect(await page.evaluate(() => Object.keys(curSong().structs))).toEqual(['獨自站在窗前', '走過熟悉的街道']);
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('滑過才顯示：平常透明，指到同韻的字才浮出，移開淡掉', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, {
+        wordlist: 'stub', storage: v2Storage([song([typed('sa', 'verse', '我在這裡等天亮\n你在那裡看月光\n想你想到心慌')])], { ...OPEN_PANELS, 'lh:map': JSON.stringify({ end: true, letters: false, inner: false, strict: false, skipParticles: true, hoverOnly: true }) }),
+    });
+    await expect.poll(() => page.locator('#lyricsSections .rm-hl').count()).toBe(3);
+    expect(await page.evaluate(() => document.documentElement.hasAttribute('data-rm-hover'))).toBe(true);
+    const op = () => page.locator('#lyricsSections .rm-hl').evaluateAll(es => es.map(e => [e.textContent, e.classList.contains('rm-show')]));
+    expect(await op()).toEqual([['亮', false], ['光', false], ['慌', false]]);
+    expect(await page.locator('#lyricsSections .rm-hl').first().evaluate(e => getComputedStyle(e).opacity)).toBe('0');
+    await page.locator('#lyricsSections .section-textarea').first().scrollIntoViewIfNeeded();
+    const r = await page.locator('#lyricsSections .rm-hl').nth(1).boundingBox();
+    await page.mouse.move(r.x + r.width / 2, r.y + r.height / 2);
+    await expect.poll(op).toEqual([['亮', true], ['光', true], ['慌', true]]);   // 三個都是 ㄤ 家族
+    await page.mouse.move(5, 5);
+    await expect.poll(op).toEqual([['亮', false], ['光', false], ['慌', false]]);
     expect(errors).toEqual([]);
     await context.close();
 });

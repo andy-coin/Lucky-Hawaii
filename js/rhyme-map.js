@@ -59,6 +59,7 @@ function _lhMapNeedMk() {
     return _lhMapSet.line && (_lhMapSet.lnRhyme || _lhMapSet.lnCount || _lhMapSet.lnSplit || _lhMapSet.lnDiff);
 }
 function lhMapApplyLook() {
+    document.documentElement.toggleAttribute('data-rm-hover', !!_lhMapSet.hoverOnly);
     const root = document.documentElement;
     // 欄位的有無只看設定、不看文字內容（X3）：不然打下第一個字的瞬間輸入框內距會變，輸入框會跳版
     if (_lhMapNeedMk()) root.setAttribute('data-lm', _lhMapSet.pos);
@@ -148,13 +149,14 @@ function _lhMapMarker(line, diff, row, structs) {
 function _lhMapTint(el, o) {
     el.dataset.f = String(o.f);
     if (o.c !== undefined) el.dataset.c = String(o.c);
+    if (o.k !== undefined) el.dataset.k = o.k;   // 押韻鍵：「滑過才顯示」用它找同韻的字
 }
 
 // 英文押韻字表：歌詞（或預覽）裡第一次出現英文字母才去載，載好全部重畫
 let _lhMapEnLoading = null;
 function _lhMapEnLoad() {
     if (_lhMapEnLoading) return;
-    _lhMapEnLoading = fetch('data/en-rhyme.json?v=0.96.24').then(r => r.json()).then(o => {
+    _lhMapEnLoading = fetch('data/en-rhyme.json?v=0.96.25').then(r => r.json()).then(o => {
         lhEnSetDict(o);
         // 只重畫有英文的段落（其他段落的標記節點不動）
         const box = document.getElementById('lyricsSections');
@@ -183,13 +185,13 @@ function _lhMapBuildFrag(text, readings, refText, structs) {
         // 這一行要特別標示的字：每個句尾字（色塊，句尾上色開著才有；行中逗號、空白前的也算）、
         // 雙押／多押時句尾前面跟著押的字（同色淡一層，底下一條同色細線把整組連起來）與句中押韻的字（底線）
         const marks = new Map();
-        for (const m of r.inner) marks.set(m.i, { cls: 'rm-inner', f: m.f, c: m.c });
+        for (const m of r.inner) marks.set(m.i, { cls: 'rm-inner', f: m.f, c: m.c, k: m.k });
         if (S.end) {
             for (const e of r.ends) {
                 const mx = S.multi && e.multi > 1 ? ' rm-mx' : '';
-                const hl = { cls: (e.solo ? 'rm-hl rm-solo' : 'rm-hl') + (e.manual ? ' rm-manual' : '') + mx, f: e.f, c: e.c };
+                const hl = { cls: (e.solo ? 'rm-hl rm-solo' : 'rm-hl') + (e.manual ? ' rm-manual' : '') + mx, f: e.f, c: e.c, k: e.key };
                 for (let k = e.t.s ?? e.t.i; k <= e.t.i; k++) marks.set(k, hl);   // 英文字整個字上色
-                if (mx) for (let k = 1; k < e.multi; k++) marks.set(e.t.i - k, { cls: 'rm-multi rm-mx', f: e.f, c: e.c });
+                if (mx) for (let k = 1; k < e.multi; k++) marks.set(e.t.i - k, { cls: 'rm-multi rm-mx', f: e.f, c: e.c, k: e.key });
             }
         }
         const mk = needMk ? _lhMapMarker(r.line, diff, res ? r : undefined, structs) : null;
@@ -586,6 +588,7 @@ function lhMapMenuBuild() {
 
 // 依目前設定更新兩處開關的字與 aria 狀態：「韻腳 ▾」選單與偏好設定裡的段落，一邊改了另一邊馬上跟著變（CONTEXT D1）
 function lhMapMenuSync() {
+    document.documentElement.toggleAttribute('data-rm-hover', !!_lhMapSet.hoverOnly);
     document.querySelectorAll('#rhymeMenu .rm-switch, #mapSettingsSection .rm-switch').forEach(b => {
         const on = !!_lhMapSet[b.dataset.k];
         b.setAttribute('aria-checked', String(on));
@@ -658,6 +661,7 @@ function lhMapPrefsBuild() {
     const mapRows = [
         _lhMapSwitchRow('end', '句尾上色'),
         ..._lhMapPrefRow('multi', '雙押／多押', LH_MAP_HINT_MULTI, 'rmPrefMulti'),
+        ..._lhMapPrefRow('hoverOnly', '滑過才顯示', '平常不上色；滑鼠移到某個字上，同韻的字才浮出顏色，移開就淡掉（觸控：點一下字）', 'rmPrefHoverOnly'),
         ..._lhMapPrefRow('autoColor', '自動配色', '前後幾行裡不同的韻，自動換成差最多的顏色；關掉就是每個韻族固定一色', 'rmPrefAuto'),
         ..._lhMapPrefRow('letters', '段落結構字母', LH_MAP_HINT_LETTERS, 'rmPrefLetters'),
         ..._lhMapPrefRow('inner', '句中押韻', LH_MAP_HINT_INNER, 'rmPrefInner'),
@@ -1398,6 +1402,17 @@ function lhMapAnalysisBuild() {
     m.setAttribute('role', 'dialog');
     m.setAttribute('aria-label', '句構分析');
     m.tabIndex = -1;
+    // 拖標題可以移動面板（滑鼠、觸控都行）；移過之後重新排版只夾回畫面，不再自動貼回浮動列
+    m.addEventListener('pointerdown', e => {
+        const h = e.target.closest && e.target.closest('.section-menu-title');
+        if (!h || e.button > 0) return;
+        const sx = e.clientX - parseFloat(m.style.left || 0), sy = e.clientY - parseFloat(m.style.top || 0);
+        const move = ev => { _lhMapAnMoved = true; lhPlaceMenu(m, ev.clientX - sx, ev.clientY - sy); };
+        const up = () => { removeEventListener('pointermove', move); removeEventListener('pointerup', up); removeEventListener('pointercancel', up); };
+        addEventListener('pointermove', move);
+        addEventListener('pointerup', up);
+        addEventListener('pointercancel', up);
+    });
     // 面板不能搶走輸入框的焦點與選取（手機鍵盤才不會收起來）；表格的捲動區照常能捲
     for (const t of ['pointerdown', 'mousedown']) m.addEventListener(t, e => { if (!(e.target.closest && e.target.closest('.rm-an-scroll'))) e.preventDefault(); });
     // Tab 只在「捲動區（有溢出才可聚焦）」和「關閉句構」之間繞
@@ -1451,18 +1466,22 @@ function _lhMapAnContent(song, sec, snap) {
     const lines = text.replace(/\r\n?/g, '\n').split('\n');
     const table = _lhMk('table', 'rm-an-table');
     const head = _lhMk('tr');
-    for (const h of ['行', '文字', '字數', '結構']) { const th = _lhMk('th', '', h); th.scope = 'col'; head.append(th); }
+    for (const h of ['行', '文字', '結構']) { const th = _lhMk('th', '', h); th.scope = 'col'; head.append(th); }
     const tb = _lhMk('tbody');
     for (const { r, i } of rows.slice(0, LH_MAP_AN_ROWS)) {
         const st = _lhMk('td', 'rm-an-s');
         st.append(_lhMapAnEdit(sec.id, lines[r.row], r));
         const tr = _lhMk('tr', refRows ? '' : 'rm-an-end');
-        tr.append(_lhMk('td', 'rm-an-no', '第 ' + i + ' 行'), _lhMk('td', 'rm-an-t', _lhMapCut(lines[r.row].trim(), 12)), _lhMk('td', 'rm-an-n', String(r.n)), st);
+        const no = _lhMk('td', 'rm-an-no');
+        no.append(_lhMk('span', 'rm-an-l', '第 ' + i + ' 行'), _lhMk('span', 'rm-an-n', r.n + ' 字'));   // 字數放在行號下面
+        const tt = _lhMk('td', 'rm-an-t');
+        tt.append(_lhMapBraces(lines[r.row], r));
+        tr.append(no, tt, st);
         tb.append(tr);
         if (!refRows) continue;
         // 對照放在這行下面的整列（不多一欄，390px 的手機放得下，CONTEXT C3 的已聲明覆寫）
         const rr = refRows[i - 1], td = _lhMk('td'), tr2 = _lhMk('tr', 'rm-an-ref rm-an-end');
-        td.colSpan = 4;
+        td.colSpan = 3;
         if (!rr) td.textContent = '對照段落沒有第 ' + i + ' 行';
         else {
             const rs = _lhMk('span', 'rm-an-rs');
@@ -1498,6 +1517,24 @@ function _lhMapAnContent(song, sec, snap) {
     }
     kids.push(acts);
     return { kids, k: rows.length };
+}
+
+// 整行歌詞完整顯示，每一組底下一個倒下來的大括號（︸）和字數；機器猜的組，數字是斜體。組與組之間的空白、標點照原樣
+function _lhMapBraces(line, r) {
+    const cs = Array.from(line), out = _lhMk('span', 'rm-br-line');
+    let p = 0;
+    r.groups.forEach((g, k) => {
+        const a = r.starts[k], b = r.ends[k];
+        const gap = cs.slice(p, a).join('');
+        if (gap && (k || gap.trim())) out.append(_lhMk('span', 'rm-br-gap', k ? gap : gap.trimStart()));   // 行首的空白不畫
+        const grp = _lhMk('span', 'rm-br');
+        grp.append(_lhMk('span', 'rm-br-t', cs.slice(a, b).join('')), _lhMk('span', 'rm-br-b'), _lhMk('span', 'rm-br-n' + (r.guess[k] ? ' lm-guess' : ''), String(g)));
+        out.append(grp);
+        p = b;
+    });
+    const tail = cs.slice(p).join('').trimEnd();   // 行尾的標點照畫（引號、問號），空白不畫
+    if (tail) out.append(_lhMk('span', 'rm-br-gap', tail));
+    return out;
 }
 
 // 結構欄：按鈕顯示目前的句構（手動、AI 指定的另外標記），點了變輸入框；Enter 或離開就存，Esc 取消，清空＝改回自動
@@ -1623,15 +1660,18 @@ function lhMapHideAnalysis(refocus) {
     _lhDwellCancel();
     if (!_lhMapAn || !_lhMapAnOn) return;
     _lhMapAnOn = false;
+    _lhMapAnMoved = false;
     _lhMapAn.classList.remove('show');
     if (_lhMapBar) _lhMapBar.querySelector('.rm-bar-an').setAttribute('aria-expanded', 'false');
     if (refocus && _lhMapBarSnap) _lhMapBarRestore(_lhMapBarSnap);
 }
 
 // 放在浮動列下方；放不下就翻到上方；上下都放不下就留給比較大的那一邊並在面板內捲動。浮動列自己不動
+let _lhMapAnMoved = false;   // 使用者拖過面板了
 function _lhMapAnPlace() {
     const p = _lhMapAn, bar = _lhMapBar;
     if (!p || !bar || !_lhMapAnOn) return;
+    if (_lhMapAnMoved) { lhPlaceMenu(p, parseFloat(p.style.left), parseFloat(p.style.top)); return; }
     const r = bar.getBoundingClientRect(), vv = window.visualViewport;
     const vTop = vv ? vv.offsetTop : 0, vBot = vTop + (vv ? vv.height : innerHeight);
     const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
@@ -1723,3 +1763,42 @@ window.__lhMapReady = Promise.allSettled([window.__hoyunReady, window.__hoyunWor
         lhWarn('韻腳地圖首次上色失敗', e);
     }
 });
+
+// ==================== 滑過才顯示（hoverOnly）====================
+// 色塊平常透明；指標停在某個有韻的字上，同一段（或預覽）裡同韻鍵的字加 .rm-show 浮出，移開就淡掉（CSS transition）。
+// 輸入框蓋在鏡像層上面，所以用指標座標去比鏡像層色塊的位置。觸控：點一下字顯示 2 秒
+let _lhHvBox = null, _lhHvKey = null, _lhHvRaf = 0, _lhHvTimer = 0;
+function _lhHvSet(box, key) {
+    if (box === _lhHvBox && key === _lhHvKey) return;
+    if (_lhHvBox) for (const e of _lhHvBox.querySelectorAll('.rm-show')) e.classList.remove('rm-show');
+    _lhHvBox = box; _lhHvKey = key;
+    if (box && key) for (const e of box.querySelectorAll('[data-k]')) if (e.dataset.k === key) e.classList.add('rm-show');
+}
+function _lhHvBoxesOf(t, x, y) {
+    const pv = document.querySelector('#mapSettingsSection .lm-preview');   // 預覽可能不接指標事件，用位置判斷
+    const pr = pv && pv.offsetParent && pv.getBoundingClientRect();
+    if (pr && x >= pr.left && x <= pr.right && y >= pr.top && y <= pr.bottom) return { scope: pv, mirrors: [pv] };
+    const sec = t.closest && t.closest('.lyrics-section');
+    if (sec && t.closest('.section-body')) return { scope: sec, mirrors: [...sec.querySelectorAll('.rhyme-mirror')] };
+    return null;
+}
+function _lhHvAt(x, y, t) {
+    const b = _lhHvBoxesOf(t, x, y);
+    if (!b) return _lhHvSet(null, null);
+    for (const m of b.mirrors) for (const e of m.querySelectorAll('[data-k]')) {
+        for (const r of e.getClientRects()) if (x >= r.left && x <= r.right && y >= r.top && y <= r.bottom) return _lhHvSet(b.scope, e.dataset.k);
+    }
+    _lhHvSet(null, null);
+}
+document.addEventListener('pointermove', e => {
+    if (!_lhMapSet.hoverOnly || e.pointerType !== 'mouse') return;
+    const { clientX: x, clientY: y, target: t } = e;
+    if (_lhHvRaf) return;
+    _lhHvRaf = requestAnimationFrame(() => { _lhHvRaf = 0; _lhHvAt(x, y, t); });
+}, { passive: true });
+document.addEventListener('pointerdown', e => {
+    if (!_lhMapSet.hoverOnly || e.pointerType === 'mouse') return;
+    _lhHvAt(e.clientX, e.clientY, e.target);
+    clearTimeout(_lhHvTimer);
+    _lhHvTimer = setTimeout(() => _lhHvSet(null, null), 2000);
+}, { passive: true });

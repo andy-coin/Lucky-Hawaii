@@ -2351,3 +2351,25 @@ html[data-lm] .section-body.has-cols .section-textarea { padding-right: 0.75rem;
 @media (pointer: coarse), (max-width: 900px) {
     .hashtag-chip .chip-remove { margin-block: -1px; }
 }
+/* 韻腳「滑過才顯示」：色塊、雙押細線、句中底線平常透明，同韻的字被指到才浮出（js/rhyme-map.js 檔尾） */
+html[data-rm-hover] .rhyme-mirror:not(.lm-preview) :is(.rm-hl, .rm-multi, .rm-inner) { opacity: 0; transition: opacity 0.35s ease; }
+html[data-rm-hover] .rhyme-mirror:not(.lm-preview) :is(.rm-hl, .rm-multi, .rm-inner).rm-show { opacity: 1; transition-duration: 0.15s; }
+/* 預覽的字是看得見的：不能整個透明，只把底色、細線、底線拿掉 */
+html[data-rm-hover] .lm-preview :is(.rm-hl, .rm-multi, .rm-inner) { transition: background-color 0.35s ease, box-shadow 0.35s ease, text-decoration-color 0.35s ease; }
+html[data-rm-hover] .lm-preview :is(.rm-hl, .rm-multi, .rm-inner):not(.rm-show) { background: transparent; box-shadow: none; text-decoration-color: transparent; border-bottom-color: transparent; }
+@media (prefers-reduced-motion: reduce) { html[data-rm-hover] .rhyme-mirror :is(.rm-hl, .rm-multi, .rm-inner) { transition: none; } }
+/* 句構面板（2026-11-13）：寬度跟著表格（說明文字不撐寬），結構與歌詞都不換行，太寬就在捲動區左右捲；標題可以拖 */
+#rhymeAnalysis { width: max-content; min-width: min(20rem, calc(100vw - 1rem)); max-width: calc(100vw - 1rem); }
+#rhymeAnalysis > :not(.rm-an-scroll) { contain: inline-size; }
+#rhymeAnalysis .rm-an-scroll { overflow: auto; }
+#rhymeAnalysis .section-menu-title { cursor: move; touch-action: none; user-select: none; }
+#rhymeAnalysis .rm-an-table { width: auto; table-layout: auto; }
+#rhymeAnalysis .rm-an-table th, #rhymeAnalysis .rm-an-table td:not([colspan]) { width: auto; white-space: nowrap; }
+#rhymeAnalysis .rm-an-edit { white-space: nowrap; overflow-wrap: normal; }
+#rhymeAnalysis .rm-an-t { overflow: visible; text-overflow: clip; color: var(--text-primary); }
+.rm-an-no .rm-an-l, .rm-an-no .rm-an-n { display: block; }
+.rm-an-no .rm-an-n { font-size: 0.75rem; color: var(--text-secondary); }
+.rm-br-line { display: inline-flex; align-items: flex-start; white-space: pre; }
+.rm-br { display: inline-flex; flex-direction: column; align-items: stretch; }
+.rm-br-b { height: 0.35em; margin: 0.1em 0.15em 0; border: 1px solid var(--text-secondary); border-top: none; border-radius: 0 0 0.5em 0.5em; }
+.rm-br-n { text-align: center; font-size: 0.75rem; line-height: 1.2; color: var(--text-secondary); }

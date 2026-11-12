@@ -288,7 +288,7 @@ test('對比：句中底線', () => {
 
 // ===== 10-04：句中押韻 =====
 const inner = (text, { strict = false, skip = true, on = true } = {}) =>
-    ev(`lhRhymeAnalyze(${j(text)}, { strict: ${strict}, skipParticles: ${skip}, inner: ${on} }, null).rows.map(r => r.inner)`);
+    ev(`lhRhymeAnalyze(${j(text)}, { strict: ${strict}, skipParticles: ${skip}, inner: ${on} }, null).rows.map(r => r.inner.map(({ i, f }) => ({ i, f })))`);   // 只比位置與韻族（k 是滑過才顯示用的鍵）
 const INNER = '我想望向遠方的光\n他在窗邊唱\n你看見天亮';
 
 test('句中：最多三個、由左到右、不含句尾字', () => {
@@ -356,7 +356,7 @@ test('設定：整理成固定的鍵', () => {
     const norm = v => ev(`lhRhymeNormalizeSettings(${j(v)})`);
     // 十五個設定鍵加 colors（五個舊開關＋雙押多押、逐行標記、三個內容項、對照差異、停留自動分析、位置、大小、濃淡）
     const D = { end: true, letters: false, inner: false, strict: false, skipParticles: true,
-        multi: true, autoColor: true, line: false, lnRhyme: false, lnCount: true, lnSplit: true, lnDiff: false, autoHover: false,
+        multi: true, autoColor: true, hoverOnly: false, line: false, lnRhyme: false, lnCount: true, lnSplit: true, lnDiff: false, autoHover: false,
         pos: 'right', size: 'm', depth: 'std', colors: {} };
     expect(norm(null)).toEqual(D);
     expect(norm([1, 2])).toEqual(D);
@@ -633,4 +633,13 @@ test('自動配色：靠近的不同韻用不同顏色、空韻維持灰', () =>
     expect(f[0]).toBe(f[1]);
     expect(new Set([f[0], f[2], f[4]]).size).toBe(3);
     expect(f[6]).toBe(16);
+});
+
+test('雙押：句尾同字、疊字不算', () => {
+    reset();
+    run(`wordPhoneticMap = new Map([['逃跑', 'ㄊㄠˊ ㄆㄠˇ'], ['笑鬧', 'ㄒㄧㄠˋ ㄋㄠˋ']])`);
+    const m = t => ev(`lhRhymeAnalyze(${j(t)}, { multi: true })`).rows.filter(r => !r.blank).map(r => r.ends.map(e => e.multi));
+    expect(m('笑鬧\n逃跑')).toEqual([[2], [2]]);
+    expect(m('好好\n逃跑')).toEqual([[1], [1]]);   // 疊字
+    expect(m('想你\n念你')).toEqual([[1], [1]]);   // 句尾同一個字
 });

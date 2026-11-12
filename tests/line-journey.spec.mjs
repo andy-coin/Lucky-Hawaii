@@ -135,7 +135,8 @@ test('整合：句構分析一次走完', async ({ browser }) => {
     await expect(page.locator(AN + ' .section-menu-title')).toHaveText('句構：Verse II');
     await expect(page.locator(AN + ' .rm-sum')).toHaveText('選到 3 行，共 19 字');
     const rows = await anRows(page);
-    expect(rows.map(r => r.cells[0])).toEqual(['第 2 行', '對照 Verse I 第 2 行：5 字　—≠', '第 3 行', '對照 Verse I 第 3 行：7 字　' + rows[3].cells[0].split('　')[1], '第 4 行', '對照段落沒有第 4 行']);
+    // 行號格下面多了字數
+    expect(rows.map(r => r.cells[0].replace(/\d+ 字$/, ''))).toEqual(['第 2 行', '對照 Verse I 第 2 行：5 字　—≠', '第 3 行', '對照 Verse I 第 3 行：7 字　' + rows[3].cells[0].split('　')[1], '第 4 行', '對照段落沒有第 4 行']);
     expect(rows[1].verdict).toEqual(['≠']);
     expect(rows[3].verdict).toEqual(['✓']);
     expect(await focusInfo(page), '分析面板沒搶走輸入框').toEqual({ ta: true, a: 11, b: 26 });

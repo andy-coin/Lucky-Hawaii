@@ -1,3 +1,9 @@
+## ✅ 2026-11-13 凌晨 三點（?v=0.96.25）
+- 雙押：句尾同一個字（亮／亮）的一對不算、疊字（好好）整組同字不算（js/rhyme-core.js lhRhymeMulti）
+- 新模式「滑過才顯示」：設定 `hoverOnly`（偏好設定開關，預設關）；色塊帶 data-k（押韻鍵），rhyme-map.js 檔尾用指標座標比色塊位置、同鍵加 .rm-show；觸控點一下顯示 2 秒；CSS panels.css 檔尾 html[data-rm-hover]（淡入淡出是 Andy 指定，line-audit「沒有動畫」檢查對這組開例外）
+- 句構面板：行號下面放字數、整行歌詞完整顯示、每組下面括號＋字數（`_lhMapBraces`，line-core 多回傳 ends）、結構不換行、寬度跟著表格（說明文字 contain: inline-size）、拖標題移動（`_lhMapAnMoved`，關掉重置）
+- 待 Andy：iPad／電腦驗收；Worker 部署
+
 ## ✅ 2026-11-13 iPhone 回饋四點（?v=0.96.24）
 - 候選池 bug（跳樓：押母音後換押子音混進母音詞）：js/rhyme-display.js `setRhymeMode` 換模式時呼叫 `resetSuggestedPool()`（其他篩選本來就會清，只漏這個）；測試 tests/ai-ref.spec.mjs
 - AI 面板韻腳搬到標題列固定（renderRhymeDisplay 把 #aiRhymeDisplay 搬到 `.ai-title-group` 後面、加 `.in-title`；CSS panels.css 檔尾）

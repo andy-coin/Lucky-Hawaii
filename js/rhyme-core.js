@@ -14,7 +14,7 @@ const LH_RHYME_DEFAULTS = Object.freeze({ end: true, letters: false, inner: fals
 // （D4 括號的說法——第一次打開就有東西看、但不擠）。總開關沒開時什麼都不顯示，所以全新使用者仍然只看到句尾上色。
 // multi（雙押／多押的標示）預設開：它只是在句尾色塊上多一層淡色與細線，沒有句尾上色就看不到
 const LH_MAP_DEFAULTS = Object.freeze(Object.assign({}, LH_RHYME_DEFAULTS, {
-    multi: true, autoColor: true, line: false, lnRhyme: false, lnCount: true, lnSplit: true, lnDiff: false, autoHover: false,
+    multi: true, autoColor: true, hoverOnly: false, line: false, lnRhyme: false, lnCount: true, lnSplit: true, lnDiff: false, autoHover: false,
     pos: 'right', size: 'm', depth: 'std',
 }));
 // 列舉值只收清單裡的；顏色鍵固定 '0'…'15'（16 個韻族，空韻 16 不開放自訂），色碼只收小寫 #rrggbb（與 rhyme-map.js 的 LH_MAP_HEX 同形）
@@ -198,7 +198,7 @@ function lhRhymeInner(line, t, tailKeys, strict, skip, skipIdx, colorOf) {
         if (!infos.length) continue;
         const rhyme = getZhuyinRhyme(infos[0].reading);
         const k = lhRhymeKey(rhyme, strict);
-        if (tailKeys.has(k)) out.push({ i, f: lhRhymeColor(rhyme), c: colorOf ? colorOf.get(k) : undefined });
+        if (tailKeys.has(k)) out.push({ i, f: lhRhymeColor(rhyme), c: colorOf ? colorOf.get(k) : undefined, k });
     }
     return out;
 }
@@ -242,8 +242,12 @@ function lhRhymeMulti(ends, count, strict) {
         for (let x = 0; x < g.length; x++) {
             for (let y = x + 1; y < g.length; y++) {
                 const a = g[x], b = g[y];
+                if (a.cs[0] === b.cs[0]) continue;   // 句尾同一個字（亮／亮）：同字不算押韻對比（Andy 2026-11-13）
                 let k = 1;
                 while (k < a.rs.length && k < b.rs.length && a.cs[k] !== b.cs[k] && lhRhymeMatch(a.rs[k], b.rs[k], strict)) k++;
+                // 疊字（好好）整組都是同一個字：不算雙押
+                const same = e => e.cs.slice(0, k).every(c => c === e.cs[0]);
+                if (k > 1 && (same(a) || same(b))) k = 1;
                 if (k > a.multi) a.multi = k;
                 if (k > b.multi) b.multi = k;
             }

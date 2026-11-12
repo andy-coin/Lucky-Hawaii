@@ -417,7 +417,7 @@ test('檢查：惡意文字只當文字（句構分析）', async ({ browser }) 
     await pick(page, 0, H1.length, 0);
     await page.locator(AN_BTN).click();
     await expect(page.locator(AN)).toBeVisible();
-    await expect(page.locator(AN + ' .rm-an-t').first()).toContainText('<img src=x o');
+    await expect.poll(() => page.locator(AN + ' .rm-an-t').first().evaluate(td => [...td.querySelectorAll('.rm-br-t, .rm-br-gap')].map(e => e.textContent).join(''))).toContain('<img src=x o');   // 每組底下的字數不算
     expect(await bare(SURFACES)).toBe(0);
     await page.keyboard.press('Escape');
     // 第二個同名的自訂段落：標題與對照說明都帶著名稱，而且是文字
@@ -506,7 +506,8 @@ test('檢查：setProperty 只在固定的地方、新樣式沒有動畫', () =>
         const css = readFileSync(f, 'utf8');
         const mine = cssRules(css).filter(r => MINE.test(r.sel));
         seen += mine.length;
-        expect(mine.filter(r => /transition|animation/.test(r.body)).map(r => r.sel), f + ' 第 11 階段的規則沒有動畫').toEqual([]);
+        // 例外：「滑過才顯示」的淡入淡出是 Andy 指定的（2026-11-13），只有這組允許 transition
+        expect(mine.filter(r => /transition|animation/.test(r.body) && !r.sel.includes('data-rm-hover')).map(r => r.sel), f + ' 第 11 階段的規則沒有動畫').toEqual([]);
         // 兩個檔案目前都沒有 @keyframes（動畫都放在 css/base.css，是第 10 階段之前就有的）；註解裡的字不算
         expect((css.replace(/\/\*[\s\S]*?\*\//g, '').match(/@keyframes/g) || []).length, f + ' 沒有新增 @keyframes').toBe(0);
     }
@@ -611,7 +612,7 @@ test('檢查：顏色以外的線索（句構分析）', async ({ browser }) => 
         role: m.getAttribute('role'),
         ths: [...m.querySelectorAll('th')].map(th => th.getAttribute('scope')),
         verdicts: [...m.querySelectorAll('.rm-an-v')].map(v => [v.textContent, v.getAttribute('aria-label')]),
-        guesses: [...m.querySelectorAll('.lm-guess')].map(g => [g.textContent.startsWith('（'), getComputedStyle(g).fontStyle]),
+        guesses: [...m.querySelectorAll('.lm-guess:not(.rm-br-n)')].map(g => [g.textContent.startsWith('（'), getComputedStyle(g).fontStyle]),
     }));
     expect(an.role).toBe('dialog');
     expect(an.ths.length).toBeGreaterThan(0);

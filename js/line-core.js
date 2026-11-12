@@ -17,7 +17,7 @@ let _lhLineCjk = null;   // 單一個中日韓字（_LH_CJK 在 sections-core.js
 function lhLineAnalyze(line, has, structs) {
     const hasWord = has || (w => wordPhoneticMap.has(w));
     line = String(line);
-    const frags = [], pos = [];
+    const frags = [], pos = [], len = [];
     let cur = null, prevEnd = -1, prevHan = false, cp = 0, last = 0;
     for (const m of line.matchAll(_LH_WC_RE)) {   // 'gu' 旗標：matchAll 會複製 regex，不污染 lastIndex
         const han = (_lhLineCjk ||= new RegExp('^' + _LH_CJK + '$', 'u')).test(m[0]);
@@ -25,18 +25,20 @@ function lhLineAnalyze(line, has, structs) {
         cur.push(m[0]);
         cp += Array.from(line.slice(last, m.index)).length;
         pos.push(cp);
-        cp += Array.from(m[0]).length;
+        len.push(Array.from(m[0]).length);
+        cp += len[len.length - 1];
         last = m.index + m[0].length;
         prevEnd = last;
         prevHan = han;
     }
-    if (!frags.length) return { n: 0, frags: [], groups: [], guess: [], guessed: false, starts: [], src: 'auto' };   // 空行、純標點：略過（A3）
+    if (!frags.length) return { n: 0, frags: [], groups: [], guess: [], guessed: false, starts: [], ends: [], src: 'auto' };   // 空行、純標點：略過（A3）
     const n = pos.length, fl = frags.map(f => f.length);
     const startsOf = gs => { const o = []; let u = 0; for (const g of gs) { o.push(pos[u]); u += g; } return o; };
+    const endsOf = gs => { const o = []; let u = 0; for (const g of gs) { u += g; o.push(pos[u - 1] + len[u - 1]); } return o; };   // 每組最後一個字之後的位置（分析面板畫大括號用）
     // 手動／AI 指定的句構：加總必須等於字數，否則（歌詞改過）當作沒指定
     const own = structs && Object.prototype.hasOwnProperty.call(structs, line.trim()) ? structs[line.trim()] : null;
     if (own && Array.isArray(own.g) && own.g.reduce((x, y) => x + y, 0) === n) {
-        return { n, frags: fl, groups: own.g.slice(), guess: own.g.map(() => false), guessed: false, starts: startsOf(own.g), src: own.src === 'ai' ? 'ai' : 'man' };
+        return { n, frags: fl, groups: own.g.slice(), guess: own.g.map(() => false), guessed: false, starts: startsOf(own.g), ends: endsOf(own.g), src: own.src === 'ai' ? 'ai' : 'man' };
     }
     const groups = [], guess = [];
     for (const f of frags) {
@@ -68,7 +70,7 @@ function lhLineAnalyze(line, has, structs) {
         const cut = g.length >= 2;
         for (const x of g) { groups.push(x); guess.push(cut); }
     }
-    return { n, frags: fl, groups, guess, guessed: guess.some(Boolean), starts: startsOf(groups), src: 'auto' };
+    return { n, frags: fl, groups, guess, guessed: guess.some(Boolean), starts: startsOf(groups), ends: endsOf(groups), src: 'auto' };
 }
 
 // 結構字串拆成片段：[{ text, guess }]。明確片段之間用「+」，片段被細分時寫成「11（4·2·3·2）」，括號那段是機器猜的就 guess＝true（畫成斜體）。
