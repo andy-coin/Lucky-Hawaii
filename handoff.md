@@ -1,3 +1,9 @@
+## ✅ 2026-11-12 傍晚小修兩批（已 push，69ca8b9，?v=0.96.20）
+
+- 0.96.19（904e91f）：主題名改英文（Plain／Moon／City／Midnight／Custom，`js/theme.js:6`）、Plain 字 #ededed；情境標籤 AI 整理鈕換燈泡＋自製淡入淡出提示（`js/ui-common.js` 檔尾、`.lh-tip`）；鑰匙移到模型下拉左邊（`.ai-tools`）；齒輪 `#settingsTrigger` 移到右上（? 調色盤 齒輪，手機只藏 ?）；行動裝置點情境／標籤也彈編輯器（`js/lyrics.js` 約 425 行）；鍵盤打開時編輯器只留正在打字那塊（`css/panels.css` 檔尾 `html.kb-open`）
+- 0.96.20（ce7f338）：標題列備份鈕移進設定「資料與備份」；平板（coarse 且 ≥768）`--hit` 36px、手機 44；觸控裝置沒存過縮放預設 90%（`js/layout.js`）；歌詞框／鏡像層／情境框不再卡 16px，iOS 改加 `maximum-scale=1` 防點擊自動放大；`js/song-io.js` 匯入視窗關閉焦點回齒輪。測試共用 `clickBackup`、`hitMin`、bootPage 觸控預設種 100%。npm test 1099 過／0 失敗
+- 待 Andy：iPad 實測 36px 手感、90% 預設、歌詞字級；R2-*.md 待決清單
+
 ## ✅ 第二輪完成（2026-11-12 下午，已 push origin/gsd/v0.96-stabilize 7a78f4f，?v=0.96.18）
 
 - 已合併四條：r2/prefs（五分頁＋點外面關韻腳選單）、r2/editor（浮動完整歌詞編輯器、新增段落移到標籤情境下方、iPad 收起不裁、拉高度不跳）、r2/theme（素墨／月光／城市／午夜／自訂 循環、多重點色、紋理、js/bgfx.js 背景飄字）、r2/byok（AI 分頁、Gemini／Groq 直連、鑰匙呼吸、自製模型下拉含用量格）
