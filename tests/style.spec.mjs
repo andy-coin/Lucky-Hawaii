@@ -88,7 +88,7 @@ test('視覺：晝夜預設主題文字對比 ≥ 4.5', async ({ browser }) => {
                 expect(ratio, `${name} ${t} 對 ${s} 對比 ${ratio.toFixed(2)}`).toBeGreaterThanOrEqual(4.5);
             }
         }
-        if (name === '淺色') expect(v.textSecondary.toLowerCase(), '淺色次要文字色').toBe('#5a6577');
+        if (name === '淺色') expect(v.textSecondary.toLowerCase(), '淺色次要文字色').toBe('#5c574f');
         await context.close();
     }
     console.log('對比實測\n' + report.join('\n'));
@@ -98,12 +98,19 @@ test('視覺：晝夜預設主題文字對比 ≥ 4.5', async ({ browser }) => {
 
 test('視覺：沒存顏色時用預設底色', async ({ browser }) => {
     const light = await bootPage(browser, { wordlist: 'stub', colorScheme: 'light' });
-    expect((await readVars(light.page)).containerBg.toLowerCase()).toBe('#eee3ce');
+    expect((await readVars(light.page)).containerBg.toLowerCase()).toBe('#f6f3ec');
     await light.context.close();
+    // 夜間 UI 重設計：沒自訂時深色用 CSS 自己的深色預設（不再拿淺色反相）；有自訂才反相
     const dark = await bootPage(browser, { wordlist: 'stub', storage: { hoyun_theme_mode: 'dark' } });
-    // 深色＝預設淺色底的反相：255-0xee=0x11、255-0xe3=0x1c、255-0xce=0x31
-    expect((await readVars(dark.page)).containerBg.toLowerCase()).toBe('#111c31');
+    expect((await readVars(dark.page)).containerBg.toLowerCase()).toBe('#181715');
     await dark.context.close();
+    // 舊版存下來的預設色當成沒自訂（舊存檔也換得到新外觀）；真的自訂過的顏色在深色仍然反相
+    const legacy = await bootPage(browser, { wordlist: 'stub', storage: { containerBg: '#eee3ce' } });
+    expect((await readVars(legacy.page)).containerBg.toLowerCase()).toBe('#f6f3ec');
+    await legacy.context.close();
+    const custom = await bootPage(browser, { wordlist: 'stub', storage: { hoyun_theme_mode: 'dark', containerBg: '#fffaf0' } });
+    expect((await readVars(custom.page)).containerBg.toLowerCase()).toBe('#00050f');
+    await custom.context.close();
 });
 
 test('視覺：主題優先順序（存的 > 系統 > 淺色）', async ({ browser }) => {
@@ -216,6 +223,8 @@ test('視覺：沒有新的顏色常數', () => {
     const extra = [];
     for (const f of CSS_FILES) {
         for (const line of cssText(f).split('\n')) {
+            // 夜間 UI 重設計：新的色票只准寫在 base.css 的設計變數宣告（:root／[data-theme="dark"]），元件一律用 var()
+            if (f === 'css/base.css' && /^\s*--[\w-]+\s*:/.test(line)) continue;
             const declaresDanger = /--danger-[a-z-]+\s*:/.test(line);
             for (const m of line.matchAll(lit)) {
                 const n = norm(m[0]);
@@ -278,15 +287,14 @@ test('視覺：字卡動畫只動位置與陰影、保留區提示一致', async
 });
 
 test('視覺：行動色只在變數定義裡', () => {
-    // #4c51bf 與 #5a67d8 只能出現在宣告 --action-bg／--action-bg-hover 的那幾行（Phase 7 UI-SPEC §3.1）
-    // 唯一的既有例外：panels.css 的 .feedback-send-btn:hover（Phase 7 之前就有的 #5a67d8，意見回饋視窗用，不在本階段範圍）
+    // 行動色（夜間 UI 重設計：亮色墨色 #2a2724、暗色米白 #ebe6dc）只能出現在 base.css 宣告變數的那幾行（Phase 7 UI-SPEC §3.1）
     const bad = [];
     let defs = 0;
     for (const f of CSS_FILES) {
         cssText(f).split('\n').forEach((line, i) => {
-            if (!/#4c51bf|#5a67d8/i.test(line)) return;
-            if (/--action-bg(-hover)?\s*:/.test(line)) { defs++; return; }
-            if (f === 'css/panels.css' && /\.feedback-send-btn:hover/.test(line)) return;
+            if (f === 'css/base.css' && /--action-bg(-hover)?\s*:/.test(line)) { defs++; return; }
+            if (!/#2a2724|#ebe6dc/i.test(line)) return;
+            if (f === 'css/base.css' && /^\s*--[\w-]+\s*:/.test(line)) return;   // 同一個色票也是暗色的主文字色
             bad.push(`${f}:${i + 1}: ${line.trim()}`);
         });
     }

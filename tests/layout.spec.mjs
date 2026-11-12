@@ -421,8 +421,9 @@ test('版面：轉向時主題按鈕與提示字跟著換', async ({ browser }) 
             theme: document.getElementById('themeToggle').textContent.trim(),
             placeholder: document.getElementById('searchInput').placeholder,
         }));
-        const PHONE = { theme: '☀️', placeholder: PHONE_PLACEHOLDER };
-        const WIDE = { theme: '☀️ 淺色模式', placeholder: DESKTOP_PLACEHOLDER };
+        // 主題鈕是線條圖示（SVG，沒有文字）＋寬螢幕才有的名稱；名稱一律在 aria-label
+        const PHONE = { theme: '', placeholder: PHONE_PLACEHOLDER };
+        const WIDE = { theme: '淺色模式', placeholder: DESKTOP_PLACEHOLDER };
         expect(await read()).toEqual(PHONE);
         // 440／441 是分界；不重新載入就要跟著變
         for (const [w, h, want] of [[820, 1180, WIDE], [440, 844, PHONE], [441, 844, WIDE], [390, 844, PHONE]]) {
@@ -431,9 +432,10 @@ test('版面：轉向時主題按鈕與提示字跟著換', async ({ browser }) 
         }
         // 深色模式下轉向，圖示與文字也要對
         await page.locator('#themeToggle').click();
-        expect(await read()).toMatchObject({ theme: '🌙' });
+        expect(await read()).toMatchObject({ theme: '' });
+        await expect(page.locator('#themeToggle')).toHaveAttribute('aria-label', /深色模式/);
         await page.setViewportSize({ width: 820, height: 1180 });
-        await expect.poll(read).toMatchObject({ theme: '🌙 深色模式' });
+        await expect.poll(read).toMatchObject({ theme: '深色模式' });
     } finally { await context.close(); }
 });
 
@@ -461,7 +463,6 @@ test('設定：矮螢幕上對話框不超出、可以捲', async ({ browser }) 
             ['設定', '#settingsOverlay', '.settings-dropdown', 'toggleSettings()'],
             ['關於', '#aboutOverlay', '.about-content', 'toggleAbout()'],
             ['回報', '#feedbackModalOverlay', '.feedback-modal', 'openFeedbackModal()'],
-            ['標籤', '#hashtagPopupOverlay', '.hashtag-popup', 'openHashtagPopup()'],
         ];
         for (const [name, overlay, box, open] of dialogs) {
             await page.evaluate(open);
@@ -523,7 +524,7 @@ test('設定：文字色與底色相同時仍按得到重設顏色', async ({ br
         await expectFullyInViewport(page, reset);
         await reset.click();
         expect(await page.evaluate(() => ({ stored: lhGet('textColor'), bg: lhGet('containerBg'), tp: getComputedStyle(document.documentElement).getPropertyValue('--text-primary').trim() })))
-            .toEqual({ stored: null, bg: null, tp: '#2d3748' });
+            .toEqual({ stored: null, bg: null, tp: '#1f1d1a' });
     } finally { await context.close(); }
 });
 
@@ -794,9 +795,9 @@ for (const [name, device] of [['手機', DEVICES.phone], ['平板', DEVICES.tabl
             // 三個分頁：文字、type、一開始「查韻」被按下
             expect(await page.evaluate(() => [...document.querySelectorAll('.mobile-tab-bar .mtab-btn')].map(b => ({ id: b.id, text: b.textContent.replace(/\s+/g, ' ').trim(), type: b.type }))))
                 .toEqual([
-                    { id: 'mtab-search', text: '🔍 查韻', type: 'button' },
-                    { id: 'mtab-lyrics', text: '📝 歌詞', type: 'button' },
-                    { id: 'mtab-ai', text: '✨ AI 建議', type: 'button' },
+                    { id: 'mtab-search', text: '查韻', type: 'button' },
+                    { id: 'mtab-lyrics', text: '歌詞', type: 'button' },
+                    { id: 'mtab-ai', text: 'AI 建議', type: 'button' },
                 ]);
             expect(await readSheets(page)).toEqual(NONE_OPEN);
 
@@ -971,7 +972,6 @@ test('版面：圖層順序', async ({ browser }) => {
             ['遮罩', await z(page, '#mobileBackdrop')],
             ['底部面板', await z(page, '#leftPanel')],
             ['分頁列', await z(page, '#mobileTabBar')],
-            ['標籤視窗', await z(page, '#hashtagPopupOverlay')],
             ['設定／關於', await z(page, '#settingsOverlay')],
             ['關於', await z(page, '#aboutOverlay')],
             ['複製提示', await z(page, '.copy-toast')],
@@ -979,7 +979,7 @@ test('版面：圖層順序', async ({ browser }) => {
             ['意見回饋', await z(page, '#feedbackModalOverlay')],
         ];
         expect(Object.fromEntries(ordered.slice(1))).toEqual({
-            側邊面板: 800, 遮罩: 840, 底部面板: 860, 分頁列: 870, 標籤視窗: 960, '設定／關於': 999, 關於: 999, 複製提示: 9999, 字詞選單: 10000, 意見回饋: 12000,
+            側邊面板: 800, 遮罩: 840, 底部面板: 860, 分頁列: 870, '設定／關於': 999, 關於: 999, 複製提示: 9999, 字詞選單: 10000, 意見回饋: 12000,
         });
         expect(container, '主畫面不能高過側邊面板').toBeLessThan(800);
         for (let i = 1; i < ordered.length; i++) {
@@ -1037,7 +1037,7 @@ test('底部面板：六段歌詞可捲動、每段夠高', async ({ browser }) 
     try {
         await toggleSide(page, DEVICES.phone, 'lyrics');
         const m = await page.evaluate(() => {
-            const area = document.getElementById('lyricsSections');
+            const area = lhSecScroller();   // 手機上標籤＆情境排到歌詞上面，整個歌詞欄一起捲
             const before = area.scrollTop;
             area.scrollTop = area.scrollHeight;
             return {
@@ -1487,17 +1487,17 @@ test('鍵盤：寫歌詞時情境區自動收起、回報視窗輸入框看得�
 // 電腦視窗加上 isMobile＋hasTouch：這個組合在 Chromium 會回報 pointer: coarse（平板接鍵盤滑鼠之外的純觸控大螢幕）
 const TOUCH_DESKTOP = { ...DEVICES.desktop, isMobile: true, hasTouch: true };
 const FLOOR_CONTEXTS = [['手機 390×844', DEVICES.phone], ['平板 820×1180', DEVICES.tablet], ['橫放手機 844×390', DEVICES.phoneLandscape], ['觸控電腦 1440×900', TOUCH_DESKTOP]];
-const OVERLAY_OPEN = { settings: ['#settingsOverlay', 'toggleSettings()'], feedback: ['#feedbackModalOverlay', 'openFeedbackModal()'], hashtag: ['#hashtagPopupOverlay', 'openHashtagPopup()'] };
+const OVERLAY_OPEN = { settings: ['#settingsOverlay', 'toggleSettings()'], feedback: ['#feedbackModalOverlay', 'openFeedbackModal()'] };
 // 每個狀態：開啟、該狀態一定要掃到的控制項（防止「掃了個寂寞」）、關閉
 const INPUT_STATES = [
     ['閒置', ['input#searchInput'], async () => {}, async () => {}],
-    ['歌詞開著', ['textarea.section-textarea', 'textarea#contextDescription'],
+    ['歌詞開著', ['textarea.section-textarea', 'textarea#contextDescription', 'input#hashtagInput'],
         (page, d) => toggleSide(page, d, 'lyrics'), (page, d) => isWide(d) ? toggleSide(page, d, 'lyrics') : closeSheet(page, d)],
     ['AI 開著', ['select#modelSelect'],
         (page, d) => toggleSide(page, d, 'ai'), (page, d) => isWide(d) ? toggleSide(page, d, 'ai') : closeSheet(page, d)],
-    ...Object.entries({ 設定開著: 'settings', 回報開著: 'feedback', 標籤開著: 'hashtag' }).map(([name, key]) => [
+    ...Object.entries({ 設定開著: 'settings', 回報開著: 'feedback' }).map(([name, key]) => [
         name,
-        key === 'feedback' ? ['input#feedbackSubject', 'textarea#feedbackBody'] : key === 'hashtag' ? ['input#hashtagPopupInput'] : ['input#searchInput'],
+        key === 'feedback' ? ['input#feedbackSubject', 'textarea#feedbackBody'] : ['input#searchInput'],
         // 對話框跟其他測試一樣直接呼叫開啟函式（橫放手機的標題區被藏起來，設定鈕本來就點不到）
         async page => { await page.evaluate(OVERLAY_OPEN[key][1]); await expect(page.locator(OVERLAY_OPEN[key][0])).toHaveClass(/show/); },
         page => page.evaluate(sel => document.querySelector(sel).classList.remove('show'), OVERLAY_OPEN[key][0]),
@@ -1646,7 +1646,7 @@ const TOUCH_STATES = [
         await page.fill('#searchInput', '樂');
         await settle(page);
     }],
-    ['歌詞開著', ['button.section-handle', 'button.section-remove', 'button.panel-add-btn', 'button.hashtag-add-btn', 'button.context-refresh-btn', 'span.chip-remove', 'span.hashtag-chip', 'button.section-type', 'button#undoBtn', 'button#redoBtn', 'button#rhymeMenuBtn', 'div.context-section-header', '.lyrics-section.collapsed button.section-remove', 'div.section-resize'],
+    ['歌詞開著', ['button.section-handle', 'button.section-remove', 'button.panel-add-btn', 'button.hashtag-add-btn', 'input#hashtagInput', 'button.context-refresh-btn', 'span.chip-remove', 'span.hashtag-chip', 'button.section-type', 'button#undoBtn', 'button#redoBtn', 'button#rhymeMenuBtn', 'div.context-section-header', '.lyrics-section.collapsed button.section-remove', 'div.section-resize'],
         (page, d) => toggleSide(page, d, 'lyrics')],
     ['段落設定開著', ['button.swatch', 'input[type=color]', 'button.type-row', 'input.section-name-input', 'button.section-move-up', 'button.section-move-down', 'button.section-menu-close', 'button.section-color-none'], async (page, d) => {
         await toggleSide(page, d, 'lyrics');
@@ -1667,9 +1667,6 @@ const TOUCH_STATES = [
     }],
     ['回報開著', ['button.feedback-send-btn', 'button.feedback-cancel-btn', 'input#feedbackSubject'], async page => {
         await page.evaluate(() => openFeedbackModal()); await expect(page.locator('#feedbackModalOverlay')).toHaveClass(/show/);
-    }],
-    ['標籤開著', ['button.hashtag-popup-cancel', 'button.hashtag-popup-confirm', 'input#hashtagPopupInput'], async page => {
-        await page.evaluate(() => openHashtagPopup()); await expect(page.locator('#hashtagPopupOverlay')).toHaveClass(/show/);
     }],
 ];
 const bootTouch = (browser, device, extra = {}) => bootPage(browser, { device, storage: TOUCH_STORAGE, ...extra });
@@ -1922,7 +1919,7 @@ test('選單：放大 150% 時右鍵／長按選單不跑出畫面', async ({ br
                     const m = await readMenu(page, id);
                     const tag = `${dname} ${mname} ${cname}`;
                     expect(m.shown, `${tag}：選單有出現`).toBe(true);
-                    if (id === 'wordCtxMenu') expect(m.first, `${tag}：第一項是回報`).toBe('🚩 回報…');
+                    if (id === 'wordCtxMenu') expect(m.first, `${tag}：第一項是回報`).toBe('回報…');
                     expect(m.l, `${tag}：左邊在可見範圍內 ${JSON.stringify(m)}`).toBeGreaterThanOrEqual(m.vl - 0.5);
                     expect(m.t, `${tag}：上邊在可見範圍內`).toBeGreaterThanOrEqual(m.vt - 0.5);
                     expect(m.r, `${tag}：右邊在可見範圍內`).toBeLessThanOrEqual(m.vr + 0.5);

@@ -5,7 +5,7 @@
             position: fixed;
             background: var(--card-bg);
             border: 1px solid var(--border);
-            box-shadow: 0 4px 24px rgba(0,0,0,0.18);
+            box-shadow: 0 1px 3px var(--shadow);
             display: flex;
             z-index: 800;
             transition: transform 0.3s ease;
@@ -21,12 +21,12 @@
             }
             .left-panel {
                 left: 0;
-                border-radius: 0 1.125rem 1.125rem 0;
+                border-radius: 0 0.75rem 0.75rem 0;
                 flex-direction: row;
             }
             .right-panel {
                 right: 0;
-                border-radius: 1.125rem 0 0 1.125rem;
+                border-radius: 0.75rem 0 0 0.75rem;
                 flex-direction: row-reverse;
             }
             /* 多推 1px（面板的邊框佔 1px）：不然收合時分頁有 1px 跑到視窗外，量起來「沒有整個在畫面內」 */
@@ -57,27 +57,27 @@
             justify-content: center;
             cursor: pointer;
             writing-mode: vertical-rl;
-            font-size: 0.78rem;
+            font-size: 0.8125rem;
             font-weight: 700;
             color: var(--text-secondary);
             padding: 1rem 0;
             user-select: none;
             transition: background 0.2s ease;
-            letter-spacing: 2px;
+            letter-spacing: 0.3em;
             order: 2;
-            background: rgba(0,0,0,0.04);
+            background: var(--fill-soft);
         }
         .left-panel .side-panel-tab {
-            border-right: 3px solid var(--border);
+            border-right: 1px solid var(--border);
             border-radius: 0 0.75rem 0.75rem 0;
         }
         .right-panel .side-panel-tab {
-            border-left: 3px solid var(--border);
+            border-left: 1px solid var(--border);
             border-radius: 0.75rem 0 0 0.75rem;
         }
         @media (hover: hover) and (pointer: fine) {
             .side-panel-tab:hover {
-                background: var(--border);
+                background: var(--accent-soft);
                 color: var(--text-primary);
             }
         }
@@ -121,12 +121,13 @@
         .ai-scroll-area::-webkit-scrollbar-track { background: transparent; }
         .ai-scroll-area::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.15); border-radius: 0.125rem; }
 
-        /* 左側底部：情境 & 標籤 */
+        /* 左側上方：標籤 & 情境（Andy 1-d：放在歌詞上面）；高度跟著內容，最多佔四成，歌詞吃剩下的 */
         .context-section {
-            flex: 0 0 33%;
+            flex: 0 1 auto;
+            max-height: 42%;
             overflow: hidden;
             transition: flex-basis 0.25s ease;
-            border-top: 1px solid var(--border);
+            border-bottom: 1px solid var(--border);
             display: flex;
             flex-direction: column;
             min-height: 0;
@@ -144,7 +145,7 @@
             transition: background 0.15s;
         }
         @media (hover: hover) and (pointer: fine) {
-            .context-section-header:hover { background: var(--border); }
+            .context-section-header:hover { background: var(--fill-soft); }
         }
         .context-chevron {
             margin-left: auto;
@@ -162,7 +163,7 @@
             display: flex;
             flex-direction: column;
             gap: 0.4375rem;
-            padding-bottom: 0.25rem;
+            padding-bottom: 0.5rem;
             scrollbar-width: thin;
         }
         .context-section-subtitle {
@@ -174,14 +175,16 @@
             text-overflow: ellipsis;
             white-space: nowrap;
         }
+        /* 小標：小字、加寬字距，當成區塊的「標籤」而不是標題 */
         .context-section-title {
-            font-size: 0.8rem;
+            font-size: 0.75rem;
             font-weight: 700;
+            letter-spacing: 0.12em;
             color: var(--text-secondary);
         }
 
         .side-panel-title {
-            font-size: 0.88rem;
+            font-size: 0.9375rem;
             font-weight: 700;
             color: var(--text-primary);
             padding-bottom: 0.375rem;
@@ -202,17 +205,17 @@
             font-size: 0.88rem;
             background: var(--container-bg);
             color: var(--text-primary);
-            font-family: 'Noto Sans TC', sans-serif;
+            font-family: var(--font-ui);
             outline: none;
         }
-        .word-input-row input:focus { border-color: #667eea; }
+        .word-input-row input:focus { border-color: var(--text-secondary); }
 
         .panel-add-btn {
             padding: 0.375rem 0.625rem;
-            background: var(--highlight-border);
-            color: white;
-            border: none;
-            border-radius: 0.5rem;
+            background: transparent;
+            color: var(--text-primary);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-s);
             cursor: pointer;
             font-size: 1rem;
             font-weight: 700;
@@ -220,7 +223,7 @@
             flex-shrink: 0;
         }
         @media (hover: hover) and (pointer: fine) {
-            .panel-add-btn:hover { background: #c97422; }
+            .panel-add-btn:hover { border-color: var(--highlight-border); background: var(--accent-soft); }
         }
 
         /* ===== 歌詞標題列與歌曲清單（Phase 8，UI-SPEC §2；只用 4 種字級 0.75／0.875／1／1.25rem、2 種字重） ===== */
@@ -236,24 +239,25 @@
             background: var(--card-bg);
             color: var(--text-primary);
             border: 1px solid var(--border);
-            border-radius: 0.5rem;
+            border-radius: var(--radius-s);
             font-family: inherit;
             font-size: 0.875rem;
-            font-weight: 700;
+            font-weight: 400;
             cursor: pointer;
             flex-shrink: 0;
         }
         .song-toggle[hidden] { display: none; }
         .song-toggle[aria-expanded="true"], .export-toggle[aria-expanded="true"] { border-color: var(--highlight-border); }
         @media (hover: hover) and (pointer: fine) {
-            .song-toggle:hover, .export-toggle:hover { background: var(--container-bg); }
+            .song-toggle:hover, .export-toggle:hover { background: var(--fill-soft); }
         }
         .song-current {
             flex: 1 1 8rem;
             min-width: 0;
-            font-size: 1rem;
+            font-family: var(--font-serif);
+            font-size: 1.125rem;
             font-weight: 700;
-            line-height: 1.2;
+            line-height: 1.5;
             color: var(--text-primary);
             white-space: nowrap;
             overflow: hidden;
@@ -297,15 +301,15 @@
             background: var(--card-bg);
             color: var(--text-primary);
             border: 1px solid var(--border);
-            border-radius: 0.5rem;
+            border-radius: var(--radius-s);
             font-family: inherit;
             font-size: 1rem;
-            font-weight: 700;
+            font-weight: 400;
             cursor: pointer;
         }
         .undo-btn[aria-disabled="true"] { opacity: 0.4; cursor: not-allowed; }
         @media (hover: hover) and (pointer: fine) {
-            .undo-btn:not([aria-disabled="true"]):hover { background: var(--container-bg); }
+            .undo-btn:not([aria-disabled="true"]):hover { background: var(--fill-soft); }
         }
         /* 「韻腳 ▾」按鈕（UI-SPEC D-12）：外框小按鈕加文字；打開時外框改用主文字色（不用強調色） */
         .rhyme-menu-btn {
@@ -334,7 +338,7 @@
             color: var(--text-primary);
             border: 1px solid var(--border);
             border-radius: 0.5rem;
-            font-family: 'Noto Sans TC', sans-serif;
+            font-family: var(--font-ui);
             font-size: 0.875rem;
             font-weight: 400;
             text-align: left;
@@ -626,8 +630,8 @@
         }
         @media (hover: hover) and (pointer: fine) {
             .word-chip:hover {
-                border-color: #667eea;
-                background: rgba(102,126,234,0.08);
+                border-color: var(--accent-line);
+                background: var(--accent-soft);
             }
         }
         .chip-remove {
@@ -638,13 +642,13 @@
             padding: 0.0625rem 0.125rem;
         }
         @media (hover: hover) and (pointer: fine) {
-            .chip-remove:hover { color: #e53e3e; }
+            .chip-remove:hover { color: var(--danger-line); }
         }
 
         /* AI 建議面板 */
         .ai-rhyme-display {
             background: var(--container-bg);
-            border-radius: 0.5rem;
+            border-radius: var(--radius-m);
             padding: 0.5rem 0.625rem;
             font-size: 0.82rem;
             color: var(--text-secondary);
@@ -672,11 +676,11 @@
             background: var(--card-bg);
             color: var(--text-secondary);
             cursor: pointer;
-            font-family: 'Noto Sans TC', sans-serif;
+            font-family: var(--font-ui);
             line-height: 1.4;
         }
         @media (hover: hover) and (pointer: fine) {
-            .report-char-btn:hover { border-color: #667eea; color: #667eea; }
+            .report-char-btn:hover { border-color: var(--text-secondary); color: var(--text-primary); }
         }
         .model-select {
             font-size: 0.75rem;
@@ -685,30 +689,35 @@
             border-radius: 0.375rem;
             background: var(--card-bg);
             color: var(--text-secondary);
-            font-family: 'Noto Sans TC', sans-serif;
+            font-family: var(--font-ui);
             max-width: 10rem;
             cursor: pointer;
         }
         @media (hover: hover) and (pointer: fine) {
-            .model-select:hover { border-color: #667eea; }
+            .model-select:hover { border-color: var(--text-secondary); }
         }
 
         .generate-btn {
             width: 100%;
-            padding: 0.5625rem;
-            background: linear-gradient(120deg, #b8865d, #8d51c9);
-            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.4375rem;
+            padding: 0.625rem;
+            background: var(--action-bg);
+            color: var(--action-text);
             border: none;
-            border-radius: 0.625rem;
-            font-size: 0.88rem;
+            border-radius: var(--radius-m);
+            font-size: 0.9375rem;
             font-weight: 700;
+            letter-spacing: 0.04em;
             cursor: pointer;
-            font-family: 'Noto Sans TC', sans-serif;
+            font-family: var(--font-ui);
             transition: opacity 0.2s;
             flex-shrink: 0;
         }
         @media (hover: hover) and (pointer: fine) {
-            .generate-btn:hover:not(:disabled) { opacity: 0.85; }
+            .generate-btn:hover:not(:disabled) { background: var(--action-bg-hover); }
         }
         .generate-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
@@ -738,9 +747,8 @@
         }
         @media (hover: hover) and (pointer: fine) {
             .ai-word-card:hover {
-                border-color: #8d51c9;
-                background: rgba(141,81,201,0.08);
-                transform: translateY(-1px);
+                border-color: var(--accent-line);
+                background: var(--accent-soft);
             }
         }
         .ai-word-card.wt-hot  { background: rgba(210,45,40,0.11); border-color: rgba(210,45,40,0.4); }
@@ -760,7 +768,7 @@
             border-radius: 0.625rem;
             background: var(--card-bg);
             color: var(--text-secondary);
-            font-family: 'Noto Sans TC', sans-serif;
+            font-family: var(--font-ui);
             font-size: 0.875rem;
             font-weight: 700;
             cursor: pointer;
@@ -846,7 +854,7 @@
             transition: background 0.15s;
         }
         @media (hover: hover) and (pointer: fine) {
-            .word-ctx-item:hover { background: rgba(141,81,201,0.08); }
+            .word-ctx-item:hover { background: var(--accent-soft); }
         }
         .word-ctx-divider { height: 0.0625rem; background: var(--border); margin: 0.1875rem 0; }
         /* 匯出選單（Phase 8，UI-SPEC §4.1）：每項上面是名稱、下面一行提示 */
@@ -896,14 +904,14 @@
             border-radius: 0.5rem;
             background: var(--input-bg, var(--card-bg));
             color: var(--text-primary);
-            font-family: 'Noto Sans TC', sans-serif;
+            font-family: var(--font-ui);
             font-size: 0.88rem;
             margin-bottom: 0.625rem;
             resize: none;
             outline: none;
             transition: border-color 0.2s;
         }
-        .feedback-modal input:focus, .feedback-modal textarea:focus { border-color: #667eea; }
+        .feedback-modal input:focus, .feedback-modal textarea:focus { border-color: var(--highlight-border); }
         .feedback-modal-actions { display: flex; gap: 0.5rem; justify-content: flex-end; margin-top: 0.25rem; }
         .feedback-modal-actions button {
             padding: 0.4375rem 1.125rem;
@@ -911,12 +919,12 @@
             font-size: 0.85rem;
             cursor: pointer;
             border: 1.5px solid var(--border);
-            font-family: 'Noto Sans TC', sans-serif;
+            font-family: var(--font-ui);
             transition: all 0.2s;
         }
-        .feedback-send-btn { background: #667eea; color: #fff; border-color: #667eea; }
+        .feedback-send-btn { background: var(--highlight-border); color: #fff; border-color: var(--highlight-border); }
         @media (hover: hover) and (pointer: fine) {
-            .feedback-send-btn:hover { background: #5a67d8; }
+            .feedback-send-btn:hover { background: var(--action-bg-hover); }
         }
         .feedback-cancel-btn { background: none; color: var(--text-secondary); }
 
@@ -940,7 +948,7 @@
             font-size: 0.75rem;
             color: var(--text-secondary);
         }
-        .report-chip-reading { font-family: 'JetBrains Mono', monospace; }
+        .report-chip-reading { font-family: var(--font-mono); }
         .report-reasons { display: grid; grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr)); gap: var(--sp-2); }
         .report-reason {
             display: flex;
@@ -951,7 +959,7 @@
             border: 2px solid var(--border);
             border-radius: 0.75rem;
             background: var(--card-bg);
-            font-family: 'Noto Sans TC', sans-serif;
+            font-family: var(--font-ui);
             text-align: left;
             cursor: pointer;
         }
@@ -973,7 +981,7 @@
             .report-send-btn:not(:disabled):hover { background: var(--action-bg-hover); border-color: var(--action-bg-hover); }
         }
         @media (hover: hover) and (pointer: fine) {
-            .feedback-cancel-btn:hover { border-color: #667eea; color: #667eea; }
+            .feedback-cancel-btn:hover { border-color: var(--highlight-border); color: var(--highlight-border); }
         }
         /* ===== 歌曲對話框與匯入備份視窗（Phase 8，UI-SPEC §3、§5.2）：沿用 .feedback-modal 外殼 ===== */
         .song-dialog h3 { font-size: 1.25rem; font-weight: 700; line-height: 1.2; margin: 0 0 var(--sp-3); }
@@ -992,7 +1000,7 @@
             border: 2px solid var(--border);
             border-radius: 0.75rem;
             background: var(--card-bg);
-            font-family: 'Noto Sans TC', sans-serif;
+            font-family: var(--font-ui);
             text-align: left;
             cursor: pointer;
             overflow-wrap: anywhere;
@@ -1055,7 +1063,7 @@
             transition: all 0.2s;
         }
         @media (hover: hover) and (pointer: fine) {
-            .reset-pool-btn:hover { background: rgba(141,81,201,0.1); color: var(--text-primary); border-color: #8d51c9; }
+            .reset-pool-btn:hover { background: var(--accent-soft); color: var(--text-primary); border-color: var(--accent-line); }
         }
         .ai-filter-row {
             display: none;
@@ -1073,9 +1081,9 @@
             background: transparent;
             transition: all 0.18s;
         }
-        .filter-chip.active { background: rgba(141,81,201,0.15); border-color: #8d51c9; color: var(--text-primary); }
+        .filter-chip.active { background: var(--accent-soft); border-color: var(--highlight-border); color: var(--text-primary); }
         @media (hover: hover) and (pointer: fine) {
-            .filter-chip:hover { border-color: #8d51c9; color: var(--text-primary); }
+            .filter-chip:hover { border-color: var(--text-secondary); color: var(--text-primary); }
         }
 
         /* 複製提示 toast */
@@ -1134,7 +1142,7 @@
             flex-shrink: 0;
         }
         @media (hover: hover) and (pointer: fine) {
-            .context-refresh-btn:hover { color: #8d51c9; border-color: #8d51c9; }
+            .context-refresh-btn:hover { color: var(--text-primary); border-color: var(--text-secondary); }
         }
         .context-refresh-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
@@ -1152,18 +1160,18 @@
             flex: 1;
             padding: 0.3125rem 0.375rem;
             border: 1px solid var(--border);
-            border-radius: 0.4375rem;
-            background: var(--container-bg);
+            border-radius: var(--radius-s);
+            background: transparent;
             color: var(--text-secondary);
-            font-size: 0.8rem;
-            font-family: 'Noto Sans TC', sans-serif;
+            font-size: 0.8125rem;
+            font-family: var(--font-ui);
             cursor: pointer;
             transition: all 0.2s;
         }
         .rhyme-mode-btn.active {
-            background: linear-gradient(120deg, #b8865d, #8d51c9);
-            color: white;
-            border-color: transparent;
+            background: var(--card-bg);
+            color: var(--text-primary);
+            border-color: var(--text-primary);
             font-weight: 700;
         }
 
@@ -1172,16 +1180,17 @@
             width: 100%;
             padding: 0.5rem 0.625rem;
             border: 1px solid var(--border);
-            border-radius: 0.5rem;
-            font-size: 0.88rem;
-            font-family: 'Noto Sans TC', sans-serif;
+            border-radius: var(--radius-s);
+            font-size: 0.875rem;
+            line-height: 1.6;
+            font-family: var(--font-ui);
             background: var(--container-bg);
             color: var(--text-primary);
             resize: none;
             outline: none;
             transition: border-color 0.2s;
         }
-        .context-textarea:focus { border-color: #667eea; }
+        .context-textarea:focus { border-color: var(--text-secondary); }
 
         .hashtag-input-row {
             display: flex;
@@ -1195,12 +1204,12 @@
             border: 1px solid var(--border);
             border-radius: 0.5rem;
             font-size: 0.85rem;
-            font-family: 'Noto Sans TC', sans-serif;
+            font-family: var(--font-ui);
             background: var(--container-bg);
             color: var(--text-primary);
             outline: none;
         }
-        .hashtag-input-row input:focus { border-color: #667eea; }
+        .hashtag-input-row input:focus { border-color: var(--highlight-border); }
         .context-textarea { min-width: 0; }
 
         .hashtag-chips {
@@ -1213,11 +1222,11 @@
             display: flex;
             align-items: center;
             gap: 0.25rem;
-            background: linear-gradient(120deg, rgba(184,134,93,0.15), rgba(141,81,201,0.15));
+            background: var(--fill-soft);
             border: 1px solid var(--border);
-            border-radius: 1rem;
-            padding: 0.25rem 0.625rem;
-            font-size: 0.85rem;
+            border-radius: var(--radius-s);
+            padding: 0.1875rem 0.5rem;
+            font-size: 0.8125rem;
             color: var(--text-primary);
         }
 
@@ -1225,7 +1234,7 @@
         .lyrics-section {
             position: relative;
             border: 1px solid var(--border);
-            border-radius: 0.625rem;
+            border-radius: var(--radius-m);
             overflow: hidden;
             flex: 1;
             display: flex;
@@ -1246,7 +1255,7 @@
             user-select: none;
         }
         @media (hover: hover) and (pointer: fine) {
-            .lyrics-section-header:hover { background: var(--border); }
+            .lyrics-section-header:hover { background: var(--fill-soft); }
         }
         .section-chevron {
             /* 正方形的框：收合時轉 90 度，外框大小不變，不會壓到旁邊的名稱按鈕 */
@@ -1269,13 +1278,14 @@
             max-width: 100%;
             min-height: 2rem;
             padding: var(--sp-1) var(--sp-3);
-            border: 1px solid var(--border);
-            border-radius: 0.5rem;
-            background: var(--card-bg);
+            border: 1px solid transparent;
+            border-radius: var(--radius-s);
+            background: transparent;
             color: var(--text-primary);
-            font-family: 'Noto Sans TC', sans-serif;
-            font-size: 0.875rem;
+            font-family: var(--font-ui);
+            font-size: 0.8125rem;
             font-weight: 700;
+            letter-spacing: 0.06em;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
@@ -1284,7 +1294,7 @@
             user-select: none;
         }
         @media (hover: hover) and (pointer: fine) {
-            .section-type:hover { background: var(--container-bg); }
+            .section-type:hover { border-color: var(--border); background: var(--card-bg); }
         }
         /* 段落顏色（D-03）：左邊 0.25rem 色條＋名稱鈕淡色底；--sec-color 與 data-color 只由 js/sections.js 寫入驗證過的 #rrggbb */
         .lyrics-section[data-color]::before {
@@ -1368,7 +1378,7 @@
             border-radius: 0.5rem;
             background: var(--card-bg);
             color: var(--text-primary);
-            font-family: 'Noto Sans TC', sans-serif;
+            font-family: var(--font-ui);
             font-size: 0.875rem;
             font-weight: 700;
             cursor: pointer;
@@ -1392,7 +1402,7 @@
             border-radius: 0.5rem;
             background: var(--card-bg);
             color: var(--text-primary);
-            font-family: 'Noto Sans TC', sans-serif;
+            font-family: var(--font-ui);
             font-size: 0.875rem;
             font-weight: 400;
             text-align: left;
@@ -1406,7 +1416,7 @@
             border-radius: 0.5rem;
             background: var(--card-bg);
             color: var(--text-primary);
-            font-family: 'Noto Sans TC', sans-serif;
+            font-family: var(--font-ui);
             font-size: 1rem;
         }
         .section-name-input:focus { border: 2px solid var(--highlight-border); padding: calc(var(--sp-1) - 1px) calc(var(--sp-2) - 1px); outline: none; }
@@ -1433,7 +1443,7 @@
             border-radius: 0.5rem;
             background: var(--card-bg);
             color: var(--text-primary);
-            font-family: 'Noto Sans TC', sans-serif;
+            font-family: var(--font-ui);
             font-size: 0.75rem;
             font-weight: 700;
             letter-spacing: 0.08em;
@@ -1486,7 +1496,7 @@
             border-radius: 0.5rem;
             background: var(--card-bg);
             color: var(--text-primary);
-            font-family: 'Noto Sans TC', sans-serif;
+            font-family: var(--font-ui);
             font-size: 0.875rem;
             font-weight: 400;
             text-align: left;
@@ -1526,7 +1536,7 @@
             border: none;
             background: none;
             color: var(--text-secondary);
-            font-family: 'Noto Sans TC', sans-serif;
+            font-family: var(--font-ui);
             font-size: 1rem;
             font-weight: 700;
             line-height: 1;
@@ -1622,20 +1632,21 @@
         }
         .section-remove[hidden] { display: none; }   /* 觸控版的 inline-flex 會蓋掉 hidden 屬性 */
         @media (hover: hover) and (pointer: fine) {
-            .section-remove:hover { opacity: 1; color: #fc8181; }
+            .section-remove:hover { opacity: 1; color: var(--danger-line); }
         }
         .section-textarea, .rhyme-mirror {
             width: 100%;
             padding: 0.625rem 0.75rem;
             border: none;
-            font-size: 0.95rem;
-            font-family: 'Noto Sans TC', sans-serif;
+            font-size: 1rem;
+            /* 歌詞框與鏡像層必須同一個字型、逐字對齊；襯線字（Songti 等後備字）在英數字寬上會讓兩層錯開，所以維持無襯線 */
+            font-family: var(--font-ui);
             background: var(--card-bg);
             color: var(--text-primary);
             resize: none;
             flex: 1;
             outline: none;
-            line-height: 1.7;
+            line-height: 1.8;
         }
         /* 韻腳地圖（js/rhyme-map.js）：鏡像層在輸入框正後方，排版規則與輸入框共用上面那一條 */
         .section-textarea { position: relative; }   /* 同為定位元素時，DOM 順序在後的輸入框畫在鏡像層上面，不必 z-index */
@@ -1845,7 +1856,7 @@
             padding-bottom: env(safe-area-inset-bottom);
             background: var(--card-bg);
             /* 上緣線用內陰影畫、不佔高度：48px 的分頁按鈕才不會被框線擠出視窗底部 */
-            box-shadow: inset 0 2px 0 var(--border);
+            box-shadow: inset 0 1px 0 var(--border);
             z-index: 870;
         }
         .mtab-btn {
@@ -1857,7 +1868,7 @@
             background: none;
             color: var(--text-secondary);
             font-size: 0.75rem;
-            font-family: 'Noto Sans TC', sans-serif;
+            font-family: var(--font-ui);
             cursor: pointer;
             transition: color 0.2s;
             display: flex;
@@ -1867,7 +1878,7 @@
             gap: 0.125rem;
             -webkit-tap-highlight-color: transparent;
         }
-        .mtab-icon { font-size: 1.25rem; line-height: 1; }
+        .mtab-icon { display: inline-flex; font-size: 1.375rem; line-height: 1; }
         /* 標籤太長（大字級、150%）時截斷，不撐破分頁 */
         .mtab-label {
             max-width: 100%;
@@ -1875,8 +1886,8 @@
             text-overflow: ellipsis;
             white-space: nowrap;
         }
-        .mtab-btn.active { color: #8d51c9; font-weight: 700; }
-        .mtab-btn.active .mtab-icon { transform: scale(1.1); }
+        .mtab-btn.active { color: var(--text-primary); font-weight: 700; }
+        .mtab-btn.active .mtab-icon { color: var(--highlight-border); }
         /* 桌機沒有底部 sheet，也就沒有把手（≤ 900 在 responsive.css 才顯示） */
         .sheet-handle { display: none; }
 
@@ -1940,4 +1951,140 @@
             }
             /* 右鍵／長按選單：每個選項夠高、選單夠寬（UI-SPEC §6） */
             .word-ctx-item { min-height: var(--hit); }
+        }
+
+        /* ===== AI 會參考什麼（Andy 1-b）：右面板頂部一列小標籤，點了跳到左邊對應區塊 ===== */
+        .ai-ref {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.25rem 0.375rem;
+            flex-shrink: 0;
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+        }
+        .ai-ref:empty { display: none; }
+        .ai-ref-label { margin-inline-end: 0.125rem; }
+        .ai-ref.is-empty .ai-ref-label { flex: 1 1 10rem; line-height: 1.4; }
+        .ai-ref-item {
+            font: inherit;
+            font-weight: 700;
+            color: var(--text-primary);
+            background: transparent;
+            border: 1px solid var(--border);
+            border-radius: 1rem;
+            padding: 0.125rem 0.5rem;
+            min-height: 1.5rem;
+            cursor: pointer;
+        }
+        @media (hover: hover) and (pointer: fine) {
+            .ai-ref-item:hover { border-color: var(--highlight-border); }
+        }
+        @media (pointer: coarse), (max-width: 900px) {
+            .ai-ref-item { min-height: var(--hit); padding-inline: 0.75rem; }
+        }
+
+        /* 被 AI 參考的區塊閃一下（按產生建議、點狀態列時）；減少動態時只換外框不動畫 */
+        .lh-flash { animation: lh-flash 1.2s ease-out; }
+        @media (prefers-reduced-motion: reduce) {
+            .lh-flash { animation: none; box-shadow: 0 0 0 2px var(--highlight-border); }
+        }
+
+        /* ===== 新手導覽（Andy 1-c，js/tour.js）：亮框外一圈超大陰影當遮罩，說明框跟著目標走 ===== */
+        .tour {
+            position: fixed;
+            inset: 0;
+            z-index: 3000;   /* 蓋過面板、分頁列、對話框 */
+        }
+        .tour-spot {
+            position: fixed;
+            left: 0;
+            top: 0;
+            border-radius: 0.5rem;
+            box-shadow: 0 0 0 200vmax rgba(0, 0, 0, 0.6);
+            outline: 2px solid var(--highlight-border);
+            outline-offset: 0;
+            pointer-events: none;
+        }
+        .tour-card {
+            position: fixed;
+            left: 0;
+            top: 0;
+            width: min(21rem, calc(100vw - 1.5rem));
+            padding: 1rem 1.125rem 0.875rem;   /* 不設 overflow：箭頭伸在框外，overflow 會把它裁掉 */
+            background: var(--card-bg);
+            color: var(--text-primary);
+            border: 1px solid var(--border);
+            border-radius: 0.625rem;
+            box-shadow: 0 12px 32px rgba(0, 0, 0, 0.28);
+        }
+        .tour-card:focus { outline: none; }
+        /* 箭頭：和亮框同色、夠大，一眼看出說明指的是哪一塊 */
+        .tour-arrow {
+            position: absolute;
+            left: calc(var(--arrow-x, 50%) - 0.625rem);
+            width: 1.25rem;
+            height: 1.25rem;
+            background: var(--card-bg);
+            border: 2px solid var(--highlight-border);
+            transform: rotate(45deg);
+        }
+        .tour-card[data-side="top"] .tour-arrow { top: -0.69rem; border-right: 0; border-bottom: 0; }
+        .tour-card[data-side="bottom"] .tour-arrow { bottom: -0.69rem; border-left: 0; border-top: 0; }
+        .tour-card[data-side="none"] .tour-arrow { display: none; }
+        .tour-count {
+            font-size: 0.75rem;
+            letter-spacing: 0.06em;
+            color: var(--text-secondary);
+            font-variant-numeric: tabular-nums;
+        }
+        .tour-title {
+            margin: 0.125rem 0 0.375rem;
+            font-size: 1.0625rem;
+            font-weight: 700;
+            line-height: 1.35;
+        }
+        .tour-body {
+            max-height: calc(var(--app-h) - 10rem);   /* 很矮的橫向手機：只讓說明文字自己捲 */
+            overflow-y: auto;
+            font-size: 0.875rem;
+            line-height: 1.65;
+            color: var(--text-primary);
+        }
+        .tour-foot {
+            display: flex;
+            align-items: center;
+            gap: 0.375rem;
+            margin-top: 0.875rem;
+        }
+        .tour-dots { display: flex; gap: 0.3125rem; margin-inline-end: auto; }
+        .tour-dots span {
+            width: 0.375rem;
+            height: 0.375rem;
+            border-radius: 50%;
+            background: var(--border);
+        }
+        .tour-dots span.on { background: var(--highlight-border); width: 1rem; border-radius: 0.1875rem; }
+        .tour-btn {
+            font: inherit;
+            font-size: 0.8125rem;
+            font-weight: 700;
+            min-height: 2rem;
+            padding: 0.25rem 0.75rem;
+            border-radius: 0.375rem;
+            border: 1px solid var(--border);
+            background: transparent;
+            color: var(--text-primary);
+            cursor: pointer;
+        }
+        .tour-btn[hidden] { display: none; }
+        .tour-skip { border-color: transparent; color: var(--text-secondary); }
+        .tour-btn.primary { background: var(--action-bg); border-color: var(--action-bg); color: var(--action-text); }
+        @media (hover: hover) and (pointer: fine) {
+            .tour-btn:hover { border-color: var(--text-secondary); }
+            .tour-btn.primary:hover { background: var(--action-bg-hover); }
+        }
+        @media (pointer: coarse), (max-width: 900px) {
+            .tour-btn { min-height: var(--hit); }
+            .tour-dots span { width: 0.3125rem; }
         }

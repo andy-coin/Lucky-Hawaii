@@ -336,7 +336,7 @@ test('回報入口：遮罩', async ({ browser }) => {
 test('回報入口：改名意見', async ({ browser }) => {
     const { context, page } = await bootPage(browser, { wordlist: 'stub' });
     await expect(page.locator('.footer .feedback-btn')).toHaveText('意見');
-    await expect(page.locator('.settings-feedback-btn')).toHaveText('✉️ 意見回饋');
+    await expect(page.locator('.settings-feedback-btn')).toHaveText('意見回饋');
     await context.close();
 });
 
@@ -520,15 +520,20 @@ test('回報入口：主題', async ({ browser }) => {
                 probe.remove();
                 const send = getComputedStyle(document.getElementById('reportSendBtn'));
                 const dlg = getComputedStyle(document.querySelector('.report-modal'));
-                return { token, bg: send.backgroundColor, color: send.color, dlg: dlg.backgroundColor, title: getComputedStyle(document.getElementById('reportTitle')).color };
+                probe.style.color = 'var(--action-text)';
+                document.body.appendChild(probe);
+                const ink = getComputedStyle(probe).color;
+                probe.remove();
+                return { token, ink, bg: send.backgroundColor, color: send.color, dlg: dlg.backgroundColor, title: getComputedStyle(document.getElementById('reportTitle')).color };
             });
             expect(r.bg, `${name}：送出鈕底色就是 --action-bg`).toBe(r.token);
-            expect(r.color).toBe('rgb(255, 255, 255)');
+            expect(r.color, `${name}：字色就是 --action-text（深色主題是米白底墨字）`).toBe(r.ink);
             expect(r.dlg, `${name}：視窗有自己的底色`).not.toBe('rgba(0, 0, 0, 0)');
             seen.push(r.token);
         } finally { await context.close(); }
     }
-    expect(new Set(seen).size, '三種主題的行動色一樣（自訂配色改不到它）').toBe(1);
+    // 重設計後行動色跟著晝夜走（淺色墨底、深色米白底）；自訂配色只改背景／字／強調，不動行動色
+    expect(seen[2], '自訂配色改不到行動色').toBe(seen[0]);
 });
 
 test('回報入口：切換斷點', async ({ browser }) => {
@@ -579,7 +584,7 @@ test('回報入口：AI 回報模式', async ({ browser }) => {
     await openAiPanel(page);
     const row = page.locator('#aiReportRow');
     await expect(row).toBeVisible();
-    await expect(page.locator('#aiReportStart')).toHaveText('🚩 回報詞語');
+    await expect(page.locator('#aiReportStart')).toHaveText('回報詞語');
     // 一般點擊照舊：存進保留區
     const cards = page.locator('.ai-word-card');
     const before = await savedCount(page);
@@ -788,10 +793,10 @@ test('回報入口：右鍵', async ({ browser }) => {
     const card = await page.locator('.char-card').first().evaluate(c => ({ char: c.dataset.char, key: c.dataset.key }));
     await contextOn(page, '.char-card');
     const first = page.locator('#wordCtxMenu .word-ctx-item').first();
-    await expect(first).toHaveText('🚩 回報…');
+    await expect(first).toHaveText('回報…');
     // 「🚩 回報…」在「🔤 建議讀音」之前
     const labels = await page.locator('#wordCtxMenu .word-ctx-item').allTextContents();
-    expect(labels.indexOf('🚩 回報…')).toBeLessThan(labels.indexOf('🔤 建議讀音'));
+    expect(labels.indexOf('回報…')).toBeLessThan(labels.indexOf('建議讀音'));
     await first.click();
     await expect(page.locator('#wordCtxMenu')).not.toHaveClass(/show/);
     await expect(page.locator('#reportModalOverlay')).toHaveClass(/show/);
@@ -807,7 +812,7 @@ test('回報入口：右鍵', async ({ browser }) => {
     for (const sel of ['.ai-word-card:not(:has(.ai-badge))', '.ai-word-card:has(.ai-badge)']) {
         const word = await page.locator(sel).first().evaluate(c => c.dataset.word);
         await contextOn(page, sel);
-        await expect(page.locator('#wordCtxMenu .word-ctx-item').first()).toHaveText('🚩 回報…');
+        await expect(page.locator('#wordCtxMenu .word-ctx-item').first()).toHaveText('回報…');
         await page.evaluate(() => document.querySelector('#wordCtxMenu .word-ctx-item').click());
         await expect(page.locator('#reportTitle')).toHaveText(`回報「${word}」`);
         await page.locator('#reportCancelBtn').click();

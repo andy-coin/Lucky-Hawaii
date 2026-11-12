@@ -13,7 +13,7 @@
     <title>好韻器 | Lucky Hawaii </title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700&family=JetBrains+Mono:wght@400&display=swap">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700&family=Noto+Serif+TC:wght@400;700&family=JetBrains+Mono:wght@400&display=swap">
     <link rel="stylesheet" href="css/base.css?v=0.96.15">
     <link rel="stylesheet" href="css/panels.css?v=0.96.15">
     <link rel="stylesheet" href="css/responsive.css?v=0.96.15">
@@ -50,21 +50,22 @@
             <!-- 工具列：縮放（➖ 百分比 ➕）＋主題；窄時換行，不會疊在標題上 -->
             <div class="header-toolbar">
                 <div class="zoom-cluster" role="group" aria-label="介面縮放">
-                    <button class="m-zoomOut-button" id="MzoomOut" aria-label="縮小介面" onclick="zoomOut()">➖</button>
-                    <button type="button" class="zoom-reset" onclick="setUiScale(100)" title="點一下恢復 100%" aria-label="點一下恢復 100%">🔎 <span id="MzoomValue">100%</span></button>
-                    <button class="m-zoomIn-button" id="MzoomIn" aria-label="放大介面" onclick="zoomIn()">➕</button>
+                    <button class="m-zoomOut-button" id="MzoomOut" aria-label="縮小介面" onclick="zoomOut()"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14"/></svg></button>
+                    <button type="button" class="zoom-reset" onclick="setUiScale(100)" title="點一下恢復 100%" aria-label="點一下恢復 100%"><span id="MzoomValue">100%</span></button>
+                    <button class="m-zoomIn-button" id="MzoomIn" aria-label="放大介面" onclick="zoomIn()"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>
                 </div>
                 <div class="controls">
-                    <button class="theme-toggle" id="themeToggle" data-long=" ☀️ 淺色模式" data-short = "☀️" ></button>
+                    <button type="button" class="help-btn" id="tourBtn" onclick="lhTourStart()" title="功能導覽" aria-label="功能導覽">?</button>
+                    <button class="theme-toggle" id="themeToggle" ></button>
                 </div>
             </div>
             
-            <h1>韻腳查詢器 📝 <span class="about-btn about-btn-mobile" onclick="toggleAbout()">i</span></h1>
+            <h1>韻腳查詢器<span class="about-btn about-btn-mobile" onclick="toggleAbout()">i</span></h1>
             <p>寫歌詞...不簡單...甘巴爹...早點睡...</p>
 
             <div class="save-load-controls">
-                <button class="save-load-btn" onclick="exportSession()" title="把所有歌曲與設定存成一個備份檔" aria-label="把所有歌曲與設定存成一個備份檔">💾<span class="save-load-text"> 備份全部</span></button>
-                <button class="save-load-btn" onclick="document.getElementById('importFileInput').click()" title="從備份檔還原歌曲與設定" aria-label="從備份檔還原歌曲與設定">📂<span class="save-load-text"> 匯入備份</span></button>
+                <button class="save-load-btn" onclick="exportSession()" title="把所有歌曲與設定存成一個備份檔" aria-label="把所有歌曲與設定存成一個備份檔"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11M7.5 10.5L12 15l4.5-4.5M5 19h14"/></svg><span class="save-load-text">備份全部</span></button>
+                <button class="save-load-btn" onclick="document.getElementById('importFileInput').click()" title="從備份檔還原歌曲與設定" aria-label="從備份檔還原歌曲與設定"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15V4M7.5 8.5L12 4l4.5 4.5M5 19h14"/></svg><span class="save-load-text">匯入備份</span></button>
                 <input type="file" id="importFileInput" accept="application/json,.json" style="display:none" onchange="importSession(event)">
             </div>
         </div>
@@ -87,7 +88,7 @@
                     <button class="input-mode-btn" id="inputModeBtn" onclick="cycleInputMode()" title="切換輸入模式（自動 → 注音 → 拼音）">自動</button>
                 </div>
                 <div class="search-hint">
-                    💡 支援注音（ㄅㄆㄇ）或拼音（b p m），輸入單字或詞彙則反查所有符合同樣韻腳的字
+                    支援注音（ㄅㄆㄇ）或拼音（b p m），輸入單字或詞彙則反查所有符合同樣韻腳的字
                 </div>
             </div>
             
@@ -101,20 +102,20 @@
                 </div>
                 <div class="batch-panel inline" id="batchPanel">
                     <button class="batch-btn btn-common" onclick="batchMark('common')" title="標記為常用">
-                        <span class="batch-icon">⭐</span><span>常用</span>
+                        <span class="batch-icon"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5l2.6 5.3 5.9.9-4.2 4.1 1 5.8-5.3-2.8-5.3 2.8 1-5.8-4.2-4.1 5.9-.9z"/></svg></span><span>常用</span>
                     </button>
                     <button class="batch-btn btn-rare" onclick="batchMark('rare')" title="標記為冷僻">
-                        <span class="batch-icon">📦</span><span>冷僻</span>
+                        <span class="batch-icon"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 7.5h17v3h-17zM5 10.5v9h14v-9M10 14h4"/></svg></span><span>冷僻</span>
                     </button>
                     <button class="batch-btn btn-clear" onclick="batchMark('clear')" title="取消標記">
-                        <span class="batch-icon">↩</span><span>取消</span>
+                        <span class="batch-icon"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 14L4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-2"/></svg></span><span>取消</span>
                     </button>
                     <button class="batch-btn btn-report" onclick="openReportDialog()" title="回報選取的字或詞" aria-label="回報選取的字或詞" aria-disabled="true">
-                        <span class="batch-icon">🚩</span><span>回報</span>
+                        <span class="batch-icon"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 21V4M5 4h11l-2 4 2 4H5"/></svg></span><span>回報</span>
                     </button>
                 </div>
-                <div class="settings-trigger" id="settingsTrigger" onclick="toggleSettings()">
-                    <span class="gear-icon" data-long = "⚙️ 偏好設定" data-short ="⚙️"></span>
+                <div class="settings-trigger" id="settingsTrigger" onclick="toggleSettings()" title="偏好設定" aria-label="偏好設定">
+                    <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg><span class="gear-icon" data-long="偏好設定" data-short=""></span>
                 </div>
             </div>
         </div>
@@ -157,7 +158,7 @@
         
         <div class="settings-overlay" id="settingsOverlay" onclick="closeSettingsOverlay(event)">
             <div class="settings-dropdown show" onclick="event.stopPropagation()">
-                <div class="settings-dropdown-title">⚙️ 偏好設定</div>
+                <div class="settings-dropdown-title">偏好設定</div>
                 <label class="checkbox-label">
                     <input type="checkbox" id="showPinyin" checked>
                     <span>顯示讀音</span>
@@ -192,12 +193,13 @@
                     <div style="font-size:0.78rem; color:var(--text-secondary);">Groq 已整合，無需填入 Key。</div>
                 </div>
                 <div class="settings-saveload" style="gap:0.5rem;margin-top:0.25rem;">
-                    <button class="save-load-btn" style="flex:1;text-align:center" onclick="exportSession();closeSettingsOverlay({target:document.getElementById('settingsOverlay')})" title="把所有歌曲與設定存成一個備份檔" aria-label="把所有歌曲與設定存成一個備份檔">💾 備份全部</button>
-                    <button class="save-load-btn" style="flex:1;text-align:center" onclick="document.getElementById('importFileInput').click();closeSettingsOverlay({target:document.getElementById('settingsOverlay')})" title="從備份檔還原歌曲與設定" aria-label="從備份檔還原歌曲與設定">📂 匯入備份</button>
+                    <button class="save-load-btn" style="flex:1;text-align:center" onclick="exportSession();closeSettingsOverlay({target:document.getElementById('settingsOverlay')})" title="把所有歌曲與設定存成一個備份檔" aria-label="把所有歌曲與設定存成一個備份檔">備份全部</button>
+                    <button class="save-load-btn" style="flex:1;text-align:center" onclick="document.getElementById('importFileInput').click();closeSettingsOverlay({target:document.getElementById('settingsOverlay')})" title="從備份檔還原歌曲與設定" aria-label="從備份檔還原歌曲與設定">匯入備份</button>
                 </div>
                 <details class="settings-backups" id="autoBackupSection"><summary onclick="renderAutoBackups()">自動備份</summary><p class="settings-backups-hint">刪除歌曲、匯入備份與升級之前都會自動備份；可以在這裡還原。刪除與匯入的備份只保留最近幾份，升級前的備份會一直留著</p><ul id="autoBackupList" role="list"></ul></details>
                 <details class="settings-backups" id="mapSettingsSection"><summary>韻腳地圖與句構分析</summary></details>
-                <button class="settings-feedback-btn save-load-btn" style="width:100%;text-align:center;" onclick="closeSettingsOverlay({target:document.getElementById('settingsOverlay')});openFeedbackModal()">✉️ 意見回饋</button>
+                <button type="button" class="save-load-btn tour-replay-btn" style="width:100%;text-align:center;" onclick="lhTourStart()">重看功能導覽</button>
+                <button class="settings-feedback-btn save-load-btn" style="width:100%;text-align:center;" onclick="closeSettingsOverlay({target:document.getElementById('settingsOverlay')});openFeedbackModal()">意見回饋</button>
                 <button class="reset-color" onclick="resetColors()" >重設顏色!</button>
                 <button class="reset-color" onclick="clearDictOverrides()" title="清除瀏覽器中暫存的字庫修改（不影響檔案）">清除字庫 local 覆寫</button>
             </div>
@@ -208,15 +210,15 @@
     <!-- 手機底部 Tab 導覽列 -->
     <div class="mobile-tab-bar" id="mobileTabBar">
         <button type="button" class="mtab-btn active" id="mtab-search" onclick="mobileTab('search')" aria-pressed="true">
-            <span class="mtab-icon">🔍</span>
+            <span class="mtab-icon"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.2-4.2"/></svg></span>
             <span class="mtab-label">查韻</span>
         </button>
         <button type="button" class="mtab-btn" id="mtab-lyrics" onclick="mobileTab('lyrics')" aria-pressed="false">
-            <span class="mtab-icon">📝</span>
+            <span class="mtab-icon"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16z"/><path d="M13.5 6.5l4 4"/></svg></span>
             <span class="mtab-label">歌詞</span>
         </button>
         <button type="button" class="mtab-btn" id="mtab-ai" onclick="mobileTab('ai')" aria-pressed="false">
-            <span class="mtab-icon">✨</span>
+            <span class="mtab-icon"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8zM19 16l.8 2.2L22 19l-2.2.8L19 22l-.8-2.2L16 19l2.2-.8z"/></svg></span>
             <span class="mtab-label">AI 建議</span>
         </button>
     </div>
@@ -231,17 +233,17 @@
 
     <div class="word-ctx-menu" id="polyChipCtxMenu">
         <div class="word-ctx-menu-title" id="polyChipCtxTitle">—</div>
-        <div class="word-ctx-item" onclick="polyChipReport('wrongReading')">🔤 讀音錯誤</div>
-        <div class="word-ctx-item" onclick="polyChipReport('obscure')">📦 極度冷僻</div>
-        <div class="word-ctx-item" onclick="polyChipReport('missingReading')">➕ 缺少讀音</div>
+        <div class="word-ctx-item" onclick="polyChipReport('wrongReading')">讀音錯誤</div>
+        <div class="word-ctx-item" onclick="polyChipReport('obscure')">極度冷僻</div>
+        <div class="word-ctx-item" onclick="polyChipReport('missingReading')">缺少讀音</div>
     </div>
 
     <div class="word-ctx-menu export-menu" id="exportMenu" role="menu" aria-label="匯出這首歌">
-        <button type="button" class="word-ctx-item export-item" role="menuitem" onclick="exportSongAs('txt')"><span class="export-label">📄 TXT（預設）</span><span class="export-hint" data-hint="txt"></span></button>
-        <button type="button" class="word-ctx-item export-item" role="menuitem" onclick="exportSongAs('md')"><span class="export-label">📝 Markdown</span><span class="export-hint" data-hint="md"></span></button>
-        <button type="button" class="word-ctx-item export-item" role="menuitem" onclick="exportSongAs('pdf')"><span class="export-label">🖨 PDF（列印）</span><span class="export-hint">列印視窗選「儲存為 PDF」</span></button>
+        <button type="button" class="word-ctx-item export-item" role="menuitem" onclick="exportSongAs('txt')"><span class="export-label">TXT（預設）</span><span class="export-hint" data-hint="txt"></span></button>
+        <button type="button" class="word-ctx-item export-item" role="menuitem" onclick="exportSongAs('md')"><span class="export-label">Markdown</span><span class="export-hint" data-hint="md"></span></button>
+        <button type="button" class="word-ctx-item export-item" role="menuitem" onclick="exportSongAs('pdf')"><span class="export-label">PDF（列印）</span><span class="export-hint">列印視窗選「儲存為 PDF」</span></button>
         <div class="word-ctx-divider" role="separator"></div>
-        <button type="button" class="word-ctx-item export-item" role="menuitem" onclick="exportSongAs('copy')"><span class="export-label">📋 複製整首</span><span class="export-hint">複製成 TXT 格式的文字</span></button>
+        <button type="button" class="word-ctx-item export-item" role="menuitem" onclick="exportSongAs('copy')"><span class="export-label">複製整首</span><span class="export-hint">複製成 TXT 格式的文字</span></button>
     </div>
 
     <div class="feedback-modal-overlay" id="feedbackModalOverlay" onclick="closeFeedbackModal(event)">
@@ -314,19 +316,19 @@
 
     <div class="m-batch-panel" id="m-batchPanel">
         <button class="m-batch-btn btn-common" onclick="batchMark('common')">
-            <span class="batch-icon">⭐</span>
+            <span class="batch-icon"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5l2.6 5.3 5.9.9-4.2 4.1 1 5.8-5.3-2.8-5.3 2.8 1-5.8-4.2-4.1 5.9-.9z"/></svg></span>
             <span>常用</span>
         </button>
         <button class="m-batch-btn btn-rare" onclick="batchMark('rare')">
-            <span class="batch-icon">📦</span>
+            <span class="batch-icon"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 7.5h17v3h-17zM5 10.5v9h14v-9M10 14h4"/></svg></span>
             <span>冷僻</span>
         </button>
         <button class="m-batch-btn btn-clear" onclick="batchMark('clear')">
-            <span class="batch-icon">↩</span>
+            <span class="batch-icon"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 14L4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-2"/></svg></span>
             <span>取消</span>
         </button>
         <button class="m-batch-btn btn-report" onclick="openReportDialog()" title="回報選取的字或詞" aria-label="回報選取的字或詞" aria-disabled="true">
-            <span class="batch-icon">🚩</span>
+            <span class="batch-icon"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 21V4M5 4h11l-2 4 2 4H5"/></svg></span>
             <span>回報</span>
         </button>
     </div>    
@@ -356,22 +358,27 @@
                 </aside>
                 <div class="lyrics-main">
                     <div class="lyrics-tools"><div class="undo-group" role="group" aria-label="復原與重做"><button type="button" id="undoBtn" class="undo-btn" aria-label="復原上一步" aria-disabled="true">↶</button><button type="button" id="redoBtn" class="undo-btn" aria-label="重做上一步" aria-disabled="true">↷</button></div><button type="button" id="rhymeMenuBtn" class="rhyme-menu-btn" aria-haspopup="dialog" aria-expanded="false" aria-label="韻腳地圖設定">韻腳 ▾</button><span id="songTotal" class="lyrics-total">共 0 字</span></div>
-                    <div class="lyrics-area" id="lyricsSections">載入歌詞中…</div>
+                    <!-- 標籤 ＆ 情境放在歌詞上面（Andy 1-d）：先定方向，再往下寫歌詞；兩者都會送給 AI 參考。工具列（↶ ↷、韻腳、字數）留在最上面，韻腳選單往下展開才有空間 -->
                     <div class="context-section" id="contextSection">
                         <div class="context-section-header" onclick="toggleContextSection()">
-                            <span class="context-section-title">情境 ＆ 標籤</span>
-                            <button class="hashtag-add-btn" onclick="openHashtagPopup();event.stopPropagation()" title="新增標籤">+</button>
-                            <button class="context-refresh-btn" title="從歌詞自動生成" onclick="generateContextFromLyrics();event.stopPropagation()">↻</button>
-                            <span class="context-chevron" id="contextChevron">▾</span>
+                            <span class="context-section-title">標籤 ＆ 情境</span>
+                            <button type="button" class="hashtag-add-btn" onclick="openHashtagPopup();event.stopPropagation()" title="新增標籤" aria-label="新增標籤">+</button>
+                            <button type="button" class="context-refresh-btn" title="從歌詞自動生成情境與標籤" aria-label="從歌詞自動生成情境與標籤" onclick="generateContextFromLyrics();event.stopPropagation()">↻</button>
+                            <span class="context-chevron" id="contextChevron" aria-hidden="true">▾</span>
                         </div>
                         <div class="context-body" id="contextBody">
-                            <textarea class="context-textarea" id="contextDescription" rows="5"
-                                placeholder="描述歌曲情境、風格、主題…"></textarea>
-                            <div class="hashtag-chips" id="hashtagChips">
-                                <span style="color:var(--text-secondary);font-size:0.83rem;">新增標籤來引導 AI</span>
+                            <div class="hashtag-field">
+                                <div class="hashtag-chips" id="hashtagChips">
+                                    <span style="color:var(--text-secondary);font-size:0.83rem;">新增標籤來引導 AI</span>
+                                </div>
+                                <input type="text" id="hashtagInput" class="hashtag-input" enterkeyhint="done" autocomplete="off"
+                                    placeholder="加標籤（、或空白分隔）" aria-label="新增標籤，可用頓號、逗號或空白一次加多個">
                             </div>
+                            <textarea class="context-textarea" id="contextDescription" rows="3"
+                                placeholder="一兩句話寫下這首歌的情境、風格、主題…"></textarea>
                         </div>
                     </div>
+                    <div class="lyrics-area" id="lyricsSections">載入歌詞中…</div>
                 </div>
             </div>
         </div>
@@ -383,10 +390,12 @@
         <div class="side-panel-tab" onclick="toggleRightPanel()">AI建議</div>
         <div class="side-panel-body">
             <div class="side-panel-title" style="flex-shrink:0;display:flex;align-items:center;justify-content:space-between;gap:0.5rem">
-                <span>✨ AI 建議</span>
+                <span>AI 建議</span>
                 <select id="modelSelect" class="model-select" title="選擇 AI 模型（自動＝由伺服器挑選並自動換手）" onchange="onModelChange()"></select>
             </div>
             <div class="ai-scroll-area">
+                <!-- AI 會參考什麼（Andy 1-b）：即時顯示左邊哪些內容會送給 AI，點了跳過去；js/ai-generate.js lhAiRefRender -->
+                <div class="ai-ref" id="aiRef" role="group" aria-label="AI 會參考的內容" title="從詞庫挑詞時參考這些；詞庫不夠、AI 自己造詞時只看韻腳"></div>
                 <div class="ai-rhyme-display" id="aiRhymeDisplay">請先搜尋一個字或是詞確認韻腳</div>
                 <div class="selected-chars-hint" id="selectedCharsHint">
                     <span class="hint-label">選字模式</span>
@@ -404,11 +413,11 @@
                     <button class="filter-chip" id="filterChipWordLen" onclick="cycleFilterWordLen()" title="點擊循環：不限 → 2字 → 3字 → 4字+">⚙ 不限字數</button>
                 </div>
                 <div class="ai-exhausted" id="wordlistProgress" style="display:none"></div>
-                <button class="generate-btn" id="generateBtn" onclick="generateAISuggestions()">✨提供詞語建議</button>
+                <button class="generate-btn" id="generateBtn" onclick="generateAISuggestions()"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8zM19 16l.8 2.2L22 19l-2.2.8L19 22l-.8-2.2L16 19l2.2-.8z"/></svg><span>提供詞語建議</span></button>
                 <div class="ai-loading" id="aiLoading" style="display:none">AI 思考中…</div>
                 <div class="ai-report-row" id="aiReportRow" hidden>
                     <span class="ai-report-text" id="aiReportText"></span>
-                    <button type="button" class="ai-report-btn" id="aiReportStart" aria-label="進入選取模式，回報 AI 建議的詞語" title="進入選取模式，回報 AI 建議的詞語">🚩 回報詞語</button>
+                    <button type="button" class="ai-report-btn" id="aiReportStart" aria-label="進入選取模式，回報 AI 建議的詞語" title="進入選取模式，回報 AI 建議的詞語">回報詞語</button>
                     <button type="button" class="ai-report-btn primary" id="aiReportSend" hidden>回報（0）</button>
                     <button type="button" class="ai-report-btn" id="aiReportExit" hidden aria-label="結束回報選取，回到一般點選儲存" title="結束回報選取，回到一般點選儲存">結束選取</button>
                 </div>
@@ -416,7 +425,7 @@
             </div>
             <div class="saved-pool-section" id="savedPoolSection">
                 <div class="saved-pool-title" onclick="toggleSavedPool()">
-                    📌 保留
+                    保留
                     <span class="saved-pool-count" id="savedCount" style="display:none">0</span>
                     <span class="saved-pool-chevron" id="savedPoolChevron">▾</span>
                 </div>
@@ -425,20 +434,6 @@
                         <span style="color:var(--text-secondary);font-size:0.82rem;">點擊上方詞彙保留</span>
                     </div>
                 </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- 標籤新增 Popup -->
-    <div class="hashtag-popup-overlay" id="hashtagPopupOverlay" onclick="if(event.target===this)closeHashtagPopup()">
-        <div class="hashtag-popup">
-            <div class="hashtag-popup-title"># 新增標籤</div>
-            <input type="text" id="hashtagPopupInput" class="hashtag-popup-input"
-                placeholder="輸入標籤名稱（不需加 #）"
-                onkeydown="if(event.isComposing||event.keyCode===229)return;if(event.key==='Enter'){confirmHashtagPopup();event.preventDefault()}if(event.key==='Escape')closeHashtagPopup()">
-            <div class="hashtag-popup-btns">
-                <button class="hashtag-popup-cancel" onclick="closeHashtagPopup()">取消</button>
-                <button class="hashtag-popup-confirm" onclick="confirmHashtagPopup()">新增</button>
             </div>
         </div>
     </div>
@@ -474,5 +469,6 @@
     <script src="js/ai-word-events.js?v=0.96.15"></script>
     <script src="js/word-drag.js?v=0.96.15"></script>
     <script src="js/rhyme-map.js?v=0.96.15"></script>
+    <script src="js/tour.js?v=0.96.15"></script>
 </body>
 </html>

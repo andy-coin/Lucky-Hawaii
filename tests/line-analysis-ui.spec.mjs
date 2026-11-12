@@ -1043,9 +1043,8 @@ test('韻族顏色：對比提醒', async ({ browser }) => {
     await page.locator('#mapSettingsSection .rm-color-reset').click();
     await page.locator('#mapSettingsSection .rm-color-reset').click();
     await expect(advice(page)).toBeHidden();
-    // 濃：深色預設色有一批讀不太清楚，列三個再加「等 n 個」
+    // 濃：照目前主題實際算出讀不清楚的預設色（夜間 UI 重設計後深色主題字色更亮，數量跟著主題變，不寫死）
     await lookRadio(page, 'depth', 'heavy').click();
-    await expect(advice(page)).toBeVisible();
     const worst = await page.evaluate(() => {
         const cs = getComputedStyle(document.querySelector('#mapSettingsSection .rm-probe'));
         const t = cs.color.match(/\d+/g).slice(0, 3).map(Number), c = cs.backgroundColor.match(/\d+/g).slice(0, 3).map(Number);
@@ -1056,8 +1055,8 @@ test('韻族顏色：對比提醒', async ({ browser }) => {
         }
         return bad;
     });
-    expect(worst.length, '深色 濃 的預設色有幾個讀不清楚（overnight/rhyme 重配色後 8 個）').toBe(8);
-    await expect(advice(page)).toHaveText(`${worst.slice(0, 3).join('、')}等 8 個顏色在目前主題下讓字不太好讀（對比低於 4.5:1），可以選淡一點的顏色，或調低「句尾上色濃淡」`);
+    if (worst.length === 0) await expect(advice(page)).toBeHidden();
+    else await expect(advice(page)).toHaveText(`${worst.slice(0, 3).join('、')}${worst.length > 3 ? '等 ' + worst.length + ' 個' : ''}顏色在目前主題下讓字不太好讀（對比低於 4.5:1），可以選淡一點的顏色，或調低「句尾上色濃淡」`);
     // 標準：消失
     await lookRadio(page, 'depth', 'std').click();
     await expect(advice(page)).toBeHidden();
