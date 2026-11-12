@@ -29,8 +29,9 @@
         function lhResolveTheme(saved) {
             if (LH_THEMES.includes(saved)) return saved;
             if (lhHasCustomColors()) return 'custom';
-            const sysDark = !saved && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-            return (saved === 'dark' || sysDark) ? 'plain' : 'moon';
+            if (saved === 'dark') return 'plain';
+            if (saved === 'light') return 'moon';
+            return (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'plain' : 'moon';
         }
 
         function applyTheme(name, save = true) {
@@ -47,11 +48,12 @@
             if (typeof lhMapApplyPalette === 'function') lhMapApplyPalette();   // 韻腳色組依新的 --card-bg 亮度重選
             if (typeof lhBgFxRefresh === 'function') lhBgFxRefresh();
         }
-        // 自訂主題的明暗：量實際的容器底色
+        // 自訂主題的明暗：看使用者存的容器底色（沒存＝紙墨底，亮）。不能量算出來的變數：上一個主題的 data-theme 還掛著，會量到它的底
         function lhMeasureDark() {
             if (lhTheme !== 'custom') return !!LH_THEME_DARK[lhTheme];
-            const h = lhHex(getComputedStyle(document.documentElement).getPropertyValue('--container-bg'));
-            const c = [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
+            const raw = lhGet('containerBg');
+            if (!raw || !/^#[0-9a-f]{6}$/i.test(raw) || raw.toLowerCase() === LH_OLD_DEFAULTS.containerBg) return false;
+            const c = [1, 3, 5].map(i => parseInt(raw.slice(i, i + 2), 16));
             return (0.299 * c[0] + 0.587 * c[1] + 0.114 * c[2]) < 128;
         }
         function lhNextTheme() {
