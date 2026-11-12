@@ -421,8 +421,9 @@ test('版面：轉向時主題按鈕與提示字跟著換', async ({ browser }) 
             theme: document.getElementById('themeToggle').textContent.trim(),
             placeholder: document.getElementById('searchInput').placeholder,
         }));
-        const PHONE = { theme: '☀️', placeholder: PHONE_PLACEHOLDER };
-        const WIDE = { theme: '☀️ 淺色模式', placeholder: DESKTOP_PLACEHOLDER };
+        // 主題鈕是線條圖示（SVG，沒有文字）＋寬螢幕才有的名稱；名稱一律在 aria-label
+        const PHONE = { theme: '', placeholder: PHONE_PLACEHOLDER };
+        const WIDE = { theme: '淺色模式', placeholder: DESKTOP_PLACEHOLDER };
         expect(await read()).toEqual(PHONE);
         // 440／441 是分界；不重新載入就要跟著變
         for (const [w, h, want] of [[820, 1180, WIDE], [440, 844, PHONE], [441, 844, WIDE], [390, 844, PHONE]]) {
@@ -431,9 +432,10 @@ test('版面：轉向時主題按鈕與提示字跟著換', async ({ browser }) 
         }
         // 深色模式下轉向，圖示與文字也要對
         await page.locator('#themeToggle').click();
-        expect(await read()).toMatchObject({ theme: '🌙' });
+        expect(await read()).toMatchObject({ theme: '' });
+        await expect(page.locator('#themeToggle')).toHaveAttribute('aria-label', /深色模式/);
         await page.setViewportSize({ width: 820, height: 1180 });
-        await expect.poll(read).toMatchObject({ theme: '🌙 深色模式' });
+        await expect.poll(read).toMatchObject({ theme: '深色模式' });
     } finally { await context.close(); }
 });
 
@@ -522,7 +524,7 @@ test('設定：文字色與底色相同時仍按得到重設顏色', async ({ br
         await expectFullyInViewport(page, reset);
         await reset.click();
         expect(await page.evaluate(() => ({ stored: lhGet('textColor'), bg: lhGet('containerBg'), tp: getComputedStyle(document.documentElement).getPropertyValue('--text-primary').trim() })))
-            .toEqual({ stored: null, bg: null, tp: '#2d3748' });
+            .toEqual({ stored: null, bg: null, tp: '#1f1d1a' });
     } finally { await context.close(); }
 });
 
@@ -793,9 +795,9 @@ for (const [name, device] of [['手機', DEVICES.phone], ['平板', DEVICES.tabl
             // 三個分頁：文字、type、一開始「查韻」被按下
             expect(await page.evaluate(() => [...document.querySelectorAll('.mobile-tab-bar .mtab-btn')].map(b => ({ id: b.id, text: b.textContent.replace(/\s+/g, ' ').trim(), type: b.type }))))
                 .toEqual([
-                    { id: 'mtab-search', text: '🔍 查韻', type: 'button' },
-                    { id: 'mtab-lyrics', text: '📝 歌詞', type: 'button' },
-                    { id: 'mtab-ai', text: '✨ AI 建議', type: 'button' },
+                    { id: 'mtab-search', text: '查韻', type: 'button' },
+                    { id: 'mtab-lyrics', text: '歌詞', type: 'button' },
+                    { id: 'mtab-ai', text: 'AI 建議', type: 'button' },
                 ]);
             expect(await readSheets(page)).toEqual(NONE_OPEN);
 
@@ -977,7 +979,7 @@ test('版面：圖層順序', async ({ browser }) => {
             ['意見回饋', await z(page, '#feedbackModalOverlay')],
         ];
         expect(Object.fromEntries(ordered.slice(1))).toEqual({
-            側邊面板: 800, 遮罩: 840, 底部面板: 860, 分頁列: 870, 標籤視窗: 960, '設定／關於': 999, 關於: 999, 複製提示: 9999, 字詞選單: 10000, 意見回饋: 12000,
+            側邊面板: 800, 遮罩: 840, 底部面板: 860, 分頁列: 870, '設定／關於': 999, 關於: 999, 複製提示: 9999, 字詞選單: 10000, 意見回饋: 12000,
         });
         expect(container, '主畫面不能高過側邊面板').toBeLessThan(800);
         for (let i = 1; i < ordered.length; i++) {
@@ -1035,7 +1037,7 @@ test('底部面板：六段歌詞可捲動、每段夠高', async ({ browser }) 
     try {
         await toggleSide(page, DEVICES.phone, 'lyrics');
         const m = await page.evaluate(() => {
-            const area = document.getElementById('lyricsSections');
+            const area = lhSecScroller();   // 手機上標籤＆情境排到歌詞上面，整個歌詞欄一起捲
             const before = area.scrollTop;
             area.scrollTop = area.scrollHeight;
             return {
@@ -1917,7 +1919,7 @@ test('選單：放大 150% 時右鍵／長按選單不跑出畫面', async ({ br
                     const m = await readMenu(page, id);
                     const tag = `${dname} ${mname} ${cname}`;
                     expect(m.shown, `${tag}：選單有出現`).toBe(true);
-                    if (id === 'wordCtxMenu') expect(m.first, `${tag}：第一項是回報`).toBe('🚩 回報…');
+                    if (id === 'wordCtxMenu') expect(m.first, `${tag}：第一項是回報`).toBe('回報…');
                     expect(m.l, `${tag}：左邊在可見範圍內 ${JSON.stringify(m)}`).toBeGreaterThanOrEqual(m.vl - 0.5);
                     expect(m.t, `${tag}：上邊在可見範圍內`).toBeGreaterThanOrEqual(m.vt - 0.5);
                     expect(m.r, `${tag}：右邊在可見範圍內`).toBeLessThanOrEqual(m.vr + 0.5);

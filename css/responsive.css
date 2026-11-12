@@ -67,7 +67,10 @@
             .lyrics-section .section-body { display: flex; flex-direction: column; flex: 1 1 auto; }
             .lyrics-section .section-textarea { flex: 1 1 auto; min-height: 7rem; }
             .section-type { min-width: var(--hit); text-overflow: ellipsis; }
-            .context-section { flex: 0 1 auto; max-height: 40%; }
+            /* 標籤＆情境在歌詞上面：不限高（限 40% 會把情境框裁掉），整個歌詞欄一起往下捲 */
+            .context-section { flex: 0 0 auto; max-height: none; }
+            .lyrics-main { overflow-y: auto; overscroll-behavior: contain; }
+            .lyrics-main > .lyrics-area { flex: 0 0 auto; overflow: visible; }
             .context-section.collapsed { flex: 0 0 calc(var(--hit) + 1px); }
             .context-section-header { min-height: var(--hit); }
             .hashtag-chip { min-width: 0; max-width: 100%; overflow-wrap: anywhere; }
@@ -116,40 +119,39 @@
             width: auto;
             height: auto;
             padding: 0.25rem 0.625rem;
-            border: 2px solid var(--border);
-            border-radius: 0.625rem;
-            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-s);
+            background: transparent;
             cursor: pointer;
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
             gap: 0.25rem;
-            font-family: 'Noto Sans TC', sans-serif;
+            font-family: var(--font-ui);
             font-size: 0.875rem;
-            /* font-size: 0.8rem; */
-            font-weight: 700;
-            color: var(--text-secondary);
+            font-weight: 400;
+            color: var(--text-primary);
             transition: all 0.2s ease;
-            box-shadow: 0 2px 8px var(--shadow);
         }
 
         @media (hover: hover) and (pointer: fine) {
             .batch-btn:hover {
-                transform: scale(1.05);
-                border-color: #667eea;
+                background: var(--fill-soft);
+                border-color: var(--text-secondary);
             }
         }
 
         .batch-btn .batch-icon {
-            font-size: 1.2rem;
+            display: inline-flex;
+            font-size: 1rem;
+            color: var(--text-secondary);
         }
+        /* 常用的星星用強調色：一眼分得出「標成常用」與其他動作 */
+        .btn-common .batch-icon { color: var(--highlight-border); }
 
-        .batch-btn.btn-common { border-left: 0.5rem solid #f5576c; }
-        .batch-btn.btn-rare { border-left: 0.5rem solid #4299e1; }
-        .batch-btn.btn-clear { border-left: 0.5rem solid #bac0a0; }
-        /* 🚩 回報不是標記動作：隔開一點，左邊條用強調色；沒選字時淡一點但仍可按（按了會跳提示） */
-        .batch-btn.btn-report { border-left: 0.5rem solid var(--highlight-border); margin-inline-start: var(--sp-3); }
+        /* 回報不是標記動作：隔開一點；沒選字時淡一點但仍可按（按了會跳提示） */
+        .batch-btn.btn-report { margin-inline-start: var(--sp-3); }
         .batch-btn.btn-report[aria-disabled="true"], .m-batch-btn.btn-report[aria-disabled="true"] { opacity: .6; cursor: pointer; }
         .batch-panel.inline .batch-btn {
             flex-direction: row;
@@ -158,12 +160,12 @@
             gap: 0.25rem;
             box-shadow: none;
         }
-        .batch-panel.inline .batch-btn .batch-icon { font-size: 0.95rem; }
+        .batch-panel.inline .batch-btn .batch-icon { font-size: 0.9375rem; }
         /* 900px 以下仍顯示這排（例如橫拿手機 844px）：第 4 顆 🚩 回報進來後一排會擠不下而換行，
            所以把按鈕左右內距、圖示間距、左邊條和回報鈕的隔開距離收一點，讓模式鈕、批次鈕、齒輪維持同一排（820px 平板也排得下） */
         @media (max-width: 900px) {
             .batch-panel.inline { gap: var(--sp-1); }
-            .batch-panel.inline .batch-btn { padding-inline: var(--sp-1); gap: 0.125rem; border-left-width: 0.375rem; }   /* 左邊條 0.5→0.375rem，和手機版一樣 */
+            .batch-panel.inline .batch-btn { padding-inline: var(--sp-2); gap: 0.125rem; }
             .batch-btn.btn-report { margin-inline-start: var(--sp-1); }
         }
 
@@ -182,11 +184,13 @@
             width: 5rem;
             height: 5rem;
             margin-bottom: 1.25rem;
-            opacity: 0.3;
+            opacity: 0.25;
+            stroke-width: 1.25;
         }
         
         .empty-state h3 {
-            font-size: 1.2rem;
+            font-family: var(--font-serif);
+            font-size: 1.25rem;
             margin-bottom: 0.5rem;
             color: var(--text-primary);
         }
@@ -200,10 +204,10 @@
             padding: 0.625rem 1.875rem;
             top:-1.125rem;
             text-align: center;
-            font-size: 0.85rem;
-            border-top: 4px solid  rgb(177, 110, 55);
+            font-size: 0.8125rem;
+            border-top: 1px solid var(--border);
             background: var(--container-bg);
-            color: var(--text-primary);
+            color: var(--text-secondary);
             flex-shrink: 0;
         }
 
@@ -214,12 +218,12 @@
             width: 1.375rem;
             height: 1.375rem;
             border-radius: 50%;
-            border: 1.5px solid rgb(55, 177, 92);
-            color: rgb(55, 177, 92);
+            border: 1px solid var(--text-secondary);
+            color: var(--text-secondary);
             font-size: 0.75rem;
             font-weight: 700;
             font-style: italic;
-            font-family: Georgia, serif;
+            font-family: var(--font-serif);
             cursor: pointer;
             margin-left: 0.5rem;
             vertical-align: middle;
@@ -228,9 +232,8 @@
 
         @media (hover: hover) and (pointer: fine) {
             .about-btn:hover {
-                border-color: #667eea;
-                color: #667eea;
-                background: rgba(102, 126, 234, 0.1);
+                border-color: var(--text-primary);
+                color: var(--text-primary);
             }
         }
 
@@ -247,16 +250,16 @@
             transform: translateY(-50%);
             font-size: 0.75rem;
             padding: 0.125rem 0.5rem;
-            border: 1.5px solid var(--border);
-            border-radius: 0.625rem;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-s);
             background: none;
             color: var(--text-secondary);
             cursor: pointer;
-            font-family: 'Noto Sans TC', sans-serif;
+            font-family: var(--font-ui);
             transition: all 0.2s ease;
         }
         @media (hover: hover) and (pointer: fine) {
-            .feedback-btn:hover { border-color: #667eea; color: #667eea; }
+            .feedback-btn:hover { border-color: var(--text-secondary); color: var(--text-primary); }
         }
 
         .candidate-report {
@@ -273,9 +276,9 @@
             align-items: center;
             gap: 0.375rem;
             padding: 0.3125rem 0.625rem;
-            background: rgba(237, 137, 54, 0.12);
-            border: 1px solid rgba(237, 137, 54, 0.3);
-            border-radius: 0.5rem;
+            background: var(--accent-soft);
+            border: 1px solid var(--accent-line);
+            border-radius: var(--radius-s);
             font-size: 0.82rem;
             margin-bottom: 0.25rem;
             flex-wrap: wrap;
@@ -309,9 +312,7 @@
             display: none;
             position: fixed;
             top: 0; left: 0; right: 0; bottom: 0;
-            background: rgba(0,0,0,0.3);
-            backdrop-filter: blur(4px);
-            -webkit-backdrop-filter: blur(4px);
+            background: rgba(0,0,0,0.4);
             z-index: 999;
             justify-content: center;
             align-items: center;
@@ -322,8 +323,8 @@
         .about-content {
             background: var(--card-bg);
             border: 1px solid var(--border);
-            border-radius: 0.875rem;
-            padding: 1.875rem 2.125rem;
+            border-radius: 0.75rem;
+            padding: 1.75rem 2rem;
             box-shadow: 0 12px 40px rgba(0,0,0,0.2);
             width: min(25rem, 92vw);
             max-height: calc(var(--app-h) - 2rem);
@@ -334,7 +335,8 @@
 
         .about-content h3 {
             margin-bottom: 0.75rem;
-            font-size: 1.2rem;
+            font-family: var(--font-serif);
+            font-size: 1.25rem;
         }
 
         .about-content p {
@@ -364,10 +366,10 @@
         
         /* 標籤新增按鈕 */
         .hashtag-add-btn {
-            background: var(--highlight-border);
-            color: white;
-            border: none;
-            border-radius: 50%;
+            background: transparent;
+            color: var(--text-primary);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-s);
             width: 1.375rem;
             height: 1.375rem;
             font-size: 1.1rem;
@@ -382,16 +384,19 @@
             padding: 0;
         }
         @media (hover: hover) and (pointer: fine) {
-            .hashtag-add-btn:hover { background: #c97422; }
+            .hashtag-add-btn:hover { border-color: var(--highlight-border); color: var(--highlight-border); }
         }
 
         /* 情境 textarea 填滿剩餘空間 */
         .context-textarea { flex: 1; min-height: 3.75rem; }
 
         /* 標籤輸入（Andy 1-d）：直接在板塊上，不彈視窗；外觀和情境框同一套 */
-        .hashtag-field { display: flex; flex-direction: column; gap: 0.375rem; flex-shrink: 0; }
+        /* 標籤和輸入框排在同一串（輸入框像最後一個標籤），手機上少佔一列 */
+        .hashtag-field { display: flex; flex-wrap: wrap; align-items: center; gap: 0.375rem; flex-shrink: 0; }
+        .hashtag-field > .hashtag-chips { display: contents; }
         .hashtag-input {
-            width: 100%;
+            flex: 1 1 9rem;
+            min-width: 0;
             min-height: 2rem;
             padding: 0.3125rem 0.625rem;
             border: 1px solid var(--border);
@@ -403,11 +408,13 @@
             outline: none;
         }
         .hashtag-input::placeholder { color: var(--text-secondary); opacity: 0.85; }
-        .hashtag-input:focus { border-color: var(--highlight-border); }
+        .hashtag-input:focus { border-color: var(--text-secondary); }
 
         @media (max-width: 440px) {
 
             .save-load-text { display: none; }
+            /* 手機標題列擠：導覽的「?」收進設定（「重看功能導覽」），不跟標題旁的 i 搶點擊範圍 */
+            .help-btn { display: none; }
             
             .container { border-radius: 1rem; }
 
@@ -469,42 +476,33 @@
                 min-width: 0;
                 min-height: var(--hit);
                 height: auto;
-                border: 2px solid var(--border);
-                border-radius: 0.625rem;
-                background: var(--card-bg);
+                border: 1px solid var(--border);
+                border-radius: var(--radius-s);
+                background: transparent;
                 cursor: pointer;
                 display: flex;
                 flex-direction: row;
                 align-items: center;
                 justify-content: center;
-                gap: 0.125rem;
-                font-family: 'Noto Sans TC', sans-serif;
-                font-weight: 700;
-                color: var(--text-secondary);
+                gap: 0.25rem;
+                font-family: var(--font-ui);
+                font-weight: 400;
+                color: var(--text-primary);
                 transition: all 0.3s ease;
-                box-shadow: 0 2px 8px var(--shadow);
                 padding: 0.25rem;
-                font-size: 0.8rem;
+                font-size: 0.8125rem;
             }
             @media (hover: hover) and (pointer: fine) {
                 .m-batch-btn:hover {
-                    transform: scale(1.05);
-                    border-color: #667eea;
+                    background: var(--fill-soft);
                 }
             }
             .m-batch-btn .batch-icon {
+                display: inline-flex;
                 font-size: 1rem;
                 padding: 0;
-                margin-left: -0.125rem;
+                color: var(--text-secondary);
             }
-            .m-batch-btn.btn-common { border-left: 0.375rem solid #f5576c; }
-            .m-batch-btn.btn-rare { border-left: 0.375rem solid #4299e1; 
-                gap: 0.125rem;
-            }
-            .m-batch-btn.btn-clear { border-left: 0.375rem solid #bac0a0; 
-                gap: 0.125rem;
-            }
-            .m-batch-btn.btn-report { border-left: 0.375rem solid var(--highlight-border); }
 
             /* 排列模式 */
             .mode-button.active::before{
@@ -643,6 +641,10 @@
             .container { overflow-x: hidden; overflow-y: auto; overscroll-behavior-y: contain; }
             .header, .search-section { flex-shrink: 0; }
             .results-section { flex: 0 0 auto; height: 100%; }
+            /* 歌詞 sheet：標籤＆情境排到歌詞上面之後，矮視窗裡歌詞框會被擠到看不見 → 改成整個歌詞欄一起往下捲 */
+            .lyrics-main { overflow-y: auto; overscroll-behavior: contain; }
+            .lyrics-main > .context-section { flex-shrink: 0; max-height: none; }
+            .lyrics-main > .lyrics-area { flex: 0 0 auto; overflow: visible; }
         }
 
         /* ===== 虛擬鍵盤（D-09，UI-SPEC §4）：js/layout.js 在「有文字欄位聚焦、可見高度矮 150px 以上」時加 html.kb-open，

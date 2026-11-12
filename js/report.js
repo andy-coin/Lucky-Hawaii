@@ -54,17 +54,17 @@
         }
 
         const _CTX_MENU_NORMAL = `
-        <div class="word-ctx-item" onclick="openReportFromCtx('word')">🚩 回報…</div>
-        <div class="word-ctx-item" onclick="wordCtxReport('notExist')">❓ 詞不存在</div>
-        <div class="word-ctx-item" onclick="wordCtxReport('obscure')">📦 極度冷僻</div>
-        <div class="word-ctx-item" onclick="wordCtxReport('rhyme')">🎵 押韻錯誤</div>
-        <div class="word-ctx-item" onclick="wordCtxReport('duplicate')">🔁 重複出現</div>
-        <div class="word-ctx-item" onclick="wordSuggestReading()">🔤 建議讀音</div>`;
+        <div class="word-ctx-item" onclick="openReportFromCtx('word')">回報…</div>
+        <div class="word-ctx-item" onclick="wordCtxReport('notExist')">詞不存在</div>
+        <div class="word-ctx-item" onclick="wordCtxReport('obscure')">極度冷僻</div>
+        <div class="word-ctx-item" onclick="wordCtxReport('rhyme')">押韻錯誤</div>
+        <div class="word-ctx-item" onclick="wordCtxReport('duplicate')">重複出現</div>
+        <div class="word-ctx-item" onclick="wordSuggestReading()">建議讀音</div>`;
         const _CTX_MENU_AI = `
-            <div class="word-ctx-item" onclick="openReportFromCtx('word')">🚩 回報…</div>
-            <div class="word-ctx-item" onclick="aiWordSuggest('accept')">✅ 建議收錄</div>
-            <div class="word-ctx-item" onclick="aiWordSuggest('modify')">✏️ 建議修改</div>
-            <div class="word-ctx-item" onclick="wordSuggestReading()">🔤 建議讀音</div>`;
+            <div class="word-ctx-item" onclick="openReportFromCtx('word')">回報…</div>
+            <div class="word-ctx-item" onclick="aiWordSuggest('accept')">建議收錄</div>
+            <div class="word-ctx-item" onclick="aiWordSuggest('modify')">建議修改</div>
+            <div class="word-ctx-item" onclick="wordSuggestReading()">建議讀音</div>`;
 
         function wordSuggestReading() {
             _hideCtxMenu();
@@ -92,8 +92,8 @@
             }).join('');
             document.getElementById('wordCtxItems').innerHTML =
                 readingRows +
-                `<div class="word-ctx-item" onclick="openReportFromCtx('char')">🚩 回報…</div>` +
-                `<div class="word-ctx-item" onclick="charSuggestReading()">🔤 建議讀音</div>`;
+                `<div class="word-ctx-item" onclick="openReportFromCtx('char')">回報…</div>` +
+                `<div class="word-ctx-item" onclick="charSuggestReading()">建議讀音</div>`;
             lhPlaceMenu(_ctxMenu, x, y);
         }
         function charSuggestReading() {

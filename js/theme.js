@@ -12,14 +12,15 @@
             return '#' + [r, g, b].map(c => c.toString(16).padStart(2, '0')).join('');
         }
 
+        // 主題鈕：一致的線條圖示（不用 emoji）；手機只留圖示，名稱放在 aria-label
+        const LH_ICON_SUN = '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>';
+        const LH_ICON_MOON = '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg>';
         function applyTheme(dark, save = true) {
             isDark = !!dark;
             document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
-            if (!lhIsPhone()) {
-                themeToggle.textContent = isDark ? '🌙 深色模式' : '☀️ 淺色模式';
-            } else {
-                themeToggle.textContent = isDark ? '🌙' : '☀️';
-            }
+            const label = isDark ? '深色模式' : '淺色模式';
+            themeToggle.innerHTML = (isDark ? LH_ICON_MOON : LH_ICON_SUN) + (lhIsPhone() ? '' : '<span>' + label + '</span>');
+            themeToggle.setAttribute('aria-label', label + '（點一下切換）');
             if (save) lhSet(THEME_KEY, isDark ? 'dark' : 'light');
         }
         // 轉向／調整視窗跨過 440 時，圖示與文字跟著換（不存檔）
@@ -46,66 +47,52 @@
             }
         });
 
-        // 顏色自定義
-        function loadColors() {
-            const rawColors = {
-                bgColor1: lhGet('bgColor1') || '#0c4564',
-                containerBg: lhGet('containerBg') || '#eee3ce',
-                textColor: lhGet('textColor') || '#2d3748',
-                highlightColor: lhGet('highlightColor') || '#ed8936'
-            };
-            
-            let displayColors;
-            if (isDark) {
-                displayColors = {
-                    bgColor1: invertColor(rawColors.bgColor1),
-                    containerBg: invertColor(rawColors.containerBg),
-                    textColor: invertColor(rawColors.textColor),
-                    highlightColor: invertColor(rawColors.highlightColor),
-                };
-            } else {
-                displayColors = { ...rawColors };
-            }
-            
-            // 同步桌面版色票
-            document.getElementById('bgColor1').value = displayColors.bgColor1;
-            document.getElementById('containerBg').value = displayColors.containerBg;
-            document.getElementById('textColor').value = displayColors.textColor;
-            document.getElementById('highlightColor').value = displayColors.highlightColor;
-            // 同步手機設定面板色票
-            const sBg = document.getElementById('sBgColor1');
-            if (sBg) {
-                sBg.value = displayColors.bgColor1;
-                document.getElementById('sContainerBg').value = displayColors.containerBg;
-                document.getElementById('sTextColor').value = displayColors.textColor;
-                document.getElementById('sHighlightColor').value = displayColors.highlightColor;
-            }
-            
-            applyColors(displayColors, rawColors.textColor);
+        // 顏色自定義（重設計後）：沒自訂的顏色交給 CSS 的晝／夜預設（base.css 的 :root 與 [data-theme="dark"]），
+        // 有自訂的才寫進 inline 變數；深色模式沿用舊規則，把自訂色反相（使用者既有的客製照樣有效）
+        const LH_COLOR_VARS = {
+            bgColor1: ['--bg-gradient-1', '--bg-gradient-2'],
+            containerBg: ['--container-bg'],
+            textColor: ['--text-primary'],
+            highlightColor: ['--highlight-border'],
+        };
+        const LH_COLOR_INPUTS = {
+            bgColor1: ['bgColor1', 'sBgColor1'],
+            containerBg: ['containerBg', 'sContainerBg'],
+            textColor: ['textColor', 'sTextColor'],
+            highlightColor: ['highlightColor', 'sHighlightColor'],
+        };
+        // 舊版的預設色：存下來的值剛好是這些，就當成「沒自訂」，改看新的預設（舊存檔才換得到新外觀）
+        const LH_OLD_DEFAULTS = { bgColor1: '#0c4564', containerBg: '#eee3ce', textColor: '#2d3748', highlightColor: '#ed8936' };
+        // 色票只接受 #rrggbb；計算後的變數值可能有空白或大小寫
+        function lhHex(v) {
+            v = String(v || '').trim().toLowerCase();
+            if (/^#[0-9a-f]{6}$/.test(v)) return v;
+            if (/^#[0-9a-f]{3}$/.test(v)) return '#' + [...v.slice(1)].map(c => c + c).join('');
+            return '#000000';
         }
-
-        function applyColors(colors, rawTextColor) {
-            
-            // 背景：有自訂色就套用，沒有的話深色模式用預設深色
-            const defaultBg = '#0c4564';
-            const hasCustomBg = lhGet('bgColor1') && lhGet('bgColor1') !== defaultBg;
-            if (!isDark || hasCustomBg) {
-                document.documentElement.style.setProperty('--bg-gradient-1', colors.bgColor1);
-                document.documentElement.style.setProperty('--bg-gradient-2', colors.bgColor1);
+        function loadColors() {
+            const root = document.documentElement.style;
+            hasCustomTextColor = false;
+            for (const [key, vars] of Object.entries(LH_COLOR_VARS)) {
+                let raw = lhGet(key);
+                if (raw && raw.toLowerCase() === LH_OLD_DEFAULTS[key]) raw = null;
+                if (raw) {
+                    const shown = isDark ? invertColor(raw) : raw;
+                    vars.forEach(v => root.setProperty(v, shown));
+                    if (key === 'textColor') {
+                        hasCustomTextColor = true;
+                        root.setProperty('--custom-text-color', shown);
+                    }
+                } else {
+                    vars.forEach(v => root.removeProperty(v));
+                    if (key === 'textColor') root.removeProperty('--custom-text-color');
+                }
             }
-
-            document.documentElement.style.setProperty('--container-bg', colors.containerBg);
-            document.documentElement.style.setProperty('--highlight-border', colors.highlightColor);
-            
-            const defaultTextColor = '#2d3748';
-            const originalTextColor = rawTextColor || colors.textColor;
-            if (originalTextColor !== defaultTextColor || isDark) {
-                hasCustomTextColor = true;
-                document.documentElement.style.setProperty('--custom-text-color', colors.textColor);
-                document.documentElement.style.setProperty('--text-primary', colors.textColor);
-            } else {
-                hasCustomTextColor = false;
-                document.documentElement.style.setProperty('--text-primary', colors.textColor);
+            // 色票顯示畫面上真正在用的顏色（設定與手機設定兩組）
+            const cs = getComputedStyle(document.documentElement);
+            for (const [key, ids] of Object.entries(LH_COLOR_INPUTS)) {
+                const val = lhHex(cs.getPropertyValue(LH_COLOR_VARS[key][0]));
+                ids.forEach(id => { const el = document.getElementById(id); if (el) el.value = val; });
             }
         }
 

@@ -180,17 +180,17 @@ test('排序：內容與捲動不變', async ({ browser }) => {
 async function autoScrollCase(browser, device) {
     const { context, page, errors } = await bootPage(browser, { device, storage: MANY(12) });
     await openSheet(page);
-    const r = await area(page).evaluate(el => { const b = el.getBoundingClientRect(); return { top: b.top, bottom: b.bottom, x: b.left + b.width / 2 }; });
+    const r = await page.evaluate(() => { const el = lhSecScroller(); const b = el.getBoundingClientRect(); return { top: b.top, bottom: b.bottom, x: b.left + b.width / 2 }; });
     const [hx, hy] = await centerOf(handle(page, 0));
     await page.mouse.move(hx, hy);
     await page.mouse.down();
     await page.mouse.move(r.x, r.bottom - 16, { steps: 8 });
-    const t0 = await area(page).evaluate(el => el.scrollTop);
+    const t0 = await page.evaluate(() => lhSecScroller().scrollTop);
     for (let i = 0; i < 20; i++) { await page.mouse.move(r.x, r.bottom - 16 + (i % 2), {}); await page.waitForTimeout(16); }
-    const t1 = await area(page).evaluate(el => el.scrollTop);
+    const t1 = await page.evaluate(() => lhSecScroller().scrollTop);
     expect(t1).toBeGreaterThan(t0);
     // 繼續停著，捲到底
-    await page.waitForFunction(() => { const a = document.getElementById('lyricsSections'); return a.scrollTop + a.clientHeight >= a.scrollHeight - 1; }, null, { timeout: 20000 });
+    await page.waitForFunction(() => { const a = lhSecScroller(); return a.scrollTop + a.clientHeight >= a.scrollHeight - 1; }, null, { timeout: 20000 });
     await page.mouse.move(r.x, r.bottom - 2);
     await page.mouse.up();
     const order = await ids(page);

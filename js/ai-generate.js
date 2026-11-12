@@ -339,8 +339,9 @@
             if (ref !== 'lyrics' && cs && cs.classList.contains('collapsed')) toggleContextSection();
             const target = document.getElementById(ref === 'tags' ? 'hashtagChips' : ref === 'context' ? 'contextDescription' : 'lyricsSections');
             if (!target) return;
-            target.scrollIntoView({ block: 'nearest', behavior: lhReducedMotion() ? 'auto' : 'smooth' });
-            lhFlash(ref === 'tags' ? target.closest('.hashtag-field') || target : target);
+            const box = ref === 'tags' ? target.closest('.hashtag-field') || target : target;   // 標籤串是 display: contents，捲動與閃框都用外層
+            box.scrollIntoView({ block: 'nearest', behavior: lhReducedMotion() ? 'auto' : 'smooth' });
+            lhFlash(box);
             // 滑鼠裝置直接把游標放進去；觸控不聚焦（避免鍵盤自己彈出來）
             if (matchMedia('(hover: hover) and (pointer: fine)').matches) {
                 const f = ref === 'tags' ? document.getElementById('hashtagInput') : ref === 'context' ? target : target.querySelector('.section-textarea');

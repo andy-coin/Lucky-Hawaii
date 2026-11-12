@@ -1,15 +1,29 @@
+        /* ===== 設計變數（夜間 UI 重設計）=====
+           方向：「錄音室裡的手稿」——米白紙張、墨色文字、一個朱紅強調色；細線分隔，少用陰影與漸層。
+           顏色常數只寫在這兩組變數裡（亮／暗），元件一律用 var()。
+           客製顏色（js/theme.js）只覆寫四個：--bg-gradient-1/2（頁面底）、--container-bg、--text-primary、--highlight-border */
         :root {
-            --bg-gradient-1: #0c4564;
-            --bg-gradient-2: #001e3b;
-            --container-bg: #eee3ce;
-            --text-primary: #2d3748;
-            --text-secondary: #5a6577;
-            --border: #e2e8f0;
-            --card-bg: #f7fafc;
-            --highlight-border: #ed8936;
-            --shadow: rgba(0, 0, 0, 0.1);
-            --header-gradient-1: #b8865d;
-            --header-gradient-2: #8d51c9;
+            --bg-gradient-1: #e7e2d8;
+            --bg-gradient-2: #e7e2d8;
+            --container-bg: #f6f3ec;
+            --text-primary: #1f1d1a;
+            --text-secondary: #5c574f;
+            --border: #ddd6c9;
+            --card-bg: #fcfaf6;
+            --highlight-border: #c4432a;
+            --shadow: rgba(0, 0, 0, 0.08);
+            --header-gradient-1: #f6f3ec;
+            --header-gradient-2: #f6f3ec;
+            /* 強調色的淡底與按下去的深色，跟著客製的強調色走 */
+            --accent-soft: color-mix(in srgb, var(--highlight-border) 11%, transparent);
+            --accent-line: color-mix(in srgb, var(--highlight-border) 45%, var(--border));
+            --accent-strong: color-mix(in srgb, var(--highlight-border) 82%, #000);
+            --fill-soft: color-mix(in srgb, var(--text-primary) 5%, transparent);
+            --font-ui: 'Noto Sans TC', 'PingFang TC', 'Microsoft JhengHei', sans-serif;
+            --font-serif: 'Noto Serif TC', 'Songti TC', 'PMingLiU', serif;
+            --font-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', monospace;
+            --radius-s: 0.375rem;
+            --radius-m: 0.5rem;
             --custom-text-color: none;
             --ui-scale: 1;
             /* 版面外殼（Phase 5 B-1）：頁面高度＝實際可見高度，扣掉安全區與底部分頁列 */
@@ -32,9 +46,9 @@
             --sp-5: 1.5rem;
             --sp-6: 2rem;
             --sp-7: 3rem;
-            /* 固定的行動色：自訂配色不會改到，白字對比約 5:1（Phase 7 UI-SPEC §3.1） */
-            --action-bg: #5a67d8;
-            --action-bg-hover: #4c51bf;
+            /* 固定的行動色：自訂配色不會改到（墨色主按鈕，白字對比 > 12:1；Phase 7 UI-SPEC §3.1 的精神） */
+            --action-bg: #2a2724;
+            --action-bg-hover: #000000;
             --action-text: #fff;
             /* 破壞性動作的固定色（Phase 8 UI-SPEC D-09）：填色按鈕白字約 5.5:1；文字與外框用 --danger-line。自訂配色不會改到 */
             --danger-bg: #c53030;
@@ -54,25 +68,26 @@
         }
         
         [data-theme="dark"] {
-            --bg-gradient-1: #1a202c;
-            --bg-gradient-2: #2d3748;
-            --container-bg: #ffffff;
-            --text-primary: #f98628;
-            --text-secondary: #a0aec0;
-            --border: #4a5568;
-            --card-bg: #2d3748;
-            --highlight-border: #ed8936;
-            --shadow: rgba(0, 0, 0, 0.1);
-            --header-gradient-1: #1a1f28;
-            --header-gradient-2: #174aa4;
+            --bg-gradient-1: #0f0e0d;
+            --bg-gradient-2: #0f0e0d;
+            --container-bg: #181715;
+            --text-primary: #ebe6dc;
+            --text-secondary: #a8a196;
+            --border: #34302b;
+            --card-bg: #201e1b;
+            --highlight-border: #e0714f;
+            --shadow: rgba(0, 0, 0, 0.4);
+            --header-gradient-1: #181715;
+            --header-gradient-2: #181715;
             --custom-text-color: none;
-            /* 固定的行動色：自訂配色不會改到，白字對比約 5:1（Phase 7 UI-SPEC §3.1） */
-            --action-bg: #5a67d8;
-            --action-bg-hover: #4c51bf;
-            --action-text: #fff;
+            --fill-soft: color-mix(in srgb, var(--text-primary) 6%, transparent);
+            /* 固定的行動色：暗底上用米白主按鈕、墨色字（對比 > 12:1） */
+            --action-bg: #ebe6dc;
+            --action-bg-hover: #ffffff;
+            --action-text: #181715;
             --danger-line: #fc8181;
         }
-        
+
         * {
             margin: 0;
             padding: 0;
@@ -87,8 +102,9 @@
         }
 
         body {
-            font-family: 'Noto Sans TC', sans-serif;
-            background: linear-gradient(135deg, var(--bg-gradient-1) 0%, var(--bg-gradient-2) 100%);
+            font-family: var(--font-ui);
+            background: var(--bg-gradient-1);
+            -webkit-font-smoothing: antialiased;
             min-height: var(--app-h);
             padding: var(--pad-t) max(var(--page-pad), env(safe-area-inset-right)) var(--pad-b) max(var(--page-pad), env(safe-area-inset-left));
             overscroll-behavior: none;
@@ -101,13 +117,14 @@
             max-width: min(56.25rem, 100%);
             margin: 0 auto;
             background: var(--container-bg);
-            border-radius: 1.25rem;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            border-radius: 0.75rem;
+            border: 1px solid var(--border);
+            box-shadow: 0 1px 2px var(--shadow);
             overflow: hidden;
             height: calc(var(--app-h) - var(--pad-t) - var(--pad-b));
             display: flex;
             flex-direction: column;
-            animation: slideIn 0.5s ease-out;
+            animation: slideIn 0.35s ease-out;
             transition: background 0.3s ease, box-shadow 0.3s ease;
         }
         
@@ -148,10 +165,16 @@
             .lh-save-banner button:hover { border-color: #e53e3e; }
         }
 
+        /* AI 參考區塊的閃框（.lh-flash 在 panels.css）；動畫一律放這個檔 */
+        @keyframes lh-flash {
+            0%, 35% { box-shadow: 0 0 0 2px var(--highlight-border); }
+            100% { box-shadow: 0 0 0 2px transparent; }
+        }
+
         @keyframes slideIn {
             from {
                 opacity: 0;
-                transform: translateY(30px);
+                transform: translateY(0.5rem);
             }
             to {
                 opacity: 1;
@@ -160,50 +183,55 @@
         }
         
         .header {
-            background: linear-gradient(150deg, var(--header-gradient-1) 5%, var(--header-gradient-2) 100%);
-            color: white;
-            padding: clamp(1.125rem, 4vw, 2.5rem) clamp(0.875rem, 3vw, 1.875rem);
+            background: var(--header-gradient-1);
+            color: var(--text-primary);
+            border-bottom: 1px solid var(--border);
+            padding: clamp(0.875rem, 2.4vw, 1.375rem) clamp(0.875rem, 3vw, 1.875rem) clamp(0.75rem, 2vw, 1.125rem);
             text-align: center;
             position: relative;
             flex-shrink: 0;
         }
 
         .header h1 {
-            font-size: clamp(1.4rem, 3.5vw, 2.5rem);
+            font-family: var(--font-serif);
+            font-size: clamp(1.25rem, 2.6vw, 1.75rem);
             font-weight: 700;
-            margin-bottom: clamp(0.25rem, 1vw, 0.625rem);
-            letter-spacing: -0.5px;
+            margin-bottom: 0.125rem;
+            letter-spacing: 0.12em;
         }
 
         .header p {
-            font-size: 0.875rem;
-            opacity: 1;
+            font-size: 0.8125rem;
+            color: var(--text-secondary);
             font-weight: 400;
-            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+            letter-spacing: 0.04em;
         }
 
+        /* 備份／匯入：標語下面一列安靜的文字按鈕（窄視窗在 responsive.css 讓位給設定） */
         .save-load-controls {
-            position: absolute;
-            right: 0.75rem;
-            bottom: 0.625rem;
             display: flex;
-            gap: 0.375rem;
-            z-index: 5;
+            justify-content: center;
+            gap: 0.25rem;
+            margin-top: 0.375rem;
         }
         .save-load-btn {
-            background: rgba(255,255,255,0.18);
-            color: white;
-            border: 1px solid rgba(255,255,255,0.35);
-            border-radius: 0.375rem;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.3125rem;
+            background: transparent;
+            color: var(--text-secondary);
+            border: 1px solid transparent;
+            border-radius: var(--radius-s);
             padding: var(--sp-1) var(--sp-3);
             font-size: 0.875rem;
-            font-weight: 700;
-            font-family: 'Noto Sans TC', sans-serif;
+            font-weight: 400;
+            font-family: var(--font-ui);
             cursor: pointer;
             transition: all 0.2s;
         }
         @media (hover: hover) and (pointer: fine) {
-            .save-load-btn:hover { background: rgba(255,255,255,0.32); }
+            .save-load-btn:hover { background: var(--fill-soft); color: var(--text-primary); }
         }
         .settings-saveload .save-load-btn {
             background: var(--container-bg);
@@ -211,7 +239,7 @@
             border: 1px solid var(--border);
         }
         @media (hover: hover) and (pointer: fine) {
-            .settings-saveload .save-load-btn:hover { background: var(--border); }
+            .settings-saveload .save-load-btn:hover { background: var(--fill-soft); }
         }
         
         /* 顏色自定義面板：已整合到偏好設定 modal，header 上不再顯示 */
@@ -224,7 +252,7 @@
             align-items: center;
             gap: 0.5rem;
             font-size: 0.75rem;
-            color: white;
+            color: var(--text-secondary);
         }
         
         .color-item label {
@@ -253,19 +281,37 @@
         .controls {
             display: flex;
             align-items: center;
-            gap: 0.9375rem;
+            gap: 0.375rem;
         }
         
-        .theme-toggle {
-            background: rgba(255, 255, 255, 0.2);
-            backdrop-filter: blur(10px);
-            border: none;
-            color: white;
-            padding: 0.5rem 0.75rem;
-            border-radius: 0.5rem;
+        .theme-toggle, .help-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.375rem;
+            min-height: 2rem;
+            background: transparent;
+            border: 1px solid var(--border);
+            color: var(--text-primary);
+            padding: 0.25rem 0.625rem;
+            border-radius: var(--radius-s);
             cursor: pointer;
-            font-size: 0.9rem;
+            font-family: var(--font-ui);
+            font-size: 0.8125rem;
             transition: all 0.3s ease;
+        }
+        .help-btn { min-width: 2rem; padding: 0; font-weight: 700; }
+        /* 線條圖示（js/theme.js、index.html 的 inline SVG）：跟著文字顏色與字級 */
+        .ic {
+            width: 1.05em;
+            height: 1.05em;
+            flex-shrink: 0;
+            fill: none;
+            stroke: currentColor;
+            stroke-width: 1.75;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+            vertical-align: -0.15em;
         }
         
         /* 縮放：➖ 百分比（點一下回 100%） ➕ 排成一條膠囊 */
@@ -275,26 +321,27 @@
             gap: var(--sp-1);
         }
         .m-zoomOut-button, .m-zoomIn-button, .zoom-reset {
-            padding: 0.375rem 0.75rem;
-            background: rgba(255, 255, 255, 0.2);
-            backdrop-filter: blur(10px);
-            border-radius: 0.625rem;
-            border: none;
-            color: white;
+            min-height: 2rem;
+            padding: 0.25rem 0.625rem;
+            background: transparent;
+            border-radius: var(--radius-s);
+            border: 1px solid var(--border);
+            color: var(--text-primary);
             font-size: 0.75rem;
+            font-variant-numeric: tabular-nums;
             font-family: inherit;
             cursor: pointer;
         }
         .zoom-reset { white-space: nowrap; }
         @media (hover: hover) and (pointer: fine) {
             .m-zoomIn-button:hover, .m-zoomOut-button:hover, .zoom-reset:hover {
-                background: rgba(255, 255, 255, 0.35);
+                background: var(--fill-soft);
             }
         }
 
         /* ≤ 900 或觸控：實體 44px 下限，縮到 50% 也一樣點得到（不跟著縮放變小） */
         @media (max-width: 900px), (pointer: coarse) {
-            .m-zoomOut-button, .m-zoomIn-button, .zoom-reset, .theme-toggle {
+            .m-zoomOut-button, .m-zoomIn-button, .zoom-reset, .theme-toggle, .help-btn {
                 min-width: var(--hit);
                 min-height: var(--hit);
             }
@@ -312,8 +359,8 @@
         }
 
         @media (hover: hover) and (pointer: fine) {
-            .theme-toggle:hover {
-                background: rgba(255, 255, 255, 0.3);
+            .theme-toggle:hover, .help-btn:hover {
+                background: var(--fill-soft);
             }
         }
 
@@ -338,42 +385,41 @@
             transform: translateY(-50%);
             background: transparent;
             color: var(--text-secondary);
-            border: 1.5px solid var(--border);
-            border-radius: 0.375rem;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-s);
             padding: 0.1875rem 0.4375rem;
             font-size: 0.75rem;
             cursor: pointer;
-            font-family: 'Noto Sans TC', sans-serif;
+            font-family: var(--font-ui);
             transition: all 0.2s;
             white-space: nowrap;
             user-select: none;
         }
         @media (hover: hover) and (pointer: fine) {
-            .input-mode-btn:hover { border-color: #667eea; color: #667eea; }
+            .input-mode-btn:hover { border-color: var(--text-secondary); color: var(--text-primary); }
         }
-        .input-mode-btn.mode-zhuyin { background: #667eea; border-color: #667eea; color: white; }
-        .input-mode-btn.mode-pinyin { background: #764ba2; border-color: #764ba2; color: white; }
+        .input-mode-btn.mode-zhuyin, .input-mode-btn.mode-pinyin { background: var(--action-bg); border-color: var(--action-bg); color: var(--action-text); }
 
         .search-input {
             width: 100%;
             padding: clamp(0.625rem, 1.5vw, 1.125rem) 4rem clamp(0.625rem, 1.5vw, 1.125rem) clamp(0.875rem, 2vw, 1.5rem);
             font-size: clamp(0.95rem, 1.4vw, 1.2rem);
-            border: 3px solid var(--border);
-            border-radius: 0.75rem;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-m);
             outline: none;
             transition: all 0.3s ease;
-            font-family: 'Noto Sans TC', sans-serif;
-            background: var(--container-bg);
+            font-family: var(--font-ui);
+            background: var(--card-bg);
             color: var(--text-primary);
         }
         
         .search-input:focus {
-            border-color: #667eea;
-            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+            border-color: var(--text-secondary);
+            box-shadow: 0 0 0 3px var(--fill-soft);
         }
         
         .search-hint {
-            font-size: 0.9rem;
+            font-size: 0.8125rem;
             color: var(--text-secondary);
             margin-top: 0.5rem;
             font-weight: 400;
@@ -393,19 +439,19 @@
         .poly-chip {
             padding: 0.125rem 0.625rem;
             border-radius: 1.25rem;
-            border: 1.5px solid rgba(102, 126, 234, 0.5);
+            border: 1px solid var(--accent-line);
             font-size: 0.82rem;
             cursor: pointer;
-            background: rgba(102, 126, 234, 0.08);
+            background: var(--accent-soft);
             color: var(--text-primary);
-            font-family: 'Noto Sans TC', 'JetBrains Mono', sans-serif;
+            font-family: var(--font-ui);
             transition: border-color 0.15s, background 0.15s, color 0.15s;
             -webkit-tap-highlight-color: transparent;
         }
         @media (hover: hover) and (pointer: fine) {
-            .poly-chip:hover { background: rgba(102, 126, 234, 0.18); border-color: #667eea; }
+            .poly-chip:hover { border-color: var(--highlight-border); }
         }
-        .poly-chip.active { background: #667eea; border-color: #667eea; color: #fff; }
+        .poly-chip.active { background: var(--action-bg); border-color: var(--action-bg); color: var(--action-text); }
         .poly-chip.rare { opacity: 0.62; border-style: dashed; }
         .poly-chip.rare.active { opacity: 1; }
         .poly-chip .rare-mark { font-size: 0.75rem; opacity: 0.75; margin-left: 0.1875rem; vertical-align: 1px; }
@@ -443,30 +489,31 @@
         /* 按鈕組 */
         .button-group {
             display: flex;
-            gap: 0.5rem;
-            background: var(--card-bg);
-            padding: 0.25rem;
-            border-radius: 0.625rem;
+            gap: 0.125rem;
+            background: var(--fill-soft);
+            padding: 0.1875rem;
+            border-radius: var(--radius-m);
             border: 1px solid var(--border);
         }
         
         .reset-color{
             margin-top:0.5rem;
             padding:0.25rem 0.5rem;
-            font-size: 0.9rem;
-            border:1px solid  #ff8c3a;
-            border-radius:0.375rem;
-            background: #f57f7f;
-            color: rgb(228, 228, 228);
-            font-weight: 700;
+            font-size: 0.875rem;
+            font-family: var(--font-ui);
+            border: 1px solid var(--danger-line);
+            border-radius: var(--radius-s);
+            background: transparent;
+            color: var(--danger-line);
+            font-weight: 400;
             cursor:pointer;
         }
         
         @media (hover: hover) and (pointer: fine) {
             .reset-color:hover{
-                background: #ff3d3d;
-                border-color:  #000000;
-                color: rgb(255, 255, 255);
+                background: var(--danger-bg);
+                border-color: var(--danger-bg);
+                color: var(--danger-text);
             }
         }
         
@@ -484,21 +531,22 @@
             background: transparent;
             color: var(--text-secondary);
             cursor: pointer;
-            border-radius: 0.375rem;
-            font-size: 0.9rem;
-            font-family: 'Noto Sans TC', sans-serif;
+            border-radius: var(--radius-s);
+            font-size: 0.875rem;
+            font-family: var(--font-ui);
             transition: all 0.2s ease;
             font-weight: 400;
         }
         
         .mode-button.active {
-            background: linear-gradient(120deg, #e3a5a5 0%, var(--container-bg)100%);
-            color: rgb(255, 255, 255);
+            background: var(--card-bg);
+            color: var(--text-primary);
+            box-shadow: 0 1px 2px var(--shadow), inset 0 -2px 0 var(--highlight-border);
         }
         
         @media (hover: hover) and (pointer: fine) {
             .mode-button:hover:not(.active) {
-                background: var(--border);
+                color: var(--text-primary);
             }
         }
         
@@ -507,21 +555,24 @@
             display: flex;
             align-items: space-evenly;
             justify-content: space-evenly;
+            align-items: center;
+            gap: 0.375rem;
             padding: 0.125rem 0.75rem;
             border: 1px solid var(--border);
-            border-radius: 0.5rem;
-            background: var(--card-bg);
+            border-radius: var(--radius-s);
+            background: transparent;
             color: var(--text-secondary);
             cursor: pointer;
-            font-size: 0.8rem;
-            font-family: 'Noto Sans TC', sans-serif;
+            font-size: 0.8125rem;
+            font-family: var(--font-ui);
             transition: all 0.2s ease;
             user-select: none;
         }
 
         @media (hover: hover) and (pointer: fine) {
             .settings-trigger:hover {
-                background: var(--border);
+                background: var(--fill-soft);
+                color: var(--text-primary);
             }
         }
 
@@ -531,7 +582,7 @@
         
         .settings-trigger .gear-icon {
             transition: transform 0.3s ease;
-            padding: 0.375rem 0.375rem;
+            padding: 0.375rem 0;
         }
 
         .settings-trigger.open .gear-icon {
@@ -542,9 +593,7 @@
             display: none;
             position: fixed;
             top: 0; left: 0; right: 0; bottom: 0;
-            background: rgba(0,0,0,0.3);
-            backdrop-filter: blur(4px);
-            -webkit-backdrop-filter: blur(4px);
+            background: rgba(0,0,0,0.4);
             z-index: 999;
             justify-content: center;
             align-items: center;
@@ -557,8 +606,8 @@
         .settings-dropdown {
             background: var(--card-bg);
             border: 1px solid var(--border);
-            border-radius: 0.875rem;
-            padding: 1.5rem 1.75rem;
+            border-radius: 0.75rem;
+            padding: 1.5rem;
             box-shadow: 0 12px 40px rgba(0,0,0,0.2);
             width: min(22rem, 92vw);
             max-height: calc(var(--app-h) - 2rem);
@@ -575,11 +624,13 @@
         .settings-dropdown > * { flex-shrink: 0; }
         
         .settings-dropdown-title {
-            font-size: 1rem;
+            font-family: var(--font-serif);
+            font-size: 1.125rem;
             font-weight: 700;
             color: var(--text-primary);
             margin-bottom: 0.25rem;
-            text-align: center;
+            padding-bottom: 0.625rem;
+            border-bottom: 1px solid var(--border);
         }
 
         /* 詞庫包清單（Phase 6）：單選列，名稱一行、詞數與說明一行 */
@@ -625,7 +676,7 @@
             overflow-y: auto;
             /* overflow-x: hidden; */
             /* border-top: 5px solid var(--border); */
-            border-top: 4px solid  rgb(177, 110, 55);
+            border-top: 1px solid var(--border);
             scrollbar-width: thin;
         }
 
@@ -671,9 +722,10 @@
         }
         
         .results-count {
-            font-size: 1.1rem;
+            font-size: 0.875rem;
             color: var(--text-secondary);
             font-weight: 400;
+            letter-spacing: 0.04em;
         }
         
         .batch-count {
@@ -688,19 +740,18 @@
         }
         
         .group-title {
-            font-size: 1.3rem;
+            font-family: var(--font-serif);
+            font-size: 1.125rem;
             font-weight: 700;
-            color: var(--text-secondary);
-            margin-bottom: 0.9375rem;
-            padding: 0.5rem 0.75rem;
-            border-radius: 0.5rem;
+            color: var(--text-primary);
+            margin-bottom: 0.75rem;
+            padding: 0.125rem 0 0.125rem 0.625rem;
+            border-left: 3px solid var(--highlight-border);
             display: inline-block;
         }
         
         .group-title.rhyme-group {
-            background: linear-gradient(75deg, #f9d7d7 0%, var(--container-bg)100%);
-            /* background: var(--card-bg); */
-            border: 2px solid var(--border);
+            background: none;
         }
 
         .group-title.rhyme-group span[class^="search-highlight"] {
@@ -710,24 +761,14 @@
         .results-grid {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(5rem, 1fr));
-            gap: 0.75rem;
-            animation: fadeIn 0.4s ease-out;
-        }
-        
-        @keyframes fadeIn {
-            from {
-                opacity: 0;
-            }
-            to {
-                opacity: 1;
-            }
+            gap: 0.625rem;
         }
         
         .char-card {
             background: var(--card-bg);
-            border: 2px solid var(--border);
-            border-radius: 0.5rem;
-            padding: 0.75rem;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-m);
+            padding: 0.75rem 0.5rem 0.625rem;
             text-align: center;
             transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
             cursor: pointer;
@@ -741,9 +782,9 @@
         
         @media (hover: hover) and (pointer: fine) {
             .char-card:hover {
-                transform: translateY(-2px);
-                box-shadow: 0 4px 12px var(--shadow);
-                border-color: #667eea;
+                transform: translateY(-1px);
+                box-shadow: 0 3px 10px var(--shadow);
+                border-color: var(--accent-line);
             }
         }
         
@@ -751,12 +792,14 @@
             border-color: var(--highlight-border);
             outline: 2px solid var(--highlight-border);
             outline-offset: -1px;
-            background: linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%);
+            background: var(--accent-soft);
         }
         
         .char-main {
+            font-family: var(--font-serif);
             font-size: 2rem;
             font-weight: 400;
+            line-height: 1.25;
             margin-bottom: 0.25rem;
         }
 
@@ -768,7 +811,7 @@
         .char-pinyin {
             font-size: 0.85rem;
             color: var(--text-secondary);
-            font-family: 'JetBrains Mono', monospace;
+            font-family: var(--font-mono);
             text-align: center;
             min-width: 0;
             overflow-wrap: anywhere;
@@ -801,24 +844,27 @@
 
         @media (hover: hover) and (pointer: fine) {
             .mark-badge:hover {
-                transform: scale(1.1);
-                filter: brightness(1.1);
+                background: var(--accent-soft);
             }
         }
         
+        /* 常用／一般／冷僻：不靠顏色也分得出（淡底／細框／虛線框）；常用最多，所以最安靜 */
         .mark-badge.common {
-            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-            color: white;
+            background: var(--fill-soft);
+            color: var(--text-secondary);
         }
 
         .mark-badge.normal {
-            background: var(--border);
+            background: transparent;
+            box-shadow: inset 0 0 0 1px var(--border);
             color: var(--text-secondary);
         }
         
         .mark-badge.rare {
-            background: linear-gradient(135deg, #667eea 0%, #4299e1 100%);
-            color: white;
+            background: transparent;
+            outline: 1px dashed var(--text-secondary);
+            outline-offset: -1px;
+            color: var(--text-secondary);
         }
         
         /* 搜尋內容高亮樣式 - 多顏色 */
@@ -917,9 +963,7 @@
 
         @media (hover: hover) and (pointer: fine) {
             .recent-char:hover {
-                background: #667eea;
-                color: white;
-                transform: scale(1.05);
+                background: var(--accent-soft);
             }
         }
 

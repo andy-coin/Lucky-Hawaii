@@ -325,7 +325,7 @@ test('復原：變灰不丟焦點', async ({ browser }) => {
     await ta(page).focus();
     await page.keyboard.press('End');
     await page.keyboard.type('abc');
-    for (let i = 0; i < 6 && await page.evaluate(() => document.activeElement.id) !== 'undoBtn'; i++) await page.keyboard.press('Shift+Tab');   // 用鍵盤往前找到 ↶
+    for (let i = 0; i < 16 && await page.evaluate(() => document.activeElement.id) !== 'undoBtn'; i++) await page.keyboard.press('Shift+Tab');   // 用鍵盤往前找到 ↶
     expect(await page.evaluate(() => document.activeElement.id)).toBe('undoBtn');
     await page.keyboard.press('Enter');
     expect(await disabled(page, '#undoBtn')).toBe('true');
