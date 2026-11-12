@@ -2,6 +2,7 @@
 // 絕不打真的 API：api.groq.com 與 generativelanguage.googleapis.com 一律用 page.route 攔下來
 import { test, expect } from '@playwright/test';
 import { bootPage, settle } from './helpers.mjs';
+import { hitMin } from './layout-lib.mjs';
 
 const GKEY = 'AIzaTEST-gemini-key-0000';
 const QKEY = 'gsk_TEST_groq_key_0000';
@@ -266,15 +267,16 @@ test('自製下拉：沒金鑰時不分組、沒有用量圖示；清掉金鑰�
     });
 });
 
-test('觸控：模型選項、鑰匙、金鑰欄都 ≥ 44px', async ({ browser }) => {
+test('觸控：模型選項、鑰匙、金鑰欄都夠大（平板 36、手機 44）', async ({ browser }) => {
     await withPage(browser, { storage: { apiKey_groq: QKEY }, device: { viewport: { width: 1180, height: 820 }, isMobile: true, hasTouch: true, deviceScaleFactor: 1 } }, async ({ page }) => {
         const h = sel => page.locator(sel).first().evaluate(e => { const r = e.getBoundingClientRect(); return Math.min(r.width, r.height); });
         if (!(await page.locator('#modelPicker').isVisible())) await page.evaluate(() => toggleRightPanel());
+        const min = (await hitMin(page)) - 0.5;
         await page.locator('#modelPicker').tap();
-        expect(await h('#modelList [role=option]')).toBeGreaterThanOrEqual(43.5);
-        expect(await h('#aiKeyBtn')).toBeGreaterThanOrEqual(43.5);
+        expect(await h('#modelList [role=option]')).toBeGreaterThanOrEqual(min);
+        expect(await h('#aiKeyBtn')).toBeGreaterThanOrEqual(min);
         await openAiTab(page);
-        expect(await h('#byokKey-gemini')).toBeGreaterThanOrEqual(43.5);
-        expect(await h('.byok-eye')).toBeGreaterThanOrEqual(43.5);
+        expect(await h('#byokKey-gemini')).toBeGreaterThanOrEqual(min);
+        expect(await h('.byok-eye')).toBeGreaterThanOrEqual(min);
     });
 });

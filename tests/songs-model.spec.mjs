@@ -1,7 +1,7 @@
 // 歌詞以資料模型為準：畫面只是模型的顯示，打字只改記憶體裡的這首歌，畫面不會被讀回存檔
 import { test, expect } from '@playwright/test';
 import { readFileSync } from 'node:fs';
-import { bootPage, activeSongRaw, flushAndReadActiveSong } from './helpers.mjs';
+import { bootPage, activeSongRaw, flushAndReadActiveSong, clickBackup } from './helpers.mjs';
 
 const FIXTURE = JSON.parse(readFileSync(new URL('./fixtures/v096-localStorage.json', import.meta.url), 'utf8'));
 const LEGACY = JSON.parse(FIXTURE.haiku_lyrics);
@@ -63,7 +63,7 @@ test('資料為準：畫面被改動不會寫回', async ({ browser }) => {
     expect(s.sections[0].text).toBe('abc');
     expect(JSON.stringify(s)).not.toContain('TAMPER');
     // 匯出也是從模型來的
-    const [download] = await Promise.all([page.waitForEvent('download'), page.locator('.save-load-btn').first().click()]);
+    const download = await clickBackup(page);
     const body = readFileSync(await download.path(), 'utf8');
     expect(body).toContain('abc');
     expect(body).not.toContain('TAMPER');

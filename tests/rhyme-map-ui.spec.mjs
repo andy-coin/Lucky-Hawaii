@@ -3,7 +3,7 @@
 import { test, expect, chromium } from '@playwright/test';
 import { readFileSync } from 'node:fs';
 import { bootPage, compose, openTwoTabs, activeSongRaw } from './helpers.mjs';
-import { DEVICES, setScale, waitStill, emulateKeyboard, readKeyboard, insideVisible, auditTouchTargets, rectsOverlap, expectFullyInViewport } from './layout-lib.mjs';
+import { DEVICES, setScale, waitStill, emulateKeyboard, readKeyboard, insideVisible, auditTouchTargets, rectsOverlap, expectFullyInViewport, hitMin } from './layout-lib.mjs';
 
 const FIXTURE = JSON.parse(readFileSync(new URL('./fixtures/v096-localStorage.json', import.meta.url), 'utf8'));
 const OPEN_PANELS = { leftPanelCollapsed: 'false', rightPanelCollapsed: 'false' };
@@ -1342,7 +1342,7 @@ test('讀音：不是句尾或不是破音字就沒有指定讀音', async ({ br
     await context.close();
 });
 
-test('讀音：觸控時指定讀音按鈕與每個晶片至少 44×44', async ({ browser }) => {
+test('讀音：觸控時指定讀音按鈕與每個晶片夠大（平板 36、手機 44）', async ({ browser }) => {
     for (const [name, device] of [['手機', DEVICES.phone], ['平板', DEVICES.tablet], ['橫放平板', DEVICES.tabletLandscape]]) {
         const b = await bootPage(browser, { wordlist: 'stub', device, storage: v2Storage([song([typed('sa', 'verse', READ_TXT)])]) });
         if (await b.page.evaluate(() => lhIsSheetMode())) { await b.page.locator('#mtab-lyrics').click(); await waitStill(b.page); }
@@ -1351,7 +1351,8 @@ test('讀音：觸控時指定讀音按鈕與每個晶片至少 44×44', async (
         await b.page.locator(RD).click();
         const sizes = await b.page.locator('#rhymeSelBar button:visible').evaluateAll(els => els.map(e => { const r = e.getBoundingClientRect(); return [e.textContent, Math.round(r.width), Math.round(r.height)]; }));
         expect(sizes.length, name + '：查韻、AI、指定讀音加上晶片').toBeGreaterThan(4);
-        for (const [t, w, h] of sizes) { expect(w, name + ' ' + t + ' 寬').toBeGreaterThanOrEqual(44); expect(h, name + ' ' + t + ' 高').toBeGreaterThanOrEqual(44); }
+        const min = await hitMin(b.page);
+        for (const [t, w, h] of sizes) { expect(w, name + ' ' + t + ' 寬').toBeGreaterThanOrEqual(min); expect(h, name + ' ' + t + ' 高').toBeGreaterThanOrEqual(min); }
         expect(b.errors).toEqual([]);
         await b.context.close();
     }

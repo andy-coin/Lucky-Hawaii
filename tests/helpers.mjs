@@ -102,6 +102,9 @@ export const stubSlangEmpty = context => context.route(/\/data\/slang\/words\.js
 // device: 任何 newContext 選項（viewport、isMobile、hasTouch、deviceScaleFactor、reducedMotion…），蓋過預設的桌機
 // colorScheme: 給了就蓋過預設的 'light'
 export async function bootPage(browser, { storage = {}, init = null, wordlist = 'real', aiReply, aiFail, models, corrections, beforeGoto = null, waitWordlist = true, device = {}, colorScheme } = {}) {
+    // 觸控裝置沒存過縮放時預設 90%；大部分測試以 100% 為準，所以觸控沒指定就種 100（要測預設值的測試自己傳 'lh:uiScale': null）
+    storage = { ...(device.hasTouch && !('lh:uiScale' in storage) ? { 'lh:uiScale': '100' } : {}), ...storage };
+    storage = Object.fromEntries(Object.entries(storage).filter(([, v]) => v !== null));
     const context = await browser.newContext({
         ...CONTEXT_OPTS,
         ...device,
@@ -255,3 +258,17 @@ export const STORAGE_SPY = () => {
         return orig.call(this, k, v);
     };
 };
+
+// 備份全部／匯入備份只在偏好設定「資料與備份」分頁（標題列不再有按鈕）
+export const SETTINGS_BACKUP = '.settings-saveload .save-load-btn >> nth=0';
+export const SETTINGS_IMPORT = '.settings-saveload .save-load-btn >> nth=1';
+export async function openDataTab(page) {
+    if (!(await page.locator('#prefsTab-data').isVisible())) await page.locator('#settingsTrigger').click();
+    await page.locator('#prefsTab-data').click();
+}
+// 打開設定 → 資料與備份 → 點備份全部，回傳下載物件
+export async function clickBackup(page) {
+    await openDataTab(page);
+    const [dl] = await Promise.all([page.waitForEvent('download'), page.locator(SETTINGS_BACKUP).click()]);
+    return dl;
+}

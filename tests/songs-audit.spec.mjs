@@ -2,7 +2,7 @@
 // 每個計畫已經各自測過自己的畫面；這裡把它們放在一起，用同一把尺再量一次（UI-SPEC §10、§11）
 import { test, expect } from '@playwright/test';
 import { readFileSync } from 'node:fs';
-import { bootPage } from './helpers.mjs';
+import { bootPage, openDataTab, SETTINGS_BACKUP, SETTINGS_IMPORT } from './helpers.mjs';
 import { DEVICES, noPageScroll, waitStill, auditTouchTargets } from './layout-lib.mjs';
 
 const DESKTOP = { viewport: { width: 1440, height: 900 }, deviceScaleFactor: 1 };
@@ -412,8 +412,8 @@ test('檢查：無障礙名稱', async ({ browser }) => {
     await expectNamed('.song-act.delete[data-song-id="song-a"]', '刪除「甲」');
     await expectNamed('.song-act.rename[data-song-id="song-b"]', '重新命名「乙」');
     await expectNamed('.song-act.delete[data-song-id="song-b"]', '刪除「乙」');
-    await expectNamed('.save-load-controls .save-load-btn >> nth=0', '把所有歌曲與設定存成一個備份檔');
-    await expectNamed('.save-load-controls .save-load-btn >> nth=1', '從備份檔還原歌曲與設定');
+    await expectNamed(SETTINGS_BACKUP, '把所有歌曲與設定存成一個備份檔');
+    await expectNamed(SETTINGS_IMPORT, '從備份檔還原歌曲與設定');
     await expectNamed('#songDeleteCancel', '先不刪除，關閉視窗');
     await expectNamed('#importCancelBtn', '先不匯入，關閉視窗');
 
@@ -429,7 +429,8 @@ test('檢查：無障礙名稱', async ({ browser }) => {
     await expectNamed('#importCancelBtn', '關閉錯誤訊息，回到頁面');
     await page.locator('#importCancelBtn').click();
 
-    // 用無障礙名稱真的找得到（不只是屬性存在）
+    // 用無障礙名稱真的找得到（不只是屬性存在）；備份鈕在設定「資料與備份」分頁
+    await openDataTab(page);
     for (const n of ['開關歌曲清單', '匯出這首歌', '在這首歌新增一個段落', '新增一首歌曲', '把所有歌曲與設定存成一個備份檔', '從備份檔還原歌曲與設定']) {
         expect(await page.getByRole('button', { name: n }).count(), n).toBeGreaterThanOrEqual(1);
     }

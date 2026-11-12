@@ -2,7 +2,7 @@
 // 匯出的檔案裡沒有任何韻腳標記。每個計畫已經各自測過自己的功能；這裡把它們串成同一個連續的寫詞過程
 import { test, expect } from '@playwright/test';
 import { readFileSync } from 'node:fs';
-import { bootPage, compose, activeSongRaw } from './helpers.mjs';
+import { bootPage, compose, activeSongRaw, clickBackup } from './helpers.mjs';
 import { DEVICES, waitStill } from './layout-lib.mjs';
 
 const FIXTURE = JSON.parse(readFileSync(new URL('./fixtures/v096-localStorage.json', import.meta.url), 'utf8'));
@@ -216,7 +216,7 @@ test('整合：韻腳地圖一次走完', async ({ browser }) => {
     const md = await download('Markdown');
     expect(md).toContain('我望著遠方的光');
     noMarkup(md, 'Markdown');
-    const [bk] = await Promise.all([page.waitForEvent('download'), page.locator('.save-load-controls .save-load-btn >> nth=0').click()]);
+    const bk = await clickBackup(page);
     const bkText = await readDownload(bk);
     noMarkup(bkText, '備份');
     const backup = JSON.parse(bkText);

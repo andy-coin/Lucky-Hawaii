@@ -686,7 +686,7 @@
            class 選擇器比元素選擇器強，所以每種輸入框都要明確列出（檔尾，同權重時這裡贏）。
            電腦（≥ 901 且滑鼠）維持原本字級。 ===== */
         @media (max-width: 900px), (pointer: coarse) {
-            .search-input, .section-textarea, .rhyme-mirror, .context-textarea, .hashtag-input,
+            .search-input, .hashtag-input,
             .hashtag-input-row input, .word-input-row input, .feedback-modal input, .feedback-modal textarea,
             .model-select, .song-name-input, .section-name-input {
                 font-size: max(16px, 1rem);

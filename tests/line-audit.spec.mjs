@@ -3,9 +3,9 @@
 // 用同一把尺再量一次（結構照 tests/rhyme-audit.spec.mjs）
 import { test, expect } from '@playwright/test';
 import { readFileSync } from 'node:fs';
-import { bootPage, openTwoTabs } from './helpers.mjs';
+import { bootPage, openTwoTabs, clickBackup } from './helpers.mjs';
 import { parseAny, walk } from './scan-lib.mjs';
-import { DEVICES, waitStill, setScale, auditTouchTargets, expectFullyInViewport, emulateKeyboard, readKeyboard, insideVisible, restoreViewport } from './layout-lib.mjs';
+import { DEVICES, waitStill, setScale, auditTouchTargets, hitMin, expectFullyInViewport, emulateKeyboard, readKeyboard, insideVisible, restoreViewport } from './layout-lib.mjs';
 
 const FIXTURE = JSON.parse(readFileSync(new URL('./fixtures/v096-localStorage.json', import.meta.url), 'utf8'));
 const OPEN_PANELS = { leftPanelCollapsed: 'false', rightPanelCollapsed: 'false' };
@@ -76,8 +76,9 @@ test('檢查：三種裝置的觸控大小（句構分析）', async ({ browser 
         await expect(page.locator(PREFS)).toBeVisible();
         const summary = page.locator('#prefsTab-map');   // 分頁式（R2）：原本的展開標題換成分頁鈕
         const sb = await summary.boundingBox();
-        expect(sb.height, `${name} 「韻腳與句構」分頁鈕高度`).toBeGreaterThanOrEqual(43.5);
-        expect(sb.width, `${name} 「韻腳與句構」分頁鈕寬度`).toBeGreaterThanOrEqual(43.5);
+        const min = (await hitMin(page)) - 0.5;
+        expect(sb.height, `${name} 「韻腳與句構」分頁鈕高度`).toBeGreaterThanOrEqual(min);
+        expect(sb.width, `${name} 「韻腳與句構」分頁鈕寬度`).toBeGreaterThanOrEqual(min);
         const blocks = [
             ['韻腳地圖', [PREFS + ' .rm-switch', PREFS + ' .type-row[data-m]']],
             ['句構分析', [PREFS + ' .rm-sub .rm-switch', PREFS + ' .rm-switch[data-k="autoHover"]']],
@@ -378,7 +379,7 @@ test('檢查：列印與匯出沒有句構標記', async ({ browser }) => {
     }
     await page.emulateMedia({ media: 'screen' });
     // 備份全部：JSON 只有資料，lh:map 是 lhRhymeSerialize 的輸出
-    const [bk] = await Promise.all([page.waitForEvent('download'), page.locator('.save-load-controls .save-load-btn >> nth=0').click()]);
+    const bk = await clickBackup(page);
     const text = await readDownload(bk);
     expect(text).not.toContain('lm-mk');
     expect(text).not.toContain('rhymeAnalysis');

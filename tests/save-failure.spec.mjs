@@ -3,7 +3,7 @@
 import { test, expect } from '@playwright/test';
 import { readFileSync } from 'node:fs';
 import { bootPage, settle } from './helpers.mjs';
-import { DEVICES, setScale, rectsOverlap, auditVisibleControls } from './layout-lib.mjs';
+import { DEVICES, setScale, rectsOverlap, auditVisibleControls, hitMin } from './layout-lib.mjs';
 
 const FIXTURE = JSON.parse(readFileSync(new URL('./fixtures/v096-localStorage.json', import.meta.url), 'utf8'));
 
@@ -135,7 +135,7 @@ for (const [name, device] of [['phone', DEVICES.phone], ['tablet', DEVICES.table
             expect(hits, `${name}@${scale} 橫幅蓋住的控制項`).toEqual([]);
             if (touch) {
                 for (const sel of ['.lh-save-banner-export', '.lh-save-banner-close']) {
-                    expect((await page.locator(sel).boundingBox()).height, `${name}@${scale} ${sel}`).toBeGreaterThanOrEqual(44);
+                    expect((await page.locator(sel).boundingBox()).height, `${name}@${scale} ${sel}`).toBeGreaterThanOrEqual(await hitMin(page));
                 }
             }
         }

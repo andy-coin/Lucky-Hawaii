@@ -61,6 +61,46 @@ test('縮放：重開沿用、壞值回 100、超出範圍夾回', async ({ brow
     } finally { await context.close(); }
 });
 
+test('縮放：觸控裝置沒存過預設 90%、電腦 100%、存過就用存的；預設值不寫進儲存', async ({ browser }) => {
+    for (const [name, device, storage, expected] of [
+        ['手機沒存過', DEVICES.phone, { [SCALE_KEY]: null }, 90],
+        ['平板沒存過', DEVICES.tablet, { [SCALE_KEY]: null }, 90],
+        ['電腦沒存過', DEVICES.desktop, {}, 100],
+        ['手機存過 120', DEVICES.phone, { [SCALE_KEY]: '120' }, 120],
+        ['手機存過 100', DEVICES.phone, { [SCALE_KEY]: '100' }, 100],
+    ]) {
+        const { context, page } = await bootPage(browser, { device, storage });
+        try {
+            expect(await readScale(page), name).toMatchObject({ current: expected, label: expected + '%', rootFont: expected / 100 * 16 + 'px' });
+            if (storage[SCALE_KEY] == null) expect(await page.evaluate(k => localStorage.getItem(k), SCALE_KEY), `${name}：預設值不寫進儲存`).toBeNull();
+        } finally { await context.close(); }
+    }
+});
+
+test('輸入：iOS／iPadOS 的 viewport 加 maximum-scale=1，Android 與桌機不加', async ({ browser }) => {
+    const IPAD = 'Mozilla/5.0 (iPad; CPU OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1';
+    const IPHONE = 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1';
+    const ANDROID = 'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Mobile Safari/537.36';
+    // iPadOS 預設回報桌機 Safari 的 UA，只能靠 MacIntel＋多點觸控認出來
+    const MAC_UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15';
+    const asMac = touch => `Object.defineProperty(Navigator.prototype, 'platform', { get: () => 'MacIntel' }); Object.defineProperty(Navigator.prototype, 'maxTouchPoints', { get: () => ${touch} });`;
+    for (const [name, device, init, want] of [
+        ['iPad UA', { ...DEVICES.tablet, userAgent: IPAD }, null, true],
+        ['iPhone UA', { ...DEVICES.phone, userAgent: IPHONE }, null, true],
+        ['iPadOS（MacIntel＋觸控）', { ...DEVICES.tablet, userAgent: MAC_UA }, asMac(5), true],
+        ['Android', { ...DEVICES.phone, userAgent: ANDROID }, null, false],
+        ['Mac 桌機（MacIntel、沒有觸控）', { ...DEVICES.desktop, userAgent: MAC_UA }, asMac(0), false],
+        ['預設桌機', DEVICES.desktop, null, false],
+    ]) {
+        const { context, page } = await bootPage(browser, { device, init });
+        try {
+            const content = await page.locator('meta[name="viewport"]').getAttribute('content');
+            expect(/maximum-scale=1/.test(content), `${name}：${content}`).toBe(want);
+            expect(content.match(/maximum-scale/g)?.length ?? 0, `${name}：只加一次`).toBe(want ? 1 : 0);
+        } finally { await context.close(); }
+    }
+});
+
 test('縮放：重新整理後在第一次繪製前就套用', async ({ browser }) => {
     const { context, page } = await bootPage(browser, {
         storage: { [SCALE_KEY]: '130' },
@@ -1557,7 +1597,7 @@ test('輸入：16px 剛好通過、900 套用、901 桌機不變', async ({ brow
     const { context, page } = await bootPage(browser, { device: DEVICES.desktop });
     try {
         expect(await page.evaluate(() => matchMedia('(pointer: fine)').matches), '這個 context 是滑鼠').toBe(true);
-        const fonts = () => page.evaluate(() => Object.fromEntries(['#modelPicker', '#searchInput', '.context-textarea', '.section-textarea'].map(s => [s, parseFloat(getComputedStyle(document.querySelector(s)).fontSize)])));
+        const fonts = () => page.evaluate(() => Object.fromEntries(['#modelPicker', '#searchInput'].map(s => [s, parseFloat(getComputedStyle(document.querySelector(s)).fontSize)])));
         const desktop = await fonts();
         expect(desktop['#modelPicker'], '1440 桌機維持原字級').toBeLessThan(16);
         await page.setViewportSize({ width: 901, height: 900 });
@@ -1753,7 +1793,7 @@ test('觸控：相鄰按鈕的點擊範圍重疊不超過 4px', async ({ browser
     expect([...new Set(bad)], '相鄰控制項的點擊範圍重疊超過 4px').toEqual([]);
 });
 
-test('觸控：橫放平板 1180×820 的韻腳選單每個控制項 ≥ 44×44', async ({ browser }) => {
+test('觸控：橫放平板 1180×820 的韻腳選單每個控制項 ≥ 36×36', async ({ browser }) => {
     const device = DEVICES.tabletLandscape;
     const { context, page } = await bootTouch(browser, device);
     try {
@@ -1761,20 +1801,20 @@ test('觸控：橫放平板 1180×820 的韻腳選單每個控制項 ≥ 44×44'
         await openRhymeMenu(page, device);
         const r = await auditTouchTargets(page, { mustSee: RHYME_MENU_MUST });
         expect(r.missing, `這些控制項沒被掃到（掃到 ${[...new Set(r.seen)]}）`).toEqual([]);
-        expect(r.failures, '這些控制項點擊範圍不到 44×44').toEqual([]);
+        expect(r.failures, '這些控制項點擊範圍不到 36×36（平板）').toEqual([]);
         expect(r.overlaps, '相鄰控制項重疊超過 4px').toEqual([]);
     } finally { await context.close(); }
 });
 
-test('觸控：橫放平板與觸控電腦（寬度超過 900）回報、存檔鈕也夠大', async ({ browser }) => {
-    // 寬度 > 900 但是觸控：標題區右下的存檔／讀檔鈕與頁尾的「回報」都還在，也要 ≥ 44×44
+test('觸控：橫放平板與觸控電腦（寬度超過 900）回報鈕也夠大', async ({ browser }) => {
+    // 寬度 > 900 但是觸控：頁尾的「回報」還在，也要夠大（平板 36）；標題區的備份鈕已移進設定
     for (const [name, device] of [['橫放平板 1180×820', DEVICES.tabletLandscape], ['觸控電腦 1440×900', TOUCH_DESKTOP]]) {
         const { context, page } = await bootTouch(browser, device);
         try {
             await waitStill(page);
-            const r = await auditTouchTargets(page, { mustSee: ['button.feedback-btn', 'button.save-load-btn'] });
+            const r = await auditTouchTargets(page, { mustSee: ['button.feedback-btn'] });
             expect(r.missing, `${name}：這些控制項沒被掃到（掃到 ${[...new Set(r.seen)]}）`).toEqual([]);
-            expect(r.failures, `${name}：這些控制項點擊範圍不到 44×44`).toEqual([]);
+            expect(r.failures, `${name}：這些控制項點擊範圍不夠大`).toEqual([]);
             expect(r.overlaps, `${name}：相鄰控制項重疊超過 4px`).toEqual([]);
         } finally { await context.close(); }
     }

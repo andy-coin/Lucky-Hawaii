@@ -64,11 +64,7 @@
             <h1>韻腳查詢器<span class="about-btn about-btn-mobile" onclick="toggleAbout()">i</span></h1>
             <p>寫歌詞...不簡單...甘巴爹...早點睡...</p>
 
-            <div class="save-load-controls">
-                <button class="save-load-btn" onclick="exportSession()" title="把所有歌曲與設定存成一個備份檔" aria-label="把所有歌曲與設定存成一個備份檔"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11M7.5 10.5L12 15l4.5-4.5M5 19h14"/></svg><span class="save-load-text">備份全部</span></button>
-                <button class="save-load-btn" onclick="document.getElementById('importFileInput').click()" title="從備份檔還原歌曲與設定" aria-label="從備份檔還原歌曲與設定"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15V4M7.5 8.5L12 4l4.5 4.5M5 19h14"/></svg><span class="save-load-text">匯入備份</span></button>
-                <input type="file" id="importFileInput" accept="application/json,.json" style="display:none" onchange="importSession(event)">
-            </div>
+            <input type="file" id="importFileInput" accept="application/json,.json" style="display:none" onchange="importSession(event)">
         </div>
         
         <div class="search-section">

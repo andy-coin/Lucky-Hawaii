@@ -2,7 +2,7 @@
 import { test, expect } from '@playwright/test';
 import { readFileSync } from 'node:fs';
 import { bootPage, activeSongRaw, compose } from './helpers.mjs';
-import { DEVICES, setScale, waitStill, rectsOverlap, expectReallyClickable, meetsInputFloor, emulateKeyboard, restoreViewport, readKeyboard, insideVisible } from './layout-lib.mjs';
+import { DEVICES, setScale, waitStill, rectsOverlap, expectReallyClickable, meetsInputFloor, emulateKeyboard, restoreViewport, readKeyboard, insideVisible, hitMin } from './layout-lib.mjs';
 import { centerOf, touchSession } from './drag-lib.mjs';
 
 const FIXTURE = JSON.parse(readFileSync(new URL('./fixtures/v096-localStorage.json', import.meta.url), 'utf8'));
@@ -1008,9 +1008,10 @@ test('設定：觸控點擊範圍與輸入框 16px', async ({ browser }) => {
             const px = parseFloat(await input.evaluate(el => getComputedStyle(el).fontSize));
             expect(meetsInputFloor(px), `${name} ${pct}%：自訂名稱字級 ${px}px`).toBe(true);
             if (pct === 100) {
-                // 觸控目標 ≥ 44×44（含色盤輸入與每個類型列）
-                const small = await menuOf(page).locator('button, input').evaluateAll(els => els.filter(e => e.offsetParent !== null).map(e => { const r = e.getBoundingClientRect(); return { n: e.className + ' ' + (e.textContent || e.getAttribute('aria-label')), w: r.width, h: r.height }; }).filter(r => r.w < 43.5 || r.h < 43.5));
-                expect(small, `${name}：這些控制項不到 44×44`).toEqual([]);
+                // 觸控目標 ≥ 平板 36／手機 44（含色盤輸入與每個類型列）
+                const min = (await hitMin(page)) - 0.5;
+                const small = await menuOf(page).locator('button, input').evaluateAll((els, min) => els.filter(e => e.offsetParent !== null).map(e => { const r = e.getBoundingClientRect(); return { n: e.className + ' ' + (e.textContent || e.getAttribute('aria-label')), w: r.width, h: r.height }; }).filter(r => r.w < min || r.h < min), min);
+                expect(small, `${name}：這些控制項不到 ${min + 0.5}×${min + 0.5}`).toEqual([]);
             }
             expect(errors).toEqual([]);
             await context.close();

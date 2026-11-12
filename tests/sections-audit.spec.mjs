@@ -4,7 +4,7 @@
 import { test, expect } from '@playwright/test';
 import { readFileSync, readdirSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
-import { bootPage, openTwoTabs, activeSongRaw } from './helpers.mjs';
+import { bootPage, openTwoTabs, activeSongRaw, clickBackup } from './helpers.mjs';
 import { DEVICES, waitStill, setScale, rectsOverlap, auditTouchTargets, noPageScroll } from './layout-lib.mjs';
 import { centerOf, mouseDrag } from './drag-lib.mjs';
 import { parseAny, walk } from './scan-lib.mjs';
@@ -458,7 +458,7 @@ test('檢查：重新整理後一模一樣、匯出照名稱', async ({ browser 
     expect(await page.evaluate(() => window.__printCount)).toBe(1);
     expect(await page.locator('#printSheet h2').allTextContents()).toEqual(nameList);
     // 備份全部：每段都帶類型、自訂名稱、顏色、高度
-    const [bk] = await Promise.all([page.waitForEvent('download'), page.locator('.save-load-controls .save-load-btn >> nth=0').click()]);
+    const bk = await clickBackup(page);
     const backup = JSON.parse(await readDownload(bk));
     const secsInFile = backup.songs.find(s => s.id === 's1').sections;
     expect(secsInFile.map(s => s.label)).toEqual(nameList);

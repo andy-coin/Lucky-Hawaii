@@ -141,9 +141,11 @@ export function meetsInputFloor(px) { return px >= 16; }
 
 // 掃整頁所有看得見的文字輸入控制項（input 排除勾選／色票／拉桿／檔案／按鈕類、textarea、select），
 // 回傳 { bad: 字級不到下限的清單, seen: 掃到的所有控制項 }；量的是每個元素自己的計算字級（CSS px），跟 --ui-scale、裝置像素比都無關
+// 歌詞框、鏡像層、情境框不受下限（跟著介面縮放；iOS 改用 viewport maximum-scale=1 擋自動放大），照樣記進 seen
+export const FLOOR_EXEMPT = '.section-textarea, .rhyme-mirror, .context-textarea';
 export function scanInputFonts(page) {
     // 比較器原始碼送進頁面執行，掃描與邊界測試用的是同一個函式
-    return page.evaluate(src => {
+    return page.evaluate(([src, exempt]) => {
         const meets = new Function('return ' + src)();
         const skip = /^(checkbox|radio|color|range|file|button|submit|reset|image|hidden)$/i;
         const bad = [];
@@ -160,15 +162,18 @@ export function scanInputFonts(page) {
             const cls = typeof el.className === 'string' && el.className.trim() ? '.' + el.className.trim().split(/\s+/).join('.') : '';
             const name = `${el.tagName.toLowerCase()}${el.id ? '#' + el.id : ''}${cls}`;
             seen.push(name);
-            if (!meets(px)) bad.push(`${name} ${px}px`);
+            if (!meets(px) && !el.matches(exempt)) bad.push(`${name} ${px}px`);
         }
         return { bad, seen };
-    }, meetsInputFloor.toString());
+    }, [meetsInputFloor.toString(), FLOOR_EXEMPT]);
 }
 
 // ===== 觸控目標（05-08，D-07）=====
 // 比較器獨立匯出，邊界測試直接驗：44 剛好過、43.4 不過（容許 0.5px 的小數誤差）
+// 觸控最小尺寸依裝置：平板（觸控、寬 ≥ 768）36px，手機 44px（對應 css/base.css 的 --hit）
 export const HIT_MIN = 44;
+export const HIT_TABLET = 36;
+export const hitMin = page => page.evaluate(([t, p]) => matchMedia('(pointer: coarse) and (min-width: 768px)').matches ? t : p, [HIT_TABLET, HIT_MIN]);
 export function meetsHit(w, h, minW = 44, minH = 44) { return w >= minW - 0.5 && h >= minH - 0.5; }
 
 // 每個畫面要檢查的控制項：button、a、select、input、有 onclick 的、字卡、分頁、同音字晶片，
@@ -182,7 +187,8 @@ const TOUCH_SELECTOR = 'button, a, select, input, [onclick], .char-card, .mtab-b
 //  - 例外：.mark-badge 只要 44 寬 × 32 高；關於對話框裡的行內文字連結不檢查（D-07、UI-SPEC §7）
 // 回傳 { failures: [{ selector, w, h }], overlaps: [{ a, b, amount }], seen: [名稱], missing: [沒掃到的 mustSee], scanned, covered }
 // 相鄰重疊：框 ＝ 實際點擊範圍；只比較同一捲動區／同一固定層、互相不包含、也不是 sticky、也不是「刻意疊在搜尋框裡的絕對定位按鈕」的兩個元素；amount = 重疊區較短的那一邊
-export function auditTouchTargets(page, { sample = 30, mustSee = [] } = {}) {
+export async function auditTouchTargets(page, { sample = 30, mustSee = [] } = {}) {
+    const hit = await hitMin(page);
     return page.evaluate(({ sel, hit, sample, tol, meetsSrc, mustSee }) => {
         const meets = new Function('return ' + meetsSrc)();
         const nameOf = n => n.tagName.toLowerCase() + (n.id ? '#' + n.id : '') + (typeof n.className === 'string' && n.className.trim() ? '.' + n.className.trim().split(/\s+/).join('.') : '');
@@ -254,5 +260,5 @@ export function auditTouchTargets(page, { sample = 30, mustSee = [] } = {}) {
         // 一定要掃到的控制項（CSS 選擇器）：沒有任何一個被量到就列入 missing，防止「掃了個寂寞」
         const missing = mustSee.filter(m => !items.some(it => it.el.matches(m)));
         return { failures, overlaps, seen, sizes, missing, scanned: items.length, covered };
-    }, { sel: TOUCH_SELECTOR, hit: HIT_MIN, sample, tol: 0.5, meetsSrc: meetsHit.toString(), mustSee });
+    }, { sel: TOUCH_SELECTOR, hit, sample, tol: 0.5, meetsSrc: meetsHit.toString(), mustSee });
 }

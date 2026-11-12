@@ -392,7 +392,9 @@ function closeImportDialog(e) {
     _imp.parsed = null;
     const op = _imp.opener;
     _imp.opener = null;
-    if (op && op.focus && document.contains(op)) op.focus();
+    // 從設定「資料與備份」點匯入時設定會先關掉，焦點落到 body 或看不見的按鈕：改還給齒輪鈕
+    const back = op && op !== document.body && document.contains(op) && op.getClientRects().length ? op : document.getElementById('settingsTrigger');
+    if (back && back.focus) back.focus();
 }
 
 // Esc 關閉（組字中的 Esc 是取消組字，不算）；Tab 只在視窗裡打轉

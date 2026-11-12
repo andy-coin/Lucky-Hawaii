@@ -2,11 +2,10 @@
 // 只走真實畫面（點按鈕、打字、組字），不直接改資料；ROADMAP 成功條件 1～4 一次跑完
 import { test, expect } from '@playwright/test';
 import { readFileSync } from 'node:fs';
-import { bootPage, compose, STORAGE_SPY } from './helpers.mjs';
+import { bootPage, compose, STORAGE_SPY, clickBackup } from './helpers.mjs';
 
 const FIXTURE = JSON.parse(readFileSync(new URL('./fixtures/v096-localStorage.json', import.meta.url), 'utf8'));
 const DESKTOP = { viewport: { width: 1440, height: 900 }, deviceScaleFactor: 1 };
-const HEADER_BACKUP = '.save-load-controls .save-load-btn >> nth=0';
 const FIXTURE_TEXTS = JSON.parse(FIXTURE.haiku_lyrics).map(s => s.text);
 
 const readSongs = page => page.evaluate(() => JSON.parse(localStorage.getItem('lh:songs')));
@@ -90,7 +89,7 @@ test('整合：舊版使用者的一整天', async ({ browser }) => {
     expect(await pa.evaluate(() => navigator.clipboard.readText())).toBe(TXT);
 
     // ===== (f) 備份全部 =====
-    const [bk] = await Promise.all([pa.waitForEvent('download'), pa.locator(HEADER_BACKUP).click()]);
+    const bk = await clickBackup(pa);
     expect(bk.suggestedFilename()).toMatch(/^LuckyHawaii-備份-\d{8}-\d{4}\.json$/);
     const backupFile = test.info().outputPath('journey-backup.json');
     await bk.saveAs(backupFile);

@@ -3,7 +3,7 @@
 // 每個計畫已經各自測過自己的功能；這裡把浮層、面板、分頁互相打斷的情況放在一起，用同一把尺再量一次
 import { test, expect } from '@playwright/test';
 import { readFileSync } from 'node:fs';
-import { bootPage, openTwoTabs, activeSongRaw } from './helpers.mjs';
+import { bootPage, openTwoTabs, activeSongRaw, clickBackup } from './helpers.mjs';
 import { DEVICES, waitStill, setScale, auditTouchTargets, expectFullyInViewport } from './layout-lib.mjs';
 import { parseAny, walk } from './scan-lib.mjs';
 
@@ -445,7 +445,7 @@ test('檢查：舊歌與舊資料', async ({ browser }) => {
     await expect.poll(async () => (await activeSongRaw(A.page)).readings).toEqual({ [READ_TAIL]: info.other });
     const wantMap = '{"end":true,"letters":false,"inner":true,"strict":true,"skipParticles":true}';
     expect(await lsMap(A.page)).toBe(wantMap);
-    const [bk] = await Promise.all([A.page.waitForEvent('download'), A.page.locator('.save-load-controls .save-load-btn >> nth=0').click()]);
+    const bk = await clickBackup(A.page);
     const text = await readDownload(bk);
     expect(JSON.parse(text).settings['lh:map']).toBe(wantMap);
     expect(JSON.parse(text).songs.find(s => s.id === 's1').readings).toEqual({ [READ_TAIL]: info.other });

@@ -1,12 +1,11 @@
 // 備份與還原（EDIT-09）：備份全部、匯入備份、只加入歌曲、全部還原、壞檔
 import { test, expect } from '@playwright/test';
 import { readFileSync } from 'node:fs';
-import { bootPage } from './helpers.mjs';
+import { bootPage, clickBackup, openDataTab, SETTINGS_IMPORT } from './helpers.mjs';
 import { DEVICES } from './layout-lib.mjs';
 
 const FIXTURE = JSON.parse(readFileSync(new URL('./fixtures/v096-localStorage.json', import.meta.url), 'utf8'));
 const DESKTOP = { viewport: { width: 1440, height: 900 }, deviceScaleFactor: 1 };
-const HEADER_BACKUP = '.save-load-controls .save-load-btn >> nth=0';
 
 const SETTING_KEYS = ['haoYunQi_inputMode', 'selectedModel', 'hoyun_theme_mode', 'bgColor1', 'containerBg', 'textColor', 'highlightColor', 'lh:lexiconPack'];
 const BACKUP_TOP_KEYS = ['activeSong', 'exportedAt', 'format', 'savedWords', 'settings', 'songs', 'version'];
@@ -20,7 +19,7 @@ const dumpLS = page => page.evaluate(() => {
 
 // 備份全部 → 存到測試輸出資料夾，回傳檔案路徑與下載物件
 async function backupTo(page, name) {
-    const [dl] = await Promise.all([page.waitForEvent('download'), page.locator(HEADER_BACKUP).click()]);
+    const dl = await clickBackup(page);
     const file = test.info().outputPath(name);
     await dl.saveAs(file);
     return { dl, file };
@@ -244,22 +243,17 @@ test('備份：舊版存檔加成新歌', async ({ browser }) => {
 
 test('備份：按鈕名稱', async ({ browser }) => {
     const { context, page } = await bootPage(browser, { storage: seed([mkSong('a', '甲')]), device: DESKTOP, wordlist: 'stub' });
-    const header = page.locator('.save-load-controls .save-load-btn');
-    await expect(header.nth(0)).toContainText('備份全部');
-    await expect(header.nth(1)).toContainText('匯入備份');
-    for (const [i, name] of [[0, '把所有歌曲與設定存成一個備份檔'], [1, '從備份檔還原歌曲與設定']]) {
-        await expect(header.nth(i)).toHaveAttribute('title', name);
-        await expect(header.nth(i)).toHaveAttribute('aria-label', name);
-    }
-    const style = await header.nth(0).evaluate(el => { const cs = getComputedStyle(el); return { size: cs.fontSize, weight: cs.fontWeight }; });
-    // 夜間 UI 重設計：標題區的備份／匯入改成安靜的文字按鈕（一般字重）
-    expect(style).toEqual({ size: '14px', weight: '400' });
-    await page.locator('#settingsTrigger').click();
+    // 標題列不再有備份／匯入鈕，只在偏好設定「資料與備份」分頁
+    await expect(page.locator('.save-load-controls')).toHaveCount(0);
+    await expect(page.locator('.header .save-load-btn')).toHaveCount(0);
+    await openDataTab(page);
     const inSettings = page.locator('.settings-saveload .save-load-btn');
     await expect(inSettings.nth(0)).toHaveText('備份全部');
     await expect(inSettings.nth(1)).toHaveText('匯入備份');
-    await expect(inSettings.nth(0)).toHaveAttribute('aria-label', '把所有歌曲與設定存成一個備份檔');
-    await expect(inSettings.nth(1)).toHaveAttribute('aria-label', '從備份檔還原歌曲與設定');
+    for (const [i, name] of [[0, '把所有歌曲與設定存成一個備份檔'], [1, '從備份檔還原歌曲與設定']]) {
+        await expect(inSettings.nth(i)).toHaveAttribute('title', name);
+        await expect(inSettings.nth(i)).toHaveAttribute('aria-label', name);
+    }
     await context.close();
 });
 
@@ -496,9 +490,15 @@ test('備份：一首歌的摘要', async ({ browser }) => {
 
 test('備份：視窗焦點與鍵盤', async ({ browser }) => {
     const { context, page } = await bootPage(browser, { storage: MINE_STORAGE(), device: DESKTOP, wordlist: 'stub' });
-    const opener = page.locator('.save-load-controls .save-load-btn >> nth=1');
+    // 匯入鈕在設定「資料與備份」裡；點了設定會關掉，所以關視窗後焦點還給齒輪鈕
+    const opener = page.locator('#settingsTrigger');
     const file = mkBackup([mkSong('c', '丙')]);
-    const open = async () => { await opener.focus(); await importBuf(page, file); await expect(page.locator('#importOverlay')).toBeVisible(); };
+    const open = async () => {
+        await openDataTab(page);
+        const [fc] = await Promise.all([page.waitForEvent('filechooser'), page.locator(SETTINGS_IMPORT).click()]);
+        await fc.setFiles({ name: 'backup.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(file)) });
+        await expect(page.locator('#importOverlay')).toBeVisible();
+    };
     await open();
     await expect(page.locator('#importFileInput')).toHaveValue('');
     const title = page.locator('#importTitle');

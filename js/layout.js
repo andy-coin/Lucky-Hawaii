@@ -44,8 +44,16 @@ function setUiScale(pct, save = true) {
     return n;
 }
 
+// iOS／iPadOS：輸入框字級 < 16px 時點進去會自動放大整頁。加 maximum-scale=1 擋掉這個自動放大（iOS 10+ 仍允許雙指縮放），
+// 歌詞框與情境框就能跟著介面縮放、不必卡 16px。Android 不會自動放大，不加（加了會失去雙指縮放）
+if (/iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)) {
+    const vm = document.querySelector('meta[name="viewport"]');
+    if (vm && !/maximum-scale/.test(vm.content)) vm.content += ', maximum-scale=1';
+}
+
+// 4 行動裝置（觸控為主）第一次來預設 90%；有存過就用存的
 // head 執行時 #MzoomValue 還不存在，所以先套值、等 DOM 好了再補一次標籤
-setUiScale(lhGet(LH_UI_SCALE_KEY), false);
+setUiScale(lhGet(LH_UI_SCALE_KEY) ?? (matchMedia('(pointer: coarse)').matches ? 90 : 100), false);
 document.addEventListener('DOMContentLoaded', _lhSyncScaleControls);
 
 // ==================== 斷點（D-02）：只在這裡讀，其他檔案一律用 helper ====================
