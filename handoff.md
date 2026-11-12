@@ -12,7 +12,10 @@
   - `../Lucky Hawaii-wt-theme`（r2/theme，埠 4321）：四主題 City／Midnight／Moon／Plain＋自訂，右上角鈕五個循環；多重點色；面板紋理；背景飄字動畫（`lhBgFxSet`）。參考圖 `~/Dropbox/#2ndy Own/zzZ/color theme reference/*.png`。待決 → `R2-theme.md`
   - `../Lucky Hawaii-wt-editor`（r2/editor，埠 4322）：浮動完整歌詞編輯器（電腦：展開鈕＋雙擊；手機平板：點歌詞自動彈出）含拖曳／新增段落／歌曲分頁；新增段落移到標籤情境與段落之間；iPad 收起間距；新段落高度跳動。待決 → `R2-editor.md`
   - `../Lucky Hawaii-wt-prefs`（r2/prefs，埠 4323）：韻腳選單拿掉「關閉」、點外面自動關；偏好設定改分頁，「更多設定」直達韻腳分頁；外觀分頁接背景動畫開關。待決 → `R2-prefs.md`
-- **排隊（等 r2/prefs 合併後做）BYOK**（Andy 2026-11-12 指定）：
+- ✅ r2/prefs 已合併（31ecb12，沒 push）：五分頁＝外觀／查詢與詞庫／韻腳與句構／資料與備份／說明與回饋；待決 11 題 `R2-prefs.md`；截圖 `../Lucky Hawaii-wt-prefs/r2-shots/`
+- ⏳ r2/theme、r2/editor 的 subagent 還在跑（從 1cc4407 起，合併時注意 handoff.md 衝突＝兩邊都留）
+- ⏸ BYOK worktree 已建好 `../Lucky Hawaii-wt-byok`（r2/byok，從 31ecb12，埠 4324），subagent 已派（Andy 解除用量保護後），進行中；待決 → `R2-byok.md`
+- **BYOK 規格**（Andy 2026-11-12 指定）：
   - 偏好設定「AI」分頁：選服務商（Gemini、Groq）＋貼金鑰＋測試連線；有金鑰就直連服務商，沒有照舊走 Worker；金鑰沿用 `apiKey_<provider>`（safety.js 已設為機密，不進備份）；`js/ai-client.js:7` 的 `saveApiKey` 是舊空殼可接上
   - 右上「AI 建議」標題右邊：無外框的低調鑰匙 icon 鈕；沒用自己金鑰時靜止，有用時閃爍（尊重減少動態）；點了開設定到 AI 分頁
   - 有金鑰時模型下拉補上該服務商最新模型（實作時上網查最新清單），每個選項靠右顯示 Wi-Fi 訊號格狀的用量圖示（解讀：吃額度的多寡，待 Andy 確認）
