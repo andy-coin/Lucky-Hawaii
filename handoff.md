@@ -1,3 +1,13 @@
+## ✅ 2026-11-12 晚上小修（?v=0.96.21，程式在 5b2e9f3，commit 訊息誤寫成 handoff）
+- 觸控下限：手機 36px、平板 32px（css/base.css `--hit`）；搜尋框 min-height 改 max(2.5rem, --hit)
+- 取消所有輸入框 16px 下限（css/responsive.css「輸入框」段）：iOS 靠 maximum-scale=1 防自動放大，模型下拉、標籤框都跟縮放；相關 16px 測試刪除
+- 標籤框 placeholder「例如：驚悚/戀愛/過年」，hover 提示分隔方式；展開編輯器時換完整說明（index.html data-ph-*、js/lyrics.js `_lhTagPh`）
+- iPad 全螢幕：寬版側欄 top 改用 --pad-t（含 safe-area-inset-top），css/panels.css ~19
+- 手機齒輪與調色盤同字級（responsive.css `.theme-toggle, .gear-btn`）
+- js/sections.js lhSecMenuSync 結尾：選單開著時內容變高就重新夾回畫面（選 Custom 會超出底部的舊漏洞）
+- 待驗：iPad 實機狀態列、32px 是否點得準；-linux 截圖待雲端更新
+- 流程：小改動只跑相關測試，不跑全套（Andy 要求）
+
 ## ✅ 2026-11-12 傍晚小修兩批（已 push，69ca8b9，?v=0.96.20）
 
 - 0.96.19（904e91f）：主題名改英文（Plain／Moon／City／Midnight／Custom，`js/theme.js:6`）、Plain 字 #ededed；情境標籤 AI 整理鈕換燈泡＋自製淡入淡出提示（`js/ui-common.js` 檔尾、`.lh-tip`）；鑰匙移到模型下拉左邊（`.ai-tools`）；齒輪 `#settingsTrigger` 移到右上（? 調色盤 齒輪，手機只藏 ?）；行動裝置點情境／標籤也彈編輯器（`js/lyrics.js` 約 425 行）；鍵盤打開時編輯器只留正在打字那塊（`css/panels.css` 檔尾 `html.kb-open`）
