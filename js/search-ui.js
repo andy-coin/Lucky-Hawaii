@@ -84,12 +84,12 @@
             e.preventDefault();
             lhPrefsSelectTab(tabs[(to + n) % n].id.slice('prefsTab-'.length), true);
         });
-        // 背景動畫開關：另一條分支提供 lhBgFxSet(on)；沒有這個函式就不顯示。目前狀態讀 lhBgFxGet()／<html data-bgfx>，都沒有就當開著
+        // 背景動畫開關：另一條分支提供 lhBgFxSet(on)；沒有這個函式就不顯示。目前狀態讀 lhBgFxIsOn()（js/bgfx.js）／<html data-bgfx>，都沒有就當開著
         function _lhPrefsBgFxSync() {
             const b = document.getElementById('prefsBgFx');
             b.hidden = typeof lhBgFxSet !== 'function';
             if (b.hidden) return;
-            const on = typeof lhBgFxGet === 'function' ? !!lhBgFxGet() : document.documentElement.dataset.bgfx !== 'off';
+            const on = typeof lhBgFxIsOn === 'function' ? !!lhBgFxIsOn() : document.documentElement.dataset.bgfx !== 'off';
             b.setAttribute('aria-checked', String(on));
             b.querySelector('.rm-pill').textContent = on ? '開' : '關';
         }

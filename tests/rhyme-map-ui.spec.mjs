@@ -797,7 +797,7 @@ for (const [how, device] of [['滑鼠', {}], ['觸控', { hasTouch: true, isMobi
         await expect(page.locator('#rhymeMenu')).toBeHidden();
         // 點外面的另一個按鈕：只有那個按鈕的動作發生（這裡是打開匯出選單）
         await hit(page.locator('#rhymeMenuBtn'));
-        await hit(page.locator('.export-toggle'));
+        await hit(page.locator('#exportToggle'));
         await expect(page.locator('#rhymeMenu')).toBeHidden();
         await expect(page.locator('#exportMenu')).toBeVisible();
         expect(errors).toEqual([]);

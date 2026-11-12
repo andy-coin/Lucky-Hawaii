@@ -131,27 +131,18 @@ test('分頁：手機上分頁列橫向捲動、每個分頁 ≥ 44px、選到�
     await context.close();
 });
 
-test('外觀：背景動畫開關只有 lhBgFxSet 存在時才出現，按了就呼叫它', async ({ browser }) => {
-    {
-        const { context, page, errors } = await bootPage(browser, { wordlist: 'stub' });
-        await page.evaluate(() => { delete window.lhBgFxSet; toggleSettings(); });
-        await expect(page.locator('#prefsBgFx')).toBeHidden();
-        expect(errors).toEqual([]);
-        await context.close();
-    }
-    const { context, page, errors } = await bootPage(browser, {
-        wordlist: 'stub',
-        init: () => { window.__bgfx = []; window.__bgOn = true; window.lhBgFxSet = on => { window.__bgfx.push(on); window.__bgOn = on; }; window.lhBgFxGet = () => window.__bgOn; },
-    });
+test('外觀：背景動畫開關接上 js/bgfx.js（狀態讀 lhBgFxIsOn，按了呼叫 lhBgFxSet）', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, { wordlist: 'stub' });
     await page.evaluate(() => toggleSettings());
     const sw = page.getByRole('switch', { name: /背景動畫/ });
     await expect(sw).toBeVisible();
-    await expect(sw).toHaveAttribute('aria-checked', 'true');
+    const on0 = await page.evaluate(() => lhBgFxIsOn());
+    await expect(sw).toHaveAttribute('aria-checked', String(on0));
     await sw.click();
-    await expect(sw).toHaveAttribute('aria-checked', 'false');
-    await expect(sw).toContainText('關');
+    await expect(sw).toHaveAttribute('aria-checked', String(!on0));
+    expect(await page.evaluate(() => lhBgFxIsOn())).toBe(!on0);
     await sw.click();
-    expect(await page.evaluate(() => window.__bgfx)).toEqual([false, true]);
+    expect(await page.evaluate(() => lhBgFxIsOn())).toBe(on0);
     expect(errors).toEqual([]);
     await context.close();
 });
