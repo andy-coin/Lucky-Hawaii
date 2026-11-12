@@ -263,6 +263,15 @@
             overflow: hidden;
             text-overflow: ellipsis;
         }
+        /* 匯出／新增段落：圖示＋文字；左欄窄（iPad 三欄全開約 280px）時只留圖示，名稱還在 aria-label，維持一排 */
+        .export-toggle, .lyrics-head .panel-add-btn { display: inline-flex; align-items: center; justify-content: center; gap: 0.3125rem; }
+        .side-panel-body { container: lpanel / inline-size; }
+        @container lpanel (max-width: 24rem) {
+            .lyrics-head .btn-label { display: none; }
+            .song-current { flex-basis: 0; }   /* 歌名讓位（太長就 …），三顆按鈕維持同一排 */
+            .export-toggle, .lyrics-head .panel-add-btn { min-width: var(--hit); padding-inline: var(--sp-2); }
+        }
+        .undo-btn { display: inline-flex; align-items: center; justify-content: center; }
         .lyrics-head .panel-add-btn {
             margin-inline-start: auto;
             padding: var(--sp-1) var(--sp-3);

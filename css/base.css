@@ -347,15 +347,20 @@
             }
         }
 
-        /* 桌機：工具列疊在標題區兩角，和以前一樣不佔高度 */
-        @media (min-width: 901px) {
-            .header-toolbar {
-                position: absolute;
-                top: 0.9375rem;
-                inset-inline: 0.9375rem;
-                pointer-events: none;
+        /* 桌機：工具列疊在標題區兩角，不佔高度——但只在中間欄夠寬時。
+           看的是標題區自己的寬度（不是視窗寬）：iPad 三欄全開時中間只剩 ~430px，觸控鈕 44px 會壓到標題，改成排在標題上面一列 */
+        .header { container: hdr / inline-size; }
+        @media (min-width: 901px) and (pointer: fine) {
+            @container hdr (min-width: 25rem) {
+                .header-toolbar { position: absolute; top: 0.9375rem; inset-inline: 0.9375rem; pointer-events: none; }
+                .header-toolbar > * { pointer-events: auto; }
             }
-            .header-toolbar > * { pointer-events: auto; }
+        }
+        @media (min-width: 901px) {
+            @container hdr (min-width: 42rem) {
+                .header-toolbar { position: absolute; top: 0.9375rem; inset-inline: 0.9375rem; pointer-events: none; }
+                .header-toolbar > * { pointer-events: auto; }
+            }
         }
 
         @media (hover: hover) and (pointer: fine) {

@@ -1226,7 +1226,11 @@ function _lhMapBarOnChange(e) {
     });
     area.addEventListener('compositionstart', () => lhMapHideBar());
     // 捲動只收已經出現的列，不取消等著判斷的計時（聚焦時瀏覽器常會順手捲一下）
-    area.addEventListener('scroll', () => { if (_lhMapBarSnap && performance.now() > _lhMapBarGrace) lhMapHideBar(true); }, true);
+    // 上色鏡像層的 scroll 是程式跟著輸入框同步捲的（事件可能比浮動列晚到），不算使用者捲動；使用者捲的是輸入框本身
+    area.addEventListener('scroll', e => {
+        if (e.target.classList && e.target.classList.contains('rhyme-mirror')) return;
+        if (_lhMapBarSnap && performance.now() > _lhMapBarGrace) lhMapHideBar(true);
+    }, true);
     // Alt+↓：焦點到浮動列（D-16）
     area.addEventListener('keydown', e => {
         if (!_lhMapBarSnap || e.target !== _lhMapBarSnap.ta || !e.altKey || e.key !== 'ArrowDown' || e.isComposing || e.keyCode === 229) return;

@@ -14,7 +14,7 @@ const LH_TOUR_STEPS = [
     { sel: '#contextSection', panel: 'left', title: '標籤與情境',
       body: '先替這首歌定方向：加幾個標籤（可用、或空白一次加好幾個），寫一兩句情境。AI 挑詞時會參考。' },
     { sel: '#lyricsSections', panel: 'left', title: '分段寫歌詞',
-      body: 'Verse、Chorus 一段一段寫；字卡可以直接拖進來。上方的 ↶ ↷ 可以復原與重做。' },
+      body: 'Verse、Chorus 一段一段寫；字卡可以直接拖進來。上方的兩個箭頭可以復原與重做。' },
     { sel: '#rhymeMenuBtn', panel: 'left', title: '韻腳地圖',
       body: '把押韻的句尾上色，一眼看出哪幾句押在一起；在這裡開關與調整。' },
     { sel: '#rightPanel .side-panel-body', panel: 'right', title: 'AI 建議詞語',
