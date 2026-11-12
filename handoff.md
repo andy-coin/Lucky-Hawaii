@@ -1,3 +1,14 @@
+## 🚧 2026-11-12 韻腳地圖／歌詞面板優化（A 已 push 1dea872，?v=0.96.22；B→C→D 待做）
+Andy 確認的計畫（9 點）：A 小修 → B 押韻引擎 → C 句構三模式 → D 並排角色欄。慢慢做、不開 subagent、只跑相關測試、每塊做完 push。
+- ✅ A1 段落自動長高：js/sections.js `lhSecFit`＋`_lhSecFitRO`（寬度變才重量；lhSecCountOne 也呼叫，涵蓋打字／復原／拖詞）；css/panels.css 檔尾規則；拉高度把手不再建立（js/lyrics.js），sections.js 裡 resize 的拖曳／鍵盤程式成了死碼（待清，>30 行，先留）；鍵盤打開時編輯器那段改回自己捲（kb-open 規則）
+- ✅ A1 附帶：js/rhyme-map.js 浮動列「捲動就收」改聽整頁 scroll（只認包住或在 #lyricsSections 裡的）
+- ✅ A4 點段落名稱＝下拉（_lhMenuDrop：左鍵開的選了就收、焦點回名稱鈕；右鍵／長按是完整設定不收）；選單順序 類型→名稱→顏色→位置；再點同一個名稱鈕收起（_lhMenuClosedBy）；lhSecMenuSync 結尾重新夾回畫面
+- ✅ A8 預覽全關時顯示純文字；A9 預覽換〈麻雀〉11 行（LH_MAP_PREVIEW_TEXT），高螢幕 sticky 時預覽最多 6 行、內部可捲、tabIndex -1
+- 待做 B：雙押改「照句構切完的詞」整個比對（Andy 反悔了自己的藍圖：原意只是不要倒數第二字標了、最後一字卻空白）；配色＝靠近的韻腳互相錯開（圖著色）；英文押韻（CMU 精簡版）＋中英互押（母音對到韻母家族）；Andy 想順便查台語辭典（台羅）整合中台英，日韓之後
+- 待做 C：句構顯示改「4+4+11（4·2·3·2）」不用 ≈；三模式：自己算法／AI（prompt 放後台）／手動（只在右鍵分析面板裡改，不在歌詞裡打）
+- 待做 D：並排時間軸＝段落可增減角色欄（有＋／− 鈕），逐行對齊
+- 觀察：「麻雀in」被算成 3 個單位一組（英數連在漢字後面沒有斷點），C 要處理
+
 ## ✅ 2026-11-12 晚上小修（?v=0.96.21，程式在 5b2e9f3，commit 訊息誤寫成 handoff）
 - 觸控下限：手機 36px、平板 32px（css/base.css `--hit`）；搜尋框 min-height 改 max(2.5rem, --hit)
 - 取消所有輸入框 16px 下限（css/responsive.css「輸入框」段）：iOS 靠 maximum-scale=1 防自動放大，模型下拉、標籤框都跟縮放；相關 16px 測試刪除
