@@ -88,7 +88,7 @@ test('視覺：晝夜預設主題文字對比 ≥ 4.5', async ({ browser }) => {
                 expect(ratio, `${name} ${t} 對 ${s} 對比 ${ratio.toFixed(2)}`).toBeGreaterThanOrEqual(4.5);
             }
         }
-        if (name === '淺色') expect(v.textSecondary.toLowerCase(), '淺色次要文字色').toBe('#5c574f');
+        if (name === '淺色') expect(v.textSecondary.toLowerCase(), '淺色（R2：月光主題）次要文字色').toBe('#55686e');
         await context.close();
     }
     console.log('對比實測\n' + report.join('\n'));
@@ -98,18 +98,19 @@ test('視覺：晝夜預設主題文字對比 ≥ 4.5', async ({ browser }) => {
 
 test('視覺：沒存顏色時用預設底色', async ({ browser }) => {
     const light = await bootPage(browser, { wordlist: 'stub', colorScheme: 'light' });
-    expect((await readVars(light.page)).containerBg.toLowerCase()).toBe('#f6f3ec');
+    expect((await readVars(light.page)).containerBg.toLowerCase()).toBe('#fdf6e3');   // R2：淺色新使用者＝月光
     await light.context.close();
     // 夜間 UI 重設計：沒自訂時深色用 CSS 自己的深色預設（不再拿淺色反相）；有自訂才反相
     const dark = await bootPage(browser, { wordlist: 'stub', storage: { hoyun_theme_mode: 'dark' } });
-    expect((await readVars(dark.page)).containerBg.toLowerCase()).toBe('#181715');
+    expect((await readVars(dark.page)).containerBg.toLowerCase()).toBe('#1f1f1f');   // R2：舊的深色＝素墨
     await dark.context.close();
-    // 舊版存下來的預設色當成沒自訂（舊存檔也換得到新外觀）；真的自訂過的顏色在深色仍然反相
+    // 舊版存下來的預設色當成沒自訂（舊存檔也換得到新外觀）
     const legacy = await bootPage(browser, { wordlist: 'stub', storage: { containerBg: '#eee3ce' } });
-    expect((await readVars(legacy.page)).containerBg.toLowerCase()).toBe('#f6f3ec');
+    expect((await readVars(legacy.page)).containerBg.toLowerCase()).toBe('#fdf6e3');
     await legacy.context.close();
     const custom = await bootPage(browser, { wordlist: 'stub', storage: { hoyun_theme_mode: 'dark', containerBg: '#fffaf0' } });
-    expect((await readVars(custom.page)).containerBg.toLowerCase()).toBe('#00050f');
+    // R2：存過自訂顏色＝自訂主題，顏色照原樣、不再反相
+    expect((await readVars(custom.page)).containerBg.toLowerCase()).toBe('#fffaf0');
     await custom.context.close();
 });
 
@@ -299,7 +300,7 @@ test('視覺：行動色只在變數定義裡', () => {
         });
     }
     expect(bad, '行動色出現在變數定義以外的地方（請改用 var(--action-bg)／var(--action-bg-hover)）').toEqual([]);
-    expect(defs, '亮色與暗色各定義 --action-bg 與 --action-bg-hover').toBe(4);
+    expect(defs, '亮色、暗色與四個 R2 主題各定義 --action-bg 與 --action-bg-hover').toBe(12);
 });
 
 test('視覺：Phase 7 沒有新的動畫', () => {

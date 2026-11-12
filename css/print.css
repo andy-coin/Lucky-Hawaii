@@ -49,3 +49,9 @@ body.print-song .print-text {
     white-space: pre-wrap;
     overflow-wrap: anywhere;
 }
+
+/* R2 主題：一般列印（Cmd/Ctrl+P）也不帶紋理與背景飄字 */
+@media print {
+    body, .container, .side-panel { background-image: none !important; }
+    #lhBgFx { display: none !important; }
+}

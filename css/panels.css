@@ -4,6 +4,7 @@
         .side-panel {
             position: fixed;
             background: var(--card-bg);
+            background-image: var(--tex-panel);
             border: 1px solid var(--border);
             box-shadow: 0 1px 3px var(--shadow);
             display: flex;
@@ -71,6 +72,9 @@
             border-right: 1px solid var(--border);
             border-radius: 0 0.75rem 0.75rem 0;
         }
+        .left-panel .side-panel-tab { color: var(--accent-2); }
+        .right-panel .side-panel-tab { color: var(--accent-4); }
+        .right-panel .side-panel-title { color: var(--accent-4); }
         .right-panel .side-panel-tab {
             border-left: 1px solid var(--border);
             border-radius: 0.75rem 0 0 0.75rem;
@@ -739,7 +743,7 @@
         }
         .ai-word-card {
             background: var(--container-bg);
-            border: 1px solid var(--border);
+            border: 1px solid color-mix(in srgb, var(--accent-4) 30%, var(--border));
             border-radius: 0.5rem;
             padding: 0.3125rem 0.625rem;
             font-size: 0.95rem;
@@ -1237,6 +1241,7 @@
             padding: 0.1875rem 0.5rem;
             font-size: 0.8125rem;
             color: var(--text-primary);
+            border-left: 3px solid var(--accent-3);
         }
 
         /* 歌詞段落 */

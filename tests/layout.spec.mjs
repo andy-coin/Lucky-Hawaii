@@ -423,19 +423,19 @@ test('版面：轉向時主題按鈕與提示字跟著換', async ({ browser }) 
         }));
         // 主題鈕是線條圖示（SVG，沒有文字）＋寬螢幕才有的名稱；名稱一律在 aria-label
         const PHONE = { theme: '', placeholder: PHONE_PLACEHOLDER };
-        const WIDE = { theme: '淺色模式', placeholder: DESKTOP_PLACEHOLDER };
+        const WIDE = { theme: '月光', placeholder: DESKTOP_PLACEHOLDER };
         expect(await read()).toEqual(PHONE);
         // 440／441 是分界；不重新載入就要跟著變
         for (const [w, h, want] of [[820, 1180, WIDE], [440, 844, PHONE], [441, 844, WIDE], [390, 844, PHONE]]) {
             await page.setViewportSize({ width: w, height: h });
             await expect.poll(read, { message: `寬 ${w}px` }).toEqual(want);
         }
-        // 深色模式下轉向，圖示與文字也要對
+        // 換主題（月光 → 城市）後轉向，圖示與文字也要對
         await page.locator('#themeToggle').click();
         expect(await read()).toMatchObject({ theme: '' });
-        await expect(page.locator('#themeToggle')).toHaveAttribute('aria-label', /深色模式/);
+        await expect(page.locator('#themeToggle')).toHaveAttribute('aria-label', /城市/);
         await page.setViewportSize({ width: 820, height: 1180 });
-        await expect.poll(read).toMatchObject({ theme: '深色模式' });
+        await expect.poll(read).toMatchObject({ theme: '城市' });
     } finally { await context.close(); }
 });
 

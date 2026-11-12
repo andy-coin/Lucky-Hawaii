@@ -4,10 +4,10 @@ import { test, expect } from '@playwright/test';
 import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import { stripHtmlComments } from './html-lib.mjs';
 
-// 原本 inline script 由上到下的 20 個區塊，加上 Phase 8 的 songs.js、song-io.js、Phase 9 的 sections-core.js、sections.js、undo.js、word-drag.js，Phase 10 的 rhyme-core.js、rhyme-map.js，Phase 11 的 line-core.js、夜間 UI 的 tour.js 共 30 個（safety.js、layout.js 另外固定在最前面）
+// 原本 inline script 由上到下的 20 個區塊，加上 Phase 8 的 songs.js、song-io.js、Phase 9 的 sections-core.js、sections.js、undo.js、word-drag.js，Phase 10 的 rhyme-core.js、rhyme-map.js，Phase 11 的 line-core.js、夜間 UI 的 tour.js、R2 主題的 bgfx.js 共 31 個（safety.js、layout.js 另外固定在最前面）
 const JS_ORDER = [
     'phonetic-tables', 'dict', 'search', 'state', 'sections-core', 'songs', 'undo', 'polyphonic', 'rhyme-core', 'line-core', 'cards', 'lyrics', 'sections', 'song-io', 'wordlist', 'panels', 'rhyme-display',
-    'ai-client', 'candidates', 'ai-generate', 'ui-common', 'results', 'search-ui', 'theme', 'init', 'report', 'ai-word-events', 'word-drag', 'rhyme-map', 'tour',
+    'ai-client', 'candidates', 'ai-generate', 'ui-common', 'results', 'search-ui', 'theme', 'init', 'report', 'ai-word-events', 'word-drag', 'rhyme-map', 'tour', 'bgfx',
 ].map(n => `js/${n}.js`);
 const CSS_ORDER = ['css/base.css', 'css/panels.css', 'css/responsive.css', 'css/print.css'];
 
@@ -119,7 +119,7 @@ test('split：樣式表沒有相對路徑 url()', () => {
     for (const f of listDir('css').filter(n => n.endsWith('.css'))) {
         const text = readFileSync(`css/${f}`, 'utf8');
         for (const m of text.matchAll(/url\(\s*(['"]?)([^'")]*)\1\s*\)/g)) {
-            expect(m[2], `css/${f} 有相對路徑 url(${m[2]})`).toMatch(/^(https:\/\/|data:|#)/);   // #id 是頁內片段參考，不受基準路徑影響
+            expect(m[2], `css/${f} 有相對路徑 url(${m[2]})`).toMatch(/^(https:\/\/|data:|#|%23)/);   // #id 是頁內片段參考，不受基準路徑影響；%23id 是 data URI 的 SVG 裡面的片段參考（R2 質地）
         }
         // @import "x.css"（沒有 url()）同樣以 css/ 為基準；只允許 https://
         for (const m of text.matchAll(/@import\s+(['"])([^'"]*)\1/g)) {
