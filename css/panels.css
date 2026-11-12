@@ -1883,8 +1883,8 @@
             display: none;
             position: fixed;
             bottom: 0; left: 0; right: 0;
-            height: calc(var(--tabbar-h) + env(safe-area-inset-bottom));
-            padding-bottom: env(safe-area-inset-bottom);
+            height: calc(var(--tabbar-h) + var(--tab-safe));
+            padding-bottom: var(--tab-safe);
             background: var(--card-bg);
             /* 上緣線用內陰影畫、不佔高度：48px 的分頁按鈕才不會被框線擠出視窗底部 */
             box-shadow: inset 0 1px 0 var(--border);
@@ -2342,3 +2342,12 @@ html.kb-open .lyrics-editor-body .lyrics-section:focus-within .section-body { fl
 /* 角色欄並排時欄很窄：不顯示逐行標記（字數、斷句看各欄的分析面板），也不留標記欄的內距 */
 .section-body.has-cols .lm-mk { display: none; }
 html[data-lm] .section-body.has-cols .section-textarea { padding-right: 0.75rem; }
+
+/* AI 面板標題列：搜尋過後韻腳搬到這裡固定在頂端（js/rhyme-display.js renderRhymeDisplay），太長就省略 */
+.ai-rhyme-display.in-title { flex: 1 1 auto; min-width: 0; padding: 0; border: none; background: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 0.75rem; line-height: 1.4; }
+.ai-rhyme-display.in-title .rhyme-label { font-size: 1rem; }
+.ai-rhyme-display.in-title .report-char-btn { display: none; }
+/* 新增的 # 標籤：總高度跟輸入框、按鈕一樣是 --hit（原本 × 撐滿 --hit 再加上下框線，多出 2px）；× 蓋過框線，點擊範圍不變 */
+@media (pointer: coarse), (max-width: 900px) {
+    .hashtag-chip .chip-remove { margin-block: -1px; }
+}

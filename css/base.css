@@ -49,6 +49,8 @@
             --app-h: 100dvh;
             --page-pad: 20px;
             --tabbar-h: max(3.5rem, 48px);
+            /* 底部分頁列下面的安全區只留四成（iPhone 的 home 條 34px → 約 14px），分頁按鈕往下貼，面板多出空間（Andy 2026-11-13） */
+            --tab-safe: calc(env(safe-area-inset-bottom) * 0.4);
             --kb-inset: 0px;
             --vv-top: 0px;
             --tab-w: 2.5rem;

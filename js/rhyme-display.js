@@ -139,10 +139,18 @@
                 });
                 display.innerHTML = '子音　' + (parts.length ? parts.join('　') : '<span style="font-size:0.82rem;color:var(--text-secondary)">無聲母</span>');
             }
+            // 搜尋過後韻腳搬到 AI 面板的標題列（固定在頂端，捲到下面的詞卡也看得到）
+            if (!display.classList.contains('in-title')) {
+                const t = document.querySelector('#rightPanel .ai-title-group');
+                if (t) { t.after(display); display.classList.add('in-title'); }
+            }
+            display.title = display.textContent.replace(/回報/g, '').trim();
             updateModeButtonLabels();
         }
 
         function setRhymeMode(mode) {
+            // 換押母音／押子音：候選池要整個清掉，不然上一種模式的詞會混進來（跳樓：押母音後換押子音，押母音的詞跑進來）
+            if (mode !== rhymeMode) resetSuggestedPool();
             rhymeMode = mode;
             document.getElementById('modeRhyme').classList.toggle('active', mode === 'rhyme');
             document.getElementById('modeInitial').classList.toggle('active', mode === 'initial');

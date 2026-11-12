@@ -277,12 +277,12 @@
         function lhAiRefState() {
             const song = curSong();
             if (!song) return null;
-            const tags = song.hashtags.length;
+            const tags = song.hashtags.length, tagList = song.hashtags.slice();
             const ctx = song.context.trim().length > 0;
             const full = song.sections.map(s => s.text.trim()).filter(Boolean).join('\n');
             const sel = lastLyricsSelection;
             const lines = full ? full.split('\n').filter(l => l.trim()).length : 0;
-            return { tags, ctx, lines, sel: sel ? Array.from(sel).length : 0, cut: !sel && full.length > AI_LYRICS_MAX };
+            return { tags, tagList, ctx, lines, sel: sel ? Array.from(sel).length : 0, cut: !sel && full.length > AI_LYRICS_MAX };
         }
 
         function lhAiRefRender() {
@@ -299,7 +299,7 @@
                 b.title = title;
                 return b;
             };
-            if (st.tags) items.push(mk('tags', '標籤 ' + st.tags, '跳到標籤'));
+            if (st.tags) items.push(mk('tags', st.tagList.map(t => '#' + t).join(' '), '跳到標籤：' + st.tagList.join('、')));
             if (st.ctx) items.push(mk('context', '情境', '跳到情境描述'));
             if (st.sel) items.push(mk('lyrics', '反白歌詞 ' + st.sel + ' 字', '你在歌詞裡反白的那段'));
             else if (st.lines) items.push(mk('lyrics', st.cut ? '歌詞前 ' + AI_LYRICS_MAX + ' 字' : '歌詞 ' + st.lines + ' 行', st.cut ? '歌詞很長時只送開頭 ' + AI_LYRICS_MAX + ' 字；反白一段就改送那段' : '跳到歌詞'));
@@ -309,12 +309,28 @@
                 label.textContent = 'AI 會參考';
                 bar.classList.remove('is-empty');
                 bar.replaceChildren(label, ...items);
+                _lhAiRefFitTags(bar, st.tagList);
             } else {
                 label.textContent = '先寫幾句歌詞或加標籤，AI 會更懂你';
                 bar.classList.add('is-empty');
                 bar.replaceChildren(label, mk('context', '去寫 →', '打開左邊的標籤與歌詞'));
             }
         }
+
+        // 標籤：一行放得下就全列；放不下就少列幾個，後面寫「…共 n 項標籤」，一個都放不下就只寫「n 項標籤」
+        function _lhAiRefFitTags(bar, list) {
+            const b = bar.querySelector('[data-ref="tags"]');
+            if (!b || !bar.offsetParent) return;   // 面板沒顯示時量不到，等它顯示（ResizeObserver）再量
+            const oneLine = () => { const f = bar.firstElementChild.getBoundingClientRect(); return [...bar.children].every(c => c.getBoundingClientRect().top < f.bottom); };
+            for (let k = list.length - 1; k >= 0 && !oneLine(); k--) {
+                b.textContent = (k ? list.slice(0, k).map(t => '#' + t).join(' ') + ' …共 ' : '') + list.length + ' 項標籤';
+            }
+        }
+        let _aiRefW = 0;
+        new ResizeObserver(es => {
+            const w = es[0].contentRect.width;
+            if (w && w !== _aiRefW) { _aiRefW = w; lhAiRefRefresh(); }
+        }).observe(document.getElementById('aiRef'));
 
         let _aiRefRaf = 0;
         function lhAiRefRefresh() {

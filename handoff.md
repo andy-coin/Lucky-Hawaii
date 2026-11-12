@@ -1,3 +1,10 @@
+## ✅ 2026-11-13 iPhone 回饋四點（?v=0.96.24）
+- 候選池 bug（跳樓：押母音後換押子音混進母音詞）：js/rhyme-display.js `setRhymeMode` 換模式時呼叫 `resetSuggestedPool()`（其他篩選本來就會清，只漏這個）；測試 tests/ai-ref.spec.mjs
+- AI 面板韻腳搬到標題列固定（renderRhymeDisplay 把 #aiRhymeDisplay 搬到 `.ai-title-group` 後面、加 `.in-title`；CSS panels.css 檔尾）
+- AI 會參考的標籤：一行放得下就列 #名稱，放不下「#a #b …共 n 項標籤」（js/ai-generate.js `_lhAiRefFitTags`＋ResizeObserver）
+- # 標籤 chip 總高 = --hit（原本多 2px 框線）；手機底部分頁列下的安全區只留四成（base.css `--tab-safe`）
+- 待：Andy 部署 Worker（AI 斷句要用）；iPhone 實機看底部分頁列會不會太貼 home 條
+
 ## ✅ 2026-11-12 深夜 韻腳地圖／歌詞面板優化 A～D 全做完（?v=0.96.23，待 Andy 驗收）
 Andy 計畫（9 點）：A 小修（1dea872）→ B 押韻引擎 → C 句構三模式 → D 並排角色欄。只跑相關測試（全部過），沒跑全套。
 - A（0.96.22）：段落自動長高單一捲軸、名稱點了是下拉、預覽全關仍顯示、預覽〈麻雀〉。sections.js 舊 resize 程式是死碼（>30 行，待清）
