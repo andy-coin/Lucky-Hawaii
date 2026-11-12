@@ -5,7 +5,10 @@ import { collectSources, parseAny, findStorageUsages, topLevelStringConsts, reso
 
 const SAFETY_FILE = 'js/safety.js';
 // 動態鍵只允許出現在這些函式裡，執行時另由 lhAssertKnownKey 檢查
-const DYNAMIC_KEY_FUNCS = { handleColorChange: '鍵值由呼叫端傳入四個顏色鍵之一，執行時由 lhAssertKnownKey 檢查' };
+const DYNAMIC_KEY_FUNCS = {
+    handleColorChange: '鍵值由呼叫端傳入四個顏色鍵之一，執行時由 lhAssertKnownKey 檢查',
+    loadColors: '鍵值來自 js/theme.js 固定的 LH_COLOR_VARS（四個顏色鍵），執行時由 lhAssertKnownKey 檢查',
+};
 
 const sortHits = hits => hits.sort((a, b) => a.file.localeCompare(b.file) || a.line - b.line);
 const fmt = hits => sortHits(hits).map(h => `${h.file}:${h.line} ${h.why}`);
@@ -66,8 +69,8 @@ test('registry: 後台金鑰被排除且不在清單內', async ({ browser }) =>
     expect(reg.LH_EXCLUDED_KEYS).toEqual(expect.arrayContaining(['haoYunQi_admin_key', 'haoYunQi_admin_theme']));
     const keys = reg.LH_KEYS.map(k => k.key);
     for (const k of reg.LH_EXCLUDED_KEYS) expect(keys).not.toContain(k);
-    expect(keys).toHaveLength(22);
-    expect(new Set(keys).size).toBe(22);
+    expect(keys).toHaveLength(23);
+    expect(new Set(keys).size).toBe(23);
 });
 
 test('registry: 掃描器自我檢查', () => {
