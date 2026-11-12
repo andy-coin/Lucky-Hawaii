@@ -1,4 +1,11 @@
-## 🔄 第二輪三線並行（2026-11-12 下午，基準 1cc4407，進行中）
+## ✅ 第二輪完成（2026-11-12 下午，已 push origin/gsd/v0.96-stabilize 7a78f4f，?v=0.96.18）
+
+- 已合併四條：r2/prefs（五分頁＋點外面關韻腳選單）、r2/editor（浮動完整歌詞編輯器、新增段落移到標籤情境下方、iPad 收起不裁、拉高度不跳）、r2/theme（素墨／月光／城市／午夜／自訂 循環、多重點色、紋理、js/bgfx.js 背景飄字）、r2/byok（AI 分頁、Gemini／Groq 直連、鑰匙呼吸、自製模型下拉含用量格）
+- 測試：合併後全套 1093 過／4 失敗 → 4 個都是合併接縫，已修並單獨驗過（`js/search-ui.js` 背景動畫開關改讀 `lhBgFxIsOn`；`tests/rhyme-map-ui.spec.mjs` 用 `#exportToggle`；`tests/prefs-tabs.spec.mjs` 改測真的 bgfx；`desktop-ai-darwin.png` 基準更新）。修完沒再跑第二輪全套（Andy 同意省略重複測試）
+- 已知偶發：`undo.spec.mjs:407`、`sections-core`「一百萬字不卡」只在全套高負載時失敗，單獨跑 10/10 過
+- 待 Andy：iPad 實測；待決清單 `R2-prefs.md`（11）、`R2-editor.md`（10）、`R2-theme.md`（9）、`R2-byok.md`（12，重點：Gemini 免費額度官方沒公布、格數照論壇數字）
+- worktree `../Lucky Hawaii-wt-{theme,editor,prefs,byok}` 還在（各有 `r2-shots/` 截圖），確認後可移除
+
 ## ▶ R2 BYOK 用自己的金鑰（2026-11-12，worktree `Lucky Hawaii-wt-byok`，分支 r2/byok，沒 push、`?v=` 沒升）
 
 - `js/ai-client.js`：最上面 `BYOK_PROVIDERS`（Gemini 3.5 Flash-Lite／3.8 Flash、Groq GPT-OSS 20B／120B，含用量格）；`callLLM` 遇到 `byok:` 開頭的模型改走 `_callByok` 直連（Gemini 用 x-goog-api-key、Groq 用 Bearer），錯誤經 `_byokErrorMsg` 轉白話，不退回 Worker；自製下拉 `_renderModelPicker`／`modelPickerOpen`（隱藏的 `#modelSelect` 仍是值的來源）；鑰匙 `_syncKeyBtn`、`lhOpenAiPrefs`；AI 分頁 `byokSaveKey`／`byokTest`。舊 `saveApiKey` 空殼已刪。
