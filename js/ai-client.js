@@ -4,24 +4,318 @@
         const AUTO_MODEL = { id: 'auto', label: '自動（推薦）', provider: 'auto' };
         let LLM_MODELS = [AUTO_MODEL];
 
-        function saveApiKey(provider, val) {
-            // 如果是 Worker 代理的服務，其實可以不讓使用者填 Key
-            lhSet(`apiKey_${provider}`, val.trim());
-            renderModelSelect();
+        // ===== 用自己的金鑰（BYOK）：有金鑰就從瀏覽器直連服務商，不經 Worker；金鑰存在 apiKey_<服務商>（safety.js 標為機密，不進備份） =====
+        // 模型與「用量」格數依據（2026-11 官方文件）：見 R2-byok.md。usage：1～3 格＝每次請求吃掉免費額度的多寡
+        const BYOK_PROVIDERS = {
+            gemini: {
+                name: 'Gemini',
+                models: [
+                    { id: 'gemini-3.5-flash-lite', label: 'Gemini 3.5 Flash-Lite', usage: 2 },
+                    { id: 'gemini-3.8-flash', label: 'Gemini 3.8 Flash', usage: 3 },
+                ],
+            },
+            groq: {
+                name: 'Groq',
+                models: [
+                    { id: 'openai/gpt-oss-20b', label: 'GPT-OSS 20B', usage: 1 },
+                    { id: 'openai/gpt-oss-120b', label: 'GPT-OSS 120B', usage: 2 },
+                ],
+            },
+        };
+        const BYOK_USAGE_TEXT = ['', '用量少', '用量中', '用量多'];
+        // 金鑰只收可見的 ASCII（貼上時夾帶空白、中文會讓請求標頭直接失敗）
+        const BYOK_KEY_RE = /^[\x21-\x7e]{10,200}$/;
+
+        function byokKey(provider) { return lhGet(`apiKey_${provider}`) || ''; }
+        // 有金鑰的服務商才有選項；id 加 byok: 前綴，不會和 Worker 的模型撞名
+        function byokModels() {
+            return Object.entries(BYOK_PROVIDERS).filter(([p]) => byokKey(p)).flatMap(([p, cfg]) =>
+                cfg.models.map(m => ({ id: `byok:${p}:${m.id}`, label: m.label, provider: p, model: m.id, usage: m.usage, byok: true })));
+        }
+        function allModels() { return [...LLM_MODELS, ...byokModels()]; }
+        function currentModel() {
+            const v = document.getElementById('modelSelect')?.value;
+            return allModels().find(m => m.id === v) || LLM_MODELS[0];
         }
 
         function renderModelSelect() {
             const sel = document.getElementById('modelSelect');
             if (!sel) return;
+            const models = allModels();
             // 選項標籤來自網路，用 Option 建立，不拼 HTML 字串
-            sel.replaceChildren(...LLM_MODELS.map(m => new Option(m.label, m.id)));
-            // 舊值（例如已下架的模型）只在畫面上顯示成「自動」，不改使用者存的值（Phase 1 測試要求開站不改任何鍵；使用者自己改選才寫入）
+            sel.replaceChildren(...models.map(m => new Option(m.label, m.id)));
+            // 舊值（例如已下架的模型、金鑰已清掉的模型）只在畫面上顯示成「自動」，不改使用者存的值（Phase 1 測試要求開站不改任何鍵；使用者自己改選才寫入）
             const stored = lhGet('selectedModel');
-            sel.value = LLM_MODELS.some(m => m.id === stored) ? stored : 'auto';
+            sel.value = models.some(m => m.id === stored) ? stored : 'auto';
+            _renderModelPicker();
         }
         function onModelChange() {
             lhSet('selectedModel', document.getElementById('modelSelect').value);
+            _renderModelPicker();
         }
+
+        // ===== 自製模型下拉（button＋listbox）：原生 select 留著當值的來源（隱藏），選項右邊可以放用量圖示 =====
+        // 訊號格圖示：三根由低到高的柱子，亮 n 根
+        function _usageIcon(n) {
+            const NS = 'http://www.w3.org/2000/svg';
+            const svg = document.createElementNS(NS, 'svg');
+            svg.setAttribute('viewBox', '0 0 15 12');
+            svg.setAttribute('class', 'usage-bars');
+            svg.setAttribute('aria-hidden', 'true');
+            [[1, 8], [6, 5], [11, 1]].forEach(([x, y], i) => {
+                const r = document.createElementNS(NS, 'rect');
+                r.setAttribute('x', x); r.setAttribute('y', y); r.setAttribute('width', 3); r.setAttribute('height', 12 - y); r.setAttribute('rx', 0.75);
+                if (i < n) r.setAttribute('class', 'on');
+                svg.append(r);
+            });
+            return svg;
+        }
+        function _modelOption(m, selected) {
+            const o = document.createElement('div');
+            o.setAttribute('role', 'option');
+            o.id = 'modelOpt-' + m.id.replace(/[^\w-]/g, '_');
+            o.dataset.id = m.id;
+            o.className = 'model-opt';
+            o.setAttribute('aria-selected', String(m.id === selected));
+            const name = document.createElement('span');
+            name.className = 'model-opt-name';
+            name.textContent = m.label;
+            o.append(name);
+            if (m.usage) {
+                const wrap = document.createElement('span');
+                wrap.className = 'model-opt-usage';
+                wrap.title = '免費額度' + BYOK_USAGE_TEXT[m.usage];
+                wrap.dataset.usage = m.usage;
+                const sr = document.createElement('span');
+                sr.className = 'sr-only';
+                sr.textContent = `，${BYOK_PROVIDERS[m.provider].name} 你的金鑰，${BYOK_USAGE_TEXT[m.usage]}（${m.usage}／3 格）`;
+                wrap.append(_usageIcon(m.usage), sr);
+                o.append(wrap);
+            }
+            return o;
+        }
+        function _modelGroup(label, models, selected) {
+            const g = document.createElement('div');
+            g.setAttribute('role', 'group');
+            g.setAttribute('aria-label', label);
+            const h = document.createElement('div');
+            h.className = 'model-group-label';
+            h.setAttribute('aria-hidden', 'true');
+            h.textContent = label;
+            g.append(h, ...models.map(m => _modelOption(m, selected)));
+            return g;
+        }
+        function _renderModelPicker() {
+            const btn = document.getElementById('modelPicker');
+            const list = document.getElementById('modelList');
+            if (!btn || !list) return;
+            const m = currentModel();
+            btn.querySelector('.model-picker-label').textContent = m.label;
+            btn.setAttribute('aria-label', `AI 模型：${m.label}${m.byok ? '（用你自己的金鑰）' : ''}`);
+            const selected = m.id;
+            const own = byokModels();
+            list.replaceChildren(...(own.length
+                ? [_modelGroup('好韻器提供', LLM_MODELS, selected), _modelGroup('用你自己的金鑰', own, selected)]
+                : LLM_MODELS.map(x => _modelOption(x, selected))));
+            _syncKeyBtn(m);
+        }
+        function _modelOpts() { return [...document.querySelectorAll('#modelList [role="option"]')]; }
+        function _modelSetActive(o) {
+            const list = document.getElementById('modelList');
+            _modelOpts().forEach(x => x.classList.toggle('active', x === o));
+            if (!o) { list.removeAttribute('aria-activedescendant'); return; }
+            list.setAttribute('aria-activedescendant', o.id);
+            o.scrollIntoView({ block: 'nearest' });
+        }
+        function modelPickerOpen() {
+            const list = document.getElementById('modelList');
+            list.hidden = false;
+            document.getElementById('modelPicker').setAttribute('aria-expanded', 'true');
+            list.focus({ preventScroll: true });
+            const opts = _modelOpts();
+            _modelSetActive(opts.find(o => o.getAttribute('aria-selected') === 'true') || opts[0]);
+        }
+        function modelPickerClose(refocus) {
+            const list = document.getElementById('modelList');
+            if (list.hidden) return;
+            list.hidden = true;
+            document.getElementById('modelPicker').setAttribute('aria-expanded', 'false');
+            if (refocus) document.getElementById('modelPicker').focus({ preventScroll: true });
+        }
+        function _modelChoose(id) {
+            const sel = document.getElementById('modelSelect');
+            sel.value = id;
+            onModelChange();
+            modelPickerClose(true);
+        }
+        (function _wireModelPicker() {
+            const btn = document.getElementById('modelPicker');
+            const list = document.getElementById('modelList');
+            if (!btn || !list) return;
+            btn.addEventListener('click', () => (list.hidden ? modelPickerOpen() : modelPickerClose(true)));
+            btn.addEventListener('keydown', e => {
+                if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
+                e.preventDefault();
+                modelPickerOpen();
+            });
+            list.addEventListener('click', e => {
+                const o = e.target.closest('[role="option"]');
+                if (o) _modelChoose(o.dataset.id);
+            });
+            list.addEventListener('keydown', e => {
+                if (e.isComposing) return;
+                const opts = _modelOpts();
+                const i = opts.findIndex(o => o.classList.contains('active'));
+                const n = opts.length;
+                const to = { ArrowDown: i + 1, ArrowUp: i - 1, Home: 0, End: n - 1 }[e.key];
+                if (to !== undefined) { e.preventDefault(); _modelSetActive(opts[(to + n) % n]); return; }
+                if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); if (opts[i]) _modelChoose(opts[i].dataset.id); return; }
+                if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); modelPickerClose(true); return; }
+                if (e.key === 'Tab') modelPickerClose(false);
+            });
+            // 點選單外面就收起；被點到的東西照常反應（和韻腳選單一樣）
+            document.addEventListener('pointerdown', e => {
+                if (!list.hidden && !document.getElementById('modelPickerWrap').contains(e.target)) modelPickerClose(false);
+            });
+        })();
+
+        // 右上鑰匙：目前模型走自己的金鑰時呼吸閃爍（CSS 處理減少動態），否則淡淡的靜止；點了開偏好設定的「AI」分頁
+        function _syncKeyBtn(m) {
+            const k = document.getElementById('aiKeyBtn');
+            if (!k) return;
+            const on = !!m?.byok;
+            k.dataset.on = String(on);
+            const label = on ? `正在使用你自己的 ${BYOK_PROVIDERS[m.provider].name} 金鑰，點此設定`
+                : byokModels().length ? '目前沒有用你自己的金鑰（模型選單裡「用你自己的金鑰」那組才會用），點此設定'
+                : '用你自己的 AI 金鑰，點此設定';
+            k.setAttribute('aria-label', label);
+            k.title = label;
+        }
+        function lhOpenAiPrefs() {
+            modelPickerClose(false);
+            if (!document.getElementById('settingsOverlay').classList.contains('show')) toggleSettings();
+            lhPrefsSelectTab('ai', true);
+        }
+
+        // ===== 偏好設定「AI」分頁：每家一個金鑰欄、顯示／隱藏、測試連線、清除 =====
+        function _byokStatus(provider, text, kind) {
+            const el = document.querySelector(`.byok-provider[data-provider="${provider}"] .byok-status`);
+            el.textContent = text;
+            el.dataset.kind = kind || '';
+        }
+        // 存金鑰：空字串＝清除；格式不對就不存並說明。回傳是否已存
+        function byokSaveKey(provider, raw) {
+            const val = String(raw).trim();
+            if (!val) {
+                lhRemove(`apiKey_${provider}`);
+                _byokStatus(provider, '已清除這台裝置上的金鑰', 'ok');
+            } else if (!BYOK_KEY_RE.test(val)) {
+                _byokStatus(provider, '金鑰格式不對：請只貼上金鑰本身（英文字母、數字與符號），不要夾帶空白或中文', 'err');
+                return false;
+            } else {
+                if (!lhSet(`apiKey_${provider}`, val)) return false;
+                _byokStatus(provider, '已存在這台裝置的瀏覽器裡', 'ok');
+            }
+            renderModelSelect();
+            return true;
+        }
+
+        // 服務商的錯誤 → 白話繁中（絕不顯示金鑰或英文技術字串）
+        function _byokErrorMsg(provider, status, data) {
+            const name = BYOK_PROVIDERS[provider].name;
+            const raw = JSON.stringify(data ?? '');
+            if (status === 401 || status === 403 || raw.includes('API_KEY_INVALID') || raw.includes('invalid_api_key')) return `${name} 金鑰無效，請到偏好設定的「AI」分頁重新貼上金鑰`;
+            if (status === 429) return `${name} 的免費額度暫時用完了（每分鐘或每天的上限），請稍後再試，或換一個模型`;
+            if (status === 404) return `${name} 找不到這個模型，請換一個模型`;
+            if (status === 400) return `${name} 不接受這次的請求，請換一個模型再試`;
+            return `${name} 暫時無法使用，請稍後再試`;
+        }
+        // 直連服務商：回傳 JSON；任何失敗 throw aiError
+        async function _byokFetch(provider, url, init, timeoutMs) {
+            const name = BYOK_PROVIDERS[provider].name;
+            let res;
+            try {
+                res = await fetch(url, { ...init, signal: AbortSignal.timeout(timeoutMs) });
+            } catch (e) {
+                lhWarn(name + ' 請求送不出去', e);
+                throw aiError(e.name === 'TimeoutError' ? `${name} 回應太久，請稍後再試` : `連不上 ${name}，請檢查網路後再試`);
+            }
+            let data = null;
+            try { data = await res.json(); } catch (e) { lhWarn(name + ' 回應不是 JSON', e); }
+            if (!res.ok) {
+                lhWarn(`${name} 回應 HTTP ${res.status}`);
+                throw aiError(_byokErrorMsg(provider, res.status, data));
+            }
+            if (!data) throw aiError(`${name} 回應格式不對，請稍後再試`);
+            return data;
+        }
+        function _byokHeaders(provider, key) {
+            return provider === 'gemini' ? { 'x-goog-api-key': key } : { Authorization: 'Bearer ' + key };
+        }
+        async function _callByok(model, prompt) {
+            const key = byokKey(model.provider);
+            const name = BYOK_PROVIDERS[model.provider].name;
+            if (!key) throw aiError(`這台裝置沒有 ${name} 金鑰了，請到偏好設定的「AI」分頁貼上，或換回好韻器提供的模型`);
+            const headers = { 'Content-Type': 'application/json', ..._byokHeaders(model.provider, key) };
+            let text, tokens;
+            if (model.provider === 'gemini') {
+                // 金鑰放標頭，不放網址
+                const data = await _byokFetch('gemini', `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model.model)}:generateContent`, {
+                    method: 'POST', headers,
+                    body: JSON.stringify({ contents: [{ role: 'user', parts: [{ text: prompt }] }], generationConfig: { temperature: 0.95 } }),
+                }, 35000);
+                text = (data.candidates?.[0]?.content?.parts || []).filter(p => !p.thought && typeof p.text === 'string').map(p => p.text).join('');
+                tokens = data.usageMetadata?.totalTokenCount;
+            } else {
+                const data = await _byokFetch('groq', 'https://api.groq.com/openai/v1/chat/completions', {
+                    method: 'POST', headers,
+                    body: JSON.stringify({ model: model.model, messages: [{ role: 'user', content: prompt }], temperature: 0.95 }),
+                }, 35000);
+                text = data.choices?.[0]?.message?.content;
+                tokens = data.usage?.total_tokens;
+            }
+            if (typeof text !== 'string' || !text.trim()) throw aiError(`${name} 沒有回應內容，請再試一次`);
+            showToast(`${model.label}（你的金鑰）${Number.isFinite(tokens) ? `｜本次 ${tokens} tokens` : ''}`, 4000);
+            return text.replace(/<think>[\s\S]*?<\/think>/g, '').trim();
+        }
+        // 測試連線：讀一次各家的模型清單（不花生成額度）
+        async function byokTest(provider) {
+            const input = document.getElementById('byokKey-' + provider);
+            if (!byokSaveKey(provider, input.value)) return;
+            const key = byokKey(provider);
+            if (!key) { _byokStatus(provider, '請先貼上金鑰', 'err'); return; }
+            _byokStatus(provider, '測試中…', '');
+            const url = provider === 'gemini' ? 'https://generativelanguage.googleapis.com/v1beta/models?pageSize=200' : 'https://api.groq.com/openai/v1/models';
+            try {
+                await _byokFetch(provider, url, { headers: _byokHeaders(provider, key) }, 10000);
+                _byokStatus(provider, `連線成功！${BYOK_PROVIDERS[provider].name} 金鑰可以用，模型選單裡「用你自己的金鑰」那組已經可以選`, 'ok');
+            } catch (e) {
+                _byokStatus(provider, e.plain ? e.message : AI_FALLBACK_MSG, 'err');
+            }
+        }
+        function byokRenderPrefs() {
+            for (const p of Object.keys(BYOK_PROVIDERS)) {
+                const input = document.getElementById('byokKey-' + p);
+                if (input && document.activeElement !== input) input.value = byokKey(p);
+            }
+        }
+        (function _wireByokPrefs() {
+            for (const box of document.querySelectorAll('.byok-provider')) {
+                const p = box.dataset.provider;
+                const input = box.querySelector('.byok-input');
+                input.value = byokKey(p);
+                input.addEventListener('change', () => byokSaveKey(p, input.value));
+                box.querySelector('.byok-eye').addEventListener('click', e => {
+                    const show = input.type === 'password';
+                    input.type = show ? 'text' : 'password';
+                    e.currentTarget.setAttribute('aria-pressed', String(show));
+                    e.currentTarget.setAttribute('aria-label', show ? '隱藏金鑰' : '顯示金鑰');
+                    e.currentTarget.title = show ? '隱藏金鑰' : '顯示金鑰';
+                });
+                box.querySelector('[data-act="test"]').addEventListener('click', () => byokTest(p));
+                box.querySelector('[data-act="clear"]').addEventListener('click', () => { input.value = ''; byokSaveKey(p, ''); });
+            }
+        })();
 
         // 從 Worker 取得目前可用的模型，選單 = 自動 + 這份清單（依 Worker 給的順序）
         // 任何失敗都只留下「自動」；只重畫選單，不寫使用者的設定
@@ -41,7 +335,7 @@
 
         // 換模型由 Worker 負責，這裡只回傳一個（D-16）
         function aiTryList() {
-            return [LLM_MODELS.find(m => m.id === document.getElementById('modelSelect')?.value) || LLM_MODELS[0]];
+            return [currentModel()];
         }
 
         // AI 失敗時使用者看到的後備句子（錯誤不是 aiError 產生的就用這句，絕不顯示英文或技術字串）
@@ -57,6 +351,8 @@
         // 統一呼叫介面 → 回傳純文字回應。只送任務內容，Worker 決定用哪個模型；
         // 失敗一律 throw aiError，message 已是可直接給使用者看的白話繁中
         async function callLLM(model, prompt) {
+            // 選了自己金鑰的模型：直連服務商；失敗就直接告訴使用者，不偷偷改走 Worker（不然會以為在用自己的額度）
+            if (model.byok) return _callByok(model, prompt);
             let res;
             try {
                 res = await fetch(WORKER_URL + '/ai', {

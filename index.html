@@ -164,6 +164,7 @@
                     <button type="button" role="tab" id="prefsTab-look" aria-controls="prefsPanel-look" aria-selected="true">外觀</button>
                     <button type="button" role="tab" id="prefsTab-search" aria-controls="prefsPanel-search" aria-selected="false" tabindex="-1">查詢與詞庫</button>
                     <button type="button" role="tab" id="prefsTab-map" aria-controls="mapSettingsSection" aria-selected="false" tabindex="-1">韻腳與句構</button>
+                    <button type="button" role="tab" id="prefsTab-ai" aria-controls="prefsPanel-ai" aria-selected="false" tabindex="-1">AI</button>
                     <button type="button" role="tab" id="prefsTab-data" aria-controls="prefsPanel-data" aria-selected="false" tabindex="-1">資料與備份</button>
                     <button type="button" role="tab" id="prefsTab-help" aria-controls="prefsPanel-help" aria-selected="false" tabindex="-1">說明與回饋</button>
                 </div>
@@ -202,11 +203,38 @@
                         <div id="lexiconPackList" role="radiogroup" aria-label="詞庫包"></div>
                         <div id="lexiconPackStatus" class="settings-pack-status" aria-live="polite"></div>
                     </div>
-                    <div class="settings-color-section" style="margin-top:0.75rem">
-                        <div style="font-size:0.78rem; color:var(--text-secondary);">Groq 已整合，無需填入 Key。</div>
-                    </div>
                 </div>
                 <div class="prefs-panel" role="tabpanel" id="mapSettingsSection" aria-labelledby="prefsTab-map" tabindex="0" hidden></div>
+                <div class="prefs-panel" role="tabpanel" id="prefsPanel-ai" aria-labelledby="prefsTab-ai" tabindex="0" hidden>
+                    <p class="byok-intro">不填也能用：好韻器已內建免費 AI，由好韻器的伺服器代為連線。</p>
+                    <p class="byok-intro">想用<strong>自己的金鑰</strong>，就是用你自己的免費額度：請求直接從這台裝置送到 Google 或 Groq，不經過好韻器的伺服器。金鑰只存在這台裝置的瀏覽器裡，不會進備份檔。存好之後，模型選單會多出「用你自己的金鑰」那一組。</p>
+                    <div class="byok-provider" data-provider="gemini">
+                        <label class="settings-pack-title" for="byokKey-gemini">Gemini（Google AI Studio）金鑰</label>
+                        <div class="byok-row">
+                            <input type="password" class="byok-input" id="byokKey-gemini" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="貼上金鑰">
+                            <button type="button" class="byok-eye" aria-pressed="false" aria-label="顯示金鑰" title="顯示金鑰"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></button>
+                        </div>
+                        <div class="byok-actions">
+                            <button type="button" class="save-load-btn" data-act="test">測試連線</button>
+                            <button type="button" class="save-load-btn" data-act="clear">清除金鑰</button>
+                        </div>
+                        <div class="byok-status" role="status" aria-live="polite"></div>
+                        <a class="byok-video" href="https://www.youtube.com/watch?v=Upk-iMyC3aM" target="_blank" rel="noopener">如何取得免費 Google API 金鑰（影片）</a>
+                    </div>
+                    <div class="byok-provider" data-provider="groq">
+                        <label class="settings-pack-title" for="byokKey-groq">Groq 金鑰</label>
+                        <div class="byok-row">
+                            <input type="password" class="byok-input" id="byokKey-groq" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="貼上金鑰">
+                            <button type="button" class="byok-eye" aria-pressed="false" aria-label="顯示金鑰" title="顯示金鑰"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></button>
+                        </div>
+                        <div class="byok-actions">
+                            <button type="button" class="save-load-btn" data-act="test">測試連線</button>
+                            <button type="button" class="save-load-btn" data-act="clear">清除金鑰</button>
+                        </div>
+                        <div class="byok-status" role="status" aria-live="polite"></div>
+                        <a class="byok-video" href="https://www.youtube.com/watch?v=nt1PJu47nTk" target="_blank" rel="noopener">如何取得免費 Groq API 金鑰（影片）</a>
+                    </div>
+                </div>
                 <div class="prefs-panel" role="tabpanel" id="prefsPanel-data" aria-labelledby="prefsTab-data" tabindex="0" hidden>
                     <div class="settings-saveload" style="gap:0.5rem;margin-top:0.25rem;">
                         <button class="save-load-btn" style="flex:1;text-align:center" onclick="exportSession();closeSettingsOverlay({target:document.getElementById('settingsOverlay')})" title="把所有歌曲與設定存成一個備份檔" aria-label="把所有歌曲與設定存成一個備份檔">備份全部</button>
@@ -420,8 +448,13 @@
         <div class="side-panel-tab" onclick="toggleRightPanel()">AI建議</div>
         <div class="side-panel-body">
             <div class="side-panel-title" style="flex-shrink:0;display:flex;align-items:center;justify-content:space-between;gap:0.5rem">
-                <span>AI 建議</span>
-                <select id="modelSelect" class="model-select" title="選擇 AI 模型（自動＝由伺服器挑選並自動換手）" onchange="onModelChange()"></select>
+                <span class="ai-title-group"><span>AI 建議</span><button type="button" class="ai-key-btn" id="aiKeyBtn" data-on="false" onclick="lhOpenAiPrefs()" aria-label="用你自己的 AI 金鑰，點此設定" title="用你自己的 AI 金鑰，點此設定"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="7.5" cy="15.5" r="4"/><path d="M10.5 12.5L20 3M16.5 6.5l2.5 2.5M14 9l2 2"/></svg></button></span>
+                <!-- 自製模型下拉（js/ai-client.js）：隱藏的 select 是值的來源，button＋listbox 是畫面 -->
+                <div class="model-picker" id="modelPickerWrap">
+                    <select id="modelSelect" hidden onchange="onModelChange()"></select>
+                    <button type="button" id="modelPicker" class="model-select" aria-haspopup="listbox" aria-expanded="false" aria-controls="modelList" title="選擇 AI 模型（自動＝由伺服器挑選並自動換手）"><span class="model-picker-label">自動（推薦）</span><svg class="ic model-picker-caret" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 10l5 5 5-5"/></svg></button>
+                    <div class="model-list" id="modelList" role="listbox" tabindex="-1" aria-label="AI 模型" hidden></div>
+                </div>
             </div>
             <div class="ai-scroll-area">
                 <!-- AI 會參考什麼（Andy 1-b）：即時顯示左邊哪些內容會送給 AI，點了跳過去；js/ai-generate.js lhAiRefRender -->

@@ -63,6 +63,7 @@
                 document.getElementById(t.getAttribute('aria-controls')).hidden = !on;
             }
             if (_lhPrefsTab === 'map' && typeof lhMapPrefsBuild === 'function') lhMapPrefsBuild();   // 韻腳設定第一次看到才建
+            if (_lhPrefsTab === 'ai' && typeof byokRenderPrefs === 'function') byokRenderPrefs();
             if (_lhPrefsTab === 'data' && document.getElementById('autoBackupSection').open) renderAutoBackups();
             _lhPrefsBgFxSync();
             document.getElementById(tab.getAttribute('aria-controls')).scrollTop = 0;
