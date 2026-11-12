@@ -130,6 +130,20 @@ LEX_AI_URL=https://lucky-hawaii.is3000dollar.workers.dev npm run lexicon:judge
 
 教育部的辭典（CC BY-ND）一律不會進來。
 
+## 自建潮流詞庫（新詞、網路用語、人名、作品名）
+
+輸入法詞庫跟不上新詞（雙標、情緒價值、芙莉蓮、統神…），所以另外維護一份自己整理的「潮流詞庫」，**疊加在每一個詞庫包上**：不論選哪個詞庫包都查得到，同一個詞只會出現一次，AI 建議也會從它挑詞。
+
+- **原始檔**：`tools/lexicon/slang/*.tsv`，一個分類一個檔（`net-tw` 台灣網路用語、`net-cn` 中國傳入台灣也常見、`abbrev` 縮略語與口頭禪、`people` 公眾人物、`music` 音樂、`acg` 動漫遊戲電影、`media` 影劇綜藝、`life` 生活品牌科技）。每行：`詞<TAB>注音<TAB>源<TAB>備註`；源是 台／中／日／韓／港／外。
+- **加新詞**：在對的檔案最後加一行，注音可以留空，例如 `尊嘟假嘟<TAB><TAB>中<TAB>真的假的`，然後執行 `npm run lexicon:slang`。
+  - 注音留空時自動產生（先查詞庫包裡的整詞，再把詞拆成詞庫包已有的小詞，最後逐字查字典），產生的注音會寫回 TSV 固定下來。
+  - 碰到拆不開的破音字（例如「暈碳」的暈），**不會亂猜**：會停下來印出建議注音，請照著（或改正後）填進注音欄再跑一次。
+  - 含簡體字會停下來（要有規則輸入快取，跑過一次 `npm run lexicon:build` 就有）。
+- **網站讀的檔**：`data/slang/words.json`（自動產生，不要手改）與 `data/slang/NOTICE.txt`（授權說明）。網站每次開啟都會重新確認這個檔（不存進瀏覽器快取），改了詞部署後使用者馬上拿到。
+- **「次數」p**：一律 100（落在各詞庫包中位數之上、前一成之下），AI 排序失敗、改依常用度補滿時不會被埋沒，也不會壓過真正的常用詞。
+- **後台修正照樣管得到**：修正檔（`data/wordlist-overrides.json`）的刪除、隱藏、改注音會套在潮流詞上；詞庫包的「中國用語」規則不會刪到潮流詞庫裡的詞。
+- 已經在三個以上詞庫包都有的一般詞不必收；`npm run lexicon:test` 會檢查網站檔和 TSV 一致、範例詞注音正確。
+
 ## 指令
 
 都要加 `-B`（不寫 `__pycache__`）；npm 的捷徑已經加好：
@@ -142,6 +156,7 @@ LEX_AI_URL=https://lucky-hawaii.is3000dollar.workers.dev npm run lexicon:judge
 | （沒有捷徑） | `python3 -B tools/lexicon/build.py rescue 詞 [詞 …] [--rebuild]` | 救回被誤刪的詞（見下面「誤刪了怎麼救回」） |
 | `npm run lexicon:eval` | `python3 -B tools/lexicon/build.py eval` | 校準：用約 60 個標好的詞檢查 AI 的判斷標準（要金鑰，不寫任何檔案；一致率 90% 以上才建議跑 judge） |
 | `npm run lexicon:judge` | `python3 -B tools/lexicon/build.py judge --rebuild` | 用 AI 判斷灰色詞，判完重建詞庫包（要金鑰，見下面「灰色地帶 AI 判斷」） |
+| `npm run lexicon:slang` | `python3 -B tools/lexicon/slang.py` | 自建潮流詞庫：補注音並產生 `data/slang/words.json`（`--check` 只檢查不寫檔） |
 | `npm run lexicon:test` | `python3 -B -m unittest discover -s tools/lexicon/tests -t tools/lexicon` | 跑 Python 單元測試 |
 
 另外有 `build.py fetch`（只下載）與 `build.py build`（只用快取建包）。結束代碼：0 成功、1 驗證有問題（逐行列出；eval 則是一致率不足）、2 工具停止。

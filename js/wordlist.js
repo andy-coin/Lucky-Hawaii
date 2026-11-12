@@ -357,10 +357,22 @@
                     return r.ok ? await r.json() : undefined;   // undefined = 沒有修正檔；解析出 null 之類壞內容要走下面的「套用失敗」記錄
                 } catch(e) { lhWarn('詞庫修正檔載入失敗', e); return undefined; }
             };
-            const [base, layer] = await Promise.all([fetchBase(), loadCorrections()]);
+            // 自建潮流詞庫（data/slang/words.json，tools/lexicon/slang.py 產生）：疊加在每個詞庫包上、最先套，
+            // 後台修正檔與修正層的刪除／改注音照樣管得到這些詞；不進 IDB、每次 no-cache 重驗，改了詞馬上生效
+            const fetchSlang = async () => {
+                try {
+                    const r = await fetch('data/slang/words.json', { cache: 'no-cache' });
+                    return r.ok ? await r.json() : undefined;
+                } catch(e) { lhWarn('自建潮流詞庫載入失敗', e); return undefined; }
+            };
+            const [base, layer, slang] = await Promise.all([fetchBase(), loadCorrections(), fetchSlang()]);
             // 等修正檔期間若已換包，兩張對照表已經是新包的，這裡一個字都不能動
             if (!live()) return list;
             let out = list;
+            if (slang && Array.isArray(slang.added)) {
+                try { out = applyWordlistOverrideDoc(out, { added: slang.added }); }
+                catch(e) { lhWarn('自建潮流詞庫套用失敗', e); }
+            }
             if (base !== undefined) {
                 try { out = applyWordlistOverrideDoc(out, base); }
                 catch(e) { lhWarn('詞庫修正檔套用失敗，改用未修正的詞庫', e); }
