@@ -242,18 +242,8 @@
                 ta.value = s.text;
                 body.appendChild(ta);
 
-                // 底邊拉桿（C4）：在 textarea 下面、不蓋住最後一行；拖、鍵盤、雙擊都在 js/sections.js
-                const rz = document.createElement('div');
-                rz.className = 'section-resize';
-                rz.setAttribute('role', 'separator');
-                rz.setAttribute('aria-orientation', 'horizontal');
-                rz.tabIndex = 0;
-                rz.setAttribute('aria-label', lhSecResizeLabel(s.label));
-                rz.setAttribute('aria-valuemin', String(LH_SEC_H_MIN));
-                rz.setAttribute('aria-valuemax', String(LH_SEC_H_MAX));
-
-                el.append(header, body, rz);
-                if (s.height !== null) lhSecSetHeight(el, s.height);   // 存過的高度：data-h 與 --sec-h
+                el.append(header, body);   // 拉高度的把手已拿掉：段落跟著內容自動長高（lhSecFit）
+                _lhSecFitRO.observe(ta);
                 return el;
             }));
             lhSecCountAll();

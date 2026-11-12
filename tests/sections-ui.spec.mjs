@@ -72,7 +72,15 @@ test('名稱：讀取不寫回', async ({ browser }) => {
 // 已有 type 的段落（循環測試不依賴舊 label 推斷）
 const typed = (id, type, text, extra = {}) => ({ id, type, custom: '', color: '', height: null, label: '', text, collapsed: false, ...extra });
 
-test('循環：點一下換下一種類型', async ({ browser }) => {
+// 點名稱鈕開下拉選單，再點某個類型（選了就收起）
+const pickType = async (page, n, type) => {
+    await page.locator('#lyricsSections .section-type').nth(n).click();
+    await page.locator(`#sectionMenu .type-row[data-type="${type}"]`).click();
+    if (type === 'custom') await page.evaluate(() => lhSecCloseMenu(true));   // Custom 留著打名字：點外面收起
+    await expect(page.locator('#sectionMenu')).toBeHidden();
+};
+
+test('下拉：選類型換名稱並存好', async ({ browser }) => {
     const { context, page, errors } = await bootPage(browser, {
         storage: v2Storage([song('s1', [typed('sa', 'verse', '一'), typed('sb', 'verse', '二'), typed('sc', 'chorus', '三')])]),
     });
@@ -89,7 +97,7 @@ test('循環：點一下換下一種類型', async ({ browser }) => {
         ['verse', ['Verse I', 'Verse II', 'Chorus']],
     ];
     for (const [type, names] of STEPS) {
-        await page.locator('#lyricsSections .section-type').nth(1).click();
+        await pickType(page, 1, type);
         expect(await labels(page)).toEqual(names);
         // 不手動 flush：點一下就已經存好
         const raw = await activeSongRaw(page);
@@ -97,7 +105,7 @@ test('循環：點一下換下一種類型', async ({ browser }) => {
         expect(raw.sections[1].type).toBe(type);
         expect(await page.locator('#lyricsSections .section-type').nth(1).getAttribute('title')).toBe(names[1]);
     }
-    await page.locator('#lyricsSections .section-type').nth(1).click();   // 停在 Pre-Chorus 再重新整理
+    await pickType(page, 1, 'prechorus');   // 停在 Pre-Chorus 再重新整理
     await page.reload();
     await expect(page.locator('#lyricsSections .lyrics-section')).toHaveCount(3);
     expect(await labels(page)).toEqual(['Verse', 'Pre-Chorus', 'Chorus']);
@@ -105,7 +113,7 @@ test('循環：點一下換下一種類型', async ({ browser }) => {
     await context.close();
 });
 
-test('循環：原地更新', async ({ browser }) => {
+test('下拉：鍵盤選類型原地更新', async ({ browser }) => {
     const { context, page, errors } = await bootPage(browser, {
         storage: v2Storage([song('s1', [typed('sa', 'verse', '第一行\n'.repeat(60)), typed('sb', 'verse', '二'), typed('sc', 'chorus', '三')])]),
     });
@@ -117,11 +125,12 @@ test('循環：原地更新', async ({ browser }) => {
         window.__keep = { secs: [...document.querySelectorAll('.lyrics-section')], btn: document.querySelectorAll('.section-type')[1], ta: el };
         return { value: el.value, caret: el.selectionStart, scroll: el.scrollTop };
     });
-    expect(before.scroll).toBeGreaterThan(0);
     const btn = page.locator('#lyricsSections .section-type').nth(1);
     await btn.focus();
     for (let i = 0; i < 3; i++) {
-        await page.keyboard.press('Enter');
+        await page.keyboard.press('Enter');        // 開選單，焦點在目前類型
+        await page.keyboard.press('ArrowDown');    // 下一種
+        await page.keyboard.press('Enter');        // 選好：選單收起、焦點回名稱鈕
         expect(await page.evaluate(() => document.activeElement === window.__keep.btn), '按鈕仍有焦點').toBe(true);
     }
     const after = await page.evaluate(() => {
@@ -411,7 +420,7 @@ test('刪除：新動作讓復原鈕消失', async ({ browser }) => {
     // 換類型
     await delMiddle();
     await expect(action).toHaveCount(1);
-    await page.locator('.section-type').first().click();
+    await pickType(page, 0, 'chorus');
     await expect(action).toHaveCount(0);
     await page.locator('#undoBtn').click();   // 撤換類型
     await page.locator('#undoBtn').click();   // 撤刪除
@@ -613,11 +622,11 @@ test('設定：長按開啟不循環', async ({ browser }) => {
     expect(await btn.evaluate(el => el.classList.contains('is-pressing')), '放開後按下的樣子消失').toBe(false);
     const b = await btn.boundingBox(), m = await menuOf(page).boundingBox();
     expect(m.y >= b.y + b.height - 1 || m.y + m.height <= b.y + 1, '選單不蓋住名稱鈕（下面放不下就放上面）').toBe(true);
-    // 100 毫秒輕點照常循環（同時點外面會把選單關掉）
+    // 選單開著時輕點同一個名稱鈕：收起選單，不換類型
     await t.down(x, y);
     await page.waitForTimeout(100);
     await t.up();
-    await expect.poll(() => labels(page)).toEqual(['Verse', 'Inter']);
+    await expect.poll(() => labels(page)).toEqual(['Verse', 'Chorus']);
     await expect(menuOf(page)).toBeHidden();
     // 按住後手指移開超過 10px：不開選單
     await t.down(x, y);
@@ -871,22 +880,6 @@ test('設定：關閉方式', async ({ browser }) => {
     await page.locator('#lyricsSections .section-type').first().click({ button: 'right' });
     await expect(menuOf(page)).toBeVisible();
     await expect(page.locator('#exportMenu')).not.toHaveClass(/show/);
-    expect(errors).toEqual([]);
-    await context.close();
-});
-
-test('設定：第一次提示', async ({ browser }) => {
-    const { context, page, errors } = await bootPage(browser, { device: DEVICES.desktop, storage: three3() });
-    await page.evaluate(() => document.getElementById('copyToast')?.classList.remove('show'));
-    const keysBefore = await page.evaluate(() => Object.keys(localStorage).sort());
-    await page.locator('#lyricsSections .section-type').first().click();
-    await expect(page.locator('#copyToast')).toHaveClass(/show/);
-    await expect(page.locator('#copyToast')).toHaveText('長按標籤（桌機按右鍵）可改顏色、名稱與順序');
-    await page.evaluate(() => document.getElementById('copyToast').classList.remove('show'));
-    await page.locator('#lyricsSections .section-type').first().click();
-    await page.waitForTimeout(150);
-    await expect(page.locator('#copyToast'), '同一次開啟只提示一次').not.toHaveClass(/show/);
-    expect(await page.evaluate(() => Object.keys(localStorage).sort()), '什麼都沒存').toEqual(keysBefore);
     expect(errors).toEqual([]);
     await context.close();
 });

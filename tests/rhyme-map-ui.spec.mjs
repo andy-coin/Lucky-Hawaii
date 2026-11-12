@@ -226,7 +226,8 @@ const launchWithBars = () => chromium.launch({ ignoreDefaultArgs: ['--hide-scrol
 const injectScrollbar = (page, on) => page.evaluate(on => {
     let st = document.getElementById('rmTestBar');
     if (!st) { st = document.createElement('style'); st.id = 'rmTestBar'; document.head.appendChild(st); }
-    st.textContent = on ? '.section-textarea::-webkit-scrollbar { width: 15px } .section-textarea::-webkit-scrollbar-thumb { background: #888 }'
+    // 段落平常自動長高不捲；鍵盤打開時才會自己捲（有捲軸）：測試直接強制 overflow-y: scroll 模擬那種情況
+    st.textContent = on ? '.section-textarea { overflow-y: scroll !important } .section-textarea::-webkit-scrollbar { width: 15px } .section-textarea::-webkit-scrollbar-thumb { background: #888 }'
         : '.section-textarea::-webkit-scrollbar { display: none }';
 }, on);
 const frames = page => page.evaluate(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(r, 60)))));
@@ -369,17 +370,15 @@ test('鏡像對齊：長句換行的句尾仍在原字上', async () => {
     await browser.close();
 });
 
-test('鏡像對齊：英文長串、拉高度、縮放、收合展開之後', async ({ browser }) => {
+test('鏡像對齊：英文長串、自動長高、縮放、收合展開之後', async ({ browser }) => {
     const text = 'a'.repeat(60) + '愛\n我望著遠方的光\n獨自站在窗\n走過熟悉的街道\n終於我也回到\n' + 'b'.repeat(30) + '想你想到心慌';
     const { context, page, errors } = await bootPage(browser, {
         device: DEVICES.desktop, wordlist: 'stub', storage: v2Storage([song([typed('sa', 'verse', text), typed('sb', 'chorus', '你好嗎')])]),
     });
     const check = async tag => { await waitStill(page); await frames(page); await expectBoxesEqual(page, tag); await expectBandsAligned(page, tag); };
     await check('一開始');
-    const rz = await page.locator('.section-resize').first().boundingBox();
-    const [bx, by] = [rz.x + rz.width / 2, rz.y + rz.height / 2];
-    await page.mouse.move(bx, by); await page.mouse.down(); await page.mouse.move(bx, by + 60, { steps: 6 }); await page.mouse.up();
-    await check('拉高 60px 之後');
+    await page.locator('.section-textarea').first().fill(text + '\n再多一行');   // 段落自動長高（拉高度的把手已拿掉）
+    await check('打字長高之後');
     await setScale(page, 150);
     await check('縮放 150% 之後');
     await page.locator('.lyrics-section').first().locator('.section-chevron').click();
@@ -1023,8 +1022,9 @@ test('浮動列：這些情況收起來', async ({ browser }) => {
     // 輸入框捲動
     await show(1, 0, 3);
     await page.evaluate(() => {
-        const ta = document.querySelectorAll('.section-textarea')[1], box = document.getElementById('lyricsSections');
-        if (ta.scrollHeight > ta.clientHeight) ta.scrollTop = 80; else box.scrollTop = box.scrollTop + 80;
+        const ta = document.querySelectorAll('.section-textarea')[1];
+        const box = [ta.closest('.lyrics-area'), ta.closest('.lyrics-main')].find(el => el && el.scrollHeight > el.clientHeight);   // 段落自動長高，捲的是外層
+        box.scrollTop = box.scrollTop >= 80 ? box.scrollTop - 80 : box.scrollTop + 80;   // 已經在底就往上捲
     });
     await gone();
     // 點頁面別處
@@ -1107,7 +1107,7 @@ const pickLastVisible = (page, n = 0) => page.evaluate(n => {
     const ta = document.querySelectorAll('.section-textarea')[n], r = ta.getBoundingClientRect();
     const vv = window.visualViewport, bottom = Math.min(r.bottom, vv.offsetTop + vv.height) - 6;
     const i = lhCaretIndexAt(ta, r.left + 30, bottom);
-    ta.focus(); ta.setSelectionRange(Math.max(0, i - 2), i);
+    ta.focus({ preventScroll: true }); ta.setSelectionRange(Math.max(0, i - 2), i);   // 段落自動長高、比畫面高：聚焦別讓外層捲走
     return [Math.max(0, i - 2), i];
 }, n);
 const barBox = page => page.locator(BAR).boundingBox();

@@ -196,7 +196,8 @@ test('對照：改了段落類型，對照段落換人，≠ 跟著更新', asyn
     expect(await diffTokens(page, 1)).toEqual(['', '≠5', '']);
     expect(await diffTokens(page, 2)).toEqual(['≠7']);
     // 第一段 Verse → 下一個類型：原本的 Verse II 變成第一個 Verse，自己沒有對照；Verse III 改對它
-    await page.locator('.lyrics-section').first().locator('.section-type').click();
+    await page.locator('.lyrics-section').first().locator('.section-type').click();   // 下拉選單
+    await page.locator('#sectionMenu .type-row[data-type="prechorus"]').click();
     expect(await page.evaluate(() => curSong().sections[0].type)).not.toBe('verse');
     await expect.poll(() => diffTokens(page, 1), { timeout: 1500 }).toEqual(['', '', '']);
     expect(await diffTokens(page, 2)).toEqual(['≠7']);
@@ -424,6 +425,9 @@ test('顯示方式：切到句尾後，標記貼在最後一個字後面，游�
     const ta = page.locator('.lyrics-section .section-textarea').nth(1);
     await page.evaluate(() => {
         const t = document.querySelectorAll('.section-textarea')[1];
+        const st = document.createElement('style');   // 段落平常自動長高不捲；模擬鍵盤打開時自己捲的情況（CSS !important 蓋掉高度）
+        st.textContent = '.section-textarea { height: 150px !important; overflow-y: auto !important; }';
+        document.head.appendChild(st);
         t.focus(); t.setSelectionRange(3, 5); t.scrollTop = 120;
         window.__ta = t;
         window.__mks = [...document.querySelectorAll('.lyrics-section')[1].querySelectorAll('.lm-mk')];
@@ -593,7 +597,7 @@ const launchWithBars = () => chromium.launch({ ignoreDefaultArgs: ['--hide-scrol
 const injectScrollbar = (page, on) => page.evaluate(on => {
     let st = document.getElementById('rmTestBar');
     if (!st) { st = document.createElement('style'); st.id = 'rmTestBar'; document.head.appendChild(st); }
-    st.textContent = on ? '.section-textarea::-webkit-scrollbar { width: 15px } .section-textarea::-webkit-scrollbar-thumb { background: #888 }'
+    st.textContent = on ? '.section-textarea { overflow-y: scroll !important } .section-textarea::-webkit-scrollbar { width: 15px } .section-textarea::-webkit-scrollbar-thumb { background: #888 }'
         : '.section-textarea::-webkit-scrollbar { display: none }';
 }, on);
 const frames = page => page.evaluate(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(r, 60)))));
@@ -1134,8 +1138,10 @@ test('韻族顏色：手機上的原生色票', async ({ browser }) => {
 });
 
 // ==================== 預覽（11-04） ====================
-const PREVIEW_LINES = ['月光 灑在 窗前', '夢裡想起你的臉', '我想把時間留在這一天'];
-const PV_WORDS = ['夢裡', '想起', '你的', '我想', '時間', '留在', '這一'];
+// 和 js/rhyme-map.js 的 LH_MAP_PREVIEW_TEXT 一樣（Andy 的〈麻雀〉）
+const PREVIEW_LINES = ['yo yo 麻雀in the house', '夜晚還在街道　別管那些尖叫', '笑鬧 逃跑 快樂或紛擾', '一夜之間　slow down calm down', '一念之間　也 好　也 好 奇',
+    '新的家新的我 新的樹有新的蟲', '想新的拆遷名單', '像辛得勒名單', '耳罩帶好好 抗議go to hell', 'sparrow leave the house', "and who's the next pity mouse?"];
+const PV_WORDS = ['夜晚', '還在', '街道', '那些', '尖叫', '快樂', '紛擾', '拆遷', '名單', '新的', '辛得勒'];
 // 鏡像層（或預覽）裡每個 span 的 [class, 文字, data-f]，外加整段純文字
 const spanSig = (page, sel) => page.evaluate(sel => {
     const root = document.querySelector(sel);
@@ -1178,14 +1184,14 @@ test('預覽：每個開關都看得到', async ({ browser }) => {
     const pv = page.locator('#mapSettingsSection .lm-preview');
     const diffCap = page.locator('#mapSettingsSection .rm-preview-diff');
     await expect(pv).toHaveAttribute('aria-hidden', 'true');
-    await expect(pv).toContainText('月光');
+    await expect(pv).toContainText('麻雀');
     await expect(page.locator('#mapSettingsSection .lm-preview-block > .section-menu-cap').first()).toHaveText('預覽');
-    await expect(pv.locator('.lm-t-c')).toHaveCount(3);
+    await expect(pv.locator('.lm-t-c')).toHaveCount(11);
     // 字數
     await prefSw(page, '字數').click();
     await expect(pv.locator('.lm-t-c')).toHaveCount(0);
     await prefSw(page, '字數').click();
-    await expect(pv.locator('.lm-t-c')).toHaveCount(3);
+    await expect(pv.locator('.lm-t-c')).toHaveCount(11);
     // 對照差異：單獨一段看不到，所以出說明
     await expect(diffCap).toBeHidden();
     await prefSw(page, '對照差異').click();
@@ -1548,8 +1554,9 @@ test('分析面板：收起來的各種情況', async ({ browser }) => {
     // 捲動歌詞區
     await anShow(page, 0, 3, 2);
     await page.evaluate(() => {
-        const ta = document.querySelectorAll('.section-textarea')[2], box = document.getElementById('lyricsSections');
-        if (ta.scrollHeight > ta.clientHeight) ta.scrollTop = 80; else box.scrollTop = box.scrollTop + 80;
+        const ta = document.querySelectorAll('.section-textarea')[2];
+        const box = [ta.closest('.lyrics-area'), ta.closest('.lyrics-main')].find(el => el && el.scrollHeight > el.clientHeight);   // 段落自動長高，捲的是外層
+        box.scrollTop = box.scrollTop >= 80 ? box.scrollTop - 80 : box.scrollTop + 80;   // 已經在底就往上捲
     });
     await closed('捲動');
     // 組字：開始組字就收，組字中、組字後都不在
@@ -1715,7 +1722,7 @@ test('分析面板：貼底與鍵盤打開時看得到', async ({ browser }) => 
     // 選到最後一個可見行，往上 40 行（面板有很多列）
     await page.evaluate(async () => {
         const ta = document.querySelector('.section-textarea');
-        ta.scrollTop = ta.scrollHeight;   // 先捲到最底，最後一個可見行才是第 80 句附近，往上 40 行才選得到
+        ta.scrollIntoView({ block: 'end' });   // 段落自動長高：把輸入框底端捲進畫面，最後一個可見行才是第 80 句附近
         await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
         const r = ta.getBoundingClientRect(), vv = window.visualViewport;
         const bottom = Math.min(r.bottom, vv.offsetTop + vv.height) - 6, i = lhCaretIndexAt(ta, r.left + 30, bottom);

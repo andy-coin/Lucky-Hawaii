@@ -154,14 +154,13 @@ test('排序：放回原位不算', async ({ browser }) => {
 });
 
 test('排序：內容與捲動不變', async ({ browser }) => {
-    const long = Array.from({ length: 80 }, (_, i) => '第' + i + '行').join('\n');
+    const long = Array.from({ length: 8 }, (_, i) => '第' + i + '行').join('\n');   // 段落自動長高，太長的話拖曳目標會在畫面外
     const { context, page, errors } = await bootPage(browser, {
         device: DEVICES.desktop,
         storage: v2Storage([song([typed('sa', 'verse', 'A'), typed('sb', 'chorus', long), typed('sc', 'verse', 'C')])]),
     });
     await page.evaluate(() => {
         const ta = document.querySelectorAll('.section-textarea')[1];
-        ta.scrollTop = 120;
         ta.setSelectionRange(5, 5);
         window.__ta = ta;
     });
@@ -169,9 +168,9 @@ test('排序：內容與捲動不變', async ({ browser }) => {
     expect(await ids(page)).toEqual(['sa', 'sc', 'sb']);
     const m = await page.evaluate(() => {
         const ta = document.querySelectorAll('.section-textarea')[2];
-        return { same: ta === window.__ta, top: ta.scrollTop, sel: ta.selectionStart, len: ta.value.length, idx: ta.closest('.lyrics-section').dataset.index };
+        return { same: ta === window.__ta, sel: ta.selectionStart, len: ta.value.length, idx: ta.closest('.lyrics-section').dataset.index };
     });
-    expect(m).toEqual({ same: true, top: 120, sel: 5, len: long.length, idx: '2' });
+    expect(m).toEqual({ same: true, sel: 5, len: long.length, idx: '2' });
     expect(errors).toEqual([]);
     await context.close();
 });
@@ -350,191 +349,3 @@ test('排序：鍵盤一步一個復原', async ({ browser }) => {
     await context.close();
 });
 
-// ===== 高度（第 9 階段 09-07，EDIT-02 後半）：段落底邊的拉桿 =====
-const bar = (page, n) => page.locator('#lyricsSections .lyrics-section').nth(n).locator('.section-resize');
-const taOf = (page, n) => page.locator('#lyricsSections .lyrics-section').nth(n).locator('.section-textarea');
-const taPx = async (page, n) => (await taOf(page, n).boundingBox()).height;
-const rootPx = page => page.evaluate(() => parseFloat(getComputedStyle(document.documentElement).fontSize));
-const rawH = async (page, n) => (await activeSongRaw(page)).sections[n].height;
-
-test('高度：拖拉桿改高度', async ({ browser }) => {
-    const { context, page, errors } = await bootPage(browser, { device: DEVICES.desktop, storage: ABC() });
-    await waitStill(page);
-    const disabled0 = await undoDisabled(page);
-    const before = await taPx(page, 0);
-    const root = await rootPx(page);
-    const [bx, by] = await centerOf(bar(page, 0));
-    await mouseDrag(page, [bx, by], [bx, by + 80]);
-    const after = await taPx(page, 0);
-    expect(Math.abs(after - before - 80)).toBeLessThanOrEqual(2);
-    const h = await rawH(page, 0);   // 不 flush：放開就要存
-    expect(Math.abs(h - (before + 80) / root)).toBeLessThan(0.2);
-    expect(Math.round(h * 10) / 10).toBe(h);
-    expect(await undoDisabled(page)).toBe(disabled0);
-    // 別段打字再 Cmd/Ctrl+Z：高度不動
-    await taOf(page, 1).click();
-    await page.keyboard.type('x');
-    await page.keyboard.press('ControlOrMeta+z');
-    expect(Math.abs((await taPx(page, 0)) - after)).toBeLessThanOrEqual(1);
-    await page.reload();
-    await waitStill(page);
-    expect(Math.abs((await taPx(page, 0)) - after)).toBeLessThanOrEqual(1);
-    expect(errors).toEqual([]);
-    await context.close();
-});
-
-const HS = h => v2Storage([song([typed('sa', 'verse', 'A', { height: h }), typed('sb', 'chorus', 'B'), typed('sc', 'verse', 'C')])]);
-const barNow = (page, n) => bar(page, n).getAttribute('aria-valuenow');
-const dataH = (page, n) => page.locator('#lyricsSections .lyrics-section').nth(n).evaluate(el => el.dataset.h ?? null);
-
-test('高度：雙擊回自動', async ({ browser }) => {
-    const { context, page, errors } = await bootPage(browser, { device: DEVICES.desktop, storage: ABC() });
-    await waitStill(page);
-    const auto = await taPx(page, 0);
-    const [bx, by] = await centerOf(bar(page, 0));
-    await mouseDrag(page, [bx, by], [bx, by + 60]);
-    expect(await dataH(page, 0)).not.toBeNull();
-    expect(await rawH(page, 0)).not.toBeNull();
-    await bar(page, 0).dblclick();
-    expect(await dataH(page, 0)).toBeNull();
-    expect(await page.locator('#lyricsSections .lyrics-section').first().evaluate(el => el.style.getPropertyValue('--sec-h'))).toBe('');
-    expect(await rawH(page, 0)).toBeNull();
-    expect(Math.abs((await taPx(page, 0)) - auto)).toBeLessThanOrEqual(1);
-    expect(await undoDisabled(page)).toBe('true');
-    expect(errors).toEqual([]);
-    await context.close();
-});
-
-test('高度：連點兩下回自動', async ({ browser }) => {
-    const { context, page, errors } = await bootPage(browser, { device: DEVICES.tablet, storage: HS(8) });
-    await openSheet(page);
-    await bar(page, 0).scrollIntoViewIfNeeded();
-    expect(await dataH(page, 0)).toBe('8');
-    const [x, y] = await centerOf(bar(page, 0));
-    const touch = await touchSession(page);
-    await touch.down(x, y); await touch.up();
-    expect(await dataH(page, 0)).toBe('8');   // 點一下不算
-    await page.waitForTimeout(100);
-    await touch.down(x, y); await touch.up();
-    expect(await dataH(page, 0)).toBeNull();
-    expect(await rawH(page, 0)).toBeNull();
-    expect(errors).toEqual([]);
-    await context.close();
-});
-
-test('高度：連點兩下太慢不算', async ({ browser }) => {
-    const { context, page, errors } = await bootPage(browser, { device: DEVICES.tablet, storage: HS(8) });
-    await openSheet(page);
-    await bar(page, 0).scrollIntoViewIfNeeded();
-    const [x, y] = await centerOf(bar(page, 0));
-    const touch = await touchSession(page);
-    await touch.down(x, y); await touch.up();
-    await page.waitForTimeout(450);
-    await touch.down(x, y); await touch.up();
-    expect(await dataH(page, 0)).toBe('8');
-    expect(errors).toEqual([]);
-    await context.close();
-});
-
-test('高度：鍵盤', async ({ browser }) => {
-    const { context, page, errors } = await bootPage(browser, { device: DEVICES.desktop, storage: HS(10) });
-    await waitStill(page);
-    const undo0 = await undoDisabled(page);
-    await bar(page, 0).focus();
-    await page.keyboard.press('ArrowDown');
-    expect(await rawH(page, 0)).toBe(11);
-    expect(await barNow(page, 0)).toBe('11');
-    await page.keyboard.press('Shift+ArrowDown');
-    expect(await rawH(page, 0)).toBe(15);
-    await page.keyboard.press('ArrowUp');
-    expect(await rawH(page, 0)).toBe(14);
-    await page.keyboard.press('Shift+ArrowUp');
-    expect(await rawH(page, 0)).toBe(10);
-    expect(await barNow(page, 0)).toBe('10');
-    expect(Math.abs((await taPx(page, 0)) / (await rootPx(page)) - 10)).toBeLessThan(0.1);
-    for (let i = 0; i < 8; i++) await page.keyboard.press('ArrowUp');
-    expect(await rawH(page, 0)).toBe(4);   // 到下限就停
-    await page.keyboard.press('Home');
-    expect(await rawH(page, 0)).toBeNull();
-    expect(await dataH(page, 0)).toBeNull();
-    expect(await undoDisabled(page)).toBe(undo0);   // 都不進歷史
-    expect(await page.evaluate(() => document.activeElement.className)).toBe('section-resize');
-    expect(errors).toEqual([]);
-    await context.close();
-});
-
-test('高度：上下限', async ({ browser }) => {
-    const { context, page, errors } = await bootPage(browser, { device: DEVICES.desktop, storage: HS(10) });
-    await waitStill(page);
-    const [bx, by] = await centerOf(bar(page, 0));
-    await mouseDrag(page, [bx, by], [bx, by - 600]);
-    expect(await rawH(page, 0)).toBe(4);
-    const [cx, cy] = await centerOf(bar(page, 0));
-    await mouseDrag(page, [cx, cy], [cx, cy + 3000]);
-    expect(await rawH(page, 0)).toBe(60);
-    expect(await barNow(page, 0)).toBe('60');
-    expect(errors).toEqual([]);
-    await context.close();
-});
-
-test('高度：收合時看不到', async ({ browser }) => {
-    const { context, page, errors } = await bootPage(browser, { device: DEVICES.desktop, storage: HS(10) });
-    await waitStill(page);
-    await expect(bar(page, 0)).toBeVisible();
-    await page.locator('#lyricsSections .lyrics-section').first().locator('.lyrics-section-header').click({ position: { x: 150, y: 4 } });
-    await expect(page.locator('#lyricsSections .lyrics-section').first()).toHaveClass(/collapsed/);
-    await expect(bar(page, 0)).toBeHidden();
-    expect(await rawH(page, 0)).toBe(10);   // 收合不丟高度
-    await page.locator('#lyricsSections .lyrics-section').first().locator('.lyrics-section-header').click({ position: { x: 150, y: 4 } });
-    await expect(bar(page, 0)).toBeVisible();
-    expect(Math.abs((await taPx(page, 0)) / (await rootPx(page)) - 10)).toBeLessThan(0.1);
-    expect(errors).toEqual([]);
-    await context.close();
-});
-
-test('高度：縮放跟著變', async ({ browser }) => {
-    const { context, page, errors } = await bootPage(browser, { device: DEVICES.desktop, storage: HS(10) });
-    await waitStill(page);
-    await setScale(page, 100);
-    await waitStill(page);
-    const a = await taPx(page, 0);
-    await setScale(page, 150);
-    await waitStill(page);
-    const b = await taPx(page, 0);
-    expect(Math.abs(b / a - 1.5)).toBeLessThan(0.05);
-    expect(errors).toEqual([]);
-    await context.close();
-});
-
-test('高度：手指拉', async ({ browser }) => {
-    const { context, page, errors } = await bootPage(browser, { device: DEVICES.phone, storage: ABC() });
-    await openSheet(page);
-    await bar(page, 0).scrollIntoViewIfNeeded();
-    const before = await taPx(page, 0);
-    const [x, y] = await centerOf(bar(page, 0));
-    const touch = await touchSession(page);
-    await touch.drag([x, y], [x, y + 60]);
-    expect(Math.abs((await taPx(page, 0)) - before - 60)).toBeLessThanOrEqual(2);
-    expect(await rawH(page, 0)).not.toBeNull();
-    expect(await undoDisabled(page)).toBe('true');
-    expect(errors).toEqual([]);
-    await context.close();
-});
-
-test('高度：拖曳中被中止', async ({ browser }) => {
-    const { context, page, errors } = await bootPage(browser, { device: DEVICES.desktop, storage: HS(10) });
-    await waitStill(page);
-    const [x, y] = await centerOf(bar(page, 0));
-    await page.mouse.move(x, y);
-    await page.mouse.down();
-    await page.mouse.move(x, y + 60, { steps: 6 });
-    expect(await dataH(page, 0)).not.toBe('10');
-    await page.evaluate(() => renderLyricsSections());
-    await page.mouse.up();
-    await page.waitForTimeout(400);
-    expect(await dataH(page, 0)).toBe('10');   // 回到拉之前
-    expect(await rawH(page, 0)).toBe(10);
-    expect(await page.evaluate(() => document.body.classList.contains('is-section-resizing'))).toBe(false);
-    expect(errors).toEqual([]);
-    await context.close();
-});

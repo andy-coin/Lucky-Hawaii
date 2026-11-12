@@ -473,7 +473,11 @@ test('拖詞：長句換行游標', async ({ browser }) => {
     expect(line.length).toBeGreaterThan(150);
     const { context, page, errors } = await bootPage(browser, { device: DEVICES.desktop, storage: ONE(line) });
     const t = ta(page);
-    await t.evaluate(el => { el.style.width = '150px'; el.style.height = '420px'; });
+    await t.evaluate(() => {   // 段落會自動長高（lhSecFit 寫行內高度），所以用 !important 樣式固定尺寸
+        const st = document.createElement('style');
+        st.textContent = '.section-textarea { width: 150px !important; height: 420px !important; overflow-y: auto !important; }';
+        document.head.appendChild(st);
+    });
     expect(await t.evaluate(el => el.scrollHeight)).toBeGreaterThan(200);
     await gridCompare(page, t, '長句換行');
     expect(errors).toEqual([]);

@@ -170,38 +170,3 @@ test('iPad 收起：「標籤＆情境」與收合段落的標題列完整、不
     await context.close();
 });
 
-for (const [name, device] of [['電腦', DEVICES.desktop], ['手機', DEVICES.phone]]) {
-    test(`高度：新段落的輸入框撐滿整段，拉桿從看到的高度連續拉長（${name}）`, async ({ browser }) => {
-        const { context, page, errors } = await bootPage(browser, { device, storage: storage() });
-        await openLeft(page);
-        await page.locator('.section-add-btn').click();
-        await waitStill(page);
-        const sec = page.locator('#lyricsSections .lyrics-section').last();
-        await sec.scrollIntoViewIfNeeded();
-        const fill = await sec.evaluate(el => el.querySelector('.section-body').getBoundingClientRect().height - el.querySelector('.section-textarea').getBoundingClientRect().height);
-        expect(Math.abs(fill)).toBeLessThanOrEqual(1);   // 輸入框＝整段的內容區（沒有點不到的空白）
-        const h0 = (await sec.boundingBox()).height;
-        const [bx, by] = await centerOf(sec.locator('.section-resize'));
-        const step = async dy => {
-            if (device.hasTouch) return;
-            await page.mouse.move(bx, by + dy, { steps: 2 });
-        };
-        if (device.hasTouch) {
-            const t = await touchSession(page);
-            await t.down(bx, by);
-            await t.move(bx, by + 6);
-            await t.move(bx, by + 12);
-            expect(Math.abs((await sec.boundingBox()).height - (h0 + 12))).toBeLessThanOrEqual(2);
-            await t.up();
-        } else {
-            await page.mouse.move(bx, by);
-            await page.mouse.down();
-            await step(6);
-            await step(12);
-            expect(Math.abs((await sec.boundingBox()).height - (h0 + 12))).toBeLessThanOrEqual(2);
-            await page.mouse.up();
-        }
-        expect(errors).toEqual([]);
-        await context.close();
-    });
-}

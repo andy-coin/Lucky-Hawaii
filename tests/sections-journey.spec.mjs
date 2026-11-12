@@ -31,8 +31,9 @@ test('整合：段落模組一次走完', async ({ browser }) => {
     expect(origIds).toHaveLength(3);
     const [idVerse, idChorus, idBridge] = origIds;
 
-    // ===== 2. 點名稱換下一種類型：Chorus → Inter（循環順序是 … Pre-Chorus、Chorus、Inter …，所以副歌往下一種是 Inter） =====
-    await page.locator('#lyricsSections .section-type').nth(1).click();
+    // ===== 2. 點名稱開下拉選單，換成 Inter =====
+    await page.locator('#lyricsSections .section-type').nth(1).click();   // 下拉選單
+    await page.locator('#sectionMenu .type-row[data-type="inter"]').click();
     expect(await names(page)).toEqual(['Verse', 'Inter', 'Bridge']);
 
     // ===== 3. 右鍵開段落設定，選紅色，Esc 收起 =====
@@ -49,13 +50,6 @@ test('整合：段落模組一次走完', async ({ browser }) => {
     await mouseDrag(page, await centerOf(secs(page).nth(2).locator('.section-handle')), [b.x + b.width / 2, b.y + b.height * 0.25]);
     expect(await ids(page)).toEqual([idVerse, idBridge, idChorus]);
     expect(await names(page)).toEqual(['Verse', 'Bridge', 'Inter']);
-
-    // ===== 5. 拖第一段底邊的拉桿，加高 60 px =====
-    const before = await taPx(page, 0);
-    const [bx, by] = await centerOf(secs(page).nth(0).locator('.section-resize'));
-    await mouseDrag(page, [bx, by], [bx, by + 60]);
-    const resized = await taPx(page, 0);
-    expect(Math.abs(resized - before - 60)).toBeLessThanOrEqual(2);
 
     // ===== 6. 打字、↶、↷ =====
     const original = (await texts(page))[0];
@@ -91,7 +85,6 @@ test('整合：段落模組一次走完', async ({ browser }) => {
     expect(stored.sections.map(s => s.id)).toEqual([idVerse, idBridge, idChorus]);
     expect(stored.sections.map(s => s.label)).toEqual(['Verse', 'Bridge', 'Inter']);
     expect(stored.sections[2].color).toBe('#e05d5d');
-    expect(stored.sections[0].height).not.toBeNull();
 
     // ===== 10. 重新整理：順序、名稱、顏色、高度、文字都在，↶ ↷ 回到停用 =====
     await page.reload();
@@ -101,9 +94,7 @@ test('整合：段落模組一次走完', async ({ browser }) => {
     expect(await names(page)).toEqual(['Verse', 'Bridge', 'Inter']);
     await expect(secs(page).nth(2)).toHaveAttribute('data-color', '#e05d5d');
     expect(await texts(page)).toEqual(finalTexts);
-    expect(Math.abs((await taPx(page, 0)) - resized)).toBeLessThanOrEqual(1);
     const afterReload = await activeSongRaw(page);
-    expect(afterReload.sections[0].height).toBe(stored.sections[0].height);
     expect(await disabled(page, '#undoBtn')).toBe('true');
     expect(await disabled(page, '#redoBtn')).toBe('true');
 

@@ -553,6 +553,26 @@ function lhSecCountAll() {
 }
 
 // 只重算一段（打字、組字確認之後）：從模型讀文字，絕不碰 textarea
+// 段落依內容自動長高（Andy：段落自己的捲軸和整個歌詞區的捲軸打架）：只留歌詞區一條捲軸。
+// 先設 auto 再量 scrollHeight；外層捲動位置先記下來再放回去，不然量的那一瞬間會跳。
+// 看不見（收合、display:none）的不量；寬度變了（換行跟著變）由 ResizeObserver 重量
+function lhSecFit(ta) {
+    if (!ta || !ta.offsetParent) return;
+    const sc = [ta.closest('.lyrics-area'), ta.closest('.lyrics-main')].filter(Boolean).map(el => [el, el.scrollTop]);
+    const own = ta.scrollTop;   // 鍵盤打開時段落自己捲（CSS 用 !important 蓋掉高度），位置也要保住
+    ta.style.height = 'auto';
+    ta.style.height = ta.scrollHeight + 'px';
+    for (const [el, top] of sc) el.scrollTop = top;
+    ta.scrollTop = own;
+}
+const _lhSecFitW = new WeakMap();
+const _lhSecFitRO = new ResizeObserver(es => {
+    for (const e of es) {
+        const w = e.contentRect.width;
+        if (_lhSecFitW.get(e.target) !== w) { _lhSecFitW.set(e.target, w); lhSecFit(e.target); }
+    }
+});
+
 function lhSecCountOne(secEl) {
     const song = curSong();
     const s = song && secEl && song.sections.find(x => x.id === secEl.dataset.id);
@@ -562,6 +582,7 @@ function lhSecCountOne(secEl) {
     const node = secEl.querySelector('.section-count')?.firstChild;
     if (node) node.data = n + ' 字';
     _lhSecShowTotal();
+    lhSecFit(secEl.querySelector('.section-textarea'));
     if (typeof lhMapSchedule === 'function') lhMapSchedule(secEl);   // 韻腳地圖：只排程這一段（涵蓋打字、組字確認、復原、拖字）
 }
 
@@ -570,23 +591,19 @@ function lhSecCountFrom(target) {
     if (target && target.classList && target.classList.contains('section-textarea')) lhSecCountOne(target.closest('.lyrics-section'));
 }
 
-let _lhHinted = false;   // 第一次換類型的提示是否已顯示過（只存在這個頁面的記憶體）
+let _lhMenuDrop = false;      // 這次選單是左鍵點名稱鈕開的（下拉模式）
+let _lhMenuClosedBy = null;   // 按下名稱鈕時關掉的是哪一段的選單（同一段就不重開，達成「再點一次收起」）
 
-// 標題列：型別按鈕換下一種、− 刪除、其餘空白處收合／展開
+// 標題列：型別按鈕開下拉選單、− 刪除、其餘空白處收合／展開
 document.getElementById('lyricsSections').addEventListener('click', e => {
     const secEl = e.target.closest('.lyrics-section');
     if (!secEl) return;
-    if (e.target.closest('.section-type')) {
-        const step = lhSecApply('type', song => {
-            const s = song.sections.find(x => x.id === secEl.dataset.id);
-            if (!s) return false;
-            s.type = LH_SEC_TYPES[(LH_SEC_TYPES.indexOf(s.type) + 1) % LH_SEC_TYPES.length];
-        });
-        // 長按與右鍵看不出來：這個頁面第一次換類型時提示一次（只記在變數裡，不存，D-12）
-        if (step && !_lhHinted) {
-            _lhHinted = true;
-            showToast('長按標籤（桌機按右鍵）可改顏色、名稱與順序', 3000);
-        }
+    const typeBtn = e.target.closest('.section-type');
+    if (typeBtn) {
+        // 點名稱鈕＝下拉選單（Andy：循環切換不方便）；剛才那一下是在關同一段的選單，就只關不重開
+        if (_lhMenuClosedBy === secEl.dataset.id) { _lhMenuClosedBy = null; return; }
+        _lhMenuUnder(typeBtn, e.detail === 0);
+        _lhMenuDrop = true;
     } else if (e.target.closest('.section-remove')) {
         lhSecRemove(secEl.dataset.id);
     } else if (e.target.closest('.lyrics-section-header') && !e.target.closest('.section-handle, .section-count, .section-rhyme')) {
@@ -682,7 +699,7 @@ function lhSecMenuBuild() {
     const moves = _lhMk('div', 'section-menu-row');
     moves.append(up, down);
     const close = _lhMkBtn('section-menu-btn section-menu-close', '關閉設定');
-    m.append(title, _lhMkBlock('顏色', grid, row), _lhMkBlock('類型', types), nameBlock, _lhMkBlock('位置', moves), close);
+    m.append(title, _lhMkBlock('類型', types), nameBlock, _lhMkBlock('顏色', grid, row), _lhMkBlock('位置', moves), close);
     document.body.appendChild(m);
 
     // 顏色：色票與「無顏色」馬上套用；原生選色盤拖動時只預覽（input），放開才記一步（change，D-06）
@@ -701,6 +718,13 @@ function lhSecMenuBuild() {
         const r = e.target.closest && e.target.closest('.type-row');
         if (!r) return;
         lhSecMenuType(r.dataset.type);
+        // 左鍵點開的下拉：選好類型就收起、焦點回名稱鈕；Custom 留著打名字。右鍵／長按開的是完整設定，不收
+        if (_lhMenuDrop && r.dataset.type !== 'custom') {
+            const id = _lhMenuId;
+            lhSecCloseMenu();
+            lhSecEl(id)?.querySelector('.section-type')?.focus({ preventScroll: true });
+            return;
+        }
         // 桌機選 Custom 直接可以打名字；觸控不聚焦，免得鍵盤自己彈出來（D-13）
         if (r.dataset.type === 'custom' && matchMedia(_LH_FINE).matches) {
             name.focus({ preventScroll: true });
@@ -822,6 +846,7 @@ function lhSecOpenMenu(secEl, x, y, byKeyboard) {
     closeExportMenu();
     closeSongListOverlay();
     _lhMenuId = secEl.dataset.id;
+    _lhMenuDrop = false;
     lhSecMenuSync();
     lhPlaceMenu(m, x, y);
     // 鍵盤打開才把焦點放到目前類型那一列；滑鼠、觸控不搶焦點（手機鍵盤不要彈出來）
@@ -917,7 +942,10 @@ document.addEventListener('click', e => {
 
 // 點選單外面關掉；Esc 關掉並把焦點還給名稱鈕（capture：≤ 900 的 sheet 才不會同時被收起）
 document.addEventListener('pointerdown', e => {
-    if (_lhMenuId && !(e.target.closest && e.target.closest('#sectionMenu'))) lhSecCloseMenu(true);
+    if (_lhMenuId && !(e.target.closest && e.target.closest('#sectionMenu'))) {
+        _lhMenuClosedBy = e.target.closest && e.target.closest('.section-type') && lhSecEl(_lhMenuId)?.contains(e.target) ? _lhMenuId : null;
+        lhSecCloseMenu(true);
+    }
 }, true);
 document.addEventListener('keydown', e => {
     if (e.key !== 'Escape' || !_lhMenuId || e.isComposing || e.keyCode === 229) return;

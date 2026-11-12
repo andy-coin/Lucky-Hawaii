@@ -22,7 +22,11 @@ const secs = page => page.locator('#lyricsSections .lyrics-section');
 const ids = page => secs(page).evaluateAll(els => els.map(e => e.dataset.id));
 const names = page => page.locator('#lyricsSections .section-type').evaluateAll(els => els.map(e => e.textContent));
 const handle = (page, n) => secs(page).nth(n).locator('.section-handle');
-const bar = (page, n) => secs(page).nth(n).locator('.section-resize');
+// 下拉選單選「下一種」類型（原本點一下循環）
+const pickNext = async (page, n) => {
+    await typeBtn(page, n).click();
+    await page.locator('#sectionMenu .type-row[aria-checked="true"] + .type-row').click();
+};
 const typeBtn = (page, n) => secs(page).nth(n).locator('.section-type');
 const disabled = (page, id) => page.locator(id).getAttribute('aria-disabled');
 const putCards = (page, words) => page.evaluate(ws => { document.getElementById('aiWordsContainer').innerHTML = ws.map(w => aiWordCardHtml(w, false)).join(''); }, words);
@@ -109,14 +113,6 @@ const STARTERS = {
         await page.mouse.move(x, y - 60, { steps: 6 });
         await expect(page.locator('.section-drag-ghost')).toHaveCount(1);
     },
-    '調高度中': async page => {
-        await bar(page, 0).scrollIntoViewIfNeeded();
-        const [x, y] = await centerOf(bar(page, 0));
-        await page.mouse.move(x, y);
-        await page.mouse.down();
-        await page.mouse.move(x, y + 40, { steps: 6 });
-        expect(await page.evaluate(() => document.body.classList.contains('is-section-resizing'))).toBe(true);
-    },
     '拖詞中': async page => {
         await putCards(page, ['花開']);
         const [x, y] = await centerOf(page.locator('#aiWordsContainer .ai-word-card').first());
@@ -159,11 +155,11 @@ test('檢查：收起歌詞面板時中止', async ({ browser }) => {
         ['桌機收起面板', DEVICES.desktop, page => page.evaluate(() => toggleLeftPanel())],
         ['手機離開歌詞分頁', DEVICES.phone, page => page.evaluate(() => mobileTab('search'))],
     ]) {
-        for (const [name, start] of [['設定選單', STARTERS['設定選單開著']], ['段落拖曳', STARTERS['段落拖曳中']], ['調高度', STARTERS['調高度中']]]) {
+        for (const [name, start] of [['設定選單', STARTERS['設定選單開著']], ['段落拖曳', STARTERS['段落拖曳中']]]) {
             const { context, page, errors } = await bootPage(browser, { device, storage: ABC(), wordlist: 'stub' });
             await openSheet(page);
             await waitStill(page);
-            await typeBtn(page, 0).click();   // 先記一個復原步驟：收面板之後 ↶ 還要能按
+            await pickNext(page, 0);   // 先記一個復原步驟：收面板之後 ↶ 還要能按
             expect(await disabled(page, '#undoBtn')).toBe('false');
             const before = await model(page);
             await start(page);
@@ -212,7 +208,7 @@ test('檢查：另一個分頁改了這首歌', async ({ browser }) => {
         await waitStill(a);
         await waitStill(b);
         // A 先做一個結構動作，有復原紀錄；等 B 收到並重新載入
-        await typeBtn(a, 0).click();
+        await pickNext(a, 0);
         expect(await disabled(a, '#undoBtn')).toBe('false');
         await expect.poll(() => typeBtn(b, 0).textContent()).toBe(await typeBtn(a, 0).textContent());
         await a.waitForTimeout(300);
@@ -253,7 +249,7 @@ test('檢查：三種裝置的觸控大小', async ({ browser }) => {
         // 提示條開著：刪掉第一段，量段落上的控制項、↶ ↷ 與提示上的復原
         await secs(page).nth(0).locator('.section-remove').click();
         await expect(page.locator('#copyToast .toast-action')).toHaveCount(1);
-        await audit(['.section-handle', '.section-type', '.section-remove', '.section-resize', '#undoBtn', '#redoBtn', '.toast-action'], '段落與提示條');
+        await audit(['.section-handle', '.section-type', '.section-remove', '#undoBtn', '#redoBtn', '.toast-action'], '段落與提示條');
         await page.locator('#copyToast .toast-action').click();
         await expect(secs(page)).toHaveCount(3);
         // 設定選單開在 Custom 段落：色票、選色盤、無顏色、類型、自訂名稱、上移下移、關閉
@@ -420,9 +416,7 @@ test('檢查：重新整理後一模一樣、匯出照名稱', async ({ browser 
     });
     await waitStill(page);
     // 用真實操作設高度、顏色、類型
-    const [bx, by] = await centerOf(bar(page, 0));
-    await mouseDrag(page, [bx, by], [bx, by + 50]);
-    await typeBtn(page, 2).click();   // Bridge → Outro
+    await pickNext(page, 2);   // Bridge → Outro
     await typeBtn(page, 0).click({ button: 'right' });
     await page.locator('#sectionMenu .swatch[aria-label="顏色：綠"]').click();
     await page.keyboard.press('Escape');
@@ -433,7 +427,6 @@ test('檢查：重新整理後一模一樣、匯出照名稱', async ({ browser 
     })));
     await expect.poll(async () => (await activeSongRaw(page)).sections[0].color).toBe('#48a868');
     const before = await snap();
-    expect(before[0].h, '第一段有存高度').not.toBe('');
     expect(before.map(s => s.name)).toEqual(['Verse', 'Chorus', 'Outro']);
     await page.reload();
     await page.evaluate(() => Promise.all([window.__hoyunReady, window.__hoyunSongsReady]));
@@ -465,7 +458,6 @@ test('檢查：重新整理後一模一樣、匯出照名稱', async ({ browser 
     expect(secsInFile.map(s => s.type)).toEqual(['verse', 'chorus', 'outro']);
     expect(secsInFile.map(s => s.color)).toEqual(['#48a868', '#4a7fd4', '']);
     expect(secsInFile.map(s => 'custom' in s)).toEqual([true, true, true]);
-    expect(secsInFile[0].height).toBeGreaterThan(0);
     expect(secsInFile[2].height).toBe(14);
     expect(errors).toEqual([]);
     await context.close();
@@ -485,7 +477,7 @@ test('檢查：存檔失敗時畫面與模型一致', async ({ browser }) => {
     });
     await waitStill(page);
     await page.evaluate(() => { window.__failLS = true; });
-    await typeBtn(page, 1).click();                                   // 換類型
+    await pickNext(page, 1);                                          // 換類型
     await secs(page).nth(0).locator('.section-remove').click();       // 刪一段
     await expect(page.locator('#lhSaveBanner')).toBeVisible();
     await expect(page.locator('#lhSaveBanner')).toContainText('存檔失敗');

@@ -53,7 +53,8 @@ test('復原：段落操作', async ({ browser }) => {
     const { context, page, errors } = await bootPage(browser, { storage: one('一') });
     const labels = () => page.locator('#lyricsSections .section-type').evaluateAll(els => els.map(e => e.textContent));
     // 換類型
-    await page.locator('.section-type').first().click();
+    await page.locator('.section-type').first().click();   // 下拉選單
+    await page.locator('#sectionMenu .type-row[data-type="prechorus"]').click();
     expect(await labels()).toEqual(['Pre-Chorus']);
     await page.locator('#undoBtn').click();
     expect(await labels()).toEqual(['Verse']);
@@ -152,7 +153,8 @@ test('復原：只換一格', async ({ browser }) => {
     const list = page.locator('#lyricsSections');
     await page.setViewportSize({ width: 1280, height: 600 });
     expect(await list.evaluate(l => l.scrollHeight > l.clientHeight), '列表要夠長才能量捲動').toBe(true);
-    await page.locator('.section-type').nth(10).click();
+    await page.locator('.section-type').nth(10).click();   // 下拉選單：選一個不同的類型
+    await page.locator('#sectionMenu .type-row[aria-checked="false"]').first().click();
     await scrollRest(list);
     const top = await list.evaluate(l => l.scrollTop);
     expect(top).toBeGreaterThan(0);

@@ -1596,7 +1596,8 @@ test('輸入：5000 字歌詞會自動換行', async ({ browser }) => {
             expect(m.len).toBeGreaterThanOrEqual(5000);
             expect(m.sw, `${name}：歌詞框 scrollWidth ${m.sw} 不超過 clientWidth ${m.cw}`).toBeLessThanOrEqual(m.cw + 1);
             expect(m.wrap).toBe('anywhere');
-            expect(m.sh, `${name}：長歌詞往下長、可往下捲`).toBeGreaterThan(m.ch);
+            expect(m.sh, `${name}：段落跟著內容長高，自己不捲`).toBeLessThanOrEqual(m.ch + 1);
+            expect(await page.evaluate(() => { const el = lhSecScroller(); return el.scrollHeight > el.clientHeight; }), `${name}：外層歌詞區可往下捲`).toBe(true);
         } finally { await context.close(); }
     }
 });
@@ -1626,7 +1627,7 @@ const TOUCH_STATES = [
         await page.fill('#searchInput', '樂');
         await settle(page);
     }],
-    ['歌詞開著', ['button.section-handle', 'button.section-remove', 'button.panel-add-btn', 'button.hashtag-add-btn', 'input#hashtagInput', 'button.context-refresh-btn', 'span.chip-remove', 'span.hashtag-chip', 'button.section-type', 'button#undoBtn', 'button#redoBtn', 'button#rhymeMenuBtn', 'div.context-section-header', '.lyrics-section.collapsed button.section-remove', 'div.section-resize'],
+    ['歌詞開著', ['button.section-handle', 'button.section-remove', 'button.panel-add-btn', 'button.hashtag-add-btn', 'input#hashtagInput', 'button.context-refresh-btn', 'span.chip-remove', 'span.hashtag-chip', 'button.section-type', 'button#undoBtn', 'button#redoBtn', 'button#rhymeMenuBtn', 'div.context-section-header', '.lyrics-section.collapsed button.section-remove'],
         (page, d) => toggleSide(page, d, 'lyrics')],
     ['段落設定開著', ['button.swatch', 'input[type=color]', 'button.type-row', 'input.section-name-input', 'button.section-move-up', 'button.section-move-down', 'button.section-menu-close', 'button.section-color-none'], async (page, d) => {
         await toggleSide(page, d, 'lyrics');

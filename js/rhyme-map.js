@@ -664,6 +664,7 @@ function lhMapPrefsBuild() {
     });
     // 預覽（D-13、D-23）：永遠在最上面，唯讀、讀屏軟體略過；內容由 _lhMapPreviewPaint 用真正的鏡像層渲染器畫，所以每個設定都看得到
     const pv = _lhMk('div', 'rhyme-mirror lm-preview');
+    pv.tabIndex = -1;   // 預覽可以捲但不進 Tab 順序（Chrome 會把可捲動的區塊自動變成可聚焦）
     pv.setAttribute('aria-hidden', 'true');
     const pvDiff = _lhMk('span', 'section-menu-cap rm-preview-diff', '對照差異要有同類型的前一段才看得到');
     pvDiff.hidden = true;
@@ -714,12 +715,24 @@ function _lhMapDisarm(btn) {
     btn.textContent = LH_MAP_RESET_TEXT;
 }
 // 預覽用的三行範例（含空白斷句、七字句、十字句）：和真正的歌詞走同一個渲染器 _lhMapBuildFrag，所以不可能和歌詞畫得不一樣
-const LH_MAP_PREVIEW_TEXT = ['月光 灑在 窗前', '夢裡想起你的臉', '我想把時間留在這一天'].join('\n');
+const LH_MAP_PREVIEW_TEXT = [   // Andy 的〈麻雀〉：中英夾雜、空白斷句、語助詞、雙押都測得到
+    'yo yo 麻雀in the house',
+    '夜晚還在街道　別管那些尖叫',
+    '笑鬧 逃跑 快樂或紛擾',
+    '一夜之間　slow down calm down',
+    '一念之間　也 好　也 好 奇',
+    '新的家新的我 新的樹有新的蟲',
+    '想新的拆遷名單',
+    '像辛得勒名單',
+    '耳罩帶好好 抗議go to hell',
+    'sparrow leave the house',
+    "and who's the next pity mouse?",
+].join('\n');
 function _lhMapPreviewPaint() {
     const pv = document.querySelector('#mapSettingsSection .lm-preview');
     if (!pv) return;
     const { frag } = _lhMapBuildFrag(LH_MAP_PREVIEW_TEXT, null, null);   // 單一段落沒有可對照的前一段
-    pv.replaceChildren(frag);
+    pv.replaceChildren(frag.childNodes.length ? frag : LH_MAP_PREVIEW_TEXT);   // 全部標記都關：照樣顯示文字，預覽不會整個消失
     document.querySelector('#mapSettingsSection .rm-preview-diff').hidden = !(_lhMapSet.line && _lhMapSet.lnDiff);
 }
 // 恢復預設顏色：清掉全部自訂色（lh:map 的 colors 鍵跟著消失）；不碰「重設顏色!」管的頁面主題色
@@ -1224,8 +1237,11 @@ function _lhMapBarOnChange(e) {
     area.addEventListener('compositionstart', () => lhMapHideBar());
     // 捲動只收已經出現的列，不取消等著判斷的計時（聚焦時瀏覽器常會順手捲一下）
     // 上色鏡像層的 scroll 是程式跟著輸入框同步捲的（事件可能比浮動列晚到），不算使用者捲動；使用者捲的是輸入框本身
-    area.addEventListener('scroll', e => {
-        if (e.target.classList && e.target.classList.contains('rhyme-mirror')) return;
+    // 段落不再自己捲（lhSecFit 自動長高），捲的是外層歌詞區：所以聽整頁，只認歌詞區裡面或包住歌詞區的捲動
+    document.addEventListener('scroll', e => {
+        const t = e.target;
+        if (!t.contains || !(t.contains(area) || area.contains(t))) return;
+        if (t.classList && t.classList.contains('rhyme-mirror')) return;
         if (_lhMapBarSnap && performance.now() > _lhMapBarGrace) lhMapHideBar(true);
     }, true);
     // Alt+↓：焦點到浮動列（D-16）

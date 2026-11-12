@@ -1696,8 +1696,9 @@
             background: var(--card-bg);
         }
         html[data-lm="right"] .lm-preview { padding-right: calc(0.75rem + min(var(--lm-cols), 36%) + var(--sp-2)); }
-        /* 夠高的螢幕：預覽固定在「韻腳與句構」分頁最上面（捲動的是分頁本身，沒有上內距，top: 0 就貼齊） */
+        /* 夠高的螢幕：預覽固定在「韻腳與句構」分頁最上面（捲動的是分頁本身，沒有上內距，top: 0 就貼齊）；〈麻雀〉有 11 行，預覽最多顯示約 6 行，其餘在預覽裡捲 */
         @media (min-height: 37.5rem) {
+            .lm-preview-block .lm-preview { max-height: calc(6 * 1.8em + 1.25rem); overflow-y: auto; pointer-events: auto; overscroll-behavior: contain; }
             .lm-preview-block { position: sticky; top: 0; z-index: 1; background: var(--card-bg); border-bottom: 1px solid var(--border); padding-bottom: var(--sp-2); }
         }
         .lyrics-section.rm-on .section-body { background: var(--card-bg); }
@@ -2293,3 +2294,12 @@ html.kb-open .lyrics-editor-body .context-section:focus-within .context-textarea
 html.kb-open .lyrics-editor-body .lyrics-section:focus-within { flex: 1 1 auto !important; height: auto !important; min-height: 0; }
 html.kb-open .lyrics-editor-body .lyrics-section:focus-within .section-textarea { flex: 1 1 auto; min-height: 0; }
 html.kb-open .lyrics-editor-body .lyrics-area { flex: 1 1 auto; min-height: 0; }
+
+/* 段落依內容自動長高（js/sections.js lhSecFit）：段落自己不捲，整個歌詞區只剩一條捲軸；拉高度的把手拿掉 */
+.lyrics-area .lyrics-section:not(.collapsed) { flex: 0 0 auto; min-height: 0; }
+.lyrics-area .lyrics-section:not(.collapsed) .section-body { flex: 0 0 auto; }
+.lyrics-area .lyrics-section:not(.collapsed) .section-textarea { flex: none; overflow-y: hidden; min-height: 7rem; }
+.section-resize { display: none; }
+/* 鍵盤打開時編輯器只留正在打字的那段撐滿可見範圍：這時改回段落自己捲 */
+html.kb-open .lyrics-editor-body .lyrics-section:focus-within .section-textarea { flex: 1 1 auto !important; height: auto !important; overflow-y: auto; min-height: 0; }
+html.kb-open .lyrics-editor-body .lyrics-section:focus-within .section-body { flex: 1 1 auto; min-height: 0; }
