@@ -43,11 +43,60 @@
             // 每次打開都重畫詞庫包清單：勾選永遠對得上目前真正在用的包
             if (overlay.classList.contains('show')) {
                 renderLexiconPackList();
-                // 韻腳地圖的浮層會蓋在這個面板前面，先收掉；「韻腳地圖與句構分析」每次從齒輪打開都收著（「更多設定…」走自己的路打開它）
+                // 韻腳地圖的浮層會蓋在這個面板前面，先收掉；開到上次看的分頁（這次開網頁第一次開＝「外觀」；「更多設定…」走自己的路開「韻腳與句構」）
                 if (typeof lhMapCloseAll === 'function') lhMapCloseAll();
-                document.getElementById('mapSettingsSection').open = false;
+                lhPrefsSelectTab(_lhPrefsTab, true);
             }
         }
+
+        // ===== 偏好設定分頁（R2）：tablist／tab／tabpanel，左右（上下）方向鍵、Home、End 切換並自動選取 =====
+        // 上次看的分頁只記在記憶體（重新整理回到「外觀」），不另存 localStorage
+        let _lhPrefsTab = 'look';
+        function lhPrefsSelectTab(name, focus) {
+            const tabs = [...document.querySelectorAll('#prefsTabs [role="tab"]')];
+            const tab = document.getElementById('prefsTab-' + name) || tabs[0];
+            _lhPrefsTab = tab.id.slice('prefsTab-'.length);
+            for (const t of tabs) {
+                const on = t === tab;
+                t.setAttribute('aria-selected', String(on));
+                t.tabIndex = on ? 0 : -1;
+                document.getElementById(t.getAttribute('aria-controls')).hidden = !on;
+            }
+            if (_lhPrefsTab === 'map' && typeof lhMapPrefsBuild === 'function') lhMapPrefsBuild();   // 韻腳設定第一次看到才建
+            if (_lhPrefsTab === 'data' && document.getElementById('autoBackupSection').open) renderAutoBackups();
+            _lhPrefsBgFxSync();
+            document.getElementById(tab.getAttribute('aria-controls')).scrollTop = 0;
+            tab.scrollIntoView({ block: 'nearest', inline: 'nearest' });   // 手機上分頁列橫向捲動：選到的分頁要看得到
+            if (focus) tab.focus({ preventScroll: true });
+        }
+        document.getElementById('prefsTabs').addEventListener('click', e => {
+            const t = e.target.closest('[role="tab"]');
+            if (t) lhPrefsSelectTab(t.id.slice('prefsTab-'.length), true);
+        });
+        document.getElementById('prefsTabs').addEventListener('keydown', e => {
+            const tabs = [...document.querySelectorAll('#prefsTabs [role="tab"]')];
+            const i = tabs.indexOf(document.activeElement);
+            if (i < 0) return;
+            const n = tabs.length;
+            const to = { ArrowRight: i + 1, ArrowDown: i + 1, ArrowLeft: i - 1, ArrowUp: i - 1, Home: 0, End: n - 1 }[e.key];
+            if (to === undefined) return;
+            e.preventDefault();
+            lhPrefsSelectTab(tabs[(to + n) % n].id.slice('prefsTab-'.length), true);
+        });
+        // 背景動畫開關：另一條分支提供 lhBgFxSet(on)；沒有這個函式就不顯示。目前狀態讀 lhBgFxGet()／<html data-bgfx>，都沒有就當開著
+        function _lhPrefsBgFxSync() {
+            const b = document.getElementById('prefsBgFx');
+            b.hidden = typeof lhBgFxSet !== 'function';
+            if (b.hidden) return;
+            const on = typeof lhBgFxGet === 'function' ? !!lhBgFxGet() : document.documentElement.dataset.bgfx !== 'off';
+            b.setAttribute('aria-checked', String(on));
+            b.querySelector('.rm-pill').textContent = on ? '開' : '關';
+        }
+        document.getElementById('prefsBgFx').addEventListener('click', e => {
+            if (typeof lhBgFxSet !== 'function') return;
+            lhBgFxSet(e.currentTarget.getAttribute('aria-checked') !== 'true');
+            _lhPrefsBgFxSync();
+        });
 
         // 詞庫包清單（偏好設定）：只用 createElement + textContent 組畫面，清單文字不會被當成 HTML（T-06-07）
         let _packSwitchSeq = 0;   // 每次點選 +1；連點時只有最後一次的結果會顯示
@@ -111,8 +160,8 @@
         });
 
         function closeSettingsOverlay(event) {
-            // 點擊遮罩本身才關閉（內容區已 stopPropagation）
-            if (event.target === event.currentTarget) {
+            // 點擊遮罩本身才關閉（內容區已 stopPropagation）；按鈕手動傳 {target: 遮罩} 進來時沒有 currentTarget，直接關
+            if (!event.currentTarget || event.target === event.currentTarget) {
                 document.getElementById('settingsOverlay').classList.remove('show');
             }
         }

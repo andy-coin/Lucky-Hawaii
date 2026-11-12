@@ -222,6 +222,7 @@ test('檢查：觸控目標', async ({ browser }) => {
 
         // 設定裡的自動備份
         await page.evaluate(() => toggleSettings());   // 手機上歌詞面板蓋住標題列，直接呼叫開啟函式
+        await page.locator('#prefsTab-data').click();   // 分頁式偏好設定（R2）
         await page.locator('#autoBackupSection summary').click();
         await expect(page.locator('.backup-restore-btn').first()).toBeVisible();
         await audit(['.backup-restore-btn'], '自動備份');

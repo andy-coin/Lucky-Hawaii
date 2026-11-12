@@ -133,7 +133,7 @@ test('整合：韻腳地圖一次走完', async ({ browser }) => {
     const innerCount = await page.locator('.rm-inner').count();
     const wantMap = { end: true, letters: true, inner: true, strict: false, skipParticles: true };
     expect(JSON.parse(await lsMap(page))).toEqual(wantMap);
-    await page.locator('#rhymeMenu .section-menu-close').click();
+    await page.keyboard.press('Escape');   // 選單沒有關閉鈕了（R2）：Esc 或點外面
     await expect(page.locator('#rhymeMenu')).toBeHidden();
 
     // ===== 4. 反白「光」→ 查韻（字卡）→ AI 建議（整首歌、AI 詞卡）=====

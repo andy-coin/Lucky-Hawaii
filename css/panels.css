@@ -1692,9 +1692,9 @@
             background: var(--card-bg);
         }
         html[data-lm="right"] .lm-preview { padding-right: calc(0.75rem + min(var(--lm-cols), 36%) + var(--sp-2)); }
-        /* 夠高的螢幕：預覽固定在設定視窗最上面。設定視窗上內距是 1.5rem，top 取負值才貼齊視窗上緣（不然捲動的內容會從預覽上方那條縫露出來） */
+        /* 夠高的螢幕：預覽固定在「韻腳與句構」分頁最上面（捲動的是分頁本身，沒有上內距，top: 0 就貼齊） */
         @media (min-height: 37.5rem) {
-            .lm-preview-block { position: sticky; top: -1.5rem; z-index: 1; background: var(--card-bg); border-bottom: 1px solid var(--border); padding-bottom: var(--sp-2); }
+            .lm-preview-block { position: sticky; top: 0; z-index: 1; background: var(--card-bg); border-bottom: 1px solid var(--border); padding-bottom: var(--sp-2); }
         }
         .lyrics-section.rm-on .section-body { background: var(--card-bg); }
         .lyrics-section.rm-on .section-textarea { background: transparent; }

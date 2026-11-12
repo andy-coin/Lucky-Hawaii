@@ -59,6 +59,7 @@ const RESTORE_ARMED = '再按一次確定還原（會先備份目前資料）';
 const RESTORED_TOAST = '已還原自動備份（還原前的資料已自動備份）';
 const openBackupList = async page => {
     await page.locator('#settingsTrigger').click();
+    await page.locator('#prefsTab-data').click();   // 分頁式偏好設定（R2）
     await page.locator('#autoBackupSection summary').click();
 };
 
@@ -408,6 +409,7 @@ test('刪除歌曲：觸控目標', async ({ browser }) => {
         await page.locator('#songDeleteCancel').click();
 
         await page.evaluate(() => toggleSettings());   // 手機上歌詞面板蓋住標題列，直接呼叫開啟函式
+        await page.locator('#prefsTab-data').click();   // 分頁式偏好設定（R2）
         await page.locator('#autoBackupSection summary').click();
         await expect(page.locator('.backup-restore-btn').first()).toBeVisible();
         r = await auditTouchTargets(page, { mustSee: ['.backup-restore-btn'] });

@@ -449,8 +449,9 @@ test('設定：電腦與平板也有顏色、存讀檔、回報', async ({ brows
             await openSettings(page);
             const dlg = page.locator('#settingsOverlay .settings-dropdown');
             await expect(dlg, name).toBeVisible();
-            for (const sel of ['#sBgColor1', '#sContainerBg', '#sTextColor', '#sHighlightColor', '.settings-saveload .save-load-btn >> nth=0', '.settings-saveload .save-load-btn >> nth=1', '.settings-feedback-btn']) {
-                await expect(dlg.locator(sel), `${name} ${sel}`).toBeVisible();
+            for (const [tab, sels] of [['look', ['#sBgColor1', '#sContainerBg', '#sTextColor', '#sHighlightColor']], ['data', ['.settings-saveload .save-load-btn >> nth=0', '.settings-saveload .save-load-btn >> nth=1']], ['help', ['.settings-feedback-btn']]]) {
+                await dlg.locator('#prefsTab-' + tab).click();
+                for (const sel of sels) await expect(dlg.locator(sel), `${name} ${sel}`).toBeVisible();
             }
         } finally { await context.close(); }
     }
@@ -460,7 +461,8 @@ test('設定：矮螢幕上對話框不超出、可以捲', async ({ browser }) 
     const { context, page } = await bootPage(browser, { device: DEVICES.phoneLandscape });
     try {
         const dialogs = [
-            ['設定', '#settingsOverlay', '.settings-dropdown', 'toggleSettings()'],
+            // 分頁式（R2）：對話框本身固定高度不捲，捲的是分頁內容
+            ['設定分頁內容', '#settingsOverlay', '#prefsPanel-search', 'toggleSettings(),lhPrefsSelectTab("search")'],
             ['關於', '#aboutOverlay', '.about-content', 'toggleAbout()'],
             ['回報', '#feedbackModalOverlay', '.feedback-modal', 'openFeedbackModal()'],
         ];
@@ -480,7 +482,7 @@ test('設定：矮螢幕上對話框不超出、可以捲', async ({ browser }) 
             expect(m.bottom, `${name} 下緣`).toBeLessThanOrEqual(m.ih + 0.5);
             expect(['auto', 'scroll'], `${name} overflow-y`).toContain(m.overflowY);
             if (m.tall) expect(m.moved, `${name} 內容比對話框高但捲不動`).toBe(true);
-            if (name === '設定') expect(m.tall, '設定內容在矮螢幕上應該比對話框高').toBe(true);
+            if (name === '設定分頁內容') expect(m.tall, '「查詢與詞庫」在矮螢幕上應該比分頁高（捲動的是分頁內容）').toBe(true);
             await page.evaluate(o => document.querySelector(o).classList.remove('show'), overlay);
         }
     } finally { await context.close(); }
@@ -1469,6 +1471,7 @@ test('鍵盤：寫歌詞時情境區自動收起、回報視窗輸入框看得�
 
         // 回報視窗：開啟後自動聚焦主旨，鍵盤出現後主旨輸入框與整個對話框都在可見範圍
         await page.locator('#settingsTrigger').tap();
+        await page.locator('#prefsTab-help').tap();
         await page.locator('.settings-feedback-btn').tap();
         await expect(page.locator('#feedbackSubject')).toBeFocused();
         await emulateKeyboard(page, 336);
@@ -1505,6 +1508,7 @@ const INPUT_STATES = [
 ];
 
 test('輸入：手機平板所有輸入框字級 ≥ 16px（3 縮放 × 6 狀態）', async ({ browser }) => {
+    test.setTimeout(180_000);   // 設定分頁各掃一次（R2）後畫面變多，全部一起跑時 60 秒不夠
     // 負向對照：掃描器抓得到小字、放得過大字（用一個臨時的 8px 輸入框驗證，之後移除）
     {
         const { context, page } = await bootPage(browser, { device: DEVICES.phone });
@@ -1631,7 +1635,7 @@ const TOUCH_STORAGE = {
 };
 // 每個畫面：名稱、一定要掃到的控制項（防止掃了個寂寞）、開啟方式
 // 韻腳選單（Phase 10）：開關、判定 radio、色票對照鈕、關閉鈕都要夠大（「韻腳 ▾」本身在「歌詞開著」掃；手機上選單會蓋住它）；色票格不能點，所以不掃
-const RHYME_MENU_MUST = ['button.rm-switch', '#rhymeMenu button[role=radio]', 'button.rm-legend-toggle', '#rhymeMenu button.section-menu-close'];
+const RHYME_MENU_MUST = ['button.rm-switch', '#rhymeMenu button[role=radio]', 'button.rm-legend-toggle', '#rhymeMenu button.rm-more'];
 const openRhymeMenu = async (page, d) => {
     await toggleSide(page, d, 'lyrics');
     await pointerOf(d)(page.locator('#rhymeMenuBtn'));
@@ -1662,15 +1666,17 @@ const TOUCH_STATES = [
         await toggleSide(page, d, 'ai');
         await page.evaluate(() => { document.getElementById('aiWordsContainer').innerHTML = ['平安', '晚安', '早安', '心安'].map(w => aiWordCardHtml(w, false)).join('') + '<div class="ai-exhausted">已推薦所有詞彙<button class="reset-pool-btn" onclick="resetSuggestedPool()">↺ 重置</button></div>'; });
     }],
-    ['設定開著', ['input[type=checkbox]', 'input[type=color]', 'button.reset-color', 'button.save-load-btn'], async page => {
-        await page.evaluate(() => toggleSettings()); await expect(page.locator('#settingsOverlay')).toHaveClass(/show/);
-    }],
+    // 偏好設定分頁式（R2）：每個分頁各掃一次
+    ...[['外觀', 'look', ['button[role=tab]', 'input[type=color]', 'button.reset-color']], ['查詢與詞庫', 'search', ['button[role=tab]', 'input[type=checkbox]']],
+        ['資料與備份', 'data', ['button.save-load-btn', 'button.reset-color']], ['說明與回饋', 'help', ['button.save-load-btn']]].map(([n, tab, must]) => [`設定開著·${n}`, must, async page => {
+        await page.evaluate(t => { toggleSettings(); lhPrefsSelectTab(t); }, tab); await expect(page.locator('#settingsOverlay')).toHaveClass(/show/);
+    }]),
     ['回報開著', ['button.feedback-send-btn', 'button.feedback-cancel-btn', 'input#feedbackSubject'], async page => {
         await page.evaluate(() => openFeedbackModal()); await expect(page.locator('#feedbackModalOverlay')).toHaveClass(/show/);
     }],
 ];
 const bootTouch = (browser, device, extra = {}) => bootPage(browser, { device, storage: TOUCH_STORAGE, ...extra });
-// 14 次掃描（2 裝置 × 7 畫面）在同一個 worker 內只做一次，「44px」與「相鄰重疊」兩個測試共用
+// 每台裝置 × 每個畫面各掃一次在同一個 worker 內只做一次，「44px」與「相鄰重疊」兩個測試共用
 let touchScans = null;
 const scanAllTouch = browser => touchScans ??= (async () => {
     const out = [];
@@ -1688,7 +1694,8 @@ const scanAllTouch = browser => touchScans ??= (async () => {
     return out;
 })();
 
-test('觸控：手機平板每個按鈕至少 44px（7 種畫面）', async ({ browser }) => {
+test('觸控：手機平板每個按鈕至少 44px（各種畫面）', async ({ browser }) => {
+    test.setTimeout(180_000);   // 設定分頁各掃一次（R2）後畫面變多，全部一起跑時 60 秒不夠
     // 負向對照：掃描器抓得到 43px、放行 44px；mark-badge 例外只放寬到 44×32（徽章的 ::after 會外擴上下各 6px）
     {
         const { context, page } = await bootPage(browser, { device: DEVICES.phone });
@@ -1714,6 +1721,7 @@ test('觸控：手機平板每個按鈕至少 44px（7 種畫面）', async ({ b
 });
 
 test('觸控：相鄰按鈕的點擊範圍重疊不超過 4px', async ({ browser }) => {
+    test.setTimeout(180_000);   // 設定分頁各掃一次（R2）後畫面變多，全部一起跑時 60 秒不夠
     // 負向對照：兩顆相鄰按鈕疊 10px 會被抓到、疊 4px 不會
     {
         const { context, page } = await bootPage(browser, { device: DEVICES.phone });

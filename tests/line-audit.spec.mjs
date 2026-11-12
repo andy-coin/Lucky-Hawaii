@@ -73,11 +73,11 @@ test('檢查：三種裝置的觸控大小（句構分析）', async ({ browser 
         await audit(['#rhymeMenu .rm-more', '#rhymeMenu .rm-switch'], '韻腳選單');
         // 第 2 輪：偏好設定，一個區塊一個區塊捲進來量（預覽固定在最上面時，會蓋住的元素量不到，所以每個區塊各量一次）
         await page.locator(MENU + ' .rm-more').click();
-        await expect(page.locator(PREFS)).toHaveJSProperty('open', true);
-        const summary = page.locator(PREFS + ' > summary');
+        await expect(page.locator(PREFS)).toBeVisible();
+        const summary = page.locator('#prefsTab-map');   // 分頁式（R2）：原本的展開標題換成分頁鈕
         const sb = await summary.boundingBox();
-        expect(sb.height, `${name} 「偏好設定」標題高度`).toBeGreaterThanOrEqual(43.5);
-        expect(sb.width, `${name} 「偏好設定」標題寬度`).toBeGreaterThanOrEqual(43.5);
+        expect(sb.height, `${name} 「韻腳與句構」分頁鈕高度`).toBeGreaterThanOrEqual(43.5);
+        expect(sb.width, `${name} 「韻腳與句構」分頁鈕寬度`).toBeGreaterThanOrEqual(43.5);
         const blocks = [
             ['韻腳地圖', [PREFS + ' .rm-switch', PREFS + ' .type-row[data-m]']],
             ['句構分析', [PREFS + ' .rm-sub .rm-switch', PREFS + ' .rm-switch[data-k="autoHover"]']],
@@ -115,8 +115,8 @@ test('檢查：偏好設定在小螢幕都摸得到', async ({ browser }) => {
         await page.locator('#rhymeMenuBtn').click();
         await page.locator(MENU + ' .rm-more').click();
         await waitStill(page);
-        const dd = page.locator('.settings-dropdown');
-        await expect(page.locator(PREFS)).toHaveJSProperty('open', true);
+        const dd = page.locator(PREFS)   // 分頁式（R2）：捲動的是分頁內容;
+        await expect(page.locator(PREFS)).toBeVisible();
         const geo = await dd.evaluate(n => ({ sw: n.scrollWidth, cw: n.clientWidth, sh: n.scrollHeight, ch: n.clientHeight, oy: getComputedStyle(n).overflowY }));
         expect(geo.sw, name + '：不會左右捲動').toBeLessThanOrEqual(geo.cw + 1);
         expect(geo.sh > geo.ch + 1 ? /(auto|scroll)/.test(geo.oy) : true, name + '：放不下就自己會捲').toBe(true);
@@ -134,7 +134,7 @@ test('檢查：偏好設定在小螢幕都摸得到', async ({ browser }) => {
         const pv = await page.locator(PREFS + ' .lm-preview-block').evaluate(e => ({ pos: getComputedStyle(e).position, h: window.innerHeight }));
         expect(pv.pos, `${name}：高度 ${pv.h}px 時預覽的定位`).toBe(pv.h >= 600 ? 'sticky' : 'static');
         // 每個區塊的標題都捲得到（往回捲到最上面再往下一個個確認）
-        for (const sel of [PREFS + ' > summary', PREFS + ' .rm-switch', PREFS + ' .type-row[data-k="depth"]']) {
+        for (const sel of ['#prefsTab-map', PREFS + ' .rm-switch', PREFS + ' .type-row[data-k="depth"]']) {
             const el = page.locator(sel).first();
             await el.scrollIntoViewIfNeeded();
             await expectFullyInViewport(page, el);
@@ -197,7 +197,7 @@ test('檢查：切版型時收起來（句構分析）', async ({ browser }) => 
         '偏好設定': async page => {
             await page.locator('#rhymeMenuBtn').click();
             await page.locator(MENU + ' .rm-more').click();
-            await expect(page.locator(PREFS)).toHaveJSProperty('open', true);
+            await expect(page.locator(PREFS)).toBeVisible();
         },
     };
     for (const [what, start] of Object.entries(STARTERS)) {
@@ -216,7 +216,7 @@ test('檢查：切版型時收起來（句構分析）', async ({ browser }) => 
             if (await anBtn.count()) await expect(anBtn, tag + ' 📏 分析').toHaveAttribute('aria-expanded', 'false');
             if (what === '偏好設定') {
                 // 偏好設定是設定視窗的一部分，不是浮層：還開著，捲得動、開關按得下去
-                const dd = page.locator('.settings-dropdown');
+                const dd = page.locator(PREFS);
                 await expect(page.locator('#settingsOverlay'), tag).toHaveClass(/show/);
                 await page.locator(PREFS + ' .rm-color-reset').scrollIntoViewIfNeeded();
                 await dd.evaluate(n => { n.scrollTop = 0; });
@@ -257,7 +257,7 @@ test('檢查：另一個分頁改了設定或歌（句構分析）', async ({ br
             await expect(b.locator(AN)).toBeVisible();
         },
         '韻腳選單': async b => { await b.locator('#rhymeMenuBtn').click(); await expect(b.locator(MENU)).toBeVisible(); },
-        '偏好設定': async b => { await b.evaluate(() => lhMapOpenPrefs()); await expect(b.locator(PREFS)).toHaveJSProperty('open', true); },
+        '偏好設定': async b => { await b.evaluate(() => lhMapOpenPrefs()); await expect(b.locator(PREFS)).toBeVisible(); },
     };
     for (const [what, start] of Object.entries(STARTERS)) {
         const { context, pages: [a, b], errs } = await openTwoTabs(browser, v2Storage([TWO()], { ...OPEN_PANELS, 'lh:map': MAP_LINE }));
@@ -535,10 +535,10 @@ test('檢查：舊歌與舊資料（句構分析）', async ({ browser }) => {
     };
     await calm('開機後');
     await A.page.locator('#rhymeMenuBtn').click();
-    await A.page.locator('#rhymeMenu .section-menu-close').click();
+    await A.page.keyboard.press('Escape');   // 選單沒有關閉鈕了（R2）：Esc 或點外面
     await calm('開關過韻腳選單');
     await A.page.evaluate(() => lhMapOpenPrefs());
-    await expect(A.page.locator(PREFS)).toHaveJSProperty('open', true);
+    await expect(A.page.locator(PREFS)).toBeVisible();
     await calm('打開偏好設定');
     await A.page.reload();
     await A.page.evaluate(() => Promise.all([window.__hoyunReady, window.__hoyunWordlistReady, window.__hoyunSongsReady, window.__lhMapReady]));
@@ -562,7 +562,7 @@ test('檢查：舊歌與舊資料（句構分析）', async ({ browser }) => {
     await expect.poll(() => B.page.locator('#lyricsSections .rm-hl').count()).toBeGreaterThan(0);
     expect(await mapOf(B.page), '開機後不寫 lh:map').toBeNull();
     await B.page.evaluate(() => lhMapOpenPrefs());
-    await expect(B.page.locator(PREFS)).toHaveJSProperty('open', true);
+    await expect(B.page.locator(PREFS)).toBeVisible();
     expect(await mapOf(B.page), '打開偏好設定也不寫 lh:map').toBeNull();
     await B.page.reload();
     await B.page.evaluate(() => Promise.all([window.__hoyunReady, window.__hoyunWordlistReady, window.__hoyunSongsReady, window.__lhMapReady]));

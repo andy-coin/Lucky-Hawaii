@@ -745,7 +745,7 @@ test('開關：鍵盤開選單的焦點', async ({ browser }) => {
     await expect(page.locator('#rhymeMenu')).toBeVisible();
     await expect(sw(page, '句尾上色'), '鍵盤打開：第一個開關有焦點').toBeFocused();
     await page.keyboard.press('Shift+Tab');
-    await expect(page.locator('#rhymeMenu .section-menu-close'), 'Shift+Tab 從第一個繞到最後').toBeFocused();
+    await expect(page.locator('#rhymeMenu .rm-more'), 'Shift+Tab 從第一個繞到最後（沒有關閉鈕，最後一個是「更多設定…」）').toBeFocused();
     await page.keyboard.press('Tab');
     await expect(sw(page, '句尾上色'), 'Tab 從最後繞到第一個').toBeFocused();
     await page.keyboard.press('Escape');
@@ -759,9 +759,64 @@ test('開關：鍵盤開選單的焦點', async ({ browser }) => {
     // 點選單外面關掉
     await page.locator('#songTotal').click();
     await expect(page.locator('#rhymeMenu')).toBeHidden();
-    // 「關閉韻腳設定」關掉並把焦點還給按鈕
+    // 沒有「關閉韻腳設定」鈕（R2）
     await page.locator('#rhymeMenuBtn').click();
-    await page.locator('#rhymeMenu .section-menu-close').click();
+    await expect(page.locator('#rhymeMenu .section-menu-close')).toHaveCount(0);
+    expect(await page.locator('#rhymeMenu button').allTextContents()).not.toContain('關閉韻腳設定');
+    // 再按一次「韻腳 ▾」收起
+    await page.locator('#rhymeMenuBtn').click();
+    await expect(page.locator('#rhymeMenu')).toBeHidden();
+    await expect(page.locator('#rhymeMenuBtn')).toHaveAttribute('aria-expanded', 'false');
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+// R2：點選單以外任何地方就收起；這一下照常交給被點到的東西（和原生 popover 一樣），不多做別的事
+for (const [how, device] of [['滑鼠', {}], ['觸控', { hasTouch: true, isMobile: false }]]) {
+    test(`開關：${how}點選單外面就收起，被點到的東西照常反應`, async ({ browser }) => {
+        const { context, page, errors } = await bootPage(browser, { device, wordlist: 'stub', storage: v2Storage([song([typed('sa', 'verse', F_AABB)])]) });
+        const hit = loc => how === '觸控' ? loc.tap() : loc.click();
+        const mapBefore = await lsGetMap(page);
+        await hit(page.locator('#rhymeMenuBtn'));
+        await expect(page.locator('#rhymeMenu')).toBeVisible();
+        // 點選單裡面（開關、空白處）不會收起
+        await hit(page.locator('#rhymeMenu .section-menu-title'));
+        await expect(page.locator('#rhymeMenu')).toBeVisible();
+        // 點搜尋框：選單收起，游標進到被點的搜尋框；設定沒被改、偏好設定沒被打開、焦點沒跳回「韻腳 ▾」
+        const ta = page.locator('.search-input');
+        await hit(ta);
+        await expect(page.locator('#rhymeMenu')).toBeHidden();
+        await expect(page.locator('#rhymeMenuBtn')).toHaveAttribute('aria-expanded', 'false');
+        await expect(ta).toBeFocused();
+        expect(await lsGetMap(page), '點外面不會改設定').toBe(mapBefore);
+        await expect(page.locator('#settingsOverlay')).not.toHaveClass(/show/);
+        // 點空白處（不是任何控制項）也收起
+        await hit(page.locator('#rhymeMenuBtn'));
+        await expect(page.locator('#rhymeMenu')).toBeVisible();
+        await hit(page.locator('#songTotal'));
+        await expect(page.locator('#rhymeMenu')).toBeHidden();
+        // 點外面的另一個按鈕：只有那個按鈕的動作發生（這裡是打開匯出選單）
+        await hit(page.locator('#rhymeMenuBtn'));
+        await hit(page.locator('.export-toggle'));
+        await expect(page.locator('#rhymeMenu')).toBeHidden();
+        await expect(page.locator('#exportMenu')).toBeVisible();
+        expect(errors).toEqual([]);
+        await context.close();
+    });
+}
+
+test('開關：焦點被移出選單也收起，Esc 把焦點還給按鈕', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, { wordlist: 'stub', storage: v2Storage([song([typed('sa', 'verse', F_AABB)])]) });
+    await page.locator('#rhymeMenuBtn').focus();
+    await page.keyboard.press('Enter');
+    await expect(page.locator('#rhymeMenu')).toBeVisible();
+    await page.evaluate(() => document.querySelector('.section-textarea').focus());
+    await expect(page.locator('#rhymeMenu')).toBeHidden();
+    await page.locator('#rhymeMenuBtn').focus();
+    await page.keyboard.press('Enter');
+    await page.keyboard.press('Tab');
+    await expect(page.locator('#rhymeMenu'), 'Tab 在選單裡移動不會收起').toBeVisible();
+    await page.keyboard.press('Escape');
     await expect(page.locator('#rhymeMenu')).toBeHidden();
     await expect(page.locator('#rhymeMenuBtn')).toBeFocused();
     expect(errors).toEqual([]);
@@ -2035,7 +2090,8 @@ test('開關：舊版設定開機不改寫', async ({ browser }) => {
     expect(await page.evaluate(() => document.documentElement.getAttribute('data-lm'))).toBeNull();
     await page.locator('#rhymeMenuBtn').click();
     await expect(sw(page, '逐行標記')).toHaveText(/關$/);
-    await page.locator('#rhymeMenu .section-menu-close').click();
+    await page.keyboard.press('Escape');
+    await expect(page.locator('#rhymeMenu')).toBeHidden();
     expect(await lsGetMap(page), '開關選單後').toBe(old);
     expect(errors).toEqual([]);
     await context.close();

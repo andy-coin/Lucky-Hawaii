@@ -5,3 +5,6 @@ tests/_shots*.mjs
 node_modules
 test-results/
 playwright-report/
+
+# R2 偏好設定截圖（留給 Andy 看，不進版本）
+r2-shots/

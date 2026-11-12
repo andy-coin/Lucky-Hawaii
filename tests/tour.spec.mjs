@@ -97,6 +97,7 @@ test('導覽：略過也記住，設定裡可以重看', async ({ browser }) => 
     await expect(page.locator('#lhTour')).toHaveCount(0);
     expect(await page.evaluate(() => lhGet('lh:tourSeen'))).toBe('1');
     await page.evaluate(() => toggleSettings());
+    await page.locator('#prefsTab-help').click();   // 分頁式偏好設定（R2）
     await page.locator('.tour-replay-btn').click();
     await expect(page.locator('#settingsOverlay')).not.toHaveClass(/show/);
     await expect(page.locator('#lhTourCount')).toHaveText('1 / ' + STEPS);

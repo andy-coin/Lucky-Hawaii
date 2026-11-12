@@ -1,4 +1,12 @@
 ## 🔄 第二輪三線並行（2026-11-12 下午，基準 1cc4407，進行中）
+## ▶ R2 偏好設定分頁（2026-11-12，worktree `Lucky Hawaii-wt-prefs`，分支 r2/prefs，沒 push、`?v=` 沒升）
+
+- 偏好設定改成五個分頁（`index.html` 約 159～210 行的 `#prefsTabs`、`.prefs-panel`）：外觀／查詢與詞庫／韻腳與句構（`#mapSettingsSection` 本身就是 tabpanel）／資料與備份／說明與回饋。切換邏輯 `lhPrefsSelectTab` 在 `js/search-ui.js` 的 `toggleSettings` 底下（記住上次的分頁、方向鍵、Home、End）；背景動畫開關 `#prefsBgFx` 等主題那條分支的 `lhBgFxSet`／`lhBgFxGet`。
+- `js/rhyme-map.js`：「韻腳 ▾」選單拿掉「關閉韻腳設定」；點外面收起（pointerdown）、焦點移出也收起（focusout）；`lhMapOpenPrefs` 改成切到 `map` 分頁。
+- CSS：`css/base.css` 的 `.settings-dropdown` 改成固定高度、不捲，捲的是 `.prefs-panel`；`css/panels.css` 預覽 sticky `top: 0`。
+- 測試：新增 `tests/prefs-tabs.spec.mjs`、`rhyme-map-ui` 加了點外面的測試（滑鼠、觸控、焦點）；舊測試改成先切分頁。待決事項在 `R2-prefs.md`，截圖在 `r2-shots/`。
+
+## 🌙 夜間三線並行（2026-11-12，分支 overnight/2026-11-12，進行中）
 
 - Andy iPad 回饋第二輪，三個 subagent 各在 worktree 做，完成後由主 session 合併、升 `?v=`、push 到 gsd/v0.96-stabilize：
   - `../Lucky Hawaii-wt-theme`（r2/theme，埠 4321）：四主題 City／Midnight／Moon／Plain＋自訂，右上角鈕五個循環；多重點色；面板紋理；背景飄字動畫（`lhBgFxSet`）。參考圖 `~/Dropbox/#2ndy Own/zzZ/color theme reference/*.png`。待決 → `R2-theme.md`

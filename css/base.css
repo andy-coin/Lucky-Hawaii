@@ -614,10 +614,10 @@
             border-radius: 0.75rem;
             padding: 1.5rem;
             box-shadow: 0 12px 40px rgba(0,0,0,0.2);
-            width: min(22rem, 92vw);
-            max-height: calc(var(--app-h) - 2rem);
-            overflow-y: auto;
-            overscroll-behavior: contain;
+            width: min(34rem, 92vw);
+            /* 分頁式（R2）：固定高度，換分頁時視窗不跳；捲動的是下面的分頁內容 */
+            height: min(40rem, calc(var(--app-h) - 2rem));
+            overflow: hidden;
         }
 
         .settings-dropdown.show {
@@ -627,6 +627,24 @@
         }
         /* 內容比視窗高時整個對話框捲動，子項不要被壓扁 */
         .settings-dropdown > * { flex-shrink: 0; }
+        /* 分頁列：放不下就橫向捲（手機）；目前分頁用底線＋粗字，不只靠顏色 */
+        .prefs-tabs { display: flex; gap: var(--sp-1); overflow-x: auto; scrollbar-width: thin; border-bottom: 1px solid var(--border); margin-top: -0.5rem; }
+        .prefs-tabs [role="tab"] {
+            flex: none; min-height: 2.25rem; padding: 0 var(--sp-2);
+            border: 0; background: none; cursor: pointer; white-space: nowrap;
+            font: inherit; font-size: 0.9rem; color: var(--text-secondary);
+            box-shadow: inset 0 -2px 0 transparent;
+        }
+        .prefs-tabs [role="tab"][aria-selected="true"] { color: var(--text-primary); font-weight: 700; box-shadow: inset 0 -2px 0 var(--highlight-border); }
+        @media (hover: hover) and (pointer: fine) { .prefs-tabs [role="tab"]:hover { color: var(--text-primary); } }
+        .prefs-tabs [role="tab"]:focus-visible { outline: 2px solid var(--highlight-border); outline-offset: -2px; }
+        .settings-dropdown > .prefs-panel { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; display: flex; flex-direction: column; gap: 0.75rem; }
+        .prefs-panel > * { flex-shrink: 0; }
+        .prefs-panel[hidden] { display: none; }
+        .prefs-panel:focus-visible { outline: 2px solid var(--accent-line); outline-offset: 2px; }
+        .prefs-bgfx[hidden] { display: none; }
+        /* 分頁裡的一般按鈕（備份、導覽、回饋、關於）同一種外觀 */
+        .prefs-panel .save-load-btn { background: var(--container-bg); color: var(--text-primary); border: 1px solid var(--border); }
         
         .settings-dropdown-title {
             font-family: var(--font-serif);
@@ -668,6 +686,9 @@
         @media (max-width: 900px), (pointer: coarse) {
             .settings-saveload .save-load-btn,
             .settings-feedback-btn,
+            .settings-about-btn,
+            .tour-replay-btn,
+            .prefs-tabs [role="tab"],
             .reset-color,
             .feedback-modal-actions button { min-height: var(--hit); }
             .settings-color-section .color-item { min-height: var(--hit); }

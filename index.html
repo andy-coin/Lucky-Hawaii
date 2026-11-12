@@ -157,51 +157,69 @@
         </div>
         
         <div class="settings-overlay" id="settingsOverlay" onclick="closeSettingsOverlay(event)">
-            <div class="settings-dropdown show" onclick="event.stopPropagation()">
-                <div class="settings-dropdown-title">偏好設定</div>
-                <label class="checkbox-label">
-                    <input type="checkbox" id="showPinyin" checked>
-                    <span>顯示讀音</span>
-                </label>
-                <label class="checkbox-label">
-                    <input type="checkbox" id="highlightSearch" checked>
-                    <span>標記搜尋</span>
-                </label>
-                <label class="checkbox-label">
-                    <input type="checkbox" id="hideRare" checked>
-                    <span>隱藏冷僻字</span>
-                </label>
-                <label class="checkbox-label">
-                    <input type="checkbox" id="filterDuplicate">
-                    <span>過濾破音字</span>
-                </label>
-                <div class="settings-pack-section" id="lexiconPackSection">
-                    <div class="settings-pack-title">詞庫包</div>
-                    <div id="lexiconPackList" role="radiogroup" aria-label="詞庫包"></div>
-                    <div id="lexiconPackStatus" class="settings-pack-status" aria-live="polite"></div>
+            <div class="settings-dropdown show" role="dialog" aria-labelledby="settingsTitle" onclick="event.stopPropagation()">
+                <div class="settings-dropdown-title" id="settingsTitle">偏好設定</div>
+                <!-- 分頁（R2）：左右方向鍵切換；「更多設定…」直接開「韻腳與句構」 -->
+                <div class="prefs-tabs" id="prefsTabs" role="tablist" aria-label="設定分類">
+                    <button type="button" role="tab" id="prefsTab-look" aria-controls="prefsPanel-look" aria-selected="true">外觀</button>
+                    <button type="button" role="tab" id="prefsTab-search" aria-controls="prefsPanel-search" aria-selected="false" tabindex="-1">查詢與詞庫</button>
+                    <button type="button" role="tab" id="prefsTab-map" aria-controls="mapSettingsSection" aria-selected="false" tabindex="-1">韻腳與句構</button>
+                    <button type="button" role="tab" id="prefsTab-data" aria-controls="prefsPanel-data" aria-selected="false" tabindex="-1">資料與備份</button>
+                    <button type="button" role="tab" id="prefsTab-help" aria-controls="prefsPanel-help" aria-selected="false" tabindex="-1">說明與回饋</button>
                 </div>
-                <div class="settings-color-section" id="settingsColorSection">
-                    <div style="font-size:0.9rem; color:var(--text-primary); margin-top:0; margin-bottom:0.625rem;">客製顏色</div>
-                    <div style="display:flex; flex-wrap:wrap; gap:0.625rem;">
-                        <div class="color-item"><label>背景</label><input type="color" id="sBgColor1" value="#667eea"></div>
-                        <div class="color-item"><label>底色</label><input type="color" id="sContainerBg" value="#ffffff"></div>
-                        <div class="color-item"><label>文字</label><input type="color" id="sTextColor" value="#2d3748"></div>
-                        <div class="color-item"><label>邊框</label><input type="color" id="sHighlightColor" value="#ed8936"></div>
+                <div class="prefs-panel" role="tabpanel" id="prefsPanel-look" aria-labelledby="prefsTab-look" tabindex="0">
+                    <div class="settings-color-section" id="settingsColorSection">
+                        <div style="font-size:0.9rem; color:var(--text-primary); margin-top:0; margin-bottom:0.625rem;">客製顏色</div>
+                        <div style="display:flex; flex-wrap:wrap; gap:0.625rem;">
+                            <div class="color-item"><label>背景</label><input type="color" id="sBgColor1" value="#667eea"></div>
+                            <div class="color-item"><label>底色</label><input type="color" id="sContainerBg" value="#ffffff"></div>
+                            <div class="color-item"><label>文字</label><input type="color" id="sTextColor" value="#2d3748"></div>
+                            <div class="color-item"><label>邊框</label><input type="color" id="sHighlightColor" value="#ed8936"></div>
+                        </div>
+                    </div>
+                    <button type="button" class="rm-switch prefs-bgfx" id="prefsBgFx" role="switch" aria-checked="false" hidden><span class="rm-switch-label">背景動畫</span><span class="rm-pill">關</span></button>
+                    <button class="reset-color" onclick="resetColors()" >重設顏色!</button>
+                </div>
+                <div class="prefs-panel" role="tabpanel" id="prefsPanel-search" aria-labelledby="prefsTab-search" tabindex="0" hidden>
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="showPinyin" checked>
+                        <span>顯示讀音</span>
+                    </label>
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="highlightSearch" checked>
+                        <span>標記搜尋</span>
+                    </label>
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="hideRare" checked>
+                        <span>隱藏冷僻字</span>
+                    </label>
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="filterDuplicate">
+                        <span>過濾破音字</span>
+                    </label>
+                    <div class="settings-pack-section" id="lexiconPackSection">
+                        <div class="settings-pack-title">詞庫包</div>
+                        <div id="lexiconPackList" role="radiogroup" aria-label="詞庫包"></div>
+                        <div id="lexiconPackStatus" class="settings-pack-status" aria-live="polite"></div>
+                    </div>
+                    <div class="settings-color-section" style="margin-top:0.75rem">
+                        <div style="font-size:0.78rem; color:var(--text-secondary);">Groq 已整合，無需填入 Key。</div>
                     </div>
                 </div>
-                <div class="settings-color-section" style="margin-top:0.75rem">
-                    <div style="font-size:0.78rem; color:var(--text-secondary);">Groq 已整合，無需填入 Key。</div>
+                <div class="prefs-panel" role="tabpanel" id="mapSettingsSection" aria-labelledby="prefsTab-map" tabindex="0" hidden></div>
+                <div class="prefs-panel" role="tabpanel" id="prefsPanel-data" aria-labelledby="prefsTab-data" tabindex="0" hidden>
+                    <div class="settings-saveload" style="gap:0.5rem;margin-top:0.25rem;">
+                        <button class="save-load-btn" style="flex:1;text-align:center" onclick="exportSession();closeSettingsOverlay({target:document.getElementById('settingsOverlay')})" title="把所有歌曲與設定存成一個備份檔" aria-label="把所有歌曲與設定存成一個備份檔">備份全部</button>
+                        <button class="save-load-btn" style="flex:1;text-align:center" onclick="document.getElementById('importFileInput').click();closeSettingsOverlay({target:document.getElementById('settingsOverlay')})" title="從備份檔還原歌曲與設定" aria-label="從備份檔還原歌曲與設定">匯入備份</button>
+                    </div>
+                    <details class="settings-backups" id="autoBackupSection"><summary onclick="renderAutoBackups()">自動備份</summary><p class="settings-backups-hint">刪除歌曲、匯入備份與升級之前都會自動備份；可以在這裡還原。刪除與匯入的備份只保留最近幾份，升級前的備份會一直留著</p><ul id="autoBackupList" role="list"></ul></details>
+                    <button class="reset-color" onclick="clearDictOverrides()" title="清除瀏覽器中暫存的字庫修改（不影響檔案）">清除字庫 local 覆寫</button>
                 </div>
-                <div class="settings-saveload" style="gap:0.5rem;margin-top:0.25rem;">
-                    <button class="save-load-btn" style="flex:1;text-align:center" onclick="exportSession();closeSettingsOverlay({target:document.getElementById('settingsOverlay')})" title="把所有歌曲與設定存成一個備份檔" aria-label="把所有歌曲與設定存成一個備份檔">備份全部</button>
-                    <button class="save-load-btn" style="flex:1;text-align:center" onclick="document.getElementById('importFileInput').click();closeSettingsOverlay({target:document.getElementById('settingsOverlay')})" title="從備份檔還原歌曲與設定" aria-label="從備份檔還原歌曲與設定">匯入備份</button>
+                <div class="prefs-panel" role="tabpanel" id="prefsPanel-help" aria-labelledby="prefsTab-help" tabindex="0" hidden>
+                    <button type="button" class="save-load-btn tour-replay-btn" style="width:100%;text-align:center;" onclick="lhTourStart()">重看功能導覽</button>
+                    <button class="settings-feedback-btn save-load-btn" style="width:100%;text-align:center;" onclick="closeSettingsOverlay({target:document.getElementById('settingsOverlay')});openFeedbackModal()">意見回饋</button>
+                    <button type="button" class="save-load-btn settings-about-btn" style="width:100%;text-align:center;" onclick="closeSettingsOverlay({target:document.getElementById('settingsOverlay')});toggleAbout()">關於好韻器</button>
                 </div>
-                <details class="settings-backups" id="autoBackupSection"><summary onclick="renderAutoBackups()">自動備份</summary><p class="settings-backups-hint">刪除歌曲、匯入備份與升級之前都會自動備份；可以在這裡還原。刪除與匯入的備份只保留最近幾份，升級前的備份會一直留著</p><ul id="autoBackupList" role="list"></ul></details>
-                <details class="settings-backups" id="mapSettingsSection"><summary>韻腳地圖與句構分析</summary></details>
-                <button type="button" class="save-load-btn tour-replay-btn" style="width:100%;text-align:center;" onclick="lhTourStart()">重看功能導覽</button>
-                <button class="settings-feedback-btn save-load-btn" style="width:100%;text-align:center;" onclick="closeSettingsOverlay({target:document.getElementById('settingsOverlay')});openFeedbackModal()">意見回饋</button>
-                <button class="reset-color" onclick="resetColors()" >重設顏色!</button>
-                <button class="reset-color" onclick="clearDictOverrides()" title="清除瀏覽器中暫存的字庫修改（不影響檔案）">清除字庫 local 覆寫</button>
             </div>
         </div>
 

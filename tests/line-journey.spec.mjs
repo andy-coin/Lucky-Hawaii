@@ -86,8 +86,8 @@ test('整合：句構分析一次走完', async ({ browser }) => {
     // ===== c. 更多設定… → 行尾韻腳字母、對照差異 =====
     await page.locator('#rhymeMenu .rm-more').click();
     await expect(page.locator('#settingsOverlay')).toHaveClass(/show/);
-    await expect(page.locator('#mapSettingsSection')).toHaveJSProperty('open', true);
-    await expect(page.locator('#mapSettingsSection > summary')).toBeFocused();
+    await expect(page.locator('#mapSettingsSection')).toBeVisible();
+    await expect(page.locator('#prefsTab-map')).toBeFocused();
     await prefSw(page, '行尾韻腳字母').click();
     await prefSw(page, '對照差異').click();
     const diff2 = await markers(page, 2);

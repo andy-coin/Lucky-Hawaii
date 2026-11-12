@@ -185,7 +185,7 @@ async function bootWithStubPacks(browser, { alpha, beta, gamma, afterStubs, ...o
     });
     return { ...booted, alphaState, betaState, gammaState };
 }
-const openSettings = page => page.locator('#settingsTrigger').click();
+const openSettings = async page => { await page.locator('#settingsTrigger').click(); await page.locator('#prefsTab-search').click(); };   // 詞庫包在「查詢與詞庫」分頁（R2）
 const radio = (page, id) => page.locator(`#lexiconPackList input[name="lexiconPack"][value="${id}"]`);
 const gateOf = state => { let release; state.gate = new Promise(r => { release = r; }); return release; };
 
