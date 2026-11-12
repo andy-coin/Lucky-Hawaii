@@ -41,9 +41,9 @@ test('常駐：打開逐行標記，每行右邊出現字數與斷句', async ({
     await page.evaluate(() => lhMapSetSetting('line', true));
     expect(await page.evaluate(() => document.documentElement.getAttribute('data-lm'))).toBe('right');
     await expect(page.locator('.lyrics-section').first().locator('.lm-mk')).toHaveCount(4);
-    expect(await markers(page)).toEqual([['6', '2+2+2'], ['7', '≈2+2+3'], ['10', '≈3+2+2+3'], ['13', '2+2+2+≈2+2+3']]);
+    expect(await markers(page)).toEqual([['6', '2+2+2'], ['7', '7（2·2·3）'], ['10', '10（3·2·2·3）'], ['13', '2+2+2+7（2·2·3）']]);
 
-    // 只有機器猜的那一段是斜體、帶 ≈
+    // 只有機器猜的細分（括號裡）是斜體
     const guess = await page.locator('.lyrics-section').first().locator('.rhyme-mirror .lm-mk .lm-t-s').evaluateAll(els => els.map(e => ({
         kids: [...e.querySelectorAll('.lm-guess')].map(g => g.textContent),
         all: e.textContent,
@@ -51,9 +51,9 @@ test('常駐：打開逐行標記，每行右邊出現字數與斷句', async ({
         kidStyle: e.querySelector('.lm-guess') ? getComputedStyle(e.querySelector('.lm-guess')).fontStyle : null,
     })));
     expect(guess[0].kids, '自己標的整行沒有猜').toEqual([]);
-    expect(guess[1].kids).toEqual([guess[1].all]);
-    expect(guess[2].kids).toEqual([guess[2].all]);
-    expect(guess[3].kids, '混合行只有猜的那段').toEqual(['≈2+2+3']);
+    expect(guess[1].kids).toEqual(['（2·2·3）']);
+    expect(guess[2].kids).toEqual(['（3·2·2·3）']);
+    expect(guess[3].kids, '混合行只有猜的那段').toEqual(['（2·2·3）']);
     expect(guess[3].selfStyle).toBe('normal');
     expect(guess[3].kidStyle).toBe('italic');
 
@@ -99,7 +99,7 @@ test('常駐：打開逐行標記，每行右邊出現字數與斷句', async ({
     await page.reload();
     await ready(page);
     await seedWords(page, WORDS);
-    expect(await markers(page)).toEqual([['6', '2+2+2'], ['7', '≈2+2+3'], ['10', '≈3+2+2+3'], ['13', '2+2+2+≈2+2+3']]);
+    expect(await markers(page)).toEqual([['6', '2+2+2'], ['7', '7（2·2·3）'], ['10', '10（3·2·2·3）'], ['13', '2+2+2+7（2·2·3）']]);
 
     // 關掉：全部回到原樣
     await page.evaluate(() => lhMapSetSetting('line', false));
@@ -220,18 +220,18 @@ test('偏好設定：內容與順序', async ({ browser }) => {
     const sec = page.locator('#mapSettingsSection');
     await expect(sec.locator('> .settings-backups-hint')).toHaveText('調整句尾上色、逐行字數與斷句標記的開關、位置、大小和顏色');
     expect(await sec.locator('.section-menu-block > .section-menu-cap:first-child').allTextContents()).toEqual(['預覽', '韻腳地圖', '句構分析', '顯示方式', '韻族顏色']);
-    expect(await sec.locator('.rm-switch-label').allTextContents()).toEqual(['句尾上色', '雙押／多押', '段落結構字母', '句中押韻', '忽略句尾語助詞', '逐行標記', '行尾韻腳字母', '字數', '斷句結構', '對照差異', '反白停留自動分析']);
+    expect(await sec.locator('.rm-switch-label').allTextContents()).toEqual(['句尾上色', '雙押／多押', '自動配色', '段落結構字母', '句中押韻', '忽略句尾語助詞', '逐行標記', '行尾韻腳字母', '字數', '斷句結構', '對照差異', '反白停留自動分析']);
     const particle = await page.evaluate(() => LH_MAP_PARTICLE_CAP);
     const caps = await sec.locator('.section-menu-cap').allTextContents();
     for (const c of [
         '在每個段落標題列顯示 AABB 這類字母', '句子裡面跟句尾押同韻的字，加底線（每行最多 3 個）', particle, '押韻判定',
         '寬韻：同一個韻族都算押韻（例：ㄤ、ㄧㄤ、ㄨㄤ）',
         '每行旁邊顯示淡色小字；下面四項決定要顯示什麼', 'A、B…，跟著上面的寬韻／嚴格', '每行幾個字（空白、標點不算）',
-        '例如 3+4。你自己打的空白和標點一定算；開頭有 ≈ 的是機器猜的', '跟同類型第一段的同一行字數不同時，標出 ≠ 和對方的字數',
+        '例如 4+4+11（4·2·3·2）。+ 是你自己打的空白和標點；括號裡斜體的是機器猜的細分，可以在「📏 分析」裡改', '跟同類型第一段的同一行字數不同時，標出 ≠ 和對方的字數',
         '反白後滑鼠停著不動 1.5 秒，自動打開句構面板；只有接了滑鼠的電腦會自動出現，觸控請按「分析」',
     ]) expect(caps, c).toContain(c);
     // 每個說明都有 id，開關用 aria-describedby 接起來
-    expect(await sec.locator('.rm-switch[aria-describedby]').evaluateAll(els => els.map(e => !!document.getElementById(e.getAttribute('aria-describedby'))))).toEqual(Array(10).fill(true));   // 句尾上色沒有說明
+    expect(await sec.locator('.rm-switch[aria-describedby]').evaluateAll(els => els.map(e => !!document.getElementById(e.getAttribute('aria-describedby'))))).toEqual(Array(11).fill(true));   // 句尾上色沒有說明
     // 四個細項縮排在 .rm-sub 裡，從不禁用
     expect(await sec.locator('.rm-sub .rm-switch .rm-switch-label').allTextContents()).toEqual(['行尾韻腳字母', '字數', '斷句結構', '對照差異']);
     expect(await sec.locator('.rm-switch[disabled], .rm-switch[aria-disabled]').count()).toBe(0);
@@ -369,7 +369,7 @@ test('常駐：行尾韻腳字母跟著寬韻嚴格', async ({ browser }) => {
     await context.close();
 });
 
-test('詞庫載入：先只有字數與明確斷點，載好後補上 ≈', async ({ browser }) => {
+test('詞庫載入：先只有字數與明確斷點，載好後補上括號', async ({ browser }) => {
     const MINI = ['{"w":"夢裡","z":"ㄇㄥˋ ㄌㄧˇ","p":0}', '{"w":"想起","z":"ㄒㄧㄤˇ ㄑㄧˇ","p":0}', '{"w":"你的","z":"ㄋㄧˇ ㄉㄜ˙","p":0}'].join('\n') + '\n';
     let release;
     const gate = new Promise(r => { release = r; });
@@ -383,11 +383,11 @@ test('詞庫載入：先只有字數與明確斷點，載好後補上 ≈', asyn
     });
     await expect.poll(() => markers(page)).toEqual([['6', '2+2+2'], ['7', '']]);
     await openPrefs(page);
-    await expect(page.locator('#mapSettingsSection .rm-lex-wait')).toHaveText('詞庫載入中，≈ 的自動斷句稍後補上');
+    await expect(page.locator('#mapSettingsSection .rm-lex-wait')).toHaveText('詞庫載入中，括號裡的自動斷句稍後補上');
     await expect(page.locator('#mapSettingsSection .rm-lex-wait')).toBeVisible();
     release();
     await page.evaluate(() => window.__lhMapReady);
-    await expect.poll(() => markers(page)).toEqual([['6', '2+2+2'], ['7', '≈2+2+3']]);
+    await expect.poll(() => markers(page)).toEqual([['6', '2+2+2'], ['7', '7（2·2·3）']]);
     await expect(page.locator('#mapSettingsSection .rm-lex-wait')).toBeHidden();
     expect(errors).toEqual([]);
     await context.close();
@@ -1202,7 +1202,9 @@ test('預覽：每個開關都看得到', async ({ browser }) => {
     // 位置：句尾後 → 右內距回到 0.75rem，標記貼在最後一個字後面
     const geo = () => page.evaluate(() => {
         const el = document.querySelector('#mapSettingsSection .lm-preview'), rem = parseFloat(getComputedStyle(document.documentElement).fontSize);
-        const mk = el.querySelector('.lm-mk'), prev = mk.previousSibling;
+        const mk = el.querySelector('.lm-mk');
+        let prev = mk.previousSibling;
+        if (prev.nodeType === 1) prev = prev.lastChild;   // 句尾是上色的英文字（span）
         const rg = document.createRange(); rg.setStart(prev, prev.textContent.length - 1); rg.setEnd(prev, prev.textContent.length);
         return { pad: parseFloat(getComputedStyle(el).paddingRight) / rem, dx: (mk.getBoundingClientRect().left - rg.getBoundingClientRect().right) / rem, fs: parseFloat(getComputedStyle(el.querySelector('.lm-t')).fontSize) / rem };
     });
@@ -1315,9 +1317,9 @@ test('分析面板：選幾行按分析，逐行列出字數、結構與對照',
     expect(rows).toEqual([
         { ref: false, cells: ['第 2 行', '獨自站在窗前', '6', '—'], guess: [], verdict: [] },
         { ref: true, cells: ['對照 Verse I 第 2 行：5 字　—≠'], guess: [], verdict: [['≠', '字數不同']] },
-        { ref: false, cells: ['第 3 行', '走過熟悉的街道', '7', '≈2+3+2'], guess: [['≈2+3+2', 'italic']], verdict: [] },
-        { ref: true, cells: ['對照 Verse I 第 3 行：7 字　≈2+3+2✓'], guess: [['≈2+3+2', 'italic']], verdict: [['✓', '字數相同']] },
-        { ref: false, cells: ['第 4 行', '終於我也回到', '6', '≈2+2+2'], guess: [['≈2+2+2', 'italic']], verdict: [] },
+        { ref: false, cells: ['第 3 行', '走過熟悉的街道', '7', '7（2·3·2）'], guess: [['（2·3·2）', 'italic']], verdict: [] },
+        { ref: true, cells: ['對照 Verse I 第 3 行：7 字　7（2·3·2）✓'], guess: [['（2·3·2）', 'italic']], verdict: [['✓', '字數相同']] },
+        { ref: false, cells: ['第 4 行', '終於我也回到', '6', '6（2·2·2）'], guess: [['（2·2·2）', 'italic']], verdict: [] },
         { ref: true, cells: ['對照段落沒有第 4 行'], guess: [], verdict: [] },
     ]);
     expect(await live(page)).toBe('句構分析：選到 3 行');
@@ -1455,7 +1457,7 @@ test('分析面板：詞庫載入中', async ({ browser }) => {
     await expect(page.locator(ANBAR)).toBeVisible();
     await page.locator(ANBAR + ' .rm-bar-an').click();
     const panel = page.locator(AN);
-    await expect(panel.locator('.section-menu-cap').filter({ hasText: '詞庫載入中，≈ 的自動斷句稍後補上' })).toBeVisible();
+    await expect(panel.locator('.section-menu-cap').filter({ hasText: '詞庫載入中，括號裡的自動斷句稍後補上' })).toBeVisible();
     expect((await anRows(page))[0].cells).toEqual(['第 2 行', '夢裡想起你的臉', '7', '—']);   // 還沒詞庫：不猜
     release();
     await page.evaluate(() => window.__lhMapReady);
@@ -1465,7 +1467,7 @@ test('分析面板：詞庫載入中', async ({ browser }) => {
     await page.locator(ANBAR + ' .rm-bar-an').click();
     await expect(panel).toBeVisible();
     await expect(panel.locator('.section-menu-cap').filter({ hasText: '詞庫載入中' })).toHaveCount(0);
-    expect((await anRows(page))[0].cells).toEqual(['第 2 行', '夢裡想起你的臉', '7', '≈2+2+3']);
+    expect((await anRows(page))[0].cells).toEqual(['第 2 行', '夢裡想起你的臉', '7', '7（2·2·3）']);
     expect(errors).toEqual([]);
     await context.close();
 });
@@ -1606,13 +1608,15 @@ test('分析面板：鍵盤與焦點', async ({ browser }) => {
     await expect(panel).toBeVisible();
     await expect(panel).toBeFocused();
     expect(await live(page)).toBe('句構分析：選到 3 行');
-    // 這麼短的表格沒有溢出：Tab 只到「關閉句構」，兩個方向都不跑出面板
+    // 這麼短的表格沒有溢出：Tab 依序繞過三個結構鈕、「AI 斷句」、「關閉句構」，兩個方向都不跑出面板
     expect(await panel.locator('.rm-an-scroll').getAttribute('tabindex')).toBeNull();
-    for (const k of ['Tab', 'Tab', 'Shift+Tab', 'Shift+Tab', 'Shift+Tab']) {
-        await page.keyboard.press(k);
-        expect(await inPanel(), k).toBe(true);
-        await expect(panel.locator('.section-menu-close')).toBeFocused();
-    }
+    await expect(panel.locator('.rm-an-edit')).toHaveCount(3);
+    for (let i = 0; i < 5; i++) { await page.keyboard.press('Tab'); expect(await inPanel(), 'Tab ' + i).toBe(true); }
+    await expect(panel.locator('.section-menu-close')).toBeFocused();
+    await page.keyboard.press('Tab');
+    await expect(panel.locator('.rm-an-edit').first()).toBeFocused();
+    await page.keyboard.press('Shift+Tab');
+    await expect(panel.locator('.section-menu-close')).toBeFocused();
     // Esc：面板收起，焦點與選取回輸入框
     await page.keyboard.press('Escape');
     await expect(panel).toBeHidden();
@@ -1631,12 +1635,10 @@ test('分析面板：鍵盤與焦點', async ({ browser }) => {
     await expect(sc).toHaveAttribute('tabindex', '0');
     await page.keyboard.press('Tab');
     await expect(sc).toBeFocused();
-    await page.keyboard.press('Tab');
-    await expect(panel.locator('.section-menu-close')).toBeFocused();
-    await page.keyboard.press('Tab');
-    await expect(sc).toBeFocused();
     await page.keyboard.press('Shift+Tab');
     await expect(panel.locator('.section-menu-close')).toBeFocused();
+    await page.keyboard.press('Shift+Tab');
+    await expect(panel.locator('.rm-an-act').first()).toBeFocused();
     expect(errors).toEqual([]);
     await context.close();
 });
@@ -1952,6 +1954,39 @@ test('hover：不在移動時量版面', async ({ browser }) => {
     expect(await page.evaluate(() => window.__mirrors), 'pointermove 不量版面').toBe(0);
     await hvAfterArm(page, 1500);
     await expect(page.locator(AN), '小動作不取消，照開').toBeVisible();
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('分析面板：點結構手動改、改回自動、AI 斷句', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, {
+        wordlist: 'stub', storage: v2Storage([song([typed('sa', 'verse', AN_V2)])]),
+    });
+    await seedWords(page, AN_WORDS);
+    await page.route('**/prompts/line-struct', r => r.fulfill({ json: { ok: true, prompt: 'X {{LINES}}' } }));
+    await page.evaluate(() => { window.__sent = null; window.callLLM = async (m, p) => { window.__sent = p; return '{"lines":[[3,3],[1,6],[9]]}'; }; });
+    await anShow(page, 11, 26);
+    const panel = page.locator(AN);
+    const cell = n => panel.locator('tbody tr').nth(n).locator('td').nth(3);
+    // 手動：字數不對不收；對了就存、標「手動」、鏡像層的設定也跟著
+    await panel.locator('.rm-an-edit').nth(1).click();
+    const inp = panel.locator('.rm-an-input');
+    await inp.fill('3+3');
+    await inp.press('Enter');
+    await expect(inp).toBeVisible();
+    await inp.fill('4+3');
+    await inp.press('Enter');
+    await expect(cell(1)).toHaveText('7（4·3）手動');
+    expect(await page.evaluate(() => curSong().structs)).toEqual({ '走過熟悉的街道': { g: [4, 3], src: 'man' } });
+    // 改回自動
+    await panel.locator('.rm-an-act', { hasText: '全部改回自動' }).click();
+    await expect(cell(1)).toHaveText('7（2·3·2）');
+    expect(await page.evaluate(() => curSong().structs)).toBeUndefined();
+    // AI：提示詞從後台拿，字數對的才收（第 3 行 9≠6 不收）
+    await panel.locator('.rm-an-act', { hasText: 'AI 斷句' }).click();
+    await expect(cell(0)).toHaveText('6（3·3）AI');
+    expect(await page.evaluate(() => window.__sent)).toBe('X 1. 獨自站在窗前\n2. 走過熟悉的街道\n3. 終於我也回到');
+    expect(await page.evaluate(() => Object.keys(curSong().structs))).toEqual(['獨自站在窗前', '走過熟悉的街道']);
     expect(errors).toEqual([]);
     await context.close();
 });

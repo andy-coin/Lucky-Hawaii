@@ -637,12 +637,14 @@ function lhNormalizeSong(raw, takenIds, stats) {
     // 第 10 階段（A3）：手動讀音逐筆驗證，壞的只丟那一筆；一筆都不剩就不寫這個欄位（沒有讀音的歌備份裡也沒有）。
     // rhyme-core.js 比 safety.js 晚載入，這裡只在匯入時（執行期）呼叫，載入順序不影響
     const readings = typeof lhRhymeCleanReadings === 'function' ? lhRhymeCleanReadings(raw.readings) : null;
+    const structs = typeof lhLineCleanStructs === 'function' ? lhLineCleanStructs(raw.structs) : null;   // 手動／AI 句構，和讀音同樣處理
     return {
         id, title, sections, hashtags,
         context: typeof raw.context === 'string' ? _lhCut(raw.context, LH_IMPORT_CAPS.context, stats) : '',
         createdAt,
         updatedAt: Number.isFinite(raw.updatedAt) ? raw.updatedAt : createdAt,
-        ...(readings ? { readings } : {})
+        ...(readings ? { readings } : {}),
+        ...(structs ? { structs } : {})
     };
 }
 

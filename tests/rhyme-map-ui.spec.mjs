@@ -75,8 +75,8 @@ test('上色：語助詞、標點、英文、空行', async ({ browser }) => {
     const { context, page, errors } = await bootPage(browser, {
         wordlist: 'stub', storage: v2Storage([song([typed('sa', 'verse', F_PART)])]),
     });
-    // 語助詞（啊、了、嗎）跳過；英文行與空行沒有色塊
-    expect((await bands(page)).map(b => b[0])).toEqual(['亮', '慌', '你']);
+    // 語助詞（啊、了、嗎）跳過；空行沒有色塊；英文整個字上色（baby，0.96.23 起）
+    await expect.poll(async () => (await bands(page)).map(b => b[0])).toEqual(['亮', 'baby', '慌', '你']);   // 英文字表載好後
     // 鏡像層的文字和輸入框一模一樣（只是多一個結尾零寬字元），行數也一樣
     expect(await page.locator('.rhyme-mirror').first().evaluate(m => m.textContent)).toBe(F_PART + '​');
     expect(errors).toEqual([]);
@@ -1519,7 +1519,7 @@ const stripTexts = page => page.locator('#lyricsSections .lyrics-section').evalu
     const b = e.querySelector(q);
     return b && !b.hidden && getComputedStyle(b).display !== 'none' ? b.textContent : null;
 }), STRIP);
-const LETTERS_SONG = () => v2Storage([song([typed('sa', 'verse', F_AABB), typed('sb', 'chorus', F_ABAB), typed('sc', 'bridge', F_PART)])]);
+const LETTERS_SONG = () => v2Storage([song([typed('sa', 'verse', F_AABB), typed('sb', 'chorus', F_ABAB), typed('sc', 'bridge', F_PART.replace('Oh baby', '123 456'))])]);   // 沒有韻的行用數字（英文 0.96.23 起會押韻）
 
 test('標題字母：打開後顯示 AABB', async ({ browser }) => {
     const { context, page, errors } = await bootPage(browser, { wordlist: 'stub', storage: LETTERS_SONG() });
@@ -1654,19 +1654,19 @@ test('統計：內容', async ({ browser }) => {
 
 test('統計：點一列就查那句的句尾', async ({ browser }) => {
     const { context, page, errors } = await bootPage(browser, {
-        wordlist: 'stub', storage: withLetters([song([typed('sa', 'verse', F_PART.replace('嗎', '你好嗎')), typed('sb', 'chorus', F_AABB)])]),
+        wordlist: 'stub', storage: withLetters([song([typed('sa', 'verse', F_PART.replace('嗎', '你好嗎').replace('Oh baby', '123 456')), typed('sb', 'chorus', F_AABB)])]),
     });
     await openStats(page, 1);
     await statsRows(page).nth(2).click();
     await expect(page.locator('#searchInput')).toHaveValue('道');
     await expect.poll(() => page.locator('.char-card').count()).toBeGreaterThan(0);
     await expect(page.locator(STATS)).toBeHidden();
-    // 沒有韻的行（英文）不能點
+    // 沒有韻的行（數字）不能點
     await page.locator('#searchInput').fill('');
     await openStats(page, 0);
     const dash = page.locator(STATS + ' .rm-row[aria-disabled="true"]');
     await expect(dash).toHaveCount(1);
-    await expect(dash).toContainText('Oh baby');
+    await expect(dash).toContainText('123 456');
     await dash.click({ force: true });
     await expect(page.locator(STATS), '點了沒反應，統計還開著').toBeVisible();
     await expect(page.locator('#searchInput')).toHaveValue('');
@@ -1707,7 +1707,7 @@ test('統計：沒有可分析的句尾', async ({ browser }) => {
     await openStats(page);
     await expect(statsRows(page)).toHaveCount(4);
     // 經由模型把文字換成只有英文，再重畫：字母條消失，統計重建成空狀態
-    await page.evaluate(() => { curSong().sections[0].text = 'hello world\n\nfoo bar'; lhMapPaint(lhSecEl('sa')); });
+    await page.evaluate(() => { curSong().sections[0].text = '123 456\n\n789'; lhMapPaint(lhSecEl('sa')); });
     await expect(page.locator(STATS + ' .section-menu-cap')).toHaveText('這個段落還沒有可分析的句尾');
     await expect(statsRows(page)).toHaveCount(0);
     await expect(page.locator(STATS + ' .rm-letters, ' + STATS + ' .rm-group, ' + STATS + ' .rm-sum')).toHaveCount(0);

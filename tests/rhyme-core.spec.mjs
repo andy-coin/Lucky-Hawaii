@@ -356,7 +356,7 @@ test('設定：整理成固定的鍵', () => {
     const norm = v => ev(`lhRhymeNormalizeSettings(${j(v)})`);
     // 十五個設定鍵加 colors（五個舊開關＋雙押多押、逐行標記、三個內容項、對照差異、停留自動分析、位置、大小、濃淡）
     const D = { end: true, letters: false, inner: false, strict: false, skipParticles: true,
-        multi: true, line: false, lnRhyme: false, lnCount: true, lnSplit: true, lnDiff: false, autoHover: false,
+        multi: true, autoColor: true, line: false, lnRhyme: false, lnCount: true, lnSplit: true, lnDiff: false, autoHover: false,
         pos: 'right', size: 'm', depth: 'std', colors: {} };
     expect(norm(null)).toEqual(D);
     expect(norm([1, 2])).toEqual(D);
@@ -600,4 +600,37 @@ test('對比：色塊明顯、相近韻族分得開', () => {
         for (let n = 0; n < 16; n++) expect(contrastOf(fills[n], card), `${set} 色 ${n} 對底色`).toBeGreaterThanOrEqual(minSal);
         for (const [a, b] of NEAR) expect(dE(fills[a], fills[b]), `${set} 韻族 ${a}／${b}`).toBeGreaterThanOrEqual(4.5);
     }
+});
+
+test('英文：片語只看最後一個字、中英互押、拼字猜測', () => {
+    reset();
+    run(`lhEnSetDict({ 'AW S': 'house mouse', 'AW N': 'down', 'EH L': 'hell', 'IY': 'pity' })`);
+    expect(ev(`lhRhymeTargets('slow down calm down', true)`).map(t => t.tail)).toEqual(['down']);
+    expect(ev(`lhRhymeTargets("who's the pity mouse?", true)`).map(t => t.tail)).toEqual(['mouse']);
+    const t = ev(`lhRhymeTargets('麻雀in the house', true)`);
+    expect(t.map(x => [x.tail, x.s, x.i, x.en])).toEqual([['house', 9, 13, 'ㄠ']]);
+    // house 和「好」同一族
+    expect(ev(`lhRhymeAnalyze('yo yo 麻雀in the house\\n快樂或紛擾', {})`).rows.map(r => r.key)).toEqual(['f8', 'f8']);
+    expect(ev(`lhEnRhyme('yo')`)).toBe('ㄡ');        // 字表沒有：照拼字猜
+    expect(ev(`lhEnRhyme('down')`)).toBe('ㄤ');
+    run('_lhEnDict = null');
+    expect(ev(`lhRhymeTargets('the house', true)`)).toEqual([]);   // 字表還沒載好：不上色
+});
+
+test('雙押：不跨過句構的斷點', () => {
+    reset();
+    // 沒有句構斷點：往前最多 4 個漢字
+    expect(ev(`lhRhymeTargets('丟進杯子裡攪拌', true, null)`)[0].tail).toBe('子裡攪拌');
+    // 組頭在「攪」：只到攪拌
+    expect(ev(`lhRhymeTargets('丟進杯子裡攪拌', true, new Set([0, 2, 5]))`)[0].tail).toBe('攪拌');
+});
+
+test('自動配色：靠近的不同韻用不同顏色、空韻維持灰', () => {
+    reset();
+    const pal = j(ev('LH_RHYME_COLORS.light'));
+    const r = ev(`lhRhymeAnalyze('天\\n邊\\n好\\n跑\\n花\\n家\\n吃', { palette: ${pal} })`);
+    const f = r.rows.map(x => x.f);
+    expect(f[0]).toBe(f[1]);
+    expect(new Set([f[0], f[2], f[4]]).size).toBe(3);
+    expect(f[6]).toBe(16);
 });

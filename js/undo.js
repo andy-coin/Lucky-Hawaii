@@ -11,7 +11,7 @@ const _hists = new Map();       // 歌 id → { ref, past, future, present, care
 // 快照：段落的淺拷貝（text／label 是不可變字串，100 步幾乎不吃記憶體）
 const _snap = song => song.sections.map(s => ({ ...s }));
 // 內容簽名：id／類型／自訂名／顏色／文字，不含高度與收合
-const _sig = sections => JSON.stringify(sections.map(s => [s.id, s.type, s.custom, s.color, s.text]));
+const _sig = sections => JSON.stringify(sections.map(s => [s.id, s.type, s.custom, s.color, s.text, s.role, s.cols]));
 
 // 取得（或建立）這首歌的歷史。verify：畫面重畫時順便檢查，模型在歷史之外被改過（例如還沒接上歷史的刪除、拖曳）就重新起算
 function lhHistEnsure(song, verify) {
@@ -103,7 +103,8 @@ function _lhHistMove(from, to, msg, redo) {
 // D6：只有一段文字不同 → 只換那個輸入框的內容（同一個節點）；否則整個重畫，捲動位置不變，第一個不同的段落閃一下
 function _lhHistShow(before, after, caret) {
     const sameShape = before.length === after.length
-        && after.every((s, i) => s.id === before[i].id && s.type === before[i].type && s.custom === before[i].custom && s.color === before[i].color);
+        && after.every((s, i) => s.id === before[i].id && s.type === before[i].type && s.custom === before[i].custom && s.color === before[i].color
+            && s.cols === before[i].cols && s.role === before[i].role);   // 角色欄一律換新陣列，所以比參照就知道有沒有變
     const diff = sameShape ? after.filter((s, i) => s.text !== before[i].text) : [];
     const el = diff.length === 1 && lhSecEl(diff[0].id);
     if (el) {

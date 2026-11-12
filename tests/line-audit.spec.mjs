@@ -330,9 +330,9 @@ test('檢查：列印與匯出沒有句構標記', async ({ browser }) => {
     });
     await waitStill(page);
     await seedWords(page);
-    // 前置：畫面上真的有標記，而且有 ≈（機器猜的）和 ≠（和對照段落不同的字數）
+    // 前置：畫面上真的有標記，而且有括號細分（機器猜的）和 ≠（和對照段落不同的字數）
     const marks = await page.locator('.lm-mk').evaluateAll(els => els.map(e => e.textContent).join('|'));
-    expect(marks, '前置：有 ≈').toContain('≈');
+    expect(marks, '前置：有括號細分').toContain('·');
     expect(marks, '前置：有 ≠').toContain('≠');
     // 開著分析面板（對選取的幾行）
     await openLyricsTab(page);
@@ -345,7 +345,7 @@ test('檢查：列印與匯出沒有句構標記', async ({ browser }) => {
     await expect(page.locator(PREFS + ' .lm-preview')).toHaveCount(1);
     await page.keyboard.press('Escape');
     const clean = (t, tag) => {
-        for (const bad of ['lm-', 'rm-', 'rhyme-mirror', '\u200b', '≈', '≠', '✓']) expect(t, tag + '：不含 ' + JSON.stringify(bad)).not.toContain(bad);
+        for (const bad of ['lm-', 'rm-', 'rhyme-mirror', '\u200b', '·', '≠', '✓']) expect(t, tag + '：不含 ' + JSON.stringify(bad)).not.toContain(bad);
     };
     const item = label => page.locator('#exportMenu .export-item').filter({ has: page.locator('.export-label', { hasText: label }) });
     const download = async label => {
@@ -589,17 +589,17 @@ test('檢查：顏色以外的線索（句構分析）', async ({ browser }) => 
         for (const w of ws) wordPhoneticMap.set(w, Array.from(w).map(c => getCharAllReadings(c)[0].reading).join(' '));
         lhMapOnLexiconChange();
     }, ['夢裡', '想起', '你的', '望著', '遠方']);
-    // 逐行標記：機器猜的那一段「≈」開頭、斜體；自己標的維持正體
+    // 逐行標記：機器猜的細分（括號）斜體；自己標的維持正體
     const mk = await secs(page).first().locator('.lm-mk').first().evaluate(m => {
         const t = m.querySelector('.lm-t-s');
         return { style: getComputedStyle(t).fontStyle, text: t.textContent, guesses: [...t.querySelectorAll('.lm-guess')].map(g => [g.textContent, getComputedStyle(g).fontStyle]) };
     });
     expect(mk.style, '自己標的那一段是正體').toBe('normal');
-    expect(mk.text).toBe('2+2+2+≈2+2+3');
-    expect(mk.guesses, '只有一段猜的').toEqual([['≈2+2+3', 'italic']]);
-    const allGuess = await page.locator('#lyricsSections .lm-guess').evaluateAll(els => els.map(e => [e.textContent.startsWith('≈'), getComputedStyle(e).fontStyle]));
+    expect(mk.text).toBe('2+2+2+7（2·2·3）');
+    expect(mk.guesses, '只有一段猜的').toEqual([['（2·2·3）', 'italic']]);
+    const allGuess = await page.locator('#lyricsSections .lm-guess').evaluateAll(els => els.map(e => [e.textContent.startsWith('（'), getComputedStyle(e).fontStyle]));
     expect(allGuess.length).toBeGreaterThan(0);
-    expect(allGuess.every(([a, b]) => a && b === 'italic'), '每一段猜的都有 ≈ 且斜體').toBe(true);
+    expect(allGuess.every(([a, b]) => a && b === 'italic'), '每一段猜的都在括號裡且斜體').toBe(true);
     // 差異：≠ 加粗（第二段第 2 行 6 字，對照 7 字）
     const diffs = await page.locator('#lyricsSections .lm-t-d:not(:empty)').evaluateAll(els => els.map(e => [e.textContent, getComputedStyle(e).fontWeight]));
     expect(diffs, '差異 ≠ 且粗體').toEqual([['≠7', '700']]);
@@ -611,14 +611,14 @@ test('檢查：顏色以外的線索（句構分析）', async ({ browser }) => 
         role: m.getAttribute('role'),
         ths: [...m.querySelectorAll('th')].map(th => th.getAttribute('scope')),
         verdicts: [...m.querySelectorAll('.rm-an-v')].map(v => [v.textContent, v.getAttribute('aria-label')]),
-        guesses: [...m.querySelectorAll('.lm-guess')].map(g => [g.textContent.startsWith('≈'), getComputedStyle(g).fontStyle]),
+        guesses: [...m.querySelectorAll('.lm-guess')].map(g => [g.textContent.startsWith('（'), getComputedStyle(g).fontStyle]),
     }));
     expect(an.role).toBe('dialog');
     expect(an.ths.length).toBeGreaterThan(0);
     expect(an.ths.every(x => x === 'col')).toBe(true);
     expect(an.verdicts).toEqual([['✓', '字數相同'], ['≠', '字數不同']]);
     expect(an.guesses.length).toBeGreaterThan(0);
-    expect(an.guesses.every(([a, b]) => a && b === 'italic'), '面板裡猜的也是 ≈ 加斜體').toBe(true);
+    expect(an.guesses.every(([a, b]) => a && b === 'italic'), '面板裡猜的也是括號加斜體').toBe(true);
     await page.keyboard.press('Escape');
     // 開關寫「開／關」，濃淡是有名字的 radio
     await page.locator('#rhymeMenuBtn').click();

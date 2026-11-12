@@ -50,8 +50,35 @@ function lhSecFields(s) {
         type: hasType ? s.type : inf.type,
         custom,
         color: typeof s.color === 'string' && LH_SEC_COLOR_RE.test(s.color) ? s.color.toLowerCase() : '',
-        height: Number.isFinite(s.height) && s.height >= LH_SEC_H_MIN && s.height <= LH_SEC_H_MAX ? Math.round(s.height * 10) / 10 : null
+        height: Number.isFinite(s.height) && s.height >= LH_SEC_H_MIN && s.height <= LH_SEC_H_MAX ? Math.round(s.height * 10) / 10 : null,
+        ...lhSecColFields(s)
     };
+}
+
+// 並排角色欄（對唱、音樂劇）：role＝第一欄（原本的歌詞）的角色名；cols＝另外加的欄 [{ name, text }]，最多 LH_SEC_COLS_MAX 欄。
+// 沒有加欄的段落不寫這兩個欄位（舊備份、舊測試逐字相同）
+const LH_SEC_COLS_MAX = 3;
+const LH_SEC_ROLE_MAX = 20;
+function lhSecColFields(s) {
+    const out = {};
+    const cols = Array.isArray(s.cols) ? s.cols.filter(c => c && typeof c === 'object').slice(0, LH_SEC_COLS_MAX)
+        .map(c => ({ name: typeof c.name === 'string' ? _lhSecCut(c.name.trim(), LH_SEC_ROLE_MAX) : '', text: typeof c.text === 'string' ? c.text.slice(0, 200000) : '' })) : [];
+    if (cols.length) out.cols = cols;
+    if (cols.length && typeof s.role === 'string' && s.role.trim()) out.role = _lhSecCut(s.role.trim(), LH_SEC_ROLE_MAX);
+    return out;
+}
+
+// 匯出、列印用的文字：沒有角色欄就是原文；有的話逐行合併，每行前面標角色（沒取名叫「角色 n」），空行略過、組與組之間空一行
+function lhSecMergedText(s) {
+    if (!s.cols || !s.cols.length) return s.text;
+    const cols = [{ name: s.role || '', text: s.text }, ...s.cols].map((c, i) => ({ name: c.name || '角色 ' + (i + 1), lines: c.text.replace(/\r\n?/g, '\n').split('\n') }));
+    const rows = Math.max(...cols.map(c => c.lines.length)), out = [];
+    for (let r = 0; r < rows; r++) {
+        const got = cols.filter(c => (c.lines[r] || '').trim()).map(c => '【' + c.name + '】' + c.lines[r].trim());
+        if (got.length) out.push(...got);
+        else if (out.length && out[out.length - 1] !== '') out.push('');
+    }
+    return out.join('\n');
 }
 
 // 1→I、4→IV、9→IX、14→XIV、1999→MCMXCIX
@@ -76,7 +103,12 @@ function lhSecNames(sections) {
 
 // 補欄位 → 重算 label（A3：label 永遠是「目前顯示的名稱」）；就地修改並回傳同一個陣列，重跑結果完全相同
 function lhSecFinalize(sections) {
-    for (const s of sections) Object.assign(s, lhSecFields(s));
+    for (const s of sections) {
+        const f = lhSecFields(s);
+        if (!f.cols) delete s.cols;
+        if (!f.role) delete s.role;
+        Object.assign(s, f);
+    }
     const names = lhSecNames(sections);
     sections.forEach((s, i) => { s.label = names[i]; });
     return sections;

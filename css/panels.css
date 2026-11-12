@@ -1743,6 +1743,23 @@
         [data-f="14"] { --rm-c: var(--rm-c14); }
         [data-f="15"] { --rm-c: var(--rm-c15); }
         [data-f="16"] { --rm-c: var(--rm-c16); }
+        /* 自動配色：data-c 蓋過 data-f（同權重、排在後面） */
+        [data-c="0"] { --rm-c: var(--rm-c0); }
+        [data-c="1"] { --rm-c: var(--rm-c1); }
+        [data-c="2"] { --rm-c: var(--rm-c2); }
+        [data-c="3"] { --rm-c: var(--rm-c3); }
+        [data-c="4"] { --rm-c: var(--rm-c4); }
+        [data-c="5"] { --rm-c: var(--rm-c5); }
+        [data-c="6"] { --rm-c: var(--rm-c6); }
+        [data-c="7"] { --rm-c: var(--rm-c7); }
+        [data-c="8"] { --rm-c: var(--rm-c8); }
+        [data-c="9"] { --rm-c: var(--rm-c9); }
+        [data-c="10"] { --rm-c: var(--rm-c10); }
+        [data-c="11"] { --rm-c: var(--rm-c11); }
+        [data-c="12"] { --rm-c: var(--rm-c12); }
+        [data-c="13"] { --rm-c: var(--rm-c13); }
+        [data-c="14"] { --rm-c: var(--rm-c14); }
+        [data-c="15"] { --rm-c: var(--rm-c15); }
 
         /* 逐行標記（js/rhyme-map.js，第 11 階段）：標記是鏡像層裡的絕對定位元素，不佔 inline 空間，所以不可能移動換行位置；
            不設 left／top，讓它落在「該行最後一個非空白字元之後」的靜態位置，也就是折行後的最後一個視覺列 */
@@ -2303,3 +2320,25 @@ html.kb-open .lyrics-editor-body .lyrics-area { flex: 1 1 auto; min-height: 0; }
 /* 鍵盤打開時編輯器只留正在打字的那段撐滿可見範圍：這時改回段落自己捲 */
 html.kb-open .lyrics-editor-body .lyrics-section:focus-within .section-textarea { flex: 1 1 auto !important; height: auto !important; overflow-y: auto; min-height: 0; }
 html.kb-open .lyrics-editor-body .lyrics-section:focus-within .section-body { flex: 1 1 auto; min-height: 0; }
+/* 句構分析面板：結構欄可以點來改；手動／AI 的標記；底下的動作鈕 */
+.rm-an-edit { display: block; width: 100%; min-height: 1.75rem; padding: 0 var(--sp-1); border: 1px dashed transparent; border-radius: 0.25rem; background: none; color: inherit; font: inherit; text-align: left; cursor: text; overflow-wrap: anywhere; }
+.rm-an-edit:hover, .rm-an-edit:focus-visible { border-color: var(--border); }
+.rm-an-src { margin-left: var(--sp-1); padding: 0 0.25em; border-radius: 0.25rem; background: var(--container-bg); font-size: 0.6875rem; font-style: normal; color: var(--text-secondary); }
+.rm-an-input { width: 100%; min-height: 1.75rem; padding: 0 var(--sp-1); border: 1px solid var(--accent, var(--border)); border-radius: 0.25rem; background: var(--card-bg); color: var(--text-primary); font: inherit; }
+.rm-an-acts { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+.rm-an-acts .rm-an-act { flex: 1 1 auto; width: auto; }
+.rm-an-table th:nth-child(4) { width: 8rem; }
+/* 並排角色欄（js/sections.js lhSecBuildCols）：第一列是角色名，第二列是各欄歌詞；不換行、太長左右捲，同一行在每欄同一個高度 */
+.section-body.has-cols { display: grid; grid-template-columns: repeat(var(--cols), minmax(0, 1fr)); column-gap: 1px; background: var(--border); }
+.section-body.has-cols > .section-textarea, .section-body.has-cols > .section-col-ta { grid-row: 2; }
+.section-body.has-cols .section-textarea, .section-body.has-cols .section-col-ta, .section-body.has-cols .rhyme-mirror { white-space: pre; overflow-wrap: normal; overflow-x: auto; }
+.sec-role { grid-row: 1; display: flex; align-items: center; gap: var(--sp-1); padding: var(--sp-1) var(--sp-2); background: var(--card-bg); }
+.sec-role-name { flex: 1; min-width: 0; min-height: 1.75rem; padding: 0 var(--sp-1); border: 1px solid transparent; border-radius: 0.25rem; background: none; color: var(--text-primary); font: inherit; font-size: 0.875rem; font-weight: 700; }
+.sec-role-name:hover, .sec-role-name:focus { border-color: var(--border); outline: none; }
+.sec-col-del, .sec-col-add { flex: none; min-width: var(--hit, 2rem); min-height: 1.75rem; padding: 0 var(--sp-1); border: 1px solid var(--border); border-radius: 0.25rem; background: none; color: var(--text-secondary); font: inherit; font-size: 0.875rem; cursor: pointer; }
+.section-col-ta { position: relative; width: 100%; padding: 0.625rem 0.75rem; border: none; font-size: 1rem; font-family: var(--font-ui); background: var(--card-bg); color: var(--text-primary); resize: none; outline: none; line-height: 1.8; }
+.lyrics-area .lyrics-section:not(.collapsed) .section-col-ta { overflow-y: hidden; min-height: 7rem; }
+.lyrics-section.rm-on .section-col-ta { background: transparent; }
+/* 角色欄並排時欄很窄：不顯示逐行標記（字數、斷句看各欄的分析面板），也不留標記欄的內距 */
+.section-body.has-cols .lm-mk { display: none; }
+html[data-lm] .section-body.has-cols .section-textarea { padding-right: 0.75rem; }

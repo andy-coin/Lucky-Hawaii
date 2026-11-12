@@ -7,24 +7,39 @@
 const LH_LINE_GUESS_MIN = 5;   // 沒有明確斷點、單位數 ≥ 這個才猜（CONTEXT A2）
 const LH_LINE_WORD_MAX = 4;    // 詞庫的詞最長 4 字（CONTEXT A2）
 
-// 一行的字數與斷句。has：詞存在嗎（測試可傳入；預設讀全域詞庫）。
+// 一行的字數與斷句。has：詞存在嗎（測試可傳入；預設讀全域詞庫）。structs：這首歌手動／AI 指定的句構（鍵＝去頭尾空白的整行文字）。
 // 單位切分用和 lhCountWords 同一個 _LH_WC_RE，所以「各組字數加總 = 字數」由構造保證；
-// 相鄰兩個單位之間隔著任何沒被算進去的字元（空白、標點、emoji）就是明確斷點，不必維護標點清單。
-// 回傳 { n, groups, guess, guessed }：guess 與 groups 一一對應，true 代表這一組是機器猜的（CONTEXT A2：自己標的和機器猜的要分得出來）
-function lhLineAnalyze(line, has) {
+// 相鄰兩個單位之間隔著任何沒被算進去的字元（空白、標點、emoji）就是明確斷點，不必維護標點清單；
+// 漢字和英文字母直接黏在一起（麻雀in）也算斷點。
+// 回傳 { n, frags, groups, guess, guessed, starts, src }：frags 是每個明確片段的字數；groups 是細分後的每一組；
+// guess 與 groups 一一對應，true 代表機器猜的；starts 是每組第一個字的位置（以字元算，給雙押用）；src 是 'auto'／'ai'／'man'
+let _lhLineCjk = null;   // 單一個中日韓字（_LH_CJK 在 sections-core.js，執行期才讀）
+function lhLineAnalyze(line, has, structs) {
     const hasWord = has || (w => wordPhoneticMap.has(w));
-    const frags = [];
-    let cur = null, prevEnd = -1;
-    for (const m of String(line).matchAll(_LH_WC_RE)) {   // 'gu' 旗標：matchAll 會複製 regex，不污染 lastIndex
-        if (!cur || m.index !== prevEnd) { cur = []; frags.push(cur); }   // 與前一單位之間有東西 → 明確斷點
+    line = String(line);
+    const frags = [], pos = [];
+    let cur = null, prevEnd = -1, prevHan = false, cp = 0, last = 0;
+    for (const m of line.matchAll(_LH_WC_RE)) {   // 'gu' 旗標：matchAll 會複製 regex，不污染 lastIndex
+        const han = (_lhLineCjk ||= new RegExp('^' + _LH_CJK + '$', 'u')).test(m[0]);
+        if (!cur || m.index !== prevEnd || han !== prevHan) { cur = []; frags.push(cur); }   // 中間有東西、或漢字和英文交界 → 明確斷點
         cur.push(m[0]);
-        prevEnd = m.index + m[0].length;
+        cp += Array.from(line.slice(last, m.index)).length;
+        pos.push(cp);
+        cp += Array.from(m[0]).length;
+        last = m.index + m[0].length;
+        prevEnd = last;
+        prevHan = han;
     }
-    if (!frags.length) return { n: 0, groups: [], guess: [], guessed: false };   // 空行、純標點：略過（A3）
+    if (!frags.length) return { n: 0, frags: [], groups: [], guess: [], guessed: false, starts: [], src: 'auto' };   // 空行、純標點：略過（A3）
+    const n = pos.length, fl = frags.map(f => f.length);
+    const startsOf = gs => { const o = []; let u = 0; for (const g of gs) { o.push(pos[u]); u += g; } return o; };
+    // 手動／AI 指定的句構：加總必須等於字數，否則（歌詞改過）當作沒指定
+    const own = structs && Object.prototype.hasOwnProperty.call(structs, line.trim()) ? structs[line.trim()] : null;
+    if (own && Array.isArray(own.g) && own.g.reduce((x, y) => x + y, 0) === n) {
+        return { n, frags: fl, groups: own.g.slice(), guess: own.g.map(() => false), guessed: false, starts: startsOf(own.g), src: own.src === 'ai' ? 'ai' : 'man' };
+    }
     const groups = [], guess = [];
-    let n = 0;
     for (const f of frags) {
-        n += f.length;
         if (f.length < LH_LINE_GUESS_MIN) { groups.push(f.length); guess.push(false); continue; }
         // 前向最長詞優先；words 的每個元素是詞長（單位數）。只有純漢字視窗才查詞庫
         const words = [];
@@ -53,42 +68,73 @@ function lhLineAnalyze(line, has) {
         const cut = g.length >= 2;
         for (const x of g) { groups.push(x); guess.push(cut); }
     }
-    return { n, groups, guess, guessed: guess.some(Boolean) };
+    return { n, frags: fl, groups, guess, guessed: guess.some(Boolean), starts: startsOf(groups), src: 'auto' };
 }
 
-// 結構字串拆成連續的「自己標的／機器猜的」段落：[{ text, guess }]。少於兩組沒有結構（字數已經說明了）。
-// 只有猜的那一段以「≈」開頭；兩段之間的「+」歸給自己標的那一段（接在它後面或前面），所以猜的那段永遠以「≈」開頭，
-// 畫面上只有它會變斜體（月光 灑在 窗前 夢裡想起你的臉 → 「2+2+2+」「≈2+2+3」）
+// 結構字串拆成片段：[{ text, guess }]。明確片段之間用「+」，片段被細分時寫成「11（4·2·3·2）」，括號那段是機器猜的就 guess＝true（畫成斜體）。
+// 例：愛就愛吧 痛就痛吧 把心事都丟進杯子裡攪拌 → 4+4+11（4·2·3·2）。
+// 手動／AI 的句構如果跨過了明確斷點（對不上片段），就直接寫成 4+4+2+…；少於兩組沒有結構（字數已經說明了）
 function lhLineStructParts(r) {
     if (!r || r.groups.length < 2) return [];
-    const runs = [];
-    r.groups.forEach((g, i) => {
-        const guess = !!r.guess[i];
-        const last = runs[runs.length - 1];
-        if (last && last.guess === guess) last.g.push(g);
-        else runs.push({ guess, g: [g] });
+    const fr = r.frags && r.frags.length ? r.frags : [r.groups.reduce((x, y) => x + y, 0)];
+    const per = [];
+    let gi = 0;
+    for (const f of fr) {
+        const sub = [];
+        let sum = 0;
+        while (gi < r.groups.length && sum < f) { sum += r.groups[gi]; sub.push(gi++); }
+        if (sum !== f) return [{ text: r.groups.join('+'), guess: false }];
+        per.push(sub);
+    }
+    const out = [];
+    per.forEach((sub, k) => {
+        const head = (k ? '+' : '') + fr[k];
+        if (sub.length < 2) { out.push({ text: head, guess: false }); return; }
+        out.push({ text: head, guess: false }, { text: '（' + sub.map(i => r.groups[i]).join('·') + '）', guess: sub.some(i => r.guess[i]) });
     });
-    return runs.map((run, i) => {
-        let text = run.g.join('+');
-        if (run.guess) text = '≈' + text;
-        else {
-            if (i > 0) text = '+' + text;                   // 前面接著猜的段落
-            if (i < runs.length - 1) text += '+';           // 後面接著猜的段落
-        }
-        return { text, guess: run.guess };
-    });
+    // 相鄰的非猜測段併起來，畫面上少幾個節點
+    const merged = [];
+    for (const p of out) {
+        const l = merged[merged.length - 1];
+        if (l && !l.guess && !p.guess) l.text += p.text; else merged.push(Object.assign({}, p));
+    }
+    return merged;
 }
 
 function lhLineStructText(r) {
     return lhLineStructParts(r).map(p => p.text).join('');
 }
 
+// 使用者在分析面板打的句構：「4+4+4+2+3+2」「4 4 4·2·3·2」「4+4+11（4·2·3·2）」都收；
+// 括號裡有細分就用細分，數字之間任何非數字都算分隔。加總要等於 n，不然回 null
+function lhLineParseStruct(s, n) {
+    const t = String(s).replace(/\d+\s*[（(]([^）)]*)[）)]/g, '$1');
+    const g = (t.match(/\d+/g) || []).map(Number);
+    if (!g.length || g.some(x => x < 1) || g.reduce((x, y) => x + y, 0) !== n) return null;
+    return g;
+}
+
+// 匯入／載入時整理句構表：鍵是 1–200 字的字串、值是 { g: 正整數陣列（≤60 組）, src: 'ai'|'man' }，最多 2000 筆
+function lhLineCleanStructs(raw) {
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+    const out = {};
+    let n = 0;
+    for (const k of Object.keys(raw)) {
+        const v = raw[k];
+        if (k.length < 1 || k.length > 200 || k === '__proto__' || !v || typeof v !== 'object' || !Array.isArray(v.g)) continue;
+        if (!v.g.length || v.g.length > 60 || !v.g.every(x => Number.isInteger(x) && x > 0 && x < 1000)) continue;
+        out[k] = { g: v.g.slice(), src: v.src === 'ai' ? 'ai' : 'man' };
+        if (++n >= 2000) break;
+    }
+    return n ? out : null;
+}
+
 // 一段文字逐行的字數與結構（略過 n 為 0 的行），row 是原始行號；對照用的「第幾行」是這個陣列的位置（CONTEXT A3）
-function lhLineRows(text, has) {
+function lhLineRows(text, has, structs) {
     const out = [];
     String(text).replace(/\r\n?/g, '\n').split('\n').forEach((line, row) => {
-        const r = lhLineAnalyze(line, has);
-        if (r.n > 0) out.push({ row, n: r.n, groups: r.groups, guess: r.guess, guessed: r.guessed });
+        const r = lhLineAnalyze(line, has, structs);
+        if (r.n > 0) out.push(Object.assign({ row }, r));
     });
     return out;
 }

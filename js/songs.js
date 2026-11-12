@@ -123,6 +123,11 @@ function _normalizeSong(s) {
     }
     // 手動讀音（第 10 階段）：儲存裡可能被手改成字串或陣列，那會讓之後「指定讀音」寫入失敗。讀入時清掉壞的，同樣不寫回
     // （和下面的 label 一樣，等這首歌下次被編輯才進儲存）。rhyme-core.js 比 songs.js 晚載入，只在執行期呼叫，並用 typeof 守門
+    if ('structs' in s) {
+        const clean = typeof lhLineCleanStructs === 'function' ? lhLineCleanStructs(s.structs) : null;
+        if (clean) s.structs = clean;
+        else delete s.structs;
+    }
     if ('readings' in s) {
         const clean = typeof lhRhymeCleanReadings === 'function' ? lhRhymeCleanReadings(s.readings) : null;
         if (clean) s.readings = clean;

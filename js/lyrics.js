@@ -241,6 +241,7 @@
                 ta.placeholder = i === 0 ? '在這裡輸入或貼上歌詞…' : '在這裡輸入歌詞…';
                 ta.value = s.text;
                 body.appendChild(ta);
+                if (s.cols && s.cols.length) lhSecBuildCols(body, s, ta);
 
                 el.append(header, body);   // 拉高度的把手已拿掉：段落跟著內容自動長高（lhSecFit）
                 _lhSecFitRO.observe(ta);
@@ -269,6 +270,13 @@
             const sec = secEl && song.sections.find(x => x.id === secEl.dataset.id);
             if (!sec) return;
             if (el.classList.contains('section-textarea')) sec.text = el.value;
+            else if (el.classList.contains('section-col-ta') || el.classList.contains('sec-role-name')) {
+                // 角色欄：換新陣列（歷史快照是淺拷貝，不能就地改）
+                const k = +el.dataset.col, isName = el.classList.contains('sec-role-name');
+                if (isName && k === 0) { const v = el.value.trim().slice(0, LH_SEC_ROLE_MAX); if (v) sec.role = v; else delete sec.role; }
+                else if (sec.cols && sec.cols[k - 1]) sec.cols = sec.cols.map((c, j) => j === k - 1 ? { ...c, [isName ? 'name' : 'text']: isName ? el.value.trim().slice(0, LH_SEC_ROLE_MAX) : el.value } : c);
+                else return;
+            }
             else return;
             markDirty(song.id);
         }
@@ -279,6 +287,7 @@
             area.addEventListener('compositionstart', () => { _lhComposing = true; clearTimeout(_saveTimer); });
             area.addEventListener('compositionend', e => {
                 _lhComposing = false; syncFromField(e.target); flushSongs(); lhSecCountFrom(e.target);
+                if (e.target.classList.contains('section-col-ta')) lhSecColTyped(e.target);
                 // 一個確認的詞算一步（組字中不記）
                 if (e.target.classList.contains('section-textarea')) lhHistTyping(curSong(), e.target.closest('.lyrics-section').dataset.id, e.target.selectionStart);
             });
@@ -287,6 +296,7 @@
                 // Firefox 在 compositionend 之後還會送最後一個 input，所以兩個旗標都看
                 if (!_lhComposing && !e.isComposing) {
                     scheduleSave(); lhSecCountFrom(e.target);
+                    if (e.target.classList.contains('section-col-ta')) lhSecColTyped(e.target);
                     if (e.target.classList.contains('section-textarea')) lhHistTyping(curSong(), e.target.closest('.lyrics-section').dataset.id, e.target.selectionStart);
                 }
             });

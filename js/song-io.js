@@ -4,10 +4,11 @@
 // 要匯出的段落：全空白的段落略過（D-11）；沒有段落名就叫「段落 n」，n 是匯出段落裡的順序
 function songExportSections(song) {
     return song.sections
-        .filter(s => s.text.trim())
-        .map((s, i) => ({
+        .map(s => ({ s, text: lhSecMergedText(s) }))   // 並排角色欄逐行合併成「【角色】歌詞」
+        .filter(x => x.text.trim())
+        .map(({ s, text }, i) => ({
             label: s.label.trim() || '段落 ' + (i + 1),
-            text: s.text.replace(/\r\n?/g, '\n'),
+            text: text.replace(/\r\n?/g, '\n'),
         }));
 }
 

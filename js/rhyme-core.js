@@ -14,7 +14,7 @@ const LH_RHYME_DEFAULTS = Object.freeze({ end: true, letters: false, inner: fals
 // （D4 括號的說法——第一次打開就有東西看、但不擠）。總開關沒開時什麼都不顯示，所以全新使用者仍然只看到句尾上色。
 // multi（雙押／多押的標示）預設開：它只是在句尾色塊上多一層淡色與細線，沒有句尾上色就看不到
 const LH_MAP_DEFAULTS = Object.freeze(Object.assign({}, LH_RHYME_DEFAULTS, {
-    multi: true, line: false, lnRhyme: false, lnCount: true, lnSplit: true, lnDiff: false, autoHover: false,
+    multi: true, autoColor: true, line: false, lnRhyme: false, lnCount: true, lnSplit: true, lnDiff: false, autoHover: false,
     pos: 'right', size: 'm', depth: 'std',
 }));
 // 列舉值只收清單裡的；顏色鍵固定 '0'…'15'（16 個韻族，空韻 16 不開放自訂），色碼只收小寫 #rrggbb（與 rhyme-map.js 的 LH_MAP_HEX 同形）
@@ -117,10 +117,20 @@ function lhRhymeColor(rhyme) {
 // 行尾當然也是。回傳 [{ i, char, tail }]，由左到右；i 是以字元（code point）算的位置；tail 是以句尾字結尾、連續漢字、最多 4 個（手動讀音的鍵）。
 // 連續標點、行首標點只是一段斷點，不會多出空句尾；英文單字之間的空白也是斷點，但英文字典查不到，本來就不上色（A4）。
 // 語助詞（E1）：每個子句各自往前跳過語助詞；整個子句都是語助詞就不算一個句尾（「好想好想你，嗎」只有「你」）；整行都是語助詞才用最後一個字
-function lhRhymeTargets(line, skipParticles) {
+function lhRhymeTargets(line, skipParticles, starts) {
     const cs = Array.from(line), w = i => _LH_RHYME_WORD_RE.test(cs[i]);
     const ends = [], picks = [];
-    for (let i = 0; i < cs.length; i++) if (w(i) && !(i + 1 < cs.length && w(i + 1))) ends.push(i);
+    for (let i = 0; i < cs.length; i++) {
+        if (!w(i) || (i + 1 < cs.length && w(i + 1))) continue;
+        // 英文片語只算最後一個字（slow down calm down 只有最後的 down）：後面隔著空白又接英文字母就不是句尾
+        if (_LH_EN_RE.test(cs[i])) {
+            if (/['’]/.test(cs[i + 1] || '') && _LH_EN_RE.test(cs[i + 2] || '')) continue;   // who's、don't：撇號後面還是同一個字
+            let j = i + 1;
+            while (j < cs.length && /[ \t\u3000]/.test(cs[j])) j++;
+            if (j < cs.length && _LH_EN_RE.test(cs[j])) continue;
+        }
+        ends.push(i);
+    }
     for (const e of ends) {
         let i = e;
         if (skipParticles) while (i >= 0 && w(i) && LH_RHYME_PARTICLES.has(cs[i])) i--;
@@ -130,9 +140,18 @@ function lhRhymeTargets(line, skipParticles) {
     const out = [];
     for (const i of picks) {
         const char = cs[i];
-        if (!charInfo[char]) continue;   // 字典查不到（英文、數字、符號）不上色、不計入（A4）
+        if (_LH_EN_RE.test(char)) {   // 英文字：整個字一起上色，讀音是對到的注音韻母（字表還沒載好就先不上色）
+            let s = i;
+            while (s > 0 && /[A-Za-z'’]/.test(cs[s - 1])) s--;
+            const word = cs.slice(s, i + 1).join('');
+            const en = lhEnRhyme(word);
+            if (en) out.push({ i, s, char: word, tail: word, en });
+            continue;
+        }
+        if (!charInfo[char]) continue;   // 字典查不到（數字、符號）不上色、不計入（A4）
+        // 雙押只在同一個「句構詞」裡往前比：最多 4 個連續漢字，而且不跨過句構的斷點（starts＝每組開頭的位置）
         let s = i;
-        while (s > 0 && i - s < 3 && _LH_RHYME_HAN_RE.test(cs[s - 1])) s--;
+        while (s > 0 && i - s < 3 && _LH_RHYME_HAN_RE.test(cs[s - 1]) && !(starts && starts.has(s))) s--;
         out.push({ i, char, tail: cs.slice(s, i + 1).join('') });
     }
     return out;
@@ -152,6 +171,7 @@ function lhRhymeManual(t, readings) {
 
 // 讀音：手動（且對該字合法）→ 以目標字結尾的詞庫詞（4、3、2 字）的最後一個音節 → 字典第一讀音（A2）
 function lhRhymeReading(t, readings) {
+    if (t.en) return t.en;
     const infos = getCharAllReadings(t.char);
     if (!infos.length) return null;
     const man = lhRhymeManual(t, readings);
@@ -168,7 +188,7 @@ function lhRhymeReading(t, readings) {
 
 // 句中押韻（E2）：行尾句尾字之前、讀音（字典第一讀音）的鍵與本段任何一個句尾相同的漢字，由左到右最多 3 個。
 // 不含句尾字（含行中的句尾與多押的前字，由 skipIdx 給）、標點、字典查不到的字；語助詞開著時語助詞也不算。回傳 [{ i, f }]，i 是以字元算的位置，f 是顏色編號
-function lhRhymeInner(line, t, tailKeys, strict, skip, skipIdx) {
+function lhRhymeInner(line, t, tailKeys, strict, skip, skipIdx, colorOf) {
     const out = [];
     const cs = Array.from(line);
     for (let i = 0; i < t.i && out.length < 3; i++) {
@@ -177,7 +197,8 @@ function lhRhymeInner(line, t, tailKeys, strict, skip, skipIdx) {
         const infos = getCharAllReadings(c);
         if (!infos.length) continue;
         const rhyme = getZhuyinRhyme(infos[0].reading);
-        if (tailKeys.has(lhRhymeKey(rhyme, strict))) out.push({ i, f: lhRhymeColor(rhyme) });
+        const k = lhRhymeKey(rhyme, strict);
+        if (tailKeys.has(k)) out.push({ i, f: lhRhymeColor(rhyme), c: colorOf ? colorOf.get(k) : undefined });
     }
     return out;
 }
@@ -185,6 +206,7 @@ function lhRhymeInner(line, t, tailKeys, strict, skip, skipIdx) {
 // 句尾往前每個字的韻母：[句尾的韻, 前一字的韻, …]，只看 tail 裡的連續漢字（最多 4 個）。
 // 句尾的韻是已經照讀音優先序算好的 rhyme；前面的字優先用「以句尾結尾的詞庫詞」的讀音（4→2 字），沒有才用字典第一讀音
 function lhRhymeTailRhymes(t, rhyme) {
+    if (t.en) return [rhyme];   // ponytail: 英文不做雙押，要做再比前一個字的母音
     const cs = Array.from(t.tail), out = [rhyme];
     let syl = null;
     for (let n = cs.length; n >= 2 && !syl; n--) {
@@ -240,7 +262,9 @@ function lhRhymeAnalyze(text, opts, readings) {
     const rows = text.replace(/\r\n?/g, '\n').split('\n').map(line => {
         const row = { line, blank: !line.trim(), t: null, reading: null, rhyme: null, key: null, f: null, letter: '', solo: false, inner: [], ends: [] };
         if (row.blank) return row;
-        for (const t of lhRhymeTargets(line, skip)) {
+        // 句構的組頭（有 line-core 才有；手動、AI 的句構也在這裡生效）：雙押不跨過它
+        const starts = typeof lhLineAnalyze === 'function' ? new Set(lhLineAnalyze(line, undefined, opts && opts.structs).starts) : null;
+        for (const t of lhRhymeTargets(line, skip, starts)) {
             const reading = lhRhymeReading(t, readings);
             if (!reading) continue;
             const rhyme = getZhuyinRhyme(reading);
@@ -266,16 +290,100 @@ function lhRhymeAnalyze(text, opts, readings) {
         letters += r.letter;
     }
     if (opts && opts.multi) lhRhymeMulti(all, count, strict);
+    if (opts && opts.palette) {   // 自動配色：靠近的不同韻換成色差最大的顏色
+        const slot = lhRhymeAutoColors(rows, opts.palette);
+        // f 永遠是韻族（語意），c 是畫面實際用的顏色編號（只有自動配色才有）
+        for (const r of rows) { for (const e of r.ends) if (slot.has(e.key)) e.c = slot.get(e.key); if (r.t) r.c = r.ends[r.ends.length - 1].c; }
+    }
     if (opts && opts.inner) {
-        const tailKeys = new Set(count.keys());
+        const tailKeys = new Set(count.keys()), colorOf = new Map();
+        for (const e of all) if (e.c !== undefined) colorOf.set(e.key, e.c);
         for (const r of rows) {
             if (!r.t) continue;
             const busy = new Set();   // 已經是句尾色塊的字，不再畫句中底線
             for (const e of r.ends) for (let k = 0; k < e.multi; k++) busy.add(e.t.i - k);
-            r.inner = lhRhymeInner(r.line, r.t, tailKeys, strict, skip, busy);
+            r.inner = lhRhymeInner(r.line, r.t, tailKeys, strict, skip, busy, colorOf);
         }
     }
     return { rows, letters, count };
+}
+
+// ==================== 英文押韻 ====================
+// 字表 data/en-rhyme.json（CMU 發音辭典，scripts/build-en-rhyme.mjs 產生）：「最後一個母音＋後面子音」→ 字。
+// 中英互押：英文的最後一個母音（加上鼻音韻尾 N／M、NG）對到最接近的注音韻母，於是 house 和「好」同一族、down 和「當」同一族
+const _LH_EN_RE = /[A-Za-z]/;
+let _lhEnDict = null;   // 字 → 鍵（"AW S"）；null＝還沒載入
+function lhEnSetDict(obj) {
+    _lhEnDict = new Map();
+    for (const k of Object.keys(obj || {})) for (const w of String(obj[k]).split(' ')) _lhEnDict.set(w, k);
+}
+// 母音 → [沒有鼻音韻尾, 收 N／M, 收 NG]
+const LH_EN_VOWEL = {
+    AA: ['ㄚ', 'ㄢ', 'ㄤ'], AE: ['ㄝ', 'ㄢ', 'ㄤ'], AH: ['ㄜ', 'ㄣ', 'ㄤ'], AO: ['ㄛ', 'ㄤ', 'ㄨㄥ'], AW: ['ㄠ', 'ㄤ', 'ㄤ'],
+    AY: ['ㄞ', 'ㄞ', 'ㄞ'], EH: ['ㄝ', 'ㄣ', 'ㄥ'], ER: ['ㄦ', 'ㄣ', 'ㄥ'], EY: ['ㄟ', 'ㄟ', 'ㄟ'], IH: ['ㄧ', 'ㄧㄣ', 'ㄧㄥ'],
+    IY: ['ㄧ', 'ㄧㄣ', 'ㄧㄥ'], OW: ['ㄡ', 'ㄡ', 'ㄨㄥ'], OY: ['ㄛ', 'ㄛ', 'ㄛ'], UH: ['ㄨ', 'ㄨㄣ', 'ㄨㄥ'], UW: ['ㄨ', 'ㄨㄣ', 'ㄨㄥ'],
+};
+function lhEnKeyRhyme(key) {
+    const [v, c] = key.split(' '), m = LH_EN_VOWEL[v];
+    if (!m) return null;
+    if (v === 'AH' && !c) return 'ㄚ';   // 字尾的弱音 a（sofa、data）
+    return m[c === 'N' || c === 'M' ? 1 : c === 'NG' ? 2 : 0];
+}
+// 字表沒有的字（俚語、自創字）照拼字猜：最後一組母音字母＋後面的子音
+// ponytail: 拼字規則很粗，只求常見結尾大致對；猜錯可以之後加例外表
+const LH_EN_SPELL = [[/(ee|ea|ie|y|i)$/, 'ㄧ'], [/(ay|ey|ai|ei|a_e)$/, 'ㄟ'], [/(ow|ou)$/, 'ㄠ'], [/(oo|ue|u|ew)$/, 'ㄨ'], [/(oy|oi)$/, 'ㄛ'],
+    [/(o|oe|oa)$/, 'ㄡ'], [/a$/, 'ㄚ'], [/e$/, 'ㄝ']];
+function lhEnGuess(word) {
+    let w = word.toLowerCase().replace(/['’]s$/, '').replace(/([^aeiou])e$/, '$1');
+    const m = /([aeiouy]+)([^aeiouy]*)$/.exec(w);
+    if (!m) return null;
+    const nas = /^(n|m|nd|nt|ns)$/.test(m[2]) ? 1 : /^(ng|nk)$/.test(m[2]) ? 2 : 0;
+    const v = m[1];
+    if (nas) return ({ a: ['ㄢ', 'ㄤ'], e: ['ㄣ', 'ㄥ'], i: ['ㄧㄣ', 'ㄧㄥ'], o: ['ㄤ', 'ㄨㄥ'], u: ['ㄣ', 'ㄨㄥ'] })[v.slice(-1)]?.[nas - 1] || null;
+    for (const [re, z] of LH_EN_SPELL) if (re.test(v)) return z;
+    return null;
+}
+function lhEnRhyme(word) {
+    if (!_lhEnDict) return null;
+    const w = word.toLowerCase().replace(/’/g, "'");
+    const k = _lhEnDict.get(w);
+    return k ? lhEnKeyRhyme(k) : lhEnGuess(w);
+}
+
+// ==================== 自動配色 ====================
+// 在一段裡，靠得近（前後 4 行內）的不同韻，換成彼此色差最大的顏色；離得遠的可以重複用。
+// 色差用 OKLab 距離。依出現順序一個一個挑：先挑還沒用過的顏色，同分再看跟鄰居的最小色差。回傳 鍵 → 顏色編號（0–15）
+const LH_RHYME_NEAR = 4;
+function _lhOklab(hex) {
+    const c = [1, 3, 5].map(i => { const v = parseInt(hex.slice(i, i + 2), 16) / 255; return v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; });
+    const l = Math.cbrt(0.4122214708 * c[0] + 0.5363325363 * c[1] + 0.0514459929 * c[2]);
+    const m = Math.cbrt(0.2119034982 * c[0] + 0.6806995451 * c[1] + 0.1073969566 * c[2]);
+    const s = Math.cbrt(0.0883024619 * c[0] + 0.2817188376 * c[1] + 0.6299787005 * c[2]);
+    return [0.2104542553 * l + 0.7936177850 * m - 0.0040720468 * s, 1.9779984951 * l - 2.4285922050 * m + 0.4505937099 * s, 0.0259040371 * l + 0.7827717662 * m - 0.8086757660 * s];
+}
+function lhRhymeAutoColors(rows, palette) {
+    const lab = palette.slice(0, 16).map(_lhOklab);
+    const d = (a, b) => Math.hypot(lab[a][0] - lab[b][0], lab[a][1] - lab[b][1], lab[a][2] - lab[b][2]);
+    const order = [], near = new Map(), lines = [];
+    rows.forEach((r, n) => { for (const e of r.ends) if (RHYME_TO_FAMILY[e.rhyme] !== undefined) lines.push([n, e.key]); });   // 空韻維持灰色
+    lines.forEach(([n, k], i) => {
+        if (!near.has(k)) { near.set(k, new Set()); order.push(k); }
+        for (let j = i - 1; j >= 0 && n - lines[j][0] <= LH_RHYME_NEAR; j--) if (lines[j][1] !== k) near.get(k).add(lines[j][1]);
+        for (let j = i + 1; j < lines.length && lines[j][0] - n <= LH_RHYME_NEAR; j++) if (lines[j][1] !== k) near.get(k).add(lines[j][1]);
+    });
+    const slot = new Map(), used = new Set();
+    for (const k of order) {
+        let best = 0, score = -Infinity;
+        for (let c = 0; c < lab.length; c++) {
+            let min = 9;
+            for (const k2 of near.get(k)) if (slot.has(k2)) min = Math.min(min, d(c, slot.get(k2)));
+            const sc = (used.has(c) ? 0 : 10) + min;
+            if (sc > score) { score = sc; best = c; }
+        }
+        slot.set(k, best);
+        used.add(best);
+    }
+    return slot;
 }
 
 // 統計（段落標題列的字母條與 #rhymeStats 共用）：n＝非空行、k＝句尾韻在本段出現至少兩次的行數、p＝k/n 的百分比；
@@ -291,7 +399,7 @@ function lhRhymeSummary(result, strict) {
         if (seen.has(r.key)) continue;
         seen.add(r.key);
         const fam = RHYME_TO_FAMILY[r.rhyme];
-        groups.push({ letter: r.letter, label: strict ? (r.rhyme || '空韻') : (fam === undefined ? '空韻' : RHYME_FAMILIES[fam].label), count: c, f: r.f });
+        groups.push({ letter: r.letter, label: strict ? (r.rhyme || '空韻') : (fam === undefined ? '空韻' : RHYME_FAMILIES[fam].label), count: c, f: r.f, c: r.c });
     }
     // 雙押（×2）、多押（×3 以上）的句尾數，含行中的句尾；沒開多押偵測時兩個都是 0
     let m2 = 0, m3 = 0;

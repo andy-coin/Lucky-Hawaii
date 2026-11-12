@@ -68,7 +68,7 @@ test('整合：句構分析一次走完', async ({ browser }) => {
     expect(await page.evaluate(() => document.documentElement.getAttribute('data-lm'))).toBeNull();
     expect(await page.locator('.section-rhyme').evaluateAll(els => els.every(e => e.hidden || getComputedStyle(e).display === 'none')), '標題列沒有字母條').toBe(true);
     expect(await mapOf(page), '只看不寫').toBeNull();
-    const f0 = await page.evaluate(() => [...document.querySelectorAll('#lyricsSections .rm-hl')].find(e => e.textContent === '光').dataset.f);
+    const f0 = await page.evaluate(() => [...document.querySelectorAll('#lyricsSections .rm-hl')].find(e => e.textContent === '光').dataset.c);   // 畫面實際用的顏色（自動配色後的編號）
 
     // ===== b. 韻腳 ▾ → 逐行標記：每行有字數，多段的行有結構 =====
     await page.locator('#rhymeMenuBtn').click();
@@ -80,7 +80,7 @@ test('整合：句構分析一次走完', async ({ browser }) => {
     const m1 = await markers(page, 0);
     expect(m1.map(m => m[0]), '第一段字數').toEqual(['7', '5', '7']);
     expect(m1.every(m => m[2] === null && m[3] === null), '預設沒有字母、沒有 ≠').toBe(true);
-    expect(m1[2][1], '走過熟悉的街道有斷句結構').toMatch(/^≈?\d(\+≈?\d)+$/);
+    expect(m1[2][1], '走過熟悉的街道有斷句結構').toMatch(/^\d+（\d(·\d)+）$/);
     expect(await page.evaluate(() => document.documentElement.getAttribute('data-lm'))).toBe('right');
 
     // ===== c. 更多設定… → 行尾韻腳字母、對照差異 =====
@@ -111,7 +111,7 @@ test('整合：句構分析一次走完', async ({ browser }) => {
     expect(bgHeavy, '濃：底色變了').not.toBe(bg0);
     await expect(page.locator('#mapSettingsSection .rm-depth-help')).toBeVisible();
     // 光所在的韻族改成 #123456：色塊與預覽都變
-    const spanBg = (sel) => page.evaluate(([sel, f]) => { const e = [...document.querySelectorAll(sel + ' .rm-hl')].find(x => x.dataset.f === f); return e ? getComputedStyle(e).backgroundColor : null; }, [sel, f0]);
+    const spanBg = (sel) => page.evaluate(([sel, f]) => { const e = [...document.querySelectorAll(sel + ' .rm-hl')].find(x => (x.dataset.c ?? x.dataset.f) === f); return e ? getComputedStyle(e).backgroundColor : null; }, [sel, f0]);
     const bandBefore = await spanBg('#lyricsSections'), prevBefore = await spanBg('#mapSettingsSection .lm-preview');
     await page.evaluate(f => {
         const i = document.querySelector(`#mapSettingsSection .rm-colors input[data-n="${f}"]`);

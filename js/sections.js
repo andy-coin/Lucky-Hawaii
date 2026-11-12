@@ -573,6 +573,92 @@ const _lhSecFitRO = new ResizeObserver(es => {
     }
 });
 
+// ==================== 並排角色欄（對唱、音樂劇） ====================
+// 第一欄就是原本的歌詞（.section-textarea，所有既有功能照舊）；加的欄是 .section-col-ta，有自己的鏡像層（韻腳上色）。
+// 有角色欄時所有欄不自動換行、太長就左右捲，這樣第 n 行在每一欄都在同一個高度（逐行對齊）
+function lhSecBuildCols(body, s, ta0) {
+    const n = s.cols.length + 1;
+    body.classList.add('has-cols');
+    body.style.setProperty('--cols', String(n));
+    const heads = [];
+    for (let k = 0; k < n; k++) {
+        const h = _lhMk('div', 'sec-role');
+        const name = _lhMk('input', 'sec-role-name');
+        name.type = 'text';
+        name.dataset.col = String(k);
+        name.maxLength = LH_SEC_ROLE_MAX;
+        name.placeholder = '角色 ' + (k + 1);
+        name.value = k ? s.cols[k - 1].name : (s.role || '');
+        name.setAttribute('aria-label', '第 ' + (k + 1) + ' 欄的角色名');
+        h.append(name);
+        if (k) {
+            const del = _lhMkBtn('sec-col-del', '×', '刪除第 ' + (k + 1) + ' 欄');
+            del.dataset.col = String(k);
+            h.append(del);
+        }
+        if (k === n - 1 && n <= LH_SEC_COLS_MAX) h.append(_lhMkBtn('sec-col-add', '＋', '再加一欄角色'));
+        heads.push(h);
+    }
+    body.prepend(...heads);
+    s.cols.forEach((c, j) => {
+        const m = _lhMk('div', 'rhyme-mirror');
+        m.setAttribute('aria-hidden', 'true');
+        const t = _lhMk('textarea', 'section-col-ta');
+        t.dataset.col = String(j + 1);
+        t.placeholder = '第 ' + (j + 2) + ' 個角色的歌詞，每行對齊左邊那一欄';
+        t.setAttribute('aria-label', (c.name || '角色 ' + (j + 2)) + ' 的歌詞');
+        t.value = c.text;
+        body.append(m, t);
+        _lhSecFitRO.observe(t);
+    });
+    ta0.setAttribute('aria-label', (s.role || '角色 1') + ' 的歌詞');
+}
+
+// 加一欄／刪一欄：結構步驟（可復原），整段重畫
+function lhSecAddCol(id) {
+    lhSecApply('cols', song => {
+        const s = song.sections.find(x => x.id === id);
+        if (!s || (s.cols && s.cols.length >= LH_SEC_COLS_MAX)) return false;
+        s.cols = [...(s.cols || []), { name: '', text: '' }];
+    }, { dom: 'render' });
+    lhSecEl(id)?.querySelector('.section-col-ta:last-of-type')?.focus({ preventScroll: true });
+}
+function lhSecDelCol(id, k) {
+    lhSecApply('cols', song => {
+        const s = song.sections.find(x => x.id === id);
+        if (!s || !s.cols || !s.cols[k - 1]) return false;
+        s.cols = s.cols.filter((_, j) => j !== k - 1);
+        if (!s.cols.length) { delete s.cols; delete s.role; }
+    }, { dom: 'render' });
+}
+
+// 角色欄打字：自己長高、記一步打字（和第一欄分開合併）、重排韻腳上色
+function lhSecColTyped(t) {
+    const secEl = t.closest('.lyrics-section');
+    if (!secEl) return;
+    lhSecFit(t);
+    lhHistTyping(curSong(), secEl.dataset.id + '#' + t.dataset.col, t.selectionStart);
+    if (typeof lhMapSchedule === 'function') lhMapSchedule(secEl);
+}
+
+document.getElementById('lyricsSections').addEventListener('click', e => {
+    const add = e.target.closest && e.target.closest('.sec-col-add');
+    const del = e.target.closest && e.target.closest('.sec-col-del');
+    const secEl = (add || del) && e.target.closest('.lyrics-section');
+    if (!secEl) return;
+    e.stopPropagation();
+    if (add) return lhSecAddCol(secEl.dataset.id);
+    // 有字的欄要按兩下才刪（第一下變「確定？」，3 秒內再按）
+    const sec = curSong().sections.find(x => x.id === secEl.dataset.id), k = +del.dataset.col;
+    if (sec && sec.cols && sec.cols[k - 1] && sec.cols[k - 1].text.trim() && del.dataset.armed !== '1') {
+        del.dataset.armed = '1';
+        del.textContent = '確定？';
+        setTimeout(() => { del.dataset.armed = ''; del.textContent = '×'; }, 3000);
+        return;
+    }
+    lhSecDelCol(secEl.dataset.id, k);
+}, true);
+
 function lhSecCountOne(secEl) {
     const song = curSong();
     const s = song && secEl && song.sections.find(x => x.id === secEl.dataset.id);
@@ -602,8 +688,7 @@ document.getElementById('lyricsSections').addEventListener('click', e => {
     if (typeBtn) {
         // 點名稱鈕＝下拉選單（Andy：循環切換不方便）；剛才那一下是在關同一段的選單，就只關不重開
         if (_lhMenuClosedBy === secEl.dataset.id) { _lhMenuClosedBy = null; return; }
-        _lhMenuUnder(typeBtn, e.detail === 0);
-        _lhMenuDrop = true;
+        _lhMenuUnder(typeBtn, e.detail === 0, true);
     } else if (e.target.closest('.section-remove')) {
         lhSecRemove(secEl.dataset.id);
     } else if (e.target.closest('.lyrics-section-header') && !e.target.closest('.section-handle, .section-count, .section-rhyme')) {
@@ -699,7 +784,16 @@ function lhSecMenuBuild() {
     const moves = _lhMk('div', 'section-menu-row');
     moves.append(up, down);
     const close = _lhMkBtn('section-menu-btn section-menu-close', '關閉設定');
-    m.append(title, _lhMkBlock('類型', types), nameBlock, _lhMkBlock('顏色', grid, row), _lhMkBlock('位置', moves), close);
+    const colAdd = _lhMkBtn('section-menu-btn section-col-menu', '＋ 並排角色欄');
+    colAdd.addEventListener('click', () => {
+        if (colAdd.getAttribute('aria-disabled') === 'true' || !_lhMenuId) return;
+        const id = _lhMenuId;
+        lhSecCloseMenu();
+        lhSecAddCol(id);
+    });
+    const colBlock = _lhMkBlock('角色（對唱、音樂劇）', colAdd);
+    colBlock.classList.add('section-col-block');   // 左鍵點名稱開的下拉不顯示（只給選類型，保持矮），右鍵／長按的完整設定才有
+    m.append(title, _lhMkBlock('類型', types), nameBlock, _lhMkBlock('顏色', grid, row), _lhMkBlock('位置', moves), colBlock, close);
     document.body.appendChild(m);
 
     // 顏色：色票與「無顏色」馬上套用；原生選色盤拖動時只預覽（input），放開才記一步（change，D-06）
@@ -832,6 +926,9 @@ function lhSecMenuSync() {
     _lhMenu.querySelector('.section-menu-name').hidden = s.type !== 'custom';
     const name = _lhMenu.querySelector('.section-name-input');
     if (document.activeElement !== name) name.value = s.custom;
+    const ca = _lhMenu.querySelector('.section-col-menu'), nc = s.cols ? s.cols.length : 0;
+    ca.textContent = nc ? '＋ 再加一欄角色（目前 ' + (nc + 1) + ' 欄）' : '＋ 並排角色欄';
+    ca.setAttribute('aria-disabled', String(nc >= LH_SEC_COLS_MAX));
     for (const [sel, off] of [['.section-move-up', i <= 0], ['.section-move-down', i >= n - 1]]) {
         _lhMenu.querySelector(sel).setAttribute('aria-disabled', String(off));
     }
@@ -840,13 +937,14 @@ function lhSecMenuSync() {
 }
 
 // x、y：選單左上角想放的位置（滑鼠＝指標；觸控與鍵盤＝名稱鈕下方）
-function lhSecOpenMenu(secEl, x, y, byKeyboard) {
+function lhSecOpenMenu(secEl, x, y, byKeyboard, drop) {
     const m = lhSecMenuBuild();
     if (typeof lhMapCloseAll === 'function') lhMapCloseAll();   // 同時只開一個浮層
     closeExportMenu();
     closeSongListOverlay();
     _lhMenuId = secEl.dataset.id;
-    _lhMenuDrop = false;
+    _lhMenuDrop = !!drop;
+    m.querySelector('.section-col-block').hidden = _lhMenuDrop;
     lhSecMenuSync();
     lhPlaceMenu(m, x, y);
     // 鍵盤打開才把焦點放到目前類型那一列；滑鼠、觸控不搶焦點（手機鍵盤不要彈出來）
@@ -866,9 +964,9 @@ function lhSecCloseMenu(commitName) {
 }
 
 // 打開選單：滑鼠在指標位置；觸控與鍵盤在名稱鈕下方
-function _lhMenuUnder(btn, byKeyboard) {
+function _lhMenuUnder(btn, byKeyboard, drop) {
     const r = btn.getBoundingClientRect();
-    const m = lhSecOpenMenu(btn.closest('.lyrics-section'), r.left, r.bottom + 4, byKeyboard);
+    const m = lhSecOpenMenu(btn.closest('.lyrics-section'), r.left, r.bottom + 4, byKeyboard, drop);
     // 下面放不下被擠上去蓋住按鈕時，翻到按鈕上方（跟匯出選單一樣）；上下都放不下就維持夾進畫面
     const b = m.getBoundingClientRect();
     if (b.top < r.bottom && r.top - b.height - 4 >= 4) lhPlaceMenu(m, r.left, r.top - b.height - 4);

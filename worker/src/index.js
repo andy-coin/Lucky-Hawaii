@@ -1,6 +1,7 @@
 // ==================== 好韻器 Worker：路由 ====================
 // 瀏覽器不再指定供應商、金鑰或模型清單（D-06）：只送 { prompt, model, temperature }，由 Worker 決定怎麼呼叫。
 // 回報與後台路徑已在 plan 02-02 搬進來；舊版相容路由在 plan 02-03。
+import { PROMPTS } from './prompts.js';
 import { runChain, toLegacy, parseAiBody, parseLegacyBody, BAD_REQUEST_ERROR, TOO_LARGE_ERROR } from './ai.js';
 import { runHealthCheck, readHealth, activeModels, HEALTH_KEY } from './health.js';
 import { handleCorrections, liveKeySet } from './corrections.js';
@@ -315,6 +316,12 @@ async function route(request, env) {
     if (pathname === '/' && request.method === 'POST') {
         if (!originAllowed(origin, env)) return json(403, { error: { message: '來源不被允許' } }, origin, env);
         return handleLegacy(request, env, origin);
+    }
+    if (pathname.startsWith('/prompts/')) {   // 網站拿 AI 提示詞（worker/src/prompts.js）；只給允許的來源
+        if (!originAllowed(origin, env)) return json(403, { ok: false, code: 'FORBIDDEN', message: '來源不被允許' }, origin, env);
+        const name = pathname.slice(9);
+        if (!Object.prototype.hasOwnProperty.call(PROMPTS, name)) return json(404, { ok: false, code: 'NOT_FOUND', message: '找不到這個路徑' }, origin, env);
+        return json(200, { ok: true, prompt: PROMPTS[name] }, origin, env);
     }
     if (pathname === '/models') {
         if (!originAllowed(origin, env)) return json(403, { ok: false, code: 'FORBIDDEN', message: '來源不被允許' }, origin, env);

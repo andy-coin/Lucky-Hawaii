@@ -1,13 +1,14 @@
-## 🚧 2026-11-12 韻腳地圖／歌詞面板優化（A 已 push 1dea872，?v=0.96.22；B→C→D 待做）
-Andy 確認的計畫（9 點）：A 小修 → B 押韻引擎 → C 句構三模式 → D 並排角色欄。慢慢做、不開 subagent、只跑相關測試、每塊做完 push。
-- ✅ A1 段落自動長高：js/sections.js `lhSecFit`＋`_lhSecFitRO`（寬度變才重量；lhSecCountOne 也呼叫，涵蓋打字／復原／拖詞）；css/panels.css 檔尾規則；拉高度把手不再建立（js/lyrics.js），sections.js 裡 resize 的拖曳／鍵盤程式成了死碼（待清，>30 行，先留）；鍵盤打開時編輯器那段改回自己捲（kb-open 規則）
-- ✅ A1 附帶：js/rhyme-map.js 浮動列「捲動就收」改聽整頁 scroll（只認包住或在 #lyricsSections 裡的）
-- ✅ A4 點段落名稱＝下拉（_lhMenuDrop：左鍵開的選了就收、焦點回名稱鈕；右鍵／長按是完整設定不收）；選單順序 類型→名稱→顏色→位置；再點同一個名稱鈕收起（_lhMenuClosedBy）；lhSecMenuSync 結尾重新夾回畫面
-- ✅ A8 預覽全關時顯示純文字；A9 預覽換〈麻雀〉11 行（LH_MAP_PREVIEW_TEXT），高螢幕 sticky 時預覽最多 6 行、內部可捲、tabIndex -1
-- 待做 B：雙押改「照句構切完的詞」整個比對（Andy 反悔了自己的藍圖：原意只是不要倒數第二字標了、最後一字卻空白）；配色＝靠近的韻腳互相錯開（圖著色）；英文押韻（CMU 精簡版）＋中英互押（母音對到韻母家族）；Andy 想順便查台語辭典（台羅）整合中台英，日韓之後
-- 待做 C：句構顯示改「4+4+11（4·2·3·2）」不用 ≈；三模式：自己算法／AI（prompt 放後台）／手動（只在右鍵分析面板裡改，不在歌詞裡打）
-- 待做 D：並排時間軸＝段落可增減角色欄（有＋／− 鈕），逐行對齊
-- 觀察：「麻雀in」被算成 3 個單位一組（英數連在漢字後面沒有斷點），C 要處理
+## ✅ 2026-11-12 深夜 韻腳地圖／歌詞面板優化 A～D 全做完（?v=0.96.23，待 Andy 驗收）
+Andy 計畫（9 點）：A 小修（1dea872）→ B 押韻引擎 → C 句構三模式 → D 並排角色欄。只跑相關測試（全部過），沒跑全套。
+- A（0.96.22）：段落自動長高單一捲軸、名稱點了是下拉、預覽全關仍顯示、預覽〈麻雀〉。sections.js 舊 resize 程式是死碼（>30 行，待清）
+- B1 雙押照句構：js/rhyme-core.js `lhRhymeTargets(line, skip, starts)` 往前找 tail 時不跨過句構組頭；`lhRhymeAnalyze` 用 `lhLineAnalyze(...).starts`（含手動／AI 句構 opts.structs）
+- B2 自動配色：`lhRhymeAutoColors(rows, palette)`（OKLab 距離、前後 4 行算鄰居、先挑沒用過的色）；設定 `autoColor` 預設開（偏好設定「自動配色」）。**data-f 仍是韻族（語意、測試看它），data-c 是畫面顏色**（rhyme-map.js `_lhMapTint`，panels.css `[data-c]` 規則排在 `[data-f]` 後）
+- B3 英文押韻：data/en-rhyme.json（CMU 發音辭典 BSD-2，授權 data/third-party/CMUDICT-LICENSE；scripts/build-en-rhyme.mjs 產生，「最後母音＋子音」分組，1MB／gzip 384KB）。歌詞或預覽出現英文才載（rhyme-map.js `_lhMapEnLoad`，只重畫有英文的段落）。`LH_EN_VOWEL` 母音→注音韻母（中英互押）、字表沒有的字 `lhEnGuess` 照拼字猜。英文片語只算最後一個字、整個字上色（同一個 span）、撇號算字內
+- B4 台語：只查了資料來源（教育部台語辭典授權說法不一、ChhoeTaigi 據說 CC0），沒實作，等 Andy 決定
+- C 句構：js/line-core.js `lhLineAnalyze(line, has, structs)` 回傳 frags/starts/src；漢字與英文交界算斷點（麻雀in → 2+1）；顯示 `lhLineStructParts` 改「4+4+11（4·2·3·2）」括號裡斜體＝機器猜；`lhLineParseStruct`、`lhLineCleanStructs`。song.structs＝{整行文字: {g, src:'man'|'ai'}}（safety.js、songs.js 驗證）。分析面板（rhyme-map.js `_lhMapAnEdit`、`lhMapSetStructs`、`lhMapAiStruct`）：點結構改、全部改回自動、🤖 AI 斷句；提示詞在 worker/src/prompts.js，GET /prompts/line-struct（**Worker 要重新部署才有**）
+- D 並排角色欄：sections-core.js `lhSecColFields`（role、cols 最多 3 欄＝共 4 欄）、`lhSecMergedText`（匯出逐行合併「【角色】歌詞」）；sections.js `lhSecBuildCols／lhSecAddCol／lhSecDelCol／lhSecColTyped`＋點擊委派；選單「＋ 並排角色欄」只在右鍵／長按完整設定出現（`lhSecOpenMenu(…, drop)`）；lyrics.js syncFromField 處理 `.section-col-ta`／`.sec-role-name`（換新陣列，因為歷史快照是淺拷貝）；undo.js `_sig`、`_lhHistShow` 認 cols；rhyme-map.js `_lhMapPaintCols` 第二欄起各自上色；CSS 檔尾 has-cols（不換行、左右捲、逐行對齊、窄欄不顯示逐行標記）
+- 測試：新 tests/sections-cols.spec.mjs；line-core、rhyme-core、line-analysis-ui、line-audit、line-journey、rhyme-map-ui 跟著新格式／英文會押韻改
+- 待 Andy：iPad 驗收、Worker 部署（AI 斷句）、台語要不要做、英文對注音的對照表是否順耳（rhyme-core.js `LH_EN_VOWEL`）
 
 ## ✅ 2026-11-12 晚上小修（?v=0.96.21，程式在 5b2e9f3，commit 訊息誤寫成 handoff）
 - 觸控下限：手機 36px、平板 32px（css/base.css `--hit`）；搜尋框 min-height 改 max(2.5rem, --hit)

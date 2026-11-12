@@ -19,20 +19,20 @@ const parts = line => ev(`lhLineStructParts(lhLineAnalyze(${j(line)}))`);
 // [輸入行, 字數, 各組字數, 顯示的結構文字]
 const TABLE = [
     ['月光 灑在 窗前', 6, [2, 2, 2], '2+2+2'],
-    ['夢裡想起你的臉', 7, [2, 2, 3], '≈2+2+3'],
-    ['我望著遠方的光', 7, [3, 4], '≈3+4'],
-    ['我想把時間留在這一天', 10, [3, 2, 2, 3], '≈3+2+2+3'],
-    ['走過熟悉的街道', 7, [2, 3, 2], '≈2+3+2'],
-    ['終於我也回到你身邊', 9, [2, 2, 3, 2], '≈2+2+3+2'],
-    ['你笑著說天亮', 6, [4, 2], '≈4+2'],
-    ['不怕前方的路遙', 7, [2, 5], '≈2+5'],
+    ['夢裡想起你的臉', 7, [2, 2, 3], '7（2·2·3）'],
+    ['我望著遠方的光', 7, [3, 4], '7（3·4）'],
+    ['我想把時間留在這一天', 10, [3, 2, 2, 3], '10（3·2·2·3）'],
+    ['走過熟悉的街道', 7, [2, 3, 2], '7（2·3·2）'],
+    ['終於我也回到你身邊', 9, [2, 2, 3, 2], '9（2·2·3·2）'],
+    ['你笑著說天亮', 6, [4, 2], '6（4·2）'],
+    ['不怕前方的路遙', 7, [2, 5], '7（2·5）'],
     ['愛你到天亮', 5, [5], ''],
     ['好想好想你，嗎', 6, [5, 1], '5+1'],
     ['（Oh baby）', 2, [1, 1], '1+1'],
-    ['Oh愛你到天亮', 6, [6], ''],
-    ['夢裡想起你的臉，我望著遠方的光', 14, [2, 2, 3, 3, 4], '≈2+2+3+3+4'],
-    ['月光 灑在 窗前 夢裡想起你的臉', 13, [2, 2, 2, 2, 2, 3], '2+2+2+≈2+2+3'],
-    ['夢裡想起你的臉 月光', 9, [2, 2, 3, 2], '≈2+2+3+2'],
+    ['Oh愛你到天亮', 6, [1, 5], '1+5'],
+    ['夢裡想起你的臉，我望著遠方的光', 14, [2, 2, 3, 3, 4], '7（2·2·3）+7（3·4）'],
+    ['月光 灑在 窗前 夢裡想起你的臉', 13, [2, 2, 2, 2, 2, 3], '2+2+2+7（2·2·3）'],
+    ['夢裡想起你的臉 月光', 9, [2, 2, 3, 2], '7（2·2·3）+2'],
 ];
 
 test('斷句：固定範例', () => {
@@ -51,15 +51,15 @@ test('斷句：固定範例', () => {
     }
 });
 
-test('斷句：只有猜的那段加 ≈', () => {
+test('斷句：猜的細分放括號裡', () => {
     setWords(MINI);
     const m = ana('月光 灑在 窗前 夢裡想起你的臉');
     expect(m.guess).toEqual([false, false, false, true, true, true]);
     expect(m.guessed).toBe(true);
-    expect(parts('月光 灑在 窗前 夢裡想起你的臉')).toEqual([{ text: '2+2+2+', guess: false }, { text: '≈2+2+3', guess: true }]);
+    expect(parts('月光 灑在 窗前 夢裡想起你的臉')).toEqual([{ text: '2+2+2+7', guess: false }, { text: '（2·2·3）', guess: true }]);
     expect(ana('夢裡想起你的臉 月光').guess).toEqual([true, true, true, false]);
-    expect(parts('夢裡想起你的臉 月光')).toEqual([{ text: '≈2+2+3', guess: true }, { text: '+2', guess: false }]);
-    expect(parts('夢裡想起你的臉')).toEqual([{ text: '≈2+2+3', guess: true }]);
+    expect(parts('夢裡想起你的臉 月光')).toEqual([{ text: '7', guess: false }, { text: '（2·2·3）', guess: true }, { text: '+2', guess: false }]);
+    expect(parts('夢裡想起你的臉')).toEqual([{ text: '7', guess: false }, { text: '（2·2·3）', guess: true }]);
     expect(ana('月光 灑在 窗前').guess).toEqual([false, false, false]);
     expect(parts('月光 灑在 窗前')).toEqual([{ text: '2+2+2', guess: false }]);
     // 猜完只剩一組，不算猜
@@ -68,8 +68,8 @@ test('斷句：只有猜的那段加 ≈', () => {
         expect(r.guess.every(g => g === false), line).toBe(true);
         expect(r.guessed, line).toBe(false);
     }
-    // 猜的夾在中間：前後的 + 都歸自己標的那段
-    expect(parts('夢裡想起你的臉 月光 夢裡想起你的臉').map(p => p.text)).toEqual(['≈2+2+3', '+2+', '≈2+2+3']);
+    // 猜的夾在中間
+    expect(parts('夢裡想起你的臉 月光 夢裡想起你的臉').map(p => p.text)).toEqual(['7', '（2·2·3）', '+2+7', '（2·2·3）']);
     // 一致性：長度、旗標、文字
     for (const [line] of TABLE) {
         const r = ana(line), ps = parts(line);
@@ -77,8 +77,8 @@ test('斷句：只有猜的那段加 ≈', () => {
         expect(r.guessed, line).toBe(r.guess.some(Boolean));
         expect(text(line), line).toBe(ps.map(p => p.text).join(''));
         for (const p of ps) {
-            if (p.guess) expect(p.text.startsWith('≈'), line).toBe(true);
-            else expect(p.text.includes('≈'), line).toBe(false);
+            if (p.guess) expect(p.text.startsWith('（'), line).toBe(true);
+            expect(p.text.includes('≈'), line).toBe(false);
         }
     }
 });
@@ -173,4 +173,23 @@ test('斷句：兩百行在 20ms 內', () => {
     }
     t.sort((a, b) => a - b);
     expect(t[4], '中位數').toBeLessThan(20 * scale);
+});
+
+test('句構：手動／AI 指定、輸入解析、英文和漢字交界', () => {
+    setWords(MINI);
+    const st = j({ '夢裡想起你的臉': { g: [4, 3], src: 'man' } });
+    const r = ev(`lhLineAnalyze('夢裡想起你的臉', undefined, ${st})`);
+    expect(r.groups).toEqual([4, 3]);
+    expect(r.src).toBe('man');
+    expect(ev(`lhLineStructText(lhLineAnalyze('夢裡想起你的臉', undefined, ${st}))`)).toBe('7（4·3）');
+    // 加總不對（歌詞改過）就當沒指定
+    expect(ev(`lhLineAnalyze('夢裡想起你的臉', undefined, ${j({ '夢裡想起你的臉': { g: [4, 4] } })})`).src).toBe('auto');
+    // 跨過明確斷點：平鋪
+    expect(ev(`lhLineStructText(lhLineAnalyze('月光 灑在', undefined, ${j({ '月光 灑在': { g: [1, 3] } })}))`)).toBe('1+3');
+    expect(ev(`lhLineParseStruct('4+4+11（4·2·3·2）', 19)`)).toEqual([4, 4, 4, 2, 3, 2]);
+    expect(ev(`lhLineParseStruct('4 4 4·2·3·2', 19)`)).toEqual([4, 4, 4, 2, 3, 2]);
+    expect(ev(`lhLineParseStruct('4+4', 9)`)).toBe(null);
+    expect(ana('yo yo 麻雀in the house').groups).toEqual([1, 1, 2, 1, 1, 1]);
+    expect(ana('麻雀in').starts).toEqual([0, 2]);
+    expect(ev(`lhLineCleanStructs({ a: { g: [1, 2], src: 'ai' }, b: { g: [0] }, c: 3 })`)).toEqual({ a: { g: [1, 2], src: 'ai' } });
 });
