@@ -1508,6 +1508,7 @@ const INPUT_STATES = [
 ];
 
 test('輸入：手機平板所有輸入框字級 ≥ 16px（3 縮放 × 6 狀態）', async ({ browser }) => {
+    test.setTimeout(180_000);   // 設定分頁各掃一次（R2）後畫面變多，全部一起跑時 60 秒不夠
     // 負向對照：掃描器抓得到小字、放得過大字（用一個臨時的 8px 輸入框驗證，之後移除）
     {
         const { context, page } = await bootPage(browser, { device: DEVICES.phone });
@@ -1694,6 +1695,7 @@ const scanAllTouch = browser => touchScans ??= (async () => {
 })();
 
 test('觸控：手機平板每個按鈕至少 44px（各種畫面）', async ({ browser }) => {
+    test.setTimeout(180_000);   // 設定分頁各掃一次（R2）後畫面變多，全部一起跑時 60 秒不夠
     // 負向對照：掃描器抓得到 43px、放行 44px；mark-badge 例外只放寬到 44×32（徽章的 ::after 會外擴上下各 6px）
     {
         const { context, page } = await bootPage(browser, { device: DEVICES.phone });
@@ -1719,6 +1721,7 @@ test('觸控：手機平板每個按鈕至少 44px（各種畫面）', async ({ 
 });
 
 test('觸控：相鄰按鈕的點擊範圍重疊不超過 4px', async ({ browser }) => {
+    test.setTimeout(180_000);   // 設定分頁各掃一次（R2）後畫面變多，全部一起跑時 60 秒不夠
     // 負向對照：兩顆相鄰按鈕疊 10px 會被抓到、疊 4px 不會
     {
         const { context, page } = await bootPage(browser, { device: DEVICES.phone });

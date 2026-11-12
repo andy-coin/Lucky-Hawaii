@@ -643,6 +643,8 @@
         .prefs-panel[hidden] { display: none; }
         .prefs-panel:focus-visible { outline: 2px solid var(--accent-line); outline-offset: 2px; }
         .prefs-bgfx[hidden] { display: none; }
+        /* 分頁裡的一般按鈕（備份、導覽、回饋、關於）同一種外觀 */
+        .prefs-panel .save-load-btn { background: var(--container-bg); color: var(--text-primary); border: 1px solid var(--border); }
         
         .settings-dropdown-title {
             font-family: var(--font-serif);
