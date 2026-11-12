@@ -1,3 +1,15 @@
+## ✅ 2026-11-13 清晨 韻腳地圖十點（?v=0.96.26，待 Andy 驗收）
+- 模式三鈕「關閉／重點跟隨／全部標記」：rhyme-map.js `_lhMapModeSeg`、`lhMapSetMode`（off＝end 關；hover＝hoverOnly；all），在韻腳 ▾ 最上面與偏好設定最上面；重點跟隨預設（rhyme-core.js 預設 hoverOnly:true）；CSS panels.css 檔尾 `.rm-seg`（150% 手機可折行）
+- 韻腳 ▾ 只剩：模式、段落結構、句構判定、寬韻／嚴格＋更多設定（圖例、句中押韻、忽略語助詞搬去偏好設定）
+- 預覽不 sticky、無內層捲軸
+- 句中押韻只比行尾字的韻母（rhyme-core.js inner：tailKeys 只放該行自己的鍵）
+- 段落結構與行尾韻腳直接寫韻（`lhRhymeLabel`、row.label；字母留在 data-letter）
+- 斷句結構畫在每行下面：`_lhMapBuildFrag` 包 `span.lm-g[data-n]`，CSS ::before 括號 ::after 小數字，`html[data-lm-under]` 行高 2.6；右欄只剩韻腳＋字數
+- 對照差異藏起來（設定與程式都在，lnDiff 只能用 lhMapSetSetting）
+- 已選字大字看板：results.js `#selBoard`、cards.js updateBatchCount；手機黏在搜尋區下面（base.css `.results-header.has-sel`）
+- 測試跟著新規格改：line-analysis-ui／line-audit／line-journey／rhyme-core／rhyme-map-ui／rhyme-journey／rhyme-audit／style；layout、visual 待確認
+- 待 Andy：驗收十點；Worker 部署；sections.js 死碼、台語、-linux 截圖
+
 ## ✅ 2026-11-13 凌晨 三點（?v=0.96.25）
 - 雙押：句尾同一個字（亮／亮）的一對不算、疊字（好好）整組同字不算（js/rhyme-core.js lhRhymeMulti）
 - 新模式「滑過才顯示」：設定 `hoverOnly`（偏好設定開關，預設關）；色塊帶 data-k（押韻鍵），rhyme-map.js 檔尾用指標座標比色塊位置、同鍵加 .rm-show；觸控點一下顯示 2 秒；CSS panels.css 檔尾 html[data-rm-hover]（淡入淡出是 Andy 指定，line-audit「沒有動畫」檢查對這組開例外）

@@ -246,6 +246,7 @@
                 <div class="results-header">
                     <div class="results-count">找到 ${results.length} 個字</div>
                     <div class="batch-count" id="batchCount"></div>
+                    <div class="sel-board" id="selBoard" aria-live="polite"></div>
                 </div>
             `;
             

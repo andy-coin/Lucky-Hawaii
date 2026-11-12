@@ -131,9 +131,8 @@ test('檢查：偏好設定在小螢幕都摸得到', async ({ browser }) => {
         await expectFullyInViewport(page, reset);
         const hit = await reset.evaluate(el => { const r = el.getBoundingClientRect(), top = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2); return el === top || el.contains(top); });
         expect(hit, name + '：「恢復預設顏色」中心沒被蓋住').toBe(true);
-        // 預覽只有高度夠（37.5rem＝600px，媒體查詢的 rem 永遠是 16px）才固定在上面
-        const pv = await page.locator(PREFS + ' .lm-preview-block').evaluate(e => ({ pos: getComputedStyle(e).position, h: window.innerHeight }));
-        expect(pv.pos, `${name}：高度 ${pv.h}px 時預覽的定位`).toBe(pv.h >= 600 ? 'sticky' : 'static');
+        // 預覽不固定（0.96.26：整個面板一起捲，不要雙重捲軸）
+        expect(await page.locator(PREFS + ' .lm-preview-block').evaluate(e => getComputedStyle(e).position), name + '：預覽不固定').toBe('static');
         // 每個區塊的標題都捲得到（往回捲到最上面再往下一個個確認）
         for (const sel of ['#prefsTab-map', PREFS + ' .rm-switch', PREFS + ' .type-row[data-k="depth"]']) {
             const el = page.locator(sel).first();
@@ -277,7 +276,7 @@ test('檢查：另一個分頁改了設定或歌（句構分析）', async ({ br
         await b.evaluate(() => lhMapOpenPrefs());
         await expect(b.locator(PREFS + ' .rm-colors input[data-n="0"]')).toHaveValue('#123456');
         await expect(b.locator(PREFS + ' .type-row[data-k="size"][data-v="l"]')).toHaveAttribute('aria-checked', 'true');
-        await expect(prefSw(b, '對照差異')).toHaveAttribute('aria-checked', 'true');
+        await expect.poll(() => b.evaluate(() => _lhMapSet.lnDiff)).toBe(true);
         expect(await count(b), what + '：標記還在').toBe(7);
         expect(await b.evaluate(() => parseFloat(getComputedStyle(document.querySelector('#lyricsSections .lm-t')).fontSize) / parseFloat(getComputedStyle(document.documentElement).fontSize)), what + '：大字級').toBeCloseTo(1, 1);
         expect(await b.locator(PREFS + ' .lm-preview .lm-mk').count(), what + '：預覽重畫').toBeGreaterThan(0);
@@ -332,7 +331,7 @@ test('檢查：列印與匯出沒有句構標記', async ({ browser }) => {
     await seedWords(page);
     // 前置：畫面上真的有標記，而且有括號細分（機器猜的）和 ≠（和對照段落不同的字數）
     const marks = await page.locator('.lm-mk').evaluateAll(els => els.map(e => e.textContent).join('|'));
-    expect(marks, '前置：有括號細分').toContain('·');
+    expect(await page.locator('#lyricsSections .lm-g-guess').count(), '前置：有機器猜的斷句').toBeGreaterThan(0);
     expect(marks, '前置：有 ≠').toContain('≠');
     // 開著分析面板（對選取的幾行）
     await openLyricsTab(page);
@@ -590,17 +589,13 @@ test('檢查：顏色以外的線索（句構分析）', async ({ browser }) => 
         for (const w of ws) wordPhoneticMap.set(w, Array.from(w).map(c => getCharAllReadings(c)[0].reading).join(' '));
         lhMapOnLexiconChange();
     }, ['夢裡', '想起', '你的', '望著', '遠方']);
-    // 逐行標記：機器猜的細分（括號）斜體；自己標的維持正體
-    const mk = await secs(page).first().locator('.lm-mk').first().evaluate(m => {
-        const t = m.querySelector('.lm-t-s');
-        return { style: getComputedStyle(t).fontStyle, text: t.textContent, guesses: [...t.querySelectorAll('.lm-guess')].map(g => [g.textContent, getComputedStyle(g).fontStyle]) };
+    // 斷句結構畫在行下面：機器猜的數字斜體；自己標的維持正體
+    const st = await secs(page).first().locator('.rhyme-mirror').evaluate(m => {
+        const out = [];
+        for (const n of m.childNodes) { if (n.classList?.contains('lm-mk')) break; if (n.classList?.contains('lm-g')) out.push([n.dataset.n, getComputedStyle(n, '::after').fontStyle]); }
+        return out;
     });
-    expect(mk.style, '自己標的那一段是正體').toBe('normal');
-    expect(mk.text).toBe('2+2+2+7（2·2·3）');
-    expect(mk.guesses, '只有一段猜的').toEqual([['（2·2·3）', 'italic']]);
-    const allGuess = await page.locator('#lyricsSections .lm-guess').evaluateAll(els => els.map(e => [e.textContent.startsWith('（'), getComputedStyle(e).fontStyle]));
-    expect(allGuess.length).toBeGreaterThan(0);
-    expect(allGuess.every(([a, b]) => a && b === 'italic'), '每一段猜的都在括號裡且斜體').toBe(true);
+    expect(st).toEqual([['2', 'normal'], ['2', 'normal'], ['2', 'normal'], ['2', 'italic'], ['2', 'italic'], ['3', 'italic']]);
     // 差異：≠ 加粗（第二段第 2 行 6 字，對照 7 字）
     const diffs = await page.locator('#lyricsSections .lm-t-d:not(:empty)').evaluateAll(els => els.map(e => [e.textContent, getComputedStyle(e).fontWeight]));
     expect(diffs, '差異 ≠ 且粗體').toEqual([['≠7', '700']]);

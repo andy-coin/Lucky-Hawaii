@@ -14,7 +14,7 @@ const LH_RHYME_DEFAULTS = Object.freeze({ end: true, letters: false, inner: fals
 // （D4 括號的說法——第一次打開就有東西看、但不擠）。總開關沒開時什麼都不顯示，所以全新使用者仍然只看到句尾上色。
 // multi（雙押／多押的標示）預設開：它只是在句尾色塊上多一層淡色與細線，沒有句尾上色就看不到
 const LH_MAP_DEFAULTS = Object.freeze(Object.assign({}, LH_RHYME_DEFAULTS, {
-    multi: true, autoColor: true, hoverOnly: false, line: false, lnRhyme: false, lnCount: true, lnSplit: true, lnDiff: false, autoHover: false,
+    multi: true, autoColor: true, hoverOnly: true, line: false, lnRhyme: false, lnCount: true, lnSplit: true, lnDiff: false, autoHover: false,
     pos: 'right', size: 'm', depth: 'std',
 }));
 // 列舉值只收清單裡的；顏色鍵固定 '0'…'15'（16 個韻族，空韻 16 不開放自訂），色碼只收小寫 #rrggbb（與 rhyme-map.js 的 LH_MAP_HEX 同形）
@@ -290,6 +290,7 @@ function lhRhymeAnalyze(text, opts, readings) {
         if (r.key === null) { letters += '-'; continue; }
         if (!letterOf.has(r.key)) letterOf.set(r.key, LH_RHYME_ALPHA[letterOf.size] || '*');
         r.letter = letterOf.get(r.key);
+        r.label = lhRhymeLabel(r.rhyme, strict);   // 畫面顯示用：直接寫韻腳（ㄤ、ㄠ），不用 A、B
         r.solo = r.ends[r.ends.length - 1].solo;
         letters += r.letter;
     }
@@ -300,10 +301,12 @@ function lhRhymeAnalyze(text, opts, readings) {
         for (const r of rows) { for (const e of r.ends) if (slot.has(e.key)) e.c = slot.get(e.key); if (r.t) r.c = r.ends[r.ends.length - 1].c; }
     }
     if (opts && opts.inner) {
-        const tailKeys = new Set(count.keys()), colorOf = new Map();
+        const colorOf = new Map();
         for (const e of all) if (e.c !== undefined) colorOf.set(e.key, e.c);
         for (const r of rows) {
             if (!r.t) continue;
+            // 句中押韻只看「這一行最後一個字」的韻母（Andy 2026-11-13）；空韻（ㄓㄔㄕ…只有聲母）不算，免得像在比子音
+            const tailKeys = new Set(RHYME_TO_FAMILY[r.rhyme] === undefined ? [] : [r.key]);
             const busy = new Set();   // 已經是句尾色塊的字，不再畫句中底線
             for (const e of r.ends) for (let k = 0; k < e.multi; k++) busy.add(e.t.i - k);
             r.inner = lhRhymeInner(r.line, r.t, tailKeys, strict, skip, busy, colorOf);
@@ -388,6 +391,12 @@ function lhRhymeAutoColors(rows, palette) {
         used.add(best);
     }
     return slot;
+}
+
+// 顯示用的韻腳：嚴格＝韻母本身；寬韻＝家族名稱（沒有家族的空韻就寫韻母本身，例如 ㄓ）
+function lhRhymeLabel(rhyme, strict) {
+    const f = RHYME_TO_FAMILY[rhyme];
+    return strict || f === undefined ? (rhyme || '') : RHYME_FAMILIES[f].label;
 }
 
 // 統計（段落標題列的字母條與 #rhymeStats 共用）：n＝非空行、k＝句尾韻在本段出現至少兩次的行數、p＝k/n 的百分比；

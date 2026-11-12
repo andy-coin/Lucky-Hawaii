@@ -53,13 +53,14 @@ function lhMapApplyPalette() {
 // 寫進 style.setProperty 的值一律來自下面這幾張常數表，絕不直接用儲存裡的字串
 const LH_MAP_LOOK_KEYS = new Set(['pos', 'size', 'depth', 'autoHover']);   // 這幾個設定只影響 CSS 或行為，改了不必重畫鏡像層
 const LH_MAP_SIZE_REM = { s: 0.75, m: 0.875, l: 1 };           // 標記字級（UI-SPEC D-21）
-const LH_MAP_COL_EM = { lnRhyme: 1.25, lnCount: 1.5, lnDiff: 2.25, lnSplit: 7.5 };   // 斷句結構加了括號細分（4+4+11（4·2·3·2）），欄寬比原本 5.5 寬   // 靠右欄各欄寬度（單位 em，UI-SPEC 3.2）；欄與欄之間再加 0.5em
+const LH_MAP_COL_EM = { lnRhyme: 2.25, lnCount: 1.5, lnDiff: 2.25 };   // 斷句結構改畫在行下面，不佔右欄；行尾韻腳改寫注音（最多三個符號）   // 靠右欄各欄寬度（單位 em，UI-SPEC 3.2）；欄與欄之間再加 0.5em
 // 逐行標記有沒有內容要顯示：總開關開著，而且四個內容項至少開一個
 function _lhMapNeedMk() {
-    return _lhMapSet.line && (_lhMapSet.lnRhyme || _lhMapSet.lnCount || _lhMapSet.lnSplit || _lhMapSet.lnDiff);
+    return _lhMapSet.line && (_lhMapSet.lnRhyme || _lhMapSet.lnCount || _lhMapSet.lnSplit || _lhMapSet.lnDiff);   // lnSplit 也算：畫括號要逐行排版
 }
 function lhMapApplyLook() {
     document.documentElement.toggleAttribute('data-rm-hover', !!_lhMapSet.hoverOnly);
+    document.documentElement.toggleAttribute('data-lm-under', !!(_lhMapSet.line && _lhMapSet.lnSplit));   // 行距拉開，留位置畫斷句括號
     const root = document.documentElement;
     // 欄位的有無只看設定、不看文字內容（X3）：不然打下第一個字的瞬間輸入框內距會變，輸入框會跳版
     if (_lhMapNeedMk()) root.setAttribute('data-lm', _lhMapSet.pos);
@@ -125,7 +126,7 @@ function _lhMapMarker(line, diff, row, structs) {
     if (r.n <= 0) return null;
     const mk = _lhMk('span', 'lm-mk');
     if (_lhMapSet.lnRhyme) {
-        const t = _lhMk('span', 'lm-t lm-t-r', row ? row.letter || '-' : '');   // 沒有韻腳是「-」；有韻腳的字母底下畫家族色（和標題列字母條同一套）
+        const t = _lhMk('span', 'lm-t lm-t-r', row ? row.label || '-' : '');   // 直接寫韻腳；沒有韻腳是「-」，底下畫家族色（和標題列同一套）
         if (row && row.key !== null) _lhMapTint(t, row);
         mk.append(t);
     }
@@ -135,11 +136,7 @@ function _lhMapMarker(line, diff, row, structs) {
         mk.append(_lhMk('span', 'lm-t lm-t-d', b !== undefined && b !== r.n ? '≠' + b : ''));   // 空的 span 也要留著，欄位才對得齊
     }
     diff.k++;
-    if (_lhMapSet.lnSplit) {
-        const st = _lhMk('span', 'lm-t lm-t-s');   // 沒有結構（少於兩組）也要有這個欄位，欄位才對得齊
-        _lhMapStructInto(st, r);
-        mk.append(st);
-    }
+    // 斷句結構不在右欄了：改畫在每行下面（_lhMapBuildFrag 的 .lm-g）
     return mk;
 }
 
@@ -156,7 +153,7 @@ function _lhMapTint(el, o) {
 let _lhMapEnLoading = null;
 function _lhMapEnLoad() {
     if (_lhMapEnLoading) return;
-    _lhMapEnLoading = fetch('data/en-rhyme.json?v=0.96.25').then(r => r.json()).then(o => {
+    _lhMapEnLoading = fetch('data/en-rhyme.json?v=0.96.26').then(r => r.json()).then(o => {
         lhEnSetDict(o);
         // 只重畫有英文的段落（其他段落的標記節點不動）
         const box = document.getElementById('lyricsSections');
@@ -185,7 +182,7 @@ function _lhMapBuildFrag(text, readings, refText, structs) {
         // 這一行要特別標示的字：每個句尾字（色塊，句尾上色開著才有；行中逗號、空白前的也算）、
         // 雙押／多押時句尾前面跟著押的字（同色淡一層，底下一條同色細線把整組連起來）與句中押韻的字（底線）
         const marks = new Map();
-        for (const m of r.inner) marks.set(m.i, { cls: 'rm-inner', f: m.f, c: m.c, k: m.k });
+        if (S.end) for (const m of r.inner) marks.set(m.i, { cls: 'rm-inner', f: m.f, c: m.c, k: m.k });   // 模式「關閉」連句中底線也不畫
         if (S.end) {
             for (const e of r.ends) {
                 const mx = S.multi && e.multi > 1 ? ' rm-mx' : '';
@@ -195,25 +192,41 @@ function _lhMapBuildFrag(text, readings, refText, structs) {
             }
         }
         const mk = needMk ? _lhMapMarker(r.line, diff, res ? r : undefined, structs) : null;
-        if (!marks.size && !mk) frag.append(r.line);
+        // 斷句結構畫在這一行下面：每一組字包成 span.lm-g（data-n＝字數），CSS 用偽元素畫小括號和數字，不改版面寬度
+        const ga = S.line && S.lnSplit ? lhLineAnalyze(r.line, undefined, structs) : null;
+        const gs = new Map();
+        if (ga && ga.groups.length >= 2) ga.groups.forEach((g, k) => gs.set(ga.starts[k], { n: g, end: ga.ends[k], guess: ga.guess[k] }));
+        if (!marks.size && !mk && !gs.size) frag.append(r.line);
         else {
             const m = mk && _LH_TRAIL_WS.exec(r.line);
             const core = m ? r.line.slice(0, m.index) : r.line;
-            let buf = '';
+            let buf = '', dst = frag, gEnd = -1;
             let sp = null, prev = null;
+            const flush = () => { if (buf) { dst.append(buf); buf = ''; } };
             Array.from(core).forEach((c, i) => {
+                const g = gs.get(i);
+                if (g) {
+                    flush();
+                    const ge = _lhMk('span', 'lm-g' + (g.guess ? ' lm-g-guess' : ''));
+                    ge.dataset.n = String(g.n);
+                    frag.append(ge);
+                    dst = ge; gEnd = g.end; prev = null;
+                }
                 const hit = marks.get(i);
-                if (!hit) { buf += c; prev = null; return; }
-                if (hit === prev) { sp.textContent += c; return; }   // 英文字整個字同一個色塊
-                if (buf) { frag.append(buf); buf = ''; }
-                sp = document.createElement('span');
-                sp.className = hit.cls;
-                _lhMapTint(sp, hit);
-                sp.textContent = c;
-                frag.append(sp);
-                prev = hit;
+                if (!hit) { buf += c; prev = null; }
+                else if (hit === prev) sp.textContent += c;   // 英文字整個字同一個色塊
+                else {
+                    flush();
+                    sp = document.createElement('span');
+                    sp.className = hit.cls;
+                    _lhMapTint(sp, hit);
+                    sp.textContent = c;
+                    dst.append(sp);
+                    prev = hit;
+                }
+                if (i === gEnd - 1) { flush(); dst = frag; prev = null; }
             });
-            if (buf) frag.append(buf);
+            flush();
             if (mk) frag.append(mk);
             if (m) frag.append(m[0]);
             on = true;
@@ -307,14 +320,16 @@ function _lhMapStrip(secEl, res, big) {
         const { n, k } = lhRhymeSummary(res, _lhMapSet.strict);
         const kids = rows.slice(0, 12).map(r => {
             const sp = document.createElement('span');
-            sp.textContent = r.letter || '-';
+            sp.textContent = r.label || '-';   // 直接寫韻腳（ㄤㄤㄠㄠ），不用 AABB
+            sp.dataset.letter = r.letter || '-';   // 結構字母留在屬性上（測試與日後的 AABB 檢視用）
             if (r.key !== null) _lhMapTint(sp, r);
             return sp;
         });
         if (rows.length > 12) kids.push(document.createTextNode('…'));
         strip.replaceChildren(...kids);
-        strip.setAttribute('aria-label', '押韻結構 ' + res.letters + '，按一下看統計');
-        strip.title = res.letters + '　押韻 ' + k + '/' + n + ' 句，點一下看統計';
+        const labels = rows.map(r => r.label || '-').join(' ');
+        strip.setAttribute('aria-label', '押韻結構 ' + labels + '，按一下看統計');
+        strip.title = labels + '　押韻 ' + k + '/' + n + ' 句，點一下看統計';
         strip.hidden = false;
     }
     if (typeof _lhMapStatsRefresh === 'function') _lhMapStatsRefresh(secEl.dataset.id);
@@ -440,10 +455,10 @@ document.getElementById('lyricsSections').addEventListener('input', e => {
 let _lhMapMenu = null;
 let _lhMapMenuOn = false;
 // 文案照 UI-SPEC 第 7 節逐字
-const LH_MAP_HINT_LETTERS = '在每個段落標題列顯示 AABB 這類字母';
-const LH_MAP_HINT_LINE = '每行旁邊顯示字數與斷句；細項在「更多設定」';
+const LH_MAP_HINT_LETTERS = '在每個段落標題列，依序列出每一行的韻腳（例如 ㄤㄤㄠㄠ）';
+const LH_MAP_HINT_LINE = '打開後照細項顯示：行尾韻腳、字數靠右，斷句結構畫在每行下面；細項在「更多設定」';
 const LH_MAP_HINT_MULTI = '句尾倒數兩、三個字都押韻時（例：離開／你來），前面的字也淡淡上同色，底下一條細線連起來';
-const LH_MAP_HINT_INNER = '句子裡面跟句尾押同韻的字，加底線（每行最多 3 個）';
+const LH_MAP_HINT_INNER = '同一行裡，跟這行最後一個字同韻母的字加底線（只比韻母、不比子音；每行最多 3 個）';
 const LH_MAP_MODE_HELP = {
     wide: '寬韻：同一個韻族都算押韻（例：ㄤ、ㄧㄤ、ㄨㄤ）',
     strict: '嚴格：韻母要完全一樣才算押韻（例：ㄤ 和 ㄧㄤ 不同）',
@@ -520,57 +535,32 @@ function lhMapMenuBuild() {
     // 詞庫還沒載好時的提示（A5）：載好後隱藏，控制項一直可用
     const loading = _lhMk('div', 'section-menu-cap rm-loading', '詞庫載入中，載好後會自動上色');
     loading.hidden = _lhMapWl;
-    // 句中押韻的說明用 aria-describedby 接到開關上
-    const innerSw = _lhMapSwitchRow('inner', '句中押韻');
-    const innerHint = _lhMk('span', 'section-menu-cap', LH_MAP_HINT_INNER);
-    innerHint.id = 'rhymeHintInner';
-    innerSw.setAttribute('aria-describedby', innerHint.id);
-    const lettersSw = _lhMapSwitchRow('letters', '段落結構字母');
+    const lettersSw = _lhMapSwitchRow('letters', '段落結構');
     const lettersHint = _lhMk('span', 'section-menu-cap', LH_MAP_HINT_LETTERS);
     lettersHint.id = 'rhymeHintLetters';
     lettersSw.setAttribute('aria-describedby', lettersHint.id);
-    const lineSw = _lhMapSwitchRow('line', '逐行標記');
+    const lineSw = _lhMapSwitchRow('line', '句構判定');
     const lineHint = _lhMk('span', 'section-menu-cap', LH_MAP_HINT_LINE);
     lineHint.id = 'rhymeHintLine';
     lineSw.setAttribute('aria-describedby', lineHint.id);
-    // 雙押／多押的開關只放在偏好設定（「更多設定…」）：快速選單再多一列，打開色票對照時會蓋住「韻腳 ▾」按鈕
-    const show = _lhMkBlock('顯示', _lhMapSwitchRow('end', '句尾上色'), lettersSw, lettersHint, innerSw, innerHint, lineSw, lineHint);
+    // 快速選單只留四樣（Andy 2026-11-13）：模式三鈕、段落結構、句構判定、寬韻／嚴格；其他在「更多設定…」
+    const show = _lhMkBlock('顯示', _lhMapModeSeg(), lettersSw, lettersHint, lineSw, lineHint);
     // 判定：寬韻／嚴格兩個 radio，下面只顯示目前模式的說明
     const modes = _lhMapModeRadios();
     const help = _lhMk('span', 'section-menu-cap rm-mode-help');
-    const skipSw = _lhMapSwitchRow('skipParticles', '忽略句尾語助詞');
-    const skipCap = _lhMk('span', 'section-menu-cap', LH_MAP_PARTICLE_CAP);
-    skipCap.id = 'rhymeHintSkip';
-    skipSw.setAttribute('aria-describedby', skipCap.id);
-    const judge = _lhMkBlock('判定', modes, help, skipSw, skipCap);
-    // 色票對照：預設收著，每次打開選單都收回去；17 格都是純文字說明，不能點
-    const legend = _lhMk('div', 'rm-legend');
-    legend.id = 'rhymeLegend';
-    legend.hidden = true;
-    for (let n = 0; n <= LH_RHYME_NONE; n++) {
-        const cell = _lhMk('div', 'rm-cell');
-        const swatch = _lhMk('span', 'rm-sw');
-        swatch.dataset.f = String(n);
-        cell.append(swatch, _lhMk('span', 'rm-cell-label', n === LH_RHYME_NONE ? '空韻' : RHYME_FAMILIES[n].label));
-        legend.appendChild(cell);
-    }
-    const legendBtn = _lhMkBtn('section-menu-btn rm-legend-toggle', '色票對照 ▾');
-    legendBtn.setAttribute('aria-expanded', 'false');
-    legendBtn.setAttribute('aria-controls', legend.id);
+    const judge = _lhMkBlock('判定', modes, help);
+    // 句中押韻、語助詞、色票對照搬到「更多設定…」（偏好設定裡有韻族顏色）
     const more = _lhMkBtn('section-menu-btn rm-more', '更多設定…');   // 開偏好設定裡的完整設定（CONTEXT D1）
     // 沒有「關閉」鈕（R2）：點選單外面任何地方或按 Esc 就收起來（下面的 pointerdown／keydown）
-    m.append(_lhMk('div', 'section-menu-title', '韻腳地圖'), loading, show, judge, _lhMkBlock('色票對照', legendBtn, legend), more);
+    m.append(_lhMk('div', 'section-menu-title', '韻腳地圖'), loading, show, judge, more);
     document.body.appendChild(m);
     m.addEventListener('click', e => {
+        const seg = e.target.closest && e.target.closest('.rm-seg-btn');
+        if (seg) lhMapSetMode(seg.dataset.mode);
         const sw = e.target.closest && e.target.closest('.rm-switch');
         if (sw) lhMapSetSetting(sw.dataset.k, sw.getAttribute('aria-checked') !== 'true');
         const r = e.target.closest && e.target.closest('.type-row');
         if (r) lhMapSetSetting('strict', r.dataset.m === 'strict');
-    });
-    legendBtn.addEventListener('click', () => {
-        legend.hidden = !legend.hidden;
-        legendBtn.setAttribute('aria-expanded', String(!legend.hidden));
-        _lhMapPlaceMenu();   // 選單變高了：重新夾進可見範圍，最下面的「更多設定…」才不會掉到畫面外
     });
     more.addEventListener('click', lhMapOpenPrefs);
     // Tab 在選單裡頭尾相接
@@ -589,6 +579,12 @@ function lhMapMenuBuild() {
 // 依目前設定更新兩處開關的字與 aria 狀態：「韻腳 ▾」選單與偏好設定裡的段落，一邊改了另一邊馬上跟著變（CONTEXT D1）
 function lhMapMenuSync() {
     document.documentElement.toggleAttribute('data-rm-hover', !!_lhMapSet.hoverOnly);
+    const mapMode = _lhMapMode();
+    document.querySelectorAll('.rm-seg-btn').forEach(b => {
+        const on = b.dataset.mode === mapMode;
+        b.classList.toggle('active', on);
+        b.setAttribute('aria-checked', String(on));
+    });
     document.querySelectorAll('#rhymeMenu .rm-switch, #mapSettingsSection .rm-switch').forEach(b => {
         const on = !!_lhMapSet[b.dataset.k];
         b.setAttribute('aria-checked', String(on));
@@ -646,24 +642,22 @@ function lhMapPrefsBuild() {
     const hint = _lhMk('p', 'settings-backups-hint', '調整句尾上色、逐行字數與斷句標記的開關、位置、大小和顏色');
     const sub = _lhMk('div', 'rm-sub');   // 四個細項縮排在逐行標記底下；總開關關著也照樣能設（UI-SPEC D-17）
     sub.append(
-        ..._lhMapPrefRow('lnRhyme', '行尾韻腳字母', 'A、B…，跟著上面的寬韻／嚴格', 'rmPrefRhyme'),
+        ..._lhMapPrefRow('lnRhyme', '行尾韻腳', '直接寫這一行的韻腳（ㄤ、ㄠ…），跟著上面的寬韻／嚴格', 'rmPrefRhyme'),
         ..._lhMapPrefRow('lnCount', '字數', '每行幾個字（空白、標點不算）', 'rmPrefCount'),
-        ..._lhMapPrefRow('lnSplit', '斷句結構', '例如 4+4+11（4·2·3·2）。+ 是你自己打的空白和標點；括號裡斜體的是機器猜的細分，可以在「📏 分析」裡改', 'rmPrefSplit'),
-        ..._lhMapPrefRow('lnDiff', '對照差異', '跟同類型第一段的同一行字數不同時，標出 ≠ 和對方的字數', 'rmPrefDiff'),
+        ..._lhMapPrefRow('lnSplit', '斷句結構', '畫在每行下面：每一組字底下一個小括號和字數；斜體數字是機器猜的，可以在「📏 分析」裡改', 'rmPrefSplit'),
     );
+    // 對照差異先藏起來（Andy 2026-11-13：太複雜，之後再說）；設定與程式都還在
     // 詞庫沒載好時，斷句結構的 ≈ 還出不來：提醒一句，載好就自己收起來
     const wait = _lhMk('span', 'section-menu-cap rm-lex-wait', '詞庫載入中，括號裡的自動斷句稍後補上');
     sub.children[5].after(wait);   // 緊接在斷句結構的說明後面
-    const none = _lhMk('span', 'section-menu-cap rm-none', '四個細項都關著，所以沒有東西可顯示');
+    const none = _lhMk('span', 'section-menu-cap rm-none', '細項都關著，所以沒有東西可顯示');
     none.hidden = true;
     sub.append(none);
-    const lineRow = _lhMapPrefRow('line', '逐行標記', '每行旁邊顯示淡色小字；下面四項決定要顯示什麼', 'rmPrefLine');
+    const lineRow = _lhMapPrefRow('line', '句構判定', '打開後照下面的細項顯示', 'rmPrefLine');
     const mapRows = [
-        _lhMapSwitchRow('end', '句尾上色'),
         ..._lhMapPrefRow('multi', '雙押／多押', LH_MAP_HINT_MULTI, 'rmPrefMulti'),
-        ..._lhMapPrefRow('hoverOnly', '滑過才顯示', '平常不上色；滑鼠移到某個字上，同韻的字才浮出顏色，移開就淡掉（觸控：點一下字）', 'rmPrefHoverOnly'),
         ..._lhMapPrefRow('autoColor', '自動配色', '前後幾行裡不同的韻，自動換成差最多的顏色；關掉就是每個韻族固定一色', 'rmPrefAuto'),
-        ..._lhMapPrefRow('letters', '段落結構字母', LH_MAP_HINT_LETTERS, 'rmPrefLetters'),
+        ..._lhMapPrefRow('letters', '段落結構', LH_MAP_HINT_LETTERS, 'rmPrefLetters'),
         ..._lhMapPrefRow('inner', '句中押韻', LH_MAP_HINT_INNER, 'rmPrefInner'),
         ..._lhMapPrefRow('skipParticles', '忽略句尾語助詞', LH_MAP_PARTICLE_CAP, 'rmPrefSkip'),
         _lhMk('span', 'section-menu-cap', '押韻判定'),
@@ -727,10 +721,14 @@ function lhMapPrefsBuild() {
     pvDiff.hidden = true;
     const preview = _lhMkBlock('預覽', pv, pvDiff);
     preview.classList.add('lm-preview-block');
-    sec.append(hint, preview, _lhMkBlock('韻腳地圖', ...mapRows), _lhMkBlock('句構分析', ...lineRow, sub,
+    // 最上面是模式三鈕（關閉／重點跟隨／全部標記），取代原本的「句尾上色」與「滑過才顯示」兩個開關
+    const modeBlock = _lhMkBlock('韻腳地圖模式', _lhMapModeSeg(), _lhMk('span', 'section-menu-cap', LH_MAP_MODE_HINT));
+    sec.append(hint, modeBlock, preview, _lhMkBlock('韻腳地圖', ...mapRows), _lhMkBlock('句構分析', ...lineRow, sub,
         ..._lhMapPrefRow('autoHover', '反白停留自動分析', LH_MAP_HOVER_HINT, 'rmPrefHover')), look, colors);
     // 整個段落共用一個點擊監聽（和選單一樣）：開關翻轉、寬韻／嚴格選一個，改了就存、就畫
     sec.addEventListener('click', e => {
+        const seg = e.target.closest && e.target.closest('.rm-seg-btn');
+        if (seg) lhMapSetMode(seg.dataset.mode);
         const sw = e.target.closest && e.target.closest('.rm-switch');
         if (sw) lhMapSetSetting(sw.dataset.k, sw.getAttribute('aria-checked') !== 'true');
         const r = e.target.closest && e.target.closest('.type-row[data-m]');
@@ -754,6 +752,34 @@ function lhMapOpenPrefs() {
 
 // 一個設定改了：存檔、套用外觀、選單文字跟著變；只有會改變鏡像層內容的設定才全部段落重畫。
 // 只認 LH_MAP_DEFAULTS 的鍵，而且值經過整理後必須原封不動（壞值、不認得的字串都進不來）；colors 不走這裡
+// ==================== 韻腳地圖模式（關閉／重點跟隨／全部標記）====================
+// 底下還是兩個開關：end（句尾上色）＋ hoverOnly（滑過才顯示）；三鈕只是一次設好兩個
+const LH_MAP_MODE_HINT = '重點跟隨：滑鼠移到字上（觸控點一下），同韻的字才浮出顏色；全部標記：每個韻腳都上色';
+function _lhMapMode() {
+    return !_lhMapSet.end ? 'off' : _lhMapSet.hoverOnly ? 'hover' : 'all';
+}
+function _lhMapModeSeg() {
+    const g = _lhMk('div', 'rm-seg');
+    g.setAttribute('role', 'radiogroup');
+    g.setAttribute('aria-label', '韻腳地圖模式');
+    for (const [m, t] of [['off', '關閉'], ['hover', '重點跟隨'], ['all', '全部標記']]) {
+        const b = _lhMkBtn('rm-seg-btn', t);
+        b.setAttribute('role', 'radio');
+        b.dataset.mode = m;
+        g.append(b);
+    }
+    return g;
+}
+function lhMapSetMode(mode) {
+    const want = { off: { end: false }, hover: { end: true, hoverOnly: true }, all: { end: true, hoverOnly: false } }[mode];
+    if (!want) return;
+    _lhMapSet = lhRhymeNormalizeSettings(Object.assign({}, _lhMapSet, want));
+    lhSet('lh:map', lhRhymeSerialize(_lhMapSet));
+    lhMapApplyLook();
+    lhMapMenuSync();
+    lhMapRenderAll();
+}
+
 function lhMapSetSetting(key, value) {
     if (!Object.prototype.hasOwnProperty.call(LH_MAP_DEFAULTS, key)) return;
     const next = lhRhymeNormalizeSettings(Object.assign({}, _lhMapSet, { [key]: value }));
@@ -861,12 +887,10 @@ function lhMapOpenMenu(byKeyboard) {
     if (typeof closeSongListOverlay === 'function') closeSongListOverlay();
     lhMapCloseAll();
     lhMapMenuSync();
-    m.querySelector('#rhymeLegend').hidden = true;   // 色票對照每次打開都收著
-    m.querySelector('.rm-legend-toggle').setAttribute('aria-expanded', 'false');
     _lhMapMenuOn = true;
     _lhMapPlaceMenu();
     document.getElementById('rhymeMenuBtn').setAttribute('aria-expanded', 'true');
-    if (byKeyboard) m.querySelector('.rm-switch')?.focus({ preventScroll: true });
+    if (byKeyboard) m.querySelector('.rm-seg-btn.active')?.focus({ preventScroll: true });
 }
 
 // refocus：按 Esc 才把焦點還給按鈕（點外面時焦點跟著被點的東西走）
@@ -977,7 +1001,8 @@ function _lhMapStatsFill() {
         const rows = res.rows.filter(r => !r.blank);
         const letters = _lhMk('div', 'rm-letters');
         for (const r of rows) {
-            const sp = _lhMk('span', '', r.letter || '-');
+            const sp = _lhMk('span', '', r.label || '-');
+            sp.dataset.letter = r.letter || '-';
             if (r.key !== null) _lhMapTint(sp, r);
             letters.append(sp);
         }
@@ -990,7 +1015,7 @@ function _lhMapStatsFill() {
             const row = _lhMk('div', 'rm-group');
             const sw = _lhMk('span', 'rm-sw');
             _lhMapTint(sw, g);
-            row.append(_lhMk('span', 'rm-g-letter', g.letter), sw, _lhMk('span', '', g.label + ' ×' + g.count + (g.count === 1 ? '（孤句）' : '')));
+            row.append(sw, _lhMk('span', '', g.label + ' ×' + g.count + (g.count === 1 ? '（孤句）' : '')));
             groups.append(row);
         }
         kids.push(groups);
@@ -1000,7 +1025,7 @@ function _lhMapStatsFill() {
             const ch = r.t ? r.t.char : (Array.from(r.line.replace(/[^\p{L}\p{N}]+$/u, '')).pop() || '');
             const b = _lhMkBtn('rm-row', '', r.t ? '查韻：' + ch + '，第 ' + (n + 1) + ' 句' : '第 ' + (n + 1) + ' 句，沒有可查的句尾');
             const lineCs = Array.from(r.line.trim());
-            b.append(_lhMk('span', 'rm-g-letter', r.letter || '-'), _lhMk('span', 'rm-tail', ch),
+            b.append(_lhMk('span', 'rm-g-letter', r.label || '-'), _lhMk('span', 'rm-tail', ch),
                 _lhMk('span', 'rm-prev', lineCs.slice(0, 12).join('') + (lineCs.length > 12 ? '…' : '')));
             if (!r.t) b.setAttribute('aria-disabled', 'true');
             b.addEventListener('click', e => {

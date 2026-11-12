@@ -32,7 +32,13 @@ const prefSw = (page, label) => page.locator('#mapSettingsSection .rm-switch').f
 const lookRadio = (page, k, v) => page.locator(`#mapSettingsSection .type-row[data-k="${k}"][data-v="${v}"]`);
 const secMarks = (page, n) => page.locator('#lyricsSections .lyrics-section').nth(n).locator('.rhyme-mirror .lm-mk');
 // 第 n 段每個標記的 [字數, 結構, 字母, 對照差異]（沒有的欄位是 null）
-const markers = (page, n) => secMarks(page, n).evaluateAll(els => els.map(e => ['.lm-t-c', '.lm-t-s', '.lm-t-r', '.lm-t-d'].map(q => e.querySelector(q)?.textContent ?? null)));
+// 結構＝標記前面同一行的 .lm-g（斷句畫在行下面），用 + 接起來
+const markers = (page, n) => secMarks(page, n).evaluateAll(els => els.map(e => {
+    const g = [];
+    for (let x = e.previousSibling; x && !x.classList?.contains('lm-mk'); x = x.previousSibling) if (x.classList?.contains('lm-g')) g.unshift(x.dataset.n);
+    const [c, r, d] = ['.lm-t-c', '.lm-t-r', '.lm-t-d'].map(q => e.querySelector(q)?.textContent ?? null);
+    return [c, g.length ? g.join('+') : null, r, d];
+}));
 const bandBg = page => page.evaluate(() => { const e = document.querySelector('#lyricsSections .rm-hl:not(.rm-solo)'); return e ? getComputedStyle(e).backgroundColor : null; });
 const pick = (page, a, b, n) => page.evaluate(([a, b, n]) => {
     const ta = document.querySelectorAll('.section-textarea')[n];
@@ -72,15 +78,15 @@ test('整合：句構分析一次走完', async ({ browser }) => {
 
     // ===== b. 韻腳 ▾ → 逐行標記：每行有字數，多段的行有結構 =====
     await page.locator('#rhymeMenuBtn').click();
-    await menuSw(page, '逐行標記').click();
-    await expect(menuSw(page, '逐行標記')).toHaveAttribute('aria-checked', 'true');
+    await menuSw(page, '句構判定').click();
+    await expect(menuSw(page, '句構判定')).toHaveAttribute('aria-checked', 'true');
     await expect(secMarks(page, 0)).toHaveCount(3);
     await expect(secMarks(page, 1)).toHaveCount(1);
     await expect(secMarks(page, 2)).toHaveCount(4);
     const m1 = await markers(page, 0);
     expect(m1.map(m => m[0]), '第一段字數').toEqual(['7', '5', '7']);
     expect(m1.every(m => m[2] === null && m[3] === null), '預設沒有字母、沒有 ≠').toBe(true);
-    expect(m1[2][1], '走過熟悉的街道有斷句結構').toMatch(/^\d+（\d(·\d)+）$/);
+    expect(m1[2][1], '走過熟悉的街道有斷句結構').toMatch(/^\d(\+\d)+$/);
     expect(await page.evaluate(() => document.documentElement.getAttribute('data-lm'))).toBe('right');
 
     // ===== c. 更多設定… → 行尾韻腳字母、對照差異 =====
@@ -88,11 +94,11 @@ test('整合：句構分析一次走完', async ({ browser }) => {
     await expect(page.locator('#settingsOverlay')).toHaveClass(/show/);
     await expect(page.locator('#mapSettingsSection')).toBeVisible();
     await expect(page.locator('#prefsTab-map')).toBeFocused();
-    await prefSw(page, '行尾韻腳字母').click();
-    await prefSw(page, '對照差異').click();
+    await prefSw(page, '行尾韻腳').click();
+    await page.evaluate(() => lhMapSetSetting('lnDiff', !_lhMapSet.lnDiff));   // 對照差異的開關先藏起來了
     const diff2 = await markers(page, 2);
     expect(diff2.map(m => m[3] ?? ''), 'Verse II 第 2 行比對照段落多一個字').toEqual(['', '≠5', '', '']);
-    const wantLetters = await page.evaluate(t => Array.from(lhRhymeAnalyze(t, { strict: false, skipParticles: true }, null).letters), V2);
+    const wantLetters = await page.evaluate(t => lhRhymeAnalyze(t, { strict: false, skipParticles: true }, null).rows.filter(r => r.line.trim()).map(r => r.label || '-'), V2);
     expect(diff2.map(m => m[2]), '字母照頁面自己的分析').toEqual(wantLetters);
     // 預覽也畫出字母與 ≠
     await expect.poll(() => page.locator('#mapSettingsSection .lm-preview .lm-t-r').count()).toBeGreaterThan(0);
@@ -121,7 +127,8 @@ test('整合：句構分析一次走完', async ({ browser }) => {
     }, f0);
     expect(await spanBg('#lyricsSections'), '歌詞的色塊跟著變').not.toBe(bandBefore);
     const prevAfter = await spanBg('#mapSettingsSection .lm-preview');
-    if (prevBefore !== null) expect(prevAfter, '預覽跟著變').not.toBe(prevBefore);
+    if (prevBefore !== null && prevBefore !== 'rgba(0, 0, 0, 0)') expect(prevAfter, '預覽跟著變')   // 重點跟隨模式下預覽平常不上色
+   .not.toBe(prevBefore);
     expect(await mapOf(page)).toContain(`"colors":{"${f0}":"#123456"}`);
     await page.keyboard.press('Escape');
     await expect(page.locator('#settingsOverlay')).not.toHaveClass(/show/);
@@ -211,7 +218,7 @@ test('整合：句構分析一次走完', async ({ browser }) => {
     await expect.poll(async () => JSON.stringify([await markers(page, 0), await markers(page, 1), await markers(page, 2)])).toBe(JSON.stringify(marksBefore));
     expect(await page.evaluate(f => document.documentElement.style.getPropertyValue('--rm-c' + f), f0)).toBe('#123456');
     await page.evaluate(() => lhMapOpenPrefs());
-    for (const [label, on] of [['逐行標記', 'true'], ['行尾韻腳字母', 'true'], ['對照差異', 'true'], ['反白停留自動分析', 'true'], ['字數', 'true']]) {
+    for (const [label, on] of [['句構判定', 'true'], ['行尾韻腳', 'true'], ['反白停留自動分析', 'true'], ['字數', 'true']]) {
         await expect(prefSw(page, label), label).toHaveAttribute('aria-checked', on);
     }
     await expect(lookRadio(page, 'pos', 'tail')).toHaveAttribute('aria-checked', 'true');

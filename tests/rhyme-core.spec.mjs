@@ -356,7 +356,7 @@ test('設定：整理成固定的鍵', () => {
     const norm = v => ev(`lhRhymeNormalizeSettings(${j(v)})`);
     // 十五個設定鍵加 colors（五個舊開關＋雙押多押、逐行標記、三個內容項、對照差異、停留自動分析、位置、大小、濃淡）
     const D = { end: true, letters: false, inner: false, strict: false, skipParticles: true,
-        multi: true, autoColor: true, hoverOnly: false, line: false, lnRhyme: false, lnCount: true, lnSplit: true, lnDiff: false, autoHover: false,
+        multi: true, autoColor: true, hoverOnly: true, line: false, lnRhyme: false, lnCount: true, lnSplit: true, lnDiff: false, autoHover: false,
         pos: 'right', size: 'm', depth: 'std', colors: {} };
     expect(norm(null)).toEqual(D);
     expect(norm([1, 2])).toEqual(D);

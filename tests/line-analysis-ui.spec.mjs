@@ -24,8 +24,16 @@ const seedWords = (page, words) => page.evaluate(ws => {
 }, words);
 
 // 第一段鏡像層裡每個標記的 [字數, 結構文字]
-const markers = page => page.locator('.lyrics-section').first().locator('.rhyme-mirror .lm-mk').evaluateAll(els =>
-    els.map(e => [e.querySelector('.lm-t-c')?.textContent ?? null, e.querySelector('.lm-t-s')?.textContent ?? null]));
+// 每一行：[右欄字數, 行下面的斷句（每組 .lm-g 的 data-n 用 + 接起來，沒有結構是 ''）]
+const markers = page => page.locator('#lyricsSections .lyrics-section').first().locator('.rhyme-mirror').evaluate(m => {
+    const out = []; let g = [];
+    for (const n of m.childNodes) {
+        if (n.nodeType === 3) { if (n.textContent.includes('\n')) g = []; continue; }
+        if (n.classList.contains('lm-g')) g.push(n.dataset.n);
+        else if (n.classList.contains('lm-mk')) { out.push([n.querySelector('.lm-t-c')?.textContent ?? null, g.join('+')]); g = []; }
+    }
+    return out;
+});
 
 const TEXT = ['月光 灑在 窗前', '夢裡想起你的臉', '', '，。', '我想把時間留在這一天', '月光 灑在 窗前 夢裡想起你的臉'].join('\n');
 const WORDS = ['夢裡', '想起', '你的', '我想', '時間', '留在', '這一'];
@@ -41,21 +49,18 @@ test('常駐：打開逐行標記，每行右邊出現字數與斷句', async ({
     await page.evaluate(() => lhMapSetSetting('line', true));
     expect(await page.evaluate(() => document.documentElement.getAttribute('data-lm'))).toBe('right');
     await expect(page.locator('.lyrics-section').first().locator('.lm-mk')).toHaveCount(4);
-    expect(await markers(page)).toEqual([['6', '2+2+2'], ['7', '7（2·2·3）'], ['10', '10（3·2·2·3）'], ['13', '2+2+2+7（2·2·3）']]);
+    expect(await markers(page)).toEqual([['6', '2+2+2'], ['7', '2+2+3'], ['10', '3+2+2+3'], ['13', '2+2+2+2+2+3']]);
 
-    // 只有機器猜的細分（括號裡）是斜體
-    const guess = await page.locator('.lyrics-section').first().locator('.rhyme-mirror .lm-mk .lm-t-s').evaluateAll(els => els.map(e => ({
-        kids: [...e.querySelectorAll('.lm-guess')].map(g => g.textContent),
-        all: e.textContent,
-        selfStyle: getComputedStyle(e).fontStyle,
-        kidStyle: e.querySelector('.lm-guess') ? getComputedStyle(e.querySelector('.lm-guess')).fontStyle : null,
-    })));
-    expect(guess[0].kids, '自己標的整行沒有猜').toEqual([]);
-    expect(guess[1].kids).toEqual(['（2·2·3）']);
-    expect(guess[2].kids).toEqual(['（3·2·2·3）']);
-    expect(guess[3].kids, '混合行只有猜的那段').toEqual(['（2·2·3）']);
-    expect(guess[3].selfStyle).toBe('normal');
-    expect(guess[3].kidStyle).toBe('italic');
+    // 只有機器猜的那幾組數字是斜體（自己打的空白、標點分出來的是正體）
+    const guess = await page.locator('#lyricsSections .lyrics-section').first().locator('.rhyme-mirror').evaluate(m => {
+        const out = []; let g = '';
+        for (const n of m.childNodes) {
+            if (n.classList?.contains('lm-g')) g += n.classList.contains('lm-g-guess') ? (getComputedStyle(n, '::after').fontStyle === 'italic' ? 'i' : '?') : (getComputedStyle(n, '::after').fontStyle === 'normal' ? 'n' : '?');
+            else if (n.classList?.contains('lm-mk')) { out.push(g); g = ''; }
+        }
+        return out;
+    });
+    expect(guess).toEqual(['nnn', 'iii', 'iiii', 'nnniii']);
 
     expect(await lsGetMap(page)).toBe('{"end":true,"letters":false,"inner":false,"strict":false,"skipParticles":true,"line":true}');
 
@@ -85,7 +90,8 @@ test('常駐：打開逐行標記，每行右邊出現字數與斷句', async ({
     const dy = await page.evaluate(() => {
         const mirror = document.querySelector('.lyrics-section .rhyme-mirror');
         return [...mirror.querySelectorAll('.lm-mk')].map(m => {
-            const prev = m.previousSibling;   // 該行的文字
+            let prev = m.previousSibling;   // 該行的文字（最後一組可能包在 .lm-g 裡）
+            while (prev.nodeType !== 3) prev = prev.lastChild;
             const rg = document.createRange();
             rg.setStart(prev, Math.max(0, prev.textContent.length - 1));
             rg.setEnd(prev, prev.textContent.length);
@@ -99,7 +105,7 @@ test('常駐：打開逐行標記，每行右邊出現字數與斷句', async ({
     await page.reload();
     await ready(page);
     await seedWords(page, WORDS);
-    expect(await markers(page)).toEqual([['6', '2+2+2'], ['7', '7（2·2·3）'], ['10', '10（3·2·2·3）'], ['13', '2+2+2+7（2·2·3）']]);
+    expect(await markers(page)).toEqual([['6', '2+2+2'], ['7', '2+2+3'], ['10', '3+2+2+3'], ['13', '2+2+2+2+2+3']]);
 
     // 關掉：全部回到原樣
     await page.evaluate(() => lhMapSetSetting('line', false));
@@ -133,8 +139,8 @@ test('對照：打開對照差異，同類型第一段的同一行字數不同�
 
     // 韻腳 ▾ → 逐行標記 → 更多設定…
     await page.locator('#rhymeMenuBtn').click();
-    await menuSw(page, '逐行標記').click();
-    await expect(page.locator('#rhymeHintLine')).toHaveText('每行旁邊顯示字數與斷句；細項在「更多設定」');
+    await menuSw(page, '句構判定').click();
+    await expect(page.locator('#rhymeHintLine')).toHaveText('打開後照細項顯示：行尾韻腳、字數靠右，斷句結構畫在每行下面；細項在「更多設定」');
     await page.locator('#rhymeMenu .rm-more').click();
     await expect(page.locator('#rhymeMenu')).toBeHidden();
     await expect(page.locator('#settingsOverlay')).toHaveClass(/show/);
@@ -143,8 +149,8 @@ test('對照：打開對照差異，同類型第一段的同一行字數不同�
 
     // 對照差異預設關：沒有差異欄
     await expect(page.locator('.lm-t-d')).toHaveCount(0);
-    await prefSw(page, '對照差異').click();
-    await expect(prefSw(page, '對照差異')).toHaveAttribute('aria-checked', 'true');
+    await page.evaluate(() => lhMapSetSetting('lnDiff', !_lhMapSet.lnDiff));   // 對照差異的開關先藏起來了
+    await expect.poll(() => page.evaluate(() => _lhMapSet.lnDiff)).toBe(true);
     expect(await lsGetMap(page)).toContain('"lnDiff":true');
     expect(await lsGetMap(page)).toContain('"line":true');
     expect(await diffTokens(page, 0), '第一段沒有對照').toEqual(['', '', '']);
@@ -154,14 +160,14 @@ test('對照：打開對照差異，同類型第一段的同一行字數不同�
     expect(await page.locator('.lyrics-section').nth(2).locator('.lm-t-d').nth(1).evaluate(e => getComputedStyle(e).fontWeight)).toBe('700');
 
     // 兩邊同一份設定
-    await expect(prefSw(page, '逐行標記')).toContainText('開');
+    await expect(prefSw(page, '句構判定')).toContainText('開');
     // 已經開著時再叫一次，不會把面板關掉
     await page.evaluate(() => lhMapOpenPrefs());
     await expect(page.locator('#settingsOverlay')).toHaveClass(/show/);
     await page.locator('#settingsOverlay').click({ position: { x: 4, y: 4 } });
     await expect(page.locator('#settingsOverlay')).not.toHaveClass(/show/);
     await page.locator('#rhymeMenuBtn').click();
-    await expect(menuSw(page, '逐行標記')).toHaveAttribute('aria-checked', 'true');
+    await expect(menuSw(page, '句構判定')).toHaveAttribute('aria-checked', 'true');
     await page.keyboard.press('Escape');
 
     // 改 Verse I：Verse II 的 ≠ 跟著更新，Verse II 的文字不動
@@ -219,31 +225,31 @@ test('偏好設定：內容與順序', async ({ browser }) => {
     await openPrefs(page);
     const sec = page.locator('#mapSettingsSection');
     await expect(sec.locator('> .settings-backups-hint')).toHaveText('調整句尾上色、逐行字數與斷句標記的開關、位置、大小和顏色');
-    expect(await sec.locator('.section-menu-block > .section-menu-cap:first-child').allTextContents()).toEqual(['預覽', '韻腳地圖', '句構分析', '顯示方式', '韻族顏色']);
-    expect(await sec.locator('.rm-switch-label').allTextContents()).toEqual(['句尾上色', '雙押／多押', '滑過才顯示', '自動配色', '段落結構字母', '句中押韻', '忽略句尾語助詞', '逐行標記', '行尾韻腳字母', '字數', '斷句結構', '對照差異', '反白停留自動分析']);
+    expect(await sec.locator('.section-menu-block > .section-menu-cap:first-child').allTextContents()).toEqual(['韻腳地圖模式', '預覽', '韻腳地圖', '句構分析', '顯示方式', '韻族顏色']);
+    expect(await sec.locator('.rm-switch-label').allTextContents()).toEqual(['雙押／多押', '自動配色', '段落結構', '句中押韻', '忽略句尾語助詞', '句構判定', '行尾韻腳', '字數', '斷句結構', '反白停留自動分析']);
     const particle = await page.evaluate(() => LH_MAP_PARTICLE_CAP);
     const caps = await sec.locator('.section-menu-cap').allTextContents();
     for (const c of [
-        '在每個段落標題列顯示 AABB 這類字母', '句子裡面跟句尾押同韻的字，加底線（每行最多 3 個）', particle, '押韻判定',
+        await page.evaluate(() => LH_MAP_MODE_HINT), await page.evaluate(() => LH_MAP_HINT_LETTERS), await page.evaluate(() => LH_MAP_HINT_INNER), particle, '押韻判定',
         '寬韻：同一個韻族都算押韻（例：ㄤ、ㄧㄤ、ㄨㄤ）',
-        '每行旁邊顯示淡色小字；下面四項決定要顯示什麼', 'A、B…，跟著上面的寬韻／嚴格', '每行幾個字（空白、標點不算）',
-        '例如 4+4+11（4·2·3·2）。+ 是你自己打的空白和標點；括號裡斜體的是機器猜的細分，可以在「📏 分析」裡改', '跟同類型第一段的同一行字數不同時，標出 ≠ 和對方的字數',
+        '打開後照下面的細項顯示', '直接寫這一行的韻腳（ㄤ、ㄠ…），跟著上面的寬韻／嚴格', '每行幾個字（空白、標點不算）',
+        '畫在每行下面：每一組字底下一個小括號和字數；斜體數字是機器猜的，可以在「📏 分析」裡改',
         '反白後滑鼠停著不動 1.5 秒，自動打開句構面板；只有接了滑鼠的電腦會自動出現，觸控請按「分析」',
     ]) expect(caps, c).toContain(c);
     // 每個說明都有 id，開關用 aria-describedby 接起來
-    expect(await sec.locator('.rm-switch[aria-describedby]').evaluateAll(els => els.map(e => !!document.getElementById(e.getAttribute('aria-describedby'))))).toEqual(Array(12).fill(true));   // 句尾上色沒有說明
+    expect(await sec.locator('.rm-switch[aria-describedby]').evaluateAll(els => els.map(e => !!document.getElementById(e.getAttribute('aria-describedby'))))).toEqual(Array(10).fill(true));
     // 四個細項縮排在 .rm-sub 裡，從不禁用
-    expect(await sec.locator('.rm-sub .rm-switch .rm-switch-label').allTextContents()).toEqual(['行尾韻腳字母', '字數', '斷句結構', '對照差異']);
+    expect(await sec.locator('.rm-sub .rm-switch .rm-switch-label').allTextContents()).toEqual(['行尾韻腳', '字數', '斷句結構']);   // 對照差異先藏起來
     expect(await sec.locator('.rm-switch[disabled], .rm-switch[aria-disabled]').count()).toBe(0);
 
     // 逐行標記關著：細項照樣能設、值留著；總開關打開後立刻生效
-    await expect(prefSw(page, '逐行標記')).toHaveAttribute('aria-checked', 'false');
-    await prefSw(page, '對照差異').click();
-    await expect(prefSw(page, '對照差異')).toHaveAttribute('aria-checked', 'true');
-    await expect(prefSw(page, '逐行標記')).toHaveAttribute('aria-checked', 'false');
+    await expect(prefSw(page, '句構判定')).toHaveAttribute('aria-checked', 'false');
+    await page.evaluate(() => lhMapSetSetting('lnDiff', !_lhMapSet.lnDiff));   // 對照差異的開關先藏起來了
+    await expect.poll(() => page.evaluate(() => _lhMapSet.lnDiff)).toBe(true);
+    await expect(prefSw(page, '句構判定')).toHaveAttribute('aria-checked', 'false');
     await expect(page.locator('.lm-mk')).toHaveCount(0);
-    await prefSw(page, '逐行標記').click();
-    await expect(prefSw(page, '對照差異')).toHaveAttribute('aria-checked', 'true');
+    await prefSw(page, '句構判定').click();
+    await expect.poll(() => page.evaluate(() => _lhMapSet.lnDiff)).toBe(true);
     expect(await diffTokens(page, 1)).toEqual(['', '≠5']);
     expect(errors).toEqual([]);
     await context.close();
@@ -252,12 +258,12 @@ test('偏好設定：內容與順序', async ({ browser }) => {
 test('偏好設定：兩邊同步', async ({ browser }) => {
     const { context, page, errors } = await bootPage(browser, { wordlist: 'stub', storage: v2Storage([song([typed('sa', 'verse', F_ABAB)])]) });
     await openPrefs(page);
-    await prefSw(page, '段落結構字母').click();
+    await prefSw(page, '段落結構').click();
     await expect(page.locator('.section-rhyme').first()).toBeVisible();
     await page.locator('#settingsOverlay').click({ position: { x: 4, y: 4 } });
     await page.locator('#rhymeMenuBtn').click();
-    await expect(menuSw(page, '段落結構字母')).toHaveAttribute('aria-checked', 'true');
-    await expect(menuSw(page, '段落結構字母')).toContainText('開');
+    await expect(menuSw(page, '段落結構')).toHaveAttribute('aria-checked', 'true');
+    await expect(menuSw(page, '段落結構')).toContainText('開');
     await page.locator('#rhymeMenu .type-row[data-m="strict"]').click();
     await page.locator('#rhymeMenu .rm-more').click();
     const strictRow = page.locator('#mapSettingsSection .type-row[data-m="strict"]');
@@ -275,10 +281,10 @@ test('偏好設定：兩邊同步', async ({ browser }) => {
     await ready(page);
     await page.locator('#rhymeMenuBtn').click();
     await expect(page.locator('#rhymeMenu .type-row[data-m="strict"]')).toHaveAttribute('aria-checked', 'true');
-    await expect(menuSw(page, '段落結構字母')).toHaveAttribute('aria-checked', 'true');
+    await expect(menuSw(page, '段落結構')).toHaveAttribute('aria-checked', 'true');
     await page.locator('#rhymeMenu .rm-more').click();
     await expect(page.locator('#mapSettingsSection .type-row[data-m="strict"]')).toHaveAttribute('aria-checked', 'true');
-    await expect(prefSw(page, '段落結構字母')).toHaveAttribute('aria-checked', 'true');
+    await expect(prefSw(page, '段落結構')).toHaveAttribute('aria-checked', 'true');
     expect(errors).toEqual([]);
     await context.close();
 });
@@ -289,11 +295,11 @@ test('偏好設定：別的分頁改了設定', async ({ browser }) => {
     const [a, b] = pages;
     await openPrefs(b);
     await expect(prefSw(b, '斷句結構')).toHaveAttribute('aria-checked', 'true');
-    expect(await b.locator('#lyricsSections .rhyme-mirror .lm-t-s').count()).toBe(1);
+    expect(await b.locator('#lyricsSections .rhyme-mirror .lm-g').count()).toBe(3);
     await a.evaluate(() => localStorage.setItem('lh:map', '{"end":true,"letters":false,"inner":false,"strict":false,"skipParticles":true,"line":true,"lnSplit":false}'));
     await expect(prefSw(b, '斷句結構')).toHaveAttribute('aria-checked', 'false');
     await expect(prefSw(b, '斷句結構')).toContainText('關');
-    await expect(b.locator('#lyricsSections .rhyme-mirror .lm-t-s')).toHaveCount(0);
+    await expect(b.locator('#lyricsSections .rhyme-mirror .lm-g')).toHaveCount(0);
     await expect(b.locator('#lyricsSections .rhyme-mirror .lm-t-c')).toHaveCount(1);
     for (const e of errs) expect(e.errors).toEqual([]);
     await context.close();
@@ -304,18 +310,18 @@ test('偏好設定：四個細項都關', async ({ browser }) => {
     await openPrefs(page);
     const none = page.locator('#mapSettingsSection .rm-none');
     await expect(none).toBeHidden();
-    await prefSw(page, '逐行標記').click();
+    await prefSw(page, '句構判定').click();
     await expect(none).toBeHidden();   // 字數與斷句預設開著
     await prefSw(page, '字數').click();
     await prefSw(page, '斷句結構').click();
     await expect(none).toBeVisible();
-    await expect(none).toHaveText('四個細項都關著，所以沒有東西可顯示');
+    await expect(none).toHaveText('細項都關著，所以沒有東西可顯示');
     await expect(page.locator('#lyricsSections .lm-mk')).toHaveCount(0);
     expect(await page.evaluate(() => document.documentElement.getAttribute('data-lm'))).toBeNull();
     // 細項沒被禁用，值各自留著
     await expect(prefSw(page, '字數')).toBeEnabled();
     await expect(prefSw(page, '字數')).toHaveAttribute('aria-checked', 'false');
-    await prefSw(page, '行尾韻腳字母').click();
+    await prefSw(page, '行尾韻腳').click();
     await expect(none).toBeHidden();
     await expect(page.locator('#lyricsSections .lm-mk')).toHaveCount(1);
     expect(errors).toEqual([]);
@@ -359,7 +365,7 @@ test('常駐：行尾韻腳字母跟著寬韻嚴格', async ({ browser }) => {
     const letters = () => page.locator('.lyrics-section').first().locator('.rhyme-mirror .lm-t-r').evaluateAll(els => els.map(e => [e.textContent, e.dataset.f !== undefined]));
     for (const strict of [false, true]) {
         await page.evaluate(v => lhMapSetSetting('strict', v), strict);
-        const want = await page.evaluate(([t, st]) => Array.from(lhRhymeAnalyze(t, { strict: st, skipParticles: true }, null).letters), [F_ABAB, strict]);
+        const want = await page.evaluate(([t, st]) => lhRhymeAnalyze(t, { strict: st, skipParticles: true }, null).rows.map(r => r.label || '-'), [F_ABAB, strict]);
         const got = await letters();
         expect(got.map(x => x[0]), strict ? '嚴格' : '寬韻').toEqual(want);
         for (const [t, hasF] of got) expect(hasF, '有韻腳的字母才有家族色').toBe(t !== '-');
@@ -387,7 +393,7 @@ test('詞庫載入：先只有字數與明確斷點，載好後補上括號', as
     await expect(page.locator('#mapSettingsSection .rm-lex-wait')).toBeVisible();
     release();
     await page.evaluate(() => window.__lhMapReady);
-    await expect.poll(() => markers(page)).toEqual([['6', '2+2+2'], ['7', '7（2·2·3）']]);
+    await expect.poll(() => markers(page)).toEqual([['6', '2+2+2'], ['7', '2+2+3']]);
     await expect(page.locator('#mapSettingsSection .rm-lex-wait')).toBeHidden();
     expect(errors).toEqual([]);
     await context.close();
@@ -477,10 +483,10 @@ test('顯示方式：切到句尾後，標記貼在最後一個字後面，游�
             return (b === 'none' || b === 'normal' ? (n ? ' ' : '') : ' ' + JSON.parse(b)) + t.textContent;
         }).join('');
     });
-    expect(text.replace(/\s+/g, ' ')).toMatch(/^\S · 7 ≠6 · 2\+2\+3$/);
+    expect(text.replace(/\s+/g, ' ')).toMatch(/^\S+ · 7 ≠6$/);   // 斷句改畫在行下面，不在標記裡
     // 沒有對照差異的偶數行：沒有 ≠ 欄位
     const even = await page.evaluate(() => [...document.querySelectorAll('.lyrics-section')[1].querySelectorAll('.lm-mk')[0].querySelectorAll('.lm-t')].filter(t => getComputedStyle(t).display !== 'none').map(t => t.className.replace('lm-t ', '')));
-    expect(even).toEqual(['lm-t-r', 'lm-t-c', 'lm-t-s']);
+    expect(even).toEqual(['lm-t-r', 'lm-t-c']);
 
     // 切回靠右欄：內距回來、標記還是同一批節點、游標選取捲動照舊
     await lookRadio(page, 'pos', 'right').click();
@@ -527,7 +533,7 @@ test('顯示方式：字級與濃淡馬上生效、不重畫', async ({ browser 
     const stdBg = await bandBg(page);
     expect(stdBg).not.toBeNull();
     await page.evaluate(() => lhMapMenuBuild());
-    const swBg = () => page.evaluate(() => getComputedStyle(document.querySelector('#rhymeMenu .rm-sw[data-f="0"]')).backgroundColor);
+    const swBg = () => page.evaluate(() => (f => { let e = document.getElementById('__swProbe'); if (!e) { e = document.createElement('span'); e.id = '__swProbe'; e.className = 'rm-sw'; document.body.append(e); } e.dataset.f = f; return getComputedStyle(e).backgroundColor; })('0'))   // 選單的色票圖例拿掉了：用一個暫時色塊量;
     const stdSw = await swBg();
 
     // 大：1rem，欄位變寬（不超過 36%），節點不重建
@@ -728,13 +734,17 @@ test('換行不變：標記開關前後每個字的位置都一樣', async () =>
                     });
                     matrix++;
                     // 句尾後不加內距：標記開關前後輸入框每個字的位置也一樣
+                    // （斷句結構畫在行下面時會刻意加大行高，所以這裡先關掉斷句結構再比）
                     if (pos === 'tail' && (w === b.w - 1 || w === b.w || w === 330 || w === 1500)) {
+                        await page.evaluate(() => lhMapSetSetting('lnSplit', false));
+                        await frames(page);
+                        const taOn = await taSnap(page);
                         await page.evaluate(() => lhMapSetSetting('line', false));
                         await frames(page);
                         const taOff = await taSnap(page);
-                        await page.evaluate(() => lhMapSetSetting('line', true));
+                        await page.evaluate(() => { lhMapSetSetting('line', true); lhMapSetSetting('lnSplit', true); });
                         await frames(page);
-                        expect(sameNums(ta.nums, taOff.nums), `${tag}：輸入框每個字的位置在標記開關前後相同`).toBe(true);
+                        expect(sameNums(taOn.nums, taOff.nums), `${tag}：輸入框每個字的位置在標記開關前後相同`).toBe(true);
                     }
                 }
             }
@@ -794,7 +804,7 @@ test('最後視覺列：換行的行標記在最後一個視覺列', async () =>
     await browser.close();
 });
 
-test('最後視覺列：手機放大 150% 欄位不超過 36%，結構太長時裁切', async () => {
+test('最後視覺列：手機放大 150% 欄位不超過 36%，長結構畫在行下面', async () => {
     test.setTimeout(120000);
     const browser = await launchWithBars();
     const LONG = '我 你 他 她 它 們 好 壞 大 小 多';
@@ -810,17 +820,16 @@ test('最後視覺列：手機放大 150% 欄位不超過 36%，結構太長時�
     await expect(page.locator('.lm-mk')).toHaveCount(2);
     const r = await page.evaluate(() => {
         const ta = document.querySelector('.section-textarea'), mirror = ta.previousElementSibling;
-        const mks = [...mirror.querySelectorAll('.lm-mk')], m = mks[1], s = m.querySelector('.lm-t-s');
+        const mks = [...mirror.querySelectorAll('.lm-mk')], m = mks[1];
         // 第二行最後一個字的右緣
         let node = m.previousSibling;
         while (node && node.nodeType !== 3) node = node.lastChild;
         const rg = document.createRange(); rg.setStart(node, node.length - 1); rg.setEnd(node, node.length);
         const rects = rg.getClientRects(), c = rects[rects.length - 1];
-        return { w: m.getBoundingClientRect().width, body: ta.parentElement.getBoundingClientRect().width, sw: s.scrollWidth, cw: s.clientWidth, gap: m.getBoundingClientRect().left - c.right, text: s.textContent };
+        return { w: m.getBoundingClientRect().width, body: ta.parentElement.getBoundingClientRect().width, gap: m.getBoundingClientRect().left - c.right, groups: mirror.querySelectorAll('.lm-g').length };
     });
-    expect(r.text).toBe('1+1+1+1+1+1+1+1+1+1+1');
+    expect(r.groups, '兩行的斷句都畫在行下面（3＋11 組）').toBe(14);
     expect(r.w, '欄位寬度不超過輸入框的 36%').toBeLessThanOrEqual(0.36 * r.body + 1);
-    expect(r.sw, '結構太長：被裁切').toBeGreaterThan(r.cw);
     expect(r.gap, '歌詞的字不會伸到欄位底下').toBeGreaterThanOrEqual(-0.5);
     expect(errors).toEqual([]);
     await context.close();
@@ -936,7 +945,7 @@ test('韻族顏色：改一個韻族的顏色，色塊馬上變、存起來、�
     await expect(page.locator('#mapSettingsSection .rm-colors .rm-color-cell')).toHaveCount(17);
     expect(await page.locator('#mapSettingsSection .rm-colors input').count()).toBe(16);
     const band = () => page.evaluate(() => getComputedStyle([...document.querySelectorAll('#lyricsSections .rm-hl')].find(e => e.textContent === '光')).backgroundColor);
-    const swatch = () => page.evaluate(f => getComputedStyle(document.querySelector(`#rhymeMenu .rm-sw[data-f="${f}"]`)).backgroundColor, f);
+    const swatch = () => page.evaluate(f => (f => { let e = document.getElementById('__swProbe'); if (!e) { e = document.createElement('span'); e.id = '__swProbe'; e.className = 'rm-sw'; document.body.append(e); } e.dataset.f = f; return getComputedStyle(e).backgroundColor; })(String(f)), f);
     const bg0 = await band(), sw0 = await swatch();
     await page.evaluate(() => { window.__mirror = document.querySelector('#lyricsSections .rhyme-mirror'); window.__hl = document.querySelector('#lyricsSections .rm-hl'); });
     const mapBefore = await lsGetMap(page);
@@ -1164,8 +1173,8 @@ test('預覽：和真的歌詞畫出來一模一樣', async ({ browser }) => {
     };
     const base = await same('預設');
     // 真的有東西可比：色塊、底線或標記至少各一種
-    for (const c of ['rm-hl', 'lm-mk', 'lm-t-c', 'lm-t-s', 'lm-t-r']) expect(base.spans.some(s => s[0].split(' ').includes(c)), c).toBe(true);
-    expect(base.spans.some(s => s[0].includes('lm-guess')), '機器猜的斷句也畫').toBe(true);
+    for (const c of ['rm-hl', 'lm-mk', 'lm-t-c', 'lm-g', 'lm-t-r']) expect(base.spans.some(s => s[0].split(' ').includes(c)), c).toBe(true);
+    expect(base.spans.some(s => s[0].includes('lm-g-guess')), '機器猜的斷句也畫').toBe(true);
     await page.evaluate(() => lhMapSetSetting('strict', true));
     const strict = await same('嚴格');
     await page.evaluate(() => lhMapSetSetting('lnCount', false));
@@ -1181,7 +1190,7 @@ test('預覽：和真的歌詞畫出來一模一樣', async ({ browser }) => {
 test('預覽：每個開關都看得到', async ({ browser }) => {
     const { context, page, errors } = await bootPage(browser, {
         wordlist: 'stub',
-        storage: v2Storage([song([typed('sa', 'verse', F_AABB)])], { ...OPEN_PANELS, 'lh:map': JSON.stringify({ line: true, lnRhyme: true, lnCount: true, lnSplit: true }) }),
+        storage: v2Storage([song([typed('sa', 'verse', F_AABB)])], { ...OPEN_PANELS, 'lh:map': JSON.stringify({ line: true, lnRhyme: true, lnCount: true, lnSplit: true, hoverOnly: false }) }),
     });
     await page.evaluate(() => lhMapOpenPrefs());
     const pv = page.locator('#mapSettingsSection .lm-preview');
@@ -1197,17 +1206,17 @@ test('預覽：每個開關都看得到', async ({ browser }) => {
     await expect(pv.locator('.lm-t-c')).toHaveCount(11);
     // 對照差異：單獨一段看不到，所以出說明
     await expect(diffCap).toBeHidden();
-    await prefSw(page, '對照差異').click();
+    await page.evaluate(() => lhMapSetSetting('lnDiff', !_lhMapSet.lnDiff));   // 對照差異的開關先藏起來了
     await expect(diffCap).toBeVisible();
     await expect(diffCap).toHaveText('對照差異要有同類型的前一段才看得到');
-    await prefSw(page, '對照差異').click();
+    await page.evaluate(() => lhMapSetSetting('lnDiff', !_lhMapSet.lnDiff));   // 對照差異的開關先藏起來了
     await expect(diffCap).toBeHidden();
     // 位置：句尾後 → 右內距回到 0.75rem，標記貼在最後一個字後面
     const geo = () => page.evaluate(() => {
         const el = document.querySelector('#mapSettingsSection .lm-preview'), rem = parseFloat(getComputedStyle(document.documentElement).fontSize);
         const mk = el.querySelector('.lm-mk');
         let prev = mk.previousSibling;
-        if (prev.nodeType === 1) prev = prev.lastChild;   // 句尾是上色的英文字（span）
+        while (prev.nodeType !== 3) prev = prev.lastChild;   // 句尾可能包在斷句 .lm-g 或上色的 span 裡
         const rg = document.createRange(); rg.setStart(prev, prev.textContent.length - 1); rg.setEnd(prev, prev.textContent.length);
         return { pad: parseFloat(getComputedStyle(el).paddingRight) / rem, dx: (mk.getBoundingClientRect().left - rg.getBoundingClientRect().right) / rem, fs: parseFloat(getComputedStyle(el.querySelector('.lm-t')).fontSize) / rem };
     });
@@ -1238,21 +1247,13 @@ test('預覽：每個開關都看得到', async ({ browser }) => {
     await context.close();
 });
 
-test('預覽：高的螢幕上固定在上面', async ({ browser }) => {
+test('預覽：不固定、沒有自己的捲軸，整個面板一起捲', async ({ browser }) => {
     const { context, page, errors } = await bootPage(browser, { wordlist: 'stub', storage: v2Storage([song([typed('sa', 'verse', F_AABB)])]) });
     await page.setViewportSize({ width: 1280, height: 900 });
     await page.evaluate(() => lhMapOpenPrefs());
     const blk = page.locator('#mapSettingsSection .lm-preview-block');
-    expect(await blk.evaluate(e => getComputedStyle(e).position)).toBe('sticky');
-    // 往下捲設定視窗：預覽留在視窗上緣
-    const tops = await page.evaluate(async () => {
-        const dd = document.querySelector('#mapSettingsSection'), b = document.querySelector('#mapSettingsSection .lm-preview-block');
-        dd.scrollTop = dd.scrollHeight;
-        await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
-        return { dd: dd.getBoundingClientRect().top + dd.clientTop, b: b.getBoundingClientRect().top, scrolled: dd.scrollTop };
-    });
-    expect(tops.scrolled, '設定視窗真的捲動了').toBeGreaterThan(0);
-    expect(Math.abs(tops.b - tops.dd), '預覽貼著視窗上緣').toBeLessThan(2);
+    expect(await blk.evaluate(e => getComputedStyle(e).position)).toBe('static');
+    expect(await page.locator('#mapSettingsSection .lm-preview').evaluate(e => e.scrollHeight <= e.clientHeight + 1), '預覽沒有內層捲軸').toBe(true);
     // 預覽不在 Tab 順序裡，讀屏軟體也略過
     const pv = page.locator('#mapSettingsSection .lm-preview');
     expect(await pv.evaluate(e => [e.tabIndex, e.querySelectorAll('button, a, input, [tabindex]').length, e.getAttribute('aria-hidden')])).toEqual([-1, 0, 'true']);
@@ -1260,9 +1261,6 @@ test('預覽：高的螢幕上固定在上面', async ({ browser }) => {
         await page.keyboard.press('Tab');
         expect(await page.evaluate(() => !!document.activeElement.closest('.lm-preview'))).toBe(false);
     }
-    // 矮的螢幕（橫放的手機）不固定
-    await page.setViewportSize({ width: 844, height: 390 });
-    expect(await blk.evaluate(e => getComputedStyle(e).position)).toBe('static');
     expect(errors).toEqual([]);
     await context.close();
 });

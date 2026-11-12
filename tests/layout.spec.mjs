@@ -1612,13 +1612,11 @@ const TOUCH_STORAGE = {
 };
 // 每個畫面：名稱、一定要掃到的控制項（防止掃了個寂寞）、開啟方式
 // 韻腳選單（Phase 10）：開關、判定 radio、色票對照鈕、關閉鈕都要夠大（「韻腳 ▾」本身在「歌詞開著」掃；手機上選單會蓋住它）；色票格不能點，所以不掃
-const RHYME_MENU_MUST = ['button.rm-switch', '#rhymeMenu button[role=radio]', 'button.rm-legend-toggle', '#rhymeMenu button.rm-more'];
+const RHYME_MENU_MUST = ['button.rm-switch', '#rhymeMenu button[role=radio]', 'button.rm-seg-btn', '#rhymeMenu button.rm-more']   // 色票圖例拿掉了（0.96.26），換成模式三鈕;
 const openRhymeMenu = async (page, d) => {
     await toggleSide(page, d, 'lyrics');
     await pointerOf(d)(page.locator('#rhymeMenuBtn'));
     await expect(page.locator('#rhymeMenu')).toBeVisible();
-    await pointerOf(d)(page.locator('#rhymeMenu .rm-legend-toggle'));   // 打開色票對照
-    await expect(page.locator('#rhymeLegend')).toBeVisible();
     await waitStill(page);
 };
 const TOUCH_STATES = [

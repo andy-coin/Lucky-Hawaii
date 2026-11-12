@@ -23,7 +23,7 @@ const secs = page => page.locator('#lyricsSections .lyrics-section');
 const bands = (page, n = 0) => secs(page).nth(n).locator('.rhyme-mirror .rm-hl').evaluateAll(els => els.map(e => [e.textContent, e.dataset.f]));
 const stripTexts = page => secs(page).evaluateAll((els, q) => els.map(e => {
     const b = e.querySelector(q);
-    return b && !b.hidden && getComputedStyle(b).display !== 'none' ? b.textContent : null;
+    return b && !b.hidden && getComputedStyle(b).display !== 'none' ? [...b.childNodes].map(n => n.dataset ? (n.dataset.letter ?? n.textContent) : n.textContent).join('') : null;
 }), STRIP);
 const sw = (page, name) => page.locator('#rhymeMenu .rm-switch', { hasText: name });
 const radio = (page, name) => page.locator('#rhymeMenu [role=radio]', { hasText: name });
@@ -107,8 +107,8 @@ test('整合：韻腳地圖一次走完', async ({ browser }) => {
     await page.locator('#rhymeMenuBtn').click();
     await expect(page.locator('#rhymeMenu')).toBeVisible();
     expect(await stripTexts(page), '預設沒有字母條').toEqual([null, null]);
-    await sw(page, '段落結構字母').click();
-    await expect(sw(page, '段落結構字母')).toHaveAttribute('aria-checked', 'true');
+    await sw(page, '段落結構').click();
+    await expect(sw(page, '段落結構')).toHaveAttribute('aria-checked', 'true');
     const letters1 = 'ABABAA';
     const letters2 = info.fa === fGuang ? 'AA' : 'AB';
     expect(await stripTexts(page)).toEqual([letters1, letters2]);
@@ -121,13 +121,14 @@ test('整合：韻腳地圖一次走完', async ({ browser }) => {
     await radio(page, '寬韻').click();
     await expect.poll(async () => (await stripTexts(page))[0]).toBe(letters1);
     // 忽略句尾語助詞：關掉後色塊移到「啊」，再打開回到「亮」
-    await sw(page, '忽略句尾語助詞').click();
+    // 語助詞與句中押韻的開關搬到「更多設定」（Andy 2026-11-13 精簡快速選單），這裡直接設
+    await page.evaluate(() => lhMapSetSetting('skipParticles', false));
     await expect.poll(async () => (await bands(page, 0))[4][0]).toBe('啊');
-    await sw(page, '忽略句尾語助詞').click();
+    await page.evaluate(() => lhMapSetSetting('skipParticles', true));
     await expect.poll(async () => (await bands(page, 0))[4][0]).toBe('亮');
     expect(await bands(page, 0)).toEqual([...colored, ['亮', fGuang]]);
     // 句中押韻：底線出現
-    await sw(page, '句中押韻').click();
+    await page.evaluate(() => lhMapSetSetting('inner', true));
     await expect.poll(() => page.locator('.rm-inner').count()).toBeGreaterThan(0);
     expect(await page.locator('.rm-inner').first().evaluate(e => getComputedStyle(e).textDecorationLine)).toBe('underline');
     const innerCount = await page.locator('.rm-inner').count();
@@ -174,7 +175,7 @@ test('整合：韻腳地圖一次走完', async ({ browser }) => {
     // ===== 6. 從字母條看統計，逐句一列，點「道」那一列就查「道」=====
     await page.locator(STRIP).first().click();
     await expect(page.locator('#rhymeStats')).toBeVisible();
-    await expect(page.locator('#rhymeStats .rm-letters')).toHaveText(letters1);
+    await expect.poll(() => page.locator('#rhymeStats .rm-letters').evaluate(b => [...b.children].map(n => n.dataset.letter).join(''))).toBe(letters1);   // 畫面寫韻腳，字母在 data-letter
     await expect(page.locator('#rhymeStats .rm-row')).toHaveCount(6);
     await page.locator('#rhymeStats .rm-row').nth(1).click();
     await expect(page.locator('#searchInput')).toHaveValue('道');
@@ -196,8 +197,8 @@ test('整合：韻腳地圖一次走完', async ({ browser }) => {
     await expect(page.locator('.rm-inner')).toHaveCount(innerCount);
     expect((await activeSongRaw(page)).readings).toEqual({ [READ_TAIL]: info.other });
     await page.locator('#rhymeMenuBtn').click();
-    await expect(sw(page, '段落結構字母')).toHaveAttribute('aria-checked', 'true');
-    await expect(sw(page, '句中押韻')).toHaveAttribute('aria-checked', 'true');
+    await expect(sw(page, '段落結構')).toHaveAttribute('aria-checked', 'true');
+    expect(await page.evaluate(() => _lhMapSet.inner)).toBe(true);
     await expect(radio(page, '寬韻')).toHaveAttribute('aria-checked', 'true');
     await page.keyboard.press('Escape');
     await expect(page.locator('#rhymeMenu')).toBeHidden();

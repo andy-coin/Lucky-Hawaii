@@ -83,7 +83,7 @@ const expectBandsAligned = async (page, tag) => {
 };
 
 // ==================== 三種裝置的觸控大小 ====================
-const MINE = /rhymeMenuBtn|rm-more|rm-switch|type-row|rm-legend-toggle|section-menu-close|section-rhyme|rm-row|rm-bar|rm-chip/;
+const MINE = /rhymeMenuBtn|rm-more|rm-switch|type-row|rm-seg-btn|section-menu-close|section-rhyme|rm-row|rm-bar|rm-chip/;
 test('檢查：三種裝置的觸控大小（韻腳地圖）', async ({ browser }) => {
     test.setTimeout(240_000);
     const two = v2Storage([song([typed('sa', 'verse', F_AABB), typed('sb', 'chorus', READ_TXT)])], { ...OPEN_PANELS, 'lh:map': MAP_LETTERS });
@@ -102,9 +102,7 @@ test('檢查：三種裝置的觸控大小（韻腳地圖）', async ({ browser 
         // 選單開著、色票對照展開：每個開關、兩個判定 radio、色票對照鈕、關閉鈕
         await page.locator('#rhymeMenuBtn').click();
         await expect(page.locator(MENU)).toBeVisible();
-        await page.locator('#rhymeMenu .rm-legend-toggle').click();
-        await expect(page.locator('#rhymeLegend')).toBeVisible();
-        await audit(['#rhymeMenu .rm-switch', '#rhymeMenu .type-row', '#rhymeMenu .rm-legend-toggle', '#rhymeMenu .rm-more'], '選單');
+        await audit(['#rhymeMenu .rm-switch', '#rhymeMenu .type-row', '#rhymeMenu .rm-seg-btn', '#rhymeMenu .rm-more'], '選單');
         await page.keyboard.press('Escape');   // 選單沒有關閉鈕了（R2）：Esc 或點外面
         await expect(page.locator(MENU)).toBeHidden();
         // 統計開著：逐句列與關閉鈕
@@ -135,7 +133,6 @@ test('檢查：選單、統計、浮動列在小螢幕都看得到', async ({ br
         await openLyricsTab(page);
         // 選單（色票對照展開時最高）：整個在可見範圍內，最後一個鈕捲得到
         await page.locator('#rhymeMenuBtn').click();
-        await page.locator('#rhymeMenu .rm-legend-toggle').click();
         await waitStill(page);
         await expectFullyInViewport(page, page.locator(MENU));
         const close = page.locator('#rhymeMenu .rm-more');
@@ -143,7 +140,7 @@ test('檢查：選單、統計、浮動列在小螢幕都看得到', async ({ br
         await expectFullyInViewport(page, close);
         const ov = await page.locator(MENU).evaluate(n => ({ sh: n.scrollHeight, ch: n.clientHeight, oy: getComputedStyle(n).overflowY }));
         expect(ov.sh <= ov.ch + 1 || /(auto|scroll)/.test(ov.oy), name + '：選單放得下，或自己會捲').toBe(true);
-        for (const label of ['句尾上色', '段落結構字母', '句中押韻', '忽略句尾語助詞']) {
+        for (const label of ['段落結構', '句構判定']) {   // 選單精簡了（0.96.26）
             const s = sw(page, label);
             await s.scrollIntoViewIfNeeded();
             await expectFullyInViewport(page, s);
@@ -436,7 +433,7 @@ test('檢查：舊歌與舊資料', async ({ browser }) => {
     const info = await polyInfo(A.page);
     await A.page.locator('#rhymeMenuBtn').click();
     await radio(A.page, '嚴格').click();
-    await sw(A.page, '句中押韻').click();
+    await A.page.evaluate(() => lhMapSetSetting('inner', true));   // 句中押韻搬到偏好設定了
     await A.page.keyboard.press('Escape');   // 選單沒有關閉鈕了（R2）：Esc 或點外面
     await pick(A.page, 4, 5, 0);
     await expect(A.page.locator(BAR + ' .rm-bar-rd')).toBeVisible();
@@ -478,23 +475,21 @@ test('檢查：顏色以外的線索', async ({ browser }) => {
     await waitStill(page);
     // 鏡像層只是裝飾：螢幕閱讀器看不到
     expect(await page.locator('.rhyme-mirror').evaluateAll(els => els.map(e => e.getAttribute('aria-hidden')))).toEqual(['true', 'true']);
-    // 結構字母開著：字母條用字母重複了分組
-    expect(await page.locator(STRIP).first().textContent()).toBe('AABB');
-    expect(await page.locator(STRIP).first().getAttribute('aria-label')).toContain('AABB');
+    // 段落結構開著：直接寫韻腳（ㄤㄤㄠㄠ），字母留在 data-letter 和讀屏文字
+    expect(await page.locator(STRIP).first().textContent()).toBe('ㄤㄤㄠㄠ');
+    expect(await page.locator(STRIP).first().locator('[data-letter]').evaluateAll(els => els.map(e => e.dataset.letter).join(''))).toBe('AABB');
     // 統計：字母、韻母文字、次數都是文字
     await page.locator(STRIP).first().click();
     await expect(page.locator(STATS)).toBeVisible();
-    expect(await page.locator(STATS + ' .rm-group').evaluateAll(els => els.map(e => [...e.children].map(c => c.textContent)))).toEqual([['A', '', 'ㄤ ×2'], ['B', '', 'ㄠ ×2']]);
+    expect(await page.locator(STATS + ' .rm-group').evaluateAll(els => els.map(e => [...e.children].map(c => c.textContent)))).toEqual([['', 'ㄤ ×2'], ['', 'ㄠ ×2']]);
     expect(await page.locator(STATS + ' .rm-row').evaluateAll(els => els.map(e => e.getAttribute('aria-label')))).toEqual(['查韻：光，第 1 句', '查韻：窗，第 2 句', '查韻：道，第 3 句', '查韻：到，第 4 句']);
     await page.locator(STATS + ' .section-menu-close').click();
     // 選單：開關用「開／關」字並帶 aria-checked；色票對照 17 格都有文字標籤
     await page.locator('#rhymeMenuBtn').click();
     const switches = await page.locator('#rhymeMenu .rm-switch').evaluateAll(els => els.map(e => [e.dataset.k, e.getAttribute('aria-checked'), e.querySelector('.rm-pill').textContent]));
-    expect(switches).toEqual([['end', 'true', '開'], ['letters', 'true', '開'], ['inner', 'false', '關'], ['line', 'false', '關'], ['skipParticles', 'true', '開']]);
-    await page.locator('#rhymeMenu .rm-legend-toggle').click();
-    const labels = await page.locator('#rhymeLegend .rm-cell-label').allTextContents();
-    expect(labels).toHaveLength(17);
-    expect(labels.every(t => t.trim().length > 0)).toBe(true);
+    expect(switches).toEqual([['letters', 'true', '開'], ['line', 'false', '關']]);
+    // 模式三鈕：有字、目前的那顆 aria-checked（不靠顏色）
+    expect(await page.locator('#rhymeMenu .rm-seg-btn').evaluateAll(els => els.map(e => [e.textContent, e.getAttribute('aria-checked')]))).toEqual([['關閉', 'false'], ['重點跟隨', 'true'], ['全部標記', 'false']]);
     await page.keyboard.press('Escape');   // 選單沒有關閉鈕了（R2）：Esc 或點外面
     // 手動讀音：句尾字多一條虛線底線（不靠顏色），而且朗讀區會說
     const info = await polyInfo(page);

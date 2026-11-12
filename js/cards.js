@@ -231,6 +231,12 @@
             if (el) {
                 el.textContent = selectedChars.size > 0 ? `已選 ${selectedChars.size} 字` : '';
             }
+            // 已選的字用大字排在結果最上面（Andy：讓創作者一直盯著它想）；有選字時整列黏在捲動區頂端
+            const board = document.getElementById('selBoard');
+            if (board) {
+                board.replaceChildren(...[...selectedChars].map(c => { const sp = document.createElement('span'); sp.textContent = c; return sp; }));
+                board.closest('.results-header')?.classList.toggle('has-sel', selectedChars.size > 0);
+            }
             // 🚩 回報鈕：沒選字時標成 aria-disabled（仍可按，會跳提示），選了就恢復
             document.querySelectorAll('.btn-report').forEach(b => b.setAttribute('aria-disabled', selectedChars.size === 0 ? 'true' : 'false'));
             updateSelectedCharsHint();
