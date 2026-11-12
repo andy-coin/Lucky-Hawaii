@@ -345,7 +345,7 @@
                 <button type="button" id="songListToggle" class="song-toggle" onclick="toggleSongList()" aria-expanded="false" aria-controls="songList" aria-label="開關歌曲清單" title="開關歌曲清單">☰ 歌曲</button>
                 <span id="songCurrent" class="song-current"></span>
                 <button type="button" id="exportToggle" class="export-toggle" onclick="toggleExportMenu(event)" aria-haspopup="menu" aria-expanded="false" aria-label="匯出這首歌" title="匯出這首歌"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg><span class="btn-label">匯出</span></button>
-                <button type="button" class="panel-add-btn" onclick="addLyricsSection()" aria-label="在這首歌新增一個段落" title="在這首歌新增一個段落"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span class="btn-label">新增段落</span></button>
+                <button type="button" id="editorOpenBtn" class="export-toggle editor-open-btn" onclick="lhEditorOpen()" aria-haspopup="dialog" aria-label="展開完整歌詞編輯器" title="展開完整歌詞編輯器（也可以雙擊歌詞）"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 4h6v6M20 4l-7 7M10 20H4v-6M4 20l7-7"/></svg><span class="btn-label">展開</span></button>
             </div>
             <div class="lyrics-layout">
                 <aside id="songList" class="song-list" aria-label="歌曲清單" hidden inert>
@@ -378,9 +378,21 @@
                                 placeholder="一兩句話寫下這首歌的情境、風格、主題…"></textarea>
                         </div>
                     </div>
+                    <button type="button" class="panel-add-btn section-add-btn" onclick="addLyricsSection()" aria-label="在這首歌新增一個段落" title="在這首歌新增一個段落"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span class="btn-label">新增段落</span></button>
                     <div class="lyrics-area" id="lyricsSections">載入歌詞中…</div>
                 </div>
             </div>
+        </div>
+    </div>
+
+    <!-- 完整歌詞編輯器（R2）：打開時把左側的歌詞標題列與歌詞區整塊「搬」進來、關閉時搬回去（js/lyrics.js lhEditorOpen），不另做一份 -->
+    <div class="lyrics-editor-overlay" id="lyricsEditor" hidden>
+        <div class="lyrics-editor" role="dialog" aria-modal="true" aria-label="完整歌詞編輯器" tabindex="-1">
+            <div class="lyrics-editor-bar">
+                <div class="editor-tabs" id="editorTabs" role="group" aria-label="切換歌曲"></div>
+                <button type="button" class="editor-close" onclick="lhEditorClose()" aria-label="關閉完整編輯器（Esc）" title="關閉（Esc）"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+            </div>
+            <div class="lyrics-editor-body" id="lyricsEditorBody"></div>
         </div>
     </div>
 

@@ -239,8 +239,8 @@ function lhSecDragTick() {
         d.scroller.scrollTop += (nearTop ? -1 : 1) * (0.25 + 0.5 * depth) * rem;
         d.raf = requestAnimationFrame(lhSecDragTick);
     }
-    // 殘影：水平夾在面板內，觸控時放在手指上方（不被手指擋住）
-    const pr = document.getElementById('leftPanel').getBoundingClientRect();
+    // 殘影：水平夾在歌詞列表內（左側面板或完整編輯器都一樣），觸控時放在手指上方（不被手指擋住）
+    const pr = document.getElementById('lyricsSections').getBoundingClientRect();
     const w = d.ghost.offsetWidth, h = d.ghost.offsetHeight;
     const x = Math.max(pr.left, Math.min(d.x - w / 2, pr.right - w));
     const y = Math.max(0, Math.min(d.y - h / 2 - (d.touch ? 2 * rem : 0), innerHeight - h));

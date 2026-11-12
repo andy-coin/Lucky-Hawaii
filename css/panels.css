@@ -132,7 +132,9 @@
             flex-direction: column;
             min-height: 0;
         }
-        .context-section.collapsed { flex-basis: 2.125rem; }
+        /* 收起：高度跟著標題列（觸控時按鈕 44px，寫死高度會裁掉），內容整塊藏起來 */
+        .context-section.collapsed { flex: 0 0 auto; }
+        .context-section.collapsed .context-body { display: none; }
         .context-section-header {
             display: flex;
             align-items: center;
@@ -263,22 +265,15 @@
             overflow: hidden;
             text-overflow: ellipsis;
         }
-        /* 匯出／新增段落：圖示＋文字；左欄窄（iPad 三欄全開約 280px）時只留圖示，名稱還在 aria-label，維持一排 */
-        .export-toggle, .lyrics-head .panel-add-btn { display: inline-flex; align-items: center; justify-content: center; gap: 0.3125rem; }
+        /* 匯出／展開：圖示＋文字；左欄窄（iPad 三欄全開約 280px）時只留圖示，名稱還在 aria-label，維持一排 */
+        .export-toggle { display: inline-flex; align-items: center; justify-content: center; gap: 0.3125rem; }
         .side-panel-body { container: lpanel / inline-size; }
         @container lpanel (max-width: 24rem) {
             .lyrics-head .btn-label { display: none; }
             .song-current { flex-basis: 0; }   /* 歌名讓位（太長就 …），三顆按鈕維持同一排 */
-            .export-toggle, .lyrics-head .panel-add-btn { min-width: var(--hit); padding-inline: var(--sp-2); }
+            .export-toggle { min-width: var(--hit); padding-inline: var(--sp-2); }
         }
         .undo-btn { display: inline-flex; align-items: center; justify-content: center; }
-        .lyrics-head .panel-add-btn {
-            margin-inline-start: auto;
-            padding: var(--sp-1) var(--sp-3);
-            min-height: 2rem;
-            font-size: 0.875rem;
-            writing-mode: horizontal-tb;
-        }
 
         .lyrics-layout {
             position: relative;
@@ -1533,8 +1528,11 @@
         .rm-an-ref td { padding-top: 0; font-size: 0.75rem; color: var(--text-secondary); overflow-wrap: anywhere; }
         .rm-an-end td { border-bottom: 1px solid var(--border); }
         .rm-an-v { margin-left: var(--sp-1); font-weight: 700; color: var(--text-primary); }
-        .lyrics-section.collapsed { flex: 0 0 2.125rem; min-height: 0; }
-        .section-body { flex: 1; min-height: 0; position: relative; }
+        /* 收合：高度跟著標題列（觸控時按鈕 44px），不寫死 */
+        .lyrics-section.collapsed { flex: 0 0 auto; min-height: 0; }
+        .lyrics-section.collapsed .section-body { display: none; }
+        /* 輸入框撐滿整段：看到的框＝拉桿量到的高度，拉高度時不會先縮一下（R2） */
+        .section-body { flex: 1; min-height: 0; position: relative; display: flex; flex-direction: column; }
         /* 排序（js/sections.js）：拖的那段半透明，殘影跟著指標，落點線標出會放在哪裡 */
         .lyrics-section.dragging { opacity: 0.5; }
         .section-handle {
@@ -2097,3 +2095,111 @@
             .tour-btn { min-height: var(--hit); }
             .tour-dots span { width: 0.3125rem; }
         }
+
+/* ===== 完整歌詞編輯器（R2，js/lyrics.js lhEditorOpen）：左側的歌詞標題列與歌詞區整塊搬進來 ===== */
+.lyrics-editor-overlay {
+    position: fixed;
+    left: 0;
+    right: 0;
+    top: var(--vv-top);
+    height: var(--app-h);
+    z-index: 950;   /* 高於面板與分頁列（≤ 900），低於設定、選單、浮動列、提示 */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0,0,0,0.45);   /* 和其他對話框的遮罩一樣 */
+}
+.lyrics-editor-overlay[hidden] { display: none; }
+.lyrics-editor {
+    width: 90vw;
+    height: 90%;
+    max-width: 75rem;
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-2);
+    padding: var(--sp-3) var(--sp-4) var(--sp-4);
+    box-sizing: border-box;
+    background: var(--container-bg);
+    color: var(--text-primary);
+    border: 1px solid var(--border);
+    border-radius: 0.875rem;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.25);
+    outline: none;
+}
+.lyrics-editor-bar {
+    display: flex;
+    align-items: flex-end;
+    gap: var(--sp-2);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+}
+.editor-tabs {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    gap: var(--sp-1);
+    overflow-x: auto;
+    scrollbar-width: thin;
+}
+.editor-tab {
+    flex-shrink: 0;
+    max-width: 12rem;
+    min-height: 2.25rem;
+    padding: var(--sp-1) var(--sp-3);
+    border: 1px solid transparent;
+    border-bottom: 0;
+    border-radius: var(--radius-s) var(--radius-s) 0 0;
+    background: transparent;
+    color: var(--text-secondary);
+    font-family: var(--font-ui);
+    font-size: 0.875rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    cursor: pointer;
+}
+.editor-tab[aria-current="true"] {
+    color: var(--text-primary);
+    font-weight: 700;
+    background: var(--card-bg);
+    border-color: var(--border);
+    box-shadow: inset 0 2px 0 var(--highlight-border);
+}
+.editor-tab-add { font-weight: 700; color: var(--text-primary); }
+@media (hover: hover) and (pointer: fine) {
+    .editor-tab:hover { background: var(--fill-soft); }
+    .editor-close:hover { background: var(--fill-soft); }
+}
+.editor-tabs .song-name-input { flex-shrink: 0; width: 12rem; margin-bottom: var(--sp-1); }
+.editor-close {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 2.25rem;
+    min-height: 2.25rem;
+    margin-bottom: var(--sp-1);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-s);
+    background: var(--card-bg);
+    color: var(--text-primary);
+    cursor: pointer;
+}
+.lyrics-editor-body { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: var(--sp-2); }
+/* 編輯器裡：分頁取代 ☰ 歌曲清單 */
+.lyrics-editor-body .song-list { display: none; }
+.lyrics-editor-body .lyrics-layout { flex: 1; min-height: 0; }
+.lyrics-editor-bar .export-toggle { margin-bottom: var(--sp-1); }
+/* 新增段落：放在「標籤 ＆ 情境」與段落列表之間，整條寬（跟著下面的段落） */
+.section-add-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.3125rem;
+    flex-shrink: 0;
+    min-height: 2rem;
+    padding: var(--sp-1) var(--sp-3);
+    font-size: 0.875rem;
+    border-style: dashed;
+    color: var(--text-secondary);
+}
