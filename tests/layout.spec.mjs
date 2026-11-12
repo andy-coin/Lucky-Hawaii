@@ -423,7 +423,7 @@ test('版面：轉向時主題按鈕與提示字跟著換', async ({ browser }) 
         }));
         // 主題鈕是線條圖示（SVG，沒有文字）＋寬螢幕才有的名稱；名稱一律在 aria-label
         const PHONE = { theme: '', placeholder: PHONE_PLACEHOLDER };
-        const WIDE = { theme: '月光', placeholder: DESKTOP_PLACEHOLDER };
+        const WIDE = { theme: 'Moon', placeholder: DESKTOP_PLACEHOLDER };
         expect(await read()).toEqual(PHONE);
         // 440／441 是分界；不重新載入就要跟著變
         for (const [w, h, want] of [[820, 1180, WIDE], [440, 844, PHONE], [441, 844, WIDE], [390, 844, PHONE]]) {
@@ -433,9 +433,9 @@ test('版面：轉向時主題按鈕與提示字跟著換', async ({ browser }) 
         // 換主題（月光 → 城市）後轉向，圖示與文字也要對
         await page.locator('#themeToggle').click();
         expect(await read()).toMatchObject({ theme: '' });
-        await expect(page.locator('#themeToggle')).toHaveAttribute('aria-label', /城市/);
+        await expect(page.locator('#themeToggle')).toHaveAttribute('aria-label', /City/);
         await page.setViewportSize({ width: 820, height: 1180 });
-        await expect.poll(read).toMatchObject({ theme: '城市' });
+        await expect.poll(read).toMatchObject({ theme: 'City' });
     } finally { await context.close(); }
 });
 
@@ -1655,7 +1655,7 @@ const openRhymeMenu = async (page, d) => {
     await waitStill(page);
 };
 const TOUCH_STATES = [
-    ['閒置', ['button#MzoomIn', 'button#themeToggle', 'input#searchInput', 'button.mode-button', 'button.mtab-btn', 'div#settingsTrigger'], async () => {}],
+    ['閒置', ['button#MzoomIn', 'button#themeToggle', 'input#searchInput', 'button.mode-button', 'button.mtab-btn', 'button#settingsTrigger'], async () => {}],
     ['搜尋後', ['div.char-card', 'button.poly-chip', 'span.mark-badge', 'button.m-batch-btn, button.batch-btn'], async page => {
         await page.fill('#searchInput', '樂');
         await settle(page);

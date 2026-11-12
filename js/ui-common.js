@@ -160,3 +160,39 @@
             }
         })();
 
+
+// ===== 低調提示（Andy R2 小修）：滑鼠停 250ms 淡入、離開淡出，取代瀏覽器原生 title 的慢速突然跳出 =====
+// 對象：有 data-tip 的元素，加上會被程式改 title 的鑰匙與主題鈕。文字每次現讀（title 優先），顯示期間暫時拿掉 title 避免原生提示重疊
+{
+    const SEL = '[data-tip], #aiKeyBtn, #themeToggle';
+    let tip = null, timer = 0, cur = null;
+    const hide = () => {
+        clearTimeout(timer);
+        if (cur && cur.dataset.tipHold !== undefined) { cur.setAttribute('title', cur.dataset.tipHold); delete cur.dataset.tipHold; }
+        cur = null;
+        if (tip) tip.classList.remove('show');
+    };
+    document.addEventListener('pointerover', e => {
+        if (e.pointerType !== 'mouse') return;
+        const el = e.target.closest && e.target.closest(SEL);
+        if (el === cur) return;
+        hide();
+        if (!el) return;
+        cur = el;
+        if (el.hasAttribute('title')) { el.dataset.tipHold = el.getAttribute('title'); el.removeAttribute('title'); }
+        timer = setTimeout(() => {
+            const text = el.dataset.tipHold || el.dataset.tip;
+            if (!text || cur !== el) return;
+            if (!tip) { tip = document.createElement('div'); tip.className = 'lh-tip'; tip.setAttribute('role', 'presentation'); document.body.appendChild(tip); }
+            tip.textContent = text;
+            const r = el.getBoundingClientRect(), w = tip.offsetWidth, vw = document.documentElement.clientWidth;
+            const below = r.bottom + 8 + tip.offsetHeight < innerHeight;
+            tip.style.left = Math.max(8, Math.min(vw - w - 8, r.left + r.width / 2 - w / 2)) + 'px';
+            tip.style.top = (below ? r.bottom + 8 : r.top - 8 - tip.offsetHeight) + 'px';
+            tip.classList.add('show');
+        }, 250);
+    });
+    document.addEventListener('pointerout', e => { if (cur && !cur.contains(e.relatedTarget)) hide(); });
+    document.addEventListener('pointerdown', hide, true);
+    document.addEventListener('scroll', hide, true);
+}

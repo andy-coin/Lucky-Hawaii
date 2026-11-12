@@ -413,7 +413,8 @@
 
             .save-load-text { display: none; }
             /* 手機標題列擠：導覽的「?」收進設定（「重看功能導覽」），不跟標題旁的 i 搶點擊範圍 */
-            .help-btn { display: none; }
+            #tourBtn { display: none; }   /* 手機只藏「?」，齒輪要留（偏好設定唯一入口） */
+            .header-toolbar { margin-bottom: 0.5rem; }   /* 齒輪加進來後主題鈕往中間移，跟標題旁 i 的點擊範圍拉開 */
             
             .container { border-radius: 1rem; }
 

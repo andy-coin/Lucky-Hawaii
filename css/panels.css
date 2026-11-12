@@ -2280,3 +2280,15 @@
             .byok-video { display: inline-flex; align-items: center; }
             .byok-input { min-height: var(--hit); font-size: max(16px, 1rem); }
         }
+
+/* 編輯器＋鍵盤打開（html.kb-open，js/layout.js）：只留正在打字的那一塊撐滿，其餘控制列先收起；鍵盤收起就恢復 */
+html.kb-open .lyrics-editor { width: 100vw; max-width: none; height: 100%; border-radius: 0; padding: var(--sp-2); gap: var(--sp-1); }
+html.kb-open .lyrics-editor-body .lyrics-tools,
+html.kb-open .lyrics-editor-body .section-add-btn,
+html.kb-open .lyrics-editor-body .context-section:not(:focus-within),
+html.kb-open .lyrics-editor-body .lyrics-section:not(:focus-within) { display: none; }
+html.kb-open .lyrics-editor-body .context-section:focus-within { flex: 1 1 auto; max-height: none; min-height: 0; }
+html.kb-open .lyrics-editor-body .context-section:focus-within .context-textarea { flex: 1 1 auto; min-height: 3rem; }
+html.kb-open .lyrics-editor-body .lyrics-section:focus-within { flex: 1 1 auto !important; height: auto !important; min-height: 0; }
+html.kb-open .lyrics-editor-body .lyrics-section:focus-within .section-textarea { flex: 1 1 auto; min-height: 0; }
+html.kb-open .lyrics-editor-body .lyrics-area { flex: 1 1 auto; min-height: 0; }

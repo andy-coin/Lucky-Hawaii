@@ -14,14 +14,14 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700&family=Noto+Serif+TC:wght@400;700&family=JetBrains+Mono:wght@400&display=swap">
-    <link rel="stylesheet" href="css/base.css?v=0.96.18">
-    <link rel="stylesheet" href="css/panels.css?v=0.96.18">
-    <link rel="stylesheet" href="css/responsive.css?v=0.96.18">
-    <link rel="stylesheet" href="css/print.css?v=0.96.18" media="print">
-    <script src="data/rhyme-dict.js?v=0.96.18"></script>
-    <script src="data/polyphonic-order.js?v=0.96.18"></script>
-    <script src="js/safety.js?v=0.96.18"></script>
-    <script src="js/layout.js?v=0.96.18"></script>
+    <link rel="stylesheet" href="css/base.css?v=0.96.19">
+    <link rel="stylesheet" href="css/panels.css?v=0.96.19">
+    <link rel="stylesheet" href="css/responsive.css?v=0.96.19">
+    <link rel="stylesheet" href="css/print.css?v=0.96.19" media="print">
+    <script src="data/rhyme-dict.js?v=0.96.19"></script>
+    <script src="data/polyphonic-order.js?v=0.96.19"></script>
+    <script src="js/safety.js?v=0.96.19"></script>
+    <script src="js/layout.js?v=0.96.19"></script>
 </head>
 <body>
 
@@ -55,8 +55,9 @@
                     <button class="m-zoomIn-button" id="MzoomIn" aria-label="放大介面" onclick="zoomIn()"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>
                 </div>
                 <div class="controls">
-                    <button type="button" class="help-btn" id="tourBtn" onclick="lhTourStart()" title="功能導覽" aria-label="功能導覽">?</button>
+                    <button type="button" class="help-btn" id="tourBtn" onclick="lhTourStart()" data-tip="功能導覽" aria-label="功能導覽">?</button>
                     <button class="theme-toggle" id="themeToggle" ></button>
+                    <button type="button" class="help-btn gear-btn" id="settingsTrigger" onclick="toggleSettings()" aria-label="偏好設定" data-tip="偏好設定"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button>
                 </div>
             </div>
             
@@ -114,9 +115,7 @@
                         <span class="batch-icon"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 21V4M5 4h11l-2 4 2 4H5"/></svg></span><span>回報</span>
                     </button>
                 </div>
-                <div class="settings-trigger" id="settingsTrigger" onclick="toggleSettings()" title="偏好設定" aria-label="偏好設定">
-                    <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg><span class="gear-icon" data-long="偏好設定" data-short=""></span>
-                </div>
+                
             </div>
         </div>
         
@@ -409,7 +408,7 @@
                         <div class="context-section-header" onclick="toggleContextSection()">
                             <span class="context-section-title">標籤 ＆ 情境</span>
                             <button type="button" class="hashtag-add-btn" onclick="openHashtagPopup();event.stopPropagation()" title="新增標籤" aria-label="新增標籤">+</button>
-                            <button type="button" class="context-refresh-btn" title="從歌詞自動生成情境與標籤" aria-label="從歌詞自動生成情境與標籤" onclick="generateContextFromLyrics();event.stopPropagation()">↻</button>
+                            <button type="button" class="context-refresh-btn" data-tip="AI 從歌詞自動整理情境與標籤" aria-label="AI 從歌詞自動整理情境與標籤" onclick="generateContextFromLyrics();event.stopPropagation()"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-3.5 10.9c.6.4 1 1.1 1 1.8V16h5v-.3c0-.7.4-1.4 1-1.8A6 6 0 0 0 12 3z"/></svg></button>
                             <span class="context-chevron" id="contextChevron" aria-hidden="true">▾</span>
                         </div>
                         <div class="context-body" id="contextBody">
@@ -448,13 +447,14 @@
         <div class="side-panel-tab" onclick="toggleRightPanel()">AI建議</div>
         <div class="side-panel-body">
             <div class="side-panel-title" style="flex-shrink:0;display:flex;align-items:center;justify-content:space-between;gap:0.5rem">
-                <span class="ai-title-group"><span>AI 建議</span><button type="button" class="ai-key-btn" id="aiKeyBtn" data-on="false" onclick="lhOpenAiPrefs()" aria-label="用你自己的 AI 金鑰，點此設定" title="用你自己的 AI 金鑰，點此設定"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="7.5" cy="15.5" r="4"/><path d="M10.5 12.5L20 3M16.5 6.5l2.5 2.5M14 9l2 2"/></svg></button></span>
+                <span class="ai-title-group"><span>AI 建議</span></span>
                 <!-- 自製模型下拉（js/ai-client.js）：隱藏的 select 是值的來源，button＋listbox 是畫面 -->
+                <span class="ai-tools"><button type="button" class="ai-key-btn" id="aiKeyBtn" data-on="false" onclick="lhOpenAiPrefs()" aria-label="用你自己的 AI 金鑰，點此設定" data-tip="用你自己的 AI 金鑰"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="7.5" cy="15.5" r="4"/><path d="M10.5 12.5L20 3M16.5 6.5l2.5 2.5M14 9l2 2"/></svg></button>
                 <div class="model-picker" id="modelPickerWrap">
                     <select id="modelSelect" hidden onchange="onModelChange()"></select>
                     <button type="button" id="modelPicker" class="model-select" aria-haspopup="listbox" aria-expanded="false" aria-controls="modelList" title="選擇 AI 模型（自動＝由伺服器挑選並自動換手）"><span class="model-picker-label">自動（推薦）</span><svg class="ic model-picker-caret" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 10l5 5 5-5"/></svg></button>
                     <div class="model-list" id="modelList" role="listbox" tabindex="-1" aria-label="AI 模型" hidden></div>
-                </div>
+                </div></span>
             </div>
             <div class="ai-scroll-area">
                 <!-- AI 會參考什麼（Andy 1-b）：即時顯示左邊哪些內容會送給 AI，點了跳過去；js/ai-generate.js lhAiRefRender -->
@@ -503,36 +503,36 @@
 
     <div id="printSheet" aria-hidden="true"></div>
 
-    <script src="js/phonetic-tables.js?v=0.96.18"></script>
-    <script src="js/dict.js?v=0.96.18"></script>
-    <script src="js/search.js?v=0.96.18"></script>
-    <script src="js/state.js?v=0.96.18"></script>
-    <script src="js/sections-core.js?v=0.96.18"></script>
-    <script src="js/songs.js?v=0.96.18"></script>
-    <script src="js/undo.js?v=0.96.18"></script>
-    <script src="js/polyphonic.js?v=0.96.18"></script>
-    <script src="js/rhyme-core.js?v=0.96.18"></script>
-    <script src="js/line-core.js?v=0.96.18"></script>
-    <script src="js/cards.js?v=0.96.18"></script>
-    <script src="js/lyrics.js?v=0.96.18"></script>
-    <script src="js/sections.js?v=0.96.18"></script>
-    <script src="js/song-io.js?v=0.96.18"></script>
-    <script src="js/wordlist.js?v=0.96.18"></script>
-    <script src="js/panels.js?v=0.96.18"></script>
-    <script src="js/rhyme-display.js?v=0.96.18"></script>
-    <script src="js/ai-client.js?v=0.96.18"></script>
-    <script src="js/candidates.js?v=0.96.18"></script>
-    <script src="js/ai-generate.js?v=0.96.18"></script>
-    <script src="js/ui-common.js?v=0.96.18"></script>
-    <script src="js/results.js?v=0.96.18"></script>
-    <script src="js/search-ui.js?v=0.96.18"></script>
-    <script src="js/theme.js?v=0.96.18"></script>
-    <script src="js/init.js?v=0.96.18"></script>
-    <script src="js/report.js?v=0.96.18"></script>
-    <script src="js/ai-word-events.js?v=0.96.18"></script>
-    <script src="js/word-drag.js?v=0.96.18"></script>
-    <script src="js/rhyme-map.js?v=0.96.18"></script>
-    <script src="js/tour.js?v=0.96.18"></script>
-    <script src="js/bgfx.js?v=0.96.18"></script>
+    <script src="js/phonetic-tables.js?v=0.96.19"></script>
+    <script src="js/dict.js?v=0.96.19"></script>
+    <script src="js/search.js?v=0.96.19"></script>
+    <script src="js/state.js?v=0.96.19"></script>
+    <script src="js/sections-core.js?v=0.96.19"></script>
+    <script src="js/songs.js?v=0.96.19"></script>
+    <script src="js/undo.js?v=0.96.19"></script>
+    <script src="js/polyphonic.js?v=0.96.19"></script>
+    <script src="js/rhyme-core.js?v=0.96.19"></script>
+    <script src="js/line-core.js?v=0.96.19"></script>
+    <script src="js/cards.js?v=0.96.19"></script>
+    <script src="js/lyrics.js?v=0.96.19"></script>
+    <script src="js/sections.js?v=0.96.19"></script>
+    <script src="js/song-io.js?v=0.96.19"></script>
+    <script src="js/wordlist.js?v=0.96.19"></script>
+    <script src="js/panels.js?v=0.96.19"></script>
+    <script src="js/rhyme-display.js?v=0.96.19"></script>
+    <script src="js/ai-client.js?v=0.96.19"></script>
+    <script src="js/candidates.js?v=0.96.19"></script>
+    <script src="js/ai-generate.js?v=0.96.19"></script>
+    <script src="js/ui-common.js?v=0.96.19"></script>
+    <script src="js/results.js?v=0.96.19"></script>
+    <script src="js/search-ui.js?v=0.96.19"></script>
+    <script src="js/theme.js?v=0.96.19"></script>
+    <script src="js/init.js?v=0.96.19"></script>
+    <script src="js/report.js?v=0.96.19"></script>
+    <script src="js/ai-word-events.js?v=0.96.19"></script>
+    <script src="js/word-drag.js?v=0.96.19"></script>
+    <script src="js/rhyme-map.js?v=0.96.19"></script>
+    <script src="js/tour.js?v=0.96.19"></script>
+    <script src="js/bgfx.js?v=0.96.19"></script>
 </body>
 </html>

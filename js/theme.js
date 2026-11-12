@@ -3,7 +3,7 @@
         const themeToggle = document.getElementById('themeToggle');
         const THEME_KEY = 'hoyun_theme_mode';
         const LH_THEMES = ['plain', 'moon', 'city', 'midnight', 'custom'];
-        const LH_THEME_NAMES = { plain: '素墨', moon: '月光', city: '城市', midnight: '午夜', custom: '自訂' };
+        const LH_THEME_NAMES = { plain: 'Plain', moon: 'Moon', city: 'City', midnight: 'Midnight', custom: 'Custom' };
         const LH_THEME_DARK = { plain: true, moon: false, city: true, midnight: true };   // 自訂的明暗看實際底色
         let lhTheme = 'moon';
         let isDark = false;

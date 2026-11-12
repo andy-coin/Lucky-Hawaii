@@ -254,7 +254,7 @@ test('備份：按鈕名稱', async ({ browser }) => {
     const style = await header.nth(0).evaluate(el => { const cs = getComputedStyle(el); return { size: cs.fontSize, weight: cs.fontWeight }; });
     // 夜間 UI 重設計：標題區的備份／匯入改成安靜的文字按鈕（一般字重）
     expect(style).toEqual({ size: '14px', weight: '400' });
-    await page.locator('.settings-trigger').first().click();
+    await page.locator('#settingsTrigger').click();
     const inSettings = page.locator('.settings-saveload .save-load-btn');
     await expect(inSettings.nth(0)).toHaveText('備份全部');
     await expect(inSettings.nth(1)).toHaveText('匯入備份');

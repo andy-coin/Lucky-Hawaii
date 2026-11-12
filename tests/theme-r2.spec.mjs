@@ -3,7 +3,7 @@ import { test, expect } from '@playwright/test';
 import { bootPage } from './helpers.mjs';
 
 const ORDER = ['plain', 'moon', 'city', 'midnight', 'custom'];
-const NAMES = { plain: '素墨', moon: '月光', city: '城市', midnight: '午夜', custom: '自訂' };
+const NAMES = { plain: 'Plain', moon: 'Moon', city: 'City', midnight: 'Midnight', custom: 'Custom' };
 const DARK = { plain: 'dark', moon: 'light', city: 'dark', midnight: 'dark', custom: 'light' };
 
 const rgb = v => {
@@ -25,7 +25,7 @@ const state = page => page.evaluate(() => ({
 test('主題：按鈕依序循環五個主題、顯示名字、記住選擇', async ({ browser }) => {
     const { context, page, errors } = await bootPage(browser, { wordlist: 'stub', storage: { hoyun_theme_mode: 'plain' } });
     let s = await state(page);
-    expect(s).toMatchObject({ name: 'plain', mode: 'dark', label: '素墨' });
+    expect(s).toMatchObject({ name: 'plain', mode: 'dark', label: 'Plain' });
     for (let i = 1; i <= ORDER.length; i++) {
         await page.click('#themeToggle');
         const want = ORDER[i % ORDER.length];

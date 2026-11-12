@@ -422,8 +422,9 @@
             const ta = e.target.closest && e.target.closest('.section-textarea');
             if (ta && !_lhEdMoved) lhEditorOpen(ta, [ta.selectionStart, ta.selectionEnd]);
         });
-        document.getElementById('lyricsSections')?.addEventListener('pointerdown', e => {
-            _lhEdTapTa = !_lhEdMoved && e.pointerType !== 'mouse' && e.target.closest && e.target.closest('.section-textarea') || null;
+        // 觸控點歌詞、標籤輸入框、情境框都會彈出編輯器（Andy：行動裝置點情境標籤也要彈）
+        document.querySelector('#leftPanel .lyrics-layout')?.addEventListener('pointerdown', e => {
+            _lhEdTapTa = !_lhEdMoved && e.pointerType !== 'mouse' && e.target.closest && e.target.closest('.section-textarea, .context-textarea, .hashtag-input') || null;
         });
         document.addEventListener('click', () => {
             const ta = _lhEdTapTa;
