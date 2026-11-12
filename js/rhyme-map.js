@@ -504,8 +504,8 @@ function lhMapMenuBuild() {
     legendBtn.setAttribute('aria-expanded', 'false');
     legendBtn.setAttribute('aria-controls', legend.id);
     const more = _lhMkBtn('section-menu-btn rm-more', '更多設定…');   // 開偏好設定裡的完整設定（CONTEXT D1）
-    const close = _lhMkBtn('section-menu-btn section-menu-close', '關閉韻腳設定');
-    m.append(_lhMk('div', 'section-menu-title', '韻腳地圖'), loading, show, judge, _lhMkBlock('色票對照', legendBtn, legend), more, close);
+    // 沒有「關閉」鈕（R2）：點選單外面任何地方或按 Esc 就收起來（下面的 pointerdown／keydown）
+    m.append(_lhMk('div', 'section-menu-title', '韻腳地圖'), loading, show, judge, _lhMkBlock('色票對照', legendBtn, legend), more);
     document.body.appendChild(m);
     m.addEventListener('click', e => {
         const sw = e.target.closest && e.target.closest('.rm-switch');
@@ -516,10 +516,9 @@ function lhMapMenuBuild() {
     legendBtn.addEventListener('click', () => {
         legend.hidden = !legend.hidden;
         legendBtn.setAttribute('aria-expanded', String(!legend.hidden));
-        _lhMapPlaceMenu();   // 選單變高了：重新夾進可見範圍，關閉鈕才不會掉到畫面外
+        _lhMapPlaceMenu();   // 選單變高了：重新夾進可見範圍，最下面的「更多設定…」才不會掉到畫面外
     });
     more.addEventListener('click', lhMapOpenPrefs);
-    close.addEventListener('click', () => lhMapCloseMenu(true));
     // Tab 在選單裡頭尾相接
     m.addEventListener('keydown', e => {
         if (e.key !== 'Tab') return;
@@ -573,7 +572,7 @@ function lhMapMenuSync() {
 }
 
 // ==================== 偏好設定裡的「韻腳地圖與句構分析」（第 11 階段，CONTEXT D1／D2） ====================
-// 外殼是 index.html 的 <details id="mapSettingsSection">，內容第一次打開（或按「更多設定…」）才建，之後只靠 lhMapMenuSync 更新
+// 外殼是 index.html 的分頁 <div id="mapSettingsSection" role="tabpanel">，內容第一次切到這個分頁（或按「更多設定…」）才建，之後只靠 lhMapMenuSync 更新
 let _lhMapPrefsBuilt = false;
 
 // 一個開關加它的說明：說明有自己的 id，開關用 aria-describedby 接起來
@@ -683,12 +682,8 @@ function lhMapPrefsBuild() {
     });
     lhMapMenuSync();
 }
-document.getElementById('mapSettingsSection').addEventListener('toggle', e => {
-    if (e.target.open) lhMapPrefsBuild();
-});
-
 // 「更多設定…」：關掉所有韻腳浮層，打開偏好設定（已經開著就留著，不能走 ⚙️ 的 toggle，那會把它關掉），
-// 展開這一段、捲到最上面、焦點放在標題。scrollIntoView 不給 behavior：立即捲動，也就自動尊重「減少動態效果」
+// 直接切到「韻腳與句構」分頁（從最上面開始），焦點放在那個分頁鈕
 function lhMapOpenPrefs() {
     lhMapCloseAll();
     const ov = document.getElementById('settingsOverlay');
@@ -696,11 +691,7 @@ function lhMapOpenPrefs() {
         ov.classList.add('show');
         renderLexiconPackList();   // ⚙️ 打開時會做的事：詞庫包清單永遠對得上目前真正在用的包
     }
-    const sec = document.getElementById('mapSettingsSection');
-    lhMapPrefsBuild();
-    sec.open = true;
-    sec.scrollIntoView({ block: 'start' });
-    sec.querySelector('summary').focus({ preventScroll: true });
+    lhPrefsSelectTab('map', true);
 }
 
 // 一個設定改了：存檔、套用外觀、選單文字跟著變；只有會改變鏡像層內容的設定才全部段落重畫。
@@ -808,7 +799,7 @@ function lhMapOpenMenu(byKeyboard) {
     if (byKeyboard) m.querySelector('.rm-switch')?.focus({ preventScroll: true });
 }
 
-// refocus：按「關閉」或 Esc 才把焦點還給按鈕
+// refocus：按 Esc 才把焦點還給按鈕（點外面時焦點跟著被點的東西走）
 function lhMapCloseMenu(refocus) {
     if (!_lhMapMenu || !_lhMapMenuOn) return;
     _lhMapMenuOn = false;
@@ -831,10 +822,16 @@ document.getElementById('rhymeMenuBtn').addEventListener('click', e => {
     if (_lhMapMenuOn) lhMapCloseMenu(false);
     else lhMapOpenMenu(e.detail === 0);   // 鍵盤（Enter／空白）觸發的 click，detail 是 0
 });
-// 點選單外面關掉；Esc 關掉並把焦點還給按鈕（capture：≤ 900 的 sheet 才不會同時被收起）
+// 點選單外面關掉（滑鼠、觸控、觸控筆都走 pointerdown）：只收起選單，不攔這一下，被點到的東西照常反應（和原生 popover 一樣）；
+// 點「韻腳 ▾」本身交給它的 click 切換。Esc 關掉並把焦點還給按鈕（capture：≤ 900 的 sheet 才不會同時被收起）
 document.addEventListener('pointerdown', e => {
     if (_lhMapMenuOn && !(e.target.closest && e.target.closest('#rhymeMenu, #rhymeMenuBtn'))) lhMapCloseMenu(false);
 }, true);
+// 焦點被移到選單外面（讀屏軟體、程式）也收起；relatedTarget 是 null（點選單裡的空白、切到別的視窗）不算
+document.addEventListener('focusout', e => {
+    if (!_lhMapMenuOn || !_lhMapMenu.contains(e.target) || !e.relatedTarget) return;
+    if (!e.relatedTarget.closest('#rhymeMenu, #rhymeMenuBtn')) lhMapCloseMenu(false);
+});
 document.addEventListener('keydown', e => {
     if (e.key !== 'Escape' || !_lhMapMenuOn || e.isComposing || e.keyCode === 229) return;
     e.preventDefault();

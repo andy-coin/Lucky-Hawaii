@@ -136,6 +136,7 @@ test('整合：舊版使用者的一整天', async ({ browser }) => {
     expect(backups.some(r => r.id.startsWith('song-delete-')), '刪除前有自動備份').toBe(true);
 
     await pb.locator('#settingsTrigger').click();
+    await pb.locator('#prefsTab-data').click();   // 分頁式偏好設定（R2）
     await pb.locator('#autoBackupSection summary').click();
     const restoreBtn = pb.locator('#autoBackupList li', { hasText: '刪除「我的第一首歌」前的自動備份' }).locator('.backup-restore-btn');
     await restoreBtn.click();

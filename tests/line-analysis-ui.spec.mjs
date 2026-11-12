@@ -138,8 +138,8 @@ test('對照：打開對照差異，同類型第一段的同一行字數不同�
     await page.locator('#rhymeMenu .rm-more').click();
     await expect(page.locator('#rhymeMenu')).toBeHidden();
     await expect(page.locator('#settingsOverlay')).toHaveClass(/show/);
-    await expect(page.locator('#mapSettingsSection')).toHaveJSProperty('open', true);
-    await expect(page.locator('#mapSettingsSection > summary')).toBeFocused();
+    await expect(page.locator('#mapSettingsSection')).toBeVisible();
+    await expect(page.locator('#prefsTab-map')).toBeFocused();
 
     // 對照差異預設關：沒有差異欄
     await expect(page.locator('.lm-t-d')).toHaveCount(0);
@@ -213,7 +213,8 @@ test('偏好設定：內容與順序', async ({ browser }) => {
         storage: v2Storage([song([typed('sa', 'verse', ['我望著遠方的光', '獨自站在窗'].join('\n')), typed('sb', 'verse', ['我望著遠方的光', '獨自站在窗前'].join('\n'))])]),
     });
     // 沒打開前只有外殼，標題在自動備份之後、意見回饋之前
-    expect(await page.evaluate(() => [...document.querySelectorAll('.settings-dropdown > details, .settings-dropdown > .settings-feedback-btn')].map(e => e.id || e.className))).toEqual(['autoBackupSection', 'mapSettingsSection', 'settings-feedback-btn save-load-btn']);
+    expect(await page.evaluate(() => [...document.querySelectorAll('.settings-dropdown > [role=tabpanel]')].map(e => e.id))).toEqual(['prefsPanel-look', 'prefsPanel-search', 'mapSettingsSection', 'prefsPanel-data', 'prefsPanel-help']);
+    expect(await page.locator('#mapSettingsSection').evaluate(e => e.childElementCount), '沒切到這個分頁前只有外殼').toBe(0);
     await openPrefs(page);
     const sec = page.locator('#mapSettingsSection');
     await expect(sec.locator('> .settings-backups-hint')).toHaveText('調整句尾上色、逐行字數與斷句標記的開關、位置、大小和顏色');
@@ -320,18 +321,23 @@ test('偏好設定：四個細項都關', async ({ browser }) => {
     await context.close();
 });
 
-test('偏好設定：每次從齒輪打開都收著，Esc 關掉', async ({ browser }) => {
+test('偏好設定：齒輪打開到上次看的分頁，Esc 關掉', async ({ browser }) => {
     const { context, page, errors } = await bootPage(browser, { wordlist: 'stub', storage: v2Storage([song([typed('sa', 'verse', F_ABAB)])]) });
+    // 這次開網頁第一次從齒輪打開：第一個分頁「外觀」
+    await page.evaluate(() => toggleSettings());
+    await expect(page.locator('#prefsTab-look')).toHaveAttribute('aria-selected', 'true');
+    await expect(page.locator('#mapSettingsSection')).toBeHidden();
+    await page.keyboard.press('Escape');
     await openPrefs(page);
-    await expect(page.locator('#mapSettingsSection')).toHaveJSProperty('open', true);
+    await expect(page.locator('#mapSettingsSection')).toBeVisible();
     await page.keyboard.press('Escape');
     await expect(page.locator('#settingsOverlay')).not.toHaveClass(/show/);
+    // 再從齒輪打開：停在上次的「韻腳與句構」
     await page.evaluate(() => toggleSettings());
     await expect(page.locator('#settingsOverlay')).toHaveClass(/show/);
-    await expect(page.locator('#mapSettingsSection')).toHaveJSProperty('open', false);
-    // 自己點開也行；方向鍵只移焦點，Enter 才選
-    await page.locator('#mapSettingsSection > summary').click();
-    await expect(page.locator('#mapSettingsSection')).toHaveJSProperty('open', true);
+    await expect(page.locator('#mapSettingsSection')).toBeVisible();
+    await expect(page.locator('#prefsTab-map')).toHaveAttribute('aria-selected', 'true');
+    // 方向鍵只移焦點，Enter 才選
     const wide = page.locator('#mapSettingsSection .type-row[data-m="wide"]');
     const strict = page.locator('#mapSettingsSection .type-row[data-m="strict"]');
     await wide.focus();
@@ -1004,7 +1010,7 @@ test('韻族顏色：恢復預設要按兩次', async ({ browser }) => {
     await expect(btn).not.toHaveAttribute('data-armed', '1');
 
     // 舊的「重設顏色!」不碰韻族顏色
-    await page.getByRole('button', { name: '重設顏色!' }).evaluate(b => b.click());
+    await page.locator('button.reset-color', { hasText: '重設顏色!' }).evaluate(b => b.click());   // 在「外觀」分頁（目前看不到），直接送出點擊
     expect(await lsGetMap(page)).toContain('"3":"#112233"');
     await expect(colorInput(page, 3)).toHaveValue('#112233');
 
@@ -1228,8 +1234,7 @@ test('預覽：高的螢幕上固定在上面', async ({ browser }) => {
     expect(await blk.evaluate(e => getComputedStyle(e).position)).toBe('sticky');
     // 往下捲設定視窗：預覽留在視窗上緣
     const tops = await page.evaluate(async () => {
-        const dd = document.querySelector('.settings-dropdown'), b = document.querySelector('#mapSettingsSection .lm-preview-block');
-        document.querySelector('#mapSettingsSection').open = true;
+        const dd = document.querySelector('#mapSettingsSection'), b = document.querySelector('#mapSettingsSection .lm-preview-block');
         dd.scrollTop = dd.scrollHeight;
         await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
         return { dd: dd.getBoundingClientRect().top + dd.clientTop, b: b.getBoundingClientRect().top, scrolled: dd.scrollTop };

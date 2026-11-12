@@ -83,7 +83,7 @@ const expectBandsAligned = async (page, tag) => {
 };
 
 // ==================== 三種裝置的觸控大小 ====================
-const MINE = /rhymeMenuBtn|rm-switch|type-row|rm-legend-toggle|section-menu-close|section-rhyme|rm-row|rm-bar|rm-chip/;
+const MINE = /rhymeMenuBtn|rm-more|rm-switch|type-row|rm-legend-toggle|section-menu-close|section-rhyme|rm-row|rm-bar|rm-chip/;
 test('檢查：三種裝置的觸控大小（韻腳地圖）', async ({ browser }) => {
     test.setTimeout(240_000);
     const two = v2Storage([song([typed('sa', 'verse', F_AABB), typed('sb', 'chorus', READ_TXT)])], { ...OPEN_PANELS, 'lh:map': MAP_LETTERS });
@@ -104,8 +104,8 @@ test('檢查：三種裝置的觸控大小（韻腳地圖）', async ({ browser 
         await expect(page.locator(MENU)).toBeVisible();
         await page.locator('#rhymeMenu .rm-legend-toggle').click();
         await expect(page.locator('#rhymeLegend')).toBeVisible();
-        await audit(['#rhymeMenu .rm-switch', '#rhymeMenu .type-row', '#rhymeMenu .rm-legend-toggle', '#rhymeMenu .section-menu-close'], '選單');
-        await page.locator('#rhymeMenu .section-menu-close').click();
+        await audit(['#rhymeMenu .rm-switch', '#rhymeMenu .type-row', '#rhymeMenu .rm-legend-toggle', '#rhymeMenu .rm-more'], '選單');
+        await page.keyboard.press('Escape');   // 選單沒有關閉鈕了（R2）：Esc 或點外面
         await expect(page.locator(MENU)).toBeHidden();
         // 統計開著：逐句列與關閉鈕
         await page.locator(STRIP).first().click();
@@ -138,7 +138,7 @@ test('檢查：選單、統計、浮動列在小螢幕都看得到', async ({ br
         await page.locator('#rhymeMenu .rm-legend-toggle').click();
         await waitStill(page);
         await expectFullyInViewport(page, page.locator(MENU));
-        const close = page.locator('#rhymeMenu .section-menu-close');
+        const close = page.locator('#rhymeMenu .rm-more');
         await close.scrollIntoViewIfNeeded();
         await expectFullyInViewport(page, close);
         const ov = await page.locator(MENU).evaluate(n => ({ sh: n.scrollHeight, ch: n.clientHeight, oy: getComputedStyle(n).overflowY }));
@@ -148,7 +148,7 @@ test('檢查：選單、統計、浮動列在小螢幕都看得到', async ({ br
             await s.scrollIntoViewIfNeeded();
             await expectFullyInViewport(page, s);
         }
-        await close.click();
+        await page.keyboard.press('Escape');   // 沒有關閉鈕了（R2），最後一個是「更多設定…」
         await expect(page.locator(MENU)).toBeHidden();
         // 統計：最後一列捲得到
         await page.locator(STRIP).first().click();
@@ -437,7 +437,7 @@ test('檢查：舊歌與舊資料', async ({ browser }) => {
     await A.page.locator('#rhymeMenuBtn').click();
     await radio(A.page, '嚴格').click();
     await sw(A.page, '句中押韻').click();
-    await A.page.locator('#rhymeMenu .section-menu-close').click();
+    await A.page.keyboard.press('Escape');   // 選單沒有關閉鈕了（R2）：Esc 或點外面
     await pick(A.page, 4, 5, 0);
     await expect(A.page.locator(BAR + ' .rm-bar-rd')).toBeVisible();
     await A.page.locator(BAR + ' .rm-bar-rd').click();
@@ -495,7 +495,7 @@ test('檢查：顏色以外的線索', async ({ browser }) => {
     const labels = await page.locator('#rhymeLegend .rm-cell-label').allTextContents();
     expect(labels).toHaveLength(17);
     expect(labels.every(t => t.trim().length > 0)).toBe(true);
-    await page.locator('#rhymeMenu .section-menu-close').click();
+    await page.keyboard.press('Escape');   // 選單沒有關閉鈕了（R2）：Esc 或點外面
     // 手動讀音：句尾字多一條虛線底線（不靠顏色），而且朗讀區會說
     const info = await polyInfo(page);
     await pick(page, 4, 5, 1);
