@@ -1,10 +1,31 @@
-## 🌙 夜間三線並行（2026-11-12，分支 overnight/2026-11-12，進行中）
+## 🔄 第二輪三線並行（2026-11-12 下午，基準 1cc4407，進行中）
 
-- 三個 subagent 各在自己的 worktree 工作，完成後由主 session 合併回 `overnight/2026-11-12`，再統一升 `?v=`：
-  - `../Lucky Hawaii-wt-ui`（overnight/ui）：1-a 整體視覺重設計、1-b AI 參考內容可視化、1-c 新手導覽 spotlight、1-d 標籤多筆新增＋inline 輸入＋標籤摘要板塊移到歌詞上方。待決 → `OVERNIGHT-ui.md`
-  - `../Lucky Hawaii-wt-lexicon`（overnight/lexicon）：2 潮流用語／人名／作品名研究與自建詞庫，疊加在所有詞庫包上。待決 → `OVERNIGHT-lexicon.md`
-  - `../Lucky Hawaii-wt-rhyme`（overnight/rhyme）：3-a 標點與空格前也算句尾、3-b 雙押多押偵測、1-e 韻腳色票依背景亮度重配。待決 → `OVERNIGHT-rhyme.md`
-- 測試埠：ui 4311／lexicon 4312／rhyme 4313
+- Andy iPad 回饋第二輪，三個 subagent 各在 worktree 做，完成後由主 session 合併、升 `?v=`、push 到 gsd/v0.96-stabilize：
+  - `../Lucky Hawaii-wt-theme`（r2/theme，埠 4321）：四主題 City／Midnight／Moon／Plain＋自訂，右上角鈕五個循環；多重點色；面板紋理；背景飄字動畫（`lhBgFxSet`）。參考圖 `~/Dropbox/#2ndy Own/zzZ/color theme reference/*.png`。待決 → `R2-theme.md`
+  - `../Lucky Hawaii-wt-editor`（r2/editor，埠 4322）：浮動完整歌詞編輯器（電腦：展開鈕＋雙擊；手機平板：點歌詞自動彈出）含拖曳／新增段落／歌曲分頁；新增段落移到標籤情境與段落之間；iPad 收起間距；新段落高度跳動。待決 → `R2-editor.md`
+  - `../Lucky Hawaii-wt-prefs`（r2/prefs，埠 4323）：韻腳選單拿掉「關閉」、點外面自動關；偏好設定改分頁，「更多設定」直達韻腳分頁；外觀分頁接背景動畫開關。待決 → `R2-prefs.md`
+- **排隊（等 r2/prefs 合併後做）BYOK**（Andy 2026-11-12 指定）：
+  - 偏好設定「AI」分頁：選服務商（Gemini、Groq）＋貼金鑰＋測試連線；有金鑰就直連服務商，沒有照舊走 Worker；金鑰沿用 `apiKey_<provider>`（safety.js 已設為機密，不進備份）；`js/ai-client.js:7` 的 `saveApiKey` 是舊空殼可接上
+  - 右上「AI 建議」標題右邊：無外框的低調鑰匙 icon 鈕；沒用自己金鑰時靜止，有用時閃爍（尊重減少動態）；點了開設定到 AI 分頁
+  - 有金鑰時模型下拉補上該服務商最新模型（實作時上網查最新清單），每個選項靠右顯示 Wi-Fi 訊號格狀的用量圖示（解讀：吃額度的多寡，待 Andy 確認）
+  - 設定頁簡短說明＋教學影片連結：Google 免費金鑰 https://www.youtube.com/watch?v=Upk-iMyC3aM 、Groq 免費金鑰 https://www.youtube.com/watch?v=nt1PJu47nTk
+  - ✅ 已驗證（2026-11-12 curl）：Groq（ACAO *）與 Gemini（ACAO 回 andy-coin.github.io）都允許瀏覽器直連，401／400 錯誤回應也帶 CORS 標頭 → 兩家都直連，不經 Worker
+  - 用量圖示＝吃額度多寡（Andy 已確認）
+- 注意：上一輪 `overnight-shots/` 新舊對照圖清 worktree 時被刪（主 session 失誤），需要時從舊 commit 重拍
+
+## ✅ 夜間三線並行完成（2026-11-12，已 push 到 origin/gsd/v0.96-stabilize c8ad4ce；main 沒動）
+
+- 三條都已合併：rhyme（3-a 標點／空格前算句尾、3-b 雙押多押、1-e 色票依底色亮度）、lexicon（自建潮流詞庫 3,118 詞 `data/slang/words.json`、來源 `tools/lexicon/slang/*.tsv`、`js/wordlist.js` 疊加）、ui（紙墨重設計、AI 參考狀態列、7 步導覽 `js/tour.js`、標籤 inline 多筆＋板塊移到歌詞上面）
+- `?v=` 0.96.16；`npm test` 1062 過／29 跳過／0 失敗；`npm run lexicon:test` 265 過
+- 主 session 早上補修：手機情境框被 `.context-section` 的 max-height 42% 裁掉 → `css/responsive.css` 手機段改成整個 `.lyrics-main` 一起捲（測試改量 `lhSecScroller()`）；導覽箭頭被 `.tour-card` 的 overflow 裁掉 → `css/panels.css` 約 2000 行，捲動改到 `.tour-body`，箭頭放大＋同亮框色
+- 待 Andy：iPad 實測；三份待決清單 `OVERNIGHT-rhyme.md`（8 題）、`OVERNIGHT-lexicon.md`（6 題）、`OVERNIGHT-ui.md`（7 題）；雲端 `npm run visual:update` 更新 -linux 截圖
+- 2026-11-12 下午（1cc4407，已 push）：Andy iPad 實測回饋——
+  - 標題被按鈕壓住 → `css/base.css` 約 345 行：`.header` 設成容器，工具列只有在標題區夠寬時（滑鼠 25rem、觸控 42rem）才疊在兩角，不夠寬就排在標題上面一列
+  - 左欄擠成兩排 → `css/panels.css` 約 266 行：左欄寬度 < 24rem 時匯出／新增段落只留圖示（`index.html` 加 `.btn-label`）、歌名讓位
+  - 復原／重做換 SVG 彎箭頭（`index.html` #undoBtn／#redoBtn；`js/tour.js` 說明文字改「兩個箭頭」）
+  - 順手修：鏡像層同步捲動會誤收浮動列（UI 重設計後輸入框變矮才冒出來，測試約 6 成失敗）→ `js/rhyme-map.js` 約 1229 行忽略 `.rhyme-mirror` 的 scroll
+  - 待 Andy：iPad 再測一次；三欄在 iPad 橫向仍偏擠，可考慮「平板一次只開一側面板」
+- worktree `../Lucky Hawaii-wt-{ui,lexicon,rhyme}` 還留著（ui 的 `overnight-shots/` 有新舊對照圖），確認後可 `git worktree remove`
 
 ## Docker 開發容器
 
