@@ -2,7 +2,7 @@
 import { test, expect } from '@playwright/test';
 import { readFileSync } from 'node:fs';
 import { bootPage } from './helpers.mjs';
-import { DEVICES, waitStill } from './layout-lib.mjs';
+import { DEVICES, waitStill, hitMin } from './layout-lib.mjs';
 
 const FIXTURE = JSON.parse(readFileSync(new URL('./fixtures/v096-localStorage.json', import.meta.url), 'utf8'));
 const v2Storage = songs => ({ ...FIXTURE, 'lh:schema': '2', 'lh:songs': JSON.stringify(songs), 'lh:activeSong': songs[0].id, leftPanelCollapsed: 'false', rightPanelCollapsed: 'false' });
@@ -111,14 +111,14 @@ test('分頁：「更多設定…」直接到「韻腳與句構」，齒輪回�
     await context.close();
 });
 
-test('分頁：手機上分頁列橫向捲動、每個分頁 ≥ 44px、選到的看得到、整頁不左右捲', async ({ browser }) => {
+test('分頁：手機上分頁列橫向捲動、每個分頁夠高、選到的看得到、整頁不左右捲', async ({ browser }) => {
     const { context, page, errors } = await bootPage(browser, { device: DEVICES.phone, wordlist: 'stub' });
     await page.evaluate(() => toggleSettings());
     await waitStill(page);
     const tabs = page.locator('#prefsTabs [role=tab]');
     for (let i = 0; i < TABS.length; i++) {
         const b = await tabs.nth(i).boundingBox();
-        expect(b.height, TABS[i] + ' 高度').toBeGreaterThanOrEqual(43.5);
+        expect(b.height, TABS[i] + ' 高度').toBeGreaterThanOrEqual(await hitMin(page) - 0.5);
     }
     const list = await page.locator('#prefsTabs').evaluate(n => ({ sw: n.scrollWidth, cw: n.clientWidth, ox: getComputedStyle(n).overflowX }));
     if (list.sw > list.cw + 1) expect(list.ox).toBe('auto');

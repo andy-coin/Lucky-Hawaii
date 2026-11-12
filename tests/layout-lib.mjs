@@ -170,9 +170,9 @@ export function scanInputFonts(page) {
 
 // ===== 觸控目標（05-08，D-07）=====
 // 比較器獨立匯出，邊界測試直接驗：44 剛好過、43.4 不過（容許 0.5px 的小數誤差）
-// 觸控最小尺寸依裝置：平板（觸控、寬 ≥ 768）36px，手機 44px（對應 css/base.css 的 --hit）
-export const HIT_MIN = 44;
-export const HIT_TABLET = 36;
+// 觸控最小尺寸依裝置：平板（觸控、寬 ≥ 768）32px，手機 36px（對應 css/base.css 的 --hit）
+export const HIT_MIN = 36;
+export const HIT_TABLET = 32;
 export const hitMin = page => page.evaluate(([t, p]) => matchMedia('(pointer: coarse) and (min-width: 768px)').matches ? t : p, [HIT_TABLET, HIT_MIN]);
 export function meetsHit(w, h, minW = 44, minH = 44) { return w >= minW - 0.5 && h >= minH - 0.5; }
 

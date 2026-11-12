@@ -439,24 +439,6 @@ test('回報入口：手機四欄', async ({ browser }) => {
     } finally { await context.close(); }
 });
 
-for (const [name, device] of [['手機', DEVICES.phone], ['觸控平板橫放', DEVICES.tabletLandscape]]) {
-    test(`回報入口：輸入框字級（${name}）`, async ({ browser }) => {
-        test.setTimeout(180_000);   // 縮放要用真按鈕一下一下點到 50%／150%
-        const { context, page } = await bootPage(browser, { wordlist: 'stub', device });
-        try {
-            await search(page);
-            await pick(page, 0);
-            for (const pct of [100, 150, 50]) {
-                await setScale(page, pct);        // 視窗開著會蓋住縮放鈕，所以每個比例先縮放、再開視窗量、再關
-                await waitStill(page);
-                await page.evaluate(() => openReportDialog());
-                const px = await page.locator('#reportNote').evaluate(el => parseFloat(getComputedStyle(el).fontSize));
-                expect(meetsInputFloor(px), `${name} ${pct}%：說明欄 ${px}px 要 ≥ 16px`).toBe(true);
-                await page.evaluate(() => closeReportDialog());
-            }
-        } finally { await context.close(); }
-    });
-}
 
 test('回報入口：鍵盤（後盾）', async ({ browser }) => {
     const { context, page } = await bootPage(browser, { wordlist: 'stub', device: DEVICES.phone });

@@ -2,7 +2,7 @@
 import { test, expect } from '@playwright/test';
 import { readFileSync } from 'node:fs';
 import { bootPage, clickBackup, openDataTab, SETTINGS_IMPORT } from './helpers.mjs';
-import { DEVICES } from './layout-lib.mjs';
+import { DEVICES, hitMin } from './layout-lib.mjs';
 
 const FIXTURE = JSON.parse(readFileSync(new URL('./fixtures/v096-localStorage.json', import.meta.url), 'utf8'));
 const DESKTOP = { viewport: { width: 1440, height: 900 }, deviceScaleFactor: 1 };
@@ -463,11 +463,11 @@ test('備份：歌名標籤太多與太長', async ({ browser }) => {
     expect(r.longChipLines, '60 字的歌名在視窗裡換行').toBe(true);
     expect(r.dialogBottom).toBeLessThanOrEqual(r.vh);
     expect(r.dialogMaxH).not.toBe('none');
-    // 手機觸控：兩個選項與取消鈕的點擊範圍都 ≥ 44×44
+    // 手機觸控：兩個選項與取消鈕的點擊範圍都 ≥ 觸控下限
     for (const id of ['#importAddBtn', '#importReplaceBtn', '#importCancelBtn']) {
         const b = await page.locator(id).boundingBox();
-        expect(b.height, id + ' 高度').toBeGreaterThanOrEqual(44);
-        expect(b.width, id + ' 寬度').toBeGreaterThanOrEqual(44);
+        expect(b.height, id + ' 高度').toBeGreaterThanOrEqual(await hitMin(page) - 0.5);
+        expect(b.width, id + ' 寬度').toBeGreaterThanOrEqual(await hitMin(page) - 0.5);
     }
     await context.close();
 });

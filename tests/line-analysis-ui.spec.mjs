@@ -4,7 +4,7 @@
 import { test, expect, chromium } from '@playwright/test';
 import { readFileSync } from 'node:fs';
 import { bootPage, compose, openTwoTabs, stubWordlist, STORAGE_SPY } from './helpers.mjs';
-import { DEVICES, setScale, waitStill, emulateKeyboard, readKeyboard, insideVisible } from './layout-lib.mjs';
+import { DEVICES, setScale, waitStill, emulateKeyboard, readKeyboard, insideVisible, hitMin } from './layout-lib.mjs';
 
 const FIXTURE = JSON.parse(readFileSync(new URL('./fixtures/v096-localStorage.json', import.meta.url), 'utf8'));
 const OPEN_PANELS = { leftPanelCollapsed: 'false', rightPanelCollapsed: 'false' };
@@ -1127,8 +1127,8 @@ test('韻族顏色：手機上的原生色票', async ({ browser }) => {
     expect(await writes()).toBe(w0 + 2);
     // 色票夠大，好按
     const box = await colorInput(page, 1).boundingBox();
-    expect(box.width).toBeGreaterThanOrEqual(43.5);
-    expect(box.height).toBeGreaterThanOrEqual(43.5);
+    expect(box.width).toBeGreaterThanOrEqual(await hitMin(page) - 0.5);
+    expect(box.height).toBeGreaterThanOrEqual(await hitMin(page) - 0.5);
     expect(errors).toEqual([]);
     await context.close();
 });

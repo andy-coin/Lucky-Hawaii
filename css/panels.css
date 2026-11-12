@@ -16,8 +16,9 @@
            以前用 translateX 把展開的面板往外推，面板裡 86–100px 的內容被切掉，縮放按鈕也被蓋住 */
         @media (min-width: 901px) {
             .side-panel {
-                top: var(--page-pad);
-                height: calc(var(--app-h) - 2 * var(--page-pad));
+                /* 主畫面加入主畫面全螢幕時，狀態列蓋在最上面：頂端讓出 safe-area */
+                top: var(--pad-t);
+                height: calc(var(--app-h) - var(--pad-t) - var(--page-pad));
                 width: var(--panel-w);
             }
             .left-panel {
@@ -2278,7 +2279,7 @@
             .ai-key-btn, .byok-eye, .prefs-tabs [role="tab"] { min-width: var(--hit); min-height: var(--hit); }
             .model-opt, .byok-actions .save-load-btn, .byok-video { min-height: var(--hit); }
             .byok-video { display: inline-flex; align-items: center; }
-            .byok-input { min-height: var(--hit); font-size: max(16px, 1rem); }
+            .byok-input { min-height: var(--hit); }
         }
 
 /* 編輯器＋鍵盤打開（html.kb-open，js/layout.js）：只留正在打字的那一塊撐滿，其餘控制列先收起；鍵盤收起就恢復 */

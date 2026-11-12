@@ -424,7 +424,7 @@
             
             .controls { gap: 0.625rem; }
 
-            .theme-toggle {
+            .theme-toggle, .gear-btn {
                 justify-content: center;
                 padding: 0.125rem 0.375rem;
                 font-size: 1.2rem;
@@ -681,19 +681,12 @@
             .side-panel:has(.section-textarea:focus) .context-section, .lyrics-editor:has(.section-textarea:focus) .context-section { flex-basis: var(--hit); }
         }
 
-        /* ===== 輸入框字級下限（D-08）：手機、平板、觸控裝置所有文字欄位至少 16px，iOS 點進去才不會自動放大 =====
-           用 max(16px, 1rem) 而不是 1rem：縮放 50% 時 1rem 只剩 8px，放大又會回來。
-           class 選擇器比元素選擇器強，所以每種輸入框都要明確列出（檔尾，同權重時這裡贏）。
-           電腦（≥ 901 且滑鼠）維持原本字級。 ===== */
+        /* ===== 輸入框（D-08 已改）：以前觸控裝置字級至少 16px 防 iOS 自動放大；
+           現在 iOS 改用 viewport maximum-scale=1（js/layout.js），所有欄位都跟著介面縮放，不再設下限 ===== */
         @media (max-width: 900px), (pointer: coarse) {
-            .search-input, .hashtag-input,
-            .hashtag-input-row input, .word-input-row input, .feedback-modal input, .feedback-modal textarea,
-            .model-select, .song-name-input, .section-name-input {
-                font-size: max(16px, 1rem);
-            }
             /* 搜尋框：單行、長字串用 … 收尾不撐破；右邊讓出切換按鈕的位置 */
             .search-input {
-                min-height: 3rem;
+                min-height: max(2.5rem, var(--hit));
                 padding-right: 4rem;
                 text-overflow: ellipsis;
             }
@@ -728,7 +721,7 @@
                 min-height: var(--hit);
                 padding: 0;
             }
-            .hashtag-input, .feedback-modal input, .search-input { min-height: max(3rem, var(--hit)); }
+            .hashtag-input, .feedback-modal input { min-height: var(--hit); }
             /* 段落設定選單（Phase 9）：每個控制項實體框 ≥ 44，色票每列放得下 4 個 */
             .swatch, .section-color-input { width: var(--hit); height: var(--hit); }
             .swatch-grid { grid-template-columns: repeat(auto-fill, minmax(var(--hit), 1fr)); }

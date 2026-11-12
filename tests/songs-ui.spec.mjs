@@ -465,23 +465,6 @@ test('歌曲清單：觸控目標', async ({ browser }) => {
     }
 });
 
-test('歌曲清單：改名不會被放大', async ({ browser }) => {
-    for (const [name, device, openSheet] of [['手機', DEVICES.phone, true], ['平板橫放', DEVICES.tabletLandscape, false]]) {
-        const { context, page, errors } = await bootPage(browser, { storage: seed(TWO), device });
-        if (openSheet) await page.locator('#mtab-lyrics').click();
-        await page.locator('#songListToggle').click();
-        await page.evaluate(() => startRenameSong(activeSongId));
-        for (const pct of [50, 100, 150]) {
-            await page.evaluate(p => setUiScale(p), pct);
-            await waitStill(page);
-            const px = await page.locator('.song-name-input').evaluate(el => parseFloat(getComputedStyle(el).fontSize));
-            expect(px, `${name} 縮放 ${pct}% 字級 ${px}px`).toBeGreaterThanOrEqual(16);
-        }
-        expect(errors).toEqual([]);
-        await context.close();
-    }
-});
-
 test('歌曲清單：標題列放得下', async ({ browser }) => {
     const long = [song('song-l', '很長很長很長很長很長很長很長很長很長很長很長很長很長很長的歌名', 2000), song('song-s', '短', 1000)];
     for (const [name, device, openSheet] of [['手機', DEVICES.phone, true], ['平板直放', DEVICES.tablet, true], ['桌機', DESKTOP, false]]) {

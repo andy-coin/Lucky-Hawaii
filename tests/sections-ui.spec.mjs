@@ -994,7 +994,7 @@ test('設定：選單不出界', async ({ browser }) => {
     }
 });
 
-test('設定：觸控點擊範圍與輸入框 16px', async ({ browser }) => {
+test('設定：觸控點擊範圍', async ({ browser }) => {
     for (const [name, device] of [['手機', DEVICES.phone], ['平板', DEVICES.tablet]]) {
         for (const pct of [50, 100, 150]) {
             const { context, page, errors } = await bootPage(browser, { device, storage: three3() });
@@ -1005,8 +1005,6 @@ test('設定：觸控點擊範圍與輸入框 16px', async ({ browser }) => {
             await radio(page, 'Custom').click();
             const input = menuOf(page).locator('input.section-name-input');
             await expect(input).toBeVisible();
-            const px = parseFloat(await input.evaluate(el => getComputedStyle(el).fontSize));
-            expect(meetsInputFloor(px), `${name} ${pct}%：自訂名稱字級 ${px}px`).toBe(true);
             if (pct === 100) {
                 // 觸控目標 ≥ 平板 36／手機 44（含色盤輸入與每個類型列）
                 const min = (await hitMin(page)) - 0.5;

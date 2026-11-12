@@ -344,6 +344,7 @@
             });
             document.getElementById('lyricsEditor').hidden = false;
             document.body.classList.add('editor-open');
+            _lhTagPh('phFull');   // 觸控沒有 hover 提示，展開編輯器時改顯示完整說明
             lhEditorRenderTabs();
             if (ta && ta.isConnected) {
                 ta.focus({ preventScroll: true });
@@ -354,6 +355,8 @@
             }
         }
 
+        function _lhTagPh(k) { const hi = document.getElementById('hashtagInput'); if (hi) hi.placeholder = hi.dataset[k]; }
+
         function lhEditorClose() {
             if (!_lhEdMoved) return;
             const moved = _lhEdMoved;
@@ -363,6 +366,7 @@
             _lhEdMoved = null;
             document.getElementById('lyricsEditor').hidden = true;
             document.body.classList.remove('editor-open');
+            _lhTagPh('phShort');
             // 滑鼠裝置焦點回到打開它的地方；觸控不聚焦歌詞（不然鍵盤又彈出來、而且又會自動打開）
             const back = _lhEdOpener;
             _lhEdOpener = null;

@@ -811,6 +811,8 @@ function lhSecMenuSync() {
     for (const [sel, off] of [['.section-move-up', i <= 0], ['.section-move-down', i >= n - 1]]) {
         _lhMenu.querySelector(sel).setAttribute('aria-disabled', String(off));
     }
+    // 開著時內容變高（例如選 Custom 多出名稱欄）：重新夾回可見範圍，不讓下緣跑出畫面
+    if (_lhMenu.classList.contains('show')) lhPlaceMenu(_lhMenu, parseFloat(_lhMenu.style.left), parseFloat(_lhMenu.style.top));
 }
 
 // x、y：選單左上角想放的位置（滑鼠＝指標；觸控與鍵盤＝名稱鈕下方）

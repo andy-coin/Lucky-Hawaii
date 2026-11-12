@@ -3,7 +3,7 @@
 import { test, expect } from '@playwright/test';
 import { readFileSync, readdirSync } from 'node:fs';
 import { bootPage, settle, activeSongRaw } from './helpers.mjs';
-import { DEVICES, setScale, waitStill, noPageScroll, expectFullyInViewport, expectReallyClickable, rectsOverlap, auditVisibleControls, emulateKeyboard, restoreViewport, readKeyboard, insideVisible, meetsInputFloor, scanInputFonts, auditTouchTargets, meetsHit } from './layout-lib.mjs';
+import { DEVICES, setScale, waitStill, noPageScroll, expectFullyInViewport, expectReallyClickable, rectsOverlap, auditVisibleControls, emulateKeyboard, restoreViewport, readKeyboard, insideVisible, meetsInputFloor, scanInputFonts, auditTouchTargets, meetsHit, hitMin } from './layout-lib.mjs';
 
 const SCALE_KEY = 'lh:uiScale';
 
@@ -1506,8 +1506,8 @@ test('鍵盤：寫歌詞時情境區自動收起、回報視窗輸入框看得�
         const idle = await ctxH();
         expect(idle, '沒在寫歌詞時情境區是正常高度').toBeGreaterThan(80);
         await focusFirstLyrics(page);
-        await expect.poll(ctxH, { message: '聚焦歌詞框：情境區收到標題列高度' }).toBeLessThanOrEqual(44.5);
-        expect(await ctxH()).toBeGreaterThanOrEqual(43.5);
+        await expect.poll(ctxH, { message: '聚焦歌詞框：情境區收到標題列高度' }).toBeLessThanOrEqual(await hitMin(page) + 0.5);
+        expect(await ctxH()).toBeGreaterThanOrEqual(await hitMin(page) - 0.5);
         await page.locator('#lyricsSections .section-textarea').first().blur();
         await expect.poll(ctxH, { message: '離開歌詞框：情境區回來' }).toBeGreaterThan(80);
         // 手指點歌詞會打開完整編輯器（R2）：情境區收起的規則在編輯器裡一樣成立；關掉編輯器再往下
@@ -1532,83 +1532,9 @@ test('鍵盤：寫歌詞時情境區自動收起、回報視窗輸入框看得�
     } finally { await context.close(); }
 });
 
-// ===== 05-07 任務二：手機平板所有輸入框字級至少 16px（任何縮放都一樣），長字串不撐破搜尋框 =====
+// ===== 05-07 任務二：長字串不撐破搜尋框（16px 字級下限已取消，iOS 改用 maximum-scale=1）=====
 // 電腦視窗加上 isMobile＋hasTouch：這個組合在 Chromium 會回報 pointer: coarse（平板接鍵盤滑鼠之外的純觸控大螢幕）
 const TOUCH_DESKTOP = { ...DEVICES.desktop, isMobile: true, hasTouch: true };
-const FLOOR_CONTEXTS = [['手機 390×844', DEVICES.phone], ['平板 820×1180', DEVICES.tablet], ['橫放手機 844×390', DEVICES.phoneLandscape], ['觸控電腦 1440×900', TOUCH_DESKTOP]];
-const OVERLAY_OPEN = { settings: ['#settingsOverlay', 'toggleSettings()'], feedback: ['#feedbackModalOverlay', 'openFeedbackModal()'] };
-// 每個狀態：開啟、該狀態一定要掃到的控制項（防止「掃了個寂寞」）、關閉
-const INPUT_STATES = [
-    ['閒置', ['input#searchInput'], async () => {}, async () => {}],
-    ['歌詞開著', ['textarea.section-textarea', 'textarea#contextDescription', 'input#hashtagInput'],
-        (page, d) => toggleSide(page, d, 'lyrics'), (page, d) => isWide(d) ? toggleSide(page, d, 'lyrics') : closeSheet(page, d)],
-    // 模型選單改成自製下拉（button，不會觸發 iOS 放大），AI 面板裡沒有輸入框了；搜尋框仍看得到
-    ['AI 開著', ['input#searchInput'],
-        (page, d) => toggleSide(page, d, 'ai'), (page, d) => isWide(d) ? toggleSide(page, d, 'ai') : closeSheet(page, d)],
-    ['設定開著·AI', ['input#byokKey-gemini', 'input#byokKey-groq'],
-        async page => { await page.evaluate(() => lhOpenAiPrefs()); await expect(page.locator('#prefsPanel-ai')).toBeVisible(); },
-        page => page.evaluate(() => document.getElementById('settingsOverlay').classList.remove('show'))],
-    ...Object.entries({ 設定開著: 'settings', 回報開著: 'feedback' }).map(([name, key]) => [
-        name,
-        key === 'feedback' ? ['input#feedbackSubject', 'textarea#feedbackBody'] : ['input#searchInput'],
-        // 對話框跟其他測試一樣直接呼叫開啟函式（橫放手機的標題區被藏起來，設定鈕本來就點不到）
-        async page => { await page.evaluate(OVERLAY_OPEN[key][1]); await expect(page.locator(OVERLAY_OPEN[key][0])).toHaveClass(/show/); },
-        page => page.evaluate(sel => document.querySelector(sel).classList.remove('show'), OVERLAY_OPEN[key][0]),
-    ]),
-];
-
-test('輸入：手機平板所有輸入框字級 ≥ 16px（3 縮放 × 7 狀態）', async ({ browser }) => {
-    test.setTimeout(180_000);   // 設定分頁各掃一次（R2）後畫面變多，全部一起跑時 60 秒不夠
-    // 負向對照：掃描器抓得到小字、放得過大字（用一個臨時的 8px 輸入框驗證，之後移除）
-    {
-        const { context, page } = await bootPage(browser, { device: DEVICES.phone });
-        try {
-            await page.evaluate(() => { const i = document.createElement('input'); i.id = 'probe'; i.style.cssText = 'font-size:15.99px;position:fixed;top:0;left:0'; document.body.appendChild(i); });
-            expect((await scanInputFonts(page)).bad, '15.99px 要被抓到').toEqual([expect.stringMatching(/^input#probe 15\.99px$/)]);
-            await page.evaluate(() => { document.getElementById('probe').style.fontSize = '16px'; });
-            expect((await scanInputFonts(page)).bad, '16px 要放行').toEqual([]);
-            await page.evaluate(() => { const p = document.getElementById('probe'); p.type = 'checkbox'; p.style.fontSize = '8px'; });
-            expect((await scanInputFonts(page)).bad, 'checkbox 不在掃描範圍').toEqual([]);
-        } finally { await context.close(); }
-    }
-    for (const [dname, device] of FLOOR_CONTEXTS) {
-        for (const pct of [50, 100, 150]) {
-            const { context, page } = await bootPage(browser, { device, storage: { 'lh:uiScale': String(pct) } });
-            try {
-                await waitStill(page);
-                expect(await page.evaluate(() => matchMedia('(pointer: coarse)').matches), `${dname}：應為觸控`).toBe(true);
-                for (const [sname, mustSee, open, close] of INPUT_STATES) {
-                    await open(page, device);
-                    const r = await scanInputFonts(page);
-                    for (const want of mustSee) {
-                        expect(r.seen.some(n => n.startsWith(want)), `${dname} ${pct}% ${sname}：沒掃到 ${want}（掃到 ${r.seen}）`).toBe(true);
-                    }
-                    expect(r.bad, `${dname} ${pct}% ${sname}：這些輸入框字級不到 16px`).toEqual([]);
-                    await close(page, device);
-                }
-            } finally { await context.close(); }
-        }
-    }
-});
-
-test('輸入：16px 剛好通過、900 套用、901 桌機不變', async ({ browser }) => {
-    expect([meetsInputFloor(16), meetsInputFloor(15.99), meetsInputFloor(16.01), meetsInputFloor(0)]).toEqual([true, false, true, false]);
-    // 滑鼠（fine pointer）：900 寬套用下限、901 寬維持桌機字級
-    const { context, page } = await bootPage(browser, { device: DEVICES.desktop });
-    try {
-        expect(await page.evaluate(() => matchMedia('(pointer: fine)').matches), '這個 context 是滑鼠').toBe(true);
-        const fonts = () => page.evaluate(() => Object.fromEntries(['#modelPicker', '#searchInput'].map(s => [s, parseFloat(getComputedStyle(document.querySelector(s)).fontSize)])));
-        const desktop = await fonts();
-        expect(desktop['#modelPicker'], '1440 桌機維持原字級').toBeLessThan(16);
-        await page.setViewportSize({ width: 901, height: 900 });
-        expect((await fonts())['#modelPicker'], '901 滑鼠：桌機字級不變').toBe(desktop['#modelPicker']);
-        await page.setViewportSize({ width: 900, height: 900 });
-        const at900 = await fonts();
-        for (const [sel, px] of Object.entries(at900)) expect(meetsInputFloor(px), `900 寬滑鼠 ${sel} ${px}px`).toBe(true);
-        await page.setViewportSize({ width: 901, height: 900 });
-        expect((await fonts())['#modelPicker'], '回到 901 又變回桌機字級').toBe(desktop['#modelPicker']);
-    } finally { await context.close(); }
-});
 
 test('輸入：20 個中文字的查詢不換行不撐破', async ({ browser }) => {
     const QUERY = '好運氣一定會來找到屬於我自己的歌';   // 16 字；再補 4 字湊 20
@@ -1744,7 +1670,7 @@ const scanAllTouch = browser => touchScans ??= (async () => {
     return out;
 })();
 
-test('觸控：手機平板每個按鈕至少 44px（各種畫面）', async ({ browser }) => {
+test('觸控：手機平板每個按鈕夠大（手機 36／平板 32，各種畫面）', async ({ browser }) => {
     test.setTimeout(180_000);   // 設定分頁各掃一次（R2）後畫面變多，全部一起跑時 60 秒不夠
     // 負向對照：掃描器抓得到 43px、放行 44px；mark-badge 例外只放寬到 44×32（徽章的 ::after 會外擴上下各 6px）
     {
@@ -1752,12 +1678,12 @@ test('觸控：手機平板每個按鈕至少 44px（各種畫面）', async ({ 
         try {
             await page.evaluate(() => {
                 const mk = (id, w, h, cls = '') => { const b = document.createElement('button'); b.id = id; b.className = cls; b.style.cssText = `position:fixed;left:8px;width:${w}px;height:${h}px;padding:0;border:0;min-height:0;min-width:0;z-index:99999`; return b; };
-                const els = [mk('p43', 43, 43), mk('p44', 44, 44), mk('pbadgeok', 44, 22, 'mark-badge'), mk('pbadgebad', 44, 18, 'mark-badge')];
+                const els = [mk('p35', 35, 35), mk('p36', 36, 36), mk('pbadgeok', 44, 22, 'mark-badge'), mk('pbadgebad', 44, 18, 'mark-badge')];
                 els.forEach((b, i) => { b.style.top = 8 + i * 60 + 'px'; document.body.appendChild(b); });
             });
             const r = await auditTouchTargets(page);
             const flagged = r.failures.map(f => f.selector.replace(/^button/, '').replace(/\.mark-badge$/, '.mark-badge')).filter(n => /^#p/.test(n));
-            expect(flagged.sort(), '只有 43px 與擴大後仍不到 32 高的徽章該被抓到（徽章 22 高＋外擴 12＝34 算過）').toEqual(['#p43', '#pbadgebad.mark-badge']);
+            expect(flagged.sort(), '只有 35px 與擴大後仍不到 32 高的徽章該被抓到（徽章 22 高＋外擴 12＝34 算過）').toEqual(['#p35', '#pbadgebad.mark-badge']);
             expect(meetsHit(44, 44) && !meetsHit(43.4, 44) && !meetsHit(44, 43.4), '比較器邊界').toBe(true);
         } finally { await context.close(); }
     }
@@ -1854,7 +1780,7 @@ test('觸控：還沒搜尋時 AI 面板按鈕夠大、按建議會提示先搜�
         for (const sel of ['#modeRhyme', '#modeInitial', '#filterChipSameTone', '#filterChipSameChar', '#filterChipNoExtRhyme', '#filterChipWordLen']) {
             const b = await page.locator(sel).boundingBox();
             expect(b, `${sel} 看得到`).not.toBeNull();
-            expect(b.height, `${sel} 高度 ${b.height}`).toBeGreaterThanOrEqual(43.5);
+            expect(b.height, `${sel} 高度 ${b.height}`).toBeGreaterThanOrEqual(await hitMin(page) - 0.5);
         }
         await expectReallyClickable(page, page.locator('#generateBtn'), '提供詞語建議');
         await page.locator('#generateBtn').tap();

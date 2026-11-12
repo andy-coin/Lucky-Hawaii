@@ -1,3 +1,4 @@
+import { hitMin } from './layout-lib.mjs';
 // PERF-02 字卡分批出現：狀態（data-render）、批次邊界、載入中提示、讀屏文字、取消、捲動、背景分頁
 // 最後畫面和一次畫完要一模一樣由 golden.spec.mjs 負責；這裡只測「過程」。
 import { test, expect } from '@playwright/test';
@@ -216,7 +217,7 @@ test.describe('分批', () => {
             expect(m).not.toBeNull();
             expect(m[2]).toBe(mid.total.toLocaleString('zh-TW'));     // 有千分位逗號（1,077 這類）
             expect(Number(m[1].replace(/,/g, ''))).toBeGreaterThanOrEqual(48);
-            expect(mid.height).toBeGreaterThanOrEqual(44);
+            expect(mid.height).toBeGreaterThanOrEqual(await hitMin(page) - 0.5);
             expect(mid.liveInside).toBe(false);                        // 讀屏文字放在容器外，不污染 golden 的 innerHTML
             expect(mid.liveText).toBe('');                             // 還在載入時不唸
             expect(mid.liveAria).toBe('polite');

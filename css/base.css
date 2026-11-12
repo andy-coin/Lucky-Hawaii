@@ -53,7 +53,7 @@
             --vv-top: 0px;
             --tab-w: 2.5rem;
             --panel-w: min(clamp(20rem, 30vw, 25rem), 45vw);
-            --hit: max(44px, 2.75rem);   /* 手機；平板見下面 (pointer: coarse) and (min-width: 768px) */
+            --hit: 36px;   /* 手機（Andy：44 太佔空間）；平板見下面 (pointer: coarse) and (min-width: 768px) */
             /* 宣告在 :root：--pad-b 在 :root 解析，看不到 body 上才宣告的變數 */
             --body-extra: 0px;
             --pad-t: max(var(--page-pad), env(safe-area-inset-top));
@@ -1162,7 +1162,7 @@
         .ai-tools { display: inline-flex; align-items: center; gap: var(--sp-1); min-width: 0; }
         .gear-btn { padding: 0.25rem 0.5rem; }
 
-        /* 平板（觸控、寬 ≥ 768）：Andy 覺得 44px 太高、太佔空間，控制項改 36px；手機維持 44 */
+        /* 平板（觸控、寬 ≥ 768）：Andy 覺得太佔空間，控制項 32px；手機 36 */
         @media (pointer: coarse) and (min-width: 768px) {
-            :root { --hit: 36px; }
+            :root { --hit: 32px; }
         }
