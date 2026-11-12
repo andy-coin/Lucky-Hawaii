@@ -61,7 +61,7 @@ test('復原：段落操作', async ({ browser }) => {
     expect(await labels()).toEqual(['Pre-Chorus']);
     await page.locator('#undoBtn').click();
     // 新增段落：復原後整段不見（重畫），重做回來是同一個 id
-    await page.locator('.panel-add-btn').first().click();
+    await page.locator('.section-add-btn').click();
     const ids = await page.evaluate(() => curSong().sections.map(s => s.id));
     expect(ids).toHaveLength(2);
     await page.locator('#undoBtn').click();

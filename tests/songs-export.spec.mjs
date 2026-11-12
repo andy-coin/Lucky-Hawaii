@@ -326,7 +326,7 @@ test('匯出：標題列在手機放大也放得下', async ({ browser }) => {
         await waitStill(page);
         const panel = await page.locator('#leftPanel').evaluate(el => { const r = el.getBoundingClientRect(); return { x: r.x, y: r.y, width: r.width, height: r.height }; });
         const kids = await page.locator('.lyrics-head > *').evaluateAll(els => els.map(el => { const r = el.getBoundingClientRect(); return { n: el.id || el.className, x: r.x, y: r.y, width: r.width, height: r.height }; }));
-        expect(kids.map(k => k.n), '四個東西都在').toEqual(['songListToggle', 'songCurrent', 'exportToggle', 'panel-add-btn']);
+        expect(kids.map(k => k.n), '四個東西都在').toEqual(['songListToggle', 'songCurrent', 'exportToggle', 'editorOpenBtn']);
         for (const k of kids) {
             expect(k.x, `${pct}% ${k.n} 左緣`).toBeGreaterThanOrEqual(panel.x - 0.5);
             expect(k.x + k.width, `${pct}% ${k.n} 右緣`).toBeLessThanOrEqual(panel.x + panel.width + 0.5);

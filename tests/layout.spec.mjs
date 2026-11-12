@@ -1055,7 +1055,7 @@ test('底部面板：六段歌詞可捲動、每段夠高', async ({ browser }) 
         for (const h of m.tas) expect(h, `每段輸入框高度 ${m.tas}`).toBeGreaterThanOrEqual(112);
         // 捲到最底的最後一段、以及「+ 新增段落」都點得到
         await expectReallyClickable(page, page.locator('#lyricsSections .section-textarea').last(), '最後一段輸入框');
-        await expectReallyClickable(page, page.locator('#leftPanel .lyrics-head .panel-add-btn'), '新增段落');
+        await expectReallyClickable(page, page.locator('#leftPanel .section-add-btn'), '新增段落');
     } finally { await context.close(); }
 });
 
@@ -1074,7 +1074,7 @@ for (const [name, device] of [['手機', DEVICES.phone], ['平板', DEVICES.tabl
                 await expectReallyClickable(page, loc, label);
             };
             await toggleSide(page, device, 'lyrics');
-            await inside('#leftPanel', page.locator('#leftPanel .lyrics-head .panel-add-btn'), '「+ 新增段落」');
+            await inside('#leftPanel', page.locator('#leftPanel .section-add-btn'), '「+ 新增段落」');
             await inside('#leftPanel', page.locator('#lyricsSections .section-textarea').first(), '第一個歌詞輸入框');
             await closeSheet(page, device);
             await toggleSide(page, device, 'ai');
@@ -1309,8 +1309,11 @@ for (const [name, device] of Object.entries(DEVICES)) {
             await toggleSide(page, device, 'lyrics');
             const ta = page.locator('#lyricsSections .section-textarea').first();
             await hit(ta, '第一個歌詞輸入框');
+            // 觸控點歌詞會打開完整編輯器（R2），游標跟著搬進去；打完字用 ✕ 關掉再往下走
+            if (device.hasTouch) await expect(page.locator('#lyricsEditor')).toBeVisible();
             await page.keyboard.type('月光下');
             expect(await ta.inputValue()).toContain('月光下');
+            if (device.hasTouch) await hit(page.locator('#lyricsEditor .editor-close'), '關閉完整編輯器');
             await closeSheet(page, device);
             // 4. AI 建議：打開、按提供詞語建議
             await toggleSide(page, device, 'ai');
@@ -1465,6 +1468,9 @@ test('鍵盤：寫歌詞時情境區自動收起、回報視窗輸入框看得�
         expect(await ctxH()).toBeGreaterThanOrEqual(43.5);
         await page.locator('#lyricsSections .section-textarea').first().blur();
         await expect.poll(ctxH, { message: '離開歌詞框：情境區回來' }).toBeGreaterThan(80);
+        // 手指點歌詞會打開完整編輯器（R2）：情境區收起的規則在編輯器裡一樣成立；關掉編輯器再往下
+        await expect(page.locator('#lyricsEditor')).toBeVisible();
+        await page.locator('#lyricsEditor .editor-close').tap();
         await closeSheet(page, device);
 
         // 回報視窗：開啟後自動聚焦主旨，鍵盤出現後主旨輸入框與整個對話框都在可見範圍

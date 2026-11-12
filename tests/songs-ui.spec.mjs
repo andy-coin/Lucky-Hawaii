@@ -446,7 +446,7 @@ test('歌曲清單：減少動態', async ({ browser }) => {
 });
 
 test('歌曲清單：觸控目標', async ({ browser }) => {
-    const list = ['#songListToggle', '.lyrics-head .panel-add-btn', '.song-new-btn', '.song-pick', '.song-act.rename'];
+    const list = ['#songListToggle', '#editorOpenBtn', '.song-new-btn', '.song-pick', '.song-act.rename'];
     for (const [name, device, openSheet] of [['手機', DEVICES.phone, true], ['平板直放', DEVICES.tablet, true], ['平板橫放', DEVICES.tabletLandscape, false]]) {
         const { context, page, errors } = await bootPage(browser, { storage: seed(TWO), device });
         if (openSheet) await page.locator('#mtab-lyrics').click();
@@ -492,7 +492,7 @@ test('歌曲清單：標題列放得下', async ({ browser }) => {
             await waitStill(page);
             const panel = await rectOf(page, '#leftPanel');
             const kids = await page.locator('.lyrics-head > *').evaluateAll(els => els.map(el => { const r = el.getBoundingClientRect(); return { n: el.id || el.className, x: r.x, y: r.y, width: r.width, height: r.height }; }));
-            expect(kids.length).toBe(4);   // ☰ 歌曲、歌名、⬇ 匯出、+ 新增段落（08-06 加入 ⬇ 匯出）
+            expect(kids.length).toBe(4);   // ☰ 歌曲、歌名、⬇ 匯出、⤢ 展開（R2：新增段落移到標籤＆情境下面）
             for (const k of kids) {
                 expect(k.x, `${name} ${pct}% ${k.n} 左緣`).toBeGreaterThanOrEqual(panel.x - 0.5);
                 expect(k.x + k.width, `${name} ${pct}% ${k.n} 右緣`).toBeLessThanOrEqual(panel.x + panel.width + 0.5);

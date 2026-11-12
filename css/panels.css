@@ -1243,7 +1243,6 @@
             flex: 1;
             display: flex;
             flex-direction: column;
-            transition: flex 0.25s ease;
         }
         /* 段落多到放不下時列表自己捲，不把每段壓成只剩標題列（和 ≤ 900 的 9rem 一致；有存高度的段落由下面 data-h 的規則放行） */
         .lyrics-section:not(.collapsed) { min-height: 9rem; }
@@ -1586,6 +1585,7 @@
         .lyrics-section.collapsed .section-resize { display: none; }
         body.is-section-resizing { user-select: none; cursor: ns-resize; }
         /* 有存高度的段落：只有它不再被 Phase 5 的 9rem／7rem 下限與第一段 12rem 撐住（多寫一個 .lyrics-area 才壓得過那些規則）；收合時不看 data-h */
+        /* 段落不做 flex 動畫：從「跟著空間撐開」換成「固定高度」那一下若有動畫，一開始拉就先縮一下再長回來（R2） */
         .lyrics-area .lyrics-section[data-h]:not(.collapsed) { flex: 0 0 auto; min-height: 0; }
         .lyrics-area .lyrics-section[data-h]:not(.collapsed) .section-body { flex: 0 0 auto; }
         .lyrics-area .lyrics-section[data-h]:not(.collapsed) .section-textarea { display: block; flex: none; height: var(--sec-h); min-height: 0; }

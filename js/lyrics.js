@@ -414,16 +414,22 @@
             if (t && t.dataset.songId) startRenameSong(t.dataset.songId, { anchor: t });
         });
 
-        // 電腦：雙擊歌詞打開（單擊不打開）；觸控：點歌詞就打開，游標留在點的位置
-        // 觸控用 click（不是 focus）：click 時游標已經放好，而且還在使用者手勢裡，重新聚焦鍵盤才會照常出現
+        // 電腦（滑鼠）：雙擊歌詞打開，單擊不打開；手指／觸控筆：點歌詞就打開，游標留在點的位置
+        // 觸控等到 click 才搬：那時游標已經放好，而且還在使用者手勢裡，重新聚焦鍵盤才會照常出現。
+        // 不看 click 落在哪：聚焦會讓版面移動（鍵盤讓位），click 常落在旁邊；按下時記住是哪一段，click 時它還有焦點就打開
+        let _lhEdTapTa = null;
         document.getElementById('lyricsSections')?.addEventListener('dblclick', e => {
             const ta = e.target.closest && e.target.closest('.section-textarea');
-            if (ta && !_lhEdMoved && _lhEdMouse()) lhEditorOpen(ta, [ta.selectionStart, ta.selectionEnd]);
+            if (ta && !_lhEdMoved) lhEditorOpen(ta, [ta.selectionStart, ta.selectionEnd]);
         });
-        document.getElementById('lyricsSections')?.addEventListener('click', e => {
-            const ta = e.target.closest && e.target.closest('.section-textarea');
-            if (ta && !_lhEdMoved && !_lhEdMouse()) lhEditorOpen(ta, [ta.selectionStart, ta.selectionEnd]);
+        document.getElementById('lyricsSections')?.addEventListener('pointerdown', e => {
+            _lhEdTapTa = !_lhEdMoved && e.pointerType !== 'mouse' && e.target.closest && e.target.closest('.section-textarea') || null;
         });
+        document.addEventListener('click', () => {
+            const ta = _lhEdTapTa;
+            _lhEdTapTa = null;
+            if (ta && !_lhEdMoved && document.activeElement === ta) lhEditorOpen(ta, [ta.selectionStart, ta.selectionEnd]);
+        }, true);
 
         // 點遮罩（按下與放開都在遮罩上）關閉；在面板裡選字拖到外面放開不算
         let _lhEdDownOnMask = false;

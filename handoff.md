@@ -1,3 +1,12 @@
+## ▶ R2 歌詞編輯器（2026-11-12，worktree `Lucky Hawaii-wt-editor`，分支 r2/editor，沒 push、`?v=` 沒動）
+
+- 完整歌詞編輯器：`index.html` `#lyricsEditor`（浮動面板骨架）；`js/lyrics.js` 檔尾 `lhEditorOpen／lhEditorClose／lhEditorRenderTabs`：打開時把 `#leftPanel .lyrics-layout` 搬進 `#lyricsEditorBody`、`#exportToggle` 搬到分頁列，關閉用註解節點佔位搬回；電腦雙擊歌詞或「⤢ 展開」（`#editorOpenBtn`）開，手指／觸控筆點歌詞（pointerdown 記下、click 時還聚焦才開）自動開；Esc／✕／點遮罩關，Tab 在面板內循環。
+- `js/songs.js`：`createSong({ rename:false })`、`startRenameSong(id, { anchor })`（在分頁上改名）、`renderSongHeader／renderSongList` 會叫 `lhEditorRenderTabs`。`js/sections.js` 拖曳殘影改夾在 `#lyricsSections` 內（原本夾在 #leftPanel）。
+- 「新增段落」改成 `.section-add-btn`，在 `#contextSection` 與 `#lyricsSections` 之間。
+- CSS（`css/panels.css`）：收合的段落／標籤＆情境高度改 `flex: 0 0 auto` 並藏內容（修 iPad 裁切）；`.section-body` 一律 flex column（輸入框撐滿）；拿掉 `.lyrics-section` 的 flex 動畫（修拉高度先縮）；檔尾是編輯器樣式。`css/responsive.css` 刪掉兩條寫死高度。
+- 測試：新檔 `tests/lyrics-editor.spec.mjs`（9 個）；更新依賴舊「新增段落」位置的 sections-ui／undo／songs-audit／songs-ui／songs-export／layout，line-analysis-ui「滾輪」等一下事件送達。埠 4322 被 theme worktree 佔著，用 4333 跑。
+- 截圖 `r2-shots/`（v4-* 最新），待決 `R2-editor.md`（10 題）。
+
 ## 🌙 夜間三線並行（2026-11-12，分支 overnight/2026-11-12，進行中）
 
 - 三個 subagent 各在自己的 worktree 工作，完成後由主 session 合併回 `overnight/2026-11-12`，再統一升 `?v=`：

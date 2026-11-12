@@ -46,7 +46,7 @@ test('名稱：新增段落猜下一段', async ({ browser }) => {
         storage: v2Storage([song('s1', [{ id: 'sa', type: 'verse', custom: '', color: '', height: null, label: 'Verse', text: '一', collapsed: false }])]),
     });
     expect(await labels(page)).toEqual(['Verse']);
-    for (let i = 0; i < 3; i++) await page.locator('.panel-add-btn').first().click();
+    for (let i = 0; i < 3; i++) await page.locator('.section-add-btn').click();
     // Verse → Pre-Chorus → Chorus → Verse：第四段出現後，第一段與最後一段都變成有編號的 Verse
     expect(await labels(page)).toEqual(['Verse I', 'Pre-Chorus', 'Chorus', 'Verse II']);
     await expect.poll(async () => (await activeSongRaw(page)).sections.map(s => s.label)).toEqual(['Verse I', 'Pre-Chorus', 'Chorus', 'Verse II']);
@@ -151,7 +151,7 @@ test('循環：新增段落的焦點', async ({ browser }) => {
             device, storage: v2Storage([song('s1', [typed('sa', 'verse', '一')])]),
         });
         await openLyrics(page);
-        const add = page.locator('.panel-add-btn').first();
+        const add = page.locator('.section-add-btn');
         if (hasFocus) await add.click(); else await add.tap();
         await expect(page.locator('#lyricsSections .lyrics-section')).toHaveCount(2);
         const active = await page.evaluate(() => {
@@ -418,7 +418,7 @@ test('刪除：新動作讓復原鈕消失', async ({ browser }) => {
     expect(await ids()).toEqual(['sa', 'sb', 'sc']);
     // 新增段落
     await delMiddle();
-    await page.locator('.panel-add-btn').first().click();
+    await page.locator('.section-add-btn').click();
     await expect(action).toHaveCount(0);
     // 按 ↶ 本身也會收掉復原鈕
     await page.locator('#undoBtn').click();   // 撤新增
@@ -465,7 +465,7 @@ test('刪除：最後一段不能刪', async ({ browser }) => {
     expect(await page.evaluate(() => curSong().sections.length)).toBe(1);
     await expect(page.locator('#copyToast.has-action')).toHaveCount(0);
     // 兩段時 − 都出現，刪到剩一段又藏起來
-    await page.locator('.panel-add-btn').first().click();
+    await page.locator('.section-add-btn').click();
     await expect(page.locator('.section-remove:visible')).toHaveCount(2);
     await page.locator('.lyrics-section[data-index="1"] .section-remove').click();
     await expect(page.locator('.section-remove:visible')).toHaveCount(0);
@@ -843,7 +843,7 @@ test('設定：關閉方式', async ({ browser }) => {
     const two = v2Storage([song('s1', [typed('sa', 'verse', 'A'), typed('sb', 'chorus', 'B')]), song('s2', [typed('sx', 'verse', 'X')])], 's1');
     const { context, page, errors } = await bootPage(browser, { device: DEVICES.desktop, storage: two });
     const closes = {
-        '點外面': () => page.locator('.section-textarea').first().click(),
+        '點外面': () => page.locator('.section-textarea').first().click({ position: { x: 8, y: 8 } }),
         '關閉設定': () => menuOf(page).getByRole('button', { name: '關閉設定' }).click(),
         'Esc': () => page.keyboard.press('Escape'),
         '刪除這一段': () => page.evaluate(() => lhSecRemove('sb')),

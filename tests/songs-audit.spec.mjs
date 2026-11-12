@@ -196,7 +196,7 @@ test('檢查：觸控目標', async ({ browser }) => {
 
         // 標題列、清單、列上的 ✎ 🗑、改名輸入框
         await page.locator('#songListToggle').click();
-        await audit(['#songListToggle', '#exportToggle', '.lyrics-head .panel-add-btn', '.song-new-btn', '.song-pick', '.song-act.rename', '.song-act.delete'], '標題列與清單');
+        await audit(['#songListToggle', '#exportToggle', '#editorOpenBtn', '.song-new-btn', '.song-pick', '.song-act.rename', '.song-act.delete'], '標題列與清單');
         await page.locator('.song-act.rename[data-song-id="song-a"]').click();   // 改名時那一列的 ✎ 🗑 會先藏起來，所以輸入框另外量
         await expect(page.locator('.song-name-input')).toBeVisible();
         await audit(['.song-name-input'], '改名輸入框');
@@ -405,7 +405,7 @@ test('檢查：無障礙名稱', async ({ browser }) => {
     await expect(page.locator('#songListToggle')).toHaveAttribute('aria-expanded', 'false');
     await expectNamed('#exportToggle', '匯出這首歌');
     await expect(page.locator('#exportToggle')).toHaveAttribute('aria-haspopup', 'menu');
-    await expectNamed('.lyrics-head .panel-add-btn', '在這首歌新增一個段落');
+    await expectNamed('.section-add-btn', '在這首歌新增一個段落');
     await expectNamed('.song-new-btn', '新增一首歌曲');
     await expectNamed('.song-act.rename[data-song-id="song-a"]', '重新命名「甲」');
     await expectNamed('.song-act.delete[data-song-id="song-a"]', '刪除「甲」');

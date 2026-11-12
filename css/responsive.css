@@ -677,7 +677,7 @@
             /* 鍵盤開著：回到「結果區吃剩下的高度」，不要整頁再多出一段捲動 */
             html.kb-short .results-section { flex: 1 1 0; height: auto; }
             /* 寫歌詞時把「情境 ＆ 標籤」收到只剩標題列，讓出高度給歌詞框 */
-            .side-panel:has(.section-textarea:focus) .context-section { flex-basis: var(--hit); }
+            .side-panel:has(.section-textarea:focus) .context-section, .lyrics-editor:has(.section-textarea:focus) .context-section { flex-basis: var(--hit); }
         }
 
         /* ===== 輸入框字級下限（D-08）：手機、平板、觸控裝置所有文字欄位至少 16px，iOS 點進去才不會自動放大 =====
