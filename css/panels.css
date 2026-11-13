@@ -2359,6 +2359,64 @@ html.kb-open .lyrics-editor-body .lyrics-section:focus-within { flex: 1 1 auto !
 html.kb-open .lyrics-editor-body .lyrics-section:focus-within .section-textarea { flex: 1 1 auto; min-height: 0; }
 html.kb-open .lyrics-editor-body .lyrics-area { flex: 1 1 auto; min-height: 0; }
 
+/* ===== 自由畫布（js/canvas.js）：編輯器工具列的「吸附／自由」，自由模式下段落是畫布上的卡片 ===== */
+.canvas-tools { display: inline-flex; align-items: center; margin-left: auto; }
+body:not(.editor-open) .canvas-tools { display: none; }
+.canvas-tools > .canvas-btn:first-child { border-radius: 0.5rem 0 0 0.5rem; }
+.canvas-tools > .canvas-btn:last-child { border-radius: 0 0.5rem 0.5rem 0; border-left-width: 0; }
+.canvas-btn[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--highlight-border); }
+.cv-corner { display: none; }
+/* 自由模式下畫布是唯一的捲動容器（原生捲動），所以桌面上外層沒有東西會被帶著捲；
+   鍵盤打開（html.kb-open）時整組規則不生效，改回原本只留正在打字那段的直列（D-06） */
+html:not(.kb-open) #lyricsSections[data-canvas="free"] {
+    display: block;
+    overflow: auto;
+    flex: 1 1 0;
+    min-height: 16rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-m);
+    background-color: var(--container-bg);
+    background-image: radial-gradient(var(--border) 1px, transparent 1px);
+    background-size: 1.5rem 1.5rem;
+    background-attachment: local;
+}
+html:not(.kb-open) #lyricsSections[data-canvas="free"] > .lyrics-section {
+    position: absolute;
+    left: var(--cv-x);
+    top: var(--cv-y);
+    width: var(--cv-w);
+    height: var(--cv-h);
+    margin: 0;
+    flex: none;
+    min-height: 0;
+    background: var(--card-bg);
+    box-shadow: 0 1px 4px var(--shadow);
+}
+html:not(.kb-open) #lyricsSections[data-canvas="free"] > .lyrics-section.collapsed { height: auto; }
+html:not(.kb-open) #lyricsSections[data-canvas="free"] .section-body { flex: 1 1 auto; min-height: 0; }
+/* 蓋掉 lhSecFit 寫的行內高度：文字框撐滿卡片，字多就在卡片裡捲 */
+html:not(.kb-open) #lyricsSections[data-canvas="free"] .section-textarea { flex: 1 1 auto !important; height: auto !important; min-height: 0 !important; overflow-y: auto !important; }
+html:not(.kb-open) #lyricsSections[data-canvas="free"] .lyrics-section-header { cursor: move; touch-action: none; }
+html:not(.kb-open) #lyricsSections[data-canvas="free"] .lyrics-section-header button:not(.section-handle) { cursor: pointer; }
+html:not(.kb-open) #lyricsSections[data-canvas="free"] .cv-corner {
+    display: block;
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    width: 1.25rem;
+    height: 1.25rem;
+    z-index: 1;
+    cursor: nwse-resize;
+    touch-action: none;
+    background: linear-gradient(135deg, transparent 50%, var(--border) 50%);
+}
+@media (pointer: coarse) {
+    html:not(.kb-open) #lyricsSections[data-canvas="free"] .cv-corner { width: 2.75rem; height: 2.75rem; }
+}
+html:not(.kb-open) #lyricsSections[data-canvas="free"] .lyrics-section.collapsed .cv-corner { display: none; }
+.lyrics-section.cv-moving { z-index: 2; box-shadow: 0 6px 20px var(--shadow); }
+body.is-canvas-dragging { user-select: none; }
+
 /* 段落依內容自動長高（js/sections.js lhSecFit）：段落自己不捲，整個歌詞區只剩一條捲軸；拉高度的把手拿掉 */
 .lyrics-area .lyrics-section:not(.collapsed) { flex: 0 0 auto; min-height: 0; }
 .lyrics-area .lyrics-section:not(.collapsed) .section-body { flex: 0 0 auto; }

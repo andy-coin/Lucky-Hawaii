@@ -20,6 +20,7 @@ function lhSecFillTypeBtn(btn, label) {
 
 // ⋮⋮ 把手的無障礙名稱（建立與原地更新共用）
 function lhSecHandleLabel(label) {
+    if (document.getElementById('lyricsSections')?.dataset.canvas === 'free') return '拖曳移動「' + label + '」卡片，或按 Alt+上下鍵調整段落順序';
     return '拖曳排序「' + label + '」，或按 Alt+上下鍵移動';
 }
 
@@ -429,6 +430,7 @@ function lhSecResizeKey(e) {
 function lhSecAbortInteractions() {
     lhSecDragEnd(false);
     lhSecResizeEnd(false);
+    if (typeof lhCanvasAbort === 'function') lhCanvasAbort();   // 自由畫布的卡片拖曳／拉大小（canvas.js 較晚載入）
     lhSecCloseMenu();
     lhMoveSelClose();   // 選取移動選單（檔尾；函式宣告會提升）
     if (typeof lhMapCloseAll === 'function') lhMapCloseAll();   // 韻腳選單（js/rhyme-map.js 最後才載入）
@@ -466,6 +468,7 @@ document.getElementById('lyricsSections').addEventListener('pointerdown', e => {
     }
     const handle = e.target.closest && e.target.closest('.section-handle');
     if (!handle || _lhDrag || !e.isPrimary) return;
+    if (document.getElementById('lyricsSections').dataset.canvas === 'free') return;   // 自由畫布：⋮⋮ 是移動卡片（js/canvas.js），不啟動排序
     if (e.pointerType === 'mouse' && e.button !== 0) return;
     const secEl = handle.closest('.lyrics-section');
     if (!secEl) return;

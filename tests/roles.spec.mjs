@@ -453,7 +453,7 @@ const open = async page => { await page.locator(BTN).click(); await expect(page.
 
 test('面板：工具列順序與按鈕屬性', async ({ browser }) => {
     const { context, page, errors } = await bootPage(browser, { wordlist: 'stub', storage: withRoles() });
-    expect(await page.evaluate(() => [...document.querySelector('.lyrics-tools').children].map(n => n.id || n.className))).toEqual(['undo-group', 'rhymeMenuBtn', 'roleMenuBtn', 'songTotal']);
+    expect(await page.evaluate(() => [...document.querySelector('.lyrics-tools').children].map(n => n.id || n.className))).toEqual(['undo-group', 'rhymeMenuBtn', 'roleMenuBtn', 'songTotal', 'canvasTools']);
     const b = page.locator(BTN);
     await expect(b).toHaveText('角色 ▾');
     await expect(b).toHaveAttribute('aria-haspopup', 'dialog');

@@ -458,8 +458,8 @@ test('開關：句尾上色關掉後重新整理還是關的', async ({ browser 
     await expect(btn).toHaveAttribute('aria-label', '韻腳地圖設定');
     await expect(btn).toHaveAttribute('aria-haspopup', 'dialog');
     await expect(btn).toHaveAttribute('aria-expanded', 'false');
-    // 工具列依序：↶ ↷、韻腳 ▾、角色 ▾、共 N 字
-    expect(await page.evaluate(() => [...document.querySelector('.lyrics-tools').children].map(n => n.id || n.className))).toEqual(['undo-group', 'rhymeMenuBtn', 'roleMenuBtn', 'songTotal']);
+    // 工具列依序：↶ ↷、韻腳 ▾、角色 ▾、共 N 字、排版（編輯器裡才有）
+    expect(await page.evaluate(() => [...document.querySelector('.lyrics-tools').children].map(n => n.id || n.className))).toEqual(['undo-group', 'rhymeMenuBtn', 'roleMenuBtn', 'songTotal', 'canvasTools']);
     await btn.click();
     const menu = page.locator('#rhymeMenu');
     await expect(menu).toBeVisible();

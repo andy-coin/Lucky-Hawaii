@@ -247,6 +247,7 @@
                 _lhSecFitRO.observe(ta);
                 return el;
             }));
+            if (typeof lhCanvasApply === 'function') lhCanvasApply();   // 自由畫布：先套排版，鏡像層才量得到最後的寬度（canvas.js 較晚載入）
             if (typeof lhRolesRefresh === 'function') lhRolesRefresh();   // 換歌、別分頁更新：角色顏色變數跟著這首歌
             lhSecCountAll();
             lhHistEnsure(song, true);   // 每次重畫（開機、換歌、別的分頁更新）先把「現在」記成歷史的起點
@@ -349,6 +350,7 @@
             });
             document.getElementById('lyricsEditor').hidden = false;
             document.body.classList.add('editor-open');
+            if (typeof lhCanvasApply === 'function') lhCanvasApply();   // 自由畫布：這首歌是自由模式就套上
             _lhTagPh('phFull');   // 觸控沒有 hover 提示，展開編輯器時改顯示完整說明
             lhEditorRenderTabs();
             if (ta && ta.isConnected) {
@@ -371,6 +373,7 @@
             _lhEdMoved = null;
             document.getElementById('lyricsEditor').hidden = true;
             document.body.classList.remove('editor-open');
+            if (typeof lhCanvasApply === 'function') lhCanvasApply();   // 回到整齊直列
             _lhTagPh('phShort');
             // 滑鼠裝置焦點回到打開它的地方；觸控不聚焦歌詞（不然鍵盤又彈出來、而且又會自動打開）
             const back = _lhEdOpener;
