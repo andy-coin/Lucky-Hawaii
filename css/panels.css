@@ -2132,13 +2132,19 @@
             .tour-dots span { width: 0.3125rem; }
         }
 
-/* ===== 完整歌詞編輯器（R2，js/lyrics.js lhEditorOpen）：左側的歌詞標題列與歌詞區整塊搬進來 ===== */
+/* ===== 完整歌詞編輯器（R2，js/lyrics.js lhEditorOpen）：左側的歌詞標題列與歌詞區整塊搬進來，幾乎全螢幕 ===== */
 .lyrics-editor-overlay {
     position: fixed;
     left: 0;
     right: 0;
     top: var(--vv-top);
     height: var(--app-h);
+    /* 四邊留白 = 主畫面外框的間距（和 body padding、js/dock.js 外框同一組變數）；
+       下緣不加 --body-extra，因為遮罩本來就蓋住底部分頁列 */
+    padding: var(--pad-t)
+             max(var(--page-pad), env(safe-area-inset-right))
+             max(var(--page-pad), env(safe-area-inset-bottom))
+             max(var(--page-pad), env(safe-area-inset-left));
     z-index: 950;   /* 高於面板與分頁列（≤ 900），低於設定、選單、浮動列、提示 */
     display: flex;
     align-items: center;
@@ -2147,9 +2153,8 @@
 }
 .lyrics-editor-overlay[hidden] { display: none; }
 .lyrics-editor {
-    width: 90vw;
-    height: 90%;
-    max-width: 75rem;
+    width: 100%;
+    height: 100%;
     display: flex;
     flex-direction: column;
     gap: var(--sp-2);
@@ -2313,6 +2318,7 @@
         }
 
 /* 編輯器＋鍵盤打開（html.kb-open，js/layout.js）：只留正在打字的那一塊撐滿，其餘控制列先收起；鍵盤收起就恢復 */
+html.kb-open .lyrics-editor-overlay { padding: 0; }
 html.kb-open .lyrics-editor { width: 100vw; max-width: none; height: 100%; border-radius: 0; padding: var(--sp-2); gap: var(--sp-1); }
 html.kb-open .lyrics-editor-body .lyrics-tools,
 html.kb-open .lyrics-editor-body .section-add-btn,
