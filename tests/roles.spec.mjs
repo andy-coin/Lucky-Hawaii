@@ -2,6 +2,7 @@
 import { test, expect } from '@playwright/test';
 import { readFileSync } from 'node:fs';
 import { bootPage, activeSongRaw, compose } from './helpers.mjs';
+import { DEVICES, setScale, expectFullyInViewport, meetsHit, rectsOverlap } from './layout-lib.mjs';
 
 const FIXTURE = JSON.parse(readFileSync(new URL('./fixtures/v096-localStorage.json', import.meta.url), 'utf8'));
 const v2Storage = (songs, active = songs[0]?.id) => ({
@@ -354,6 +355,90 @@ test('Esc 與點外面都會收起角色選單', async ({ browser }) => {
     await page.mouse.click(5, 5);
     await expect(page.locator(MENU)).toBeHidden();
     expect(await marksOf(page)).toEqual([mk(0, 3, 'r-m'), mk(3, 6, 'r-f')]);
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+// ==================== Part B：匯出與列印的角色標籤 ====================
+const STUB_PRINT = () => { window.__printCount = 0; window.print = () => { window.__printCount++; }; };
+
+test('匯出：TXT／Markdown 在角色轉換處加「[角色名]」', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, { wordlist: 'stub', storage: withRoles() });
+    expect(await page.evaluate(() => songToTxt(curSong()))).toBe('測試歌\n\n[Verse]\n[男]我愛你[女]你愛我\n\n[Chorus]\n愛[男]愛\n\n[Bridge]\n[男]愛[女]愛愛\n');
+    expect(await page.evaluate(() => songToMd(curSong()))).toContain('## Verse\n\n[男]我愛你[女]你愛我');
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('匯出：沒有標記的歌逐字不變', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, { wordlist: 'stub', storage: plain() });
+    expect(await page.evaluate(() => songToTxt(curSong()))).toBe('測試歌\n\n[Verse]\n我愛你你愛我\n');
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('匯出：舊的並排欄段落照舊「【男】…【女】…」，不加 [角色名]', async ({ browser }) => {
+    const st = v2Storage([song('s1', [typed('sa', 'verse', '我在這裡', { role: '男', cols: [{ name: '女', text: '你在那裡' }], marks: [mk(0, 2, 'r-m')] })], { roles: ROLES })]);
+    const { context, page, errors } = await bootPage(browser, { wordlist: 'stub', storage: st });
+    expect(await page.evaluate(() => songExportSections(curSong())[0].text)).toBe('【男】我在這裡\n【女】你在那裡');
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('列印：角色文字 span.print-role、標籤粗體 span.print-role-tag，顏色是調深的角色色', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, { wordlist: 'stub', storage: withRoles(), init: STUB_PRINT });
+    await page.evaluate(() => exportSongAs('pdf'));
+    await page.emulateMedia({ media: 'print' });
+    const sec = page.locator('#printSheet .print-section').first();
+    await expect(sec.locator('.print-text')).toHaveText('[男]我愛你[女]你愛我');
+    expect(await sec.locator('.print-role-tag').allTextContents()).toEqual(['[男]', '[女]']);
+    expect(await sec.locator('.print-role').allTextContents()).toEqual(['我愛你', '你愛我']);
+    const r = await sec.evaluate(el => {
+        const css = e => getComputedStyle(e);
+        return {
+            weights: [...el.querySelectorAll('.print-role-tag')].map(e => css(e).fontWeight),
+            vars: [...el.querySelectorAll('.print-role')].map(e => css(e).getPropertyValue('--rl-c').trim()),
+            colors: [...el.querySelectorAll('.print-role')].map(e => css(e).color),
+            h1: css(document.querySelector('#printSheet h1')).color,
+            h2: css(el.querySelector('h2')).color,
+        };
+    });
+    expect(r.weights).toEqual(['700', '700']);
+    expect(r.vars).toEqual(['#4a7fd4', '#e05d5d']);
+    for (const c of r.colors) expect(c).not.toBe('rgb(0, 0, 0)');
+    expect(r.h1).toBe('rgb(0, 0, 0)');
+    expect(r.h2).toBe('rgb(0, 0, 0)');
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('列印：8 個預設角色色在白紙上對比都 ≥ 4.5', async ({ browser }) => {
+    const roles = Array.from({ length: 8 }, (_, i) => ({ id: 'q' + i, name: '角' + i, color: ['#e05d5d', '#4a7fd4', '#48a868', '#e98a3c', '#8d6bd0', '#2c9fa0', '#d2649a', '#d69e2e'][i] }));
+    const st = v2Storage([song('s1', [typed('sa', 'verse', '一二三四五六七八', { marks: roles.map((r, i) => mk(i, i + 1, r.id)) })], { roles })]);
+    const { context, page, errors } = await bootPage(browser, { wordlist: 'stub', storage: st, init: STUB_PRINT });
+    await page.evaluate(() => exportSongAs('pdf'));
+    await page.emulateMedia({ media: 'print' });
+    await expect(page.locator('#printSheet .print-role')).toHaveCount(8);
+    const ratios = await page.evaluate(() => {
+        const lin = v => (v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4);
+        const lum = c => 0.2126 * lin(c[0]) + 0.7152 * lin(c[1]) + 0.0722 * lin(c[2]);
+        const parse = s => {
+            const n = s.match(/-?[\d.]+/g).map(Number);
+            return s.startsWith('color(') ? n.slice(0, 3) : n.slice(0, 3).map(v => v / 255);   // color(srgb 0-1) 或 rgb(0-255)
+        };
+        return [...document.querySelectorAll('#printSheet .print-role')].map(e => 1.05 / (lum(parse(getComputedStyle(e).color)) + 0.05));
+    });
+    expect(ratios.length).toBe(8);
+    for (const x of ratios) expect(x).toBeGreaterThanOrEqual(4.5);
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('列印：沒有角色的歌不產生 span', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, { wordlist: 'stub', storage: plain(), init: STUB_PRINT });
+    await page.evaluate(() => exportSongAs('pdf'));
+    await expect(page.locator('#printSheet .print-text')).toHaveText('我愛你你愛我');
+    expect(await page.locator('#printSheet span').count()).toBe(0);
     expect(errors).toEqual([]);
     await context.close();
 });

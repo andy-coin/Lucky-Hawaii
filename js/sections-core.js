@@ -195,6 +195,44 @@ function lhMarksShift(marks, oldText, newText, caret) {
     return _lhMarksNorm(out);
 }
 
+// 匯出、列印用：把整段文字切成 [{ text, k, head }]，k＝角色在 roles 裡的序號（-1＝沒標角色），接起來就是原文。
+// head＝這一段前面要不要標「[角色名]」：段落裡第一次出現的角色、換角色、或同角色中間夾了沒標角色的非空白字之後再出現才標；
+// 只隔空白、換行的同角色不重複標（一行一行唱同一個人，不用每行都標）。
+// 標記開頭的空白、換行歸給前面沒標角色的那段，這樣標籤會貼著字：「…\n[女]你愛我」而不是「…[女]\n你愛我」。不認得的角色當作沒標。
+function lhMarksParts(text, marks, roles) {
+    const idx = new Map(roles.map((r, i) => [r.id, i]));
+    const out = [];
+    let pos = 0, lastK = -1, dirty = false;   // dirty＝上一個角色段之後，出現了沒標角色的非空白字
+    const plain = t => {
+        if (!t) return;
+        const p = out[out.length - 1];
+        if (p && p.k < 0) p.text += t;
+        else out.push({ text: t, k: -1, head: false });
+        if (/\S/.test(t)) dirty = true;
+    };
+    for (const m of marks || []) {
+        const k = idx.has(m.r) ? idx.get(m.r) : -1;
+        const a = Math.max(m.a, pos), b = Math.min(m.b, text.length);
+        if (k < 0 || a >= b) continue;
+        plain(text.slice(pos, a));
+        const ws = text.slice(a, b).match(/^\s*/)[0].length;
+        plain(text.slice(a, a + ws));
+        const run = text.slice(a + ws, b);
+        if (run) {
+            out.push({ text: run, k, head: k !== lastK || dirty });
+            lastK = k; dirty = false;
+        }
+        pos = b;
+    }
+    plain(text.slice(pos));
+    return out;
+}
+
+// parts 接成帶標籤的字串：head 的段落前面加「[角色名]」
+function lhMarksTagText(parts, roles) {
+    return parts.map(p => (p.head ? '[' + roles[p.k].name + ']' : '') + p.text).join('');
+}
+
 // 1→I、4→IV、9→IX、14→XIV、1999→MCMXCIX
 function lhToRoman(n) {
     const t = [[1000, 'M'], [900, 'CM'], [500, 'D'], [400, 'CD'], [100, 'C'], [90, 'XC'], [50, 'L'], [40, 'XL'], [10, 'X'], [9, 'IX'], [5, 'V'], [4, 'IV'], [1, 'I']];

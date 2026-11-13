@@ -49,6 +49,16 @@ body.print-song .print-text {
     white-space: pre-wrap;
     overflow-wrap: anywhere;
 }
+/* 角色標記（對唱、音樂劇）：角色文字與標籤用角色色調深。顏色來自 [data-rl] 規則的 --rl-c（css/panels.css）。
+   上面的黑字規則特異度是 (1,1,1)，這裡 (1,2,1) 才蓋得過。
+   與黑色 60%／40% 混：8 個預設色在白紙上對比都 ≥ 4.5（80% 時預設黃只有 3.6）；以後換色盤測試不過就往下調這個 60% */
+body.print-song #printSheet .print-role,
+body.print-song #printSheet .print-role-tag {
+    color: color-mix(in srgb, var(--rl-c) 60%, #000) !important;
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+}
+body.print-song #printSheet .print-role-tag { font-weight: 700; }
 
 /* R2 主題：一般列印（Cmd/Ctrl+P）也不帶紋理與背景飄字 */
 @media print {

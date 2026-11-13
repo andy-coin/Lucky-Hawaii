@@ -97,3 +97,53 @@ test('lhSongRolesFix：沒有角色就沒有標記也不多欄位；有角色留
     expect(c.sections[0].marks).toEqual(M([[0, 2, 'x']]));
     expect('marks' in c.sections[1]).toBe(false);
 });
+
+// ==================== 匯出標籤：lhMarksParts／lhMarksTagText ====================
+const R = [{ id: 'm', name: '男', color: '#4a7fd4' }, { id: 'f', name: '女', color: '#e05d5d' }];
+const parts = (text, marks) => ev(`lhMarksParts(${j(text)}, ${j(marks ? M(marks) : marks)}, ${j(R)})`);
+const tagged = (text, marks) => ev(`lhMarksTagText(lhMarksParts(${j(text)}, ${j(marks ? M(marks) : marks)}, ${j(R)}), ${j(R)})`);
+// 每個案例都要：各段接起來等於原文、沒有空段
+const whole = (text, marks) => {
+    const p = parts(text, marks);
+    expect(p.map(x => x.text).join('')).toBe(text);
+    expect(p.every(x => x.text.length > 0)).toBe(true);
+    return p;
+};
+
+test('標籤：換行換角色，第二段「合唱」沒標角色', () => {
+    const t = '我愛你\n你愛我\n合唱', mk2 = [[0, 3, 'm'], [4, 7, 'f']];
+    expect(whole(t, mk2)).toEqual([
+        { text: '我愛你', k: 0, head: true }, { text: '\n', k: -1, head: false }, { text: '你愛我', k: 1, head: true }, { text: '\n合唱', k: -1, head: false }]);
+    expect(tagged(t, mk2)).toBe('[男]我愛你\n[女]你愛我\n合唱');
+});
+
+test('標籤：同一行內換角色', () => {
+    const mk2 = [[0, 3, 'm'], [3, 6, 'f']];
+    whole('我愛你你愛我', mk2);
+    expect(tagged('我愛你你愛我', mk2)).toBe('[男]我愛你[女]你愛我');
+});
+
+test('標籤：同角色只隔換行不重複標', () => {
+    whole('我愛你\n你愛我', [[0, 3, 'm'], [4, 7, 'm']]);
+    expect(tagged('我愛你\n你愛我', [[0, 3, 'm'], [4, 7, 'm']])).toBe('[男]我愛你\n你愛我');
+});
+
+test('標籤：同角色中間夾了沒標的字就再標一次', () => {
+    whole('我愛你\n合\n你愛我', [[0, 3, 'm'], [6, 9, 'm']]);
+    expect(tagged('我愛你\n合\n你愛我', [[0, 3, 'm'], [6, 9, 'm']])).toBe('[男]我愛你\n合\n[男]你愛我');
+});
+
+test('標籤：標記開頭的空白放在標籤前面；只有空白的標記不加標籤', () => {
+    expect(tagged('我愛你\n你愛我', [[3, 7, 'f']])).toBe('我愛你\n[女]你愛我');
+    whole('我愛你\n你愛我', [[3, 7, 'f']]);
+    expect(tagged('我 你', [[1, 2, 'f']])).toBe('我 你');
+    expect(whole('我 你', [[1, 2, 'f']]).every(x => x.k === -1)).toBe(true);
+});
+
+test('標籤：不認得的角色不加標籤、沒有標記就一整段', () => {
+    expect(whole('我愛你', [[0, 3, 'zz']]).every(x => x.k === -1)).toBe(true);
+    expect(tagged('我愛你', [[0, 3, 'zz']])).toBe('我愛你');
+    expect(whole('我愛你', null)).toEqual([{ text: '我愛你', k: -1, head: false }]);
+    expect(whole('我愛你', [])).toEqual([{ text: '我愛你', k: -1, head: false }]);
+    expect(parts('', [])).toEqual([]);
+});

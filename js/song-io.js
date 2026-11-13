@@ -2,13 +2,21 @@
 // 匯出一律從記憶體模型（curSong）組字串，不讀畫面；只放這首歌的歌名、段落名與歌詞，其他資料（別首歌、標籤、情境、設定）不外流，也不連網路。
 
 // 要匯出的段落：全空白的段落略過（D-11）；沒有段落名就叫「段落 n」，n 是匯出段落裡的順序
+// 角色標記（s.marks）在這裡轉成「[角色名]」：TXT、Markdown、複製都經過這個函式，所以一次處理。
+// parts＝切好的角色段（列印用，要上色）；沒有標記或段落有舊的並排欄（已經是「【男】…【女】…」）就是 null
 function songExportSections(song) {
+    const roles = song.roles || [];
     return song.sections
-        .map(s => ({ s, text: lhSecMergedText(s) }))   // 並排角色欄逐行合併成「【角色】歌詞」
+        .map(s => {
+            const parts = s.marks && !(s.cols && s.cols.length) ? lhMarksParts(s.text, s.marks, roles) : null;
+            // 並排角色欄逐行合併成「【角色】歌詞」
+            return { s, parts, text: parts ? lhMarksTagText(parts, roles) : lhSecMergedText(s) };
+        })
         .filter(x => x.text.trim())
-        .map(({ s, text }, i) => ({
+        .map(({ s, text, parts }, i) => ({
             label: s.label.trim() || '段落 ' + (i + 1),
             text: text.replace(/\r\n?/g, '\n'),
+            parts,
         }));
 }
 
@@ -53,6 +61,32 @@ function copySongText(song) {
     else legacy();
 }
 
+// 有角色標記的段落：角色文字是 span.print-role、標籤是 span.print-role-tag，內容等於 TXT 的字串。
+// 顏色靠全域 [data-rl] 規則與 documentElement 的 --rlN（描述的就是 curSong），而 exportSongAs 只印 curSong，所以這裡不碰任何顏色字串
+function printRoleText(parts, roles) {
+    const ps = parts.map(p => ({ ...p }));
+    for (let last = ps[ps.length - 1]; last; last = ps[ps.length - 1]) {   // 尾端空白去掉，跟沒標記的段落一樣
+        last.text = last.text.replace(/\s+$/, '');
+        if (last.text) break;
+        ps.pop();
+    }
+    const p = document.createElement('p');
+    p.className = 'print-text';
+    for (const part of ps) {
+        if (part.k < 0) { p.appendChild(document.createTextNode(part.text)); continue; }
+        const add = (cls, text) => {
+            const el = document.createElement('span');
+            el.className = cls;
+            el.dataset.rl = String(part.k);
+            el.textContent = text;
+            p.appendChild(el);
+        };
+        if (part.head) add('print-role-tag', '[' + roles[part.k].name + ']');
+        add('print-role', part.text);
+    }
+    return p;
+}
+
 // PDF：不用任何函式庫。把歌填進隱藏的 #printSheet，body 加上 print-song 讓 css/print.css 只印這張，再叫出瀏覽器的列印視窗。
 // 全部用 textContent（歌名、段落名、歌詞都是使用者打的字）；列印結束（afterprint）清空，見下方
 function printSong(song) {
@@ -72,7 +106,7 @@ function printSong(song) {
         // 12 行以內的段落不要被分頁切成兩半；更長的才允許切
         sec.className = 'print-section' + (text.split('\n').length <= 12 ? ' print-short' : '');
         sec.appendChild(mk('h2', 'print-label', s.label));
-        sec.appendChild(mk('p', 'print-text', text));
+        sec.appendChild(s.parts ? printRoleText(s.parts, song.roles) : mk('p', 'print-text', text));
         sheet.appendChild(sec);
     }
     document.body.classList.add('print-song');
