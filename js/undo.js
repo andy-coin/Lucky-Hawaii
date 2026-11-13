@@ -3,6 +3,7 @@
 // 打字：同一段連續輸入、中間停頓不超過 1 秒算一步；組字（注音）確認一個詞算一步，組字中不記。
 // 結構動作（新增、換類型……）都走 js/sections.js 的 lhSecApply，在那裡各記一步。
 // 高度與收合不進歷史：還原時每個還在的段落保留「現在」的高度與收合。
+// 畫布卡片位置（s.pos）進歷史：移動、拉大小各算一步；排版模式（song.canvas）不進。
 
 const LH_UNDO_MAX = 100;        // 最多留 100 步，第 101 步擠掉最舊的
 const LH_TYPING_GAP = 1000;     // 打字停頓超過這麼久（毫秒）就另起一步
@@ -10,8 +11,8 @@ const _hists = new Map();       // 歌 id → { ref, past, future, present, care
 
 // 快照：段落的淺拷貝（text／label 是不可變字串，100 步幾乎不吃記憶體）
 const _snap = song => song.sections.map(s => ({ ...s }));
-// 內容簽名：id／類型／自訂名／顏色／文字，不含高度與收合
-const _sig = sections => JSON.stringify(sections.map(s => [s.id, s.type, s.custom, s.color, s.text, s.role, s.cols, s.marks]));
+// 內容簽名：id／類型／自訂名／顏色／文字／角色／標記／畫布位置，不含高度與收合（位置算內容：只動位置的步驟也能復原）
+const _sig = sections => JSON.stringify(sections.map(s => [s.id, s.type, s.custom, s.color, s.text, s.role, s.cols, s.marks, s.pos]));
 
 // 取得（或建立）這首歌的歷史。verify：畫面重畫時順便檢查，模型在歷史之外被改過（例如還沒接上歷史的刪除、拖曳）就重新起算
 function lhHistEnsure(song, verify) {

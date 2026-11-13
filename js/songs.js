@@ -137,6 +137,12 @@ function _normalizeSong(s) {
     // 重算後的名稱要等這首歌下次被編輯才會進儲存；舊版程式回退時儲存裡的原 label 仍可讀
     lhSecFinalize(s.sections);
     lhSongRolesFix(s);   // 角色與逐字標記：壞值丟掉；同樣不設 changed
+    // 畫布排版模式：壞值回預設、不是物件就拿掉（段落位置 pos 已在 lhSecFinalize 整理）；同樣不設 changed。sections-core.js 最先載入，不用 typeof 守門
+    if ('canvas' in s) {
+        const cv = lhCanvasClean(s.canvas);
+        if (cv) s.canvas = cv;
+        else delete s.canvas;
+    }
     return changed;
 }
 

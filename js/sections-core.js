@@ -46,12 +46,14 @@ function lhSecFields(s) {
     const inf = hasType ? null : lhInferSecType(s.label);
     let custom = typeof s.custom === 'string' ? _lhSecCut(s.custom.trim(), LH_SEC_CUSTOM_MAX) : '';
     if (inf && inf.custom) custom = inf.custom;
+    const pos = lhSecPosClean(s.pos);   // 自由畫布的卡片位置；沒用過畫布就沒有這個欄位
     return {
         type: hasType ? s.type : inf.type,
         custom,
         color: typeof s.color === 'string' && LH_SEC_COLOR_RE.test(s.color) ? s.color.toLowerCase() : '',
         height: Number.isFinite(s.height) && s.height >= LH_SEC_H_MIN && s.height <= LH_SEC_H_MAX ? Math.round(s.height * 10) / 10 : null,
-        ...lhSecColFields(s)
+        ...lhSecColFields(s),
+        ...(pos ? { pos } : {})
     };
 }
 
@@ -259,6 +261,7 @@ function lhSecFinalize(sections) {
         const f = lhSecFields(s);
         if (!f.cols) delete s.cols;
         if (!f.role) delete s.role;
+        if (!f.pos) delete s.pos;
         Object.assign(s, f);
     }
     const names = lhSecNames(sections);
@@ -282,4 +285,83 @@ function lhCountWords(text) {
     let n = 0;
     for (const _ of text.matchAll(_LH_WC_RE)) n++;
     return n;
+}
+
+// ==================== 自由畫布（完整編輯器的「自由」排版）：純函式 ====================
+// 單位是畫布 px（100% 時等於 CSS px，不受 --ui-scale 影響）。全部回傳新物件、不改輸入：復原歷史的快照是淺拷貝。
+const LH_CV_W = 360, LH_CV_GAP = 24, LH_CV_ORIGIN = 24, LH_CV_COLS = 3;
+const LH_CV_WMIN = 160, LH_CV_WMAX = 2400, LH_CV_HMIN = 96, LH_CV_HMAX = 2400;
+const LH_CV_MAX = 100000;                                   // x／y 上限
+const LH_CV_HEAD = 72, LH_CV_LINE = 28, LH_CV_HDEF = 600;   // 預設高度：標題列＋行數，封頂
+const LH_CV_PUSH_MAX = 400;                                 // 推開次數上限
+
+const _lhCvNum = (v, lo, hi) => Math.min(hi, Math.max(lo, Math.round(v)));
+
+// 卡片位置 {x, y, w, h}：四個都要是有限數字才收，四捨五入並夾進範圍；其他一律 null（回預設排列）
+function lhSecPosClean(raw) {
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+    const { x, y, w, h } = raw;
+    if (![x, y, w, h].every(v => typeof v === 'number' && Number.isFinite(v))) return null;
+    return { x: _lhCvNum(x, 0, LH_CV_MAX), y: _lhCvNum(y, 0, LH_CV_MAX), w: _lhCvNum(w, LH_CV_WMIN, LH_CV_WMAX), h: _lhCvNum(h, LH_CV_HMIN, LH_CV_HMAX) };
+}
+
+// 歌的排版設定 { mode }：不是物件就 null；mode 只認 'free'，其他都是 'snap'。
+// 縮放與平移在 Part B（0.96.33）加進這裡；存進歌裡的 canvas 永遠必須是這支函式的輸出
+function lhCanvasClean(raw) {
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+    return { mode: raw.mode === 'free' ? 'free' : 'snap' };
+}
+
+// 沒有位置的卡片預設高度：標題列＋行數（至少 3 行），封頂
+function lhCanvasDefaultH(text) {
+    const lines = String(text == null ? '' : text).split('\n').length;
+    return Math.min(LH_CV_HDEF, Math.max(LH_CV_HMIN, LH_CV_HEAD + LH_CV_LINE * Math.max(3, lines)));
+}
+
+// 每張卡片現在的矩形（與 sections 同順序）：有可用 pos 的用 pos，其餘從「最低的有位置卡片」下面起排成 3 欄。
+// 這裡不寫回模型；canvas.js 第一次移動時才把全部矩形寫進 s.pos，沒動過的卡片不會跳位置
+function lhCanvasLayout(sections) {
+    const rects = sections.map(s => lhSecPosClean(s && s.pos));
+    let top = LH_CV_ORIGIN;
+    const placed = rects.filter(Boolean);
+    if (placed.length) top = Math.max(...placed.map(r => r.y + r.h)) + LH_CV_GAP;
+    let col = 0, rowH = 0;
+    sections.forEach((s, i) => {
+        if (rects[i]) return;
+        const h = lhCanvasDefaultH(s && s.text);
+        rects[i] = { x: LH_CV_ORIGIN + col * (LH_CV_W + LH_CV_GAP), y: top, w: LH_CV_W, h };
+        rowH = Math.max(rowH, h);
+        if (++col >= LH_CV_COLS) { col = 0; top += rowH + LH_CV_GAP; rowH = 0; }
+    });
+    return rects;
+}
+
+// 放手後推開重疊的卡片（D-03）。fixed＝放下那張的索引，不會被推。
+// 規則：被壓到的卡片往 右／下／左／上 中位移最小的一邊移到留 24px 間隙（x、y 不會變負；平手依這個順序），被推的再去推別人（佇列）。
+// 先把輸入整理成有限數字並夾住範圍、零面積不算重疊；推開有次數上限（每次取出前檢查），超過後仍重疊的卡片依序搬到全部卡片的最下方（每次重算最低點），所以一定會結束且最後不重疊。
+// ponytail: 先到先推的簡單規則，不是最佳排列；若作詞人嫌連鎖推開太遠，再改成排列演算法
+function lhCanvasPushApart(rects, fixed, maxIter = LH_CV_PUSH_MAX) {
+    const cl = (v, hi) => (typeof v === 'number' && Number.isFinite(v) ? Math.min(hi, Math.max(0, v)) : 0);
+    const r = rects.map(o => ({ x: cl(o && o.x, LH_CV_MAX), y: cl(o && o.y, LH_CV_MAX), w: cl(o && o.w, LH_CV_WMAX), h: cl(o && o.h, LH_CV_HMAX) }));
+    const ov = (a, b) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
+    const queue = [fixed];
+    let pushes = 0;
+    while (queue.length && pushes < maxIter) {
+        const ai = queue.shift(), A = r[ai];
+        if (!A) continue;
+        for (let i = 0; i < r.length; i++) {
+            if (i === fixed || i === ai || !ov(A, r[i])) continue;
+            const B = r[i];
+            const cand = [['x', A.x + A.w + LH_CV_GAP - B.x], ['y', A.y + A.h + LH_CV_GAP - B.y],
+                ['x', A.x - LH_CV_GAP - B.w - B.x], ['y', A.y - LH_CV_GAP - B.h - B.y]].filter(([k, d]) => B[k] + d >= 0);
+            let best = null;
+            for (const c of cand) if (!best || Math.abs(c[1]) < Math.abs(best[1])) best = c;
+            if (best) { B[best[0]] += best[1]; queue.push(i); pushes++; }
+        }
+    }
+    for (let i = 0; i < r.length; i++) {
+        if (i === fixed) continue;
+        if (r.some((o, j) => j !== i && ov(o, r[i]))) r[i].y = Math.max(...r.map(o => o.y + o.h)) + LH_CV_GAP;
+    }
+    return r;
 }

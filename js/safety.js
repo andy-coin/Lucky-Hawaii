@@ -641,6 +641,7 @@ function lhNormalizeSong(raw, takenIds, stats) {
     // rhyme-core.js 比 safety.js 晚載入，這裡只在匯入時（執行期）呼叫，載入順序不影響
     const readings = typeof lhRhymeCleanReadings === 'function' ? lhRhymeCleanReadings(raw.readings) : null;
     const structs = typeof lhLineCleanStructs === 'function' ? lhLineCleanStructs(raw.structs) : null;   // 手動／AI 句構，和讀音同樣處理
+    const canvas = lhCanvasClean(raw.canvas);   // 畫布排版模式：匯入時整理，和讀音一樣；段落位置 pos 由 lhSecFields 帶過來
     const out = {
         id, title, sections, hashtags,
         context: typeof raw.context === 'string' ? _lhCut(raw.context, LH_IMPORT_CAPS.context, stats) : '',
@@ -648,6 +649,7 @@ function lhNormalizeSong(raw, takenIds, stats) {
         updatedAt: Number.isFinite(raw.updatedAt) ? raw.updatedAt : createdAt,
         ...(readings ? { readings } : {}),
         ...(structs ? { structs } : {}),
+        ...(canvas ? { canvas } : {}),
         roles: raw.roles
     };
     // 角色與逐字標記（同樣在匯入時才呼叫 sections-core.js）：沒有有效角色就整個拿掉
