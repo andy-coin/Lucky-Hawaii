@@ -396,12 +396,27 @@ function lhFxEnabled() {
     if (typeof lhBgFxIsOn === 'function' && !lhBgFxIsOn()) return false;
     return !matchMedia('(prefers-reduced-motion: reduce)').matches;
 }
+// 模型／token 文字：中規中矩地寫在「回報詞語」右邊當狀態列，幾秒後淡出（不管特效開關都顯示）；特效只負責動畫
+let _lhStatusT = 0;
 function lhAiNotice(text) {
+    const st = document.getElementById('aiStatus');
+    if (st && text) {
+        clearTimeout(_lhStatusT);
+        st.getAnimations().forEach(a => a.cancel());
+        st.textContent = text;
+        st.title = text;
+        st.classList.remove('fade');
+        _lhStatusT = setTimeout(() => {
+            const done = () => st.classList.add('fade');
+            if (matchMedia('(prefers-reduced-motion: reduce)').matches || !st.animate) return done();
+            st.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 1200, easing: 'ease' }).onfinish = done;
+        }, 4000);
+    }
     if (!lhFxEnabled() || document.hidden) return;
     const el = _lhFx.el && _lhFx.el.isConnected ? _lhFx.el : document.getElementById('generateBtn');
-    if (el) lhFxBurst(el, _lhFx.kind, text);
+    if (el) lhFxBurst(el, _lhFx.kind);
 }
-function lhFxBurst(anchor, kind, text) {
+function lhFxBurst(anchor, kind) {
     const r = anchor.getBoundingClientRect();
     if (!r.width && !r.height) return;
     const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
@@ -429,19 +444,15 @@ function lhFxBurst(anchor, kind, text) {
         const spin = (Math.random() - 0.5) * 540;
         const frames = coins
             ? [{ transform: 'translate(0,0) scale(.5)', opacity: 1 },
-               { transform: 'translate(' + vx * 0.6 + 'px,' + vy + 'px) rotate(' + spin / 2 + 'deg) scale(1)', opacity: 1, offset: 0.45 },
+               { transform: 'translate(' + vx * 0.6 + 'px,' + vy + 'px) rotate(' + spin / 2 + 'deg) scale(1)', opacity: 1, offset: 0.495 },   // 往上噴的時間 ×1.2、落下不變
                { transform: 'translate(' + vx + 'px,' + (vy + 150 + Math.random() * 60) + 'px) rotate(' + spin + 'deg) scale(.8)', opacity: 0 }]
             : [{ transform: 'translate(0,0) scale(.3)', opacity: 1 },
                { transform: 'translate(' + vx + 'px,' + vy + 'px) rotate(' + spin / 3 + 'deg) scale(1.1)', opacity: 0 }];
-        p.animate(frames, { duration: coins ? 1700 + Math.random() * 700 : 1300 + Math.random() * 500, easing: coins ? 'cubic-bezier(.2,.7,.4,1)' : 'ease-out', fill: 'forwards' });
+        p.animate(frames, { duration: coins ? (1700 + Math.random() * 700) * 1.09 : 1300 + Math.random() * 500, easing: coins ? 'cubic-bezier(.2,.7,.4,1)' : 'ease-out', fill: 'forwards' });
     }
     if (!coins) {
         const ring = put('width:44px;height:44px;margin:-22px;border-radius:50%;border:2px solid #ffd84d;box-shadow:0 0 14px #ffd84d;');
         ring.animate([{ transform: 'scale(.3)', opacity: 0.9 }, { transform: 'scale(1.8)', opacity: 0 }], { duration: 1100, easing: 'ease-out', fill: 'forwards' });
-    }
-    if (text) {
-        const t = put('transform:translate(-50%,0);white-space:nowrap;font-size:0.8125rem;font-weight:700;padding:2px 8px;border-radius:999px;background:var(--card-bg,#fff);color:var(--text-primary,#222);border:1px solid var(--highlight-border,#999);', text);
-        t.animate([{ transform: 'translate(-50%,0)', opacity: 0 }, { transform: 'translate(-50%,-26px)', opacity: 1, offset: 0.2 }, { transform: 'translate(-50%,-60px)', opacity: 1, offset: 0.75 }, { transform: 'translate(-50%,-78px)', opacity: 0 }], { duration: 3200, easing: 'ease-out', fill: 'forwards' });
     }
     document.body.appendChild(layer);
     setTimeout(() => layer.remove(), 3600);

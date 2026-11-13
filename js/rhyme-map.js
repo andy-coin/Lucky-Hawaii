@@ -1162,6 +1162,7 @@ const LH_MAP_SEL_MAX = 20;       // 超過這麼多字（以字元計）的選�
 const LH_MAP_BAR_MS = 400;
 const LH_MAP_HAN = /\p{Script=Han}/u;
 let _lhMapBar = null;
+const LH_MAP_MULTI_MAX = 5;   // 浮動列查韻／AI：最多幾個字一起查（多押）
 let _lhMapBarSnap = null;        // 顯示當下的快照 { ta, secId, a, b, end, char }：按下按鈕時用它，不重讀選取（Pitfall 8）
 let _lhMapBarTimer = 0;
 let _lhMapBarSkip = '';          // 按過按鈕或 Esc 收掉的那個選取（段落:起:迄）：同一個選取不再自動跳出來，重新放開滑鼠或改選取才解除
@@ -1339,12 +1340,15 @@ function _lhMapSelCheck(ta, byMouse) {
         if (le < 0) le = v.length;
         if (!lhCountWords(v.slice(ls, le))) return lhMapHideBar();
         // 查韻、AI 建議：20 字內而且有中文字才有（astral 字佔兩個單位，b - a 先擋掉明顯太長的，不必展開整個選取）
-        let char = null;
+        // 選幾個字就查幾個字（「慢吞吞」＝ㄢ ㄨㄣ ㄨㄣ，Andy 2026-11-14）：5 個中文字以內取全部；更長（整句）多押沒意義，退回最後一個字。
+        // 讀音那一列仍只看最後一個字
+        let char = null, last = null;
         if (b - a <= LH_MAP_SEL_MAX * 2) {
             const chars = Array.from(text);
-            if (chars.length <= LH_MAP_SEL_MAX) char = chars.filter(c => LH_MAP_HAN.test(c)).pop() || null;
+            const han = chars.length <= LH_MAP_SEL_MAX ? chars.filter(c => LH_MAP_HAN.test(c)) : [];
+            if (han.length) { last = han[han.length - 1]; char = han.length <= LH_MAP_MULTI_MAX ? han.join('') : last; }
         }
-        lhMapShowBar({ ta, secId: ta.closest('.lyrics-section').dataset.id, a, b, end, char, rd: char ? _lhMapReadingTarget(ta, a, text, char) : null });
+        lhMapShowBar({ ta, secId: ta.closest('.lyrics-section').dataset.id, a, b, end, char, rd: last ? _lhMapReadingTarget(ta, a, text, last) : null });
         if (byMouse) _lhDwellArm();
     } catch (e) {
         lhWarn('韻腳地圖選字列失敗', e);

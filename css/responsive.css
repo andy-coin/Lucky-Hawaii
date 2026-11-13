@@ -631,8 +631,8 @@
         /* 矮視窗（橫拿手機）：結果區可以縮、說明文字先讓位（Pitfall 8）。
            標題區（含主題、縮放、SAVE／LOAD）與手機批次列「不能」在這裡整塊藏起來——橫拿時沒有別的入口可以用（WR-04）；
            它們只在虛擬鍵盤打開、可見高度不到 600 時（下面的 html.kb-short）才暫時讓位，鍵盤收起就回來。 */
-        /* 平板（觸控、寬 > 440）：Andy 要字卡小一號、字卡與文字的空白少一點（長寬各減 8%）；電腦先不動 */
-        @media (pointer: coarse) and (min-width: 441px) {
+        /* 平板與電腦（寬 > 440）：Andy 要字卡小一號、字卡與文字的空白少一點（長寬各減 8%）；電腦 2026-11-14 起也一樣 */
+        @media (min-width: 441px) {
             .results-grid {
                 grid-template-columns: repeat(auto-fill, 4.7rem);
                 justify-content: space-between;

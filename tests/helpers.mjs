@@ -119,6 +119,7 @@ export async function bootPage(browser, { storage = {}, init = null, wordlist = 
     });
     const offOrigin = await routeExternal(context, { aiReply, aiFail, models, corrections });
     if (wordlist === 'stub') await stubWordlist(context, readFileSync(new URL('./fixtures/wordlist-stub.ndjson', import.meta.url), 'utf8'));
+    await context.addInitScript(() => { window.__lhDockMinW = 1600; });   // 測試沿用舊的寬螢幕門檻（1440 寬＝抽屜版面）
     if (init) await context.addInitScript(init);
     const page = await context.newPage();
     const { errors, warnings } = collectErrors(page);

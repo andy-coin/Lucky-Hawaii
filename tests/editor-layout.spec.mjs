@@ -246,10 +246,11 @@ const fxBoot = async (browser, extra = {}) => {
     await r.page.evaluate(() => document.getElementById('generateBtn').click());
     return r;
 };
-test('AI 完成：在按鈕旁噴金幣與 token 小字，不再跳中間的浮窗', async ({ browser }) => {
+test('AI 完成：在按鈕旁噴金幣、token 小字寫在「回報詞語」右邊的狀態列並淡出，不再跳中間的浮窗', async ({ browser }) => {
     const { context, page, errors } = await fxBoot(browser);
     await expect(page.locator('.lh-fx')).toHaveCount(1);
-    await expect(page.locator('.lh-fx')).toContainText('123 tokens');
+    await expect(page.locator('#aiStatus')).toContainText('123 tokens');
+    await expect(page.locator('#aiStatus')).toHaveClass(/fade/, { timeout: 6000 });
     expect(await page.locator('#copyToast.show').count()).toBe(0);
     await expect(page.locator('.lh-fx')).toHaveCount(0, { timeout: 6000 });
     expect(errors).toEqual([]);

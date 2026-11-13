@@ -208,7 +208,8 @@ test('視覺：沒有新的顏色常數', () => {
     const lit = /#[0-9a-fA-F]{3,8}\b|rgba?\([^)]*\)/g;
     const norm = s => s.toLowerCase().replace(/\s+/g, '');
     // Phase 7 UI-SPEC 的 --action-bg-hover 色票（只出現在 css/base.css 的變數定義）
-    const allow = new Set(['#5a6577', '#4c51bf']);
+    // 2026-11-14 Andy 指定「歌曲」鈕用土耳其綠：沿用主題表裡已有的兩個青綠（淺 #16766f、深 #4fd1c5）
+    const allow = new Set(['#5a6577', '#4c51bf', '#16766f', '#4fd1c5']);
     for (const f of CSS_FILES) {
         // 078c5d1 之後才新增的樣式表（css/print.css）當時不存在，沒有舊色票可以加進白名單
         let old = '';

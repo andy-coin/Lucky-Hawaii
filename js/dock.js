@@ -124,7 +124,7 @@ function lhDockRender() {
     if (!document.body) return;
     const on = lhIsDockMode();
     document.body.classList.toggle('dock', on);
-    if (!on) { document.body.classList.remove('dock-classic'); _dkSyncDividers(); return; }
+    if (!on) { document.body.classList.remove('dock-classic', 'dk-tab-l', 'dk-tab-r'); _dkSyncDividers(); return; }
     // 先加 body.dock（它的 padding 規則決定外框），再量 body 內容區
     const cs = getComputedStyle(document.body);
     const padL = parseFloat(cs.paddingLeft) || 0, padR = parseFloat(cs.paddingRight) || 0;
@@ -141,7 +141,12 @@ function lhDockRender() {
     _dkVis = _dkPrune(_dkTree, _dkOpen);
     // 最傳統的三直排（三塊並排）才保留左右兩側的收合分頁；其他版型改用標題列上的小三角形，免得分頁被誤認成也能拖去排版
     // 看整棵樹（含收起的）：三直排只是收起其中一塊，仍算三直排，另一側照樣留分頁
-    document.body.classList.toggle('dock-classic', _dkSig(_dkPrune(_dkTree, () => true)) === 'row(L,L,L)');
+    const full = _dkPrune(_dkTree, () => true);
+    const classic = _dkSig(full) === 'row(L,L,L)';
+    document.body.classList.toggle('dock-classic', classic);
+    // 側邊分頁只給站在外側的那塊：歌詞在最左、AI 在最右；排到中間（例如 查詢｜歌詞｜AI）就改用小三角形
+    document.body.classList.toggle('dk-tab-l', classic && full.k[0] === 'lyrics');
+    document.body.classList.toggle('dk-tab-r', classic && full.k[2] === 'ai');
     for (const sel of Object.values(LH_DOCK_HANDLES)) {   // 標題列的說明（滑鼠停一下浮出）
         const h = document.querySelector(sel);
         if (h) h.title = '抓著標題列拖曳：放到別塊中間＝互換，放到別塊邊緣＝分割畫面';
@@ -322,6 +327,9 @@ function _dkDrop(t, src, dst, zone) {
     return LH_DOCK_SHAPES.has(_dkSig(out)) ? out : null;
 }
 
+// 版型＋位置（不含比例）：拖放結果和現在一樣就不提示、不動（例如 ABC 把 A 拖到 B 的左半邊）
+const _dkShape = t => typeof t === 'string' ? t : t.d + '(' + t.k.map(_dkShape).join(',') + ')';
+
 const LH_DOCK_HANDLES = { lyrics: '#leftPanel .lyrics-head', results: '#mainContainer > .header', ai: '#rightPanel .side-panel-body > .side-panel-title' };
 // 標題列上這些照樣是一般點擊，不會變成拖曳
 const LH_DOCK_NODRAG = 'button, input, select, textarea, a, label, [onclick], [role="button"], [contenteditable="true"], .model-picker';
@@ -402,6 +410,7 @@ document.addEventListener('pointerdown', e => {
         if (dst) {
             const zone = _dkZone(_dkRects[dst], ev.clientX, ev.clientY);
             cand = _dkDrop(_dkVis, src, dst, zone);
+            if (cand && _dkShape(cand) === _dkShape(_dkVis)) cand = null;   // 放了也一樣：保持沉默
             if (cand) {
                 // 剛從隱藏變顯示：直接出現在位置上，不要從左上角滑過來
                 const fresh = pv.hidden;

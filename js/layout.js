@@ -64,9 +64,9 @@ const LH_MQ_PHONE = matchMedia('(max-width: 440px)');
 const LH_MQ_SHEET = matchMedia('(max-width: 900px)');
 function lhIsPhone() { return LH_MQ_PHONE.matches; }
 function lhIsSheetMode() { return LH_MQ_SHEET.matches; }
-// 寬螢幕吸附版面（js/dock.js）：既有測試都跑在 1280／1440 寬並假設抽屜版面，≥ 1600 且是滑鼠才算真正的寬螢幕；
-// 門檻要調只改這一行
-const LH_MQ_DOCK = matchMedia('(min-width: 1600px) and (hover: hover) and (pointer: fine)');
+// 寬螢幕吸附版面（js/dock.js）：比 13 吋 iPad 橫放（1376）寬、而且是滑鼠，才算寬螢幕（Andy 2026-11-14，原本 1600）。
+// 既有測試都跑在 1440 寬並假設抽屜版面，tests/helpers.mjs 會先設 window.__lhDockMinW = 1600；門檻要調只改這裡
+const LH_MQ_DOCK = matchMedia('(min-width: ' + (Number(window.__lhDockMinW) || 1400) + 'px) and (hover: hover) and (pointer: fine)');
 function lhIsDockMode() { return LH_MQ_DOCK.matches; }
 
 // ==================== 虛擬鍵盤（D-09）：打字的地方一定看得到 ====================

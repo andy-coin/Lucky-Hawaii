@@ -623,7 +623,7 @@ document.getElementById('lyricsSections').addEventListener('pointerdown', e => {
     }
     // 抓 ⋮⋮ 或標題列空白處都能拖（標題列上的按鈕、字數、韻腳條照舊是點擊；觸控只能抓 ⋮⋮，標題列留給捲動）
     const grip = e.target.closest && e.target.closest('.section-handle');
-    // 觸控：完整編輯器裡標題列也能抓（CSS 已讓標題列 touch-action: none）；左側窄面板的標題列留給捲動
+    // 觸控：完整編輯器裡標題列也能抓（CSS 已讓標題列 touch-action: none）；左側面板的標題列留給捲動（那裡還有 ⋮⋮）
     const head = !grip && (e.pointerType !== 'touch' || lhEditorIsOpen()) && e.target.closest && e.target.closest('.lyrics-section-header');
     // 觸控時名稱鈕與 ▾ 也能當起點（觸控校正常把標題列上的手指吸到名稱鈕）：點一下照常開選單／收合，拖超過 4px 才算拖；滑鼠從名稱鈕拖不算
     const handle = grip || (head && (!e.target.closest('button, input, select, a, .section-count') || (e.pointerType === 'touch' && e.target.closest('.section-type, .section-chevron'))) ? head : null);
@@ -948,7 +948,6 @@ function lhSecMenuBuild() {
     const down = _lhMkBtn('section-menu-btn section-move-down', '↓ 下移');
     const moves = _lhMk('div', 'section-menu-row');
     moves.append(up, down);
-    const close = _lhMkBtn('section-menu-btn section-menu-close', '關閉設定');
     // 並排角色欄入口先關掉（0.96.31 起改用逐字角色標記，之後由自由畫布排版取代）；已存的 cols／role 照樣讀、顯示、編輯、匯出
     // const colAdd = _lhMkBtn('section-menu-btn section-col-menu', '＋ 並排角色欄');
     // colAdd.addEventListener('click', () => {
@@ -980,7 +979,7 @@ function lhSecMenuBuild() {
     const alignBlock = _lhMkBlock('文字對齊', aligns), actBlock = _lhMkBlock('段落', acts);
     alignBlock.classList.add('section-full-only');
     actBlock.classList.add('section-full-only');
-    m.append(title, _lhMkBlock('類型', types), nameBlock, _lhMkBlock('顏色', grid, row), alignBlock, _lhMkBlock('位置', moves), actBlock, close);
+    m.append(title, _lhMkBlock('類型', types), nameBlock, _lhMkBlock('顏色', grid, row), alignBlock, _lhMkBlock('位置', moves), actBlock);   // 不放「關閉設定」：點空白處、Esc 就會關
     document.body.appendChild(m);
 
     // 顏色：色票與「無顏色」馬上套用；原生選色盤拖動時只預覽（input），放開才記一步（change，D-06）
@@ -1045,7 +1044,6 @@ function lhSecMenuBuild() {
             lhSecMenuSync();
         });
     }
-    close.addEventListener('click', () => lhSecCloseMenu(true));
     // Tab 在選單裡頭尾相接（D-05）
     m.addEventListener('keydown', e => {
         if (e.key !== 'Tab') return;

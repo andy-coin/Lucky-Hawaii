@@ -834,15 +834,15 @@ test('浮動列：反白後出現、按查韻就查', async ({ browser }) => {
     await expect(page.locator(BAR)).toBeVisible();
     await expect(page.locator(BAR)).toHaveAttribute('role', 'toolbar');
     await expect(page.locator(BAR)).toHaveAttribute('aria-label', '選字工具');
-    await expect(page.locator(BAR + ' button').first()).toHaveText('🔍 查韻：光');
+    await expect(page.locator(BAR + ' button').first()).toHaveText('🔍 查韻：的光');   // 選幾個字查幾個字（5 字內）
     await expect(page.locator(BAR + ' button').nth(1)).toHaveText('✨ AI 建議');
     const box = await page.locator(BAR).boundingBox();
     const line = await lineBottom(page, 7);
     expect(box.y, '浮動列在選取那一行的下方').toBeGreaterThanOrEqual(line.bottom - 0.5);
     expect(Math.abs(box.x - line.left), '左緣約在選取結尾').toBeLessThan(40);
-    // 查韻：搜尋框是「光」、有字卡；焦點與選取都還在輸入框，浮動列收掉
+    // 查韻：搜尋框是「的光」（兩個字一起查）、有字卡；焦點與選取都還在輸入框，浮動列收掉
     await page.locator(BAR + ' button').first().click();
-    await expect(page.locator('#searchInput')).toHaveValue('光');
+    await expect(page.locator('#searchInput')).toHaveValue('的光');
     await expect.poll(() => page.locator('.char-card').count()).toBeGreaterThan(0);
     expect(await taState(page)).toEqual({ ta: true, a: 5, b: 7 });
     await expect(page.locator(BAR)).toBeHidden();
@@ -921,10 +921,12 @@ test('浮動列：手機查韻與 AI 建議切分頁', async ({ browser }) => {
     // AI 建議：開 AI 分頁、詞卡出現
     await pick(page, 5, 7);
     await waitBar(page);
+    const aiReq = page.waitForRequest(r => /\/ai(\?|$)/.test(r.url()) && r.method() === 'POST');
     await page.locator(BAR + ' button').nth(1).click();
     await expect(page.locator('#mtab-ai')).toHaveAttribute('aria-pressed', 'true');
     expect(await collapsed('#rightPanel')).toBe(false);
-    await expect.poll(() => page.locator('.ai-word-card').count()).toBeGreaterThan(0);
+    await aiReq;   // 「的光」兩個字一起問 AI（測試假回覆的詞不一定押兩個字，所以只確認有送出）
+    await expect(page.locator('#searchInput')).toHaveValue('的光');
     await page.locator('#mtab-lyrics').click();
     await waitStill(page);
     await quiet(page);
@@ -1076,7 +1078,7 @@ test('浮動列：鍵盤操作', async ({ browser }) => {
     await waitBar(page);
     await page.keyboard.press('Alt+ArrowDown');
     await page.keyboard.press('Enter');
-    await expect(page.locator('#searchInput')).toHaveValue('光');
+    await expect(page.locator('#searchInput')).toHaveValue('的光');   // 選了「的光」兩個字
     await expect(ta).toBeFocused();
     expect(await taState(page)).toEqual({ ta: true, a: 5, b: 7 });
     await expect(page.locator(BAR)).toBeHidden();
@@ -1868,7 +1870,7 @@ test('標題字母：各尺寸都放得下', async ({ browser }) => {
             await openLyricsTab(page);
             await waitStill(page);
             const rows = await page.evaluate(() => [...document.querySelectorAll('#lyricsSections .lyrics-section')].map(sec => {
-                const box = e => { if (!e) return null; const r = e.getBoundingClientRect(); return { x: r.x, y: r.y, width: r.width, height: r.height }; };
+                const box = e => { if (!e) return null; const r = e.getBoundingClientRect(); if (r.width <= 1 && r.height <= 1) return null; return { x: r.x, y: r.y, width: r.width, height: r.height }; };   // 電腦上看不見的 ⋮⋮（1px）不算
                 return {
                     sec: box(sec), collapsed: sec.classList.contains('collapsed'),
                     parts: ['.section-handle', '.section-chevron', '.section-type', '.section-rhyme', '.section-count', '.section-remove'].map(q => box(sec.querySelector(q))),
@@ -1877,6 +1879,7 @@ test('標題字母：各尺寸都放得下', async ({ browser }) => {
             expect(rows.some(r => r.collapsed), '有收合的段落').toBe(true);
             for (const [i, r] of rows.entries()) {
                 const tag = `${name} ${pct}% 第 ${i + 1} 段`;
+                r.parts = r.parts.filter((p, k) => k || p);   // 電腦上 ⋮⋮ 看不見（null），不算缺
                 for (const p of r.parts) {
                     expect(p, `${tag}：控制項存在`).not.toBeNull();
                     expect(p.width, `${tag}：有寬度（字母條沒被藏起來）`).toBeGreaterThan(0);

@@ -159,7 +159,7 @@ test('韻腳地圖：dock 裡上色、鏡像層與文字框同框、選字列可
     await expect(page.locator('#rhymeSelBar')).toBeVisible();
     await expectFullyInViewport(page, page.locator('#rhymeSelBar'));
     await page.locator('#rhymeSelBar button').first().click();
-    await expect(page.locator('#searchInput')).toHaveValue('光');
+    await expect(page.locator('#searchInput')).toHaveValue('的光');   // 選了兩個字就兩個字一起查
     expect(errors).toEqual([]);
     await context.close();
 });

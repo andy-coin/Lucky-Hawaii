@@ -226,17 +226,26 @@ function _lhCvMove(e) {
     if (g.kind === 'move') {
         r.x = Math.min(LH_CV_MAX, Math.max(0, s.x + dx));
         r.y = Math.min(LH_CV_MAX, Math.max(0, s.y + dy));
-        if (!e.altKey) _lhCvSnap(g, r);   // 按住 Alt＝不吸附
+        if (!e.altKey) _lhCvSnap(g, r, 'move');   // 按住 Alt＝不吸附
     } else {
         r.w = Math.min(LH_CV_WMAX, Math.max(LH_CV_WMIN, s.w + dx));
         r.h = Math.min(LH_CV_HMAX, Math.max(LH_CV_HMIN, s.h + dy));
+        if (e.shiftKey) {   // 按住 Shift＝維持原本的長寬比：跟著拉得比較多的那一邊
+            const k = Math.max(r.w / s.w, r.h / s.h);
+            r.w = s.w * k; r.h = s.h * k;
+        }
+        if (!e.altKey) _lhCvSnap(g, r, e.shiftKey ? 'ratio' : 'size');   // 右緣、下緣貼齊別張卡片的邊
+        if (e.shiftKey) r.h = r.w * s.h / s.w;
+        r.w = Math.min(LH_CV_WMAX, Math.max(LH_CV_WMIN, r.w));
+        r.h = Math.min(LH_CV_HMAX, Math.max(LH_CV_HMIN, r.h));
     }
     _lhCvSetRect(g.card, r);
 }
 
 // 隔空對齊：移動中的卡片，左／右緣貼齊別張卡片的左／右緣（上／下同理；不吸中線，免得吸附點太多），差 6 畫面像素內就吸過去，並畫一條導引線。
 // 只吸一個軸向各一條線；g.snapTo＝其他卡片的矩形（開始時算一次）
-function _lhCvSnap(g, r) {
+// mode：'move'＝移動（左右緣都可吸，改位置）；'size'＝拉大小（只吸右緣、下緣，改寬高）；'ratio'＝等比例拉，只吸右緣（高度由比例決定）
+function _lhCvSnap(g, r, mode = 'move') {
     const tol = 6 / g.z;
     if (!g.others) {
         const song = curSong(), rects = song ? lhCanvasLayout(song.sections) : [];
@@ -245,15 +254,21 @@ function _lhCvSnap(g, r) {
     const best = { x: null, y: null };
     for (const o of g.others) {
         for (const [k, size, ok, os] of [['x', 'w', 'x', 'w'], ['y', 'h', 'y', 'h']]) {
-            for (const mine of [0, 1]) for (const theirs of [0, 1]) {
+            if (mode === 'ratio' && k === 'y') continue;
+            for (const mine of (mode === 'move' ? [0, 1] : [1])) for (const theirs of [0, 1]) {
                 const diff = (o[ok] + o[os] * theirs) - (r[k] + r[size] * mine);
                 if (Math.abs(diff) <= tol && (!best[k] || Math.abs(diff) < Math.abs(best[k].diff))) best[k] = { diff, at: o[ok] + o[os] * theirs, o };
             }
         }
     }
-    if (best.x) r.x += best.x.diff;
-    if (best.y) r.y += best.y.diff;
-    r.x = Math.max(0, r.x); r.y = Math.max(0, r.y);
+    if (mode === 'move') {
+        if (best.x) r.x += best.x.diff;
+        if (best.y) r.y += best.y.diff;
+        r.x = Math.max(0, r.x); r.y = Math.max(0, r.y);
+    } else {
+        if (best.x) r.w += best.x.diff;
+        if (best.y) r.h += best.y.diff;
+    }
     const box = _lhCvBox();
     let gl = box.querySelector('.cv-guide-x'), gt = box.querySelector('.cv-guide-y');
     for (const [k, el, cls] of [['x', gl, 'cv-guide-x'], ['y', gt, 'cv-guide-y']]) {

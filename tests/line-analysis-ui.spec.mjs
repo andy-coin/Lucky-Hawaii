@@ -1400,7 +1400,7 @@ test('分析面板：段落太長', async ({ browser }) => {
     });
     await anPick(page, 0, 4);
     await expect(page.locator(ANBAR)).toBeVisible();
-    await expect(page.locator(ANBAR + ' button:visible')).toHaveText(['🔍 查韻：天', '✨ AI 建議', '📏 分析', '指定角色 ▸', '移到段落 ▸']);
+    await expect(page.locator(ANBAR + ' button:visible')).toHaveText(['🔍 查韻：愛你到天', '✨ AI 建議', '📏 分析', '指定角色 ▸', '移到段落 ▸']);
     await page.locator(ANBAR + ' .rm-bar-an').click();
     const panel = page.locator(AN);
     await expect(panel).toBeVisible();

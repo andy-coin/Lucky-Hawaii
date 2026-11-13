@@ -1628,7 +1628,7 @@ const TOUCH_STATES = [
     }],
     ['歌詞開著', ['button.section-handle', 'button.section-remove', 'button.panel-add-btn', 'button.hashtag-add-btn', 'input#hashtagInput', 'button.context-refresh-btn', 'span.chip-remove', 'span.hashtag-chip', 'button.section-type', 'button#undoBtn', 'button#redoBtn', 'button#rhymeMenuBtn', 'div.context-section-header', '.lyrics-section.collapsed button.section-remove'],
         (page, d) => toggleSide(page, d, 'lyrics')],
-    ['段落設定開著', ['button.swatch', 'input[type=color]', 'button.type-row', 'input.section-name-input', 'button.section-move-up', 'button.section-move-down', 'button.section-menu-close', 'button.section-color-none'], async (page, d) => {
+    ['段落設定開著', ['button.swatch', 'input[type=color]', 'button.type-row', 'input.section-name-input', 'button.section-move-up', 'button.section-move-down', 'button.section-color-none'], async (page, d) => {
         await toggleSide(page, d, 'lyrics');
         await page.evaluate(() => lhSecOpenMenu(document.querySelector('#lyricsSections .lyrics-section'), 20, 20, false));
         await page.locator('#sectionMenu .type-row[data-type="custom"]').click();   // 自訂名稱的輸入框也要出現

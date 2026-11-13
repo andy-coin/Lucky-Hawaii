@@ -193,7 +193,7 @@ test('循環：標題列不擠不疊', async ({ browser }) => {
             await openLyrics(page);
             await waitStill(page);   // 縮放後段落的 flex 有過渡動畫，等它停了再量
             const rows = await page.evaluate(() => [...document.querySelectorAll('#lyricsSections .lyrics-section')].map(sec => {
-                const box = e => { if (!e) return null; const r = e.getBoundingClientRect(); return { x: r.x, y: r.y, width: r.width, height: r.height }; };
+                const box = e => { if (!e) return null; const r = e.getBoundingClientRect(); if (r.width <= 1 && r.height <= 1) return null; return { x: r.x, y: r.y, width: r.width, height: r.height }; };   // 電腦上看不見的 ⋮⋮（1px）不算
                 const t = sec.querySelector('.section-type');
                 return {
                     sec: box(sec), handle: box(sec.querySelector('.section-handle')), chev: box(sec.querySelector('.section-chevron')), type: box(t),
@@ -344,7 +344,7 @@ test('字數：150% 長名稱與大字數不擠', async ({ browser }) => {
     await waitStill(page);
     expect(await labels(page)).toEqual(['Pre-Chorus I', 'Pre-Chorus II', 'Pre-Chorus III']);
     const rows = await page.evaluate(() => [...document.querySelectorAll('#lyricsSections .lyrics-section')].map(sec => {
-        const box = e => { if (!e) return null; const r = e.getBoundingClientRect(); return { x: r.x, y: r.y, width: r.width, height: r.height }; };
+        const box = e => { if (!e) return null; const r = e.getBoundingClientRect(); if (r.width <= 1 && r.height <= 1) return null; return { x: r.x, y: r.y, width: r.width, height: r.height }; };   // 電腦上看不見的 ⋮⋮（1px）不算
         const t = sec.querySelector('.section-type');
         return {
             sec: box(sec), handle: box(sec.querySelector('.section-handle')), chev: box(sec.querySelector('.section-chevron')), type: box(t), cnt: box(sec.querySelector('.section-count')),
@@ -860,7 +860,6 @@ test('設定：關閉方式', async ({ browser }) => {
     const { context, page, errors } = await bootPage(browser, { device: DEVICES.desktop, storage: two });
     const closes = {
         '點外面': () => page.locator('.section-textarea').first().click({ position: { x: 8, y: 8 } }),
-        '關閉設定': () => menuOf(page).getByRole('button', { name: '關閉設定' }).click(),
         'Esc': () => page.keyboard.press('Escape'),
         '刪除這一段': () => page.evaluate(() => lhSecRemove('sb')),
         '換歌': () => page.evaluate(() => switchSong('s2')),
@@ -987,7 +986,7 @@ test('設定：選單不出界', async ({ browser }) => {
             const r = await c.evaluate(el => { const m = document.getElementById('sectionMenu').getBoundingClientRect(), b = el.getBoundingClientRect(); return b.top >= m.top - 1 && b.bottom <= m.bottom + 1 && b.left >= m.left - 1 && b.right <= m.right + 1; });
             expect(r, `${name} 第 ${i} 個控制項在選單的框內`).toBe(true);
         }
-        await menu.getByRole('button', { name: '關閉設定' }).click();
+        await page.keyboard.press('Escape');   // 段落設定沒有「關閉設定」鈕（點空白處、Esc 就關）
         await expect(menu).toBeHidden();
         expect(errors).toEqual([]);
         await context.close();

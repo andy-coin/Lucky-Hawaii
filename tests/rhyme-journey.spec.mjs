@@ -153,8 +153,7 @@ test('整合：韻腳地圖一次走完', async ({ browser }) => {
     await pick(page, 5, 7, 0);   // 同一段範圍收起後不會再出現（10-05 刻意），所以換成「的光」
     await expect(page.locator(BAR)).toBeVisible();
     await page.locator(BAR + ' button').nth(1).click();
-    await expect.poll(() => page.locator('.ai-word-card').count()).toBeGreaterThan(0);
-    expect(aiBodies.length, '送出了 AI 請求').toBeGreaterThan(0);
+    await expect.poll(() => aiBodies.length, '送出了 AI 請求（「的光」兩個字一起問；假回覆的詞不一定押兩個字，不看詞卡數）').toBeGreaterThan(0);
     expect(await page.evaluate(() => window.__selAtAI), 'AI 按下去時沒有留著被選的字').toBe('');
     expect(await page.evaluate(() => window.__songAtAI), 'AI 用的歌詞是整首（第二段的句子也在）').toContain('我們一起行');
     await expect(page.locator(BAR)).toBeHidden();

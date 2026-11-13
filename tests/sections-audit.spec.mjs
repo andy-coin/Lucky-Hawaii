@@ -256,7 +256,7 @@ test('檢查：三種裝置的觸控大小', async ({ browser }) => {
         // 設定選單開在 Custom 段落：色票、選色盤、無顏色、類型、自訂名稱、上移下移、關閉
         await typeBtn(page, 2).click({ button: 'right' });
         await expect(page.locator('#sectionMenu')).toBeVisible();
-        await audit(['.swatch', '.section-color-input', '.section-color-none', '.type-row', '.section-name-input', '.section-move-up', '.section-move-down', '.section-menu-close'], '設定選單');
+        await audit(['.swatch', '.section-color-input', '.section-color-none', '.type-row', '.section-name-input', '.section-move-up', '.section-move-down'], '設定選單');
         expect(errors).toEqual([]);
         await context.close();
     }
@@ -275,7 +275,7 @@ test('檢查：標題列在各尺寸都放得下', async ({ browser }) => {
             await openSheet(page);
             await waitStill(page);
             const rows = await page.evaluate(() => [...document.querySelectorAll('#lyricsSections .lyrics-section')].map(sec => {
-                const box = e => { if (!e) return null; const r = e.getBoundingClientRect(); return { x: r.x, y: r.y, width: r.width, height: r.height }; };
+                const box = e => { if (!e) return null; const r = e.getBoundingClientRect(); if (r.width <= 1 && r.height <= 1) return null; return { x: r.x, y: r.y, width: r.width, height: r.height }; };   // 電腦上看不見的 ⋮⋮（1px）不算
                 return {
                     sec: box(sec), handle: box(sec.querySelector('.section-handle')), type: box(sec.querySelector('.section-type')),
                     cnt: box(sec.querySelector('.section-count')), rm: box(sec.querySelector('.section-remove')), collapsed: sec.classList.contains('collapsed'),
@@ -284,7 +284,7 @@ test('檢查：標題列在各尺寸都放得下', async ({ browser }) => {
             expect(rows.some(r => r.collapsed), '有收合的段落').toBe(true);
             for (const [i, r] of rows.entries()) {
                 const tag = `${name} ${pct}% 第 ${i + 1} 段`;
-                const parts = [r.handle, r.type, r.cnt, r.rm];
+                const parts = [r.handle, r.type, r.cnt, r.rm].filter((p, k) => k || p);   // 電腦上 ⋮⋮ 看不見（null），不算缺
                 for (const p of parts) {
                     expect(p, `${tag}：控制項存在`).not.toBeNull();
                     expect(p.x, `${tag}：左邊超出段落`).toBeGreaterThanOrEqual(r.sec.x - 1);

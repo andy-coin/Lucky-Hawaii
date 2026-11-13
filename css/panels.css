@@ -2645,7 +2645,8 @@ html:not(.kb-open) #lyricsSections[data-canvas="free"] .lyrics-section-header { 
 /* ===== 主視窗（寬螢幕吸附）：標題列更明顯、展開的面板不留側邊分頁 ===== */
 .panel-fold-btn { display: none; }
 @media (hover: hover) and (pointer: fine) {
-    body.dock:not(.dock-classic) .panel-fold-btn {
+    body.dock:not(.dk-tab-l) #leftPanel .panel-fold-btn,
+    body.dock:not(.dk-tab-r) #rightPanel .panel-fold-btn {
         display: inline-flex;
         align-items: center;
         justify-content: center;
@@ -2662,9 +2663,10 @@ html:not(.kb-open) #lyricsSections[data-canvas="free"] .lyrics-section-header { 
         cursor: pointer;
         flex: none;
     }
-    body.dock:not(.dock-classic) .left-panel .panel-fold-btn { color: var(--accent-2); }
-    body.dock:not(.dock-classic) .panel-fold-btn:hover { background: var(--accent-soft); }
-    body.dock:not(.dock-classic) .side-panel:not(.collapsed) .side-panel-tab { display: none; }
+    body.dock .left-panel .panel-fold-btn { color: var(--accent-2); }
+    body.dock .panel-fold-btn:hover { background: var(--accent-soft); }
+    body.dock:not(.dk-tab-l) #leftPanel:not(.collapsed) .side-panel-tab,
+    body.dock:not(.dk-tab-r) #rightPanel:not(.collapsed) .side-panel-tab { display: none; }
     /* 三個標題列：有底色、有分隔線，整條都能抓著拖 */
     body.dock #leftPanel .lyrics-head,
     body.dock #mainContainer > .header,
@@ -2739,10 +2741,17 @@ html:not(.kb-open) #lyricsSections[data-canvas="free"] .lyrics-section-header { 
 .cv-guide { position: absolute; z-index: 3; pointer-events: none; background: var(--highlight-border); opacity: 0.9; }
 
 /* ===== 2026-11-14 收尾 ===== */
-/* 完整編輯器：⋮⋮ 看不見（標題列整條可拖），但鍵盤仍可 Tab 到它（Alt＋↑↓ 排序、自由畫布方向鍵） */
+/* ⋮⋮ 看不見（標題列整條可拖）：電腦全部、完整編輯器所有裝置；手機平板的左側面板保留（手指在那裡只能抓 ⋮⋮，標題列要留給捲動）。
+   鍵盤仍可 Tab 到它（Alt＋↑↓ 排序、自由畫布方向鍵） */
 body.editor-open .section-handle:not(:focus-visible) {
     position: absolute; width: 1px; min-width: 0; height: 1px; min-height: 0; padding: 0; border: 0;
     overflow: hidden; clip-path: inset(50%); white-space: nowrap;
+}
+@media (hover: hover) and (pointer: fine) {
+    .section-handle:not(:focus-visible) {
+    position: absolute; width: 1px; min-width: 0; height: 1px; min-height: 0; padding: 0; border: 0;
+    overflow: hidden; clip-path: inset(50%); white-space: nowrap;
+}
 }
 /* 觸控也能抓標題列拖（js/sections.js），瀏覽器不接手捲動，才不會帶著主畫面跑 */
 body.editor-open .lyrics-section-header { touch-action: none; }
@@ -2774,3 +2783,27 @@ body.rows-resizing { user-select: none; }
 #lhRowGuide[hidden] { display: none; }
 /* 自由畫布：卡片範圍外多留空白（js/canvas.js _lhCvExtent），手掌工具才有地方拖 */
 html:not(.kb-open) #lyricsSections[data-canvas="free"]::after { content: ''; position: absolute; left: var(--cv-ex, 0); top: var(--cv-ey, 0); width: 1px; height: 1px; pointer-events: none; }
+/* AI 狀態列（js/ai-client.js lhAiNotice）：「回報詞語」右邊一行小字，幾秒後淡出 */
+.ai-status { flex: 1 1 0; min-width: 0; font-size: 0.75rem; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }   /* 淡出用 WAAPI（js/ai-client.js），不加 CSS transition */
+.ai-status.fade { opacity: 0; }
+.ai-report-row.active .ai-status { display: none; }
+
+/* ===== 2026-11-14 美術修正（Andy 截圖）===== */
+/* 寬螢幕兩側標題列：往上、往左右延伸貼齊面板邊（面板內距 0.875rem／0.75rem），不再是浮在中間的一塊灰條 */
+@media (hover: hover) and (pointer: fine) {
+    body.dock #leftPanel .lyrics-head,
+    body.dock #rightPanel .side-panel-body > .side-panel-title {
+        margin: -0.875rem -0.75rem 0.5rem;
+        padding: 0.5rem 0.75rem 0.375rem;
+        border-radius: 0;
+    }
+    body.dock #leftPanel .lyrics-head { border-top-left-radius: 0.6875rem; }
+    body.dock:not(.dk-tab-l) #leftPanel .lyrics-head { border-top-right-radius: 0.6875rem; }
+    body.dock #rightPanel .side-panel-body > .side-panel-title { border-top-right-radius: 0.6875rem; }
+    body.dock:not(.dk-tab-r) #rightPanel .side-panel-body > .side-panel-title { border-top-left-radius: 0.6875rem; }
+}
+/* 新增段落與提供詞語建議：同高、同字級，左右對稱 */
+.section-add-btn, .generate-btn { min-height: 2.25rem; padding-block: 0.375rem; font-size: 0.9375rem; letter-spacing: 0.04em; border-radius: var(--radius-m); }
+/* 保留池：內容離左邊線遠一點，底色比面板深一階 */
+.saved-pool-section:not(.collapsed) .saved-pool-body { padding: 0.5rem 0.625rem; background: var(--fill-soft); }
+
