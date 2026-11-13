@@ -674,3 +674,19 @@ test('面板（手機）：按鈕達觸控下限、工具列不溢出（含 150%
     expect(errors).toEqual([]);
     await context.close();
 });
+
+// 舊問題：指定角色 → 復原之後，在另一段選字，浮動列不出現（別段輸入框發出的 selectionchange 清掉了顯示計時器）
+test('指定角色並復原之後，在另一段選字，浮動列照樣出現', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, { wordlist: 'stub', storage: withRoles() });
+    await kbSelect(page, 1, 4);
+    await expect(page.locator(BAR)).toBeVisible();
+    await page.locator(BAR + ' .rm-bar-role').click();
+    await page.locator(MENU + ' .role-sel-item').nth(1).click();
+    await page.keyboard.press('ControlOrMeta+z');
+    for (const n of [1, 2]) {
+        await kbSelect(page, 0, 1, n);
+        await expect(page.locator(BAR)).toBeVisible();
+    }
+    expect(errors).toEqual([]);
+    await context.close();
+});

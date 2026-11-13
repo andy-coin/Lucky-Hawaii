@@ -153,7 +153,7 @@ function _lhMapTint(el, o) {
 let _lhMapEnLoading = null;
 function _lhMapEnLoad() {
     if (_lhMapEnLoading) return;
-    _lhMapEnLoading = fetch('data/en-rhyme.json?v=0.96.33').then(r => r.json()).then(o => {
+    _lhMapEnLoading = fetch('data/en-rhyme.json?v=0.96.34').then(r => r.json()).then(o => {
         lhEnSetDict(o);
         // 只重畫有英文的段落（其他段落的標記節點不動）
         const box = document.getElementById('lyricsSections');
@@ -1355,6 +1355,8 @@ function _lhMapSelCheck(ta, byMouse) {
 function _lhMapBarOnChange(e) {
     const ta = e.target;
     if (!ta.classList || !ta.classList.contains('section-textarea')) return;
+    // selectionchange 也會從「別段、只有游標沒選字」的輸入框發出（復原重畫後尤其常見）：當成選取被取消，會把剛排好的 400ms 顯示計時器清掉，浮動列就不出現。只看有焦點的那個
+    if (e.type === 'selectionchange' && ta !== document.activeElement) return;
     if (_lhMapSelSig(ta) !== _lhMapBarSkip) _lhMapBarSkip = '';
     if (ta.selectionStart === ta.selectionEnd) return lhMapHideBar();
     if (_lhMapBarSnap && (_lhMapBarSnap.ta !== ta || _lhMapBarSnap.a !== ta.selectionStart || _lhMapBarSnap.b !== ta.selectionEnd)) lhMapHideBar();
