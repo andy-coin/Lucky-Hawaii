@@ -1506,7 +1506,7 @@ test('分析面板：手機上長選取只出現一次，只有分析', async ({
     expect(r.shows.length, '只出現一次').toBe(1);
     expect(r.shows[0] - r.last, '最後一次改變之後約 400ms').toBeGreaterThan(300);
     expect(r.shows[0] - r.last).toBeLessThan(900);
-    await expect(page.locator(ANBAR + ' button:visible')).toHaveText(['📏 分析']);
+    await expect(page.locator(ANBAR + ' button:visible')).toHaveText(['📏 分析', '移到段落 ▸']);   // 觸控多一顆「移到段落 ▸」（quick 261113-j3a）
     await page.locator(ANBAR + ' .rm-bar-an').tap();
     const panel = page.locator(AN);
     await expect(panel).toBeVisible();

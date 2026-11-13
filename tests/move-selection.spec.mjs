@@ -130,3 +130,52 @@ test('移到段落：Esc 收起選單、焦點回文字框；方向鍵在項目�
     expect(errors).toEqual([]);
     await context.close();
 });
+
+// 鍵盤選取（Shift+←×2）走 400ms 計時：選到第一段索引 3–5
+const kbSelect = async page => {
+    await pick(page, 5, 5);
+    await page.keyboard.press('Shift+ArrowLeft');
+    await page.keyboard.press('Shift+ArrowLeft');
+};
+const BAR = '#rhymeSelBar';
+
+test('觸控：選字浮動列的「移到段落 ▸」直接開子選單，移完可復原', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, {
+        wordlist: 'stub', storage: two(), device: { hasTouch: true, isMobile: false },
+    });
+    await kbSelect(page);
+    await expect(page.locator(BAR)).toBeVisible();
+    await expect(page.locator(BAR + ' .rm-bar-move')).toBeVisible();
+    await expect(page.locator(BAR + ' .rm-bar-move')).toHaveText('移到段落 ▸');
+    await page.locator(BAR + ' .rm-bar-move').tap();
+    await expect(page.locator(BAR)).toBeHidden();
+    await expect(page.locator(SUB)).toBeVisible();
+    await expect(page.locator(ROOT)).toBeHidden();
+    await page.locator(SUB + ' .move-sel-to').nth(1).tap();
+    expect(await texts(page)).toEqual(['一二\n', '五\n三四']);
+    await page.locator('#undoBtn').tap();
+    expect(await texts(page)).toEqual(['一二\n三四', '五']);
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('桌機：浮動列的「移到段落 ▸」是隱藏的', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, { wordlist: 'stub', storage: two() });
+    await kbSelect(page);
+    await expect(page.locator(BAR)).toBeVisible();
+    await expect(page.locator(BAR + ' .rm-bar-move')).toBeHidden();
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('桌機：右鍵選單開著時，浮動列不會跳出來', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, { wordlist: 'stub', storage: two() });
+    await pick(page, 3, 5);
+    await rightClick(page);
+    await expect(page.locator(ROOT)).toBeVisible();
+    await page.evaluate(() => document.querySelector('.section-textarea').dispatchEvent(new MouseEvent('mouseup', { bubbles: true })));
+    await page.waitForTimeout(600);
+    expect(await page.evaluate(() => !!document.querySelector('#rhymeSelBar.show'))).toBe(false);
+    expect(errors).toEqual([]);
+    await context.close();
+});

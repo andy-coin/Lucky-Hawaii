@@ -153,7 +153,7 @@ function _lhMapTint(el, o) {
 let _lhMapEnLoading = null;
 function _lhMapEnLoad() {
     if (_lhMapEnLoading) return;
-    _lhMapEnLoading = fetch('data/en-rhyme.json?v=0.96.26').then(r => r.json()).then(o => {
+    _lhMapEnLoading = fetch('data/en-rhyme.json?v=0.96.27').then(r => r.json()).then(o => {
         lhEnSetDict(o);
         // 只重畫有英文的段落（其他段落的標記節點不動）
         const box = document.getElementById('lyricsSections');
@@ -1155,6 +1155,9 @@ function lhMapBarBuild() {
     an.append(icon('📏'), _lhMk('span', '', ' 分析'));
     an.setAttribute('aria-expanded', 'false');
     an.setAttribute('aria-controls', 'rhymeAnalysis');
+    const mv = _lhMkBtn('section-menu-btn rm-bar-move', '移到段落 ▸');   // 只給觸控（桌機走右鍵，lhMapShowBar 控制）
+    mv.setAttribute('aria-haspopup', 'menu');
+    mv.setAttribute('aria-controls', 'moveSelSub');
     const rd = _lhMkBtn('section-menu-btn rm-bar-rd', '指定讀音');   // 只有句尾的破音字才顯示（lhMapShowBar）
     rd.hidden = true;
     rd.setAttribute('aria-expanded', 'false');
@@ -1162,7 +1165,7 @@ function lhMapBarBuild() {
     row.id = 'rhymeReadingRow';
     row.hidden = true;
     rd.setAttribute('aria-controls', row.id);
-    bar.append(look, ai, an, rd, row);
+    bar.append(look, ai, an, mv, rd, row);
     // 按鈕不能搶走輸入框的焦點與選取（手機鍵盤也才不會收起來）
     for (const t of ['pointerdown', 'mousedown']) bar.addEventListener(t, e => e.preventDefault());
     look.addEventListener('click', e => lhMapLookup(_lhMapBarSnap && _lhMapBarSnap.char, false, e.detail === 0));
@@ -1170,6 +1173,14 @@ function lhMapBarBuild() {
     an.addEventListener('click', e => {
         if (_lhMapAnOn) lhMapHideAnalysis();
         else lhMapOpenAnalysis(_lhMapBarSnap, e.detail === 0);
+    });
+    mv.addEventListener('click', e => {
+        const sn = _lhMapBarSnap;
+        if (!sn) return;
+        const r = mv.getBoundingClientRect();
+        const snap = { secId: sn.secId, a: sn.a, b: sn.b, text: sn.ta.value.slice(sn.a, sn.b) };   // lhMapHideBar 會清掉 _lhMapBarSnap，先組好
+        lhMapHideBar();
+        lhMoveSelOpenSub(snap, r.left, r.bottom + 4, e.detail === 0, r);
     });
     rd.addEventListener('click', e => lhMapReadingToggle(e.detail === 0));
     row.addEventListener('click', e => {
@@ -1243,6 +1254,7 @@ function lhMapShowBar(snap) {
     // 查韻、AI 建議只在有中文字、20 字內的選取才有（D-07）；沒有就只剩「分析」
     bar.querySelector('.rm-bar-look').hidden = bar.querySelector('.rm-bar-ai').hidden = !snap.char;
     bar.querySelector('.rm-bar-rd').hidden = !snap.rd;
+    bar.querySelector('.rm-bar-move').hidden = matchMedia(_LH_FINE).matches;   // 桌機用右鍵；平板接觸控板也算 fine pointer
     _lhMapBarSnap = snap;
     snap.ta.setAttribute('aria-keyshortcuts', 'Alt+ArrowDown');
     if (snap.char) bar.querySelector('.rm-bar-t').textContent = ' 查韻：' + snap.char;
@@ -1271,7 +1283,7 @@ function _lhMapSelCheck(ta, byMouse) {
     try {
         const a = ta.selectionStart, b = ta.selectionEnd;
         const rpt = document.getElementById('aiWordsContainer');
-        const busy = _lhComposing || _lhDrag || _lhResize || _lhWd || _lhMenuId !== null || _lhMapMenuOn || (rpt && rpt.classList.contains('report-mode'));
+        const busy = _lhComposing || _lhDrag || _lhResize || _lhWd || _lhMenuId !== null || _lhMapMenuOn || _lhMoveSel !== null || (rpt && rpt.classList.contains('report-mode'));
         if (busy || a === b || ta.getClientRects().length === 0 || _lhMapSelSig(ta) === _lhMapBarSkip) return lhMapHideBar();
         const v = ta.value;
         const text = v.slice(a, b);
