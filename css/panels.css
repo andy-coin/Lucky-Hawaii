@@ -2457,7 +2457,7 @@ html[data-lm-under] .section-textarea, html[data-lm-under] .rhyme-mirror { line-
     }
     .dock-divider[aria-orientation="horizontal"]::after { left: 0; right: 0; top: 50%; bottom: auto; width: auto; height: 2px; transform: translateY(-50%); }
     .dock-divider.active::after { opacity: 1; }
-    @media (hover: hover) {
+    @media (hover: hover) and (pointer: fine) {
         .dock-divider:hover::after { opacity: 1; }
     }
     body.dock-resizing { user-select: none; }
