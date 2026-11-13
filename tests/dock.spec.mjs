@@ -227,7 +227,7 @@ test('存檔：縮放後重新整理還在，lh:dock 是 v1 物件', async ({ br
 
 const BAD = {
     '無法解析': '{oops',
-    '三個上下排（不在白名單）': JSON.stringify({ v: 1, t: { d: 'col', k: ['lyrics', 'results', 'ai'], s: [1, 1, 1] } }),
+    '同方向巢狀（不在白名單）': JSON.stringify({ v: 1, t: { d: 'col', k: ['lyrics', { d: 'col', k: ['results', 'ai'], s: [1, 1] }], s: [1, 1] } }),
     '葉子重複': JSON.stringify({ v: 1, t: { d: 'row', k: ['lyrics', 'lyrics', 'results'], s: [1, 1, 1] } }),
     '權重壞掉': JSON.stringify({ v: 1, t: { d: 'row', k: ['lyrics', 'results', 'ai'], s: [1, -5, 'x'] } }),
     '少了查詢區': JSON.stringify({ v: 1, t: { d: 'row', k: ['lyrics', 'ai'], s: [1, 1] } }),
@@ -313,7 +313,8 @@ test('_dkDrop：邊緣分割、中間互換、白名單之外回 null', async ({
     expect(sh(await drop(null, L, A, 'right'))).toEqual(shape(row([R, A, L])));
     expect(await drop(null, A, A, 'left')).toBeNull();
     expect(sh(await drop(row([L, col([R, A])]), L, A, 'left'))).toEqual(shape(col([R, row([L, A])])));
-    expect(await drop(col([R, row([L, A])]), A, R, 'bottom')).toBeNull();
+    expect(sh(await drop(col([R, row([L, A])]), A, R, 'bottom'))).toEqual(shape(col([R, A, L])));   // 三列疊放也是合法版型
+    expect(await drop(row([L, R, A]), A, R, 'bottom')).not.toBeNull();
     // 輸入沒被改動
     const t = row([L, R, A], [28, 44, 28]);
     await page.evaluate(t => { window.__t = t; _dkDrop(t, 'ai', 'results', 'bottom'); }, t);
@@ -372,10 +373,10 @@ test('拖放：歌曲名稱拖到 AI 中間 → 歌詞與 AI 互換', async ({ b
     await context.close();
 });
 
-test('拖放：不支援的落點不顯示預覽、放開不變；收起 AI 變上下二分', async ({ browser }) => {
+test('拖放：落在自己身上不顯示預覽、放開不變；收起 AI 變上下二分', async ({ browser }) => {
     const { context, page, errors } = await boot(browser, { ...BASE_SEEDS, ...seedDock(col([R, row([L, A])])) });
     const b0 = await boxes(page);
-    await grab(page, '#rightPanel .ai-title-group', atFraction(b0.results, 0.5, 0.9));
+    await grab(page, '#rightPanel .ai-title-group', atFraction(b0.ai, 0.5, 0.5));   // 拖回自己的區塊
     await expect(page.locator('#dockPreview')).toBeHidden();
     await page.mouse.up();
     const b1 = await boxes(page);
@@ -401,6 +402,129 @@ test('拖放：Esc 取消、標題列按鈕仍是點擊', async ({ browser }) =>
     expect(await storedDock(page)).toBeNull();
     await page.locator('#editorOpenBtn').click();
     await expect(page.locator('#lyricsEditor')).toBeVisible();
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+
+// ===== 全部版型與順序：互相都拖得到 =====
+// 6 種版型 × 各種順序（三欄 6、三列 6、左1右2 6、左2右1 6、上1下2 6、上2下1 6）＝36 個狀態；
+// 從任何一個狀態出發，用 _dkDrop 的任意一次拖放，都能走到另外 35 個（強連通）
+test('版型：36 種排列組合每一個都拖得到，且任兩種都能互相切換', async ({ browser }) => {
+    const { context, page, errors } = await boot(browser);
+    const r = await page.evaluate(() => {
+        const ids = ['lyrics', 'results', 'ai'], zones = ['left', 'right', 'top', 'bottom', 'center'];
+        const key = t => typeof t === 'string' ? t[0] : t.d[0] + '(' + t.k.map(key).join(',') + ')';
+        const states = new Map(), edges = new Map();
+        const todo = [_dkDefault()];
+        states.set(key(todo[0]), todo[0]);
+        while (todo.length) {
+            const t = todo.pop(), out = new Set();
+            for (const src of ids) for (const dst of ids) for (const z of zones) {
+                const n = _dkDrop(t, src, dst, z);
+                if (!n) continue;
+                const k = key(n);
+                out.add(k);
+                if (!states.has(k)) { states.set(k, n); todo.push(n); }
+            }
+            edges.set(key(t), out);
+        }
+        // 每個狀態都能走回預設（加上從預設走得到＝強連通）
+        const reach = from => { const seen = new Set([from]), q = [from]; while (q.length) for (const n of edges.get(q.pop())) if (!seen.has(n)) { seen.add(n); q.push(n); } return seen; };
+        const all = [...states.keys()];
+        const bad = all.filter(k => reach(k).size !== all.length);
+        return { count: all.length, keys: all.sort(), bad };
+    });
+    expect(r.count).toBe(36);
+    expect(r.bad).toEqual([]);
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+// ===== 真滑鼠把 36 種排列組合全部走一遍 =====
+// 用模型（_dkDrop）算出「從現在這個版面，怎麼拖一次能走到下一個沒去過的版面」，再用真的滑鼠拖標題列去執行，
+// 每一步檢查畫面上三塊的位置與模型一致、不重疊、都在視窗內、重新整理後還在。
+test('真滑鼠拖：走遍 36 種版型與順序，每一步畫面與模型一致', async ({ browser }) => {
+    test.setTimeout(240000);
+    const { context, page, errors } = await boot(browser);
+    const IDS = { lyrics: '#leftPanel', results: '#mainContainer', ai: '#rightPanel' };
+    const key = t => typeof t === 'string' ? t[0] : t.d[0] + '(' + t.k.map(key).join(',') + ')';
+    const ZONE_PT = { left: [0.1, 0.5], right: [0.9, 0.5], top: [0.5, 0.1], bottom: [0.5, 0.9], center: [0.5, 0.5] };
+    const state = () => page.evaluate(() => ({ vis: JSON.parse(JSON.stringify(_dkVis)), rects: _dkRects }));
+    // 模型：從 t 找到最短的一串拖放走到 target（BFS，記下 src、dst、zone）
+    const plan = (t, goals) => page.evaluate(([t, goals]) => {
+        const key = n => typeof n === 'string' ? n[0] : n.d[0] + '(' + n.k.map(key).join(',') + ')';
+        const ids = ['lyrics', 'results', 'ai'], zones = ['left', 'right', 'top', 'bottom', 'center'];
+        const seen = new Map([[key(t), null]]), q = [t];
+        while (q.length) {
+            const cur = q.shift();
+            if (goals.includes(key(cur)) && key(cur) !== key(t)) { const path = []; let k = key(cur); while (seen.get(k)) { path.unshift(seen.get(k).mv); k = seen.get(k).from; } return path; }
+            for (const src of ids) for (const dst of ids) for (const zone of zones) {
+                const n = _dkDrop(cur, src, dst, zone);
+                if (n && !seen.has(key(n))) { seen.set(key(n), { from: key(cur), mv: [src, dst, zone] }); q.push(n); }
+            }
+        }
+        return null;
+    }, [t, goals]);
+    // 把手：查詢區的標題列中間常有按鈕，從左往右找第一個不是按鈕、輸入框的點
+    const handlePt = async src => {
+        const sel = { lyrics: '#leftPanel .lyrics-head', results: '#mainContainer > .header', ai: '#rightPanel .ai-title-group' }[src];
+        const b = await page.locator(sel).first().boundingBox();
+        for (let f = 0.05; f < 0.95; f += 0.05) {
+            const x = b.x + b.width * f, y = b.y + b.height / 2;
+            const ok = await page.evaluate(([x, y, sel]) => { const e = document.elementFromPoint(x, y); return !!e && !!e.closest(sel) && !e.closest('button, input, select, textarea, a, label, [onclick], [role="button"], [contenteditable="true"], .model-picker'); }, [x, y, sel]);
+            if (ok) return [x, y];
+        }
+        throw new Error('找不到可拖的標題列位置：' + src);
+    };
+    const check = async (label) => {
+        const { vis, rects } = await state();
+        await waitStill(page);
+        for (const id of Object.keys(IDS)) {
+            const b = await page.locator(IDS[id]).boundingBox();
+            near(b.x, rects[id].x, 2); near(b.y, rects[id].y, 2); near(b.width, rects[id].w, 2); near(b.height, rects[id].h, 2);
+            expect(b.x, label).toBeGreaterThanOrEqual(-1); expect(b.y, label).toBeGreaterThanOrEqual(-1);
+            expect(b.x + b.width, label).toBeLessThanOrEqual(1921); expect(b.y + b.height, label).toBeLessThanOrEqual(1081);
+        }
+        const ids = Object.keys(IDS);
+        for (let i = 0; i < 3; i++) for (let j = i + 1; j < 3; j++) {
+            const a = rects[ids[i]], b = rects[ids[j]];
+            expect(a.x + a.w <= b.x + 1 || b.x + b.w <= a.x + 1 || a.y + a.h <= b.y + 1 || b.y + b.h <= a.y + 1, label + '：' + ids[i] + ' 與 ' + ids[j] + ' 重疊').toBe(true);
+        }
+        return key(vis);
+    };
+    const visited = new Set([await check('預設')]);
+    const ALL = await page.evaluate(() => {
+        const key = n => typeof n === 'string' ? n[0] : n.d[0] + '(' + n.k.map(key).join(',') + ')';
+        const ids = ['lyrics', 'results', 'ai'], zones = ['left', 'right', 'top', 'bottom', 'center'];
+        const seen = new Map([[key(_dkDefault()), _dkDefault()]]), q = [_dkDefault()];
+        while (q.length) { const c = q.shift(); for (const s of ids) for (const d of ids) for (const z of zones) { const n = _dkDrop(c, s, d, z); if (n && !seen.has(key(n))) { seen.set(key(n), n); q.push(n); } } }
+        return [...seen.keys()];
+    });
+    expect(ALL).toHaveLength(36);
+    let guard = 0;
+    while (visited.size < 36 && guard++ < 60) {
+        const { vis } = await state();
+        const todo = ALL.filter(k => !visited.has(k));
+        const path = await plan(vis, todo);
+        expect(path, '找不到下一個版面').not.toBeNull();
+        for (const [src, dst, zone] of path) {
+            const { rects } = await state();
+            const [hx, hy] = await handlePt(src);
+            const r = rects[dst], [fx, fy] = ZONE_PT[zone];
+            await page.mouse.move(hx, hy);
+            await page.mouse.down();
+            await page.mouse.move(r.x + r.w * fx, r.y + r.h * fy, { steps: 8 });
+            await expect(page.locator('#dockPreview')).toBeVisible();
+            await page.mouse.up();
+            visited.add(await check(`${src}→${dst}:${zone}`));
+        }
+    }
+    expect(visited.size).toBe(36);
+    // 最後一個版面重新整理後還在
+    const last = await state();
+    await reloadReady(page);
+    expect(await page.evaluate(() => { const key = n => typeof n === 'string' ? n[0] : n.d[0] + '(' + n.k.map(key).join(',') + ')'; return key(_dkVis); })).toBe(key(last.vis));
     expect(errors).toEqual([]);
     await context.close();
 });

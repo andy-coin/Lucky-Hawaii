@@ -8,8 +8,9 @@
 
 const LH_DOCK_BLOCKS = { lyrics: 'leftPanel', results: 'mainContainer', ai: 'rightPanel' };
 const LH_DOCK_KEY = 'lh:dock';
-// 只允許五種版型（含單塊 L）：三欄並排、左右二分、上下二分、一大兩小（大塊在左或右）、上下二分加下方左右再分
-const LH_DOCK_SHAPES = new Set(['L', 'row(L,L)', 'col(L,L)', 'row(L,L,L)', 'row(L,col(L,L))', 'row(col(L,L),L)', 'col(L,row(L,L))']);
+// 只允許這些版型（含單塊 L、二塊）：三欄並排、三列疊放、左右二分、上下二分、一大兩小四種（左1右2、左2右1、上1下2、上2下1）
+const LH_DOCK_SHAPES = new Set(['L', 'row(L,L)', 'col(L,L)', 'row(L,L,L)', 'col(L,L,L)',
+    'row(L,col(L,L))', 'row(col(L,L),L)', 'col(L,row(L,L))', 'col(row(L,L),L)']);
 const LH_DOCK_MIN_W = 20, LH_DOCK_MIN_H = 12;   // 分隔線縮放的最小寬高（rem）
 
 // 預設：三欄並排，權重 28 / 44 / 28
