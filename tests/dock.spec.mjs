@@ -163,3 +163,135 @@ test('韻腳地圖：dock 裡上色、鏡像層與文字框同框、選字列可
     expect(errors).toEqual([]);
     await context.close();
 });
+
+// ==================== 分隔線縮放、存檔、重設 ====================
+const storedDock = page => page.evaluate(() => localStorage.getItem('lh:dock'));
+const seedDock = t => ({ 'lh:dock': JSON.stringify({ v: 1, t }) });
+const reloadReady = async page => {
+    await page.reload();
+    await page.evaluate(() => Promise.all([window.__hoyunReady, window.__hoyunWordlistReady, window.__hoyunSafetyReady, window.__hoyunSongsReady, window.__hoyunModelsReady, window.__lhMapReady]));
+};
+// 兩塊之間的分隔線：框落在 left 區塊右緣與 right 區塊左緣之間的直立那條
+const vDivider = async (page, leftSel, rightSel) => {
+    const l = await page.locator(leftSel).boundingBox();
+    const r = await page.locator(rightSel).boundingBox();
+    const all = page.locator('.dock-divider[aria-orientation="vertical"]');
+    for (let i = 0; i < await all.count(); i++) {
+        const b = await all.nth(i).boundingBox();
+        if (b.x >= l.x + l.width - 1 && b.x + b.width <= r.x + 1) return all.nth(i);
+    }
+    throw new Error('找不到分隔線');
+};
+const dragDivider = async (page, dx, leftSel = '#leftPanel', rightSel = '#mainContainer') => {
+    const [cx, cy] = await centerOf(await vDivider(page, leftSel, rightSel));
+    await mouseDrag(page, [cx, cy], [cx + dx, cy], 10);
+    await waitStill(page);
+};
+
+test('分隔線：拖 +120，兩側一起變、第三塊不動', async ({ browser }) => {
+    const { context, page, errors } = await boot(browser);
+    const before = await boxes(page);
+    await dragDivider(page, 120);
+    const after = await boxes(page);
+    near(after.lyrics.width, before.lyrics.width + 120, 2);
+    near(after.results.width, before.results.width - 120, 2);
+    near(after.ai.width, before.ai.width);
+    near(after.ai.x, before.ai.x);
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('分隔線：往左拖很遠，歌詞停在最小寬度 20rem', async ({ browser }) => {
+    const { context, page, errors } = await boot(browser);
+    const before = await boxes(page);
+    await dragDivider(page, -2000);
+    const after = await boxes(page);
+    near(after.lyrics.width, 320, 2);
+    near(after.ai.width, before.ai.width);
+    expect(after.results.width).toBeGreaterThan(before.results.width);
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('存檔：縮放後重新整理還在，lh:dock 是 v1 物件', async ({ browser }) => {
+    const { context, page, errors } = await boot(browser);
+    await dragDivider(page, 120);
+    const mid = await boxes(page);
+    await reloadReady(page);
+    const after = await boxes(page);
+    for (const k of ['lyrics', 'results', 'ai']) sameBox(after[k], mid[k]);
+    expect(JSON.parse(await storedDock(page)).v).toBe(1);
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+const BAD = {
+    '無法解析': '{oops',
+    '三個上下排（不在白名單）': JSON.stringify({ v: 1, t: { d: 'col', k: ['lyrics', 'results', 'ai'], s: [1, 1, 1] } }),
+    '葉子重複': JSON.stringify({ v: 1, t: { d: 'row', k: ['lyrics', 'lyrics', 'results'], s: [1, 1, 1] } }),
+    '權重壞掉': JSON.stringify({ v: 1, t: { d: 'row', k: ['lyrics', 'results', 'ai'], s: [1, -5, 'x'] } }),
+    '少了查詢區': JSON.stringify({ v: 1, t: { d: 'row', k: ['lyrics', 'ai'], s: [1, 1] } }),
+};
+for (const [name, raw] of Object.entries(BAD)) {
+    test(`壞值回預設：${name}`, async ({ browser }) => {
+        const { context, page, errors } = await boot(browser, { ...BASE_SEEDS, 'lh:dock': raw });
+        const b = await boxes(page);
+        near(b.lyrics.width / b.results.width, 28 / 44, 0.02);
+        expect(rectsOverlap(b.lyrics, b.results)).toBe(false);
+        expect(errors).toEqual([]);
+        await context.close();
+    });
+}
+
+test('收起時縮放：保留收起那塊的位置，再打開仍在查詢區下方', async ({ browser }) => {
+    const { context, page, errors } = await boot(browser, { ...BASE_SEEDS, ...seedDock({ d: 'row', k: ['lyrics', { d: 'col', k: ['results', 'ai'], s: [1, 1] }], s: [28, 72] }) });
+    await page.locator('#rightPanel .side-panel-tab').click();
+    const c0 = await boxes(page);
+    await dragDivider(page, 100);
+    const c1 = await boxes(page);
+    near(c1.lyrics.width, c0.lyrics.width + 100, 2);
+    await page.locator('#rightPanel .side-panel-tab').click();
+    const o = await boxes(page);
+    near(o.ai.x, o.results.x); near(o.ai.width, o.results.width);
+    expect(o.ai.y).toBeGreaterThan(o.results.y + o.results.height - 1);
+    // 面板展開時外框比收起時寬 24px，所以像素會差一點；比例（權重）一定保留
+    const ratio = b => b.lyrics.width / (b.lyrics.width + b.results.width);
+    near(ratio(o), ratio(c1), 0.005);
+    expect(o.lyrics.width).toBeGreaterThan(c0.lyrics.width + 80);
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('縮放後韻腳地圖的鏡像層仍與文字框同框', async ({ browser }) => {
+    const { context, page, errors } = await boot(browser, withSong([typed('sa', 'verse', F_AABB), typed('sb', 'chorus', '')]));
+    await dragDivider(page, 120);
+    const first = page.locator('#lyricsSections .lyrics-section').first();
+    await expect.poll(async () => {
+        const m = await first.locator('.rhyme-mirror').boundingBox();
+        const t = await first.locator('.section-textarea').boundingBox();
+        return ['x', 'y', 'width', 'height'].every(k => Math.abs(m[k] - t[k]) <= 1);
+    }).toBe(true);
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('重設版面：只在 dock 顯示；點了回預設並清存檔', async ({ browser }) => {
+    const { context, page, errors } = await boot(browser);
+    const def = await boxes(page);
+    await dragDivider(page, 120);
+    expect(await storedDock(page)).not.toBeNull();
+    await page.locator('#settingsTrigger').click();
+    const btn = page.locator('#dockResetBtn');
+    await expect(btn).toBeVisible();
+    await btn.click();
+    const after = await boxes(page);
+    for (const k of ['lyrics', 'results', 'ai']) sameBox(after[k], def[k]);
+    expect(await storedDock(page)).toBeNull();
+    await context.close();
+    const small = await boot(browser, BASE_SEEDS, DEVICES.desktop);
+    await small.page.locator('#settingsTrigger').click();
+    await expect(small.page.locator('#dockResetBtn')).toBeHidden();
+    expect(errors).toEqual([]);
+    expect(small.errors).toEqual([]);
+    await small.context.close();
+});

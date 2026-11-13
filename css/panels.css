@@ -2432,4 +2432,33 @@ html[data-lm-under] .section-textarea, html[data-lm-under] .rhyme-mirror { line-
         border-radius: 0.75rem;
     }
     body.dock .side-panel { transition: none; }   /* 收合／展開直接到位，不從很遠的地方滑過來 */
+
+    /* 「重設版面」只在寬螢幕模式有意義 */
+    body:not(.dock) #dockResetBtn { display: none; }
+
+    /* 分隔線：矩形就是兩塊之間的縫；平常看不見，滑過或拖曳時畫一條線 */
+    .dock-divider {
+        position: fixed;
+        left: var(--dk-x);
+        top: var(--dk-y);
+        width: var(--dk-w);
+        height: var(--dk-h);
+        z-index: 810;
+        touch-action: none;
+        cursor: col-resize;
+    }
+    .dock-divider[aria-orientation="horizontal"] { cursor: row-resize; }
+    .dock-divider::after {
+        content: '';
+        position: absolute;
+        background: var(--highlight-border);
+        opacity: 0;
+        left: 50%; top: 0; bottom: 0; width: 2px; transform: translateX(-50%);
+    }
+    .dock-divider[aria-orientation="horizontal"]::after { left: 0; right: 0; top: 50%; bottom: auto; width: auto; height: 2px; transform: translateY(-50%); }
+    .dock-divider.active::after { opacity: 1; }
+    @media (hover: hover) {
+        .dock-divider:hover::after { opacity: 1; }
+    }
+    body.dock-resizing { user-select: none; }
 }
