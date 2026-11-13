@@ -391,7 +391,7 @@ test('檢查：新程式沒有拼 HTML', () => {
 
 // ==================== 沒有新增動畫 ====================
 test('檢查：沒有新增動畫', () => {
-    const START = '905320a';   // 第 9 階段開工前的 commit
+    const START = '29e7c27';   // 2026-11-14 重設起點：第 9 階段後經核准的功能（提示淡入淡出、滑過才顯示韻腳、吸附版面）已加了 6 個 transition，之後新增的才擋
     const strip = t => t.replace(/\/\*[\s\S]*?\*\//g, '');
     const keyframes = t => (strip(t).match(/@keyframes\b/g) || []).length;
     const transitions = t => (strip(t).match(/(^|[;{\s])transition(?:-property|-duration|-delay|-timing-function)?\s*:/g) || []).length;

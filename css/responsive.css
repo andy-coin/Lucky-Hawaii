@@ -395,7 +395,6 @@
         /* 標籤輸入（Andy 1-d）：直接在板塊上，不彈視窗；外觀和情境框同一套 */
         /* 標籤和輸入框排在同一串（輸入框像最後一個標籤），手機上少佔一列 */
         .hashtag-field { display: flex; flex-wrap: wrap; align-items: center; gap: 0.375rem; flex-shrink: 0; }
-        .hashtag-field > .hashtag-chips { display: contents; }
         .hashtag-input {
             flex: 1 1 9rem;
             min-width: 0;

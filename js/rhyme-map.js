@@ -1681,13 +1681,13 @@ async function lhMapAiStruct(secId, lines, btn) {
     btn.textContent = 'AI 斷句中…';
     try {
         if (!_lhMapStructPrompt) {
-            const res = await fetch(WORKER_URL + '/prompts/line-struct', { signal: AbortSignal.timeout(10000) }).then(r => r.json()).catch(() => null);
+            const res = await fetch(WORKER_URL + '/prompts/line-struct', { signal: AbortSignal.timeout(10000) }).then(r => r.json()).catch(e => { lhWarn('斷句提示詞讀取失敗', e); return null; });
             if (!res || !res.ok || typeof res.prompt !== 'string') throw aiError('後台還沒有斷句的提示詞，請先部署 Worker');
             _lhMapStructPrompt = res.prompt;
         }
         const reply = await callLLM(aiTryList()[0], _lhMapStructPrompt.replace('{{LINES}}', todo.map((l, i) => (i + 1) + '. ' + l).join('\n')));
         let got = null;
-        try { got = JSON.parse((reply.match(/\{[\s\S]*\}/) || [''])[0]).lines; } catch (e) { got = null; }
+        try { got = JSON.parse((reply.match(/\{[\s\S]*\}/) || [''])[0]).lines; } catch (e) { lhWarn('斷句回覆解析失敗', e); got = null; }
         if (!Array.isArray(got)) throw aiError('AI 回的格式看不懂，請再試一次');
         const items = [];
         todo.forEach((l, i) => {

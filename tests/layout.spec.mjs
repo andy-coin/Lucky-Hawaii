@@ -1279,7 +1279,7 @@ test('底部面板：長段落名、長標籤、長模型名不撐破', async ({
             // 面板裡每個看得見的元素，左右都不能超出面板
             const wideOnes = sel => page.evaluate(s => {
                 const p = document.querySelector(s).getBoundingClientRect();
-                return [...document.querySelectorAll(s + ' *')].filter(e => e.getClientRects().length > 0 && getComputedStyle(e).visibility !== 'hidden').map(e => {
+                return [...document.querySelectorAll(s + ' *')].filter(e => e.getClientRects().length > 0 && getComputedStyle(e).visibility !== 'hidden' && !e.closest('.context-section-header > .hashtag-chips')).map(e => {   // 標籤列是單行橫捲容器，裡面的標籤本來就可以捲出去
                     const r = e.getBoundingClientRect();
                     return { n: e.tagName.toLowerCase() + (e.id ? '#' + e.id : '') + (typeof e.className === 'string' && e.className ? '.' + e.className.split(/\s+/)[0] : ''), l: r.left - p.left, r: p.right - r.right, w: r.width };
                 }).filter(o => o.w > 0 && (o.l < -1 || o.r < -1)).map(o => `${o.n} 左${Math.round(o.l)} 右${Math.round(o.r)}`);
@@ -1287,7 +1287,8 @@ test('底部面板：長段落名、長標籤、長模型名不撐破', async ({
             await toggleSide(page, device, 'lyrics');
             expect(await wideOnes('#leftPanel'), `${name}：歌詞面板有元素超出`).toEqual([]);
             const chip = await page.evaluate(() => {
-                const c = document.querySelector('.hashtag-chip').getBoundingClientRect();
+                // 標籤現在在標題列的單行橫捲容器：長標籤靠捲動，不能把容器或標題列撐出情境區
+                const c = document.getElementById('hashtagChips').getBoundingClientRect();
                 const b = document.getElementById('contextBody').getBoundingClientRect();
                 return { over: c.right - b.right, h: c.height };
             });

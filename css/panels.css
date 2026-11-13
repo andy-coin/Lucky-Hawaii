@@ -154,6 +154,11 @@
         @media (hover: hover) and (pointer: fine) {
             .context-section-header:hover { background: var(--fill-soft); }
         }
+        /* 標籤移到「標籤 ＆ 情境」那一列、燈泡右邊（Andy）：標籤自己撐開、可換行，點標籤不會收合區塊 */
+        /* 只排一行、太多就橫向捲：標題列高度永遠固定，下面的標籤輸入框位置不會跟著標籤數量跑（Andy） */
+        .context-section-header > .hashtag-chips { flex: 1 1 0; min-width: 0; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; cursor: default; margin-left: 0.25rem; }
+        .context-section-header > .hashtag-chips::-webkit-scrollbar { display: none; }
+        .context-section-header > .hashtag-chips > * { flex: none; white-space: nowrap; max-width: none; }
         .context-chevron {
             margin-left: auto;
             font-size: 0.75rem;
@@ -2363,7 +2368,8 @@ html.kb-open .lyrics-editor-body .lyrics-area { flex: 1 1 auto; min-height: 0; }
 .canvas-tools { display: inline-flex; align-items: center; margin-left: auto; }
 body:not(.editor-open) .canvas-tools { display: none; }
 .canvas-tools > .canvas-btn:first-child { border-radius: 0.5rem 0 0 0.5rem; }
-.canvas-tools > .canvas-btn:last-child { border-radius: 0 0.5rem 0.5rem 0; border-left-width: 0; }
+.canvas-tools > .canvas-btn:last-child { border-radius: 0 0.5rem 0.5rem 0; margin-left: -1px; }   /* 兩顆接在一起：重疊 1px，不再把左邊框拿掉（選到「自由」時才不會缺左框） */
+.canvas-tools > .canvas-btn[aria-pressed="true"] { position: relative; z-index: 1; }
 .canvas-btn[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--highlight-border); }
 .cv-corner { display: none; }
 /* 自由模式下畫布是唯一的捲動容器（原生捲動），所以桌面上外層沒有東西會被帶著捲；

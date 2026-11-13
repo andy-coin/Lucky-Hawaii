@@ -45,7 +45,7 @@ test('標籤：板塊排在歌詞上面', async ({ browser }) => {
     const y = sel => page.locator(sel).first().evaluate(el => el.getBoundingClientRect().top);
     expect(await y('#contextSection')).toBeLessThan(await y('#lyricsSections'));
     // 收合時「+」會把板塊打開並把游標放進輸入框
-    await page.locator('.context-section-header').click();
+    await page.locator('.context-section-title').click();
     await expect(page.locator('#contextSection')).toHaveClass(/collapsed/);
     await page.locator('.hashtag-add-btn').click();
     await expect(page.locator('#contextSection')).not.toHaveClass(/collapsed/);

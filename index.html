@@ -402,17 +402,17 @@
                     <div class="lyrics-tools"><div class="undo-group" role="group" aria-label="復原與重做"><button type="button" id="undoBtn" class="undo-btn" aria-label="復原上一步" aria-disabled="true"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg></button><button type="button" id="redoBtn" class="undo-btn" aria-label="重做上一步" aria-disabled="true"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="m15 14 5-5-5-5"/><path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13"/></svg></button></div><button type="button" id="rhymeMenuBtn" class="rhyme-menu-btn" aria-haspopup="dialog" aria-expanded="false" aria-label="韻腳地圖設定">韻腳 ▾</button><button type="button" id="roleMenuBtn" class="rhyme-menu-btn role-menu-btn" aria-haspopup="dialog" aria-expanded="false" aria-controls="roleMenu" aria-label="角色設定（對唱、音樂劇）">角色 ▾</button><span id="songTotal" class="lyrics-total">共 0 字</span><div id="canvasTools" class="canvas-tools" role="group" aria-label="排版模式（只在完整編輯器）"><button type="button" id="canvasSnapBtn" class="rhyme-menu-btn canvas-btn" aria-pressed="true" title="整齊直列（預設）">吸附</button><button type="button" id="canvasFreeBtn" class="rhyme-menu-btn canvas-btn" aria-pressed="false" title="自由畫布：拖 ⋮⋮ 或標題列空白處移動卡片，拉右下角改大小">自由</button></div></div>
                     <!-- 標籤 ＆ 情境放在歌詞上面（Andy 1-d）：先定方向，再往下寫歌詞；兩者都會送給 AI 參考。工具列（↶ ↷、韻腳、字數）留在最上面，韻腳選單往下展開才有空間 -->
                     <div class="context-section" id="contextSection">
-                        <div class="context-section-header" onclick="toggleContextSection()">
+                        <div class="context-section-header" onclick="if (!event.target.closest('.hashtag-chip')) toggleContextSection()">
                             <span class="context-section-title">標籤 ＆ 情境</span>
                             <button type="button" class="hashtag-add-btn" onclick="openHashtagPopup();event.stopPropagation()" title="新增標籤" aria-label="新增標籤">+</button>
                             <button type="button" class="context-refresh-btn" data-tip="AI 從歌詞自動整理情境與標籤" aria-label="AI 從歌詞自動整理情境與標籤" onclick="generateContextFromLyrics();event.stopPropagation()"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-3.5 10.9c.6.4 1 1.1 1 1.8V16h5v-.3c0-.7.4-1.4 1-1.8A6 6 0 0 0 12 3z"/></svg></button>
+                            <div class="hashtag-chips" id="hashtagChips">
+                                <span style="color:var(--text-secondary);font-size:0.83rem;">新增標籤來引導 AI</span>
+                            </div>
                             <span class="context-chevron" id="contextChevron" aria-hidden="true">▾</span>
                         </div>
                         <div class="context-body" id="contextBody">
                             <div class="hashtag-field">
-                                <div class="hashtag-chips" id="hashtagChips">
-                                    <span style="color:var(--text-secondary);font-size:0.83rem;">新增標籤來引導 AI</span>
-                                </div>
                                 <input type="text" id="hashtagInput" class="hashtag-input" enterkeyhint="done" autocomplete="off"
                                     placeholder="例如：驚悚/戀愛/過年" data-ph-short="例如：驚悚/戀愛/過年" data-ph-full="例如：驚悚/戀愛/過年（用、或空白分隔多個）" data-tip="可用頓號、逗號或空白，一次加多個標籤" aria-label="新增標籤，可用頓號、逗號或空白一次加多個">
                             </div>
