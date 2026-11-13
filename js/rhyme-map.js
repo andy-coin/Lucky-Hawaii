@@ -943,6 +943,7 @@ function lhMapCloseAll() {
     lhMapHideBar();
     lhMapCloseStats(false);
     if (typeof lhRoleSelClose === 'function') lhRoleSelClose();
+    if (typeof lhRolePanelClose === 'function') lhRolePanelClose();
 }
 
 document.getElementById('rhymeMenuBtn').addEventListener('click', e => {

@@ -2,7 +2,7 @@
 import { test, expect } from '@playwright/test';
 import { readFileSync } from 'node:fs';
 import { bootPage, activeSongRaw, compose } from './helpers.mjs';
-import { DEVICES, setScale, expectFullyInViewport, meetsHit, rectsOverlap } from './layout-lib.mjs';
+import { DEVICES, setScale, expectFullyInViewport, meetsHit, hitMin, rectsOverlap } from './layout-lib.mjs';
 
 const FIXTURE = JSON.parse(readFileSync(new URL('./fixtures/v096-localStorage.json', import.meta.url), 'utf8'));
 const v2Storage = (songs, active = songs[0]?.id) => ({
@@ -297,6 +297,7 @@ test('沒有角色：選單只有「＋ 新角色」，建立後依序取預設�
     await expect(page.locator(MENU + ' .role-sel-item')).toHaveCount(0);
     await expect(page.locator(MENU + ' .role-sel-clear')).toHaveCount(0);
     await page.locator(MENU + ' .role-sel-new').click();
+    await expect(page.locator('#copyToast')).toContainText('角色 ▾');
     let song1 = await page.evaluate(() => ({ roles: curSong().roles, marks: curSong().sections[0].marks }));
     expect(song1.roles.length).toBe(1);
     expect(song1.roles[0].name).toBe('角色 1');
@@ -439,6 +440,237 @@ test('列印：沒有角色的歌不產生 span', async ({ browser }) => {
     await page.evaluate(() => exportSongAs('pdf'));
     await expect(page.locator('#printSheet .print-text')).toHaveText('我愛你你愛我');
     expect(await page.locator('#printSheet span').count()).toBe(0);
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+// ==================== Part B：工具列「角色 ▾」管理面板 ====================
+const BTN = '#roleMenuBtn', PANEL = '#roleMenu';
+const eight = () => Array.from({ length: 8 }, (_, i) => ({ id: 'r' + i, name: '角' + i, color: ['#e05d5d', '#4a7fd4', '#48a868', '#e98a3c', '#8d6bd0', '#2c9fa0', '#d2649a', '#d69e2e'][i] }));
+const eightStorage = () => v2Storage([song('s1', [typed('sa', 'verse', '我愛你你愛我')], { roles: eight() })]);
+const rows = page => page.locator(PANEL + ' .role-row');
+const open = async page => { await page.locator(BTN).click(); await expect(page.locator(PANEL)).toBeVisible(); };
+
+test('面板：工具列順序與按鈕屬性', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, { wordlist: 'stub', storage: withRoles() });
+    expect(await page.evaluate(() => [...document.querySelector('.lyrics-tools').children].map(n => n.id || n.className))).toEqual(['undo-group', 'rhymeMenuBtn', 'roleMenuBtn', 'songTotal']);
+    const b = page.locator(BTN);
+    await expect(b).toHaveText('角色 ▾');
+    await expect(b).toHaveAttribute('aria-haspopup', 'dialog');
+    await expect(b).toHaveAttribute('aria-controls', 'roleMenu');
+    await expect(b).toHaveAttribute('aria-expanded', 'false');
+    await expect(b).toHaveAttribute('aria-label', '角色設定（對唱、音樂劇）');
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('面板：打開列出角色、色票、自訂色', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, { wordlist: 'stub', storage: withRoles() });
+    await open(page);
+    await expect(page.locator(PANEL)).toHaveAttribute('role', 'dialog');
+    await expect(page.locator(BTN)).toHaveAttribute('aria-expanded', 'true');
+    await expect(rows(page)).toHaveCount(2);
+    await expect(rows(page).nth(0).locator('input.role-name')).toHaveValue('男');
+    await expect(rows(page).nth(1).locator('input.role-name')).toHaveValue('女');
+    for (let k = 0; k < 2; k++) {
+        const row = rows(page).nth(k);
+        await expect(row.locator('.role-dot')).toHaveCount(1);
+        await expect(row.locator('.swatch')).toHaveCount(8);
+        await expect(row.locator('input.role-color[type=color]')).toHaveCount(1);
+        await expect(row.locator('.swatch[aria-pressed="true"]')).toHaveCount(ROLES[k].color === '#4a7fd4' || ROLES[k].color === '#e05d5d' ? 1 : 0);
+        await expect(row.locator('.swatch[aria-pressed="true"]')).toHaveAttribute('data-hex', ROLES[k].color);
+    }
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('面板：沒有角色時有提示，新增建立「角色 1」並預設色', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, { wordlist: 'stub', storage: plain() });
+    await open(page);
+    await expect(page.locator(PANEL)).toContainText('還沒有角色。反白歌詞後按「指定角色 ▸」，或按下面新增。');
+    await expect(rows(page)).toHaveCount(0);
+    await page.locator(PANEL + ' .role-add').click();
+    await expect(rows(page)).toHaveCount(1);
+    await expect(page.locator(PANEL + ' input.role-name')).toHaveValue('角色 1');
+    await expect(page.locator(PANEL + ' input.role-name')).toBeFocused();
+    expect(await page.evaluate(() => curSong().roles[0].color === LH_ROLE_COLORS[0])).toBe(true);
+    await expect.poll(async () => ((await activeSongRaw(page)).roles || []).length).toBe(1);
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('面板：改名即時存檔，清空離開變回「角色 n」', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, { wordlist: 'stub', storage: withRoles() });
+    await open(page);
+    const inp = page.locator(PANEL + ' input.role-name').first();
+    await inp.fill('阿明');
+    expect(await page.evaluate(() => curSong().roles[0].name)).toBe('阿明');
+    await expect.poll(async () => (await activeSongRaw(page)).roles[0].name).toBe('阿明');
+    await inp.fill('');
+    await page.keyboard.press('Tab');
+    await expect(inp).toHaveValue('角色 1');
+    expect(await page.evaluate(() => curSong().roles[0].name)).toBe('角色 1');
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('面板：色票改色立刻反映在鏡像層與變數，並存檔', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, { wordlist: 'stub', storage: withRoles() });
+    const span = rlSpans(page, 1);
+    await expect(span).toBeVisible();
+    const before = await span.evaluate(e => getComputedStyle(e).backgroundColor);
+    await open(page);
+    await rows(page).nth(1).locator('.swatch[data-hex="#48a868"]').click();
+    expect(await page.evaluate(() => curSong().roles[1].color)).toBe('#48a868');
+    expect(await page.evaluate(() => document.documentElement.style.getPropertyValue('--rl1'))).toBe('#48a868');
+    expect(await span.evaluate(e => getComputedStyle(e).backgroundColor)).not.toBe(before);
+    await expect(rows(page).nth(1).locator('.swatch[aria-pressed="true"]')).toHaveAttribute('data-hex', '#48a868');
+    await expect.poll(async () => (await activeSongRaw(page)).roles[1].color).toBe('#48a868');
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('面板：自訂色（色彩輸入）改色', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, { wordlist: 'stub', storage: withRoles() });
+    await open(page);
+    await rows(page).nth(0).locator('input.role-color').fill('#123456');
+    expect(await page.evaluate(() => curSong().roles[0].color)).toBe('#123456');
+    expect(await page.evaluate(() => document.documentElement.style.getPropertyValue('--rl0'))).toBe('#123456');
+    await expect.poll(async () => (await activeSongRaw(page)).roles[0].color).toBe('#123456');
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('面板：刪除要按兩下，清掉該角色標記，復原不會帶回', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, { wordlist: 'stub', storage: withRoles() });
+    await open(page);
+    const del = rows(page).nth(0).locator('.role-del');
+    await del.click();
+    await expect(del).toHaveText('確定刪除？');
+    await expect(del).toHaveAttribute('data-armed', '1');
+    expect(await page.evaluate(() => curSong().roles.length)).toBe(2);
+    await del.click();
+    expect(await page.evaluate(() => curSong().roles.map(r => r.id))).toEqual(['r-f']);
+    expect(await marksOf(page, 0)).toEqual([mk(3, 6, 'r-f')]);
+    expect(await marksOf(page, 1)).toBe(null);
+    expect(await marksOf(page, 2)).toEqual([mk(1, 3, 'r-f')]);
+    await expect.poll(() => storedMarks(page, 0)).toEqual([mk(3, 6, 'r-f')]);
+    expect(await storedMarks(page, 1)).toBe(null);
+    await expect(rlSpans(page, 0)).toHaveText('你愛我');
+    await expect(page.locator('.rhyme-mirror span.rl[data-rl="1"]')).toHaveCount(0);
+    expect(await page.evaluate(() => document.documentElement.style.getPropertyValue('--rl0'))).toBe('#e05d5d');
+    await expect(rows(page)).toHaveCount(1);
+    expect(await page.evaluate(() => curSong().sections.map(s => s.text))).toEqual(['我愛你你愛我', '愛愛', '愛愛愛']);
+    // 之後打字再復原，被刪角色的標記不會回來
+    await pick(page, 0, 0);
+    await page.keyboard.insertText('X');
+    expect(await marksOf(page)).toEqual([mk(4, 7, 'r-f')]);
+    await page.keyboard.press('ControlOrMeta+z');
+    await expect(ta(page)).toHaveValue('我愛你你愛我');
+    expect(await marksOf(page)).toEqual([mk(3, 6, 'r-f')]);
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('面板：刪除重做堆疊被清掉（刪除後不能重做出舊標記）', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, { wordlist: 'stub', storage: withRoles() });
+    await pick(page, 0, 0);
+    await page.keyboard.insertText('天');
+    await page.keyboard.press('ControlOrMeta+z');
+    await expect(ta(page)).toHaveValue('我愛你你愛我');
+    await open(page);
+    const del = rows(page).nth(0).locator('.role-del');
+    await del.click();
+    await del.click();
+    await page.evaluate(() => document.querySelector('.section-textarea').focus());
+    await page.keyboard.press('ControlOrMeta+Shift+z');
+    expect(await page.evaluate(() => curSong().sections.every(s => !(s.marks || []).some(m => m.r === 'r-m')))).toBe(true);
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('面板：刪除鈕 3 秒後自動還原', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, { wordlist: 'stub', storage: withRoles() });
+    await open(page);
+    const del = rows(page).nth(0).locator('.role-del');
+    await del.click();
+    await expect(del).toHaveText('確定刪除？');
+    await expect.poll(() => del.textContent(), { timeout: 5000 }).toBe('刪除');
+    expect(await page.evaluate(() => curSong().roles.length)).toBe(2);
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('面板：滿 8 個「＋ 新角色」停用並提示', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, { wordlist: 'stub', storage: eightStorage() });
+    await open(page);
+    const add = page.locator(PANEL + ' .role-add');
+    await expect(add).toHaveAttribute('aria-disabled', 'true');
+    await add.click({ force: true });
+    await expect(page.locator('#copyToast')).toHaveText('最多 8 個角色');
+    expect(await page.evaluate(() => curSong().roles.length)).toBe(8);
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('面板：Esc、點外面、再按按鈕都會收起', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, { wordlist: 'stub', storage: withRoles() });
+    await open(page);
+    await page.keyboard.press('Escape');
+    await expect(page.locator(PANEL)).toBeHidden();
+    await expect(page.locator(BTN)).toBeFocused();
+    await expect(page.locator(BTN)).toHaveAttribute('aria-expanded', 'false');
+    await open(page);
+    await page.mouse.click(5, 5);
+    await expect(page.locator(PANEL)).toBeHidden();
+    await expect(page.locator(BTN)).toHaveAttribute('aria-expanded', 'false');
+    await open(page);
+    await page.locator(BTN).click();
+    await expect(page.locator(PANEL)).toBeHidden();
+    await expect(page.locator(BTN)).toHaveAttribute('aria-expanded', 'false');
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('面板：同時只開一個浮層（韻腳選單、角色面板互斥）', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, { wordlist: 'stub', storage: withRoles() });
+    await open(page);
+    await page.locator('#rhymeMenuBtn').click();
+    await expect(page.locator('#rhymeMenu')).toBeVisible();
+    await expect(page.locator(PANEL)).toBeHidden();
+    await expect(page.locator(BTN)).toHaveAttribute('aria-expanded', 'false');
+    await open(page);
+    await expect(page.locator('#rhymeMenu')).toBeHidden();
+    await expect(page.locator('#rhymeMenuBtn')).toHaveAttribute('aria-expanded', 'false');
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('面板（手機）：按鈕達觸控下限、工具列不溢出（含 150%）、8 個角色整個在畫面內可捲動', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, { wordlist: 'stub', storage: eightStorage(), device: DEVICES.phone });
+    const overflow = () => page.evaluate(() => { const t = document.querySelector('.lyrics-tools'); return t.scrollWidth - t.clientWidth; });
+    await setScale(page, 150);   // 縮放鈕在搜尋分頁，要先放大再切到歌詞
+    await page.evaluate(() => mobileTab('lyrics'));
+    await expect(page.locator(BTN)).toBeVisible();
+    expect(await overflow()).toBeLessThanOrEqual(1);
+    await page.evaluate(() => mobileTab('search'));
+    await setScale(page, 100);
+    await page.evaluate(() => mobileTab('lyrics'));
+    const btn = page.locator(BTN);
+    await expect(btn).toBeVisible();
+    const bb = await btn.boundingBox(), rb = await page.locator('#rhymeMenuBtn').boundingBox();
+    const hit = await hitMin(page);   // 專案的觸控下限（--hit：手機 36、平板 32；Andy 決定 44 太佔空間），跟「韻腳 ▾」同一條規則
+    expect(meetsHit(bb.width, bb.height, hit, hit), '角色 ▾ 觸控尺寸 ' + JSON.stringify(bb)).toBe(true);
+    expect(rectsOverlap(bb, rb)).toBe(false);
+    expect(await overflow()).toBeLessThanOrEqual(1);
+    await btn.tap();
+    await expect(page.locator(PANEL)).toBeVisible();
+    await expectFullyInViewport(page, page.locator(PANEL));
+    expect(await page.locator(PANEL).evaluate(e => e.scrollHeight > e.clientHeight)).toBe(true);
+    const add = page.locator(PANEL + ' .role-add');
+    await add.scrollIntoViewIfNeeded();
+    await add.tap({ force: true });   // aria-disabled：Playwright 預設不點，真人點得到
+    await expect(page.locator('#copyToast')).toHaveText('最多 8 個角色');
     expect(errors).toEqual([]);
     await context.close();
 });
