@@ -21,6 +21,7 @@
         //    （以前用 translateX 往外推，面板內容被切掉 86–100px、縮放按鈕被蓋住）
         // 2. 兩個面板都展開、主畫面會不到 24rem 時，收起「不是剛打開」的那一個
         // 3. 收起的面板鍵盤選不到（inert）；展開的面板絕不 inert，否則寫詞／AI 建議就用不了
+        // 4. 寬螢幕（lhIsDockMode）：三塊分割畫面、不必收一邊，略過第 2 點；最後交給 lhDockRender 重算版面（js/dock.js）
         // opener：'left'／'right' 代表使用者剛打開那邊；沒給（開頁、改視窗大小）就保留左邊、收右邊
         function syncCenterPanel(opener) {
             const lp = document.getElementById('leftPanel');
@@ -31,7 +32,7 @@
             if (sheet) {
                 document.body.classList.remove('lp-open', 'rp-open');
             } else {
-                if (!lp.classList.contains('collapsed') && !rp.classList.contains('collapsed')) {
+                if (!lhIsDockMode() && !lp.classList.contains('collapsed') && !rp.classList.contains('collapsed')) {
                     const rootStyle = getComputedStyle(document.documentElement);
                     const rem = parseFloat(rootStyle.fontSize) || 16;
                     const gutter = parseFloat(rootStyle.getPropertyValue('--page-pad')) || 0;
@@ -49,6 +50,8 @@
                 document.body.classList.toggle('lp-open', !lp.classList.contains('collapsed'));
                 document.body.classList.toggle('rp-open', !rp.classList.contains('collapsed'));
             }
+
+            if (typeof lhDockRender === 'function') lhDockRender();
 
             // 左面板收起（任何版型）時，蓋在歌詞上的清單跟著關；推開欄的偏好不動（Phase 8 §9）
             if (lp.classList.contains('collapsed') && typeof closeSongListOverlay === 'function') closeSongListOverlay();

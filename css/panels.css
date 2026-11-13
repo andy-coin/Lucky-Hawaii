@@ -2401,3 +2401,35 @@ html[data-lm-under] .section-textarea, html[data-lm-under] .rhyme-mirror { line-
 .rhyme-mirror .lm-g::after { content: attr(data-n); position: absolute; left: 0; right: 0; top: calc(100% + 0.3em); text-align: center; font-size: 0.55em; line-height: 1; font-style: normal; color: var(--text-secondary); }
 .rhyme-mirror .lm-g.lm-g-guess::after { font-style: italic; }
 .section-body.has-cols .lm-g::before, .section-body.has-cols .lm-g::after { display: none; }
+
+/* ===== 寬螢幕吸附版面（js/dock.js 加 body.dock） ===== */
+/* 三塊的矩形由 js/dock.js 寫成 --dk-x/--dk-y/--dk-w/--dk-h；收起的面板不吃這些變數，回到貼邊只露分頁的抽屜外觀 */
+@media screen {
+    /* 兩側留一條分頁寬的邊給收起面板的分頁；展開時整邊讓給面板 */
+    body.dock {
+        padding-left: max(var(--page-pad), env(safe-area-inset-left), calc(var(--tab-w) + 0.25rem));
+        padding-right: max(var(--page-pad), env(safe-area-inset-right), calc(var(--tab-w) + 0.25rem));
+    }
+    body.dock.lp-open { padding-left: max(var(--page-pad), env(safe-area-inset-left)); }
+    body.dock.rp-open { padding-right: max(var(--page-pad), env(safe-area-inset-right)); }
+    /* absolute 而不是 fixed：fixed 一定開新的堆疊層，裡面的設定／關於浮層會被 z-index 800 的面板蓋住 */
+    body.dock #mainContainer {
+        position: absolute;
+        left: var(--dk-x);
+        top: var(--dk-y);
+        width: var(--dk-w);
+        height: var(--dk-h);
+        max-width: none;
+        margin: 0;
+    }
+    body.dock .results-section { min-height: 0; }   /* 區塊矮時捲動，不裁切 */
+    body.dock .side-panel:not(.collapsed) {
+        left: var(--dk-x);
+        top: var(--dk-y);
+        right: auto;
+        width: var(--dk-w);
+        height: var(--dk-h);
+        border-radius: 0.75rem;
+    }
+    body.dock .side-panel { transition: none; }   /* 收合／展開直接到位，不從很遠的地方滑過來 */
+}

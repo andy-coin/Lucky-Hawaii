@@ -41,6 +41,8 @@ function setUiScale(pct, save = true) {
     document.documentElement.style.setProperty('--ui-scale', String(n / 100));
     _lhSyncScaleControls();
     if (save) lhSet(LH_UI_SCALE_KEY, String(n));
+    // 間距、最小寬高、分頁寬都是 rem：縮放一變，寬螢幕版面要重算（head 執行時 dock.js 還沒載入，守衛會略過）
+    if (typeof lhDockRender === 'function') lhDockRender();
     return n;
 }
 
@@ -62,6 +64,10 @@ const LH_MQ_PHONE = matchMedia('(max-width: 440px)');
 const LH_MQ_SHEET = matchMedia('(max-width: 900px)');
 function lhIsPhone() { return LH_MQ_PHONE.matches; }
 function lhIsSheetMode() { return LH_MQ_SHEET.matches; }
+// 寬螢幕吸附版面（js/dock.js）：既有測試都跑在 1280／1440 寬並假設抽屜版面，≥ 1600 且是滑鼠才算真正的寬螢幕；
+// 門檻要調只改這一行
+const LH_MQ_DOCK = matchMedia('(min-width: 1600px) and (hover: hover) and (pointer: fine)');
+function lhIsDockMode() { return LH_MQ_DOCK.matches; }
 
 // ==================== 虛擬鍵盤（D-09）：打字的地方一定看得到 ====================
 // iOS Safari 跳出鍵盤時只縮「視覺視窗」（visualViewport），版面視窗不變，所以 100dvh 不會變矮；
