@@ -1073,3 +1073,167 @@ if (window.visualViewport) {
     window.visualViewport.addEventListener('resize', _lhMenuReclamp);
     window.visualViewport.addEventListener('scroll', _lhMenuReclamp);
 }
+
+// ===== 選取文字移到別的段落（quick 261113-j3a）=====
+// 桌機：文字框選字後右鍵 → 「移到段落 ▸」→ 子選單列出所有段落。觸控：選字浮動列的同名按鈕（js/rhyme-map.js）直接開子選單。
+// 整個移動是一個 lhSecApply 步驟，Cmd+Z 一步還原。
+let _lhMoveSel = null;    // 選取快照 { secId, a, b, text }；null＝選單關著
+let _lhMoveRoot = null;   // #moveSelMenu（第一次打開才建）
+let _lhMoveSub = null;    // #moveSelSub
+
+// toId 有值＝接在該段最後；null＝在原段落後面建新段落（Task 2 補）
+function lhSecMoveText(srcId, a, b, text, toId) {
+    let dstId = toId;
+    const step = lhSecApply('moveText', song => {
+        const i = song.sections.findIndex(s => s.id === srcId);
+        if (i < 0 || toId === srcId) return false;
+        const src = song.sections[i];
+        if (src.text.slice(a, b) !== text) return false;   // 快照過期：不動任何字，免得剪錯（T-q-01）
+        const moved = text.replace(/^\n+|\n+$/g, '');
+        if (!moved) return false;
+        const dst = song.sections.find(s => s.id === toId);
+        if (!dst) return false;
+        src.text = src.text.slice(0, a) + src.text.slice(b);
+        dst.text = dst.text === '' ? moved : dst.text + (dst.text.endsWith('\n') ? '' : '\n') + moved;
+    }, { dom: 'render' });
+    if (!step) return false;
+    lhSecFlash(dstId);
+    const el = lhSecEl(dstId);
+    if (el) el.scrollIntoView({ block: 'nearest' });
+    // 重畫後焦點會掉到 body，Cmd+Z 要在文字框裡才有效；觸控不聚焦（鍵盤不要彈出來）
+    const ta = el && el.querySelector('.section-textarea');
+    if (ta && matchMedia(_LH_FINE).matches) {
+        ta.focus({ preventScroll: true });
+        ta.setSelectionRange(ta.value.length, ta.value.length);
+    }
+    const dstSec = curSong().sections.find(s => s.id === dstId);
+    lhAnnounce('已移到「' + (dstSec ? dstSec.label : '') + '」');
+    return true;
+}
+
+function _lhMoveBuild() {
+    if (_lhMoveRoot) return;
+    const mk = (id, label) => {
+        const m = _lhMk('div', 'word-ctx-menu section-menu move-sel-menu');
+        m.id = id;
+        m.setAttribute('role', 'menu');
+        m.setAttribute('aria-label', label);
+        // 不搶文字框的焦點與選取（手機鍵盤也才不會收）
+        for (const t of ['pointerdown', 'mousedown']) m.addEventListener(t, e => e.preventDefault());
+        document.body.appendChild(m);
+        return m;
+    };
+    _lhMoveRoot = mk('moveSelMenu', '選取的文字');
+    _lhMoveSub = mk('moveSelSub', '移到段落');
+    const btn = _lhMkBtn('section-menu-btn move-sel-item', '移到段落 ▸');
+    btn.setAttribute('role', 'menuitem');
+    btn.setAttribute('aria-haspopup', 'menu');
+    btn.setAttribute('aria-controls', 'moveSelSub');
+    btn.setAttribute('aria-expanded', 'false');
+    _lhMoveRoot.appendChild(btn);
+    btn.addEventListener('pointerenter', e => {
+        if (e.pointerType === 'mouse') _lhMoveOpenSubFromRoot(false);
+    });
+    btn.addEventListener('click', e => _lhMoveOpenSubFromRoot(e.detail === 0));
+    _lhMoveSub.addEventListener('click', e => {
+        const b = e.target.closest && e.target.closest('.move-sel-to');
+        if (!b || b.getAttribute('aria-disabled') === 'true' || !_lhMoveSel) return;
+        const s = _lhMoveSel;
+        lhMoveSelClose();
+        lhSecMoveText(s.secId, s.a, s.b, s.text, b.dataset.id);
+    });
+}
+
+// 每次打開子選單重填：段落名稱是使用者輸入，只走 textContent（T-q-02）
+function _lhMoveFillSub() {
+    const kids = [_lhMk('span', 'section-menu-cap', '移到段落')];
+    for (const s of curSong().sections) {
+        const cur = s.id === _lhMoveSel.secId;
+        const b = _lhMkBtn('section-menu-btn move-sel-to', cutName(s.label, 16) + (cur ? '（目前）' : ''));
+        b.setAttribute('role', 'menuitem');
+        b.dataset.id = s.id;
+        if (cur) b.setAttribute('aria-disabled', 'true');
+        kids.push(b);
+    }
+    _lhMoveSub.replaceChildren(...kids);
+}
+
+function lhMoveSelOpen(snap, x, y, byKeyboard) {
+    _lhMoveBuild();
+    if (typeof lhMapCloseAll === 'function') lhMapCloseAll();   // 同時只開一個浮層
+    lhSecCloseMenu();
+    closeExportMenu();
+    closeSongListOverlay();
+    _lhMoveSub.classList.remove('show');
+    _lhMoveRoot.firstChild.setAttribute('aria-expanded', 'false');
+    _lhMoveSel = snap;
+    lhPlaceMenu(_lhMoveRoot, x, y);
+    if (byKeyboard) _lhMoveRoot.firstChild.focus({ preventScroll: true });
+}
+
+// 從根選單的按鈕開子選單：貼在根選單右邊；右邊放不下（被夾回來）就放左邊
+function _lhMoveOpenSubFromRoot(byKeyboard) {
+    if (!_lhMoveSel) return;
+    const rr = _lhMoveRoot.getBoundingClientRect(), br = _lhMoveRoot.firstChild.getBoundingClientRect();
+    lhMoveSelOpenSub(null, rr.right, br.top - 4, byKeyboard);
+    const sr = _lhMoveSub.getBoundingClientRect();
+    if (sr.left < rr.right && rr.left - sr.width - 2 >= 4) lhPlaceMenu(_lhMoveSub, rr.left - sr.width - 2, br.top - 4);
+}
+
+// snap 有給＝觸控路徑直接開（沒有根選單）；anchorRect：被擠上來蓋住它時翻到它上方
+function lhMoveSelOpenSub(snap, x, y, byKeyboard, anchorRect) {
+    _lhMoveBuild();
+    if (snap) {
+        if (typeof lhMapCloseAll === 'function') lhMapCloseAll();
+        lhSecCloseMenu();
+        closeExportMenu();
+        closeSongListOverlay();
+        _lhMoveRoot.classList.remove('show');
+        _lhMoveSel = snap;
+    }
+    if (!_lhMoveSel) return;
+    _lhMoveFillSub();
+    lhPlaceMenu(_lhMoveSub, x, y);
+    if (anchorRect) {
+        const b = _lhMoveSub.getBoundingClientRect();
+        if (b.top < anchorRect.bottom && anchorRect.top - b.height - 4 >= 4) lhPlaceMenu(_lhMoveSub, x, anchorRect.top - b.height - 4);
+    }
+    _lhMoveRoot.firstChild.setAttribute('aria-expanded', 'true');
+    if (byKeyboard) _lhMoveSub.querySelector('.move-sel-to:not([aria-disabled="true"])')?.focus({ preventScroll: true });
+}
+
+function lhMoveSelClose(refocus) {
+    if (!_lhMoveRoot) return;
+    const id = _lhMoveSel && _lhMoveSel.secId;
+    const inside = _lhMoveRoot.contains(document.activeElement) || _lhMoveSub.contains(document.activeElement);
+    for (const m of [_lhMoveRoot, _lhMoveSub]) m.classList.remove('show');
+    _lhMoveRoot.firstChild.setAttribute('aria-expanded', 'false');
+    _lhMoveSel = null;
+    if (refocus && inside) lhSecEl(id)?.querySelector('.section-textarea')?.focus({ preventScroll: true });
+}
+
+// 文字框右鍵：有選取（不是只選到空白）、非組字、非觸控長按才攔；其餘維持瀏覽器原生選單
+document.getElementById('lyricsSections').addEventListener('contextmenu', e => {
+    const ta = e.target;
+    if (!ta.classList || !ta.classList.contains('section-textarea')) return;
+    if (e.pointerType === 'touch' || e.pointerType === 'pen' || _lhComposing || document.activeElement !== ta) return;
+    const a = ta.selectionStart, b = ta.selectionEnd, text = ta.value.slice(a, b);
+    if (a === b || !text.trim()) return;
+    e.preventDefault();
+    const snap = { secId: ta.closest('.lyrics-section').dataset.id, a, b, text };
+    if (e.clientX === 0 && e.clientY === 0) {   // 鍵盤送來的 contextmenu 沒有座標
+        const r = ta.getBoundingClientRect();
+        lhMoveSelOpen(snap, r.left, r.top + 8, true);
+    } else lhMoveSelOpen(snap, e.clientX, e.clientY, false);
+});
+
+// 點外面收起（不攔這一下）；Esc 收起並把焦點還給文字框（capture：≤ 900 的 sheet 才不會一起收）
+document.addEventListener('pointerdown', e => {
+    if (_lhMoveSel && !(e.target.closest && e.target.closest('#moveSelMenu, #moveSelSub'))) lhMoveSelClose();
+}, true);
+document.addEventListener('keydown', e => {
+    if (e.key !== 'Escape' || e.isComposing || e.keyCode === 229 || !_lhMoveSel) return;
+    e.preventDefault();
+    e.stopPropagation();
+    lhMoveSelClose(true);
+}, true);

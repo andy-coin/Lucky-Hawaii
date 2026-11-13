@@ -1397,6 +1397,19 @@
         .section-menu-row .section-move-up, .section-menu-row .section-move-down { flex: 1; }
         .section-menu-close { width: 100%; }
         .section-menu [hidden] { display: none; }
+        /* 選取文字「移到段落」選單（quick 261113-j3a）：精簡版，寬度跟內容走 */
+        .move-sel-menu {
+            width: auto;
+            min-width: 10rem;
+            max-width: min(18rem, calc(100vw - 1rem));
+            padding: var(--sp-2);
+        }
+        .move-sel-menu.show { gap: var(--sp-1); }
+        .move-sel-menu .section-menu-btn {
+            width: 100%;
+            text-align: left;
+            overflow-wrap: anywhere;
+        }
         /* 類型：兩欄八列的單選；目前這個加粗並在左邊畫一條 --highlight-border（跟歌曲清單的「目前」同一種寫法） */
         .type-grid {
             display: grid;
