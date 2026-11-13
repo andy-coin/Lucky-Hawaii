@@ -1,4 +1,4 @@
-// 並排角色欄（0.96.23）：加欄、刪欄、角色名、打字存檔、逐行對齊、韻腳上色、匯出合併、復原
+// 並排角色欄（舊資料，0.96.31 起入口關閉）：種入舊 cols／role 資料來測；選單沒有入口，打字存檔、逐行對齊、韻腳上色、匯出合併、刪欄、復原照常
 import { test, expect } from '@playwright/test';
 import { readFileSync } from 'node:fs';
 import { bootPage } from './helpers.mjs';
@@ -8,12 +8,16 @@ const v2Storage = songs => ({ ...FIXTURE, 'lh:schema': '2', 'lh:songs': JSON.str
 const song = sections => ({ id: 's1', title: '對唱', sections, hashtags: [], context: '', createdAt: 1, updatedAt: 1 });
 const typed = (id, text, extra = {}) => ({ id, type: 'verse', custom: '', color: '', height: null, label: '', text, collapsed: false, ...extra });
 
-test('角色欄：從選單加欄、打字、對齊、匯出、刪欄與復原', async ({ browser }) => {
-    const { context, page, errors } = await bootPage(browser, { wordlist: 'stub', storage: v2Storage([song([typed('sa', '我在這裡等天亮\n想你想到心慌')])]) });
+test('角色欄（舊資料）：選單沒有入口；打字、對齊、匯出、刪欄與復原照常', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, { wordlist: 'stub', storage: v2Storage([song([typed('sa', '我在這裡等天亮\n想你想到心慌', { role: '男', cols: [{ name: '女', text: '' }] })])]) });
     const sec = page.locator('.lyrics-section').first();
-    // 右鍵開完整設定 → 並排角色欄
+    // 右鍵開完整設定：沒有「＋ 並排角色欄」入口
     await sec.locator('.section-type').click({ button: 'right' });
-    await page.locator('#sectionMenu .section-col-menu').click();
+    await expect(page.locator('#sectionMenu')).toBeVisible();
+    await expect(page.locator('#sectionMenu .section-col-menu')).toHaveCount(0);
+    await expect(page.locator('#sectionMenu .section-col-block')).toHaveCount(0);
+    await page.keyboard.press('Escape');
+    await expect(page.locator('#sectionMenu')).toBeHidden();
     await expect(sec.locator('.section-col-ta')).toHaveCount(1);
     await expect(sec.locator('.sec-role-name')).toHaveCount(2);
     // 打字：存進模型（第二欄）

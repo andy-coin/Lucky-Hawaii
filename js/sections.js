@@ -785,16 +785,18 @@ function lhSecMenuBuild() {
     const moves = _lhMk('div', 'section-menu-row');
     moves.append(up, down);
     const close = _lhMkBtn('section-menu-btn section-menu-close', '關閉設定');
-    const colAdd = _lhMkBtn('section-menu-btn section-col-menu', '＋ 並排角色欄');
-    colAdd.addEventListener('click', () => {
-        if (colAdd.getAttribute('aria-disabled') === 'true' || !_lhMenuId) return;
-        const id = _lhMenuId;
-        lhSecCloseMenu();
-        lhSecAddCol(id);
-    });
-    const colBlock = _lhMkBlock('角色（對唱、音樂劇）', colAdd);
-    colBlock.classList.add('section-col-block');   // 左鍵點名稱開的下拉不顯示（只給選類型，保持矮），右鍵／長按的完整設定才有
-    m.append(title, _lhMkBlock('類型', types), nameBlock, _lhMkBlock('顏色', grid, row), _lhMkBlock('位置', moves), colBlock, close);
+    // 並排角色欄入口先關掉（0.96.31 起改用逐字角色標記，之後由自由畫布排版取代）；已存的 cols／role 照樣讀、顯示、編輯、匯出
+    // const colAdd = _lhMkBtn('section-menu-btn section-col-menu', '＋ 並排角色欄');
+    // colAdd.addEventListener('click', () => {
+    //     if (colAdd.getAttribute('aria-disabled') === 'true' || !_lhMenuId) return;
+    //     const id = _lhMenuId;
+    //     lhSecCloseMenu();
+    //     lhSecAddCol(id);
+    // });
+    // const colBlock = _lhMkBlock('角色（對唱、音樂劇）', colAdd);
+    // colBlock.classList.add('section-col-block');   // 左鍵點名稱開的下拉不顯示（只給選類型，保持矮），右鍵／長按的完整設定才有
+    // m.append(title, _lhMkBlock('類型', types), nameBlock, _lhMkBlock('顏色', grid, row), _lhMkBlock('位置', moves), colBlock, close);
+    m.append(title, _lhMkBlock('類型', types), nameBlock, _lhMkBlock('顏色', grid, row), _lhMkBlock('位置', moves), close);
     document.body.appendChild(m);
 
     // 顏色：色票與「無顏色」馬上套用；原生選色盤拖動時只預覽（input），放開才記一步（change，D-06）
@@ -927,9 +929,10 @@ function lhSecMenuSync() {
     _lhMenu.querySelector('.section-menu-name').hidden = s.type !== 'custom';
     const name = _lhMenu.querySelector('.section-name-input');
     if (document.activeElement !== name) name.value = s.custom;
-    const ca = _lhMenu.querySelector('.section-col-menu'), nc = s.cols ? s.cols.length : 0;
-    ca.textContent = nc ? '＋ 再加一欄角色（目前 ' + (nc + 1) + ' 欄）' : '＋ 並排角色欄';
-    ca.setAttribute('aria-disabled', String(nc >= LH_SEC_COLS_MAX));
+    // 入口關掉了（見 lhSecMenuBuild），這三行會讀到不存在的節點
+    // const ca = _lhMenu.querySelector('.section-col-menu'), nc = s.cols ? s.cols.length : 0;
+    // ca.textContent = nc ? '＋ 再加一欄角色（目前 ' + (nc + 1) + ' 欄）' : '＋ 並排角色欄';
+    // ca.setAttribute('aria-disabled', String(nc >= LH_SEC_COLS_MAX));
     for (const [sel, off] of [['.section-move-up', i <= 0], ['.section-move-down', i >= n - 1]]) {
         _lhMenu.querySelector(sel).setAttribute('aria-disabled', String(off));
     }
@@ -945,7 +948,7 @@ function lhSecOpenMenu(secEl, x, y, byKeyboard, drop) {
     closeSongListOverlay();
     _lhMenuId = secEl.dataset.id;
     _lhMenuDrop = !!drop;
-    m.querySelector('.section-col-block').hidden = _lhMenuDrop;
+    // m.querySelector('.section-col-block').hidden = _lhMenuDrop;   // 入口關掉了
     lhSecMenuSync();
     lhPlaceMenu(m, x, y);
     // 鍵盤打開才把焦點放到目前類型那一列；滑鼠、觸控不搶焦點（手機鍵盤不要彈出來）
