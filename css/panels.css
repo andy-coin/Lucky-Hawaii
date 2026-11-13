@@ -2367,9 +2367,15 @@ html.kb-open .lyrics-editor-body .lyrics-area { flex: 1 1 auto; min-height: 0; }
 /* ===== 自由畫布（js/canvas.js）：編輯器工具列的「吸附／自由」，自由模式下段落是畫布上的卡片 ===== */
 .canvas-tools { display: inline-flex; align-items: center; margin-left: auto; }
 body:not(.editor-open) .canvas-tools { display: none; }
-.canvas-tools > .canvas-btn:first-child { border-radius: 0.5rem 0 0 0.5rem; }
-.canvas-tools > .canvas-btn:last-child { border-radius: 0 0.5rem 0.5rem 0; margin-left: -1px; }   /* 兩顆接在一起：重疊 1px，不再把左邊框拿掉（選到「自由」時才不會缺左框） */
+#canvasSnapBtn { border-radius: 0.5rem 0 0 0.5rem; }
+#canvasFreeBtn { border-radius: 0 0.5rem 0.5rem 0; margin-left: -1px; }   /* 兩顆接在一起：重疊 1px，不再把左邊框拿掉（選到「自由」時才不會缺左框） */
 .canvas-tools > .canvas-btn[aria-pressed="true"] { position: relative; z-index: 1; }
+/* 縮放鈕只在自由畫布出現（js/canvas.js 在 body 上加 cv-free） */
+.canvas-zoom { display: inline-flex; margin-right: 0.5rem; }
+body:not(.cv-free) .canvas-zoom { display: none; }
+.canvas-zoom > .canvas-btn { border-radius: 0; margin-left: -1px; min-width: 2.25rem; }
+.canvas-zoom > .canvas-btn:first-child { border-radius: 0.5rem 0 0 0.5rem; margin-left: 0; }
+.canvas-zoom > .canvas-btn:last-child { border-radius: 0 0.5rem 0.5rem 0; }
 .canvas-btn[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--highlight-border); }
 .cv-corner { display: none; }
 /* 自由模式下畫布是唯一的捲動容器（原生捲動），所以桌面上外層沒有東西會被帶著捲；
@@ -2385,11 +2391,14 @@ html:not(.kb-open) #lyricsSections[data-canvas="free"] {
     background-image: radial-gradient(var(--border) 1px, transparent 1px);
     background-size: 1.5rem 1.5rem;
     background-attachment: local;
+    touch-action: pan-x pan-y;   /* 瀏覽器不接手捏合，交給 js/canvas.js 縮放畫布 */
 }
 html:not(.kb-open) #lyricsSections[data-canvas="free"] > .lyrics-section {
     position: absolute;
-    left: var(--cv-x);
-    top: var(--cv-y);
+    left: calc(var(--cv-x) * var(--cv-z, 1));   /* 縮放：位置照倍率換算，卡片本身用 scale，內部座標不變 */
+    top: calc(var(--cv-y) * var(--cv-z, 1));
+    transform: scale(var(--cv-z, 1));
+    transform-origin: 0 0;
     width: var(--cv-w);
     height: var(--cv-h);
     margin: 0;
@@ -2422,6 +2431,7 @@ html:not(.kb-open) #lyricsSections[data-canvas="free"] .cv-corner {
 html:not(.kb-open) #lyricsSections[data-canvas="free"] .lyrics-section.collapsed .cv-corner { display: none; }
 .lyrics-section.cv-moving { z-index: 2; box-shadow: 0 6px 20px var(--shadow); }
 body.is-canvas-dragging { user-select: none; }
+#lyricsSections.cv-panning { cursor: grabbing; user-select: none; }
 
 /* 段落依內容自動長高（js/sections.js lhSecFit）：段落自己不捲，整個歌詞區只剩一條捲軸；拉高度的把手拿掉 */
 .lyrics-area .lyrics-section:not(.collapsed) { flex: 0 0 auto; min-height: 0; }

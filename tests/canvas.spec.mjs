@@ -569,3 +569,111 @@ test('canvas.js 沒有 HTML 字串寫入', async () => {
     const src = readFileSync(new URL('../js/canvas.js', import.meta.url), 'utf8');
     expect(src).not.toMatch(/innerHTML|outerHTML|insertAdjacentHTML/);
 });
+
+// ===== Part B：縮放、平移、座標換算、鍵盤移動 =====
+const zoomOf = page => page.evaluate(() => getComputedStyle(document.getElementById('lyricsSections')).getPropertyValue('--cv-z').trim());
+
+test('縮放：按鈕縮小／放大／回 100%，卡片螢幕大小與位置照倍率，模型座標不變，不進復原', async ({ browser }) => {
+    const { context, page, errors } = await boot(browser, seeded());
+    await expect(page.locator('.canvas-zoom')).toBeVisible();
+    const b0 = await boxOf(page, 'sa');
+    await page.evaluate(() => lhCanvasZoom(0.5, 0, 0));
+    expect(await zoomOf(page)).toBe('0.5');
+    await expect(page.locator('#canvasZoomReset')).toHaveText('50%');
+    const b1 = await boxOf(page, 'sa');
+    near(b1.width, b0.width / 2, 1); near(b1.height, b0.height / 2, 1);
+    expect(await posOf(page, 'sa')).toEqual(POS.sa);
+    await page.locator('#canvasZoomIn').click();
+    await expect(page.locator('#canvasZoomReset')).toHaveText('60%');
+    await page.locator('#canvasZoomOut').click(); await page.locator('#canvasZoomOut').click();
+    await expect(page.locator('#canvasZoomReset')).toHaveText('40%');
+    await page.locator('#canvasZoomOut').click();   // 下限 40%
+    await expect(page.locator('#canvasZoomReset')).toHaveText('40%');
+    await page.locator('#canvasZoomReset').click();
+    await expect(page.locator('#canvasZoomReset')).toHaveText('100%');
+    const b2 = await boxOf(page, 'sa');
+    near(b2.width, b0.width, 1);
+    expect(await page.locator('#undoBtn').getAttribute('aria-disabled')).toBe('true');   // 縮放不是一步
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('縮放：Ctrl／⌘＋滾輪以游標為中心；吸附模式沒有縮放鈕', async ({ browser }) => {
+    const { context, page, errors } = await boot(browser, seeded());
+    const c = await cen(GRIP('sa')(page));
+    const before = await boxOf(page, 'sa');
+    await page.mouse.move(c[0], c[1]);
+    await page.keyboard.down('Control');
+    await page.mouse.wheel(0, -200);
+    await page.keyboard.up('Control');
+    const z = Number(await zoomOf(page));
+    expect(z).toBeGreaterThan(1);
+    const after = await boxOf(page, 'sa');
+    near(after.width, before.width * z, 2);
+    await page.locator('#canvasSnapBtn').click();
+    await expect(page.locator('.canvas-zoom')).toBeHidden();
+    expect(await zoomOf(page)).toBe('');
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('座標換算：50% 時拖 100 螢幕像素，卡片位置動 200 畫布像素；拉大小同理', async ({ browser }) => {
+    const { context, page, errors } = await boot(browser, seeded());
+    await page.evaluate(() => lhCanvasZoom(0.5, 0, 0));
+    const b0 = await boxOf(page, 'sa');
+    await drag(page, await cen(GRIP('sa')(page)), 100, 50);
+    expect(await posOf(page, 'sa')).toEqual({ ...POS.sa, x: POS.sa.x + 200, y: POS.sa.y + 100 });
+    const b1 = await boxOf(page, 'sa');
+    near(b1.x - b0.x, 100, 2); near(b1.y - b0.y, 50, 2);   // 螢幕上跟手
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('平移：滑鼠拖畫布空白處捲動畫布', async ({ browser }) => {
+    const { context, page, errors } = await boot(browser, seeded());
+    await page.evaluate(() => lhCanvasZoom(1.5, 0, 0));
+    const box = await page.locator('#lyricsSections').boundingBox();
+    const sx = box.x + box.width - 12, sy = box.y + box.height - 40;
+    expect(await page.evaluate(([x, y]) => document.elementFromPoint(x, y).id, [sx, sy])).toBe('lyricsSections');
+    await page.mouse.move(sx, sy);
+    await page.mouse.down();
+    await page.mouse.move(sx - 60, sy - 40, { steps: 4 });
+    await page.mouse.up();
+    const sc = await page.evaluate(() => [document.getElementById('lyricsSections').scrollLeft, document.getElementById('lyricsSections').scrollTop]);
+    expect(sc[0] + sc[1]).toBeGreaterThan(0);
+    expect(await posOf(page, 'sa')).toEqual(POS.sa);   // 沒動到卡片
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('鍵盤：焦點在 ⋮⋮ 按方向鍵移卡片 8px（Shift 40px），一步一復原', async ({ browser }) => {
+    const { context, page, errors } = await boot(browser, seeded());
+    await page.locator(`${SEC('sb')} .section-handle`).focus();
+    await page.keyboard.press('ArrowRight');
+    expect(await posOf(page, 'sb')).toEqual({ ...POS.sb, x: POS.sb.x + 8 });
+    await page.keyboard.press('Shift+ArrowDown');
+    expect(await posOf(page, 'sb')).toEqual({ ...POS.sb, x: POS.sb.x + 8, y: POS.sb.y + 40 });
+    expect(await page.evaluate(() => document.activeElement.className)).toContain('section-handle');
+    await page.locator('#undoBtn').click();
+    expect(await posOf(page, 'sb')).toEqual({ ...POS.sb, x: POS.sb.x + 8 });
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('縮放 60% 時：選字浮動列仍出現在選取處附近、角色標記與打字照常', async ({ browser }) => {
+    const { context, page, errors } = await boot(browser, freeRoles());
+    await page.evaluate(() => lhCanvasZoom(0.6, 0, 0));
+    await kbSelect(page, 1, 4);
+    await expect(page.locator(BAR)).toBeVisible();
+    const box = await page.locator(BAR).boundingBox();
+    const ta = await page.locator('.section-textarea').first().boundingBox();
+    expect(box.y).toBeGreaterThan(ta.y);
+    expect(box.y).toBeLessThan(ta.y + ta.height + 80);
+    expect(box.x).toBeGreaterThan(ta.x - 20);
+    expect(box.x).toBeLessThan(ta.x + ta.width);
+    await page.keyboard.press('End');
+    await page.keyboard.type('X');
+    expect(await page.evaluate(() => curSong().sections[0].text.endsWith('X'))).toBe(true);
+    expect(errors).toEqual([]);
+    await context.close();
+});

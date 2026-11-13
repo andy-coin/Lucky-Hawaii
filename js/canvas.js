@@ -22,6 +22,30 @@ function _lhCvSetRect(el, r) {
     }
 }
 
+// ----- 縮放（只在記憶體，每首歌各一個，重新整理回 100%）-----
+const LH_CV_ZMIN = 0.4, LH_CV_ZMAX = 1.5;
+const _lhCvZooms = new Map();
+const _lhCvZ = () => { const s = curSong(); return (s && _lhCvZooms.get(s.id)) || 1; };
+
+// 縮放到 z，並讓畫布可視區裡 (px, py)（相對可視區左上）那一點留在原處；省略就用中心
+function lhCanvasZoom(z, px, py) {
+    const box = _lhCvBox(), song = curSong();
+    if (!box || !song || !Number.isFinite(z)) return;
+    z = Math.round(Math.min(LH_CV_ZMAX, Math.max(LH_CV_ZMIN, z)) * 100) / 100;
+    const z0 = _lhCvZ();
+    if (px === undefined) { px = box.clientWidth / 2; py = box.clientHeight / 2; }
+    const sl = (box.scrollLeft + px) / z0 * z - px, st = (box.scrollTop + py) / z0 * z - py;
+    _lhCvZooms.set(song.id, z);
+    box.style.setProperty('--cv-z', String(z));
+    box.scrollLeft = Math.max(0, sl);
+    box.scrollTop = Math.max(0, st);
+    _lhCvZoomLabel();
+}
+function _lhCvZoomLabel() {
+    const b = document.getElementById('canvasZoomReset');
+    if (b) b.textContent = Math.round(_lhCvZ() * 100) + '%';
+}
+
 let _lhCvWasFree = false;
 // 依這首歌的模式套用排版：每次重畫、開關編輯器、鍵盤開關、切模式都呼叫
 function lhCanvasApply() {
@@ -39,6 +63,8 @@ function lhCanvasApply() {
         _lhCvWasFree = false;
         lhCanvasAbort();
         delete box.dataset.canvas;
+        box.style.removeProperty('--cv-z');
+        document.body.classList.remove('cv-free');
         for (const el of box.children) {
             const s = byId.get(el.dataset.id);
             const grip = el.querySelector('.section-handle');
@@ -50,6 +76,9 @@ function lhCanvasApply() {
     }
     _lhCvWasFree = true;
     box.dataset.canvas = 'free';
+    box.style.setProperty('--cv-z', String(_lhCvZ()));
+    document.body.classList.add('cv-free');
+    _lhCvZoomLabel();
     const rects = lhCanvasLayout(secs);
     secs.forEach((s, i) => {
         const el = lhSecEl(s.id);
@@ -138,8 +167,9 @@ function _lhCvMove(e) {
     const g = _lhCv;
     if (!g || e.pointerId !== g.pointerId) return;
     const box = _lhCvBox();
-    const dx = e.clientX - g.sx + (box.scrollLeft - g.sl);
-    const dy = e.clientY - g.sy + (box.scrollTop - g.st);
+    // 螢幕像素換回畫布座標：除以縮放倍率（手指移動、捲動量都是螢幕像素）
+    const dx = (e.clientX - g.sx + (box.scrollLeft - g.sl)) / g.z;
+    const dy = (e.clientY - g.sy + (box.scrollTop - g.st)) / g.z;
     if (!g.started) {
         if (Math.hypot(dx, dy) < (g.touch ? 6 : 4)) return;
         g.started = true;
@@ -186,7 +216,7 @@ function _lhCvKey(e) {
 // 容器的捕獲階段：比 js/sections.js 的排序拖曳、標題列的收合點擊更早看到。
 // 只有 ⋮⋮、標題列空白處（含 ▾）與右下角會開始手勢；名稱鈕、字母條、−、字數保留自己的點擊與長按
 _lhCvBox().addEventListener('pointerdown', e => {
-    if (_lhCv || !e.isPrimary || !_lhCvFree()) return;
+    if (_lhPinch || _lhPan || _lhCv || !e.isPrimary || !_lhCvFree()) return;
     if (e.pointerType === 'mouse' && e.button !== 0) return;
     const t = e.target;
     if (!t || !t.closest) return;
@@ -202,7 +232,7 @@ _lhCvBox().addEventListener('pointerdown', e => {
     const start = lhCanvasLayout(song.sections)[idx];
     _lhCv = {
         kind, card, id: card.dataset.id, pointerId: e.pointerId, touch: e.pointerType === 'touch',
-        sx: e.clientX, sy: e.clientY, sl: box.scrollLeft, st: box.scrollTop, start, rect: { ...start }, started: false,
+        z: _lhCvZ(), sx: e.clientX, sy: e.clientY, sl: box.scrollLeft, st: box.scrollTop, start, rect: { ...start }, started: false,
     };
     document.addEventListener('pointermove', _lhCvMove, true);
     document.addEventListener('pointerup', _lhCvUp, true);
@@ -234,3 +264,88 @@ function lhCanvasReveal(el) {
 }
 
 lhCanvasApply();
+
+// ===== 縮放、平移、捏合、鍵盤移動卡片（Part B）=====
+for (const [id, f] of [['canvasZoomOut', z => z - 0.1], ['canvasZoomReset', () => 1], ['canvasZoomIn', z => z + 0.1]]) {
+    const b = document.getElementById(id);
+    if (!b) continue;
+    b.addEventListener('click', () => lhCanvasZoom(f(_lhCvZ())));
+    b.addEventListener('pointerdown', e => e.preventDefault());
+    b.addEventListener('mousedown', e => e.preventDefault());
+}
+
+// Ctrl／⌘＋滾輪（觸控板捏合也是這個事件）：以游標為中心縮放；一般滾輪照舊捲動
+_lhCvBox().addEventListener('wheel', e => {
+    if (!(e.ctrlKey || e.metaKey) || !_lhCvFree()) return;
+    e.preventDefault();
+    const r = _lhCvBox().getBoundingClientRect();
+    lhCanvasZoom(_lhCvZ() * Math.exp(-e.deltaY * 0.01), e.clientX - r.left - _lhCvBox().clientLeft, e.clientY - r.top - _lhCvBox().clientTop);
+}, { passive: false });
+
+// 滑鼠平移：拖畫布空白處，或按住滑鼠中鍵拖任何地方（觸控的單指平移是瀏覽器原生捲動）
+let _lhPan = null;
+_lhCvBox().addEventListener('pointerdown', e => {
+    if (_lhPan || _lhPinch || _lhCv || e.pointerType !== 'mouse' || !_lhCvFree()) return;
+    if (!(e.button === 1 || (e.button === 0 && e.target === _lhCvBox()))) return;
+    e.preventDefault();
+    const box = _lhCvBox();
+    _lhPan = { id: e.pointerId, x: e.clientX, y: e.clientY, sl: box.scrollLeft, st: box.scrollTop };
+    box.classList.add('cv-panning');
+}, true);
+document.addEventListener('pointermove', e => {
+    if (!_lhPan || e.pointerId !== _lhPan.id) return;
+    const box = _lhCvBox();
+    box.scrollLeft = _lhPan.sl - (e.clientX - _lhPan.x);
+    box.scrollTop = _lhPan.st - (e.clientY - _lhPan.y);
+}, true);
+const _lhPanEnd = e => {
+    if (!_lhPan || e.pointerId !== _lhPan.id) return;
+    _lhPan = null;
+    _lhCvBox().classList.remove('cv-panning');
+};
+document.addEventListener('pointerup', _lhPanEnd, true);
+document.addEventListener('pointercancel', _lhPanEnd, true);
+
+// 雙指捏合：追蹤兩根手指的距離，以兩指中點為中心縮放；第二根手指一落下就放棄進行中的卡片手勢
+let _lhPinch = null;
+const _lhPts = new Map();
+_lhCvBox().addEventListener('pointerdown', e => {
+    if (e.pointerType !== 'touch' || !_lhCvFree()) return;
+    _lhPts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (_lhPts.size !== 2) return;
+    lhCanvasAbort();
+    const [a, b] = [..._lhPts.values()];
+    _lhPinch = { d0: Math.hypot(a.x - b.x, a.y - b.y) || 1, z0: _lhCvZ() };
+    e.stopPropagation();
+}, true);
+document.addEventListener('pointermove', e => {
+    if (!_lhPts.has(e.pointerId)) return;
+    _lhPts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (!_lhPinch || _lhPts.size < 2) return;
+    const [a, b] = [..._lhPts.values()];
+    const box = _lhCvBox(), r = box.getBoundingClientRect();
+    lhCanvasZoom(_lhPinch.z0 * Math.hypot(a.x - b.x, a.y - b.y) / _lhPinch.d0, (a.x + b.x) / 2 - r.left - box.clientLeft, (a.y + b.y) / 2 - r.top - box.clientTop);
+}, true);
+const _lhPtEnd = e => {
+    _lhPts.delete(e.pointerId);
+    if (_lhPts.size < 2) _lhPinch = null;
+};
+document.addEventListener('pointerup', _lhPtEnd, true);
+document.addEventListener('pointercancel', _lhPtEnd, true);
+
+// 鍵盤移動卡片：焦點在 ⋮⋮ 把手上，方向鍵每次 8px（Shift 40px）；Alt＋↑↓ 仍是調順序。走和拖曳同一條提交路徑：推開、一步復原
+_lhCvBox().addEventListener('keydown', e => {
+    if (e.altKey || e.ctrlKey || e.metaKey || e.isComposing || !_lhCvFree()) return;
+    const d = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }[e.key];
+    const handle = d && e.target.closest && e.target.closest('.section-handle');
+    const card = handle && handle.closest('.lyrics-section');
+    const song = curSong();
+    const idx = card && song ? song.sections.findIndex(s => s.id === card.dataset.id) : -1;
+    if (idx < 0) return;
+    e.preventDefault();
+    const step = e.shiftKey ? 40 : 8, r = { ...lhCanvasLayout(song.sections)[idx] };
+    r.x = Math.min(LH_CV_MAX, Math.max(0, r.x + d[0] * step));
+    r.y = Math.min(LH_CV_MAX, Math.max(0, r.y + d[1] * step));
+    _lhCvCommit(card.dataset.id, r, 'canvas-move');
+    lhSecEl(card.dataset.id)?.querySelector('.section-handle')?.focus({ preventScroll: true });
+}, true);
