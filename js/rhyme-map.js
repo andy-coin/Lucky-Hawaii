@@ -1155,7 +1155,7 @@ function lhMapBarBuild() {
     an.append(icon('📏'), _lhMk('span', '', ' 分析'));
     an.setAttribute('aria-expanded', 'false');
     an.setAttribute('aria-controls', 'rhymeAnalysis');
-    const mv = _lhMkBtn('section-menu-btn rm-bar-move', '移到段落 ▸');   // 只給觸控（桌機走右鍵，lhMapShowBar 控制）
+    const mv = _lhMkBtn('section-menu-btn rm-bar-move', '移到段落 ▸');   // 桌機與觸控都有（桌機另外還能右鍵）
     mv.setAttribute('aria-haspopup', 'menu');
     mv.setAttribute('aria-controls', 'moveSelSub');
     const rd = _lhMkBtn('section-menu-btn rm-bar-rd', '指定讀音');   // 只有句尾的破音字才顯示（lhMapShowBar）
@@ -1165,7 +1165,7 @@ function lhMapBarBuild() {
     row.id = 'rhymeReadingRow';
     row.hidden = true;
     rd.setAttribute('aria-controls', row.id);
-    bar.append(look, ai, an, mv, rd, row);
+    bar.append(look, ai, an, rd, mv, row);   // 編輯動作排最後
     // 按鈕不能搶走輸入框的焦點與選取（手機鍵盤也才不會收起來）
     for (const t of ['pointerdown', 'mousedown']) bar.addEventListener(t, e => e.preventDefault());
     look.addEventListener('click', e => lhMapLookup(_lhMapBarSnap && _lhMapBarSnap.char, false, e.detail === 0));
@@ -1254,7 +1254,6 @@ function lhMapShowBar(snap) {
     // 查韻、AI 建議只在有中文字、20 字內的選取才有（D-07）；沒有就只剩「分析」
     bar.querySelector('.rm-bar-look').hidden = bar.querySelector('.rm-bar-ai').hidden = !snap.char;
     bar.querySelector('.rm-bar-rd').hidden = !snap.rd;
-    bar.querySelector('.rm-bar-move').hidden = matchMedia(_LH_FINE).matches;   // 桌機用右鍵；平板接觸控板也算 fine pointer
     _lhMapBarSnap = snap;
     snap.ta.setAttribute('aria-keyshortcuts', 'Alt+ArrowDown');
     if (snap.char) bar.querySelector('.rm-bar-t').textContent = ' 查韻：' + snap.char;

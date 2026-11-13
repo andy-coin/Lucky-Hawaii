@@ -1,4 +1,4 @@
-// 選取文字移到別的段落（quick 261113-j3a）：桌機右鍵選單；觸控走選字浮動列
+// 選取文字移到別的段落（quick 261113-j3a、261113-qlv）：桌機有右鍵選單也有選字浮動列；觸控走選字浮動列
 import { test, expect } from '@playwright/test';
 import { readFileSync } from 'node:fs';
 import { bootPage, activeSongRaw } from './helpers.mjs';
@@ -159,11 +159,21 @@ test('觸控：選字浮動列的「移到段落 ▸」直接開子選單，移�
     await context.close();
 });
 
-test('桌機：浮動列的「移到段落 ▸」是隱藏的', async ({ browser }) => {
+test('桌機：浮動列的「移到段落 ▸」直接開子選單，移完可復原', async ({ browser }) => {
     const { context, page, errors } = await bootPage(browser, { wordlist: 'stub', storage: two() });
     await kbSelect(page);
     await expect(page.locator(BAR)).toBeVisible();
-    await expect(page.locator(BAR + ' .rm-bar-move')).toBeHidden();
+    await expect(page.locator(BAR + ' .rm-bar-move')).toBeVisible();
+    await expect(page.locator(BAR + ' .rm-bar-move')).toHaveText('移到段落 ▸');
+    await page.locator(BAR + ' .rm-bar-move').click();
+    await expect(page.locator(BAR)).toBeHidden();
+    await expect(page.locator(SUB)).toBeVisible();
+    await expect(page.locator(ROOT)).toBeHidden();
+    await page.locator(SUB + ' .move-sel-to').nth(1).click();
+    expect(await texts(page)).toEqual(['一二\n', '五\n三四']);
+    expect(await storedTexts(page)).toEqual(['一二\n', '五\n三四']);
+    await page.keyboard.press('ControlOrMeta+z');
+    expect(await texts(page)).toEqual(['一二\n三四', '五']);
     expect(errors).toEqual([]);
     await context.close();
 });

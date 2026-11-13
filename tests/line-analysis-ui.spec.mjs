@@ -1301,7 +1301,7 @@ test('分析面板：選幾行按分析，逐行列出字數、結構與對照',
     await expect(page.locator(ANBAR)).toBeVisible();
     // 20 字內有中文字：查韻、AI、分析，依序
     const btns = page.locator(ANBAR + ' button:visible');
-    await expect(btns).toHaveText(['🔍 查韻：我', '✨ AI 建議', '📏 分析']);
+    await expect(btns).toHaveText(['🔍 查韻：我', '✨ AI 建議', '📏 分析', '移到段落 ▸']);
     const an = page.locator(ANBAR + ' .rm-bar-an');
     await expect(an).toHaveAttribute('aria-label', '分析選取範圍的句構');
     await expect(an).toHaveAttribute('aria-expanded', 'false');
@@ -1399,7 +1399,7 @@ test('分析面板：段落太長', async ({ browser }) => {
     });
     await anPick(page, 0, 4);
     await expect(page.locator(ANBAR)).toBeVisible();
-    await expect(page.locator(ANBAR + ' button:visible')).toHaveText(['🔍 查韻：天', '✨ AI 建議', '📏 分析']);
+    await expect(page.locator(ANBAR + ' button:visible')).toHaveText(['🔍 查韻：天', '✨ AI 建議', '📏 分析', '移到段落 ▸']);
     await page.locator(ANBAR + ' .rm-bar-an').click();
     const panel = page.locator(AN);
     await expect(panel).toBeVisible();
