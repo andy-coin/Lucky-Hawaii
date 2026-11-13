@@ -319,3 +319,33 @@ _lhPaneApply();
 window.addEventListener('resize', () => {
     for (const side of ['l', 'r']) if (_lhPaneW[side] !== null) document.documentElement.style.setProperty(side === 'l' ? '--lp-w' : '--rp-w', _lhPaneClamp(side, _lhPaneW[side]) + 'rem');
 });
+
+// ===== 平板：左右面板裡的手指拖曳不要帶著整頁走 =====
+// 面板內容不夠長（沒有捲軸）或已經捲到底時，iOS 會把這次拖曳傳給整頁，中間的查詢區跟著被拖下來。
+// 手指在側邊面板裡移動時，從手指下面往上找「這個方向還捲得動」的元素（文字框、清單、橫捲的標籤列）；一個都沒有就擋掉這次移動。
+// 只在 > 900（三直排／推開版型）生效；≤ 900 的底部 sheet 有自己的拖曳與捲動規則
+let _lhPanelTouch = null;
+document.addEventListener('touchstart', e => {
+    const t = e.touches[0];
+    const panel = e.touches.length === 1 && !lhIsSheetMode() && e.target.closest && e.target.closest('.side-panel');
+    _lhPanelTouch = panel ? { panel, x: t.clientX, y: t.clientY } : null;
+}, { passive: true });
+document.addEventListener('touchmove', e => {
+    const s = _lhPanelTouch;
+    if (!s || e.touches.length !== 1 || !e.cancelable) return;
+    const t = e.touches[0], dx = t.clientX - s.x, dy = t.clientY - s.y;
+    s.x = t.clientX; s.y = t.clientY;
+    if (!dx && !dy) return;
+    const vertical = Math.abs(dy) >= Math.abs(dx);
+    for (let el = e.target; el && el !== s.panel.parentElement; el = el.parentElement) {
+        if (!(el instanceof Element)) continue;
+        const cs = getComputedStyle(el);
+        if (vertical) {
+            if (/(auto|scroll)/.test(cs.overflowY) && el.scrollHeight > el.clientHeight + 1
+                && (dy > 0 ? el.scrollTop > 0 : el.scrollTop + el.clientHeight < el.scrollHeight - 1)) return;
+        } else if (/(auto|scroll)/.test(cs.overflowX) && el.scrollWidth > el.clientWidth + 1
+            && (dx > 0 ? el.scrollLeft > 0 : el.scrollLeft + el.clientWidth < el.scrollWidth - 1)) return;
+    }
+    e.preventDefault();
+}, { passive: false });
+document.addEventListener('touchend', () => { _lhPanelTouch = null; }, { passive: true });

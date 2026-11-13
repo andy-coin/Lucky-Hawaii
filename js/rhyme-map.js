@@ -153,7 +153,7 @@ function _lhMapTint(el, o) {
 let _lhMapEnLoading = null;
 function _lhMapEnLoad() {
     if (_lhMapEnLoading) return;
-    _lhMapEnLoading = fetch('data/en-rhyme.json?v=0.96.40').then(r => r.json()).then(o => {
+    _lhMapEnLoading = fetch('data/en-rhyme.json?v=0.97').then(r => r.json()).then(o => {
         lhEnSetDict(o);
         // 只重畫有英文的段落（其他段落的標記節點不動）
         const box = document.getElementById('lyricsSections');

@@ -1,3 +1,10 @@
+## 2026-11-14 v0.97（已 push）
+- 版本號 0.97：index.html ?v=0.97 與「關於」、README、js/safety.js LH_APP_VERSION、.claude/CLAUDE.md。
+- 「歌曲」鈕所有主題都是土耳其綠 #4fd1c5＋深色字（css/base.css 檔尾；style.spec 白名單只留 #4fd1c5）。
+- 新增段落／提供詞語建議：固定 height 2.25rem（不是 min-height，實機上圖示＋字會撐高其中一顆）。
+- 平板側邊面板拖曳不帶整頁：js/panels.js 檔尾 touchmove 攔截（> 900、往那方向沒有可捲元素就 preventDefault）；觸控裝置 html overscroll-behavior: none（桌機不加，會讓 Mac End 鍵變捲動）。
+- 待實機確認：iPad 上文字框內拖選取把手不受影響。
+
 ## 2026-11-14 回報 10 點＋選字列（?v=0.96.42，待 Andy 實機驗收）
 - 1 寬螢幕吸附門檻 1600→1400（比 13 吋 iPad 橫放 1376 寬、且是滑鼠）：js/layout.js LH_MQ_DOCK；測試在 tests/helpers.mjs 設 window.__lhDockMinW=1600 沿用舊門檻。
 - 2 美術：寬螢幕兩側標題列往上／左右延伸貼齊面板（panels.css 檔尾「美術修正」）；新增段落與提供詞語建議同 2.25rem 高、同字級；電腦上左側面板 ⋮⋮ 也隱藏（手機平板左側保留，手指要靠它拖）；保留池內容加內距＋fill-soft 底；「歌曲」鈕土耳其綠（css/base.css 檔尾，淺 #16766f／深 #4fd1c5，style.spec 白名單加這兩色）。
