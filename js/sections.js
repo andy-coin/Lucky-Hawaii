@@ -1106,11 +1106,14 @@ function lhSecMoveText(srcId, a, b, text, toId) {
             song.sections.splice(i + 1, 0, dst);
         } else dst = song.sections.find(s => s.id === toId);
         if (!dst) return false;
-        // ponytail: 搬走的字在新段落沒有角色標記（來源段落的標記照常平移）；要帶著走再補
         const cut = src.text.slice(0, a) + src.text.slice(b);
+        const lead = text.length - text.replace(/^\n+/, '').length;   // 搬的字頭尾的換行不帶走，標記也從修剪後的位置算
+        const prefix = dst.text === '' ? '' : dst.text + (dst.text.endsWith('\n') ? '' : '\n');
+        const carried = src.marks ? lhMarksSlice(src.marks, a + lead, a + lead + moved.length, prefix.length) : [];   // 先取，下面才平移來源
         if (src.marks) lhSecSetMarks(src, lhMarksShift(src.marks, src.text, cut, a));
         src.text = cut;
-        dst.text = dst.text === '' ? moved : dst.text + (dst.text.endsWith('\n') ? '' : '\n') + moved;
+        dst.text = prefix + moved;
+        if (carried.length) lhSecSetMarks(dst, _lhMarksNorm([...(dst.marks || []), ...carried]));   // 搬走的字帶著角色標記
     }, { dom: 'render' });
     if (!step) return false;
     lhSecFlash(dstId);

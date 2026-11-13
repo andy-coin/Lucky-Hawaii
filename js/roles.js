@@ -15,10 +15,27 @@ function lhRolesRefresh() {
     }
 }
 
-// 新增角色：滿 8 個回 null。顏色取預設色盤第一個沒用過的。這是整首歌的設定，不進復原歷史（和歌名、段落高度一樣）
+// 角色清單的增、改、刪都記進復原歷史：改之前先 lhHistEnsure（確保歷史的「現在」是改之前的樣子），改完呼叫 _lhRoleCommit（內容沒變就不記）
+function _lhRoleCommit(song) {
+    const h = lhHistEnsure(song);
+    if (_sig(song.sections, song.roles) !== _sig(h.present)) lhHistCommit(song, 'role');
+}
+
+// 復原、重做改了角色清單之後：色彩變數、鏡像層、角色面板都重整
+function lhRolesChanged() {
+    lhRolesRefresh();
+    lhMapRenderAll();
+    if (_lhRolePanelOn) {
+        _lhRolePanelFill();
+        _lhRolePanelPlace();
+    }
+}
+
+// 新增角色：滿 8 個回 null。顏色取預設色盤第一個沒用過的
 function lhRoleAdd(song) {
     const roles = song.roles || [];
     if (roles.length >= LH_ROLE_MAX) return null;
+    lhHistEnsure(song);
     const used = new Set(roles.map(r => r.color));
     const role = {
         id: lhNewId('role-'),
@@ -28,6 +45,7 @@ function lhRoleAdd(song) {
     song.roles = [...roles, role];
     markDirty(song.id);
     flushSongs();
+    _lhRoleCommit(song);
     lhRolesRefresh();
     return role;
 }
@@ -158,7 +176,7 @@ document.addEventListener('keydown', e => {
 }, true);
 
 // ==================== 角色管理面板 #roleMenu（工具列「角色 ▾」） ====================
-// 新增、改名、改色、刪除這首歌的角色。這些是整首歌的設定，不進復原歷史（同 lhRoleAdd）。
+// 新增、改名、改色、刪除這首歌的角色。都記進復原歷史（見 _lhRoleCommit）。
 // 角色名稱是使用者輸入：只走 textContent、.value、createTextNode（T-s3k-01）。
 let _lhRolePanel = null, _lhRolePanelOn = false;
 
@@ -181,6 +199,7 @@ function _lhRolePanelBuild() {
             const c = roleOf(t);
             const name = _lhSecCut(t.value.trim(), LH_SEC_ROLE_MAX);
             if (!c || !name) return;
+            lhHistEnsure(c.song);
             c.role.name = name;
             markDirty(c.song.id);
             scheduleSave();
@@ -192,7 +211,7 @@ function _lhRolePanelBuild() {
     m.addEventListener('change', e => {
         const t = e.target;
         if (t.classList.contains('role-name')) _lhRoleNameCommit(t);
-        else if (t.classList.contains('role-color')) flushSongs();
+        else if (t.classList.contains('role-color')) { flushSongs(); const c = roleOf(t); if (c) _lhRoleCommit(c.song); }
     });
     m.addEventListener('focusout', e => {
         const b = e.target;
@@ -215,7 +234,7 @@ function _lhRolePanelBuild() {
         }
         const c = roleOf(t);
         if (!c) return;
-        if (t.classList.contains('swatch')) { _lhRoleSetColor(c, t.dataset.hex); flushSongs(); return; }
+        if (t.classList.contains('swatch')) { _lhRoleSetColor(c, t.dataset.hex); flushSongs(); _lhRoleCommit(c.song); return; }
         // 刪除要按兩下：第一下變「確定刪除？」，3 秒或離開按鈕就還原
         if (t.dataset.armed === '1') { _lhRoleDisarm(t); lhRoleDelete(c.role.id); return; }
         t.dataset.armed = '1';
@@ -244,12 +263,14 @@ function _lhRoleNameCommit(input) {
     }
     markDirty(song.id);
     flushSongs();
+    _lhRoleCommit(song);
 }
 
 // 改色：先過格式驗證才進模型，畫面靠 CSS 變數，不用重畫鏡像層
 function _lhRoleSetColor(c, value) {
     const hex = String(value).toLowerCase();
     if (!LH_SEC_COLOR_RE.test(hex)) return;
+    lhHistEnsure(c.song);
     c.role.color = hex;
     markDirty(c.song.id);
     scheduleSave();
@@ -305,16 +326,12 @@ function lhRoleDelete(id) {
     const song = curSong();
     const role = song && (song.roles || []).find(r => r.id === id);
     if (!role) return;
+    lhHistEnsure(song);
     song.roles = song.roles.filter(r => r.id !== id);
     lhSongRolesFix(song);   // 沒角色就拿掉 roles 欄位；標記整首重新清理（換新陣列，復原快照不受影響）
     markDirty(song.id);
     flushSongs();
-    // ponytail: 角色的增改刪不進復原歷史。這裡只把歷史的「現在」重拍並清掉重做，之後的復原步驟不會帶回被刪角色的標記；
-    // 刪除「之前」記下的舊步驟還是可能還原出那些標記，但角色已不在、畫面與匯出都不認，下次載入時 lhSongRolesFix 會丟掉
-    const h = lhHistEnsure(song);
-    h.present = _snap(song);
-    h.future.length = 0;
-    lhHistSyncButtons();
+    _lhRoleCommit(song);   // 一步復原：角色連同被清掉的標記一起回來
     lhRolesRefresh();
     lhMapRenderAll();   // 角色序號往前補，顏色跟著變，整頁鏡像重畫
     if (_lhRolePanelOn) {

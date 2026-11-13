@@ -147,3 +147,12 @@ test('標籤：不認得的角色不加標籤、沒有標記就一整段', () =>
     expect(whole('我愛你', [])).toEqual([{ text: '我愛你', k: -1, head: false }]);
     expect(parts('', [])).toEqual([]);
 });
+
+test('lhMarksSlice：取範圍內的標記、剪掉超出的、平移到新位置，不改原陣列', () => {
+    const slice = (marks, f, t, base) => ev(`lhMarksSlice(${j(marks && M(marks))}, ${f}, ${t}, ${base})`);
+    expect(slice([[0, 3, 'm'], [3, 6, 'f']], 2, 5, 10)).toEqual(M([[10, 11, 'm'], [11, 13, 'f']]));
+    expect(slice([[0, 3, 'm']], 3, 6, 0)).toEqual([]);                       // 剛好貼邊：不算在範圍內
+    expect(slice([[1, 2, 'm']], 0, 9, 4)).toEqual(M([[5, 6, 'm']]));
+    expect(slice(null, 0, 3, 0)).toEqual([]);
+    expect(ev(`(() => { const m = [{ a: 0, b: 4, r: 'x' }]; lhMarksSlice(m, 1, 3, 0); return m[0].a + ',' + m[0].b; })()`)).toBe('0,4');
+});

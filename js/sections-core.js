@@ -150,6 +150,16 @@ function lhSongRolesFix(song) {
     return song;
 }
 
+// 取出 [from, to) 範圍內的標記（超出的部分剪掉），整體平移到新位置 base 開始；搬字到別段用，不改原陣列
+function lhMarksSlice(marks, from, to, base) {
+    const out = [];
+    for (const m of marks || []) {
+        const a = Math.max(m.a, from), b = Math.min(m.b, to);
+        if (b > a) out.push({ a: a - from + base, b: b - from + base, r: m.r });
+    }
+    return out;
+}
+
 // 把 [a, b) 指定給角色 r（null＝清除）
 function lhMarksSet(marks, a, b, r) {
     if (!(a < b)) return marks;

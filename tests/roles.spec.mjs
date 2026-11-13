@@ -690,3 +690,94 @@ test('指定角色並復原之後，在另一段選字，浮動列照樣出現',
     expect(errors).toEqual([]);
     await context.close();
 });
+
+// ===== 角色清單進復原歷史、搬字帶標記（quick 261114-1c6）=====
+const rolesOf = page => page.evaluate(() => (curSong().roles || []).map(r => [r.id, r.name, r.color]));
+const focusTa = page => page.evaluate(() => document.querySelector('.section-textarea').focus());
+const undoKey = async page => { await focusTa(page); await page.keyboard.press('ControlOrMeta+z'); };
+const redoKey = async page => { await focusTa(page); await page.keyboard.press('ControlOrMeta+Shift+z'); };
+
+test('復原：刪除角色一步還原角色連同被清掉的標記，重做再刪掉', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, { wordlist: 'stub', storage: withRoles() });
+    await open(page);
+    const del = rows(page).nth(0).locator('.role-del');
+    await del.click();
+    await del.click();
+    expect(await rolesOf(page)).toEqual([['r-f', '女', '#e05d5d']]);
+    await undoKey(page);
+    expect(await rolesOf(page)).toEqual([['r-m', '男', '#4a7fd4'], ['r-f', '女', '#e05d5d']]);
+    expect(await marksOf(page, 0)).toEqual([mk(0, 3, 'r-m'), mk(3, 6, 'r-f')]);
+    expect(await marksOf(page, 2)).toEqual([mk(0, 1, 'r-m'), mk(1, 3, 'r-f')]);
+    await expect(rlSpans(page, 0)).toHaveText('我愛你');
+    await redoKey(page);
+    expect(await rolesOf(page)).toEqual([['r-f', '女', '#e05d5d']]);
+    expect(await marksOf(page, 1)).toBe(null);
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('復原：刪除之前的舊步驟不會留下隱形標記（連角色一起回來）', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, { wordlist: 'stub', storage: withRoles() });
+    await pick(page, 0, 0);
+    await page.keyboard.insertText('天');
+    await open(page);
+    const del = rows(page).nth(0).locator('.role-del');
+    await del.click();
+    await del.click();
+    await undoKey(page);   // 還原刪除
+    await undoKey(page);   // 還原打字
+    await expect(ta(page)).toHaveValue('我愛你你愛我');
+    expect(await rolesOf(page)).toHaveLength(2);
+    expect(await marksOf(page)).toEqual([mk(0, 3, 'r-m'), mk(3, 6, 'r-f')]);
+    expect(await page.evaluate(() => curSong().sections.every(s => (s.marks || []).every(m => (curSong().roles || []).some(r => r.id === m.r))))).toBe(true);
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('復原：新增、改名、改色各算一步，可復原也可重做', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, { wordlist: 'stub', storage: withRoles() });
+    await open(page);
+    await page.locator(PANEL + ' .role-add').click();
+    expect(await rolesOf(page)).toHaveLength(3);
+    const name = rows(page).nth(0).locator('.role-name');
+    await name.fill('主唱');
+    await name.blur();
+    expect((await rolesOf(page))[0][1]).toBe('主唱');
+    await rows(page).nth(0).locator('.swatch').nth(2).click();
+    const color = (await rolesOf(page))[0][2];
+    expect(color).not.toBe('#4a7fd4');
+    await undoKey(page);
+    expect((await rolesOf(page))[0][2]).toBe('#4a7fd4');
+    await undoKey(page);
+    expect((await rolesOf(page))[0][1]).toBe('男');
+    await undoKey(page);
+    expect(await rolesOf(page)).toHaveLength(2);
+    await redoKey(page); await redoKey(page); await redoKey(page);
+    expect((await rolesOf(page))[0]).toEqual(['r-m', '主唱', color]);
+    expect(await rolesOf(page)).toHaveLength(3);
+    // 歷史沒有被重置：再復原到底還是一步一步退
+    await undoKey(page);
+    expect((await rolesOf(page))[0][2]).toBe('#4a7fd4');
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('移到段落：搬走的字帶著角色標記（接在最後面與新段落），來源剩下的標記平移，一步復原', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, { wordlist: 'stub', storage: withRoles() });
+    // 搬「你你愛」(2..5)：男的最後 1 字 + 女前 2 字；目標 sb「愛愛」(男在 1..2) 接在最後面
+    await page.evaluate(() => lhSecMoveText('sa', 2, 5, '你你愛', 'sb'));
+    expect(await page.evaluate(() => curSong().sections.map(s => s.text))).toEqual(['我愛我', '愛愛\n你你愛', '愛愛愛']);
+    expect(await marksOf(page, 0)).toEqual([mk(0, 2, 'r-m'), mk(2, 3, 'r-f')]);
+    expect(await marksOf(page, 1)).toEqual([mk(1, 2, 'r-m'), mk(3, 4, 'r-m'), mk(4, 6, 'r-f')]);
+    await undoKey(page);
+    expect(await page.evaluate(() => curSong().sections.map(s => s.text))).toEqual(['我愛你你愛我', '愛愛', '愛愛愛']);
+    expect(await marksOf(page, 0)).toEqual([mk(0, 3, 'r-m'), mk(3, 6, 'r-f')]);
+    expect(await marksOf(page, 1)).toEqual([mk(1, 2, 'r-m')]);
+    // 新段落：頭尾的換行不帶走，標記從修剪後的位置算
+    await page.evaluate(() => { const x = curSong().sections[0]; x.text = '我\n愛你你愛'; x.marks = [{ a: 0, b: 3, r: 'r-m' }, { a: 3, b: 6, r: 'r-f' }]; });
+    await page.evaluate(() => lhSecMoveText('sa', 1, 5, '\n愛你你', null));
+    expect(await page.evaluate(() => curSong().sections[1].text)).toBe('愛你你');
+    expect(await marksOf(page, 1)).toEqual([mk(0, 1, 'r-m'), mk(1, 3, 'r-f')]);
+    expect(errors).toEqual([]);
+    await context.close();
+});

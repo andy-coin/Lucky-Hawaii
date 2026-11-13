@@ -10,16 +10,19 @@ const LH_TYPING_GAP = 1000;     // 打字停頓超過這麼久（毫秒）就另
 const _hists = new Map();       // 歌 id → { ref, past, future, present, caret, run }
 
 // 快照：段落的淺拷貝（text／label 是不可變字串，100 步幾乎不吃記憶體）
-const _snap = song => song.sections.map(s => ({ ...s }));
+// 角色清單（新增、改名、改色、刪除）掛在快照陣列的 .roles 上，一起進歷史；沒有角色＝空陣列
+const _snap = song => Object.assign(song.sections.map(s => ({ ...s })), { roles: (song.roles || []).map(r => ({ ...r })) });
 // 內容簽名：id／類型／自訂名／顏色／文字／角色／標記／畫布位置，不含高度與收合（位置算內容：只動位置的步驟也能復原）
-const _sig = sections => JSON.stringify(sections.map(s => [s.id, s.type, s.custom, s.color, s.text, s.role, s.cols, s.marks, s.pos]));
+// roles 預設取快照自帶的；拿 song.sections 比對時要另外傳 song.roles
+const _sig = (sections, roles = sections.roles) => JSON.stringify([(roles || []).map(r => [r.id, r.name, r.color]),
+    sections.map(s => [s.id, s.type, s.custom, s.color, s.text, s.role, s.cols, s.marks, s.pos])]);
 
 // 取得（或建立）這首歌的歷史。verify：畫面重畫時順便檢查，模型在歷史之外被改過（例如還沒接上歷史的刪除、拖曳）就重新起算
 function lhHistEnsure(song, verify) {
     let h = _hists.get(song.id);
     if (h && h.ref === song && !verify) return h;
     // 同一首歌被重新載入成另一個物件：內容沒變就沿用（換歌再換回來、別頁只改了高度）；別的分頁改過內容就從頭開始（D7）
-    if (h && _sig(song.sections) === _sig(h.present)) { h.ref = song; return h; }
+    if (h && _sig(song.sections, song.roles) === _sig(h.present)) { h.ref = song; return h; }
     h = { ref: song, past: [], future: [], present: _snap(song), caret: null, run: null };
     _hists.set(song.id, h);
     return h;
@@ -84,12 +87,15 @@ function _lhHistMove(from, to, msg, redo) {
     const step = from(h).pop();
     to(h).push({ snap: h.present, kind: step.kind, caret: h.caret });
     const before = song.sections;
+    const rolesBefore = _sig([], song.roles);
     const cur = new Map(before.map(s => [s.id, s]));
     // 還在的段落保留現在的收合與高度（D2）
     song.sections = step.snap.map(s => {
         const c = cur.get(s.id);
         return c ? { ...s, collapsed: c.collapsed, height: c.height } : { ...s };
     });
+    if (step.snap.roles && step.snap.roles.length) song.roles = step.snap.roles.map(r => ({ ...r }));
+    else delete song.roles;
     lhSecFinalize(song.sections);
     markDirty(song.id);
     flushSongs();
@@ -97,6 +103,7 @@ function _lhHistMove(from, to, msg, redo) {
     h.caret = step.caret;
     _lhHistShow(before, song.sections, redo ? h.caret : null);   // 復原的游標看這次的差異；記下的游標是上一步結束的位置，只有重做用得上
     lhHistSyncButtons();
+    if (_sig([], song.roles) !== rolesBefore && typeof lhRolesChanged === 'function') lhRolesChanged();   // 角色清單變了：色彩變數、鏡像、角色面板跟著更新
     lhAnnounce(msg);
     return true;
 }
