@@ -176,6 +176,7 @@ function _lhCvEnd() {
     document.removeEventListener('pointercancel', _lhCvCancel, true);
     document.removeEventListener('keydown', _lhCvKey, true);
     g.card.classList.remove('cv-moving');
+    _lhCvBox().querySelectorAll('.cv-guide').forEach(n => n.remove());
     document.body.classList.remove('is-canvas-dragging');
 }
 
@@ -206,11 +207,44 @@ function _lhCvMove(e) {
     if (g.kind === 'move') {
         r.x = Math.min(LH_CV_MAX, Math.max(0, s.x + dx));
         r.y = Math.min(LH_CV_MAX, Math.max(0, s.y + dy));
+        if (!e.altKey) _lhCvSnap(g, r);   // 按住 Alt＝不吸附
     } else {
         r.w = Math.min(LH_CV_WMAX, Math.max(LH_CV_WMIN, s.w + dx));
         r.h = Math.min(LH_CV_HMAX, Math.max(LH_CV_HMIN, s.h + dy));
     }
     _lhCvSetRect(g.card, r);
+}
+
+// 隔空對齊：移動中的卡片，左／中／右緣貼齊別張卡片的左／中／右緣（上／中／下同理），差 6 畫面像素內就吸過去，並畫一條導引線。
+// 只吸一個軸向各一條線；g.snapTo＝其他卡片的矩形（開始時算一次）
+function _lhCvSnap(g, r) {
+    const tol = 6 / g.z;
+    if (!g.others) {
+        const song = curSong(), rects = song ? lhCanvasLayout(song.sections) : [];
+        g.others = rects.filter((_, i) => song.sections[i].id !== g.id);
+    }
+    const best = { x: null, y: null };
+    for (const o of g.others) {
+        for (const [k, size, ok, os] of [['x', 'w', 'x', 'w'], ['y', 'h', 'y', 'h']]) {
+            for (const mine of [0, 0.5, 1]) for (const theirs of [0, 0.5, 1]) {
+                const diff = (o[ok] + o[os] * theirs) - (r[k] + r[size] * mine);
+                if (Math.abs(diff) <= tol && (!best[k] || Math.abs(diff) < Math.abs(best[k].diff))) best[k] = { diff, at: o[ok] + o[os] * theirs, o };
+            }
+        }
+    }
+    if (best.x) r.x += best.x.diff;
+    if (best.y) r.y += best.y.diff;
+    r.x = Math.max(0, r.x); r.y = Math.max(0, r.y);
+    const box = _lhCvBox();
+    let gl = box.querySelector('.cv-guide-x'), gt = box.querySelector('.cv-guide-y');
+    for (const [k, el, cls] of [['x', gl, 'cv-guide-x'], ['y', gt, 'cv-guide-y']]) {
+        if (!best[k]) { if (el) el.remove(); continue; }
+        const n = el || Object.assign(document.createElement('div'), { className: 'cv-guide ' + cls });
+        if (!el) { n.setAttribute('aria-hidden', 'true'); box.appendChild(n); }
+        const z = g.z, o = best[k].o;
+        if (k === 'x') Object.assign(n.style, { left: best.x.at * z + 'px', top: Math.min(r.y, o.y) * z + 'px', width: '1px', height: (Math.max(r.y + r.h, o.y + o.h) - Math.min(r.y, o.y)) * z + 'px' });
+        else Object.assign(n.style, { top: best.y.at * z + 'px', left: Math.min(r.x, o.x) * z + 'px', height: '1px', width: (Math.max(r.x + r.w, o.x + o.w) - Math.min(r.x, o.x)) * z + 'px' });
+    }
 }
 
 function _lhCvUp(e) {

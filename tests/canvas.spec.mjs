@@ -622,7 +622,9 @@ test('座標換算：50% 時拖 100 螢幕像素，卡片位置動 200 畫布像
     const { context, page, errors } = await boot(browser, seeded());
     await page.evaluate(() => lhCanvasZoom(0.5, 0, 0));
     const b0 = await boxOf(page, 'sa');
+    await page.keyboard.down('Alt');   // 按住 Alt＝不吸附，才測得到純座標換算
     await drag(page, await cen(GRIP('sa')(page)), 100, 50);
+    await page.keyboard.up('Alt');
     expect(await posOf(page, 'sa')).toEqual({ ...POS.sa, x: POS.sa.x + 200, y: POS.sa.y + 100 });
     const b1 = await boxOf(page, 'sa');
     near(b1.x - b0.x, 100, 2); near(b1.y - b0.y, 50, 2);   // 螢幕上跟手
@@ -675,6 +677,21 @@ test('縮放 60% 時：選字浮動列仍出現在選取處附近、角色標記
     await page.keyboard.press('End');
     await page.keyboard.type('X');
     expect(await page.evaluate(() => curSong().sections[0].text.endsWith('X'))).toBe(true);
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('自由畫布：移動卡片時左緣貼齊別張卡片，並出現導引線，放開後消失', async ({ browser }) => {
+    const s = [song('s1', '第一首', [typed('sa', 'verse', '一', { pos: { x: 100, y: 40, w: 300, h: 200 } }), typed('sb', 'verse', '二', { pos: { x: 500, y: 400, w: 300, h: 200 } })], 1, { canvas: { mode: 'free' } })];
+    const { context, page, errors } = await boot(browser, s);
+    const from = await cen(GRIP('sb')(page));
+    await page.mouse.move(...from);
+    await page.mouse.down();
+    await page.mouse.move(from[0] - 396, from[1] + 20, { steps: 8 });   // 差 4px 貼齊 x=100
+    await expect(page.locator('#lyricsSections .cv-guide-x')).toHaveCount(1);
+    await page.mouse.up();
+    expect((await posOf(page, 'sb')).x).toBe(100);
+    await expect(page.locator('#lyricsSections .cv-guide')).toHaveCount(0);
     expect(errors).toEqual([]);
     await context.close();
 });

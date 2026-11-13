@@ -2725,3 +2725,29 @@ html:not(.kb-open) #lyricsSections[data-canvas="free"] .lyrics-section-header { 
     }
     body.pane-resizing { user-select: none; cursor: col-resize; }
 }
+
+/* ===== 分隔線：十字路口可同時拉兩個方向、隔空對齊的導引線 ===== */
+.dock-divider.junction { cursor: move; }
+#dockSnap {
+    position: fixed;
+    left: var(--dk-x);
+    top: var(--dk-y);
+    width: var(--dk-w);
+    height: var(--dk-h);
+    z-index: 812;
+    pointer-events: none;
+    background: var(--highlight-border);
+    opacity: 0.85;
+}
+#dockSnap[hidden] { display: none; }
+
+/* 拖曳落點預覽上的說明文字（主視窗與編輯器共用） */
+#dockPreview, #lhRowPreview {
+    display: flex; align-items: center; justify-content: center; text-align: center;
+    overflow: hidden; padding: 0.25rem;
+    font-size: 0.875rem; font-weight: 700; color: var(--text-primary);
+    border-style: dashed;
+}
+#dockPreview[hidden], #lhRowPreview[hidden] { display: none; }
+/* 自由畫布隔空對齊的導引線（js/canvas.js _lhCvSnap） */
+.cv-guide { position: absolute; z-index: 3; pointer-events: none; background: var(--highlight-border); opacity: 0.9; }

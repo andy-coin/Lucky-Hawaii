@@ -433,16 +433,16 @@ function lhFxBurst(anchor, kind, text) {
                { transform: 'translate(' + vx + 'px,' + (vy + 150 + Math.random() * 60) + 'px) rotate(' + spin + 'deg) scale(.8)', opacity: 0 }]
             : [{ transform: 'translate(0,0) scale(.3)', opacity: 1 },
                { transform: 'translate(' + vx + 'px,' + vy + 'px) rotate(' + spin / 3 + 'deg) scale(1.1)', opacity: 0 }];
-        p.animate(frames, { duration: coins ? 900 + Math.random() * 400 : 700 + Math.random() * 300, easing: coins ? 'cubic-bezier(.2,.7,.4,1)' : 'ease-out', fill: 'forwards' });
+        p.animate(frames, { duration: coins ? 1700 + Math.random() * 700 : 1300 + Math.random() * 500, easing: coins ? 'cubic-bezier(.2,.7,.4,1)' : 'ease-out', fill: 'forwards' });
     }
     if (!coins) {
         const ring = put('width:44px;height:44px;margin:-22px;border-radius:50%;border:2px solid #ffd84d;box-shadow:0 0 14px #ffd84d;');
-        ring.animate([{ transform: 'scale(.3)', opacity: 0.9 }, { transform: 'scale(1.8)', opacity: 0 }], { duration: 600, easing: 'ease-out', fill: 'forwards' });
+        ring.animate([{ transform: 'scale(.3)', opacity: 0.9 }, { transform: 'scale(1.8)', opacity: 0 }], { duration: 1100, easing: 'ease-out', fill: 'forwards' });
     }
     if (text) {
         const t = put('transform:translate(-50%,0);white-space:nowrap;font-size:0.8125rem;font-weight:700;padding:2px 8px;border-radius:999px;background:var(--card-bg,#fff);color:var(--text-primary,#222);border:1px solid var(--highlight-border,#999);', text);
-        t.animate([{ transform: 'translate(-50%,0)', opacity: 0 }, { transform: 'translate(-50%,-26px)', opacity: 1, offset: 0.2 }, { transform: 'translate(-50%,-60px)', opacity: 1, offset: 0.75 }, { transform: 'translate(-50%,-78px)', opacity: 0 }], { duration: 1800, easing: 'ease-out', fill: 'forwards' });
+        t.animate([{ transform: 'translate(-50%,0)', opacity: 0 }, { transform: 'translate(-50%,-26px)', opacity: 1, offset: 0.2 }, { transform: 'translate(-50%,-60px)', opacity: 1, offset: 0.75 }, { transform: 'translate(-50%,-78px)', opacity: 0 }], { duration: 3200, easing: 'ease-out', fill: 'forwards' });
     }
     document.body.appendChild(layer);
-    setTimeout(() => layer.remove(), 2000);
+    setTimeout(() => layer.remove(), 3600);
 }

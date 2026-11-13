@@ -251,7 +251,7 @@ test('AI 完成：在按鈕旁噴金幣與 token 小字，不再跳中間的浮�
     await expect(page.locator('.lh-fx')).toHaveCount(1);
     await expect(page.locator('.lh-fx')).toContainText('123 tokens');
     expect(await page.locator('#copyToast.show').count()).toBe(0);
-    await expect(page.locator('.lh-fx')).toHaveCount(0, { timeout: 4000 });
+    await expect(page.locator('.lh-fx')).toHaveCount(0, { timeout: 6000 });
     expect(errors).toEqual([]);
     await context.close();
 });

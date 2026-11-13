@@ -1154,7 +1154,7 @@
         .lh-tip {
             position: fixed; left: 0; top: 0; z-index: 4000; pointer-events: none;
             max-width: 16rem; padding: 0.3125rem 0.5rem; border-radius: var(--radius-s);
-            background: var(--text-primary); color: var(--container-bg);
+            background: var(--card-bg); color: var(--text-primary); border: 1px solid var(--border); box-shadow: 0 2px 8px var(--shadow);   /* 淡底：不搶眼 */
             font-family: var(--font-ui); font-size: 0.75rem; line-height: 1.4;
             opacity: 0; transform: translateY(2px); transition: opacity 0.15s ease, transform 0.15s ease;
         }

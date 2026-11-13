@@ -161,7 +161,7 @@
         })();
 
 
-// ===== 低調提示（Andy R2 小修）：滑鼠停 250ms 淡入、離開淡出，取代瀏覽器原生 title 的慢速突然跳出 =====
+// ===== 低調提示（Andy R2 小修）：滑鼠停 2 秒淡入、離開淡出，取代瀏覽器原生 title 的慢速突然跳出 =====
 // 對象：有 data-tip 或 title 的元素，加上會被程式改 title 的鑰匙與主題鈕。文字每次現讀（title 優先），顯示期間暫時拿掉 title 避免原生提示重疊
 {
     const SEL = '[data-tip], [title]:not(svg *), #aiKeyBtn, #themeToggle';
@@ -190,7 +190,7 @@
             tip.style.left = Math.max(8, Math.min(vw - w - 8, r.left + r.width / 2 - w / 2)) + 'px';
             tip.style.top = (below ? r.bottom + 8 : r.top - 8 - tip.offsetHeight) + 'px';
             tip.classList.add('show');
-        }, 250);
+        }, 2000);   // 停滿 2 秒才浮出，不打擾操作
     });
     document.addEventListener('pointerout', e => { if (cur && !cur.contains(e.relatedTarget)) hide(); });
     document.addEventListener('pointerdown', hide, true);

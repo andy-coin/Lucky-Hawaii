@@ -182,6 +182,11 @@ function _dkSyncDividers() {
             el.setAttribute('role', 'separator');
             el.setAttribute('aria-label', '拖曳調整區塊大小');
             el.addEventListener('pointerdown', e => _dkResizeStart(e, key));
+            el.addEventListener('pointermove', e => {   // 滑到十字路口：游標變成四向移動，提示可以同時拉兩個方向
+                if (e.buttons) return;
+                const d = _dkDivs.get(key);
+                el.classList.toggle('junction', !!(d && _dkCross(d, e.clientX, e.clientY)));
+            });
             document.body.appendChild(el);
             _dkDivEls.set(key, el);
         }
@@ -190,6 +195,25 @@ function _dkSyncDividers() {
     }
 }
 
+// 十字路口：這條分隔線附近（1.5rem 內）有垂直方向的另一條分隔線接著，回傳它的 key；沒有回 null。
+// 抓著路口拖＝兩個方向的大小一起改
+function _dkCross(d0, x, y) {
+    const tol = 1.5 * (parseFloat(getComputedStyle(document.documentElement).fontSize) || 16);
+    const r0 = d0.rect;
+    for (const [k, e] of _dkDivs) {
+        if (e === d0 || e.vertical === d0.vertical) continue;
+        const r = e.rect;
+        const touch = d0.vertical
+            ? r.x <= r0.x + r0.w + 2 && r.x + r.w >= r0.x - 2 && Math.abs(y - (r.y + r.h / 2)) <= tol
+            : r.y <= r0.y + r0.h + 2 && r.y + r.h >= r0.y - 2 && Math.abs(x - (r.x + r.w / 2)) <= tol;
+        if (touch) return k;
+    }
+    return null;
+}
+
+// 隔空對齊的吸附距離（px）：拖動中的分隔線離另一條同方向分隔線（沒有相連也算）小於這個距離，就貼過去
+const LH_DOCK_SNAP = 8;
+
 function _dkResizeStart(e, key) {
     const d0 = _dkDivs.get(key);
     if (!d0 || e.button !== 0 || !e.isPrimary) return;
@@ -197,22 +221,62 @@ function _dkResizeStart(e, key) {
     const el = e.currentTarget;
     el.setPointerCapture(e.pointerId);
     const rem = () => parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
-    const start = d0.vertical ? e.clientX : e.clientY;
-    const { a, b, vertical } = d0;
-    const P = d0.src.s[d0.ja] + d0.src.s[d0.jb];
+    const cross = _dkCross(d0, e.clientX, e.clientY);
+    const items = [key, ...(cross ? [cross] : [])].map(k => {
+        const d = _dkDivs.get(k);
+        return {
+            key: k, vertical: d.vertical, a: d.a, b: d.b, P: d.src.s[d.ja] + d.src.s[d.jb],
+            start: d.vertical ? e.clientX : e.clientY,
+            c0: d.vertical ? d.rect.x + d.rect.w / 2 : d.rect.y + d.rect.h / 2,   // 分隔線中心線（沿拖動方向）
+        };
+    });
+    const dragged = new Set(items.map(i => i.key));
     el.classList.add('active');
     document.body.classList.add('dock-resizing');
+    let snap = document.getElementById('dockSnap');
+    if (!snap) {
+        snap = document.createElement('div');
+        snap.id = 'dockSnap';
+        snap.setAttribute('aria-hidden', 'true');
+        document.body.appendChild(snap);
+    }
     const move = ev => {
-        const d = _dkDivs.get(key);   // 從最新的版面取來源節點：lhDockRender 可能在拖到一半重建過樹
-        if (!d) return;
-        const min = (vertical ? LH_DOCK_MIN_W : LH_DOCK_MIN_H) * rem();
-        if (a + b < 2 * min) return;
-        // 起點本來就小於最小值時不硬跳：只擋「再縮小」
-        const delta = Math.min(Math.max((vertical ? ev.clientX : ev.clientY) - start, Math.min(0, min - a)), Math.max(0, b - min));
-        const first = P * (a + delta) / (a + b);
-        d.src.s[d.ja] = first;
-        d.src.s[d.jb] = P - first;   // 寫進存的樹（不是修剪後的副本），收起的區塊才不會丟位置
+        // 先用「開始當下」的快照算好每一項的 delta（含吸附與夾限），再一次寫進存的樹、只重排一次
+        const others = [..._dkDivs.entries()].filter(([k]) => !dragged.has(k)).map(([, d]) => d);
+        let guide = null;
+        const writes = [];
+        for (const it of items) {
+            const d = _dkDivs.get(it.key);   // 從最新的版面取來源節點：lhDockRender 可能在拖到一半重建過樹
+            if (!d) continue;
+            const { a, b, vertical } = it;
+            const min = (vertical ? LH_DOCK_MIN_W : LH_DOCK_MIN_H) * rem();
+            if (a + b < 2 * min) continue;
+            let delta = (vertical ? ev.clientX : ev.clientY) - it.start;
+            // 吸附：貼齊其他同方向分隔線的中心線（x 或 y 相同）
+            let best = null;
+            for (const o of others) {
+                if (o.vertical !== vertical) continue;
+                const t = vertical ? o.rect.x + o.rect.w / 2 : o.rect.y + o.rect.h / 2;
+                const diff = t - (it.c0 + delta);
+                if (Math.abs(diff) <= LH_DOCK_SNAP && (!best || Math.abs(diff) < Math.abs(best.diff))) best = { diff, o, t };
+            }
+            if (best) {
+                delta += best.diff;
+                const r = d.rect, q = best.o.rect;
+                guide = vertical
+                    ? { x: best.t, y: Math.min(r.y, q.y), w: 2, h: Math.max(r.y + r.h, q.y + q.h) - Math.min(r.y, q.y) }
+                    : { x: Math.min(r.x, q.x), y: best.t, w: Math.max(r.x + r.w, q.x + q.w) - Math.min(r.x, q.x), h: 2 };
+            }
+            // 起點本來就小於最小值時不硬跳：只擋「再縮小」
+            delta = Math.min(Math.max(delta, Math.min(0, min - a)), Math.max(0, b - min));
+            writes.push([d, Math.max(0, it.P * (a + delta) / (a + b)), it.P]);
+        }
+        for (const [d, first, P] of writes) {
+            d.src.s[d.ja] = first;
+            d.src.s[d.jb] = P - first;   // 寫進存的樹（不是修剪後的副本），收起的區塊才不會丟位置
+        }
         lhDockRender();
+        if (guide) { _dkSetVars(snap, guide); snap.hidden = false; } else snap.hidden = true;
     };
     const end = () => {
         el.removeEventListener('pointermove', move);
@@ -220,6 +284,7 @@ function _dkResizeStart(e, key) {
         el.removeEventListener('pointercancel', end);
         el.classList.remove('active');
         document.body.classList.remove('dock-resizing');
+        snap.hidden = true;
         _dkSave();
     };
     el.addEventListener('pointermove', move);
@@ -266,6 +331,13 @@ function _dkZone(r, x, y) {
     const d = { left: nx, right: 1 - nx, top: ny, bottom: 1 - ny };
     const edge = Object.keys(d).reduce((a, b) => d[a] <= d[b] ? a : b);
     return d[edge] < 0.25 ? edge : 'center';
+}
+
+const LH_DOCK_NAMES = { lyrics: '歌詞', results: '查詢', ai: 'AI 建議' };
+function _dkZoneLabel(src, dst, zone) {
+    const d = LH_DOCK_NAMES[dst], s = LH_DOCK_NAMES[src];
+    return zone === 'center' ? s + ' ⇄ ' + d + '（互換）'
+        : s + ' 放在' + d + {left: '左邊', right: '右邊', top: '上方', bottom: '下方'}[zone];
 }
 
 // 預覽框的矩形：邊緣＝目標那一半，中間＝整塊
@@ -333,6 +405,7 @@ document.addEventListener('pointerdown', e => {
                 // 剛從隱藏變顯示：直接出現在位置上，不要從左上角滑過來
                 const fresh = pv.hidden;
                 if (fresh) pv.style.transition = 'none';
+                pv.textContent = _dkZoneLabel(src, dst, zone);   // 文字說明放開後會發生什麼，不用盲猜
                 _dkSetVars(pv, _dkPreviewRect(_dkRects[dst], zone));
                 pv.hidden = false;
                 if (fresh) { pv.offsetWidth; pv.style.transition = ''; }

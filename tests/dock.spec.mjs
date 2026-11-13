@@ -528,3 +528,38 @@ test('真滑鼠拖：走遍 36 種版型與順序，每一步畫面與模型一�
     expect(errors).toEqual([]);
     await context.close();
 });
+
+// ==================== 十字路口同時拉兩個方向、導引說明 ====================
+test('分隔線：抓十字路口同時改兩個方向的大小', async ({ browser }) => {
+    const { context, page, errors } = await boot(browser, { ...BASE_SEEDS, ...seedDock({ d: 'row', k: ['lyrics', { d: 'col', k: ['results', 'ai'], s: [1, 1] }], s: [40, 60] }) });
+    await waitStill(page);
+    const b0 = await boxes(page);
+    const vd = page.locator('.dock-divider[aria-orientation="vertical"]'), hd = page.locator('.dock-divider[aria-orientation="horizontal"]');
+    const v = await vd.boundingBox(), h = await hd.boundingBox();
+    const x = v.x + v.width / 2, y = h.y + h.height / 2;
+    await page.mouse.move(x, y);
+    await page.mouse.down();
+    await page.mouse.move(x + 90, y + 60, { steps: 6 });
+    await page.mouse.up();
+    const b1 = await boxes(page);
+    near(b1.lyrics.width - b0.lyrics.width, 90, 3);
+    near(b1.results.height - b0.results.height, 60, 3);
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('拖標題列：預覽框上有說明文字', async ({ browser }) => {
+    const { context, page, errors } = await boot(browser);
+    const a = await page.locator('#rightPanel .side-panel-body > .side-panel-title').boundingBox();
+    const r = await page.locator('#mainContainer').boundingBox();
+    await page.mouse.move(a.x + 40, a.y + a.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(r.x + r.width / 2, r.y + r.height / 2, { steps: 8 });
+    await expect(page.locator('#dockPreview')).toContainText('互換');
+    await page.mouse.move(r.x + r.width * 0.05, r.y + r.height / 2, { steps: 4 });
+    await expect(page.locator('#dockPreview')).toContainText('左邊');
+    await page.keyboard.press('Escape');
+    await page.mouse.up();
+    expect(errors).toEqual([]);
+    await context.close();
+});

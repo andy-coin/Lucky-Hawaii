@@ -260,6 +260,9 @@ function lhRowsDragTarget(d) {
     const rr = cards.filter(c => row.includes(c.id)).map(c => c.r);
     const rowRect = { x: Math.min(...rr.map(r => r.left)), y: Math.min(...rr.map(r => r.top)), w: Math.max(...rr.map(r => r.right)) - Math.min(...rr.map(r => r.left)), h: Math.max(...rr.map(r => r.bottom)) - Math.min(...rr.map(r => r.top)) };
     const p = _lhRowsPreviewRect(rect, zone, rowRect);
+    const nm = id => (song.sections.find(x => x.id === id) || {}).label || '段落';
+    d.pv.textContent = zone === 'center' ? nm(d.id) + ' ⇄ ' + nm(t.id) + '（互換）'
+        : nm(d.id) + ' 放在' + nm(t.id) + { left: '左邊', right: '右邊', top: '上方', bottom: '下方' }[zone] + (zone === 'top' || zone === 'bottom' ? '（另開一列）' : '（並排）');
     Object.assign(d.pv.style, { left: p.x + 'px', top: p.y + 'px', width: p.w + 'px', height: p.h + 'px' });
     d.pv.hidden = false;
 }
