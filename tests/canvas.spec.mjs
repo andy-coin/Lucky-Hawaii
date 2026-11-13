@@ -674,7 +674,7 @@ test('縮放 60% 時：選字浮動列仍出現在選取處附近、角色標記
     expect(box.y).toBeLessThan(ta.y + ta.height + 80);
     expect(box.x).toBeGreaterThan(ta.x - 20);
     expect(box.x).toBeLessThan(ta.x + ta.width);
-    await page.keyboard.press('End');
+    await page.evaluate(() => { const t = document.activeElement; t.setSelectionRange(t.value.length, t.value.length); });   // Mac 的 End 是捲動：畫布留了平移空白後會捲畫布而不是移游標
     await page.keyboard.type('X');
     expect(await page.evaluate(() => curSong().sections[0].text.endsWith('X'))).toBe(true);
     expect(errors).toEqual([]);

@@ -37,32 +37,50 @@ function lhCanvasZoom(z, px, py) {
     const sl = (box.scrollLeft + px) / z0 * z - px, st = (box.scrollTop + py) / z0 * z - py;
     _lhCvZooms.set(song.id, z);
     box.style.setProperty('--cv-z', String(z));
+    _lhCvExtent();
     box.scrollLeft = Math.max(0, sl);
     box.scrollTop = Math.max(0, st);
     _lhCvZoomLabel();
+}
+// 畫布的可捲範圍＝卡片最遠處再加一個可視區的 75%：卡片都在畫面內時手掌工具（右鍵拖、單指拖）也拖得動
+function _lhCvExtent() {
+    const box = _lhCvBox(), song = curSong();
+    if (!box || !song || !_lhCvFree()) return;
+    const rects = lhCanvasLayout(song.sections), z = _lhCvZ();
+    const mx = Math.max(0, ...rects.map(r => r.x + r.w)) * z, my = Math.max(0, ...rects.map(r => r.y + r.h)) * z;
+    box.style.setProperty('--cv-ex', Math.round(mx + box.clientWidth * 0.75) + 'px');
+    box.style.setProperty('--cv-ey', Math.round(my + box.clientHeight * 0.75) + 'px');
 }
 function _lhCvZoomLabel() {
     const b = document.getElementById('canvasZoomReset');
     if (b) b.textContent = Math.round(_lhCvZ() * 100) + '%';
 }
 
-// 吸附分列：完整編輯器開著、鍵盤沒打開、至少有一段「和前一段同列」才切成格線（120 格，每列均分）；否則維持原本的直列
+// 吸附分列：完整編輯器開著、鍵盤沒打開、至少有一段和前一段同列才切成格線（120 格；寬度照 rw 比例，沒有就均分；列首有 rh 就固定列高）
 function _lhRowsLayout(box, secs) {
     const on = lhEditorIsOpen() && !document.documentElement.classList.contains('kb-open') && secs.some((s, i) => i > 0 && s.rj);
     for (const el of box.children) {
         if (!el.dataset.id) continue;
-        for (const k of ['--r-row', '--r-col', '--r-span']) el.style.removeProperty(k);
+        for (const k of ['--r-row', '--r-col', '--r-span', '--r-h', '--r-ml', '--r-mr']) el.style.removeProperty(k);
+        delete el.dataset.rh;
     }
     if (!on) { delete box.dataset.layout; return; }
     box.dataset.layout = 'rows';
+    const byId = new Map(secs.map(s => [s.id, s]));
     lhRowsOf(secs).forEach((row, ri) => {
-        const span = Math.floor(120 / row.length);
+        const spans = lhRowSpans(secs, row), rh = byId.get(row[0]).rh;
+        let col = 1;
         row.forEach((id, k) => {
             const el = lhSecEl(id);
             if (!el) return;
             el.style.setProperty('--r-row', String(ri + 1));
-            el.style.setProperty('--r-col', String(k * span + 1));
-            el.style.setProperty('--r-span', String(k === row.length - 1 ? 120 - k * span : span));
+            el.style.setProperty('--r-col', String(col));
+            el.style.setProperty('--r-span', String(spans[k]));
+            // 縫的寬度由兩邊分攤：第 k 張左邊 k/n、右邊 (n-1-k)/n 個縫寬，每張少掉的寬度一樣
+            el.style.setProperty('--r-ml', String(k / row.length));
+            el.style.setProperty('--r-mr', String((row.length - 1 - k) / row.length));
+            if (rh) { el.dataset.rh = '1'; el.style.setProperty('--r-h', rh + 'px'); }
+            col += spans[k];
         });
     });
 }
@@ -116,6 +134,7 @@ function lhCanvasApply() {
         const grip = el.querySelector('.section-handle');
         if (grip) { grip.title = '拖曳移動卡片'; grip.setAttribute('aria-label', lhSecHandleLabel(s.label)); }
     });
+    _lhCvExtent();
 }
 
 // 切換模式（只動 song.canvas；模式是檢視狀態，不進復原）。沒有 canvas 欄位就算吸附，所以在新歌按「吸附」什麼都不寫
@@ -215,7 +234,7 @@ function _lhCvMove(e) {
     _lhCvSetRect(g.card, r);
 }
 
-// 隔空對齊：移動中的卡片，左／中／右緣貼齊別張卡片的左／中／右緣（上／中／下同理），差 6 畫面像素內就吸過去，並畫一條導引線。
+// 隔空對齊：移動中的卡片，左／右緣貼齊別張卡片的左／右緣（上／下同理；不吸中線，免得吸附點太多），差 6 畫面像素內就吸過去，並畫一條導引線。
 // 只吸一個軸向各一條線；g.snapTo＝其他卡片的矩形（開始時算一次）
 function _lhCvSnap(g, r) {
     const tol = 6 / g.z;
@@ -226,7 +245,7 @@ function _lhCvSnap(g, r) {
     const best = { x: null, y: null };
     for (const o of g.others) {
         for (const [k, size, ok, os] of [['x', 'w', 'x', 'w'], ['y', 'h', 'y', 'h']]) {
-            for (const mine of [0, 0.5, 1]) for (const theirs of [0, 0.5, 1]) {
+            for (const mine of [0, 1]) for (const theirs of [0, 1]) {
                 const diff = (o[ok] + o[os] * theirs) - (r[k] + r[size] * mine);
                 if (Math.abs(diff) <= tol && (!best[k] || Math.abs(diff) < Math.abs(best[k].diff))) best[k] = { diff, at: o[ok] + o[os] * theirs, o };
             }
@@ -390,8 +409,9 @@ _lhCvBox().addEventListener('pointerdown', e => {
     if (_lhCv) return;   // 標題列、右下角的卡片手勢
     const t = e.target, box = _lhCvBox();
     if (!t || !t.closest) return;
-    const ta = t.closest('textarea');
-    if (t === box || ta) _lhTouchPan = { id: e.pointerId, ta, x: e.clientX, y: e.clientY };
+    // 單指：除了標題列（移動卡片）、右下角、按鈕與輸入元件，拖哪裡都是平移；從文字框開始且文字框捲得動就先捲文字框
+    if (t !== box && t.closest('button, input, select, a, .cv-corner, .lyrics-section-header')) return;
+    _lhTouchPan = { id: e.pointerId, ta: t.closest('textarea'), x: e.clientX, y: e.clientY };
 }, true);
 document.addEventListener('pointermove', e => {
     if (!_lhPts.has(e.pointerId)) return;
@@ -441,3 +461,199 @@ _lhCvBox().addEventListener('keydown', e => {
     _lhCvCommit(card.dataset.id, r, 'canvas-move');
     lhSecEl(card.dataset.id)?.querySelector('.section-handle')?.focus({ preventScroll: true });
 }, true);
+
+// ===== 吸附分列：拖卡片之間的縫＝同時調整兩邊（和主視窗的分隔線一樣）=====
+// 同一列兩張卡片之間的直縫：左右寬度一起變（120 格），靠近別列的直縫 3 格內就隔空對齊並亮導引線；
+// 兩列之間的橫縫：上一列變高、下一列同時變矮（最後一列下面的縫只拉那一列）。連點兩下縫＝回預設（均分／跟著內容）。
+// 縫上沒有元素：直接看指標落在 #lyricsSections 本身（卡片之外）的哪個位置；放開才寫模型，一步復原
+let _lhRz = null;
+const _lhRowsOn = () => _lhCvBox().dataset.layout === 'rows' && !_lhCvFree() && matchMedia('(min-width: 901px)').matches;
+
+function _lhRowsGeom() {
+    const song = curSong();
+    if (!song) return [];
+    return lhRowsOf(song.sections).map(row => {
+        const els = row.map(id => lhSecEl(id)).filter(Boolean);
+        const rs = els.map(e => e.getBoundingClientRect());
+        return {
+            row, els, rs, spans: lhRowSpans(song.sections, row),
+            top: Math.min(...rs.map(r => r.top)), bottom: Math.max(...rs.map(r => r.bottom)),
+            left: Math.min(...rs.map(r => r.left)), right: Math.max(...rs.map(r => r.right)),
+        };
+    }).filter(g => g.els.length);
+}
+
+// 指標在哪條縫上：{ kind: 'v', ri, k }（第 ri 列第 k、k+1 張之間）或 { kind: 'h', ri }（第 ri 列下面）
+function _lhRowsHit(x, y) {
+    const G = _lhRowsGeom();
+    for (let i = 0; i < G.length; i++) {
+        const g = G[i], next = G[i + 1];
+        if (y >= g.top && y <= g.bottom) {
+            for (let k = 0; k < g.rs.length - 1; k++) if (x >= g.rs[k].right - 2 && x <= g.rs[k + 1].left + 2) return { kind: 'v', ri: i, k, G };
+            return null;
+        }
+        if (y > g.bottom && (next ? y < next.top : y <= g.bottom + 14) && x >= g.left && x <= g.right) return { kind: 'h', ri: i, G };
+    }
+    return null;
+}
+
+function _lhRzGuide(show, x, snapped) {
+    let gl = document.getElementById('lhRowGuide');
+    if (!show) { if (gl) gl.hidden = true; return; }
+    if (!gl) {
+        gl = document.createElement('div');
+        gl.id = 'lhRowGuide';
+        gl.setAttribute('aria-hidden', 'true');
+        document.body.appendChild(gl);
+    }
+    const br = _lhCvBox().getBoundingClientRect();
+    const sc = _lhCvBox().closest('.lyrics-area') || _lhCvBox();
+    const vr = sc.getBoundingClientRect();
+    const top = Math.max(br.top, vr.top), bottom = Math.min(br.bottom, vr.bottom);
+    Object.assign(gl.style, { left: (x - 1) + 'px', top: top + 'px', height: Math.max(0, bottom - top) + 'px' });
+    gl.classList.toggle('snap', !!snapped);
+    gl.hidden = false;
+}
+
+// 滑鼠停在縫上：游標變成左右／上下拉
+_lhCvBox().addEventListener('pointermove', e => {
+    if (_lhRz || e.pointerType !== 'mouse') return;
+    const box = _lhCvBox();
+    const hit = e.target === box && _lhRowsOn() ? _lhRowsHit(e.clientX, e.clientY) : null;
+    box.style.cursor = hit ? (hit.kind === 'v' ? 'col-resize' : 'row-resize') : '';
+});
+
+_lhCvBox().addEventListener('pointerdown', e => {
+    const box = _lhCvBox();
+    if (_lhRz || e.target !== box || !e.isPrimary || !_lhRowsOn()) return;
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    const hit = _lhRowsHit(e.clientX, e.clientY);
+    if (!hit) return;
+    e.preventDefault();
+    const g = hit.G[hit.ri];
+    _lhRz = { ...hit, g, next: hit.G[hit.ri + 1] || null, id: e.pointerId, sx: e.clientX, sy: e.clientY, moved: false };
+    if (hit.kind === 'v') {
+        const before = g.spans.slice(0, hit.k).reduce((a, b) => a + b, 0);
+        _lhRz.lo = before + LH_ROW_WMIN;
+        _lhRz.hi = before + g.spans[hit.k] + g.spans[hit.k + 1] - LH_ROW_WMIN;
+        _lhRz.c0 = before + g.spans[hit.k];
+        _lhRz.c = _lhRz.c0;
+        _lhRz.before = before;
+        _lhRz.colPx = (g.right - g.left) / 120;
+        // 別列的直縫位置（格數），隔空對齊用
+        _lhRz.others = [];
+        hit.G.forEach((o, i) => {
+            if (i === hit.ri) return;
+            let acc = 0;
+            o.spans.slice(0, -1).forEach(w => { acc += w; _lhRz.others.push(acc); });
+        });
+    } else {
+        _lhRz.a0 = g.bottom - g.top;
+        _lhRz.b0 = _lhRz.next ? _lhRz.next.bottom - _lhRz.next.top : null;
+    }
+    document.body.classList.add('rows-resizing');
+    document.body.style.cursor = hit.kind === 'v' ? 'col-resize' : 'row-resize';
+    document.addEventListener('pointermove', _lhRzMove, true);
+    document.addEventListener('pointerup', _lhRzUp, true);
+    document.addEventListener('pointercancel', _lhRzCancel, true);
+}, true);
+// 觸控從縫開始：擋掉瀏覽器的捲動（pointerdown 比 touchstart 先到，所以這時 _lhRz 已經有值）
+_lhCvBox().addEventListener('touchstart', e => { if (_lhRz) e.preventDefault(); }, { passive: false });
+
+function _lhRzSetH(els, h) {
+    for (const el of els) {
+        el.dataset.rh = '1';
+        el.style.setProperty('--r-h', Math.round(h) + 'px');
+    }
+}
+
+function _lhRzMove(e) {
+    const r = _lhRz;
+    if (!r || e.pointerId !== r.id) return;
+    if (!r.moved && Math.hypot(e.clientX - r.sx, e.clientY - r.sy) < 3) return;
+    r.moved = true;
+    if (r.kind === 'v') {
+        let c = Math.round(r.c0 + (e.clientX - r.sx) / r.colPx);
+        c = Math.min(r.hi, Math.max(r.lo, c));
+        let snapped = false;
+        if (!e.altKey) {   // 按住 Alt＝不吸附
+            const near = r.others.filter(o => o >= r.lo && o <= r.hi && Math.abs(o - c) <= 3).sort((a, b) => Math.abs(a - c) - Math.abs(b - c))[0];
+            if (near !== undefined) { c = near; snapped = true; }
+        }
+        r.c = c;
+        const a = r.g.els[r.k], b = r.g.els[r.k + 1];
+        a.style.setProperty('--r-span', String(c - r.before));
+        b.style.setProperty('--r-col', String(c + 1));
+        b.style.setProperty('--r-span', String(r.before + r.g.spans[r.k] + r.g.spans[r.k + 1] - c));
+        const ar = a.getBoundingClientRect(), bb = b.getBoundingClientRect();
+        _lhRzGuide(true, (ar.right + bb.left) / 2, snapped);
+    } else {
+        const dy = e.clientY - r.sy;
+        let a = Math.min(LH_ROW_HMAX, Math.max(LH_ROW_HMIN, r.a0 + dy));
+        if (r.b0 !== null) {
+            let b = r.b0 - (a - r.a0);
+            if (b < LH_ROW_HMIN) { b = LH_ROW_HMIN; a = r.a0 + r.b0 - LH_ROW_HMIN; }
+            r.b = Math.round(b);
+            _lhRzSetH(r.next.els, b);
+        }
+        r.a = Math.round(a);
+        _lhRzSetH(r.g.els, a);
+    }
+}
+
+function _lhRzEnd() {
+    document.removeEventListener('pointermove', _lhRzMove, true);
+    document.removeEventListener('pointerup', _lhRzUp, true);
+    document.removeEventListener('pointercancel', _lhRzCancel, true);
+    document.body.classList.remove('rows-resizing');
+    document.body.style.cursor = '';
+    _lhRzGuide(false);
+    const r = _lhRz;
+    _lhRz = null;
+    return r;
+}
+
+function _lhRzCancel(e) {
+    if (!_lhRz || e.pointerId !== _lhRz.id) return;
+    _lhRzEnd();
+    lhCanvasApply();
+}
+
+function _lhRzUp(e) {
+    if (!_lhRz || e.pointerId !== _lhRz.id) return;
+    const r = _lhRzEnd();
+    if (!r.moved) { lhCanvasApply(); return; }
+    const byId = new Map(curSong().sections.map(s => [s.id, s]));
+    const step = lhSecApply('rows-size', () => {
+        if (r.kind === 'v') {
+            if (r.c === r.c0) return false;
+            const spans = r.g.spans.slice();
+            spans[r.k] = r.c - r.before;
+            spans[r.k + 1] = r.before + r.g.spans[r.k] + r.g.spans[r.k + 1] - r.c;
+            r.g.row.forEach((id, k) => { byId.get(id).rw = spans[k]; });
+        } else {
+            byId.get(r.g.row[0]).rh = r.a;
+            if (r.next) byId.get(r.next.row[0]).rh = r.b;
+        }
+    });
+    lhCanvasApply();
+    if (step) lhAnnounce(r.kind === 'v' ? '已調整這一列的寬度比例' : '已調整列高');
+}
+
+// 連點兩下縫：這一列回到均分／跟著內容
+_lhCvBox().addEventListener('dblclick', e => {
+    if (e.target !== _lhCvBox() || !_lhRowsOn()) return;
+    const hit = _lhRowsHit(e.clientX, e.clientY);
+    if (!hit) return;
+    const g = hit.G[hit.ri], next = hit.G[hit.ri + 1];
+    const byId = new Map(curSong().sections.map(s => [s.id, s]));
+    const step = lhSecApply('rows-size', () => {
+        let changed = false;
+        const clear = (id, k) => { const s = byId.get(id); if (s[k] !== undefined) { delete s[k]; changed = true; } };
+        if (hit.kind === 'v') g.row.forEach(id => clear(id, 'rw'));
+        else { clear(g.row[0], 'rh'); if (next) clear(next.row[0], 'rh'); }
+        if (!changed) return false;
+    });
+    lhCanvasApply();
+    if (step) lhAnnounce(hit.kind === 'v' ? '這一列回到均分寬度' : '列高回到跟著內容');
+});

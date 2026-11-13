@@ -1,269 +1,73 @@
-## ✅ 2026-11-13 清晨 韻腳地圖十點（?v=0.96.26，待 Andy 驗收）
-- 模式三鈕「關閉／重點跟隨／全部標記」：rhyme-map.js `_lhMapModeSeg`、`lhMapSetMode`（off＝end 關；hover＝hoverOnly；all），在韻腳 ▾ 最上面與偏好設定最上面；重點跟隨預設（rhyme-core.js 預設 hoverOnly:true）；CSS panels.css 檔尾 `.rm-seg`（150% 手機可折行）
-- 韻腳 ▾ 只剩：模式、段落結構、句構判定、寬韻／嚴格＋更多設定（圖例、句中押韻、忽略語助詞搬去偏好設定）
-- 預覽不 sticky、無內層捲軸
-- 句中押韻只比行尾字的韻母（rhyme-core.js inner：tailKeys 只放該行自己的鍵）
-- 段落結構與行尾韻腳直接寫韻（`lhRhymeLabel`、row.label；字母留在 data-letter）
-- 斷句結構畫在每行下面：`_lhMapBuildFrag` 包 `span.lm-g[data-n]`，CSS ::before 括號 ::after 小數字，`html[data-lm-under]` 行高 2.6；右欄只剩韻腳＋字數
-- 對照差異藏起來（設定與程式都在，lnDiff 只能用 lhMapSetSetting）
-- 已選字大字看板：results.js `#selBoard`、cards.js updateBatchCount；手機黏在搜尋區下面（base.css `.results-header.has-sel`）
-- 測試跟著新規格改：line-analysis-ui／line-audit／line-journey／rhyme-core／rhyme-map-ui／rhyme-journey／rhyme-audit／style；layout、visual 待確認
-- 待 Andy：驗收十點；Worker 部署；sections.js 死碼、台語、-linux 截圖
+## 2026-11-14 收尾 11 點（?v=0.96.41，待 Andy 實機驗收）
+- 1 三直排收起一側仍算三直排：js/dock.js lhDockRender 改看整棵樹（含收起的）判斷 dock-classic。
+- 2 拿掉 ⋮⋮：主視窗三個標題列的 ::before 與 1.5rem 左內距刪掉（css/panels.css「三個標題列」）；完整編輯器的 .section-handle 視覺隱藏、Tab 仍可聚焦（panels.css 檔尾）。左側窄面板的 ⋮⋮ 保留（觸控在那裡只能抓 ⋮⋮）。
+- 3 新增段落＝提供詞語建議同色（--action-bg）。4 保留池內容區加框＋左邊重點色，和標題列連成一塊。
+- 5／9／10 吸附分列（js/canvas.js 檔尾「拖卡片之間的縫」）：同列直縫拉寬度（段落 rw，120 格）、隔空吸到別列的縫（3 格內，Alt 關閉）、拖曳中就有導引線 #lhRowGuide；兩列之間橫縫＝上高下矮（列首段落 rh，px）；雙擊縫回預設；一步復原。純函式 js/sections-core.js lhRowSpans、lhRowsApply（成員變動的列清掉 rw／rh）；undo.js _sig 含 rw、rh。格線改成 column-gap 0、卡片用 --r-ml／--r-mr 分攤縫寬（原本 119 個欄間距會把卡片擠出右邊）。拖排預覽框 z-index 850→955（被 950 的編輯器蓋住，所以「放開才出現」）。自由畫布吸附拿掉 50% 中線。
+- 6 平板：編輯器標題列觸控可拖（touch-action:none），名稱鈕／▾ 在觸控時也能當起點（觸控校正會把手指吸到名稱鈕）；setPointerCapture 延到真的開始拖，點名稱鈕照常開選單；移動／放開改聽 document。
+- 7 自由畫布手掌：根因是卡片都在畫面內時畫布沒有可捲範圍。_lhCvExtent 在卡片外多留 75% 可視區（::after 撐開）；單指拖卡片內任何非標題列／按鈕處都平移。副作用：Mac 的 End 鍵＝捲動，canvas.spec 縮放測試改用 setSelectionRange。
+- 8 設定「韻腳與句構」：預覽移到最上面並 sticky（只在 ≥600×600；手機仍一起捲），預覽自己最高 11rem。
+- 11 重點跟隨：偵測仍只看指標所在段落，浮出顏色改整首歌（js/rhyme-map.js _lhHvBoxesOf）。
+- 測試：全套 1273 過，只剩舊的 rhyme-map-ui:280；新增 editor-layout「拖卡片之間的縫」；lyrics 三張截圖基準更新；line-analysis-ui 預覽順序／黏頂改新規格。
+- 沒做：橫縫的 y 隔空對齊（整列等寬，橫縫本來就是整條對齊）；單欄（沒有並排）時沒有拖縫（那時不是格線，改成格線會動到拖曳排序的落點線）。
+- 未驗：iPad 實機（觸控校正、單指平移、捏合）只用 Chrome 模擬測過。
 
-## ✅ 2026-11-13 凌晨 三點（?v=0.96.25）
-- 雙押：句尾同一個字（亮／亮）的一對不算、疊字（好好）整組同字不算（js/rhyme-core.js lhRhymeMulti）
-- 新模式「滑過才顯示」：設定 `hoverOnly`（偏好設定開關，預設關）；色塊帶 data-k（押韻鍵），rhyme-map.js 檔尾用指標座標比色塊位置、同鍵加 .rm-show；觸控點一下顯示 2 秒；CSS panels.css 檔尾 html[data-rm-hover]（淡入淡出是 Andy 指定，line-audit「沒有動畫」檢查對這組開例外）
-- 句構面板：行號下面放字數、整行歌詞完整顯示、每組下面括號＋字數（`_lhMapBraces`，line-core 多回傳 ends）、結構不換行、寬度跟著表格（說明文字 contain: inline-size）、拖標題移動（`_lhMapAnMoved`，關掉重置）
-- 待 Andy：iPad／電腦驗收；Worker 部署
+## 2026-11-14 批次 1–3（?v=0.96.36，待 Andy 實機驗收）
+- 批次 1（d76cdf4）：標籤晶片移到「標籤 ＆ 情境」標題列（index.html 405，css/panels.css 單行橫捲、輸入框固定不動）；「自由」鈕補左框（#canvasSnapBtn／#canvasFreeBtn 圓角＋重疊 1px）；js/rhyme-map.js 2 處吞錯改 lhWarn；golden 快照刷新、tests/sections-audit.spec.mjs 動畫守門起點改 29e7c27。
+- 批次 2（7abb78d，0.96.35）：角色新增／改名／改色／刪除進復原歷史（js/undo.js `_snap` 帶 .roles、`_sig(sections, roles)`；js/roles.js `_lhRoleCommit`、`lhRolesChanged`）；「移到段落」搬字帶角色標記（js/sections-core.js `lhMarksSlice`、js/sections.js `lhSecMoveText`）。
+- 超大段落（>20 萬字或 >5000 行）角色淡底：不做。這種長度鏡像層本來就整個不畫（效能），歌詞幾乎碰不到，為它另開一條畫法不划算。
+- 批次 3（a612463，0.96.36）：自由畫布 Part B（js/canvas.js）：`lhCanvasZoom`（40%–150%，只在記憶體、每首歌一個、重整回 100%）、縮放鈕 `.canvas-zoom`（index.html 402）、Ctrl／⌘＋滾輪、雙指捏合、滑鼠拖空白處／中鍵平移、拖曳與拉大小的座標除以倍率、方向鍵移卡片（⋮⋮ 上 8px，Shift 40px）。CSS：卡片用 `left/top × --cv-z` 加 `transform: scale`（css/panels.css）。
+- 已知：tests/rhyme-map-ui.spec.mjs:280（鏡像逐像素對齊）在較早 commit 也會失敗、:156 偶發，與本批無關。縮放後的 caret 量測只測了選字列與打字，word-drag（拖字）在縮放下未驗證。雙指捏合只能實機測。-linux 視覺基準未更新。
 
-## ✅ 2026-11-13 iPhone 回饋四點（?v=0.96.24）
-- 候選池 bug（跳樓：押母音後換押子音混進母音詞）：js/rhyme-display.js `setRhymeMode` 換模式時呼叫 `resetSuggestedPool()`（其他篩選本來就會清，只漏這個）；測試 tests/ai-ref.spec.mjs
-- AI 面板韻腳搬到標題列固定（renderRhymeDisplay 把 #aiRhymeDisplay 搬到 `.ai-title-group` 後面、加 `.in-title`；CSS panels.css 檔尾）
-- AI 會參考的標籤：一行放得下就列 #名稱，放不下「#a #b …共 n 項標籤」（js/ai-generate.js `_lhAiRefFitTags`＋ResizeObserver）
-- # 標籤 chip 總高 = --hit（原本多 2px 框線）；手機底部分頁列下的安全區只留四成（base.css `--tab-safe`）
-- 待：Andy 部署 Worker（AI 斷句要用）；iPhone 實機看底部分頁列會不會太貼 home 條
+## 2026-11-14 自由畫布 Part A（quick 261113-t1z，?v=0.96.32，待 Andy 實機驗收）
+編輯器工具列多「吸附／自由」。自由模式下每段是畫布上的卡片：拖 ⋮⋮ 或標題列空白處移動、拉右下角改大小、放手把壓到的卡片推開、一步復原；畫布超出畫面用原生捲動。
 
-## ✅ 2026-11-12 深夜 韻腳地圖／歌詞面板優化 A～D 全做完（?v=0.96.23，待 Andy 驗收）
-Andy 計畫（9 點）：A 小修（1dea872）→ B 押韻引擎 → C 句構三模式 → D 並排角色欄。只跑相關測試（全部過），沒跑全套。
-- A（0.96.22）：段落自動長高單一捲軸、名稱點了是下拉、預覽全關仍顯示、預覽〈麻雀〉。sections.js 舊 resize 程式是死碼（>30 行，待清）
-- B1 雙押照句構：js/rhyme-core.js `lhRhymeTargets(line, skip, starts)` 往前找 tail 時不跨過句構組頭；`lhRhymeAnalyze` 用 `lhLineAnalyze(...).starts`（含手動／AI 句構 opts.structs）
-- B2 自動配色：`lhRhymeAutoColors(rows, palette)`（OKLab 距離、前後 4 行算鄰居、先挑沒用過的色）；設定 `autoColor` 預設開（偏好設定「自動配色」）。**data-f 仍是韻族（語意、測試看它），data-c 是畫面顏色**（rhyme-map.js `_lhMapTint`，panels.css `[data-c]` 規則排在 `[data-f]` 後）
-- B3 英文押韻：data/en-rhyme.json（CMU 發音辭典 BSD-2，授權 data/third-party/CMUDICT-LICENSE；scripts/build-en-rhyme.mjs 產生，「最後母音＋子音」分組，1MB／gzip 384KB）。歌詞或預覽出現英文才載（rhyme-map.js `_lhMapEnLoad`，只重畫有英文的段落）。`LH_EN_VOWEL` 母音→注音韻母（中英互押）、字表沒有的字 `lhEnGuess` 照拼字猜。英文片語只算最後一個字、整個字上色（同一個 span）、撇號算字內
-- B4 台語：只查了資料來源（教育部台語辭典授權說法不一、ChhoeTaigi 據說 CC0），沒實作，等 Andy 決定
-- C 句構：js/line-core.js `lhLineAnalyze(line, has, structs)` 回傳 frags/starts/src；漢字與英文交界算斷點（麻雀in → 2+1）；顯示 `lhLineStructParts` 改「4+4+11（4·2·3·2）」括號裡斜體＝機器猜；`lhLineParseStruct`、`lhLineCleanStructs`。song.structs＝{整行文字: {g, src:'man'|'ai'}}（safety.js、songs.js 驗證）。分析面板（rhyme-map.js `_lhMapAnEdit`、`lhMapSetStructs`、`lhMapAiStruct`）：點結構改、全部改回自動、🤖 AI 斷句；提示詞在 worker/src/prompts.js，GET /prompts/line-struct（**Worker 要重新部署才有**）
-- D 並排角色欄：sections-core.js `lhSecColFields`（role、cols 最多 3 欄＝共 4 欄）、`lhSecMergedText`（匯出逐行合併「【角色】歌詞」）；sections.js `lhSecBuildCols／lhSecAddCol／lhSecDelCol／lhSecColTyped`＋點擊委派；選單「＋ 並排角色欄」只在右鍵／長按完整設定出現（`lhSecOpenMenu(…, drop)`）；lyrics.js syncFromField 處理 `.section-col-ta`／`.sec-role-name`（換新陣列，因為歷史快照是淺拷貝）；undo.js `_sig`、`_lhHistShow` 認 cols；rhyme-map.js `_lhMapPaintCols` 第二欄起各自上色；CSS 檔尾 has-cols（不換行、左右捲、逐行對齊、窄欄不顯示逐行標記）
-- 測試：新 tests/sections-cols.spec.mjs；line-core、rhyme-core、line-analysis-ui、line-audit、line-journey、rhyme-map-ui 跟著新格式／英文會押韻改
-- 待 Andy：iPad 驗收、Worker 部署（AI 斷句）、台語要不要做、英文對注音的對照表是否順耳（rhyme-core.js `LH_EN_VOWEL`）
+### 改了什麼（檔案:行）
+- 純函式：js/sections-core.js 301 `lhSecPosClean`、310 `lhCanvasClean`（只存 mode）、323 `lhCanvasLayout`（沒位置的卡片預設 3 欄）、343 `lhCanvasPushApart`（推開，上限 400 次＋保底）；`lhSecFields`／`lhSecFinalize` 帶 s.pos。
+- 資料：段落 `s.pos = {x,y,w,h}`、歌 `song.canvas = {mode}`；沒用過畫布的歌存檔沒有這兩個欄位。js/songs.js `_normalizeSong`、js/safety.js `lhNormalizeSong` 整理壞值；js/undo.js 14 `_sig` 含 s.pos（改位置算一步）。
+- 畫布本體：js/canvas.js（新檔）：27 `lhCanvasApply`（排版）、70 `lhCanvasSetMode`、91 `_lhCvCommit`（推開＋一次寫入＝一步）、188 捕獲階段 pointerdown（手勢）、224 `lhCanvasReveal`（只捲畫布）。
+- 呼叫點：js/lyrics.js 250／353／377 套排版；露出卡片改走 `lhCanvasReveal`：lyrics.js 152、360、sections.js 146、1118、undo.js 127；js/sections.js ⋮⋮ 在自由模式不啟動排序、標籤改「拖曳移動…」；js/layout.js 122／131 鍵盤開關時重套（鍵盤打開退回整齊直列）。
+- 介面：index.html 402 `#canvasTools`（吸附／自由，只在編輯器）；css/panels.css 2362 起（自由畫布整段）。
+- 測試：tests/canvas-core.spec.mjs（純函式）、tests/canvas.spec.mjs（26 個：資料、切換、移動、拉大小、推開、復原、只捲畫布、手機觸控與鍵盤、自由模式下選字列／角色標記／打字／移到段落）。
 
-## ✅ 2026-11-12 晚上小修（?v=0.96.21，程式在 5b2e9f3，commit 訊息誤寫成 handoff）
-- 觸控下限：手機 36px、平板 32px（css/base.css `--hit`）；搜尋框 min-height 改 max(2.5rem, --hit)
-- 取消所有輸入框 16px 下限（css/responsive.css「輸入框」段）：iOS 靠 maximum-scale=1 防自動放大，模型下拉、標籤框都跟縮放；相關 16px 測試刪除
-- 標籤框 placeholder「例如：驚悚/戀愛/過年」，hover 提示分隔方式；展開編輯器時換完整說明（index.html data-ph-*、js/lyrics.js `_lhTagPh`）
-- iPad 全螢幕：寬版側欄 top 改用 --pad-t（含 safe-area-inset-top），css/panels.css ~19
-- 手機齒輪與調色盤同字級（responsive.css `.theme-toggle, .gear-btn`）
-- js/sections.js lhSecMenuSync 結尾：選單開著時內容變高就重新夾回畫面（選 Custom 會超出底部的舊漏洞）
-- 待驗：iPad 實機狀態列、32px 是否點得準；-linux 截圖待雲端更新
-- 流程：小改動只跑相關測試，不跑全套（Andy 要求）
+### 已知限制
+- 模式（吸附／自由）是檢視狀態，不進復原；位置與大小進復原。
+- 還沒有縮放、平移（Part B）；畫布很寬要靠捲動。方向鍵移動卡片也留到 Part B。
+- 從 AI／結果卡拖字進編輯器不可行（遮罩蓋住）；舊的單曲路徑（songs.js:66）不存畫布資料。
+- 「移到段落」搬進「新」段落時，那張卡片沒有位置，會顯示在其他卡片下方的預設位置。
+- 收合的卡片推開時仍佔用它存的完整大小；舊的並排角色欄在卡片裡只會捲動。
+- ≤ 900px 時編輯器欄本身仍會捲動（和吸附模式一樣），手機細修留 Part B；-linux 截圖基準未動。
 
-## ✅ 2026-11-12 傍晚小修兩批（已 push，69ca8b9，?v=0.96.20）
+### 下一個 quick（Part B，0.96.33）
+縮放與平移（Ctrl／⌘＋滾輪、雙指捏合、空白處拖動、工具列 −／％／＋／重設，zoom／pan 存進 song.canvas 並經 lhCanvasClean）、縮放下的座標補償（word-drag.js lhCaretIndexAt／lhCaretRect 除以縮放比、選字列、右鍵選單）、鍵盤移動卡片（方向鍵 10px／Shift 50px、Alt＋方向鍵改大小，一次按住算一步；要處理 Alt＋↑↓ 目前是排序）、手機細修（「全部看得到」、拉伸角落反向縮放、≤900px 外層不捲、iOS 實機）。
 
-- 0.96.19（904e91f）：主題名改英文（Plain／Moon／City／Midnight／Custom，`js/theme.js:6`）、Plain 字 #ededed；情境標籤 AI 整理鈕換燈泡＋自製淡入淡出提示（`js/ui-common.js` 檔尾、`.lh-tip`）；鑰匙移到模型下拉左邊（`.ai-tools`）；齒輪 `#settingsTrigger` 移到右上（? 調色盤 齒輪，手機只藏 ?）；行動裝置點情境／標籤也彈編輯器（`js/lyrics.js` 約 425 行）；鍵盤打開時編輯器只留正在打字那塊（`css/panels.css` 檔尾 `html.kb-open`）
-- 0.96.20（ce7f338）：標題列備份鈕移進設定「資料與備份」；平板（coarse 且 ≥768）`--hit` 36px、手機 44；觸控裝置沒存過縮放預設 90%（`js/layout.js`）；歌詞框／鏡像層／情境框不再卡 16px，iOS 改加 `maximum-scale=1` 防點擊自動放大；`js/song-io.js` 匯入視窗關閉焦點回齒輪。測試共用 `clickBackup`、`hitMin`、bootPage 觸控預設種 100%。npm test 1099 過／0 失敗
-- 待 Andy：iPad 實測 36px 手感、90% 預設、歌詞字級；R2-*.md 待決清單
+### 待 Andy 實測（回答「1.是 2.否…」即可）
+1. 編輯器工具列有「吸附／自由」，左側歌詞面板沒有？
+2. 切到自由，段落變成卡片，拖 ⋮⋮ 或標題列空白處能移動？
+3. 點名稱鈕、字母條照常開選單，不會拖到卡片？
+4. 拉卡片右下角能改大小，字跟著換行？
+5. 把卡片放到別張上面，被壓到的會被推開、不會重疊？
+6. ↶ 一次能把剛才的移動（含被推開的）整個復原？
+7. 卡片放到畫面外，用滾輪／觸控板／手指捲得到；新增段落或復原時畫布自己捲過去，外面不亂跳？
+8. 切回吸附再切回自由，位置還在；重新整理、切歌後也還在？
+9. 手機打字（鍵盤打開）時正在打的那段撐滿畫面、好打字？
 
-## ✅ 第二輪完成（2026-11-12 下午，已 push origin/gsd/v0.96-stabilize 7a78f4f，?v=0.96.18）
+## 先前（仍有效）
+- 261113-s3k 角色標記 Part B（?v=0.96.31）11 題實測尚未回覆：工具列「角色 ▾」面板、匯出在角色轉換處標 [角色名]、列印顏色、關掉「＋ 並排角色欄」入口。
+- 261113-qlv 完整編輯器近全螢幕、桌機浮動列「移到段落 ▸」、底部 sheet 把手可拖（?v=0.96.29）待 Andy 實機驗收（上一份 handoff 的 9 題尚未回覆）。
+- 261113-r05 角色標記 Part A（?v=0.96.30）的 12 題實測尚未回覆（浮動列「指定角色 ▸」、平移、復原、8 個上限）。
+- 261113-lha 寬螢幕吸附版面（?v=0.96.28）已 push、待實機驗收：≥1600 寬＋滑鼠三塊並排，拖分隔線／標題列、設定「重設版面」。細節見 git log 66a14c9／d28e3ce／093e630。
+- 261113-j3a 選取文字「移到段落 ▸」（?v=0.96.27）待實測：Mac 反白右鍵→選段→Cmd+Z；iPhone／iPad 浮動列。
+- 0.96.26 韻腳地圖十點待 Andy 驗收；待：Worker 部署、sections.js 舊 resize 死碼、台語、-linux 截圖
 
-- 已合併四條：r2/prefs（五分頁＋點外面關韻腳選單）、r2/editor（浮動完整歌詞編輯器、新增段落移到標籤情境下方、iPad 收起不裁、拉高度不跳）、r2/theme（素墨／月光／城市／午夜／自訂 循環、多重點色、紋理、js/bgfx.js 背景飄字）、r2/byok（AI 分頁、Gemini／Groq 直連、鑰匙呼吸、自製模型下拉含用量格）
-- 測試：合併後全套 1093 過／4 失敗 → 4 個都是合併接縫，已修並單獨驗過（`js/search-ui.js` 背景動畫開關改讀 `lhBgFxIsOn`；`tests/rhyme-map-ui.spec.mjs` 用 `#exportToggle`；`tests/prefs-tabs.spec.mjs` 改測真的 bgfx；`desktop-ai-darwin.png` 基準更新）。修完沒再跑第二輪全套（Andy 同意省略重複測試）
-- 已知偶發：`undo.spec.mjs:407`、`sections-core`「一百萬字不卡」只在全套高負載時失敗，單獨跑 10/10 過
-- 待 Andy：iPad 實測；待決清單 `R2-prefs.md`（11）、`R2-editor.md`（10）、`R2-theme.md`（9）、`R2-byok.md`（12，重點：Gemini 免費額度官方沒公布、格數照論壇數字）
-- worktree `../Lucky Hawaii-wt-{theme,editor,prefs,byok}` 還在（各有 `r2-shots/` 截圖），確認後可移除
-
-## ▶ R2 BYOK 用自己的金鑰（2026-11-12，worktree `Lucky Hawaii-wt-byok`，分支 r2/byok，沒 push、`?v=` 沒升）
-
-- `js/ai-client.js`：最上面 `BYOK_PROVIDERS`（Gemini 3.5 Flash-Lite／3.8 Flash、Groq GPT-OSS 20B／120B，含用量格）；`callLLM` 遇到 `byok:` 開頭的模型改走 `_callByok` 直連（Gemini 用 x-goog-api-key、Groq 用 Bearer），錯誤經 `_byokErrorMsg` 轉白話，不退回 Worker；自製下拉 `_renderModelPicker`／`modelPickerOpen`（隱藏的 `#modelSelect` 仍是值的來源）；鑰匙 `_syncKeyBtn`、`lhOpenAiPrefs`；AI 分頁 `byokSaveKey`／`byokTest`。舊 `saveApiKey` 空殼已刪。
-- `index.html`：AI 面板標題（約 437 行）鑰匙＋自製下拉；偏好設定新增 `#prefsTab-ai`／`#prefsPanel-ai`（約 167、208 行），拿掉「查詢與詞庫」裡 Groq 那行。`js/search-ui.js` 切到 ai 分頁時重填金鑰欄。
-- `css/panels.css` 檔尾 BYOK 區塊（鑰匙沿用 `lhPulse` 呼吸，不新增 @keyframes）。
-- 測試：新增 `tests/byok.spec.mjs`（11 題，page.route 攔服務商）；`prefs-tabs`、`layout`、`line-analysis-ui`、`ai-client` 跟著改成六分頁＋自製下拉。截圖腳本 `tests/_shots-byok.mjs`（不進版本）→ `r2-shots/byok-*`。待決 → `R2-byok.md`。
-
-## ▶ R2 偏好設定分頁（2026-11-12，worktree `Lucky Hawaii-wt-prefs`，分支 r2/prefs，沒 push、`?v=` 沒升）
-
-- 偏好設定改成五個分頁（`index.html` 約 159～210 行的 `#prefsTabs`、`.prefs-panel`）：外觀／查詢與詞庫／韻腳與句構（`#mapSettingsSection` 本身就是 tabpanel）／資料與備份／說明與回饋。切換邏輯 `lhPrefsSelectTab` 在 `js/search-ui.js` 的 `toggleSettings` 底下（記住上次的分頁、方向鍵、Home、End）；背景動畫開關 `#prefsBgFx` 等主題那條分支的 `lhBgFxSet`／`lhBgFxGet`。
-- `js/rhyme-map.js`：「韻腳 ▾」選單拿掉「關閉韻腳設定」；點外面收起（pointerdown）、焦點移出也收起（focusout）；`lhMapOpenPrefs` 改成切到 `map` 分頁。
-- CSS：`css/base.css` 的 `.settings-dropdown` 改成固定高度、不捲，捲的是 `.prefs-panel`；`css/panels.css` 預覽 sticky `top: 0`。
-- 測試：新增 `tests/prefs-tabs.spec.mjs`、`rhyme-map-ui` 加了點外面的測試（滑鼠、觸控、焦點）；舊測試改成先切分頁。待決事項在 `R2-prefs.md`，截圖在 `r2-shots/`。
-## ▶ R2 歌詞編輯器（2026-11-12，worktree `Lucky Hawaii-wt-editor`，分支 r2/editor，沒 push、`?v=` 沒動）
-
-- 完整歌詞編輯器：`index.html` `#lyricsEditor`（浮動面板骨架）；`js/lyrics.js` 檔尾 `lhEditorOpen／lhEditorClose／lhEditorRenderTabs`：打開時把 `#leftPanel .lyrics-layout` 搬進 `#lyricsEditorBody`、`#exportToggle` 搬到分頁列，關閉用註解節點佔位搬回；電腦雙擊歌詞或「⤢ 展開」（`#editorOpenBtn`）開，手指／觸控筆點歌詞（pointerdown 記下、click 時還聚焦才開）自動開；Esc／✕／點遮罩關，Tab 在面板內循環。
-- `js/songs.js`：`createSong({ rename:false })`、`startRenameSong(id, { anchor })`（在分頁上改名）、`renderSongHeader／renderSongList` 會叫 `lhEditorRenderTabs`。`js/sections.js` 拖曳殘影改夾在 `#lyricsSections` 內（原本夾在 #leftPanel）。
-- 「新增段落」改成 `.section-add-btn`，在 `#contextSection` 與 `#lyricsSections` 之間。
-- CSS（`css/panels.css`）：收合的段落／標籤＆情境高度改 `flex: 0 0 auto` 並藏內容（修 iPad 裁切）；`.section-body` 一律 flex column（輸入框撐滿）；拿掉 `.lyrics-section` 的 flex 動畫（修拉高度先縮）；檔尾是編輯器樣式。`css/responsive.css` 刪掉兩條寫死高度。
-- 測試：新檔 `tests/lyrics-editor.spec.mjs`（9 個）；更新依賴舊「新增段落」位置的 sections-ui／undo／songs-audit／songs-ui／songs-export／layout，line-analysis-ui「滾輪」等一下事件送達。埠 4322 被 theme worktree 佔著，用 4333 跑。
-- 截圖 `r2-shots/`（v4-* 最新），待決 `R2-editor.md`（10 題）。
-
-## 🌙 夜間三線並行（2026-11-12，分支 overnight/2026-11-12，進行中）
-
-- Andy iPad 回饋第二輪，三個 subagent 各在 worktree 做，完成後由主 session 合併、升 `?v=`、push 到 gsd/v0.96-stabilize：
-  - `../Lucky Hawaii-wt-theme`（r2/theme，埠 4321）：四主題 City／Midnight／Moon／Plain＋自訂，右上角鈕五個循環；多重點色；面板紋理；背景飄字動畫（`lhBgFxSet`）。參考圖 `~/Dropbox/#2ndy Own/zzZ/color theme reference/*.png`。待決 → `R2-theme.md`
-  - `../Lucky Hawaii-wt-editor`（r2/editor，埠 4322）：浮動完整歌詞編輯器（電腦：展開鈕＋雙擊；手機平板：點歌詞自動彈出）含拖曳／新增段落／歌曲分頁；新增段落移到標籤情境與段落之間；iPad 收起間距；新段落高度跳動。待決 → `R2-editor.md`
-  - `../Lucky Hawaii-wt-prefs`（r2/prefs，埠 4323）：韻腳選單拿掉「關閉」、點外面自動關；偏好設定改分頁，「更多設定」直達韻腳分頁；外觀分頁接背景動畫開關。待決 → `R2-prefs.md`
-- ✅ r2/prefs 已合併（31ecb12，沒 push）：五分頁＝外觀／查詢與詞庫／韻腳與句構／資料與備份／說明與回饋；待決 11 題 `R2-prefs.md`；截圖 `../Lucky Hawaii-wt-prefs/r2-shots/`
-- ⏳ r2/theme、r2/editor 的 subagent 還在跑（從 1cc4407 起，合併時注意 handoff.md 衝突＝兩邊都留）
-- ⏸ BYOK worktree 已建好 `../Lucky Hawaii-wt-byok`（r2/byok，從 31ecb12，埠 4324），subagent 已派（Andy 解除用量保護後），進行中；待決 → `R2-byok.md`
-- **BYOK 規格**（Andy 2026-11-12 指定）：
-  - 偏好設定「AI」分頁：選服務商（Gemini、Groq）＋貼金鑰＋測試連線；有金鑰就直連服務商，沒有照舊走 Worker；金鑰沿用 `apiKey_<provider>`（safety.js 已設為機密，不進備份）；`js/ai-client.js:7` 的 `saveApiKey` 是舊空殼可接上
-  - 右上「AI 建議」標題右邊：無外框的低調鑰匙 icon 鈕；沒用自己金鑰時靜止，有用時閃爍（尊重減少動態）；點了開設定到 AI 分頁
-  - 有金鑰時模型下拉補上該服務商最新模型（實作時上網查最新清單），每個選項靠右顯示 Wi-Fi 訊號格狀的用量圖示（解讀：吃額度的多寡，待 Andy 確認）
-  - 設定頁簡短說明＋教學影片連結：Google 免費金鑰 https://www.youtube.com/watch?v=Upk-iMyC3aM 、Groq 免費金鑰 https://www.youtube.com/watch?v=nt1PJu47nTk
-  - ✅ 已驗證（2026-11-12 curl）：Groq（ACAO *）與 Gemini（ACAO 回 andy-coin.github.io）都允許瀏覽器直連，401／400 錯誤回應也帶 CORS 標頭 → 兩家都直連，不經 Worker
-  - 用量圖示＝吃額度多寡（Andy 已確認）
-- 注意：上一輪 `overnight-shots/` 新舊對照圖清 worktree 時被刪（主 session 失誤），需要時從舊 commit 重拍
-
-## ✅ 夜間三線並行完成（2026-11-12，已 push 到 origin/gsd/v0.96-stabilize c8ad4ce；main 沒動）
-
-- 三條都已合併：rhyme（3-a 標點／空格前算句尾、3-b 雙押多押、1-e 色票依底色亮度）、lexicon（自建潮流詞庫 3,118 詞 `data/slang/words.json`、來源 `tools/lexicon/slang/*.tsv`、`js/wordlist.js` 疊加）、ui（紙墨重設計、AI 參考狀態列、7 步導覽 `js/tour.js`、標籤 inline 多筆＋板塊移到歌詞上面）
-- `?v=` 0.96.16；`npm test` 1062 過／29 跳過／0 失敗；`npm run lexicon:test` 265 過
-- 主 session 早上補修：手機情境框被 `.context-section` 的 max-height 42% 裁掉 → `css/responsive.css` 手機段改成整個 `.lyrics-main` 一起捲（測試改量 `lhSecScroller()`）；導覽箭頭被 `.tour-card` 的 overflow 裁掉 → `css/panels.css` 約 2000 行，捲動改到 `.tour-body`，箭頭放大＋同亮框色
-- 待 Andy：iPad 實測；三份待決清單 `OVERNIGHT-rhyme.md`（8 題）、`OVERNIGHT-lexicon.md`（6 題）、`OVERNIGHT-ui.md`（7 題）；雲端 `npm run visual:update` 更新 -linux 截圖
-- 2026-11-12 下午（1cc4407，已 push）：Andy iPad 實測回饋——
-  - 標題被按鈕壓住 → `css/base.css` 約 345 行：`.header` 設成容器，工具列只有在標題區夠寬時（滑鼠 25rem、觸控 42rem）才疊在兩角，不夠寬就排在標題上面一列
-  - 左欄擠成兩排 → `css/panels.css` 約 266 行：左欄寬度 < 24rem 時匯出／新增段落只留圖示（`index.html` 加 `.btn-label`）、歌名讓位
-  - 復原／重做換 SVG 彎箭頭（`index.html` #undoBtn／#redoBtn；`js/tour.js` 說明文字改「兩個箭頭」）
-  - 順手修：鏡像層同步捲動會誤收浮動列（UI 重設計後輸入框變矮才冒出來，測試約 6 成失敗）→ `js/rhyme-map.js` 約 1229 行忽略 `.rhyme-mirror` 的 scroll
-  - 待 Andy：iPad 再測一次；三欄在 iPad 橫向仍偏擠，可考慮「平板一次只開一側面板」
-- worktree `../Lucky Hawaii-wt-{ui,lexicon,rhyme}` 還留著（ui 的 `overnight-shots/` 有新舊對照圖），確認後可 `git worktree remove`
-
-## Docker 開發容器
-
-- 已設定完成，容器名稱：`lucky-hawaii-dev`
-- 使用 `./start.sh` 啟動，`./enter.sh` 進入，`./stop.sh` 停止
-- Pi Agent 預設連 ToshLLM (Qwen3.6)，profile: IQ50
-- `.devcontainer/docker-compose.yml` 的 ports 預設註解，web server 專案需取消註解
-
-## ▶ 夜間 overnight/rhyme（2026-11-12，worktree `Lucky Hawaii-wt-rhyme`，沒 push、`?v=` 沒升）
-
-- 完成：A 標點／空白前的字也算句尾（`js/rhyme-core.js` `lhRhymeTargets`）；B 雙押／多押（`lhRhymeTailRhymes`、`lhRhymeMulti`，`js/rhyme-map.js` `_lhMapBuildFrag` 畫 `.rm-multi`／`.rm-mx`，統計 `.rm-sum-multi`，偏好設定開關 `multi`）；C 新色票＋依卡片底色亮度選組（`_lhMapMeasureBg`）。
-- 數字：`npm test` 1047 過／29 跳過／0 失敗；perf 3 過（高負載時連原程式都會超標，重跑過）。
-- 待 Andy：`OVERNIGHT-rhyme.md` 8 題（字母要不要按小句、空白算不算句尾、雙押開關位置、新配色…）。
-
-## ✅ Phase 11 句構分析與設定頁：8/8 計畫完成（2026-10-28，分支 gsd/v0.96-stabilize，沒 push；夜間 `/gsd-autonomous --from 10 --to 11`，停在這裡等 Andy）
-
-- 狀態：Phase 10 收尾 ✅（審查 0 嚴重／3 警告全修）；Phase 11 計畫 11-01～11-08 全部做完；審查 0 嚴重／1 警告已修（03709a9：`js/sections.js:90` `lhSecRefreshMeta` 呼叫新的 `lhMapOnSectionsChanged`（`js/rhyme-map.js`），段落改類型／名稱／順序後 ≠ 跟著換）；驗證 3/3 → human_needed，`11-UAT.md` 7 項，下一步 `/gsd-verify-work 11`。GSD 的狀態、決策、各計畫摘要看 `.planning/phases/11-line-analysis-settings/`，這裡只記 GSD 沒記的。
-- 數字：`npm test` **1038 過／29 跳過／0 失敗**；`LH_PERF=1 npx playwright test tests/rhyme-map-perf.spec.mjs --workers=1` 3 過（150 行連打與全部標記開著連打最長任務 0 ms、200 行分析中位數 0.4 ms）；截圖 -darwin 全部沒變（預設沒有新畫面），-linux 沒動。
-- 新檔：`js/line-core.js`（字數、斷句、對照純函式）；`js/rhyme-map.js` 加逐行標記 `_lhMapMarker`（約 103 行）、偏好設定區塊 `lhMapPrefsBuild`（約 555 行）、分析面板 `lhMapAnalysisBuild`／`_lhMapAnContent`（約 1288 行）、反白停留 `_lhDwellArm`（約 1216 行）；`css/panels.css` 約 1450～1760 行是新樣式（靠右欄、`.lm-*`、`.rm-colors`、預覽）。
-- 11-08 補的檢查在 `tests/line-audit.spec.mjs` 後半（列印與匯出、惡意文字、不拼 HTML、setProperty 位置與無動畫、舊資料、顏色以外的線索）；唯一動到產品程式的是 `js/rhyme-map.js` 約 623 行，色票 input 監聽改成具名函式 `_lhMapColorInput`（讓掃描找得到），行為沒變。
-- 驗收清單已補：`.planning/TEST-CHECKLIST.md` Phase 11 一節（11-01-1…11-04-2、11-CTX-1…24）、`.planning/驗收清單-精簡版.md` 2-41～2-44、4-30～4-35、5-131～5-154，表頭題數 256。
-
-**待 Andy 出手**
-- 雲端容器執行 `npm run visual:update` 更新 -linux 截圖基準（第 5～11 階段累積）。
-- 真機／真眼睛才能判斷的（精簡版 2-41～2-44、4-30～4-35）：≈ 自動斷句合不合語感（已知誤切：風吹過熟悉的街道 → 2+4+2、不怕前方的路遙 → 2+5，自己加空白可改）；手機 390 寬靠右欄留的寫字寬度；標記字級與淡色日夜好不好讀；濃淡三段、深色「濃」可讀性、孤句在「淡」；長按選整段的浮動列＋分析面板位置；反白停留 1.5 秒手感；iOS／Android 原生色票；偏好設定在手機會不會太長；Safari／Firefox 標記不改換行；iPad 接觸控板會不會誤觸。這些全都沒有被自動測試當成已驗證。
-- 自主決定要點頭或搖頭（5-131～5-154）：最容易被推翻的是 ≈ 規則、預設靠右欄（36% 上限）、停留 1.5 秒預設關、「濃」＝40%、對照放每行下面一整列（不是 CONTEXT 說的多一欄）、「≈」只標猜的那一段（推翻 UI-SPEC D-04）、原生色票放在偏好設定而不是選單的色票對照（推翻 CONTEXT D3）。
-- 尚未解決／要留意：Safari／Firefox 沒有可測的瀏覽器，標記垂直對齊與 `.lm-t-s` 的 `overflow: clip` 只在 Chromium 量過；`__lhMapReady` 要等字典＋歌曲＋詞庫三件事（詞庫沒好時只有字數與明確斷點，≈ 稍後補上）。Phase 12 需 Andy 指定詞庫組合，沒開始。
-
-## ▶ 夜間自動執行（2026-10-23，`/gsd-autonomous` 從 Phase 9 起，Andy 授權自主決定）
-
-- Phase 9 ✅（含審查修正 CR-01＋WR-01～05：0896b7d…4ceb60e，覆審 clean；`npm test` 847 過／27 跳過／0 失敗）；驗證 human_needed 5/5 → `09-UAT.md` 6 項
-- Phase 10 韻腳地圖 ✅ 計畫 10-01～10-08 全部做完（待審查與驗證）；見下一節
-- 刻意跳過：Phase 1／3 驗證報告「過期」沒重跑；Phase 12 需 Andy 指定詞庫組合；不 push、不部署
-
-## ✅ Phase 10 韻腳地圖：8/8 計畫完成（2026-10-23，分支 gsd/v0.96-stabilize，沒 push）
-
-- `npm test` **964 過／28 跳過／0 失敗**（Mac 的 Chromium，只比對 -darwin 截圖）；`LH_PERF=1 npx playwright test tests/rhyme-map-perf.spec.mjs --workers=1` **2 過**（150 行連打最長任務 0 ms、200 行分析中位數 0.30 ms）；`?v=` 全部 **0.96.14**（36 個標籤；10-03～10-07 改了 js/css 沒再升版，因為 0.96.14 從沒上線，發佈時一致即可），split-tags 的 JS_ORDER 28 支；`package.json`／`package-lock.json` 沒動
-- 新檔：`js/rhyme-core.js`（純函式：共用判定 lhRhymeMatch、讀音優先序、句尾字、分析、統計、設定與讀音清洗）、`js/rhyme-map.js`（鏡像層上色、200 ms 排程、「韻腳 ▾」選單、浮動列、指定讀音、標題字母條、統計視窗、`lhMapCloseAll`）；`js/lyrics.js` 每段多一層 `div.rhyme-mirror` 與 `button.section-rhyme`；`js/safety.js` 登記 `lh:map` 並在 `lhNormalizeSong` 清洗 `readings`
-- 新測試：`tests/rhyme-core|rhyme-parity|rhyme-map-ui|rhyme-map-perf.spec.mjs`，10-08 加 `rhyme-journey.spec.mjs`（整合：一次走完）與 `rhyme-audit.spec.mjs`（檢查：9 項，全部一次通過，沒有需要修的接縫）
-- 10-08 的測試對應 App 既有規則的地方：(1) 浮動列開著時游標還在輸入框，別的分頁改歌要等離開輸入框才套用（第 8 階段規則）；(2) 同一段反白範圍收起後不會再出現（10-05 刻意）；(3) 用假詞庫時 AI 走「造詞」分支，請求內容不含歌詞，所以「AI 用整首歌」改驗 `generateAISuggestions` 執行當下的歌詞與反白
-- 驗收清單已補：`.planning/TEST-CHECKLIST.md` Phase 10 一節（10-01-1…10-07-2、10-CTX-1…22）、`.planning/驗收清單-精簡版.md` 2-39～2-40、4-26～4-29、5-109～5-130，表頭題數 222
-
-**待 Andy 出手**
-- 在雲端容器執行 `npm run visual:update`，更新 -linux 截圖基準（本機只比對 -darwin；第 5～10 階段累積，第 10 階段新增「韻腳 ▾」按鈕）
-- 真機驗收（機器量不到）：iPad／iPhone Safari、Android Chrome 的顏色在日夜／戶外的樣子、16＋1 色分不分得出來、孤句會不會太淡；長按選字後的浮動列和系統拷貝選單／把手有沒有打架；注音組字有沒有閃或卡；手機標題列字母條擠不擠、「韻腳 ▾」位置；Safari／Firefox 對齊與 iOS 慣性捲動
-- 自主決定要點頭或搖頭（10-CTX-1～22）：B1 背景螢光筆、B2 嚴格模式顏色仍按韻族、B3 孤句較淡、C3 字母與統計預設關、D1 反白→浮動列而不是單擊、E1 了／的／嗎算語助詞、A3 手動讀音綁句尾 4 字；OQ1 嚴格下詩／知／字／思不同韻（寬韻歸空韻）、OQ2 人／風寬韻不同色、OQ6 多字選取一律查最後一字；D-06 組字／改句中時色塊先藏起來、D-10 改成從統計逐句查、D-11 沒有 hover 彈窗；計畫選擇：第 17 色中性灰、「指定讀音」按鈕與只在句尾出現、句中押韻略過語助詞、行尾字母等第 11 階段、浮動列 AI 建議送整首歌、讀音不算復原步驟、改設定所有段落一起重畫、Esc 後同範圍不再彈出、統計在長段落可能蓋住字母條
-- 下一步：Phase 10 審查（`/gsd-code-review 10`）與驗證（`/gsd-verify-work 10`）；MAP-09／10／11 在第 11 階段
-
-## ✅ Phase 9 段落模組：10/10 計畫完成（2026-10-23，分支 gsd/v0.96-stabilize，沒 push）
-
-- `npm test` **843 過／27 跳過／0 失敗**（Mac 的 Chromium，只比對 -darwin 截圖）；`?v=` 全部 **0.96.13**（34 個標籤），split-tags 的 JS_ORDER 26 支
-- 新檔：`js/sections-core.js`（純函式：類型、羅馬數字、字數）、`js/sections.js`（類型鈕、顏色／設定視窗、⋮⋮ 拖曳排序、拉桿調高度、`lhSecAbortInteractions`）、`js/undo.js`（每首歌一條復原堆疊）、`js/word-drag.js`（詞卡／字卡拖進歌詞）
-- 新測試：`tests/sections-core|sections-ui|sections-drag|undo|word-drag.spec.mjs`，10-10 加 `sections-journey.spec.mjs`（整合：一次走完）與 `sections-audit.spec.mjs`（檢查：11 項）
-- 10-10 挖出並修掉的縫：(1) `css/panels.css` 電腦上段落很多時被壓成只剩標題列 → `.lyrics-section:not(.collapsed)` 加 `min-height: 9rem`，列表自己捲；(2) `js/songs.js` `isEditingField` 只算文字欄位，焦點在 ⋮⋮ 把手時別的分頁的更新也會立刻套用並收掉手勢；(3) 「復原：只換一格」偶發失敗＝測試太早量瀏覽器自己的捲動動畫（產品正確），測試改成等動畫停（600 次連跑全過）
-- 驗收清單已補：`.planning/TEST-CHECKLIST.md` Phase 9 一節（09-01-1…09-10-2、09-CTX-1…17）、`.planning/驗收清單-精簡版.md` 2-34～2-38、4-23～4-25、5-92～5-108
-
-**待 Andy 出手**
-- 在雲端容器執行 `npm run visual:update`，更新 -linux 截圖基準（本機只比對 -darwin；第 5～9 階段累積）
-- 真機驗收（機器量不到）：iPad／iPhone Safari、Android Chrome 的把手拖曳手感、詞卡按住 0.4 秒再拖、手機拖詞自動切到歌詞分頁、名稱長按 0.5 秒開設定視窗；拉桿 44px 的高度成本可不可以接受（D-11）；色票在日夜客製主題的樣子；注音打字時字數與復原；iOS 搖一搖復原／Android 外接鍵盤復原；點 ↶ ↷ 時 iOS 鍵盤有沒有保持開著
-- 自主決定要點頭或搖頭：B1 英文名稱、B2 單一類型不編號、B6 新段落猜類型、C5 刪除改復原提示條、E1 英文算一個詞、F1 字卡也能拖、F7 手機自動切歌詞、A3 舊歌匯出標題變英文、D-16（總字數在 .lyrics-tools 那一列）、D-10（↶ ↷ 用 aria-disabled）、收起面板時拖詞卡的提示、提示條按鈕邊框 currentColor、舊版單首模式不存顏色與高度、電腦段落很多時 9rem 下限、分頁更新只等文字欄位
-- 注意（RESEARCH A1／A6）：若 iOS Safari 長按後拖詞卡時頁面還是會捲，備案是在 touchstart 就掛非被動的 touchmove 擋住並暫時加 `touch-action: none`
-- 下一步：`/gsd-verify-work 09`（帶上面的真人項目）；之後 Phase 10 押韻上色
-
-## ⏸ 暫停點（2026-10-11）：Phase 8 全部做完，依 Andy 指示停在這裡，尚未開始 Phase 9
-
-- 已完成：Phase 6 審查＋驗證、Phase 7（10 計畫＋審查兩輪＋驗證）、Phase 8（9 計畫＋審查兩輪＋驗證）；三個階段都是「自動驗證全過、等 Andy 真人驗收」（06／07／08-UAT.md）
-- 最新：`npm test` **716 過／27 跳過／0 失敗**；`?v=0.96.12`
-- 本機 commit 很多都**還沒 push**（這台 SSH 下不能 push）→ Andy 回家後在終端機 `git push`
-- 接續：`/gsd-autonomous --from 9`（Phase 9 段落模組）；或先 `/gsd-verify-work 06`／`07`／`08` 做真人驗收
-- Phase 8 審查後補強（commit 8cba3ed…93afda4）：壞備份不再讓網站開不起來、還原時鎖住存檔、組字中不存半字、釘住的備份在沒有瀏覽器資料庫時也不被擠掉（`lh:backup:ls`／`ls2`／`ls3` 三格）、還原不動 API 金鑰、存不進去會出現提示、載入失敗仍可還原
-
-## ✅ Phase 8 歌曲管理與資料模型：9/9 計畫完成（2026-10-11，分支 gsd/v0.96-stabilize，沒 push）
-
-- `npm test` 688 過／27 跳過／0 失敗（Mac 的 Chromium；只比對 -darwin 截圖）。`?v=` 全部是 **0.96.12**（30 個標籤，split-tags 會檢查一致）
-- 新檔：`js/songs.js`（歌曲模型、清單、改名、刪除）、`js/song-io.js`（匯出 TXT／Markdown／PDF／複製、備份全部、匯入、自動備份清單）、`css/print.css`；`js/safety.js` 多了備份檔解析與還原
-- 新測試：`tests/songs-{migrate,model,ime,crosstab,ui,export,backup,delete}.spec.mjs`，加上 08-09 的 `songs-journey.spec.mjs`（整合：一整天流程）與 `songs-audit.spec.mjs`（檢查：長歌名、怪字元、觸控、焦點、顏色、對比、無障礙名稱）。整合與檢查沒有挖出需要改程式的缺口
-- **舊分頁的風險（RESEARCH A8）**：升級前開著的舊版 v0.96 分頁不關的話，它會繼續寫舊的 `haiku_lyrics`，那些修改不會進新的歌曲資料。升級後請把舊分頁關掉或重新整理
-- 舊鍵 `haiku_lyrics`／`haiku_hashtags` 升級後原封不動留著（當退路）；`lh:schema` 是 2；升級前有 baseline 與 pre-schema-2 兩份自動備份（永遠不會被擠掉）
-
-**待 Andy 出手**
-- 在雲端容器執行 `npm run visual:update`，更新 -linux 截圖基準（本機只比對 -darwin；08-05、08-06、08-07 只刷新了 -darwin）
-- 真人驗收（機器量不到，`/gsd-verify-work 08` 會帶你走）：
-  1. 注音輸入法組字的手感：macOS Chrome／Safari、iPad／iPhone Safari、Android Gboard，打字時不被打斷、游標不亂跳
-  2. 長歌存成 PDF 的排版好不好看：頁與頁之間斷行、段落名不落單在頁底、沒被切邊
-  3. iOS：下載檔名、從主畫面圖示開啟時能不能列印、複製整首進剪貼簿
-  4. 手機：清單改名輸入框與刪除視窗搭配真的鍵盤；兩下確認的「還原這份」順不順
-  5. 兩台真的不同的裝置之間，用備份檔還原一次
-- 下一步：`/gsd-verify-work 08`（帶上面的真人項目），驗收清單已補在 `.planning/TEST-CHECKLIST.md`、`.planning/驗收清單-精簡版.md`
-
-## ▶ 本機接續中（2026-10-09）
-
-- 已 pull 雲端進度到本機（HEAD 與 origin/gsd/v0.96-stabilize 一致；Mac 鑰匙圈在 SSH 下不能用，pull 要在終端機輸入 token）
-- Mac 截圖基準已建（05ebcce，15 張 -darwin.png）；`tests/layout.spec.mjs:1559` 搜尋框單行檢查改成比填字前後高度（2291d09，Mac 字型行高較高誤判）
-- 本機 `npm test`：421 過／27 跳過，修完那 1 項後應全過；`lexicon:test` OK
-- Phase 6 程式碼審查完成（06-REVIEW.md／06-REVIEW-FIX.md，.planning 本機不 commit）：WR-01～06 全修
-  - WR-01 `tools/lexicon/lex/judge.py` `_checked_url` 改用解析後主機（56e1c94）；WR-06 同函式不合法網址改白話錯誤（1648db5）
-  - WR-02 `js/wordlist.js` 換包失敗退回「最後真的載好」的包＋重跑搜尋，`?v=` 升 0.96.9（52fe5d4）
-  - WR-03 judge 補問失敗保留已拿到的判斷（3b9d678）；WR-04 白名單補 裏銹鐧獴菓肽＋歐拉，詞庫包已重建（fca098d）；WR-05 校準詞表換掉與提示範例重複的 4 詞（69113b6）
-  - 剩 IN-01～08 為 Info，未修
-- 回歸關卡：`npm test` 423 過／27 跳過／0 失敗（注意：python 一律加 `-B`，tools/ 留 __pycache__ 會讓 lexicon-build 測試失敗）
-- Phase 6 驗證：human_needed（3/5 自動過、2 項需真 AI），06-UAT.md 4 項；驗收清單更正 5-42／5-43、新增 3-15（高頻中國用語）；commit 952d24f
-- 進行中：`/gsd-autonomous --from 7`
-  - Phase 7 回報與修正層：10/10 計畫完成（commit 961f18a…a819f61），`npm test` 548 過／27 跳過／0 失敗，`corrections:test` 42 OK，`worker:smoke`／`worker:check` 過
-    - Worker：`worker/src/corrections.js`（apply／revoke／clear／admin.json／公開 `/corrections.json`）、`adminKeyOk`（X-Admin-Key 優先）
-    - 網站：`js/wordlist.js`、`js/dict.js` 兩段式套用＋`loadCorrections`（3 秒逾時略過）；`js/report.js` 🚩 回報視窗；`js/ai-word-events.js` AI 回報模式；頁尾「回報」改名「意見」；`?v=0.96.10`
-    - 後台：`admin/index.html` 合併列、批次核准／駁回、🚀 套用到線上、撤回
-    - 寫回腳本：`tools/corrections/writeback.py`（`npm run corrections:writeback`）
-    - 驗收：精簡版 2-18～2-24、3-16～3-18、4-16～4-18、5-51～5-63；`-linux.png` 截圖基準 16 張待雲端 `npm run visual:update`
-  - 下一步：Phase 7 code review（進行中）→ verifier → Phase 8
-- 注意：這台不能 push（SSH 下鑰匙圈鎖住）；本機 commit 累積中，Andy 回家後自己 push
-
-## ⏸ 雲端接力結束（2026-10-04，接回本機繼續）
-
-- 分支 `gsd/v0.96-stabilize` 已全部 push；`main`（線上網站）沒動
-- **Phase 5 多裝置版面**：11/11 計畫完成＋程式碼審查（3 輪修正）＋驗證（自動 5/5）；實機項目待 Andy → `/gsd-verify-work 05`（05-UAT.md）
-- **Phase 6 台灣詞庫包**：8/8 計畫完成（LEX-01～07）。**尚未跑**：`/gsd-code-review 6`、phase 驗證（verifier）、`phase.complete`（為省雲端額度留到本機）
-  - 本機接續：`/gsd-code-review 6 --fix --auto` → `/gsd-execute-phase 6`（會偵測到計畫全做完、直接進驗證）→ 再 `/gsd-autonomous --from 7`
-  - 四個詞庫包：v0.96 現行（預設）、新酷音、小麥注音、唯音台灣精簡版；偏好設定可切換；`npm run lexicon:build` 重建、`tools/lexicon/reports/*/REPORT.md` 刪除報告
-  - 灰色地帶約 3.36 萬詞「待 AI 判斷」：Mac 上 `GEMINI_API_KEY=… npm run lexicon:eval`（≥90%）再 `npm run lexicon:judge`（約 225 次請求，可續跑）
-- `?v=` 目前 0.96.8；雲端 `npm test` 421 過／27 跳過／1 失敗（worker-config.spec.mjs:53 為雲端代理造成，Mac 上應全過）
-- **Mac 第一次跑 `npm test` 前**：先 `npm run visual:update` 建立 Mac 版截圖基準（雲端只有 -linux.png，D-11）
-- **一口氣驗收清單**：`.planning/TEST-CHECKLIST.md`（必測／建議測／待 Andy 決定 D-1～D-20／自主決定）
-- **合併 main 前**：`git rm -r --cached .planning handoff.md .claude/CLAUDE.md`（見 CLOUD-RELAY.md）
-- 授權注意（D-16）：v0.96 預設詞庫約 15 萬詞源自教育部 CC BY-ND 辭典；新詞庫包都不含
-
-## GSD 狀態（以 .planning/ 為準）
-
-- 2026-10-04 Phase 2 程式碼全部完成（6/6 計畫），`npm test` 218 項、`worker:check`、`worker:smoke` 皆過；**等 Andy 照 `worker/DEPLOY.md` 步驟 1–10 上線**（登入、填兩個 KV id、secret、部署、再合併分支更新網站、線上點一次 AI 建議）。Phase 1 安全網 ✅ 驗證 15/15
-- **所有改動都在本機分支 `gsd/v0.96-stabilize`**，`main`（=線上網站）沒動、沒 push。Andy 測完再合併上線
-- 測試：repo 根目錄 `npm test`（Playwright，約 1 分鐘，104 項）；golden 快照在 `tests/golden/`，刻意改資料才用 `npm run golden:update`
-- 新檔：`js/safety.js`（儲存鍵清單、lhGet/lhSet、存檔失敗橫幅、IndexedDB v2 備份、遷移＋自動還原）
-- 設定改動：`.planning/config.json` workflow.use_worktrees=false（.planning 被 gitignore，worktree 看不到計畫檔）
-- 待 Andy 出手：Phase 2 `wrangler login` 瀏覽器授權＋正式部署；Phase 6 需免費 Gemini API key；Phase 12 需選定詞庫包組合
-- 待 Andy 判斷：注音帶聲調輸入（ㄌㄞˊ）在 v0.96 查不到結果，是否為 bug（清單見 STATE.md Pending Todos）
-- 注意：Gemini 2.5「10/16 退役」未被 Google 官方確認，已從清單移除（見 DEPLOY.md「先知道的事」）；新增 `npm run worker:smoke`（worker/test/dev-smoke.mjs，wrangler dev + 假供應商）
-
-## Phase 3 拆檔完成（2026-10-04，分支 gsd/v0.96-stabilize，沒 push）
-
-- `index.html` 只剩 352 行骨架；`css/` 3 檔、`js/` 21 檔（safety.js 在 head，其餘 20 個在 body 尾端，順序固定，init.js 夾在 theme 與 report 之間）；`npm test` 245 項全過
-- 之後只要動到 `css/` 或 `js/`，部署前要把**所有標籤**的 `?v=` 一起加（split-tags 會檢查一致）
-- `.claude/CLAUDE.md` 的架構行號還指向舊 index.html，可用 /gsd-map-codebase 更新（我沒動 CLAUDE.md）
-- `js/ai-client.js` 裡還留著用不到的 `saveApiKey()`，照 CONTEXT 延後清理
-
-## Phase 4 完成（2026-10-04，分支 gsd/v0.96-stabilize，沒 push）
-
-- 04-05 做完：`js/wordlist.js` 詞庫載入改單一 Promise、快取單一交易整套換版（`_idbReadCache`／`_idbReplaceAll`，只刪數字鍵）、分段網址 `?v=`、缺段整份丟棄；`js/ai-generate.js` 詞庫沒好時顯示「詞庫載入中…」並等同一個載入，等待中換搜尋就作廢；`tests/wordlist-cache.spec.mjs` 4 項；`npm test` 269 項全過，golden 沒動
-- **給 Andy 的試用清單（Worker 上線後，回「1.是 2.否…」）：**
-  1. 用「心」「安」「愛」各按一次 AI 建議（押字尾），是否都剛好 24 個、詞夠好用？
-  2. 切到押字首再試，是否接受「首字韻部相同」？（不接受就要改候選篩選）
-  3. AI 挑不夠時，程式依詞頻補的詞是否可接受？
-  4. 候選不足時 AI 造的詞是否都押韻？
-  5. 剛開網頁就按 AI 建議，是否先看到「詞庫載入中…」再正常出詞？
-- 行為變更：詞庫缺任何一段就整份不用，提示重新整理（以前默默用殘缺的）
-- 已知上限：舊 loader 已混出來的快取會留到下次詞庫發新版（Phase 6）
-- 仍待 Andy：Phase 2 Worker 部署（worker/DEPLOY.md），線上 AI 才會動
+## 0.96.38（2026-11-14）編輯器吸附分列＋右鍵選單＋動畫特效
+- 吸附分列：段落的 `rj`（同列旗標）＋順序；純函式 js/sections-core.js（lhRowsOf／lhRowsZone／lhRowsDrop／lhRowsApply），拖放 js/sections.js（lhRowsDragTarget／lhRowsCommit），格線排版 js/canvas.js `_lhRowsLayout` ＋ css/panels.css 檔尾。標題列可直接拖（觸控只能抓 ⋮⋮）。
+- 區塊：`align`（靠左／置中／靠右）、右鍵（標題列與空白處；文字框內維持瀏覽器選單）有複製段落／複製文字／刪除；刪除一律先問（lhAsk，js/ui-common.js 檔尾）。
+- 電燈泡：已有情境／標籤時問取代／擴充／取消（js/ai-generate.js）。
+- 畫布：touch-action:none，單指平移、雙指縮放自己處理；右鍵拖空白處＝手掌（js/canvas.js）。注意：加 overscroll-behavior:contain 會讓 canvas.spec 的 End 鍵測試失敗，別加。
+- 主視窗：dock 非三直排時隱藏側邊分頁、標題列小三角形（.panel-fold-btn）；標題列加底色與 ⋮⋮；tooltip 改為 title 也浮出。
+- 平板三直排：js/panels.js 檔尾 .pane-divider，寬度存 lh:panelW（rem）。
+- AI 完成特效：js/ai-client.js 檔尾 lhAiNotice／lhFxBurst（WAAPI，無 @keyframes），受 lh:bgFx（設定「背景動畫與特效」）與 reduced-motion 控制，關閉時連 token 提示也不出。
+- 導覽改 10 步（js/tour.js）。
+- 待 Andy 手感確認：手機實機雙指／單指手勢、特效觀感。已知失敗：rhyme-map-ui:280（舊）。
+- 0.96.39：已選字大字降兩級（1.75→1.25rem）、黏頂列改用 container 底色（去掉淡色塊）、保留池標題列加底色與左邊框。
+- 0.96.40：tooltip 2 秒才出且淡底；dock 預覽加說明文字；分隔線十字路口同拉兩向＋隔空對齊（js/dock.js _dkCross／LH_DOCK_SNAP、#dockSnap）；自由畫布卡片移動貼齊其他卡片＋導引線（_lhCvSnap，Alt 關閉）；金幣特效放慢約 1.8 倍。

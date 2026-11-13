@@ -8,6 +8,7 @@ const LH_SEC_TYPES = ['intro', 'verse', 'prechorus', 'chorus', 'inter', 'bridge'
 const LH_SEC_TYPE_SET = new Set(LH_SEC_TYPES);   // 用 Set／Map 查表，不用物件字面量：'__proto__'、'constructor' 才打不到原型鍵
 const LH_SEC_NAMES = { intro: 'Intro', verse: 'Verse', prechorus: 'Pre-Chorus', chorus: 'Chorus', inter: 'Inter', bridge: 'Bridge', outro: 'Outro', custom: 'Custom' };   // 只用驗證過的鍵讀
 const LH_SEC_CUSTOM_MAX = 40;   // 自訂名稱上限（以字元，不是 UTF-16 單位）
+const LH_ROW_WMIN = 12, LH_ROW_HMIN = 64, LH_ROW_HMAX = 2400;   // 吸附分列：每張卡片至少 12／120 寬；列高 px 範圍
 const LH_SEC_H_MIN = 4;         // 段落高度（rem）合理範圍（A4）
 const LH_SEC_H_MAX = 60;
 const LH_SEC_COLOR_RE = /^#[0-9a-fA-F]{6}$/;
@@ -55,7 +56,9 @@ function lhSecFields(s) {
         ...lhSecColFields(s),
         ...(pos ? { pos } : {}),
         ...(s.align === 'center' || s.align === 'right' ? { align: s.align } : {}),   // 文字對齊：預設靠左（沒有欄位）
-        ...(s.rj === true ? { rj: true } : {})   // 吸附排版：和前一段同一列（沒有欄位＝自己一列）
+        ...(s.rj === true ? { rj: true } : {}),   // 吸附排版：和前一段同一列（沒有欄位＝自己一列）
+        ...(Number.isInteger(s.rw) && s.rw >= 1 && s.rw <= 119 ? { rw: s.rw } : {}),   // 吸附排版：在這一列佔的寬度（120 格；沒有欄位＝均分）
+        ...(Number.isInteger(s.rh) && s.rh >= LH_ROW_HMIN && s.rh <= LH_ROW_HMAX ? { rh: s.rh } : {})   // 吸附排版：這一列的高度 px（只寫在列首；沒有＝跟著內容）
     };
 }
 
@@ -276,9 +279,12 @@ function lhSecFinalize(sections) {
         if (!f.pos) delete s.pos;
         if (!f.align) delete s.align;
         if (!f.rj) delete s.rj;
+        if (!f.rw) delete s.rw;
+        if (!f.rh) delete s.rh;
         Object.assign(s, f);
     }
     if (sections[0]) delete sections[0].rj;   // 第一段一定是第一列的開頭
+    for (const x of sections) if (x.rj) delete x.rh;   // 列高只認列首
     const names = lhSecNames(sections);
     sections.forEach((s, i) => { s.label = names[i]; });
     return sections;
@@ -427,13 +433,41 @@ function lhRowsDrop(rows, src, dst, zone) {
 }
 
 // 把列寫回段落陣列：就地重排順序並設定 rj（rows 必須剛好含每個段落一次，否則不動並回傳 false）
+// 一列裡每張卡片的寬度（120 格）：rw 都有就照比例縮放到剛好 120，否則均分；每張至少 LH_ROW_WMIN 格
+function lhRowSpans(sections, row) {
+    const byId = new Map(sections.map(s => [s.id, s]));
+    const n = row.length, ws = row.map(id => (byId.get(id) || {}).rw);
+    if (n * LH_ROW_WMIN > 120 || !ws.every(Number.isInteger)) {
+        const span = Math.floor(120 / n);
+        return row.map((_, k) => k === n - 1 ? 120 - k * span : span);
+    }
+    const sum = ws.reduce((a, b) => a + b, 0);
+    const out = ws.map(w => Math.max(LH_ROW_WMIN, Math.round(w * 120 / sum)));
+    let diff = 120 - out.reduce((a, b) => a + b, 0);
+    for (let k = n - 1; diff !== 0 && k >= 0; k--) {   // 四捨五入的誤差從最後一張補回來
+        const d = diff > 0 ? diff : Math.max(diff, LH_ROW_WMIN - out[k]);
+        out[k] += d;
+        diff -= d;
+    }
+    return out;
+}
+
 function lhRowsApply(sections, rows) {
     const flat = rows.flat();
     if (flat.length !== sections.length || new Set(flat).size !== flat.length) return false;
     const byId = new Map(sections.map(s => [s.id, s]));
     if (!flat.every(id => byId.has(id))) return false;
     const next = flat.map(id => byId.get(id));
-    rows.forEach(r => r.forEach((id, k) => { const s = byId.get(id); if (k) s.rj = true; else delete s.rj; }));
+    // 成員有變的列：寬度比例與列高都回預設（均分、跟著內容）；沒變的列保留
+    const old = new Set(lhRowsOf(sections).map(r => r.join(',')));
+    rows.forEach(r => {
+        const same = old.has(r.join(','));
+        r.forEach((id, k) => {
+            const s = byId.get(id);
+            if (k) s.rj = true; else delete s.rj;
+            if (!same) { delete s.rw; delete s.rh; }
+        });
+    });
     sections.splice(0, sections.length, ...next);
     return true;
 }

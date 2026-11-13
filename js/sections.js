@@ -320,6 +320,8 @@ function lhSecScroller() {
 // 超過 4px 才算開始拖：做出殘影與落點線
 function lhSecDragBegin(d) {
     d.started = true;
+    if (typeof lhSecPressEnd === 'function') lhSecPressEnd();   // 名稱鈕的長按選單計時不要再跳出來
+    try { d.handle.setPointerCapture(d.pointerId); } catch (err) { lhWarn('setPointerCapture 失敗', err); }
     d.scroller = lhSecScroller();
     const song = curSong();
     const s = song && song.sections.find(x => x.id === d.id);
@@ -406,10 +408,10 @@ function lhSecDragEnd(commit) {
     if (!d) return;
     _lhDrag = null;
     cancelAnimationFrame(d.raf);
-    d.handle.removeEventListener('pointermove', lhSecDragMove);
-    d.handle.removeEventListener('pointerup', lhSecDragUp);
-    d.handle.removeEventListener('pointercancel', lhSecDragCancel);
-    d.handle.removeEventListener('lostpointercapture', lhSecDragCancel);
+    document.removeEventListener('pointermove', lhSecDragMove);
+    document.removeEventListener('pointerup', lhSecDragUp);
+    document.removeEventListener('pointercancel', lhSecDragCancel);
+    document.removeEventListener('lostpointercapture', lhSecDragCancel);
     document.removeEventListener('keydown', lhSecDragKey, true);
     try { d.handle.releasePointerCapture(d.pointerId); } catch (err) { lhWarn('releasePointerCapture 失敗', err); }
     if (d.started && d.handle.closest('.lyrics-section-header')) lhSecSwallowClick();   // 抓標題列拖完，放開那下的 click 不能當成收合
@@ -452,7 +454,11 @@ function lhSecDragUp(e) {
     lhSecDragEnd(true);
 }
 
-function lhSecDragCancel() { lhSecDragEnd(false); }
+function lhSecDragCancel(e) {
+    // 觸控的隱性捕獲在子元素（名稱鈕）上：改抓到標題列時子元素會冒泡一個 lostpointercapture，那不是取消
+    if (e && e.type === 'lostpointercapture' && _lhDrag && e.target !== _lhDrag.handle) return;
+    lhSecDragEnd(false);
+}
 
 // Esc 取消：capture 階段攔下並 preventDefault，≤ 900 的 sheet 才不會同時被收起（panels.js 看 defaultPrevented）；組字中不攔
 function lhSecDragKey(e) {
@@ -617,8 +623,10 @@ document.getElementById('lyricsSections').addEventListener('pointerdown', e => {
     }
     // 抓 ⋮⋮ 或標題列空白處都能拖（標題列上的按鈕、字數、韻腳條照舊是點擊；觸控只能抓 ⋮⋮，標題列留給捲動）
     const grip = e.target.closest && e.target.closest('.section-handle');
-    const head = !grip && e.pointerType !== 'touch' && e.target.closest && e.target.closest('.lyrics-section-header');
-    const handle = grip || (head && !e.target.closest('button, input, select, a, .section-count') ? head : null);
+    // 觸控：完整編輯器裡標題列也能抓（CSS 已讓標題列 touch-action: none）；左側窄面板的標題列留給捲動
+    const head = !grip && (e.pointerType !== 'touch' || lhEditorIsOpen()) && e.target.closest && e.target.closest('.lyrics-section-header');
+    // 觸控時名稱鈕與 ▾ 也能當起點（觸控校正常把標題列上的手指吸到名稱鈕）：點一下照常開選單／收合，拖超過 4px 才算拖；滑鼠從名稱鈕拖不算
+    const handle = grip || (head && (!e.target.closest('button, input, select, a, .section-count') || (e.pointerType === 'touch' && e.target.closest('.section-type, .section-chevron'))) ? head : null);
     if (!handle || _lhDrag || !e.isPrimary) return;
     if (document.getElementById('lyricsSections').dataset.canvas === 'free') return;   // 自由畫布：⋮⋮ 與標題列是移動卡片（js/canvas.js），不啟動排序
     if (e.pointerType === 'mouse' && e.button !== 0) return;
@@ -630,11 +638,12 @@ document.getElementById('lyricsSections').addEventListener('pointerdown', e => {
         sx: e.clientX, sy: e.clientY, x: e.clientX, y: e.clientY,
         started: false, raf: 0, ghost: null, line: null, scroller: null, drop: null,
     };
-    try { handle.setPointerCapture(e.pointerId); } catch (err) { lhWarn('setPointerCapture 失敗', err); }
-    handle.addEventListener('pointermove', lhSecDragMove);
-    handle.addEventListener('pointerup', lhSecDragUp);
-    handle.addEventListener('pointercancel', lhSecDragCancel);
-    handle.addEventListener('lostpointercapture', lhSecDragCancel);
+    // 抓指標延到真的開始拖（lhSecDragBegin）：只是點一下時 click 才會落在原本的按鈕（名稱鈕開選單），不會變成點標題列；
+    // 還沒抓之前指標可能離開把手，所以移動／放開聽在 document 上
+    document.addEventListener('pointermove', lhSecDragMove);
+    document.addEventListener('pointerup', lhSecDragUp);
+    document.addEventListener('pointercancel', lhSecDragCancel);
+    document.addEventListener('lostpointercapture', lhSecDragCancel);
     document.addEventListener('keydown', lhSecDragKey, true);
 });
 

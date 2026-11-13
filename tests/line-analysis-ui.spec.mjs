@@ -225,7 +225,7 @@ test('偏好設定：內容與順序', async ({ browser }) => {
     await openPrefs(page);
     const sec = page.locator('#mapSettingsSection');
     await expect(sec.locator('> .settings-backups-hint')).toHaveText('調整句尾上色、逐行字數與斷句標記的開關、位置、大小和顏色');
-    expect(await sec.locator('.section-menu-block > .section-menu-cap:first-child').allTextContents()).toEqual(['韻腳地圖模式', '預覽', '韻腳地圖', '句構分析', '顯示方式', '韻族顏色']);
+    expect(await sec.locator('.section-menu-block > .section-menu-cap:first-child').allTextContents()).toEqual(['預覽', '韻腳地圖模式', '韻腳地圖', '句構分析', '顯示方式', '韻族顏色']);
     expect(await sec.locator('.rm-switch-label').allTextContents()).toEqual(['雙押／多押', '自動配色', '段落結構', '句中押韻', '忽略句尾語助詞', '句構判定', '行尾韻腳', '字數', '斷句結構', '反白停留自動分析']);
     const particle = await page.evaluate(() => LH_MAP_PARTICLE_CAP);
     const caps = await sec.locator('.section-menu-cap').allTextContents();
@@ -1247,13 +1247,14 @@ test('預覽：每個開關都看得到', async ({ browser }) => {
     await context.close();
 });
 
-test('預覽：不固定、沒有自己的捲軸，整個面板一起捲', async ({ browser }) => {
+test('預覽：電腦／平板黏在分頁頂端（往下捲選項時一直看得到），手機在 line-audit 檢查不固定', async ({ browser }) => {
     const { context, page, errors } = await bootPage(browser, { wordlist: 'stub', storage: v2Storage([song([typed('sa', 'verse', F_AABB)])]) });
     await page.setViewportSize({ width: 1280, height: 900 });
     await page.evaluate(() => lhMapOpenPrefs());
     const blk = page.locator('#mapSettingsSection .lm-preview-block');
-    expect(await blk.evaluate(e => getComputedStyle(e).position)).toBe('static');
-    expect(await page.locator('#mapSettingsSection .lm-preview').evaluate(e => e.scrollHeight <= e.clientHeight + 1), '預覽沒有內層捲軸').toBe(true);
+    expect(await blk.evaluate(e => getComputedStyle(e).position)).toBe('sticky');
+    const top = await page.evaluate(() => { const sec = document.getElementById('mapSettingsSection'); sec.scrollTop = 600; return sec.querySelector('.lm-preview-block').getBoundingClientRect().top - sec.getBoundingClientRect().top; });
+    expect(Math.abs(top), '捲下去預覽還在頂端').toBeLessThanOrEqual(2);
     // 預覽不在 Tab 順序裡，讀屏軟體也略過
     const pv = page.locator('#mapSettingsSection .lm-preview');
     expect(await pv.evaluate(e => [e.tabIndex, e.querySelectorAll('button, a, input, [tabindex]').length, e.getAttribute('aria-hidden')])).toEqual([-1, 0, 'true']);

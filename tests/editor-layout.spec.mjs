@@ -264,3 +264,40 @@ test('AI 完成：偏好設定關掉動畫就什麼都不出現（含 token 提�
     expect(errors).toEqual([]);
     await context.close();
 });
+
+// 拖縫：同列兩張的直縫＝寬度一起變（靠近別列的縫會隔空對齊、拖曳中就有導引線）；兩列之間的橫縫＝上高下矮；各一步復原
+test('吸附分列：拖卡片之間的縫調整寬度與列高，隔空對齊，一步復原', async ({ browser }) => {
+    const four = [song(['a', 'b', 'c', 'd'].map((id, i) => typed(id, 'verse', '一二三', i % 2 ? { rj: true } : {})))];
+    const { context, page, errors } = await boot(browser, four);
+    const box = id => page.locator(`#lyricsSections [data-id="${id}"]`).boundingBox();
+    const seam = async (l, r) => { const A = await box(l), B = await box(r); return [(A.x + A.width + B.x) / 2, A.y + A.height / 2]; };
+    const rw = () => page.evaluate(() => curSong().sections.map(s => s.rw ?? null));
+    // 第二列的縫往右 150px
+    let [x, y] = await seam('c', 'd');
+    await page.mouse.move(x, y); await page.mouse.down(); await page.mouse.move(x + 150, y, { steps: 4 });
+    await expect(page.locator('#lhRowGuide')).toBeVisible();   // 拖曳中就看得到線
+    await page.mouse.up();
+    const after = await rw();
+    expect(after[0]).toBeNull();
+    expect(after[2]).toBeGreaterThan(60);
+    expect(after[2] + after[3]).toBe(120);
+    // 第一列的縫拖到差一點的位置：吸到第二列的縫
+    [x, y] = await seam('a', 'b');
+    const target = (await box('d')).x;
+    await page.mouse.move(x, y); await page.mouse.down(); await page.mouse.move(target - 20, y, { steps: 4 });
+    await expect(page.locator('#lhRowGuide.snap')).toBeVisible();
+    await page.mouse.up();
+    expect((await rw()).slice(0, 2)).toEqual(after.slice(2));
+    // 兩列之間的橫縫往下 60px：上一列變高、下一列同時變矮
+    const A = await box('a'), C = await box('c');
+    const hy = (A.y + A.height + C.y) / 2;
+    await page.mouse.move(A.x + 40, hy); await page.mouse.down(); await page.mouse.move(A.x + 40, hy + 60, { steps: 4 }); await page.mouse.up();
+    const rh = await page.evaluate(() => curSong().sections.map(s => s.rh ?? null));
+    expect(Math.abs(rh[0] - (A.height + 60))).toBeLessThanOrEqual(2);
+    expect(Math.abs(rh[2] - Math.max(64, C.height - 60))).toBeLessThanOrEqual(2);
+    expect(Math.abs((await box('b')).height - rh[0])).toBeLessThanOrEqual(1);   // 同列等高
+    await page.locator('#undoBtn').click();
+    expect(await page.evaluate(() => curSong().sections.every(s => s.rh === undefined))).toBe(true);
+    expect(errors).toEqual([]);
+    await context.close();
+});

@@ -755,7 +755,8 @@ function lhMapPrefsBuild() {
     preview.classList.add('lm-preview-block');
     // 最上面是模式三鈕（關閉／重點跟隨／全部標記），取代原本的「句尾上色」與「滑過才顯示」兩個開關
     const modeBlock = _lhMkBlock('韻腳地圖模式', _lhMapModeSeg(), _lhMk('span', 'section-menu-cap', LH_MAP_MODE_HINT));
-    sec.append(hint, modeBlock, preview, _lhMkBlock('韻腳地圖', ...mapRows), _lhMkBlock('句構分析', ...lineRow, sub,
+    // 預覽放最上面並黏頂（CSS .lm-preview-block sticky）：往下捲著改選項，預覽一直看得到
+    sec.append(preview, hint, modeBlock, _lhMkBlock('韻腳地圖', ...mapRows), _lhMkBlock('句構分析', ...lineRow, sub,
         ..._lhMapPrefRow('autoHover', '反白停留自動分析', LH_MAP_HOVER_HINT, 'rmPrefHover')), look, colors);
     // 整個段落共用一個點擊監聽（和選單一樣）：開關翻轉、寬韻／嚴格選一個，改了就存、就畫
     sec.addEventListener('click', e => {
@@ -1848,7 +1849,7 @@ window.__lhMapReady = Promise.allSettled([window.__hoyunReady, window.__hoyunWor
 });
 
 // ==================== 滑過才顯示（hoverOnly）====================
-// 色塊平常透明；指標停在某個有韻的字上，同一段（或預覽）裡同韻鍵的字加 .rm-show 浮出，移開就淡掉（CSS transition）。
+// 色塊平常透明；指標停在某個有韻的字上，整首歌（或預覽）裡同韻鍵的字加 .rm-show 浮出，移開就淡掉（CSS transition）。
 // 輸入框蓋在鏡像層上面，所以用指標座標去比鏡像層色塊的位置。觸控：點一下字顯示 2 秒
 let _lhHvBox = null, _lhHvKey = null, _lhHvRaf = 0, _lhHvTimer = 0;
 function _lhHvSet(box, key) {
@@ -1862,7 +1863,8 @@ function _lhHvBoxesOf(t, x, y) {
     const pr = pv && pv.offsetParent && pv.getBoundingClientRect();
     if (pr && x >= pr.left && x <= pr.right && y >= pr.top && y <= pr.bottom) return { scope: pv, mirrors: [pv] };
     const sec = t.closest && t.closest('.lyrics-section');
-    if (sec && t.closest('.section-body')) return { scope: sec, mirrors: [...sec.querySelectorAll('.rhyme-mirror')] };
+    // 偵測只看指標所在的段落（省效能），浮出顏色則是整首歌所有段落的同韻字
+    if (sec && t.closest('.section-body')) return { scope: sec.parentElement || sec, mirrors: [...sec.querySelectorAll('.rhyme-mirror')] };
     return null;
 }
 function _lhHvAt(x, y, t) {

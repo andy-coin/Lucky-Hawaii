@@ -15,7 +15,7 @@ const _snap = song => Object.assign(song.sections.map(s => ({ ...s })), { roles:
 // 內容簽名：id／類型／自訂名／顏色／文字／角色／標記／畫布位置／對齊／同列旗標，不含高度與收合（位置算內容：只動位置的步驟也能復原）
 // roles 預設取快照自帶的；拿 song.sections 比對時要另外傳 song.roles
 const _sig = (sections, roles = sections.roles) => JSON.stringify([(roles || []).map(r => [r.id, r.name, r.color]),
-    sections.map(s => [s.id, s.type, s.custom, s.color, s.text, s.role, s.cols, s.marks, s.pos, s.align, s.rj])]);
+    sections.map(s => [s.id, s.type, s.custom, s.color, s.text, s.role, s.cols, s.marks, s.pos, s.align, s.rj, s.rw, s.rh])]);
 
 // 取得（或建立）這首歌的歷史。verify：畫面重畫時順便檢查，模型在歷史之外被改過（例如還沒接上歷史的刪除、拖曳）就重新起算
 function lhHistEnsure(song, verify) {

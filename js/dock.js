@@ -140,7 +140,8 @@ function lhDockRender() {
     }
     _dkVis = _dkPrune(_dkTree, _dkOpen);
     // 最傳統的三直排（三塊並排）才保留左右兩側的收合分頁；其他版型改用標題列上的小三角形，免得分頁被誤認成也能拖去排版
-    document.body.classList.toggle('dock-classic', _dkSig(_dkVis) === 'row(L,L,L)');
+    // 看整棵樹（含收起的）：三直排只是收起其中一塊，仍算三直排，另一側照樣留分頁
+    document.body.classList.toggle('dock-classic', _dkSig(_dkPrune(_dkTree, () => true)) === 'row(L,L,L)');
     for (const sel of Object.values(LH_DOCK_HANDLES)) {   // 標題列的說明（滑鼠停一下浮出）
         const h = document.querySelector(sel);
         if (h) h.title = '抓著標題列拖曳：放到別塊中間＝互換，放到別塊邊緣＝分割畫面';

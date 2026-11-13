@@ -2617,7 +2617,7 @@ html[data-lm-under] .section-textarea, html[data-lm-under] .rhyme-mirror { line-
 /* 拖曳落點預覽：蓋在畫面上的半透明方塊（面板 800 之上、選單 870 之下），邊緣＝那一半、中間＝整張（互換） */
 #lhRowPreview {
     position: fixed;
-    z-index: 850;
+    z-index: 955;   /* 完整編輯器是 950：要在它上面，拖曳中才看得到（原本 850 被蓋住，放開才像出現） */
     pointer-events: none;
     border: 2px solid var(--highlight-border);
     background: var(--accent-soft);
@@ -2665,7 +2665,7 @@ html:not(.kb-open) #lyricsSections[data-canvas="free"] .lyrics-section-header { 
     body.dock:not(.dock-classic) .left-panel .panel-fold-btn { color: var(--accent-2); }
     body.dock:not(.dock-classic) .panel-fold-btn:hover { background: var(--accent-soft); }
     body.dock:not(.dock-classic) .side-panel:not(.collapsed) .side-panel-tab { display: none; }
-    /* 三個標題列：有底色、有分隔線、左邊一個 ⋮⋮ 抓點，一眼看出「抓這裡拖」 */
+    /* 三個標題列：有底色、有分隔線，整條都能抓著拖 */
     body.dock #leftPanel .lyrics-head,
     body.dock #mainContainer > .header,
     body.dock #rightPanel .side-panel-body > .side-panel-title {
@@ -2673,20 +2673,6 @@ html:not(.kb-open) #lyricsSections[data-canvas="free"] .lyrics-section-header { 
         background: var(--fill-soft);
         border-bottom: 2px solid var(--highlight-border);
         border-radius: 0.5rem 0.5rem 0 0;
-        padding-left: 1.5rem;
-    }
-    body.dock #leftPanel .lyrics-head::before,
-    body.dock #mainContainer > .header::before,
-    body.dock #rightPanel .side-panel-body > .side-panel-title::before {
-        content: '⋮⋮';
-        position: absolute;
-        left: 0.4rem;
-        top: 0.5rem;
-        color: var(--text-primary);
-        opacity: 0.7;
-        font-weight: 700;
-        line-height: 1;
-        pointer-events: none;
     }
     body.dock #leftPanel .lyrics-head:hover,
     body.dock #mainContainer > .header:hover,
@@ -2751,3 +2737,40 @@ html:not(.kb-open) #lyricsSections[data-canvas="free"] .lyrics-section-header { 
 #dockPreview[hidden], #lhRowPreview[hidden] { display: none; }
 /* 自由畫布隔空對齊的導引線（js/canvas.js _lhCvSnap） */
 .cv-guide { position: absolute; z-index: 3; pointer-events: none; background: var(--highlight-border); opacity: 0.9; }
+
+/* ===== 2026-11-14 收尾 ===== */
+/* 完整編輯器：⋮⋮ 看不見（標題列整條可拖），但鍵盤仍可 Tab 到它（Alt＋↑↓ 排序、自由畫布方向鍵） */
+body.editor-open .section-handle:not(:focus-visible) {
+    position: absolute; width: 1px; min-width: 0; height: 1px; min-height: 0; padding: 0; border: 0;
+    overflow: hidden; clip-path: inset(50%); white-space: nowrap;
+}
+/* 觸控也能抓標題列拖（js/sections.js），瀏覽器不接手捲動，才不會帶著主畫面跑 */
+body.editor-open .lyrics-section-header { touch-action: none; }
+/* 新增段落：和「提供詞語建議」同一個主要動作色 */
+.section-add-btn { background: var(--action-bg); color: var(--action-text); border: none; font-weight: 700; }
+@media (hover: hover) and (pointer: fine) { .section-add-btn:hover { background: var(--action-bg-hover); border: none; } }
+/* 保留池：標題列和下面的內容合成一個有框的分區 */
+.saved-pool-section:not(.collapsed) .saved-pool-title { border-radius: 0.375rem 0.375rem 0 0; }
+.saved-pool-body { border: 1px solid var(--border); border-top: none; border-left: 3px solid var(--highlight-border); border-radius: 0 0 0.375rem 0.375rem; }
+.saved-pool-section.collapsed .saved-pool-body { border: none; }
+/* 設定「韻腳與句構」：預覽黏在分頁頂端，下面的選項自己捲，切換時馬上看得到 */
+/* 手機（窄或矮）維持整個面板一起捲，不讓預覽吃掉半個畫面 */
+@media (min-width: 600px) and (min-height: 600px) {
+    .prefs-panel > .lm-preview-block { position: sticky; top: -1px; z-index: 2; background: var(--card-bg); padding-bottom: var(--sp-2); border-bottom: 1px solid var(--border); }
+    .prefs-panel > .lm-preview-block .lm-preview { max-height: 11rem; overflow-y: auto; }
+}
+/* 吸附分列：縫加寬一點好抓（js/canvas.js 拖縫調整兩邊）；同一列卡片等高；有固定列高（data-rh）時文字框撐滿、字多在裡面捲 */
+@media (min-width: 901px) {
+    /* 120 欄之間不能有 column-gap（會被乘上 119 次把卡片擠出去）：每張卡片依位置分攤左右邊距（js/canvas.js 寫 --r-ml／--r-mr），等寬的仍等寬 */
+    html:not(.kb-open) #lyricsSections[data-layout="rows"] { column-gap: 0; row-gap: 0.75rem; align-items: stretch; padding-bottom: 0.875rem; }
+    html:not(.kb-open) #lyricsSections[data-layout="rows"] > .lyrics-section { margin-left: calc(0.75rem * var(--r-ml, 0)); margin-right: calc(0.75rem * var(--r-mr, 0)); }
+    html:not(.kb-open) #lyricsSections[data-layout="rows"] > .lyrics-section[data-rh]:not(.collapsed) { height: var(--r-h); }
+    html:not(.kb-open) #lyricsSections[data-layout="rows"] > .lyrics-section[data-rh]:not(.collapsed) .section-body { flex: 1 1 auto; min-height: 0; }
+    html:not(.kb-open) #lyricsSections[data-layout="rows"] > .lyrics-section[data-rh]:not(.collapsed) .section-textarea { flex: 1 1 auto !important; height: auto !important; min-height: 0 !important; overflow-y: auto !important; }
+}
+body.rows-resizing { user-select: none; }
+#lhRowGuide { position: fixed; z-index: 955; width: 2px; pointer-events: none; background: var(--highlight-border); opacity: 0.5; }
+#lhRowGuide.snap { opacity: 1; width: 3px; }
+#lhRowGuide[hidden] { display: none; }
+/* 自由畫布：卡片範圍外多留空白（js/canvas.js _lhCvExtent），手掌工具才有地方拖 */
+html:not(.kb-open) #lyricsSections[data-canvas="free"]::after { content: ''; position: absolute; left: var(--cv-ex, 0); top: var(--cv-ey, 0); width: 1px; height: 1px; pointer-events: none; }
