@@ -61,9 +61,9 @@ test('縮放：重開沿用、壞值回 100、超出範圍夾回', async ({ brow
     } finally { await context.close(); }
 });
 
-test('縮放：觸控裝置沒存過預設 90%、電腦 100%、存過就用存的；預設值不寫進儲存', async ({ browser }) => {
+test('縮放：手機沒存過預設 80%、平板 90%、電腦 100%、存過就用存的；預設值不寫進儲存', async ({ browser }) => {
     for (const [name, device, storage, expected] of [
-        ['手機沒存過', DEVICES.phone, { [SCALE_KEY]: null }, 90],
+        ['手機沒存過', DEVICES.phone, { [SCALE_KEY]: null }, 80],
         ['平板沒存過', DEVICES.tablet, { [SCALE_KEY]: null }, 90],
         ['電腦沒存過', DEVICES.desktop, {}, 100],
         ['手機存過 120', DEVICES.phone, { [SCALE_KEY]: '120' }, 120],

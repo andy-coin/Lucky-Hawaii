@@ -929,7 +929,7 @@
         }
         
         .char-card {
-            background: var(--card-bg);
+            background: color-mix(in srgb, var(--card-bg) 88%, var(--text-primary) 12%);   /* 字卡原本跟面板底色幾乎一樣（對比 1.04–1.12），混入 12% 文字色拉開 */
             border: 1px solid var(--border);
             border-radius: var(--radius-m);
             padding: 0.75rem 0.5rem 0.625rem;
@@ -1175,6 +1175,6 @@
 .sel-board:empty { display: none; }
 .results-header.has-sel { position: sticky; top: 0; z-index: 5; padding-block: 0.375rem; background: var(--card-bg); box-shadow: 0 -2rem 0 var(--card-bg), 0 1px 0 var(--border); }   /* 往上多蓋一截底色：捲動區的上內距裡不會露出字卡 */
 @media (max-width: 900px) {
-    .results-header.has-sel { top: env(safe-area-inset-top); }
+    .results-header.has-sel { top: 0; }   /* 看板在面板裡捲動，上面沒有瀏海；之前加 safe-area 會憑空多出一塊空白 */
     .sel-board { width: 100%; padding-left: 0; font-size: 1.5rem; }
 }

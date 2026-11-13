@@ -565,16 +565,16 @@
             }
             
             .results-grid {
-                grid-template-columns: repeat(auto-fill, minmax(4.0625rem, 1fr));
-                gap: 0.5rem;
+                grid-template-columns: repeat(auto-fill, minmax(3.75rem, 1fr));
+                gap: 0.375rem;
             }
             
             .char-card {
-                padding: 0.5rem 0.25rem;
+                padding: 0.375rem 0.125rem;
             }
             
             .char-main {
-                font-size: 1.5rem;
+                font-size: 1.25rem;
             }
             
             .char-pinyin {
@@ -583,8 +583,8 @@
             
             .mark-badge {
                 font-size: 0.75rem;
-                padding: 0.0625rem 0.25rem;
-                min-width: 1.75rem;
+                padding: 0.0625rem 0.1875rem;
+                min-width: 1.5rem;
             }
             
             .recent-panel-body {

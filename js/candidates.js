@@ -31,7 +31,7 @@
                 const label = filterWordLen === 0 ? '不限字數'
                     : filterWordLen === 4 ? '4字+'
                     : filterWordLen + '字';
-                chip.textContent = '⚙ 限' + label;
+                chip.textContent = '⚙ ' + (filterWordLen ? '限' : '') + label;
                 chip.classList.toggle('active', filterWordLen !== 0);
             }
             suggestedPool.clear();

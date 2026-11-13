@@ -53,9 +53,9 @@ if (/iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIn
     if (vm && !/maximum-scale/.test(vm.content)) vm.content += ', maximum-scale=1';
 }
 
-// 4 行動裝置（觸控為主）第一次來預設 90%；有存過就用存的
+// 4 行動裝置（觸控為主）第一次來：手機（≤440）預設 80%、平板 90%；有存過就用存的
 // head 執行時 #MzoomValue 還不存在，所以先套值、等 DOM 好了再補一次標籤
-setUiScale(lhGet(LH_UI_SCALE_KEY) ?? (matchMedia('(pointer: coarse)').matches ? 90 : 100), false);
+setUiScale(lhGet(LH_UI_SCALE_KEY) ?? (matchMedia('(pointer: coarse) and (max-width: 440px)').matches ? 80 : matchMedia('(pointer: coarse)').matches ? 90 : 100), false);
 document.addEventListener('DOMContentLoaded', _lhSyncScaleControls);
 
 // ==================== 斷點（D-02）：只在這裡讀，其他檔案一律用 helper ====================
