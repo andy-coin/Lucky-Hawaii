@@ -81,6 +81,120 @@ function lhSecMergedText(s) {
     return out.join('\n');
 }
 
+// ==================== 角色標記（對唱、音樂劇） ====================
+// song.roles＝[{ id, name, color }]（最多 8 個）；段落 s.marks＝[{ a, b, r }]：UTF-16 半開區間 [a, b)、依 a 排序、
+// 互不重疊、相鄰同角色合併。兩個欄位空的時候都不寫（舊歌、舊備份逐字相同）。
+// 陣列永遠換新的、不就地改：復原快照是淺拷貝。
+const LH_ROLE_MAX = 8;
+const LH_ROLE_MARKS_MAX = 5000;   // 每段標記數上限（擋惡意備份）
+const LH_ROLE_COLORS = ['#e05d5d', '#4a7fd4', '#48a868', '#e98a3c', '#8d6bd0', '#2c9fa0', '#d2649a', '#d69e2e'];
+const _LH_ROLE_ID_RE = /^[A-Za-z0-9_-]{1,40}$/;   // 同 safety.js 的 LH_ID_RE（這支檔要能單獨載入，不引用別支）
+
+// 排序、裁掉重疊、丟掉空區間、合併相鄰同角色；回傳新陣列
+function _lhMarksNorm(list) {
+    const out = [];
+    for (const m of list.slice().sort((x, y) => x.a - y.a)) {
+        const prev = out[out.length - 1];
+        const a = prev ? Math.max(m.a, prev.b) : m.a;
+        if (m.b <= a) continue;
+        if (prev && prev.b === a && prev.r === m.r) prev.b = m.b;
+        else out.push({ a, b: m.b, r: m.r });
+    }
+    return out;
+}
+
+function lhRolesClean(raw) {
+    if (!Array.isArray(raw)) return [];
+    const seen = new Set(), out = [];
+    for (const r of raw) {
+        if (out.length >= LH_ROLE_MAX) break;
+        if (!r || typeof r !== 'object' || typeof r.id !== 'string' || !_LH_ROLE_ID_RE.test(r.id) || seen.has(r.id)) continue;
+        seen.add(r.id);
+        const i = out.length;
+        out.push({
+            id: r.id,
+            name: (typeof r.name === 'string' ? _lhSecCut(r.name.trim(), LH_SEC_ROLE_MAX) : '') || '角色 ' + (i + 1),
+            color: typeof r.color === 'string' && LH_SEC_COLOR_RE.test(r.color) ? r.color.toLowerCase() : LH_ROLE_COLORS[i]
+        });
+    }
+    return out;
+}
+
+// ids：認得的角色 id（Set）；len：文字長度。壞值丟掉，超出長度的截到文字尾端
+function lhMarksClean(raw, len, ids) {
+    if (!Array.isArray(raw)) return [];
+    const ok = [];
+    for (const m of raw) {
+        if (ok.length >= LH_ROLE_MARKS_MAX) break;
+        if (!m || typeof m !== 'object' || !Number.isInteger(m.a) || !Number.isInteger(m.b) || m.a < 0 || m.a >= m.b || !ids.has(m.r)) continue;
+        const b = Math.min(m.b, len);
+        if (m.a < b) ok.push({ a: m.a, b, r: m.r });
+    }
+    return _lhMarksNorm(ok);
+}
+
+function lhSecSetMarks(s, list) {
+    if (list && list.length) s.marks = list;
+    else delete s.marks;
+}
+
+// 就地整理一首歌的角色與標記（開機讀取、備份匯入共用）；沒有角色就沒有標記，也不留空欄位
+function lhSongRolesFix(song) {
+    const roles = lhRolesClean(song.roles);
+    if (roles.length) song.roles = roles;
+    else delete song.roles;
+    const ids = new Set(roles.map(r => r.id));
+    for (const s of song.sections) lhSecSetMarks(s, lhMarksClean(s.marks, typeof s.text === 'string' ? s.text.length : 0, ids));
+    return song;
+}
+
+// 把 [a, b) 指定給角色 r（null＝清除）
+function lhMarksSet(marks, a, b, r) {
+    if (!(a < b)) return marks;
+    const out = [];
+    for (const m of marks || []) {
+        if (m.b <= a || m.a >= b) { out.push(m); continue; }
+        if (m.a < a) out.push({ a: m.a, b: a, r: m.r });
+        if (m.b > b) out.push({ a: b, b: m.b, r: m.r });
+    }
+    if (r) out.push({ a, b, r });
+    return _lhMarksNorm(out);
+}
+
+// 文字改了，標記跟著平移。textarea 的一次編輯一定是一段連續的取代：舊字 [s, oe) 變成新字 [s, ne)。
+// 只比對前後綴分不出插在哪（「愛愛」打一個「愛」插在 0、1、2 都一樣），所以呼叫端要給 caret＝編輯後插入文字的尾端
+// （textarea 就是 selectionEnd；拖字、移段由呼叫端算出確切位置）。caret 缺少或對不上新舊文字才退回前後綴比對。
+function lhMarksShift(marks, oldText, newText, caret) {
+    if (!marks || !marks.length || oldText === newText) return marks;
+    const oL = oldText.length, nL = newText.length, d = nL - oL;
+    const hi = c => c >= 0xD800 && c <= 0xDBFF, lo = c => c >= 0xDC00 && c <= 0xDFFF;
+    let p = 0;
+    while (p < oL && p < nL && oldText[p] === newText[p]) p++;
+    if (p > 0 && hi(oldText.charCodeAt(p - 1))) p--;   // 別把代理對切成兩半
+    let s, oe, ne;
+    const ok = Number.isInteger(caret) && caret >= 0 && caret <= nL && caret - d >= 0 && caret - d <= oL
+        && !(caret > 0 && caret < nL && hi(newText.charCodeAt(caret - 1)) && lo(newText.charCodeAt(caret)))
+        && oldText.slice(caret - d) === newText.slice(caret);
+    if (ok) { ne = caret; oe = caret - d; s = Math.min(p, oe, ne); }
+    else {
+        let q = 0;
+        const lim = Math.min(oL, nL) - p;
+        while (q < lim && oldText[oL - 1 - q] === newText[nL - 1 - q]) q++;
+        if (q > 0 && lo(newText.charCodeAt(nL - q))) q--;
+        oe = oL - q; ne = nL - q; s = p;
+    }
+    const out = [];
+    for (const m of marks) {
+        let a, b;
+        if (m.b <= s) { a = m.a; b = m.b; }
+        else if (m.a >= oe) { a = m.a + d; b = m.b + d; }
+        else if (m.a <= s && m.b >= oe) { a = m.a; b = m.b + d; }   // 整個改動區都在標記裡：新字沿用角色
+        else { a = m.a < s ? m.a : ne; b = m.b > oe ? m.b + d : s; }
+        if (b > a) out.push({ a, b, r: m.r });
+    }
+    return _lhMarksNorm(out);
+}
+
 // 1→I、4→IV、9→IX、14→XIV、1999→MCMXCIX
 function lhToRoman(n) {
     const t = [[1000, 'M'], [900, 'CM'], [500, 'D'], [400, 'CD'], [100, 'C'], [90, 'XC'], [50, 'L'], [40, 'XL'], [10, 'X'], [9, 'IX'], [5, 'V'], [4, 'IV'], [1, 'I']];

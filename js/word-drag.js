@@ -369,6 +369,7 @@ function _lhWdDrop(ta, i, word, touch) {
     const step = lhSecApply('insert', song => {
         const s = song.sections.find(x => x.id === id);
         if (!s) return false;
+        if (s.marks) lhSecSetMarks(s, lhMarksShift(s.marks, s.text, next, i + word.length));   // 角色標記跟著平移
         s.text = next;
     }, { caret: { id, pos: i + word.length } });
     if (!step) return;

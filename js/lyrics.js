@@ -269,7 +269,11 @@
             const secEl = el.closest && el.closest('.lyrics-section');
             const sec = secEl && song.sections.find(x => x.id === secEl.dataset.id);
             if (!sec) return;
-            if (el.classList.contains('section-textarea')) sec.text = el.value;
+            if (el.classList.contains('section-textarea')) {
+                // 角色標記跟著這次編輯平移：selectionEnd 就是編輯後插入文字的尾端（重複字也分得出插在哪）
+                if (sec.marks) lhSecSetMarks(sec, lhMarksShift(sec.marks, sec.text, el.value, el.selectionEnd));
+                sec.text = el.value;
+            }
             else if (el.classList.contains('section-col-ta') || el.classList.contains('sec-role-name')) {
                 // 角色欄：換新陣列（歷史快照是淺拷貝，不能就地改）
                 const k = +el.dataset.col, isName = el.classList.contains('sec-role-name');

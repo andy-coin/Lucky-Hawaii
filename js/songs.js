@@ -136,6 +136,7 @@ function _normalizeSong(s) {
     // 補類型並重算顯示名稱（A2 延遲正規化）：刻意不設 changed——讀取不寫入，
     // 重算後的名稱要等這首歌下次被編輯才會進儲存；舊版程式回退時儲存裡的原 label 仍可讀
     lhSecFinalize(s.sections);
+    lhSongRolesFix(s);   // 角色與逐字標記：壞值丟掉；同樣不設 changed
     return changed;
 }
 

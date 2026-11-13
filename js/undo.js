@@ -11,7 +11,7 @@ const _hists = new Map();       // 歌 id → { ref, past, future, present, care
 // 快照：段落的淺拷貝（text／label 是不可變字串，100 步幾乎不吃記憶體）
 const _snap = song => song.sections.map(s => ({ ...s }));
 // 內容簽名：id／類型／自訂名／顏色／文字，不含高度與收合
-const _sig = sections => JSON.stringify(sections.map(s => [s.id, s.type, s.custom, s.color, s.text, s.role, s.cols]));
+const _sig = sections => JSON.stringify(sections.map(s => [s.id, s.type, s.custom, s.color, s.text, s.role, s.cols, s.marks]));
 
 // 取得（或建立）這首歌的歷史。verify：畫面重畫時順便檢查，模型在歷史之外被改過（例如還沒接上歷史的刪除、拖曳）就重新起算
 function lhHistEnsure(song, verify) {

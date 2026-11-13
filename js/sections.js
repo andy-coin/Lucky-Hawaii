@@ -1099,7 +1099,10 @@ function lhSecMoveText(srcId, a, b, text, toId) {
             song.sections.splice(i + 1, 0, dst);
         } else dst = song.sections.find(s => s.id === toId);
         if (!dst) return false;
-        src.text = src.text.slice(0, a) + src.text.slice(b);
+        // ponytail: 搬走的字在新段落沒有角色標記（來源段落的標記照常平移）；要帶著走再補
+        const cut = src.text.slice(0, a) + src.text.slice(b);
+        if (src.marks) lhSecSetMarks(src, lhMarksShift(src.marks, src.text, cut, a));
+        src.text = cut;
         dst.text = dst.text === '' ? moved : dst.text + (dst.text.endsWith('\n') ? '' : '\n') + moved;
     }, { dom: 'render' });
     if (!step) return false;

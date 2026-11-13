@@ -620,7 +620,8 @@ function lhNormalizeSong(raw, takenIds, stats) {
                 label: s.label,
                 text: typeof s.text === 'string' ? _lhCut(s.text, LH_IMPORT_CAPS.text, stats) : '',
                 collapsed: !!s.collapsed,
-                ...lhSecFields(s)
+                ...lhSecFields(s),
+                ...(Array.isArray(s.marks) ? { marks: s.marks } : {})   // 角色標記先照收，下面由 lhSongRolesFix 整理
             };
         });
     if (sections.length === 0) sections.push({ id: pickId(null, 'sec-', secIds), label: '', text: '', collapsed: false, type: 'verse', custom: '', color: '', height: null });
@@ -640,14 +641,17 @@ function lhNormalizeSong(raw, takenIds, stats) {
     // rhyme-core.js 比 safety.js 晚載入，這裡只在匯入時（執行期）呼叫，載入順序不影響
     const readings = typeof lhRhymeCleanReadings === 'function' ? lhRhymeCleanReadings(raw.readings) : null;
     const structs = typeof lhLineCleanStructs === 'function' ? lhLineCleanStructs(raw.structs) : null;   // 手動／AI 句構，和讀音同樣處理
-    return {
+    const out = {
         id, title, sections, hashtags,
         context: typeof raw.context === 'string' ? _lhCut(raw.context, LH_IMPORT_CAPS.context, stats) : '',
         createdAt,
         updatedAt: Number.isFinite(raw.updatedAt) ? raw.updatedAt : createdAt,
         ...(readings ? { readings } : {}),
-        ...(structs ? { structs } : {})
+        ...(structs ? { structs } : {}),
+        roles: raw.roles
     };
+    // 角色與逐字標記（同樣在匯入時才呼叫 sections-core.js）：沒有有效角色就整個拿掉
+    return lhSongRolesFix(out);
 }
 
 // 讀備份檔的文字，回傳：
