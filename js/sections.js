@@ -73,6 +73,7 @@ function lhSecRefreshMeta() {
         el.dataset.index = String(i);
         el.dataset.type = s.type;
         lhSecApplyColor(el, s.color);
+        if (s.align) el.dataset.align = s.align; else delete el.dataset.align;
         const btn = el.querySelector('.section-type');
         if (btn) lhSecFillTypeBtn(btn, s.label);
         const hd = el.querySelector('.section-handle');
@@ -88,6 +89,7 @@ function lhSecRefreshMeta() {
         }
     });
     lhSecMenuSync();
+    if (typeof lhCanvasApply === 'function') lhCanvasApply();   // 順序、分列變了：版面（吸附分列／自由畫布）跟著重排
     if (typeof lhMapOnSectionsChanged === 'function') lhMapOnSectionsChanged();   // 對照差異跟著新的對照段落走
 }
 
@@ -109,6 +111,49 @@ function lhSecRemove(id) {
     showUndoToast('已刪除「' + cutName(label, 16) + '」', '復原', () => {
         if (lhHistTop(curSong()) === step) lhHistUndo();
     }, 5000, '復原刪除「' + label + '」');
+}
+
+// 畫面上的刪除（− 鈕、右鍵選單）一律先問；lhSecRemove 本身不問（復原提示、程式呼叫用）
+async function lhSecRemoveAsk(id) {
+    const song = curSong();
+    const s = song && song.sections.find(x => x.id === id);
+    if (!s || song.sections.length < 2) return;
+    const n = lhCountWords(s.text);
+    const ok = await lhAsk({
+        title: '刪除「' + cutName(s.label || '段落', 16) + '」？',
+        body: (n ? '這個區塊有 ' + n + ' 個字，' : '這個區塊是空的，') + '刪除後 5 秒內可以按「復原」，之後也可以用復原鍵（↶）找回來。',
+        buttons: [{ label: '先不刪除', value: null }, { label: '刪除', value: true, kind: 'danger' }],
+    });
+    if (ok) lhSecRemove(id);
+}
+
+// 複製段落：在原段落下面新增一份（內容、標記、角色欄、顏色、對齊都帶著），一步復原
+function lhSecDuplicate(id) {
+    const song = curSong();
+    const i = song ? song.sections.findIndex(x => x.id === id) : -1;
+    if (i < 0) return false;
+    const step = lhSecApply('duplicate', song => {
+        const src = song.sections[i];
+        const c = JSON.parse(JSON.stringify(src));
+        c.id = lhNewId('sec-');
+        delete c.rj;
+        if (c.pos) { c.pos.x += 32; c.pos.y += 32; }
+        song.sections.splice(i + 1, 0, c);
+    }, { dom: 'render' });
+    if (!step) return false;
+    lhSecFlash(curSong().sections[i + 1].id);
+    lhAnnounce('已複製「' + song.sections[i].label + '」');
+    return true;
+}
+
+// 把段落的歌詞文字放進剪貼簿
+function lhSecCopyText(id) {
+    const s = (curSong()?.sections || []).find(x => x.id === id);
+    if (!s) return;
+    const text = [s.text, ...(s.cols || []).map(c => c.text)].join('\n');
+    if (navigator.clipboard) navigator.clipboard.writeText(text).catch(() => fallbackCopy(text));
+    else fallbackCopy(text);
+    showToast('已複製「' + cutName(s.label, 16) + '」的歌詞');
 }
 
 // ===== 排序（C1～C3）：⋮⋮ 把手＋Pointer Events；拖曳中只動畫面上的覆蓋層，放開才寫一次模型 =====
@@ -168,6 +213,80 @@ function lhSecMoveDom(id, beforeId /* null＝最後面 */) {
 
 let _lhDrag = null;   // 進行中的拖曳：{ handle, secEl, id, pointerId, sx, sy, x, y, started, raf, ghost, line, scroller, drop, touch }
 
+// ===== 吸附分列（完整編輯器的吸附模式）：落點看指標在目標卡片的哪個位置 =====
+// 條件：完整編輯器開著、不是自由畫布、手機鍵盤沒打開、寬度夠分列（> 900）
+function lhRowsDragOn() {
+    return typeof lhEditorIsOpen === 'function' && lhEditorIsOpen() && document.getElementById('lyricsSections').dataset.canvas !== 'free'
+        && !document.documentElement.classList.contains('kb-open') && matchMedia('(min-width: 901px)').matches;
+}
+
+// 預覽框：邊緣＝目標那一半（左右＝那一列的卡片、上下＝整列上方或下方一條），中間＝整張
+function _lhRowsPreviewRect(r, zone, rowRect) {
+    switch (zone) {
+        case 'left': return { x: r.x, y: r.y, w: r.w / 2, h: r.h };
+        case 'right': return { x: r.x + r.w / 2, y: r.y, w: r.w / 2, h: r.h };
+        case 'top': return { x: rowRect.x, y: rowRect.y - 4, w: rowRect.w, h: Math.min(r.h / 2, 64) };
+        case 'bottom': return { x: rowRect.x, y: rowRect.y + rowRect.h - Math.min(r.h / 2, 64) + 4, w: rowRect.w, h: Math.min(r.h / 2, 64) };
+        default: return r;
+    }
+}
+
+// 每個 tick／放開時算：d.cand＝新的列（null＝不能放或沒變）；順便擺預覽框
+function lhRowsDragTarget(d) {
+    const song = curSong();
+    d.cand = null;
+    if (!song || !d.pv) return;
+    const box = document.getElementById('lyricsSections');
+    const cards = [...box.children].filter(c => c.classList.contains('lyrics-section') && c !== d.secEl)
+        .map(el => ({ id: el.dataset.id, r: el.getBoundingClientRect() }));
+    const inside = ({ r }) => d.x >= r.left && d.x <= r.right && d.y >= r.top && d.y <= r.bottom;
+    let t = cards.find(inside), zone = null;
+    const br = box.getBoundingClientRect();
+    if (!t && cards.length && d.x >= br.left && d.x <= br.right) {
+        // 縫隙、第一張上面或最後一列下面的空白（垂直方向不限，拖到列表外上下也算）：離指標最近的那張；
+        // 在最後一張下面＝另開最後一列，在第一張上面＝另開第一列
+        const dist = ({ r }) => Math.hypot(Math.max(r.left - d.x, 0, d.x - r.right), Math.max(r.top - d.y, 0, d.y - r.bottom));
+        t = cards.reduce((a, b) => dist(a) <= dist(b) ? a : b);
+        zone = d.y > t.r.bottom ? 'bottom' : d.y < t.r.top ? 'top' : d.x < t.r.left ? 'left' : 'right';
+    }
+    if (!t) { d.pv.hidden = true; return; }
+    const rect = { x: t.r.left, y: t.r.top, w: t.r.width, h: t.r.height };
+    zone = zone || lhRowsZone(rect, d.x, d.y);
+    const rows = lhRowsOf(song.sections);
+    const cand = lhRowsDrop(rows, d.id, t.id, zone);
+    if (!cand) { d.pv.hidden = true; return; }
+    d.cand = cand;
+    const row = rows.find(r => r.includes(t.id));
+    const rr = cards.filter(c => row.includes(c.id)).map(c => c.r);
+    const rowRect = { x: Math.min(...rr.map(r => r.left)), y: Math.min(...rr.map(r => r.top)), w: Math.max(...rr.map(r => r.right)) - Math.min(...rr.map(r => r.left)), h: Math.max(...rr.map(r => r.bottom)) - Math.min(...rr.map(r => r.top)) };
+    const p = _lhRowsPreviewRect(rect, zone, rowRect);
+    Object.assign(d.pv.style, { left: p.x + 'px', top: p.y + 'px', width: p.w + 'px', height: p.h + 'px' });
+    d.pv.hidden = false;
+}
+
+// 放開：重排順序並設定同列旗標，一步復原
+function lhRowsCommit(id, rows) {
+    const step = lhSecApply('move', song => { if (!lhRowsApply(song.sections, rows)) return false; }, { dom: 'render' });
+    if (!step) return false;
+    lhSecFlash(id);
+    const song = curSong();
+    lhAnnounce(song.sections.find(s => s.id === id).label + ' 已移動；現在共 ' + lhRowsOf(song.sections).length + ' 列');
+    return true;
+}
+
+// 抓標題列拖完，放開那下的 click 吞掉（不然會被當成收合／展開）
+let _lhSecSwallowClick = false;
+function lhSecSwallowClick() {
+    _lhSecSwallowClick = true;
+    setTimeout(() => { _lhSecSwallowClick = false; }, 400);
+}
+document.getElementById('lyricsSections').addEventListener('click', e => {
+    if (!_lhSecSwallowClick) return;
+    _lhSecSwallowClick = false;
+    e.preventDefault();
+    e.stopPropagation();
+}, true);
+
 // 其他段落中，第一個「中線在指標下面」的那段的 id；都沒有＝放最後（null）
 function lhSecDropFor(d) {
     for (const el of document.getElementById('lyricsSections').children) {
@@ -218,10 +337,24 @@ function lhSecDragBegin(d) {
     ghost.append(name, cnt);
     document.body.appendChild(ghost);
     d.ghost = ghost;
-    const line = document.createElement('div');
-    line.className = 'section-drop-line';
-    document.getElementById('lyricsSections').appendChild(line);
-    d.line = line;
+    if (lhRowsDragOn()) {
+        // 吸附分列：像主視窗一樣看落點在目標卡片的哪一邊；預覽框是一個蓋在畫面上的方塊
+        d.rows = true;
+        let pv = document.getElementById('lhRowPreview');
+        if (!pv) {
+            pv = document.createElement('div');
+            pv.id = 'lhRowPreview';
+            pv.setAttribute('aria-hidden', 'true');
+            document.body.appendChild(pv);
+        }
+        pv.hidden = true;
+        d.pv = pv;
+    } else {
+        const line = document.createElement('div');
+        line.className = 'section-drop-line';
+        document.getElementById('lyricsSections').appendChild(line);
+        d.line = line;
+    }
     d.secEl.classList.add('dragging');
     document.body.classList.add('is-section-dragging');
 }
@@ -247,6 +380,7 @@ function lhSecDragTick() {
     const x = Math.max(pr.left, Math.min(d.x - w / 2, pr.right - w));
     const y = Math.max(0, Math.min(d.y - h / 2 - (d.touch ? 2 * rem : 0), innerHeight - h));
     d.ghost.style.transform = 'translate(' + x + 'px, ' + y + 'px)';
+    if (d.rows) { lhRowsDragTarget(d); return; }
     // 落點線：放在目標段落上緣；放最後時貼在最後一段的下緣
     const beforeId = lhSecDropFor(d);
     const lh = d.line.offsetHeight;
@@ -275,6 +409,17 @@ function lhSecDragEnd(commit) {
     d.handle.removeEventListener('lostpointercapture', lhSecDragCancel);
     document.removeEventListener('keydown', lhSecDragKey, true);
     try { d.handle.releasePointerCapture(d.pointerId); } catch (err) { lhWarn('releasePointerCapture 失敗', err); }
+    if (d.started && d.handle.closest('.lyrics-section-header')) lhSecSwallowClick();   // 抓標題列拖完，放開那下的 click 不能當成收合
+    if (d.rows) {
+        if (commit) lhRowsDragTarget(d);   // 用放開當下的位置重算
+        const cand = d.started && commit ? d.cand : null;
+        d.ghost?.remove();
+        if (d.pv) d.pv.hidden = true;
+        d.secEl.classList.remove('dragging');
+        document.body.classList.remove('is-section-dragging');
+        if (cand) lhRowsCommit(d.id, cand);
+        return;
+    }
     const beforeId = d.started && commit ? lhSecDropFor(d) : undefined;   // 用放開當下的位置重算
     d.ghost?.remove();
     d.line?.remove();
@@ -467,9 +612,12 @@ document.getElementById('lyricsSections').addEventListener('pointerdown', e => {
         lhSecBarNow(secEl);
         return;
     }
-    const handle = e.target.closest && e.target.closest('.section-handle');
+    // 抓 ⋮⋮ 或標題列空白處都能拖（標題列上的按鈕、字數、韻腳條照舊是點擊；觸控只能抓 ⋮⋮，標題列留給捲動）
+    const grip = e.target.closest && e.target.closest('.section-handle');
+    const head = !grip && e.pointerType !== 'touch' && e.target.closest && e.target.closest('.lyrics-section-header');
+    const handle = grip || (head && !e.target.closest('button, input, select, a, .section-count') ? head : null);
     if (!handle || _lhDrag || !e.isPrimary) return;
-    if (document.getElementById('lyricsSections').dataset.canvas === 'free') return;   // 自由畫布：⋮⋮ 是移動卡片（js/canvas.js），不啟動排序
+    if (document.getElementById('lyricsSections').dataset.canvas === 'free') return;   // 自由畫布：⋮⋮ 與標題列是移動卡片（js/canvas.js），不啟動排序
     if (e.pointerType === 'mouse' && e.button !== 0) return;
     const secEl = handle.closest('.lyrics-section');
     if (!secEl) return;
@@ -695,7 +843,7 @@ document.getElementById('lyricsSections').addEventListener('click', e => {
         if (_lhMenuClosedBy === secEl.dataset.id) { _lhMenuClosedBy = null; return; }
         _lhMenuUnder(typeBtn, e.detail === 0, true);
     } else if (e.target.closest('.section-remove')) {
-        lhSecRemove(secEl.dataset.id);
+        lhSecRemoveAsk(secEl.dataset.id);
     } else if (e.target.closest('.lyrics-section-header') && !e.target.closest('.section-handle, .section-count, .section-rhyme')) {
         toggleLyricsSection(Number(secEl.dataset.index));
     }
@@ -800,7 +948,27 @@ function lhSecMenuBuild() {
     // const colBlock = _lhMkBlock('角色（對唱、音樂劇）', colAdd);
     // colBlock.classList.add('section-col-block');   // 左鍵點名稱開的下拉不顯示（只給選類型，保持矮），右鍵／長按的完整設定才有
     // m.append(title, _lhMkBlock('類型', types), nameBlock, _lhMkBlock('顏色', grid, row), _lhMkBlock('位置', moves), colBlock, close);
-    m.append(title, _lhMkBlock('類型', types), nameBlock, _lhMkBlock('顏色', grid, row), _lhMkBlock('位置', moves), close);
+    // 對齊（靠左／置中／靠右）與複製、刪除：只在右鍵／長按開的完整設定出現
+    const aligns = _lhMk('div', 'section-menu-row');
+    for (const [v, t] of [['left', '靠左'], ['center', '置中'], ['right', '靠右']]) {
+        const b = _lhMkBtn('section-menu-btn section-align', t, '文字' + t);
+        b.dataset.align = v;
+        b.addEventListener('click', () => lhSecMenuAlign(v));
+        aligns.append(b);
+    }
+    const acts = _lhMk('div', 'section-menu-row');
+    const mkAct = (cls, text, fn) => {
+        const b = _lhMkBtn('section-menu-btn ' + cls, text);
+        b.addEventListener('click', () => { const id = _lhMenuId; if (!id) return; lhSecCloseMenu(); fn(id); });
+        acts.append(b);
+    };
+    mkAct('section-act-dup', '複製段落', lhSecDuplicate);
+    mkAct('section-act-copy', '複製文字', lhSecCopyText);
+    mkAct('section-act-del', '刪除', lhSecRemoveAsk);
+    const alignBlock = _lhMkBlock('文字對齊', aligns), actBlock = _lhMkBlock('段落', acts);
+    alignBlock.classList.add('section-full-only');
+    actBlock.classList.add('section-full-only');
+    m.append(title, _lhMkBlock('類型', types), nameBlock, _lhMkBlock('顏色', grid, row), alignBlock, _lhMkBlock('位置', moves), actBlock, close);
     document.body.appendChild(m);
 
     // 顏色：色票與「無顏色」馬上套用；原生選色盤拖動時只預覽（input），放開才記一步（change，D-06）
@@ -902,6 +1070,17 @@ function lhSecMenuColor(color) {
     if (c === '' || (c !== null && _LH_COLOR_OUT.test(c))) _lhMenuSet('color', 'color', c);
 }
 
+// 對齊：'left'（預設，不存欄位）｜'center'｜'right'；一步復原
+function lhSecMenuAlign(v) {
+    const id = _lhMenuId;
+    if (!id || !['left', 'center', 'right'].includes(v)) return;
+    lhSecApply('align', song => {
+        const s = song.sections.find(x => x.id === id);
+        if (!s || (s.align || 'left') === v) return false;
+        if (v === 'left') delete s.align; else s.align = v;
+    });
+}
+
 function lhSecMenuType(type) {
     if (LH_SEC_TYPE_SET.has(type)) _lhMenuSet('type', 'type', type);
 }
@@ -931,6 +1110,7 @@ function lhSecMenuSync() {
         r.tabIndex = on ? 0 : -1;
     });
     _lhMenu.querySelector('.section-menu-name').hidden = s.type !== 'custom';
+    _lhMenu.querySelectorAll('.section-align').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.align === (s.align || 'left'))));
     const name = _lhMenu.querySelector('.section-name-input');
     if (document.activeElement !== name) name.value = s.custom;
     // 入口關掉了（見 lhSecMenuBuild），這三行會讀到不存在的節點
@@ -952,7 +1132,7 @@ function lhSecOpenMenu(secEl, x, y, byKeyboard, drop) {
     closeSongListOverlay();
     _lhMenuId = secEl.dataset.id;
     _lhMenuDrop = !!drop;
-    // m.querySelector('.section-col-block').hidden = _lhMenuDrop;   // 入口關掉了
+    m.querySelectorAll('.section-full-only').forEach(n => { n.hidden = _lhMenuDrop; });   // 左鍵下拉只給選類型，保持矮
     lhSecMenuSync();
     lhPlaceMenu(m, x, y);
     // 鍵盤打開才把焦點放到目前類型那一列；滑鼠、觸控不搶焦點（手機鍵盤不要彈出來）
@@ -983,7 +1163,14 @@ function _lhMenuUnder(btn, byKeyboard, drop) {
 // 右鍵（桌機）：在指標位置開。觸控長按時 Android 也會送 contextmenu：交給長按計時器開，這裡只擋掉瀏覽器自己的選單
 document.getElementById('lyricsSections').addEventListener('contextmenu', e => {
     const btn = e.target.closest && e.target.closest('.section-type');
-    if (!btn) return;
+    if (!btn) {
+        // 區塊的標題列與空白處按右鍵也開完整設定（含複製、刪除）；輸入框裡維持瀏覽器原本的剪下／貼上選單
+        const card = e.target.closest && e.target.closest('.lyrics-section');
+        if (!card || e.target.closest('textarea, input') || _lhPress) return;
+        e.preventDefault();
+        lhSecOpenMenu(card, e.clientX, e.clientY, false);
+        return;
+    }
     e.preventDefault();
     if (_lhPress) return;
     if (e.clientX === 0 && e.clientY === 0) _lhMenuUnder(btn, true);   // 鍵盤送來的 contextmenu 沒有座標

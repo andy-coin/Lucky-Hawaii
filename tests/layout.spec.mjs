@@ -1812,6 +1812,7 @@ test('刪除：不跳確認、按復原救回', async ({ browser }) => {
 
         await expectReallyClickable(page, page.locator('#lyricsSections .lyrics-section[data-index="1"] .section-remove'), '副歌的刪除鈕');
         await page.locator('#lyricsSections .lyrics-section[data-index="1"] .section-remove').tap();
+    await page.locator('#lhAskActions .song-danger-btn').click();
         expect(dialogs, '不跳確認').toEqual([]);
         expect(await sectionCount(page), '直接刪掉').toBe(2);
         await expect(page.locator('#copyToast')).toBeVisible();
@@ -1839,6 +1840,7 @@ test('刪除：段落名稱只當純文字顯示', async ({ browser }) => {
     try {
         await toggleSide(page, device, 'lyrics');
         await page.locator('#lyricsSections .lyrics-section[data-index="1"] .section-remove').tap();
+    await page.locator('#lhAskActions .song-danger-btn').click();
         // 標籤符號原樣出現，沒有被當成 HTML
         await expect(page.locator('#copyToast')).toHaveText(/已刪除「<b>x<\/b>」/);
         expect(await page.evaluate(() => document.querySelectorAll('#copyToast b, #lyricsSections b').length), '沒有被塞進頁面的標籤').toBe(0);

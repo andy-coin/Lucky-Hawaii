@@ -474,7 +474,7 @@ test('歌曲清單：標題列放得下', async ({ browser }) => {
             await page.evaluate(p => setUiScale(p), pct);
             await waitStill(page);
             const panel = await rectOf(page, '#leftPanel');
-            const kids = await page.locator('.lyrics-head > *').evaluateAll(els => els.map(el => { const r = el.getBoundingClientRect(); return { n: el.id || el.className, x: r.x, y: r.y, width: r.width, height: r.height }; }));
+            const kids = await page.locator('.lyrics-head > *:not(.panel-fold-btn)').evaluateAll(els => els.map(el => { const r = el.getBoundingClientRect(); return { n: el.id || el.className, x: r.x, y: r.y, width: r.width, height: r.height }; }));
             expect(kids.length).toBe(4);   // ☰ 歌曲、歌名、⬇ 匯出、⤢ 展開（R2：新增段落移到標籤＆情境下面）
             for (const k of kids) {
                 expect(k.x, `${name} ${pct}% ${k.n} 左緣`).toBeGreaterThanOrEqual(panel.x - 0.5);

@@ -232,3 +232,90 @@
                 return chip;
             }));
         }
+
+
+// ==================== 三直排拉交界（平板、窄桌機） ====================
+// 左右面板都展開、不是寬螢幕吸附（那邊有自己的分隔線）時，兩條交界線可以拖：改左／右面板的寬度（rem），主畫面吃剩下的。
+// 寬度存在 lh:panelW（{ l, r }，單位 rem；壞值回預設）。雙擊或按 Home 回預設；方向鍵每次 1rem（Shift 4rem）。
+const LH_PANE_KEY = 'lh:panelW';
+const LH_PANE_MIN = 16, LH_PANE_MAIN_MIN = 24;   // rem：面板最窄、主畫面最窄
+const _lhPaneW = { l: null, r: null };
+{
+    const ok = v => typeof v === 'number' && Number.isFinite(v) && v >= LH_PANE_MIN && v <= 80;
+    const saved = lhGetJSON(LH_PANE_KEY, null, o => !!o && typeof o === 'object' && (o.l === null || ok(o.l)) && (o.r === null || ok(o.r)));
+    if (saved) { _lhPaneW.l = saved.l; _lhPaneW.r = saved.r; }
+}
+const _lhRem = () => parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+function _lhPaneApply() {
+    const root = document.documentElement;
+    for (const [k, v] of [['--lp-w', _lhPaneW.l], ['--rp-w', _lhPaneW.r]]) {
+        if (v === null) root.style.removeProperty(k); else root.style.setProperty(k, v + 'rem');
+    }
+}
+// 限制在合理範圍：面板 ≥ 16rem，且主畫面（加上左右留白與歌曲清單欄）至少 24rem
+function _lhPaneClamp(side, rem) {
+    const root = getComputedStyle(document.documentElement), r = _lhRem();
+    const other = side === 'l' ? document.getElementById('rightPanel') : document.getElementById('leftPanel');
+    const otherW = other.getBoundingClientRect().width / r;
+    const songW = side === 'l' ? 0 : (parseFloat(root.getPropertyValue('--song-w')) || 0) / r;
+    const gutter = 2 * (parseFloat(root.getPropertyValue('--page-pad')) || 0) / r;
+    const max = innerWidth / r - otherW - songW - gutter - LH_PANE_MAIN_MIN;
+    return Math.round(Math.max(LH_PANE_MIN, Math.min(max, rem)) * 10) / 10;
+}
+function _lhPaneSet(side, rem) {
+    _lhPaneW[side] = rem === null ? null : _lhPaneClamp(side, rem);
+    _lhPaneApply();
+}
+function _lhPaneSave() { lhSet(LH_PANE_KEY, JSON.stringify(_lhPaneW)); }
+function _lhPaneCur(side) {
+    const el = document.getElementById(side === 'l' ? 'leftPanel' : 'rightPanel');
+    const songW = side === 'l' ? (parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--song-w')) || 0) : 0;
+    return (el.getBoundingClientRect().width - songW) / _lhRem();
+}
+for (const side of ['l', 'r']) {
+    const d = document.createElement('div');
+    d.className = 'pane-divider pane-divider-' + side;
+    d.setAttribute('role', 'separator');
+    d.setAttribute('aria-orientation', 'vertical');
+    d.setAttribute('aria-label', side === 'l' ? '拖曳調整歌詞區寬度（雙擊還原）' : '拖曳調整 AI 建議區寬度（雙擊還原）');
+    d.title = side === 'l' ? '拖曳調整歌詞區與查詢區的寬度（雙擊還原）' : '拖曳調整查詢區與 AI 建議區的寬度（雙擊還原）';
+    d.tabIndex = 0;
+    d.addEventListener('pointerdown', e => {
+        if (!e.isPrimary || (e.pointerType === 'mouse' && e.button !== 0)) return;
+        e.preventDefault();
+        d.setPointerCapture(e.pointerId);
+        d.classList.add('active');
+        document.body.classList.add('pane-resizing');
+        const songW = side === 'l' ? (parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--song-w')) || 0) : 0;
+        const move = ev => {
+            const px = side === 'l' ? ev.clientX - songW : innerWidth - ev.clientX;
+            _lhPaneSet(side, px / _lhRem());
+        };
+        const end = () => {
+            d.removeEventListener('pointermove', move);
+            d.removeEventListener('pointerup', end);
+            d.removeEventListener('pointercancel', end);
+            d.classList.remove('active');
+            document.body.classList.remove('pane-resizing');
+            _lhPaneSave();
+        };
+        d.addEventListener('pointermove', move);
+        d.addEventListener('pointerup', end);
+        d.addEventListener('pointercancel', end);
+    });
+    d.addEventListener('dblclick', () => { _lhPaneSet(side, null); _lhPaneSave(); });
+    d.addEventListener('keydown', e => {
+        if (e.key === 'Home') { e.preventDefault(); _lhPaneSet(side, null); _lhPaneSave(); return; }
+        const k = { ArrowLeft: -1, ArrowRight: 1 }[e.key];
+        if (!k) return;
+        e.preventDefault();
+        _lhPaneSet(side, _lhPaneCur(side) + (side === 'l' ? k : -k) * (e.shiftKey ? 4 : 1));
+        _lhPaneSave();
+    });
+    document.body.appendChild(d);
+}
+_lhPaneApply();
+// 視窗變窄時，存的寬度可能讓主畫面不夠：重新夾一次（不改存的偏好，只改目前套用的）
+window.addEventListener('resize', () => {
+    for (const side of ['l', 'r']) if (_lhPaneW[side] !== null) document.documentElement.style.setProperty(side === 'l' ? '--lp-w' : '--rp-w', _lhPaneClamp(side, _lhPaneW[side]) + 'rem');
+});

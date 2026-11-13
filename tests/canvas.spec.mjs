@@ -378,6 +378,7 @@ test('新增與刪除：新卡片在最下面且只捲畫布；刪除不動別�
     expect(await outerScroll(page)).toEqual(o0);
     await scrollTop0(page);
     await page.locator(`${SEC('sb')} .section-remove`).click();
+    await page.locator('#lhAskActions .song-danger-btn').click();
     expect(await posOf(page, 'sa')).toEqual(FAR.sa);
     expect(await posOf(page, 'sc')).toEqual(FAR.sc);
     await page.locator('#undoBtn').click();

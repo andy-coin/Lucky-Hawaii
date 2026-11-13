@@ -162,9 +162,9 @@
 
 
 // ===== 低調提示（Andy R2 小修）：滑鼠停 250ms 淡入、離開淡出，取代瀏覽器原生 title 的慢速突然跳出 =====
-// 對象：有 data-tip 的元素，加上會被程式改 title 的鑰匙與主題鈕。文字每次現讀（title 優先），顯示期間暫時拿掉 title 避免原生提示重疊
+// 對象：有 data-tip 或 title 的元素，加上會被程式改 title 的鑰匙與主題鈕。文字每次現讀（title 優先），顯示期間暫時拿掉 title 避免原生提示重疊
 {
-    const SEL = '[data-tip], #aiKeyBtn, #themeToggle';
+    const SEL = '[data-tip], [title]:not(svg *), #aiKeyBtn, #themeToggle';
     let tip = null, timer = 0, cur = null;
     const hide = () => {
         clearTimeout(timer);
@@ -195,4 +195,49 @@
     document.addEventListener('pointerout', e => { if (cur && !cur.contains(e.relatedTarget)) hide(); });
     document.addEventListener('pointerdown', hide, true);
     document.addEventListener('scroll', hide, true);
+}
+
+// ===== 通用確認視窗 =====
+// lhAsk({ title, body, buttons: [{ label, value, kind }] }) → Promise<value>；kind：'danger'｜'primary'｜省略（一般）。
+// Esc、點遮罩、關閉＝回傳 null（取消）。同時只有一個；焦點先落在「取消」按鈕（沒有就第一顆），避免手滑確認。
+let _lhAskResolve = null;
+function lhAsk({ title, body, buttons }) {
+    if (_lhAskResolve) _lhAskResolve(null);
+    const ov = document.getElementById('lhAskOverlay'), box = document.getElementById('lhAskActions');
+    document.getElementById('lhAskTitle').textContent = title;
+    document.getElementById('lhAskBody').textContent = body || '';
+    const back = document.activeElement;
+    return new Promise(resolve => {
+        const done = v => {
+            _lhAskResolve = null;
+            ov.classList.remove('show');
+            ov.removeEventListener('click', onOv);
+            document.removeEventListener('keydown', onKey, true);
+            if (back && back.isConnected && back.focus) back.focus({ preventScroll: true });
+            resolve(v);
+        };
+        const onOv = e => { if (e.target === ov) done(null); };
+        const onKey = e => {
+            if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); done(null); }
+            else if (e.key === 'Tab') {
+                const f = [...box.querySelectorAll('button')], k = f.indexOf(document.activeElement);
+                e.preventDefault();
+                f[(k + (e.shiftKey ? -1 : 1) + f.length) % f.length].focus();
+            }
+        };
+        _lhAskResolve = done;
+        box.replaceChildren(...buttons.map(b => {
+            const n = document.createElement('button');
+            n.type = 'button';
+            n.textContent = b.label;
+            n.dataset.value = b.value === null ? '' : String(b.value);
+            n.className = b.kind === 'danger' ? 'song-danger-btn' : b.kind === 'primary' ? 'feedback-send-btn' : 'feedback-cancel-btn';
+            n.addEventListener('click', () => done(b.value));
+            return n;
+        }));
+        ov.addEventListener('click', onOv);
+        document.addEventListener('keydown', onKey, true);
+        ov.classList.add('show');
+        (box.querySelector('.feedback-cancel-btn') || box.querySelector('button')).focus();
+    });
 }

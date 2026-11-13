@@ -83,6 +83,7 @@
             const lyricsText = lastLyricsSelection ||
                 song.sections.map(s => s.text.trim()).filter(Boolean).join('\n');
 
+            lhFxAnchorSet(document.getElementById('generateBtn'), 'coins');
             lhAiRefPulse();
             const btn = document.getElementById('generateBtn');
             const loading = document.getElementById('aiLoading');
@@ -203,7 +204,19 @@
 
             if (!text) { showToast('左側歌詞是空的'); return; }
 
+            // 已經有情境或標籤：先問要取代、擴充還是取消（取消就不打 AI，省額度）
+            let mode = 'replace';
+            if ((song.context || '').trim() || (song.hashtags || []).length) {
+                mode = await lhAsk({
+                    title: '這首歌已經有情境與標籤',
+                    body: 'AI 整理出新的情境與標籤後，要怎麼處理現有內容？取代＝換成新的；擴充＝保留現有的，把新的接在後面（標籤不重複）。',
+                    buttons: [{ label: '取消', value: null }, { label: '擴充', value: 'extend', kind: 'primary' }, { label: '取代', value: 'replace', kind: 'danger' }],
+                });
+                if (!mode) return;
+            }
+
             const btn = document.querySelector('.context-refresh-btn');
+            lhFxAnchorSet(btn, 'bulb');
             if (btn) { btn.disabled = true; }
 
             const prompt = `根據以下歌詞，只輸出下面兩行，不要其他文字：
@@ -238,12 +251,13 @@
                     if (!val) continue;
 
                     if (key.includes('情境') && !gotContext) {
-                        target.context = val;
+                        const old = (target.context || '').trim();
+                        target.context = mode === 'extend' && old ? old + '\n' + val : val;
                         gotContext = true;
                     } else if (key.includes('標籤') && !gotTags) {
                         const tags = lhParseTags(val);
                         if (tags.length) {
-                            target.hashtags = tags;
+                            target.hashtags = mode === 'extend' ? [...new Set([...(target.hashtags || []), ...tags])] : tags;
                             gotTags = true;
                         }
                     }

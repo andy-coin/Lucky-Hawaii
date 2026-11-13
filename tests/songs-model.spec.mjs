@@ -81,6 +81,7 @@ test('資料為準：用段落 id 對應', async ({ browser }) => {
     expect(await page.locator('#lyricsSections .lyrics-section').evaluateAll(els => els.map(e => e.dataset.index))).toEqual(['0', '1', '2']);
     // 刪掉第二段（不再有確認框，直接刪）
     await page.locator('.lyrics-section[data-index="1"] .section-remove').click();
+    await page.locator('#lhAskActions .song-danger-btn').click();
     await expect(page.locator('#lyricsSections .lyrics-section')).toHaveCount(2);
     await textareas(page).nth(1).fill('三改');
     // 打字後 300 毫秒的存檔計時器：等它自己寫，不替它 flush
@@ -142,7 +143,8 @@ test('資料為準：舊鍵不再寫入', async ({ browser }) => {
     await page.evaluate(() => addLyricsSection());
     await textareas(page).last().fill('新段落的字');
     await page.locator('.lyrics-section-header').nth(1).click();   // 收合
-    await page.locator('.lyrics-section[data-index="3"] .section-remove').click();   // 刪掉新段落
+    await page.locator('.lyrics-section[data-index="3"] .section-remove').click();
+    await page.locator('#lhAskActions .song-danger-btn').click();   // 刪掉新段落
     const s = await flushAndReadActiveSong(page);   // 收尾：這個測試看的是舊鍵有沒有被寫，不是存檔時機
     expect(s.sections[0].text).toBe('改了第一段');
     expect(s.hashtags).toEqual(['夏天', '多一個']);

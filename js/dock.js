@@ -124,7 +124,7 @@ function lhDockRender() {
     if (!document.body) return;
     const on = lhIsDockMode();
     document.body.classList.toggle('dock', on);
-    if (!on) { _dkSyncDividers(); return; }
+    if (!on) { document.body.classList.remove('dock-classic'); _dkSyncDividers(); return; }
     // 先加 body.dock（它的 padding 規則決定外框），再量 body 內容區
     const cs = getComputedStyle(document.body);
     const padL = parseFloat(cs.paddingLeft) || 0, padR = parseFloat(cs.paddingRight) || 0;
@@ -139,6 +139,12 @@ function lhDockRender() {
         if (_dkOpen(id) && !_dkInTree(_dkTree, id)) _dkTree = _dkAddEdge(_dkTree, id);
     }
     _dkVis = _dkPrune(_dkTree, _dkOpen);
+    // 最傳統的三直排（三塊並排）才保留左右兩側的收合分頁；其他版型改用標題列上的小三角形，免得分頁被誤認成也能拖去排版
+    document.body.classList.toggle('dock-classic', _dkSig(_dkVis) === 'row(L,L,L)');
+    for (const sel of Object.values(LH_DOCK_HANDLES)) {   // 標題列的說明（滑鼠停一下浮出）
+        const h = document.querySelector(sel);
+        if (h) h.title = '抓著標題列拖曳：放到別塊中間＝互換，放到別塊邊緣＝分割畫面';
+    }
     _dkRects = {};
     _dkDivs = new Map();
     _dkLayout(_dkVis, frame, gap);

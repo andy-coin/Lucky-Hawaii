@@ -42,10 +42,11 @@
                 padding-left: max(var(--page-pad), env(safe-area-inset-left), calc(var(--tab-w) + 0.25rem));
                 padding-right: max(var(--page-pad), env(safe-area-inset-right), calc(var(--tab-w) + 0.25rem));
             }
-            body.lp-open { padding-left: calc(var(--panel-w) + var(--song-w, 0px) + var(--page-pad)); }
+            body.lp-open { padding-left: calc(var(--lp-w, var(--panel-w)) + var(--song-w, 0px) + var(--page-pad)); }
             /* 歌曲清單推開欄（≥ 1024）：左面板多寬一欄，歌詞區寬度不變，主畫面照樣置中（D-02）；不做 transition，和上面一樣避免每一幀重排 */
-            .left-panel { width: calc(var(--panel-w) + var(--song-w, 0px)); }
-            body.rp-open { padding-right: calc(var(--panel-w) + var(--page-pad)); }
+            .left-panel { width: calc(var(--lp-w, var(--panel-w)) + var(--song-w, 0px)); }
+            .right-panel { width: var(--rp-w, var(--panel-w)); }
+            body.rp-open { padding-right: calc(var(--rp-w, var(--panel-w)) + var(--page-pad)); }
         }
 
         @media (min-width: 1024px) {
@@ -2391,7 +2392,7 @@ html:not(.kb-open) #lyricsSections[data-canvas="free"] {
     background-image: radial-gradient(var(--border) 1px, transparent 1px);
     background-size: 1.5rem 1.5rem;
     background-attachment: local;
-    touch-action: pan-x pan-y;   /* 瀏覽器不接手捏合，交給 js/canvas.js 縮放畫布 */
+    touch-action: none;   /* 單指平移、雙指縮放都由 js/canvas.js 處理：瀏覽器不接手，才不會時順時卡，也不會帶著背後的主視窗捲 */
 }
 html:not(.kb-open) #lyricsSections[data-canvas="free"] > .lyrics-section {
     position: absolute;
@@ -2592,4 +2593,131 @@ html[data-lm-under] .section-textarea, html[data-lm-under] .rhyme-mirror { line-
         transition: left 0.12s ease, top 0.12s ease, width 0.12s ease, height 0.12s ease;
     }
     #dockPreview[hidden] { display: none; }
+}
+
+/* ===== 吸附分列（完整編輯器，js/canvas.js _lhRowsLayout）：120 格格線，每列均分寬度，列高跟著內容 ===== */
+@media (min-width: 901px) {
+    html:not(.kb-open) #lyricsSections[data-layout="rows"] {
+        display: grid;
+        grid-template-columns: repeat(120, minmax(0, 1fr));
+        align-content: start;
+        align-items: start;
+        gap: 0.375rem;
+    }
+    html:not(.kb-open) #lyricsSections[data-layout="rows"] > .lyrics-section {
+        grid-row: var(--r-row);
+        grid-column: var(--r-col) / span var(--r-span);
+        min-width: 0;
+    }
+}
+/* 拖曳落點預覽：蓋在畫面上的半透明方塊（面板 800 之上、選單 870 之下），邊緣＝那一半、中間＝整張（互換） */
+#lhRowPreview {
+    position: fixed;
+    z-index: 850;
+    pointer-events: none;
+    border: 2px solid var(--highlight-border);
+    background: var(--accent-soft);
+    border-radius: 0.5rem;
+}
+#lhRowPreview[hidden] { display: none; }
+
+/* 每個區塊的文字對齊（輸入框與韻腳鏡像層同步，逐字才對得齊） */
+.lyrics-section[data-align="center"] .section-textarea, .lyrics-section[data-align="center"] .rhyme-mirror { text-align: center; }
+.lyrics-section[data-align="right"] .section-textarea, .lyrics-section[data-align="right"] .rhyme-mirror { text-align: right; }
+.section-align[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--highlight-border); }
+.section-menu .section-act-del { color: var(--danger-text, inherit); }
+.section-full-only[hidden] { display: none; }
+
+/* 標題列更明顯：整條有底色、抓得到（游標變成抓手），⋮⋮ 把手加深；標題列上的按鈕仍是一般點擊 */
+.lyrics-section-header { background: var(--fill-soft); border-bottom: 1px solid var(--highlight-border); cursor: grab; }
+.lyrics-section-header button:not(.section-handle), .lyrics-section-header .section-count { cursor: pointer; }
+.section-handle { color: var(--text-primary); opacity: 0.75; }
+@media (hover: hover) and (pointer: fine) {
+    .lyrics-section-header:hover { background: var(--accent-soft); }
+    .section-handle:hover { opacity: 1; }
+}
+html:not(.kb-open) #lyricsSections[data-canvas="free"] .lyrics-section-header { cursor: move; }
+
+/* ===== 主視窗（寬螢幕吸附）：標題列更明顯、展開的面板不留側邊分頁 ===== */
+.panel-fold-btn { display: none; }
+@media (hover: hover) and (pointer: fine) {
+    body.dock:not(.dock-classic) .panel-fold-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 1.5rem;
+        height: 1.5rem;
+        padding: 0;
+        margin-left: 0.375rem;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-s);
+        background: var(--card-bg);
+        color: var(--accent-4);
+        font-size: 0.75rem;
+        line-height: 1;
+        cursor: pointer;
+        flex: none;
+    }
+    body.dock:not(.dock-classic) .left-panel .panel-fold-btn { color: var(--accent-2); }
+    body.dock:not(.dock-classic) .panel-fold-btn:hover { background: var(--accent-soft); }
+    body.dock:not(.dock-classic) .side-panel:not(.collapsed) .side-panel-tab { display: none; }
+    /* 三個標題列：有底色、有分隔線、左邊一個 ⋮⋮ 抓點，一眼看出「抓這裡拖」 */
+    body.dock #leftPanel .lyrics-head,
+    body.dock #mainContainer > .header,
+    body.dock #rightPanel .side-panel-body > .side-panel-title {
+        position: relative;
+        background: var(--fill-soft);
+        border-bottom: 2px solid var(--highlight-border);
+        border-radius: 0.5rem 0.5rem 0 0;
+        padding-left: 1.5rem;
+    }
+    body.dock #leftPanel .lyrics-head::before,
+    body.dock #mainContainer > .header::before,
+    body.dock #rightPanel .side-panel-body > .side-panel-title::before {
+        content: '⋮⋮';
+        position: absolute;
+        left: 0.4rem;
+        top: 0.5rem;
+        color: var(--text-primary);
+        opacity: 0.7;
+        font-weight: 700;
+        line-height: 1;
+        pointer-events: none;
+    }
+    body.dock #leftPanel .lyrics-head:hover,
+    body.dock #mainContainer > .header:hover,
+    body.dock #rightPanel .side-panel-body > .side-panel-title:hover { background: var(--accent-soft); }
+}
+
+
+/* ===== 平板／窄桌機的三直排：左右兩條交界線可以拖，直接拉寬或縮窄左右面板（js/panels.js 最後）===== */
+.pane-divider { display: none; }
+@media (min-width: 901px) {
+    body.lp-open.rp-open:not(.dock) .pane-divider {
+        display: block;
+        position: fixed;
+        top: var(--pad-t);
+        height: calc(var(--app-h) - var(--pad-t) - var(--page-pad));
+        width: 1.25rem;
+        z-index: 805;
+        touch-action: none;
+        cursor: col-resize;
+    }
+    body.lp-open.rp-open:not(.dock) .pane-divider-l { left: calc(var(--lp-w, var(--panel-w)) + var(--song-w, 0px) - 0.625rem); }
+    body.lp-open.rp-open:not(.dock) .pane-divider-r { right: calc(var(--rp-w, var(--panel-w)) - 0.625rem); }
+    .pane-divider::before {   /* 中間一顆小把手，觸控沒有 hover 也看得到 */
+        content: '';
+        position: absolute;
+        left: 50%; top: 50%;
+        width: 0.25rem; height: 2.5rem;
+        transform: translate(-50%, -50%);
+        border-radius: 0.125rem;
+        background: var(--text-secondary);
+        opacity: 0.45;
+    }
+    .pane-divider.active::before, .pane-divider:focus-visible::before { opacity: 1; background: var(--highlight-border); }
+    @media (hover: hover) and (pointer: fine) {
+        .pane-divider:hover::before { opacity: 1; background: var(--highlight-border); }
+    }
+    body.pane-resizing { user-select: none; cursor: col-resize; }
 }

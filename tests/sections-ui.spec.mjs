@@ -379,6 +379,7 @@ test('刪除：直接刪、按復原救回', async ({ browser }) => {
     const dialogs = [];
     page.on('dialog', d => dialogs.push(d.message()));
     await page.locator('.lyrics-section[data-index="1"] .section-remove').click();
+    await page.locator('#lhAskActions .song-danger-btn').click();
     await expect(page.locator('#lyricsSections .lyrics-section')).toHaveCount(2);
     expect(await labels(page)).toEqual(['Verse I', 'Verse II']);
     expect((await activeSongRaw(page)).sections).toHaveLength(2);
@@ -405,7 +406,7 @@ test('刪除：新動作讓復原鈕消失', async ({ browser }) => {
     const { context, page, errors } = await bootPage(browser, { storage: three() });
     const action = page.locator('#copyToast .toast-action');
     const ids = () => page.evaluate(() => curSong().sections.map(s => s.id));
-    const delMiddle = () => page.locator('.lyrics-section[data-index="1"] .section-remove').click();
+    const delMiddle = async () => { await page.locator('.lyrics-section[data-index="1"] .section-remove').click(); await page.locator('#lhAskActions .song-danger-btn').click(); };
     // 打字：在別的段落打一個字，是更新的一步，復原鈕立刻不見；↶ 兩下先撤打字、再救回被刪的段落
     await delMiddle();
     await expect(action).toHaveCount(1);
@@ -452,6 +453,7 @@ test('刪除：換歌後按復原不動', async ({ browser }) => {
         storage: v2Storage([song('s1', [typed('sa', 'verse', 'A'), typed('sb', 'chorus', 'B')]), song('s2', [typed('sx', 'verse', 'X'), typed('sy', 'bridge', 'Y')], { title: '另一首' })]),
     });
     await page.locator('.lyrics-section[data-index="1"] .section-remove').click();
+    await page.locator('#lhAskActions .song-danger-btn').click();
     await expect(page.locator('#copyToast .toast-action')).toHaveCount(1);
     await page.evaluate(() => switchSong('s2'));
     expect(await page.evaluate(() => curSong().id)).toBe('s2');
@@ -477,6 +479,7 @@ test('刪除：最後一段不能刪', async ({ browser }) => {
     await page.locator('.section-add-btn').click();
     await expect(page.locator('.section-remove:visible')).toHaveCount(2);
     await page.locator('.lyrics-section[data-index="1"] .section-remove').click();
+    await page.locator('#lhAskActions .song-danger-btn').click();
     await expect(page.locator('.section-remove:visible')).toHaveCount(0);
     expect(errors).toEqual([]);
     await context.close();
@@ -485,6 +488,7 @@ test('刪除：最後一段不能刪', async ({ browser }) => {
 test('刪除：第一段也能刪', async ({ browser }) => {
     const { context, page, errors } = await bootPage(browser, { storage: three() });
     await page.locator('.lyrics-section[data-index="0"] .section-remove').click();
+    await page.locator('#lhAskActions .song-danger-btn').click();
     await expect(page.locator('#lyricsSections .lyrics-section')).toHaveCount(2);
     expect(await page.locator('.section-textarea').first().getAttribute('placeholder')).toBe('在這裡輸入或貼上歌詞…');
     expect(await page.locator('.section-textarea').nth(1).getAttribute('placeholder')).toBe('在這裡輸入歌詞…');
@@ -499,6 +503,7 @@ test('刪除：一段兩段多段的名稱', async ({ browser }) => {
     });
     expect(await labels(page)).toEqual(['Verse I', 'Verse II']);
     await page.locator('.lyrics-section[data-index="1"] .section-remove').click();
+    await page.locator('#lhAskActions .song-danger-btn').click();
     expect(await labels(page)).toEqual(['Verse']);
     expect(errors).toEqual([]);
     await context.close();
@@ -514,12 +519,12 @@ test('刪除：焦點', async ({ browser }) => {
         await openLyrics(page);
         const rm = i => page.locator(`.lyrics-section[data-index="${i}"] .section-remove`);
         if (device === DEVICES.desktop) {
-            await rm(1).click();
+            await rm(1).click(); await page.locator('#lhAskActions .song-danger-btn').click();
             expect(await focused(page), name + '：刪中間，落在同位置的類型鈕').toEqual({ tag: 'BUTTON', type: true, idx: '1' });
-            await rm(1).click();
+            await rm(1).click(); await page.locator('#lhAskActions .song-danger-btn').click();
             expect(await focused(page), name + '：刪最後一段，落在新的最後一個類型鈕').toEqual({ tag: 'BUTTON', type: true, idx: '0' });
         } else {
-            await rm(1).tap();
+            await rm(1).tap(); await page.locator('#lhAskActions .song-danger-btn').click();
             const f = await focused(page);
             expect(f.tag, name + '：不聚焦輸入框').not.toBe('TEXTAREA');
             expect(f.type, name + '：也不聚焦類型鈕').toBe(false);
@@ -535,6 +540,7 @@ test('刪除：名稱太長', async ({ browser }) => {
         storage: v2Storage([song('s1', [typed('sa', 'verse', 'A'), typed('sb', 'custom', 'B', { custom: long })])]),
     });
     await page.locator('.lyrics-section[data-index="1"] .section-remove').click();
+    await page.locator('#lhAskActions .song-danger-btn').click();
     const toast = page.locator('#copyToast');
     await expect(toast).toContainText('已刪除「' + Array.from(long).slice(0, 16).join('') + '…」');
     expect(await toast.textContent()).not.toContain(Array.from(long).slice(0, 17).join(''));
@@ -549,6 +555,7 @@ test('刪除：五秒後仍可復原', async ({ browser }) => {
     });
     await page.clock.pauseAt(new Date(Date.now() + 5000));
     await page.locator('.lyrics-section[data-index="1"] .section-remove').click();
+    await page.locator('#lhAskActions .song-danger-btn').click();
     await expect(page.locator('#copyToast')).toHaveClass(/show/);
     await page.clock.runFor(5500);
     await expect(page.locator('#copyToast')).not.toHaveClass(/show/);

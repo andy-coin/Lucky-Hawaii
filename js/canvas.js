@@ -46,6 +46,27 @@ function _lhCvZoomLabel() {
     if (b) b.textContent = Math.round(_lhCvZ() * 100) + '%';
 }
 
+// 吸附分列：完整編輯器開著、鍵盤沒打開、至少有一段「和前一段同列」才切成格線（120 格，每列均分）；否則維持原本的直列
+function _lhRowsLayout(box, secs) {
+    const on = lhEditorIsOpen() && !document.documentElement.classList.contains('kb-open') && secs.some((s, i) => i > 0 && s.rj);
+    for (const el of box.children) {
+        if (!el.dataset.id) continue;
+        for (const k of ['--r-row', '--r-col', '--r-span']) el.style.removeProperty(k);
+    }
+    if (!on) { delete box.dataset.layout; return; }
+    box.dataset.layout = 'rows';
+    lhRowsOf(secs).forEach((row, ri) => {
+        const span = Math.floor(120 / row.length);
+        row.forEach((id, k) => {
+            const el = lhSecEl(id);
+            if (!el) return;
+            el.style.setProperty('--r-row', String(ri + 1));
+            el.style.setProperty('--r-col', String(k * span + 1));
+            el.style.setProperty('--r-span', String(k === row.length - 1 ? 120 - k * span : span));
+        });
+    });
+}
+
 let _lhCvWasFree = false;
 // 依這首歌的模式套用排版：每次重畫、開關編輯器、鍵盤開關、切模式都呼叫
 function lhCanvasApply() {
@@ -72,9 +93,11 @@ function lhCanvasApply() {
         }
         // 自由模式量到的高度是卡片的高度，回到整齊直列要依內容重新量
         if (was) for (const ta of box.querySelectorAll('.section-textarea')) lhSecFit(ta);
+        _lhRowsLayout(box, secs);
         return;
     }
     _lhCvWasFree = true;
+    _lhRowsLayout(box, []);   // 自由畫布不用分列
     box.dataset.canvas = 'free';
     box.style.setProperty('--cv-z', String(_lhCvZ()));
     document.body.classList.add('cv-free');
@@ -282,11 +305,13 @@ _lhCvBox().addEventListener('wheel', e => {
     lhCanvasZoom(_lhCvZ() * Math.exp(-e.deltaY * 0.01), e.clientX - r.left - _lhCvBox().clientLeft, e.clientY - r.top - _lhCvBox().clientTop);
 }, { passive: false });
 
-// 滑鼠平移：拖畫布空白處，或按住滑鼠中鍵拖任何地方（觸控的單指平移是瀏覽器原生捲動）
+// 滑鼠平移：拖畫布空白處（左鍵或按住右鍵），或按住滑鼠中鍵拖任何地方；觸控的單指、雙指手勢在下面自己處理
+// 空白處沒有右鍵選單，所以右鍵拖曳不會被選單打斷（Mac 的 contextmenu 在按下時就送出，要擋掉）
+_lhCvBox().addEventListener('contextmenu', e => { if (_lhCvFree() && e.target === _lhCvBox()) e.preventDefault(); });
 let _lhPan = null;
 _lhCvBox().addEventListener('pointerdown', e => {
     if (_lhPan || _lhPinch || _lhCv || e.pointerType !== 'mouse' || !_lhCvFree()) return;
-    if (!(e.button === 1 || (e.button === 0 && e.target === _lhCvBox()))) return;
+    if (!(e.button === 1 || ((e.button === 0 || e.button === 2) && e.target === _lhCvBox()))) return;   // 中鍵拖哪裡都行；左鍵、右鍵（按住右鍵＝手掌工具）拖空白處
     e.preventDefault();
     const box = _lhCvBox();
     _lhPan = { id: e.pointerId, x: e.clientX, y: e.clientY, sl: box.scrollLeft, st: box.scrollTop };
@@ -306,28 +331,61 @@ const _lhPanEnd = e => {
 document.addEventListener('pointerup', _lhPanEnd, true);
 document.addEventListener('pointercancel', _lhPanEnd, true);
 
-// 雙指捏合：追蹤兩根手指的距離，以兩指中點為中心縮放；第二根手指一落下就放棄進行中的卡片手勢
+// 觸控手勢（畫布 CSS 是 touch-action: none，瀏覽器完全不接手，所以不會一下順一下卡、也不會把背後的主視窗拖著走）：
+// ‧ 單指拖畫布空白處＝手掌工具（平移）；單指拖文字框＝捲文字框，文字框沒得捲就平移畫布
+// ‧ 雙指＝以兩指中點為中心縮放，同時跟著中點平移；第二根手指一落下就放棄進行中的卡片手勢
+// 兩指放開剩一指時不接著平移（免得畫面跳一下），要抬起再按
 let _lhPinch = null;
+let _lhTouchPan = null;   // { id, ta, x, y }：ta 有值＝從文字框開始，能捲就捲文字框
 const _lhPts = new Map();
+const _lhMid = () => {
+    const [a, b] = [..._lhPts.values()];
+    return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2, d: Math.hypot(a.x - b.x, a.y - b.y) || 1 };
+};
 _lhCvBox().addEventListener('pointerdown', e => {
     if (e.pointerType !== 'touch' || !_lhCvFree()) return;
     _lhPts.set(e.pointerId, { x: e.clientX, y: e.clientY });
-    if (_lhPts.size !== 2) return;
-    lhCanvasAbort();
-    const [a, b] = [..._lhPts.values()];
-    _lhPinch = { d0: Math.hypot(a.x - b.x, a.y - b.y) || 1, z0: _lhCvZ() };
-    e.stopPropagation();
+    if (_lhPts.size >= 2) {
+        lhCanvasAbort();
+        _lhTouchPan = null;
+        const m = _lhMid();
+        _lhPinch = { d0: m.d, z0: _lhCvZ(), mx: m.x, my: m.y };
+        e.stopPropagation();
+        return;
+    }
+    if (_lhCv) return;   // 標題列、右下角的卡片手勢
+    const t = e.target, box = _lhCvBox();
+    if (!t || !t.closest) return;
+    const ta = t.closest('textarea');
+    if (t === box || ta) _lhTouchPan = { id: e.pointerId, ta, x: e.clientX, y: e.clientY };
 }, true);
 document.addEventListener('pointermove', e => {
     if (!_lhPts.has(e.pointerId)) return;
     _lhPts.set(e.pointerId, { x: e.clientX, y: e.clientY });
-    if (!_lhPinch || _lhPts.size < 2) return;
-    const [a, b] = [..._lhPts.values()];
-    const box = _lhCvBox(), r = box.getBoundingClientRect();
-    lhCanvasZoom(_lhPinch.z0 * Math.hypot(a.x - b.x, a.y - b.y) / _lhPinch.d0, (a.x + b.x) / 2 - r.left - box.clientLeft, (a.y + b.y) / 2 - r.top - box.clientTop);
+    const box = _lhCvBox();
+    if (_lhPinch && _lhPts.size >= 2) {
+        const m = _lhMid(), r = box.getBoundingClientRect();
+        lhCanvasZoom(_lhPinch.z0 * m.d / _lhPinch.d0, m.x - r.left - box.clientLeft, m.y - r.top - box.clientTop);
+        box.scrollLeft -= m.x - _lhPinch.mx;
+        box.scrollTop -= m.y - _lhPinch.my;
+        _lhPinch.mx = m.x;
+        _lhPinch.my = m.y;
+        return;
+    }
+    const p = _lhTouchPan;
+    if (!p || e.pointerId !== p.id) return;
+    const dx = e.clientX - p.x, dy = e.clientY - p.y;
+    if (p.ta && p.ta.scrollHeight > p.ta.clientHeight) p.ta.scrollTop -= dy;
+    else {
+        box.scrollLeft -= dx;
+        box.scrollTop -= dy;
+    }
+    p.x = e.clientX;
+    p.y = e.clientY;
 }, true);
 const _lhPtEnd = e => {
     _lhPts.delete(e.pointerId);
+    if (_lhTouchPan && _lhTouchPan.id === e.pointerId) _lhTouchPan = null;
     if (_lhPts.size < 2) _lhPinch = null;
 };
 document.addEventListener('pointerup', _lhPtEnd, true);

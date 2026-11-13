@@ -248,6 +248,7 @@ test('檢查：三種裝置的觸控大小', async ({ browser }) => {
         };
         // 提示條開著：刪掉第一段，量段落上的控制項、↶ ↷ 與提示上的復原
         await secs(page).nth(0).locator('.section-remove').click();
+    await page.locator('#lhAskActions .song-danger-btn').click();
         await expect(page.locator('#copyToast .toast-action')).toHaveCount(1);
         await audit(['.section-handle', '.section-type', '.section-remove', '#undoBtn', '#redoBtn', '.toast-action'], '段落與提示條');
         await page.locator('#copyToast .toast-action').click();
@@ -351,6 +352,7 @@ test('檢查：惡意文字只當文字', async ({ browser }) => {
     expect(await page.locator('#lhLive *').count()).toBe(0);
     // 刪除的提示條
     await secs(page).nth(0).locator('.section-remove').click();
+    await page.locator('#lhAskActions .song-danger-btn').click();
     await expect(page.locator('#copyToast')).toContainText('已刪除「' + Array.from(NAME).slice(0, 16).join('') + '…」');
     expect(await bare('#copyToast')).toBe(0);
     expect(await page.evaluate(() => window.__pwn), 'script 沒有被執行').toBeUndefined();
@@ -478,7 +480,8 @@ test('檢查：存檔失敗時畫面與模型一致', async ({ browser }) => {
     await waitStill(page);
     await page.evaluate(() => { window.__failLS = true; });
     await pickNext(page, 1);                                          // 換類型
-    await secs(page).nth(0).locator('.section-remove').click();       // 刪一段
+    await secs(page).nth(0).locator('.section-remove').click();
+    await page.locator('#lhAskActions .song-danger-btn').click();       // 刪一段
     await expect(page.locator('#lhSaveBanner')).toBeVisible();
     await expect(page.locator('#lhSaveBanner')).toContainText('存檔失敗');
     const onScreen = await page.evaluate(() => [...document.querySelectorAll('#lyricsSections .lyrics-section')].map(el => [el.dataset.id, el.querySelector('.section-type').textContent, el.dataset.type]));

@@ -179,15 +179,17 @@
                 el.dataset.id = s.id;
                 el.dataset.type = s.type;
                 lhSecApplyColor(el, s.color);
+                if (s.align) el.dataset.align = s.align;
 
                 const header = document.createElement('div');
                 header.className = 'lyrics-section-header';
+                header.title = '點一下收合／展開；抓著標題列拖曳可以移動，右鍵有更多選項';
 
                 // ⋮⋮ 排序把手：只有它能拖（Pointer Events 在 js/sections.js），選字、按名稱鈕都不會誤拖
                 const grip = document.createElement('button');
                 grip.type = 'button';
                 grip.className = 'section-handle';
-                grip.title = '拖曳排序';
+                grip.title = '拖曳排序（也可以直接抓標題列）';
                 grip.textContent = '⋮⋮';
                 grip.setAttribute('aria-label', lhSecHandleLabel(s.label));
                 grip.setAttribute('aria-keyshortcuts', 'Alt+ArrowUp Alt+ArrowDown');

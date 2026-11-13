@@ -275,7 +275,7 @@
                 tokens = data.usage?.total_tokens;
             }
             if (typeof text !== 'string' || !text.trim()) throw aiError(`${name} 沒有回應內容，請再試一次`);
-            showToast(`${model.label}（你的金鑰）${Number.isFinite(tokens) ? `｜本次 ${tokens} tokens` : ''}`, 4000);
+            lhAiNotice(`${model.label}（你的金鑰）${Number.isFinite(tokens) ? `｜${tokens} tokens` : ''}`);
             return text.replace(/<think>[\s\S]*?<\/think>/g, '').trim();
         }
         // 測試連線：讀一次各家的模型清單（不花生成額度）
@@ -377,11 +377,72 @@
             // Worker 換了模型時告訴使用者實際用的是哪一個
             const switched = model.id !== 'auto' && data.model && data.model.id !== model.id;
             if (data.usage) {
-                showToast(`${switched ? '已切到 ' : ''}${data.model.label}｜本次 ${data.usage.total_tokens} tokens`, 4000);
+                lhAiNotice(`${switched ? '已切到 ' : ''}${data.model.label}｜${data.usage.total_tokens} tokens`);
             } else if (switched) {
-                showToast(`已切到 ${data.model.label}`);
+                lhAiNotice(`已切到 ${data.model.label}`);
             }
             // 移除思考標籤（針對 DeepSeek R1 等模型）並回傳
             return String(data.text).replace(/<think>[\s\S]*?<\/think>/g, '').trim();
         }
 
+
+
+// ==================== AI 完成特效（取代原本中間偏下的模型／token 浮窗） ====================
+// 在觸發的按鈕旁邊噴出東西：「提供詞語建議」噴金幣、小燈泡噴亮光；模型與 token 數變成往上飄的小字。
+// 用 Web Animations API（element.animate），不寫 CSS @keyframes。偏好設定關掉動畫（lhBgFxIsOn）或系統要求減少動態時，什麼都不顯示，連 token 提示也不出現。
+let _lhFx = { el: null, kind: 'coins' };
+function lhFxAnchorSet(el, kind) { _lhFx = { el, kind }; }
+function lhFxEnabled() {
+    if (typeof lhBgFxIsOn === 'function' && !lhBgFxIsOn()) return false;
+    return !matchMedia('(prefers-reduced-motion: reduce)').matches;
+}
+function lhAiNotice(text) {
+    if (!lhFxEnabled() || document.hidden) return;
+    const el = _lhFx.el && _lhFx.el.isConnected ? _lhFx.el : document.getElementById('generateBtn');
+    if (el) lhFxBurst(el, _lhFx.kind, text);
+}
+function lhFxBurst(anchor, kind, text) {
+    const r = anchor.getBoundingClientRect();
+    if (!r.width && !r.height) return;
+    const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+    const layer = document.createElement('div');
+    layer.className = 'lh-fx';
+    layer.setAttribute('aria-hidden', 'true');
+    layer.style.cssText = 'position:fixed;left:0;top:0;width:0;height:0;z-index:960;pointer-events:none;';
+    const put = (css, content) => {
+        const n = document.createElement('div');
+        n.style.cssText = 'position:absolute;left:' + cx + 'px;top:' + cy + 'px;will-change:transform,opacity;' + css;
+        if (content) n.textContent = content;
+        layer.appendChild(n);
+        return n;
+    };
+    const coins = kind === 'coins';
+    const n = coins ? 16 : 12;
+    for (let i = 0; i < n; i++) {
+        const ang = coins ? -Math.PI / 2 + (Math.random() - 0.5) * 2.2 : (i / n) * Math.PI * 2 + Math.random() * 0.3;
+        const sp = coins ? 70 + Math.random() * 110 : 38 + Math.random() * 38;
+        const vx = Math.cos(ang) * sp, vy = Math.sin(ang) * sp;
+        const size = coins ? 12 + Math.random() * 6 : 10 + Math.random() * 8;
+        const p = coins
+            ? put('width:' + size + 'px;height:' + size + 'px;margin:-' + size / 2 + 'px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#fff3b0,#f2b705 60%,#b07d00);border:1px solid #8a5a00;')
+            : put('margin:-' + size / 2 + 'px;font-size:' + size + 'px;line-height:1;color:#f5c518;text-shadow:0 0 6px #ffd84d;', '✦');
+        const spin = (Math.random() - 0.5) * 540;
+        const frames = coins
+            ? [{ transform: 'translate(0,0) scale(.5)', opacity: 1 },
+               { transform: 'translate(' + vx * 0.6 + 'px,' + vy + 'px) rotate(' + spin / 2 + 'deg) scale(1)', opacity: 1, offset: 0.45 },
+               { transform: 'translate(' + vx + 'px,' + (vy + 150 + Math.random() * 60) + 'px) rotate(' + spin + 'deg) scale(.8)', opacity: 0 }]
+            : [{ transform: 'translate(0,0) scale(.3)', opacity: 1 },
+               { transform: 'translate(' + vx + 'px,' + vy + 'px) rotate(' + spin / 3 + 'deg) scale(1.1)', opacity: 0 }];
+        p.animate(frames, { duration: coins ? 900 + Math.random() * 400 : 700 + Math.random() * 300, easing: coins ? 'cubic-bezier(.2,.7,.4,1)' : 'ease-out', fill: 'forwards' });
+    }
+    if (!coins) {
+        const ring = put('width:44px;height:44px;margin:-22px;border-radius:50%;border:2px solid #ffd84d;box-shadow:0 0 14px #ffd84d;');
+        ring.animate([{ transform: 'scale(.3)', opacity: 0.9 }, { transform: 'scale(1.8)', opacity: 0 }], { duration: 600, easing: 'ease-out', fill: 'forwards' });
+    }
+    if (text) {
+        const t = put('transform:translate(-50%,0);white-space:nowrap;font-size:0.8125rem;font-weight:700;padding:2px 8px;border-radius:999px;background:var(--card-bg,#fff);color:var(--text-primary,#222);border:1px solid var(--highlight-border,#999);', text);
+        t.animate([{ transform: 'translate(-50%,0)', opacity: 0 }, { transform: 'translate(-50%,-26px)', opacity: 1, offset: 0.2 }, { transform: 'translate(-50%,-60px)', opacity: 1, offset: 0.75 }, { transform: 'translate(-50%,-78px)', opacity: 0 }], { duration: 1800, easing: 'ease-out', fill: 'forwards' });
+    }
+    document.body.appendChild(layer);
+    setTimeout(() => layer.remove(), 2000);
+}

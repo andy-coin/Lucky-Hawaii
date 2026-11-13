@@ -245,7 +245,7 @@ for (const [name, raw] of Object.entries(BAD)) {
 
 test('收起時縮放：保留收起那塊的位置，再打開仍在查詢區下方', async ({ browser }) => {
     const { context, page, errors } = await boot(browser, { ...BASE_SEEDS, ...seedDock({ d: 'row', k: ['lyrics', { d: 'col', k: ['results', 'ai'], s: [1, 1] }], s: [28, 72] }) });
-    await page.locator('#rightPanel .side-panel-tab').click();
+    await page.locator('#rightPanel  .panel-fold-btn').click();
     const c0 = await boxes(page);
     await dragDivider(page, 100);
     const c1 = await boxes(page);
@@ -381,7 +381,7 @@ test('拖放：落在自己身上不顯示預覽、放開不變；收起 AI 變�
     await page.mouse.up();
     const b1 = await boxes(page);
     for (const k of ['lyrics', 'results', 'ai']) sameBox(b1[k], b0[k]);
-    await page.locator('#rightPanel .side-panel-tab').click();
+    await page.locator('#rightPanel  .panel-fold-btn').click();
     const b2 = await boxes(page);
     near(b2.results.x, b2.lyrics.x); near(b2.results.width, b2.lyrics.width);
     expect(b2.lyrics.y).toBeGreaterThan(b2.results.y + b2.results.height - 1);

@@ -70,8 +70,8 @@ test('registry: 後台金鑰被排除且不在清單內', async ({ browser }) =>
     expect(reg.LH_EXCLUDED_KEYS).toEqual(expect.arrayContaining(['haoYunQi_admin_key', 'haoYunQi_admin_theme']));
     const keys = reg.LH_KEYS.map(k => k.key);
     for (const k of reg.LH_EXCLUDED_KEYS) expect(keys).not.toContain(k);
-    expect(keys).toHaveLength(26);   // R2 主題加入 lh:bgFx，寬螢幕版面加入 lh:dock，底部面板高度加入 lh:sheetH
-    expect(new Set(keys).size).toBe(26);
+    expect(keys).toHaveLength(27);   // 平板三直排拉寬加入 lh:panelW；R2 主題加入 lh:bgFx，寬螢幕版面加入 lh:dock，底部面板高度加入 lh:sheetH
+    expect(new Set(keys).size).toBe(27);
 });
 
 test('registry: 掃描器自我檢查', () => {

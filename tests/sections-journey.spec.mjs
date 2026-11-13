@@ -64,6 +64,7 @@ test('整合：段落模組一次走完', async ({ browser }) => {
 
     // ===== 7. 刪掉最後一段，按提示的「復原」救回（顏色、類型都在）=====
     await secs(page).nth(2).locator('.section-remove').click();
+    await page.locator('#lhAskActions .song-danger-btn').click();
     await expect(secs(page)).toHaveCount(2);
     await page.locator('#copyToast .toast-action').click();
     await expect(secs(page)).toHaveCount(3);

@@ -53,7 +53,9 @@ function lhSecFields(s) {
         color: typeof s.color === 'string' && LH_SEC_COLOR_RE.test(s.color) ? s.color.toLowerCase() : '',
         height: Number.isFinite(s.height) && s.height >= LH_SEC_H_MIN && s.height <= LH_SEC_H_MAX ? Math.round(s.height * 10) / 10 : null,
         ...lhSecColFields(s),
-        ...(pos ? { pos } : {})
+        ...(pos ? { pos } : {}),
+        ...(s.align === 'center' || s.align === 'right' ? { align: s.align } : {}),   // 文字對齊：預設靠左（沒有欄位）
+        ...(s.rj === true ? { rj: true } : {})   // 吸附排版：和前一段同一列（沒有欄位＝自己一列）
     };
 }
 
@@ -272,8 +274,11 @@ function lhSecFinalize(sections) {
         if (!f.cols) delete s.cols;
         if (!f.role) delete s.role;
         if (!f.pos) delete s.pos;
+        if (!f.align) delete s.align;
+        if (!f.rj) delete s.rj;
         Object.assign(s, f);
     }
+    if (sections[0]) delete sections[0].rj;   // 第一段一定是第一列的開頭
     const names = lhSecNames(sections);
     sections.forEach((s, i) => { s.label = names[i]; });
     return sections;
@@ -374,4 +379,61 @@ function lhCanvasPushApart(rects, fixed, maxIter = LH_CV_PUSH_MAX) {
         if (r.some((o, j) => j !== i && ov(o, r[i]))) r[i].y = Math.max(...r.map(o => o.y + o.h)) + LH_CV_GAP;
     }
     return r;
+}
+
+
+// ==================== 吸附排版（完整編輯器）：段落分列的純函式 ====================
+// 版面＝段落順序＋「哪些段落和前一段同一列」（段落的 rj 旗標）；沒有旗標＝每段自己一列（原本的直列）。
+// 列內等寬、每列最多 LH_ROW_MAX 張。拖放規則和主視窗的區塊吸附一樣：中間＝互換，左右＝加進那一列（一起分寬度），上下＝另開一列。
+const LH_ROW_MAX = 4;
+
+// 段落陣列 → 列（每列是 id 陣列）
+function lhRowsOf(sections) {
+    const rows = [];
+    sections.forEach((s, i) => {
+        if (i > 0 && s.rj && rows.length) rows[rows.length - 1].push(s.id);
+        else rows.push([s.id]);
+    });
+    return rows;
+}
+
+// 指標在目標卡片裡的落點：最近的邊距離 < 0.25 取那一邊，否則中間（互換）
+function lhRowsZone(r, x, y) {
+    const nx = (x - r.x) / r.w, ny = (y - r.y) / r.h;
+    const d = { left: nx, right: 1 - nx, top: ny, bottom: 1 - ny };
+    const edge = Object.keys(d).reduce((a, b) => d[a] <= d[b] ? a : b);
+    return d[edge] < 0.25 ? edge : 'center';
+}
+
+// 拖放：把 src 放到 dst 的 zone。回傳新的列；不允許（同一張、找不到、該列已滿）或結果沒變回傳 null。不改動輸入
+function lhRowsDrop(rows, src, dst, zone) {
+    const has = id => rows.some(r => r.includes(id));
+    if (src === dst || !has(src) || !has(dst)) return null;
+    let out;
+    if (zone === 'center') {
+        out = rows.map(r => r.map(id => id === src ? dst : id === dst ? src : id));
+    } else {
+        const rest = rows.map(r => r.filter(id => id !== src)).filter(r => r.length);
+        const ri = rest.findIndex(r => r.includes(dst));
+        if (zone === 'left' || zone === 'right') {
+            if (rest[ri].length >= LH_ROW_MAX) return null;
+            const k = rest[ri].indexOf(dst) + (zone === 'right' ? 1 : 0);
+            out = rest.map((r, i) => i === ri ? [...r.slice(0, k), src, ...r.slice(k)] : r);
+        } else {
+            out = [...rest.slice(0, ri + (zone === 'bottom' ? 1 : 0)), [src], ...rest.slice(ri + (zone === 'bottom' ? 1 : 0))];
+        }
+    }
+    return JSON.stringify(out) === JSON.stringify(rows) ? null : out;
+}
+
+// 把列寫回段落陣列：就地重排順序並設定 rj（rows 必須剛好含每個段落一次，否則不動並回傳 false）
+function lhRowsApply(sections, rows) {
+    const flat = rows.flat();
+    if (flat.length !== sections.length || new Set(flat).size !== flat.length) return false;
+    const byId = new Map(sections.map(s => [s.id, s]));
+    if (!flat.every(id => byId.has(id))) return false;
+    const next = flat.map(id => byId.get(id));
+    rows.forEach(r => r.forEach((id, k) => { const s = byId.get(id); if (k) s.rj = true; else delete s.rj; }));
+    sections.splice(0, sections.length, ...next);
+    return true;
 }
