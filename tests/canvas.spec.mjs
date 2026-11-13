@@ -2,7 +2,7 @@
 import { test, expect } from '@playwright/test';
 import { readFileSync } from 'node:fs';
 import { bootPage, activeSongRaw } from './helpers.mjs';
-import { DEVICES } from './layout-lib.mjs';
+import { DEVICES, emulateKeyboard, restoreViewport } from './layout-lib.mjs';
 import { touchSession } from './drag-lib.mjs';
 
 const FIXTURE = JSON.parse(readFileSync(new URL('./fixtures/v096-localStorage.json', import.meta.url), 'utf8'));
@@ -344,4 +344,228 @@ test('手機：觸控拖標題列能移動卡片', async ({ browser }) => {
     expect(await posOf(page, 'sb')).toEqual(small.sb);
     expect(errors).toEqual([]);
     await context.close();
+});
+
+// ===== 露出卡片只捲畫布、不捲外層 =====
+// 畫布外每一層的 [scrollTop, scrollLeft]，最後一個是 [scrollX, scrollY]
+const outerScroll = page => page.evaluate(() => {
+    const out = [];
+    for (let e = document.getElementById('lyricsSections').parentElement; e; e = e.parentElement) out.push([e.scrollTop, e.scrollLeft]);
+    out.push([window.scrollX, window.scrollY]);
+    return out;
+});
+// 卡片左上角在畫布可視範圍內
+const revealed = (page, id) => page.evaluate(id => {
+    const box = document.getElementById('lyricsSections'), r = document.querySelector('#lyricsSections [data-id="' + id + '"]').getBoundingClientRect(), b = box.getBoundingClientRect();
+    const l = b.left + box.clientLeft, t = b.top + box.clientTop;
+    return r.left >= l - 1 && r.left <= l + box.clientWidth && r.top >= t - 1 && r.top <= t + box.clientHeight;
+}, id);
+const FAR = { sa: POS.sa, sb: POS.sb, sc: { x: 24, y: 1400, w: 360, h: 200 } };
+const scrollTop0 = page => page.evaluate(() => document.getElementById('lyricsSections').scrollTo(0, 0));
+
+test('新增與刪除：新卡片在最下面且只捲畫布；刪除不動別張、復原回原位', async ({ browser }) => {
+    const { context, page, errors } = await boot(browser, seeded(FAR));
+    await scrollTop0(page);
+    const o0 = await outerScroll(page);
+    await page.locator('.section-add-btn').click();
+    expect(await page.evaluate(() => curSong().sections.length)).toBe(4);
+    expect(await page.evaluate(() => 'pos' in curSong().sections[3])).toBe(false);
+    const id = await page.evaluate(() => curSong().sections[3].id);
+    const nb = await boxOf(page, id);
+    for (const o of ['sa', 'sb', 'sc']) { const b = await boxOf(page, o); expect(nb.y).toBeGreaterThanOrEqual(b.y + b.height - 1); }
+    expect(await revealed(page, id)).toBe(true);
+    expect(await page.evaluate(() => document.getElementById('lyricsSections').scrollTop)).toBeGreaterThan(0);
+    expect(await outerScroll(page)).toEqual(o0);
+    await scrollTop0(page);
+    await page.locator(`${SEC('sb')} .section-remove`).click();
+    expect(await posOf(page, 'sa')).toEqual(FAR.sa);
+    expect(await posOf(page, 'sc')).toEqual(FAR.sc);
+    await page.locator('#undoBtn').click();
+    expect(await posOf(page, 'sb')).toEqual(FAR.sb);
+    expect(await outerScroll(page)).toEqual(o0);
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('露出卡片：復原、重做、聚焦、Alt+↑、移到段落都只捲畫布', async ({ browser }) => {
+    const { context, page, errors } = await boot(browser, seeded(FAR, { mode: 'free' }, { sa: '我愛你你愛我' }));
+    const focusEnd = id => page.evaluate(id => { const t = document.querySelector('#lyricsSections [data-id="' + id + '"] .section-textarea'); t.focus({ preventScroll: true }); t.setSelectionRange(t.value.length, t.value.length); }, id);
+    const settle = async fn => {   // 共同規則：先捲回 (0,0)、記外層、做一步，之後 sc 要露出、外層不動
+        await scrollTop0(page);
+        const o = await outerScroll(page);
+        await fn();
+        expect(await revealed(page, 'sc')).toBe(true);
+        expect(await outerScroll(page)).toEqual(o);
+    };
+    // 1 復原一個字
+    await focusEnd('sc');
+    await page.keyboard.insertText('X');
+    await expect(page.locator(`${SEC('sc')} .section-textarea`)).toHaveValue('十X');
+    await settle(async () => { await page.locator('#undoBtn').click(); await expect(page.locator(`${SEC('sc')} .section-textarea`)).toHaveValue('十'); });
+    // 2 重做
+    await settle(async () => { await page.locator('#redoBtn').click(); await expect(page.locator(`${SEC('sc')} .section-textarea`)).toHaveValue('十X'); });
+    // 3 原生聚焦
+    await page.locator('#lyricsSections').evaluate(b => b.querySelector('[data-id="sa"] .section-textarea').focus({ preventScroll: true }));
+    await settle(async () => { await page.focus(`${SEC('sc')} .section-textarea`); });
+    // 4 Alt+↑
+    await page.evaluate(() => document.querySelector('#lyricsSections [data-id="sc"] .section-handle').focus({ preventScroll: true }));
+    await settle(async () => { await page.keyboard.press('Alt+ArrowUp'); });
+    expect(await idsOf(page)).toEqual(['sa', 'sc', 'sb']);
+    for (const id of ['sa', 'sb', 'sc']) expect(await posOf(page, id)).toEqual(FAR[id]);
+    // 5 移到段落（選字 → 右鍵 → 移到段落 ▸ → 目標段落）
+    await page.evaluate(() => { const t = document.querySelector('#lyricsSections [data-id="sa"] .section-textarea'); t.focus({ preventScroll: true }); t.setSelectionRange(0, 2); });
+    await settle(async () => {
+        await page.evaluate(() => document.querySelector('#lyricsSections [data-id="sa"] .section-textarea').dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 200, clientY: 200 })));
+        await page.locator('#moveSelMenu button').click();
+        await page.locator('#moveSelSub .move-sel-to', { hasText: 'Bridge' }).click();
+        await expect(page.locator(`${SEC('sc')} .section-textarea`)).toHaveValue('十X\n我愛');
+    });
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('帶游標打開編輯器：只捲畫布，外層與頁面不動', async ({ browser }) => {
+    const { context, page, errors } = await boot(browser, seeded(FAR));
+    await page.keyboard.press('Escape');
+    await expect(page.locator(ED)).toBeHidden();
+    const w0 = await page.evaluate(() => [window.scrollX, window.scrollY]);
+    await page.evaluate(() => lhEditorOpen(document.querySelector('#lyricsSections [data-id="sc"] .section-textarea'), [0, 0]));
+    expect(await revealed(page, 'sc')).toBe(true);
+    const o = await outerScroll(page);
+    expect(o.slice(0, -1).every(v => v[0] === 0 && v[1] === 0)).toBe(true);
+    expect(o[o.length - 1]).toEqual(w0);
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('復原移動：畫布捲動位置與外層都不變', async ({ browser }) => {
+    const { context, page, errors } = await boot(browser, seeded(FAR));
+    await page.evaluate(() => document.getElementById('lyricsSections').scrollTo(0, 1200));
+    expect(await revealed(page, 'sc')).toBe(true);
+    await drag(page, await cen(GRIP('sc')(page)), 40, 0);
+    expect((await posOf(page, 'sc')).x).toBe(64);
+    const sc = await page.evaluate(() => { const b = document.getElementById('lyricsSections'); return [b.scrollTop, b.scrollLeft]; });
+    const o = await outerScroll(page);
+    await page.locator('#undoBtn').click();
+    expect((await posOf(page, 'sc')).x).toBe(24);
+    expect(await page.evaluate(() => { const b = document.getElementById('lyricsSections'); return [b.scrollTop, b.scrollLeft]; })).toEqual(sc);
+    expect(await outerScroll(page)).toEqual(o);
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+// ===== 手機鍵盤：自由畫布退回直列 =====
+test('手機鍵盤打開：退回整齊直列，收起來再排回自由', async ({ browser }) => {
+    const small = { sa: { x: 24, y: 24, w: 300, h: 200 }, sb: { x: 24, y: 300, w: 300, h: 200 } };
+    const s = [song('s1', '第一首', [typed('sa', 'verse', '一二三', { pos: small.sa }), typed('sb', 'chorus', '七八九', { pos: small.sb })], 1, { canvas: { mode: 'free' } })];
+    const { context, page, errors } = await boot(browser, s, { device: DEVICES.phone, open: false });
+    await page.evaluate(() => lhEditorOpen());
+    await expect(page.locator('#lyricsSections')).toHaveAttribute('data-canvas', 'free');
+    await page.evaluate(() => document.querySelector('#lyricsSections [data-id="sa"] .section-textarea').focus({ preventScroll: true }));
+    const size = await emulateKeyboard(page, 300);
+    await expect(page.locator('html')).toHaveClass(/kb-open/);
+    expect(await page.locator(SEC('sa')).evaluate(e => getComputedStyle(e).position)).not.toBe('absolute');
+    expect(await page.evaluate(() => document.getElementById('lyricsSections').dataset.canvas)).toBeUndefined();
+    await restoreViewport(page, size);
+    await expect(page.locator('html')).not.toHaveClass(/kb-open/);
+    await expect(page.locator('#lyricsSections')).toHaveAttribute('data-canvas', 'free');
+    expect(await page.locator(SEC('sa')).evaluate(e => getComputedStyle(e).position)).toBe('absolute');
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('鍵盤打開（直列退路）：拖 ⋮⋮ 照舊排序、標籤是排序', async ({ browser }) => {
+    const { context, page, errors } = await boot(browser, seeded());
+    // 模擬 kb-open 的狀態（真的鍵盤只留一段；這裡把其餘段落顯示出來，才能測排序）
+    await page.addStyleTag({ content: 'html.kb-open .lyrics-editor-body .lyrics-section:not(:focus-within) { display: flex !important; }' });
+    await page.evaluate(() => { document.documentElement.classList.add('kb-open'); lhCanvasApply(); });
+    expect(await page.evaluate(() => document.getElementById('lyricsSections').dataset.canvas)).toBeUndefined();
+    expect(await GRIP('sa')(page).getAttribute('aria-label')).toMatch(/^拖曳排序「/);
+    const from = await cen(GRIP('sc')(page));
+    const ab = await boxOf(page, 'sa');
+    await page.mouse.move(...from);
+    await page.mouse.down();
+    await page.mouse.move(ab.x + ab.width / 2, ab.y + ab.height * 0.25, { steps: 12 });
+    await page.mouse.up();
+    expect(await idsOf(page)).toEqual(['sc', 'sa', 'sb']);
+    for (const id of ['sa', 'sb', 'sc']) expect(await posOf(page, id)).toEqual(POS[id]);
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+// ===== 自由模式下選字浮動列、角色標記、打字、移到段落都照常 =====
+const BAR = '#rhymeSelBar', MENU = '#roleSelMenu';
+const ROLES = [{ id: 'r-m', name: '男', color: '#4a7fd4' }, { id: 'r-f', name: '女', color: '#e05d5d' }];
+const mk = (a, b, r) => ({ a, b, r });
+const freeRoles = () => [song('s1', '第一首', ['sa', 'sb', 'sc'].map((id, i) => typed(id, 'verse', i === 0 ? '我愛你你愛我' : '愛愛', { pos: POS[id], ...(i === 0 ? { marks: [mk(0, 3, 'r-m'), mk(3, 6, 'r-f')] } : {}) })), 1, { canvas: { mode: 'free' }, roles: ROLES })];
+const kbSelect = async (page, a, b, n = 0) => {
+    await page.evaluate(([b, n]) => { const t = document.querySelectorAll('.section-textarea')[n]; t.focus({ preventScroll: true }); t.setSelectionRange(b, b); }, [b, n]);
+    for (let i = 0; i < b - a; i++) await page.keyboard.press('Shift+ArrowLeft');
+};
+
+test('自由模式：選字浮動列出現在選取那一行下方、靠近選取結尾', async ({ browser }) => {
+    const { context, page, errors } = await boot(browser, freeRoles());
+    await kbSelect(page, 1, 4);
+    await expect(page.locator(BAR)).toBeVisible();
+    const box = await page.locator(BAR).boundingBox();
+    const line = await page.evaluate(() => { const ta = document.querySelectorAll('.section-textarea')[0], m = lhMirror(ta), p = lhCaretRect(ta, m, 4); m.remove(); return { bottom: p.top + p.height, left: p.left }; });
+    expect(box.y).toBeGreaterThanOrEqual(line.bottom - 0.5);
+    expect(Math.abs(box.x - line.left)).toBeLessThan(40);
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('自由模式：指定角色（新角色與既有角色）標記正確、可復原', async ({ browser }) => {
+    const { context, page, errors } = await boot(browser, freeRoles());
+    await kbSelect(page, 1, 4);
+    await page.locator(BAR + ' .rm-bar-role').click();
+    await expect(page.locator(MENU)).toBeVisible();
+    await page.locator(MENU + ' .role-sel-item').nth(1).click();
+    expect(await page.evaluate(() => curSong().sections[0].marks)).toEqual([mk(0, 1, 'r-m'), mk(1, 6, 'r-f')]);
+    await kbSelect(page, 0, 2, 1);
+    await page.locator(BAR + ' .rm-bar-role').click();
+    await page.locator(MENU + ' .role-sel-new').click();
+    const r = await page.evaluate(() => ({ roles: curSong().roles.length, marks: curSong().sections[1].marks }));
+    expect(r.roles).toBe(3);
+    expect(r.marks).toEqual([mk(0, 2, r.marks[0].r)]);
+    await expect.poll(async () => ((await activeSongRaw(page)).sections[1].marks || []).length).toBe(1);
+    await page.keyboard.press('ControlOrMeta+z');
+    expect(await page.evaluate(() => curSong().sections[1].marks || null)).toBeNull();
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('自由模式：選字後打字，文字與標記一致、存檔跟著', async ({ browser }) => {
+    const { context, page, errors } = await boot(browser, freeRoles());
+    await page.evaluate(() => { const t = document.querySelectorAll('.section-textarea')[0]; t.focus({ preventScroll: true }); t.setSelectionRange(1, 1); });
+    await page.keyboard.insertText('X');
+    expect(await page.evaluate(() => curSong().sections[0].marks)).toEqual([mk(0, 4, 'r-m'), mk(4, 7, 'r-f')]);
+    await page.evaluate(() => { const t = document.querySelectorAll('.section-textarea')[0]; t.setSelectionRange(5, 6); });
+    await page.keyboard.insertText('Y');
+    const st = await page.evaluate(() => ({ text: curSong().sections[0].text, marks: curSong().sections[0].marks }));
+    expect(st.text).toBe('我X愛你你Y我');
+    for (const m of st.marks) { expect(m.a).toBeGreaterThanOrEqual(0); expect(m.b).toBeLessThanOrEqual(st.text.length); expect(m.a).toBeLessThan(m.b); }
+    await expect.poll(async () => { const s = await activeSongRaw(page); return JSON.stringify([s.sections[0].text, s.sections[0].marks]); }).toBe(JSON.stringify([st.text, st.marks]));
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('自由模式：右鍵 → 移到段落 ▸ 照常，字搬過去、一步復原', async ({ browser }) => {
+    const { context, page, errors } = await boot(browser, freeRoles());
+    await page.evaluate(() => { const t = document.querySelectorAll('.section-textarea')[0]; t.focus({ preventScroll: true }); t.setSelectionRange(0, 2); });
+    expect(await page.evaluate(() => { const ev = new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 200, clientY: 200 }); document.querySelectorAll('.section-textarea')[0].dispatchEvent(ev); return ev.defaultPrevented; })).toBe(true);
+    await expect(page.locator('#moveSelMenu')).toBeVisible();
+    await page.locator('#moveSelMenu button').click();
+    await page.locator('#moveSelSub .move-sel-to').nth(1).click();
+    expect(await page.evaluate(() => curSong().sections.map(s => s.text))).toEqual(['你你愛我', '愛愛\n我愛', '愛愛']);
+    for (const id of ['sa', 'sb', 'sc']) expect(await posOf(page, id)).toEqual(POS[id]);
+    await page.locator('#undoBtn').click();
+    expect(await page.evaluate(() => curSong().sections.map(s => s.text))).toEqual(['我愛你你愛我', '愛愛', '愛愛']);
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('canvas.js 沒有 HTML 字串寫入', async () => {
+    const src = readFileSync(new URL('../js/canvas.js', import.meta.url), 'utf8');
+    expect(src).not.toMatch(/innerHTML|outerHTML|insertAdjacentHTML/);
 });

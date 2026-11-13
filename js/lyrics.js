@@ -149,7 +149,7 @@
                 const ta = el.querySelector('.section-textarea');
                 if (ta) ta.focus({ preventScroll: true });
             }
-            el.scrollIntoView({ block: 'nearest' });
+            if (!(typeof lhCanvasReveal === 'function' && lhCanvasReveal(el))) el.scrollIntoView({ block: 'nearest' });   // 自由畫布只捲畫布本身
         }
 
         // 整個編輯器依目前這首歌重畫（開機、切歌、匯入後）
@@ -356,7 +356,8 @@
             if (ta && ta.isConnected) {
                 ta.focus({ preventScroll: true });
                 if (sel) ta.setSelectionRange(sel[0], sel[1]);
-                ta.closest('.lyrics-section')?.scrollIntoView({ block: 'nearest' });
+                const card = ta.closest('.lyrics-section');
+                if (card) if (!(typeof lhCanvasReveal === 'function' && lhCanvasReveal(card))) card.scrollIntoView({ block: 'nearest' });
             } else {
                 document.querySelector('#lyricsEditor .lyrics-editor').focus({ preventScroll: true });
             }

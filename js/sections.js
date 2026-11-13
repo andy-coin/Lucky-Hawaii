@@ -142,7 +142,8 @@ function lhSecMoveBy(id, delta) {
     // 往上：放到上一段前面；往下：放到下下段前面（沒有就最後）
     const next = delta < 0 ? song.sections[j] : song.sections[j + 1];
     const ok = lhSecMoveTo(id, next ? next.id : null);
-    if (ok) lhSecEl(id)?.scrollIntoView({ block: 'nearest' });
+    const el = ok && lhSecEl(id);
+    if (el) if (!(typeof lhCanvasReveal === 'function' && lhCanvasReveal(el))) el.scrollIntoView({ block: 'nearest' });
     return ok;
 }
 
@@ -1114,7 +1115,7 @@ function lhSecMoveText(srcId, a, b, text, toId) {
     if (!step) return false;
     lhSecFlash(dstId);
     const el = lhSecEl(dstId);
-    if (el) el.scrollIntoView({ block: 'nearest' });
+    if (el) if (!(typeof lhCanvasReveal === 'function' && lhCanvasReveal(el))) el.scrollIntoView({ block: 'nearest' });
     // 重畫後焦點會掉到 body，Cmd+Z 要在文字框裡才有效；觸控不聚焦（鍵盤不要彈出來）
     const ta = el && el.querySelector('.section-textarea');
     if (ta && matchMedia(_LH_FINE).matches) {

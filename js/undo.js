@@ -124,15 +124,16 @@ function _lhHistShow(before, after, caret) {
         area.value = s.text;
         area.setSelectionRange(pos, pos);
         lhSecCountOne(el);
-        el.scrollIntoView({ block: 'nearest' });   // 不搬焦點（D-13）
+        if (!(typeof lhCanvasReveal === 'function' && lhCanvasReveal(el))) el.scrollIntoView({ block: 'nearest' });   // 不搬焦點（D-13）
         return;
     }
     const list = document.getElementById('lyricsSections');
-    const top = list.scrollTop;
+    const top = list.scrollTop, left = list.scrollLeft;   // 自由畫布橫向也會捲
     const ae = document.activeElement;
     const focusId = ae && ae.classList.contains('section-textarea') ? ae.closest('.lyrics-section').dataset.id : null;
     renderLyricsSections();
     list.scrollTop = top;
+    list.scrollLeft = left;
     if (focusId) lhSecEl(focusId)?.querySelector('.section-textarea').focus({ preventScroll: true });
     const prev = new Map(before.map(s => [s.id, s]));
     const hit = after.find((s, i) => {

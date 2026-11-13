@@ -115,9 +115,11 @@ function _lhKbUpdate() {
     const zoomed = vv ? vv.scale > 1.01 : false;
     const touchish = lhIsSheetMode() || matchMedia('(pointer: coarse)').matches;
     const open = !zoomed && touchish && _lhTextFieldFocused() && (lhStableH - vvH >= LH_KB_THRESHOLD);
+    const was = root.classList.contains('kb-open');
     if (!open) {
         lhKbOpen = false;
         _lhKbClear(root);
+        if (was && typeof lhCanvasApply === 'function') lhCanvasApply();   // 鍵盤收起：自由畫布排回來（canvas.js 較晚載入）
         return;
     }
     // 不四捨五入：iOS 的 visualViewport 常是小數，湊整會讓面板差 0.5px 露出一條縫
@@ -126,6 +128,7 @@ function _lhKbUpdate() {
     root.style.setProperty('--kb-inset', Math.max(0, window.innerHeight - vvH - vvTop) + 'px');
     root.classList.add('kb-open');
     root.classList.toggle('kb-short', vvH < LH_KB_SHORT_H);
+    if (!was && typeof lhCanvasApply === 'function') lhCanvasApply();   // 鍵盤打開：自由畫布退回整齊直列，只留正在打字的那段
     // 剛從沒鍵盤變成有鍵盤（Android 是先聚焦、過一下才縮）：把正在打字的欄位捲進可見範圍
     if (!lhKbOpen) _lhKbReveal();
     lhKbOpen = true;
