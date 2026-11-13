@@ -123,6 +123,69 @@
             mobileTab('search');
         });
 
+        // ==================== 底部 sheet：把手拖曳調整高度 ====================
+        // 高度存成「可見高度的比例」（lh:sheetH），旋轉螢幕也成立；歌詞 sheet 與 AI sheet 共用
+        const LH_SHEET_KEY = 'lh:sheetH';
+        const LH_SHEET_MIN = 0.3;    // 放開時低於這個比例就收起（不存）
+        const LH_SHEET_MAX = 0.95;   // 最高 95%，上方留一條背景
+        let _lhSheetDragged = false;   // 剛拖過：吃掉放開後那一下 click，免得調高度同時把 sheet 關掉
+
+        // r 是數字就套用（CSS 看 html[data-sheet-h]），null 就回預設 78%
+        function _lhSheetApply(r) {
+            const root = document.documentElement;
+            if (typeof r === 'number') {
+                root.style.setProperty('--sheet-r', String(r));
+                root.setAttribute('data-sheet-h', '');
+            } else {
+                root.style.removeProperty('--sheet-r');
+                root.removeAttribute('data-sheet-h');
+            }
+        }
+        // 壞值（不是數字、超出 0.3–0.95）→ 回預設
+        _lhSheetApply(lhGetJSON(LH_SHEET_KEY, null, v => typeof v === 'number' && v >= LH_SHEET_MIN && v <= LH_SHEET_MAX));
+
+        document.querySelectorAll('.sheet-handle').forEach(handle => {
+            // 鍵盤 Enter／空白（detail 0）永遠是關閉；滑鼠／觸控剛拖完的那一下 click 不算
+            handle.addEventListener('click', e => {
+                if (_lhSheetDragged && e.detail !== 0) { _lhSheetDragged = false; return; }
+                mobileTab('search');
+            });
+            handle.addEventListener('pointerdown', e => {
+                if (!lhIsSheetMode() || !e.isPrimary || e.button !== 0) return;
+                _lhSheetDragged = false;
+                const startY = e.clientY, id = e.pointerId;
+                const startH = handle.closest('.side-panel').getBoundingClientRect().height;
+                const vh = window.innerHeight;
+                const root = document.documentElement;
+                const prev = root.hasAttribute('data-sheet-h') ? parseFloat(root.style.getPropertyValue('--sheet-r')) : null;
+                let dragging = false, r = null;
+                handle.setPointerCapture(id);
+                const move = ev => {
+                    const dy = ev.clientY - startY;
+                    if (!dragging && Math.abs(dy) < 6) return;   // 小於 6px 還算點擊
+                    dragging = true;
+                    r = Math.min(LH_SHEET_MAX, Math.max(0.05, (startH - dy) / vh));
+                    _lhSheetApply(r);
+                };
+                const end = () => {
+                    handle.removeEventListener('pointermove', move);
+                    handle.removeEventListener('pointerup', up);
+                    handle.removeEventListener('pointercancel', cancel);
+                };
+                const up = () => {
+                    end();
+                    if (!dragging) return;   // 沒拖：交給 click 收起
+                    _lhSheetDragged = true;
+                    if (r < LH_SHEET_MIN) { _lhSheetApply(prev); mobileTab('search'); return; }   // 拉很低 = 收起，高度維持上次
+                    lhSet(LH_SHEET_KEY, JSON.stringify(Math.round(r * 1000) / 1000));
+                };
+                const cancel = () => { end(); _lhSheetApply(prev); };
+                handle.addEventListener('pointermove', move);
+                handle.addEventListener('pointerup', up);
+                handle.addEventListener('pointercancel', cancel);
+            });
+        });
+
         // ===== 右側：保留池 =====
         function saveWord(word) {
             if (!savedWords.includes(word)) {

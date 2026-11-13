@@ -11,7 +11,7 @@
         }
 
         @media (max-width: 900px) {
-            /* 底部 sheet（UI-SPEC §6）：手機整個寬度；平板最寬 44rem 並置中；高度取可見高度的 78%（最高 52rem），上方至少留 22% 讓人看到背景、知道可以點掉 */
+            /* 底部 sheet（UI-SPEC §6）：手機整個寬度；平板最寬 44rem 並置中；高度取可見高度的 78%（最高 52rem），上方至少留 22% 讓人看到背景、知道可以點掉；拖把手可改高度（js/panels.js，存 lh:sheetH） */
             .side-panel {
                 top: auto;
                 bottom: 0;
@@ -27,6 +27,8 @@
                 box-shadow: 0 -6px 32px rgba(0,0,0,0.22);
                 z-index: 860; /* 必須高於 backdrop(840)，否則觸碰被攔截 */
             }
+            /* 拖過把手之後，高度改照存的比例（0.3–0.95，不受 52rem 上限）；html.kb-open 的規則權重較高，鍵盤開著仍撐滿可見高度 */
+            html[data-sheet-h] .side-panel { height: calc(var(--app-h) * var(--sheet-r)); }
             /* header 上的 save/load 在窄視窗讓位給 settings */
             .save-load-controls { display: none; }
             .side-panel:not(.collapsed) { transform: none; }
@@ -48,7 +50,8 @@
                 flex-shrink: 0;
                 border: 0;
                 background: none;
-                cursor: pointer;
+                cursor: ns-resize;   /* 可上下拖改高度 */
+                touch-action: none;   /* 只在把手上：觸控拖曳不被瀏覽器當成捲動，面板內容照常捲 */
                 -webkit-tap-highlight-color: transparent;
             }
             .sheet-handle::before {
