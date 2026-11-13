@@ -247,6 +247,7 @@
                 _lhSecFitRO.observe(ta);
                 return el;
             }));
+            if (typeof lhRolesRefresh === 'function') lhRolesRefresh();   // 換歌、別分頁更新：角色顏色變數跟著這首歌
             lhSecCountAll();
             lhHistEnsure(song, true);   // 每次重畫（開機、換歌、別的分頁更新）先把「現在」記成歷史的起點
             lhHistSyncButtons();

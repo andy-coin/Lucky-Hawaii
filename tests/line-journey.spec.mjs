@@ -136,7 +136,7 @@ test('整合：句構分析一次走完', async ({ browser }) => {
     // ===== e. 選 Verse II 第 2～4 行 → 📏 分析 =====
     await pick(page, 11, 26, 2);
     await expect(page.locator(BAR)).toBeVisible();
-    await expect(page.locator(BAR + ' button:visible')).toHaveText(['🔍 查韻：我', '✨ AI 建議', '📏 分析', '移到段落 ▸']);
+    await expect(page.locator(BAR + ' button:visible')).toHaveText(['🔍 查韻：我', '✨ AI 建議', '📏 分析', '指定角色 ▸', '移到段落 ▸']);
     await page.locator(AN_BTN).click();
     await expect(page.locator(AN)).toBeVisible();
     await expect(page.locator(AN + ' .section-menu-title')).toHaveText('句構：Verse II');

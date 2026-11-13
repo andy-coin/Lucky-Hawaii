@@ -165,12 +165,13 @@ function _lhMapEnLoad() {
     }).catch(e => lhWarn('英文押韻字表載入失敗', e));
 }
 
-function _lhMapBuildFrag(text, readings, refText, structs) {
+// rl（選用）：{ marks, idx } 角色標記；idx＝角色 id → 0..7（顏色槽）。標記範圍包進 span.rl，淡底疊在韻腳色塊下面
+function _lhMapBuildFrag(text, readings, refText, structs, rl) {
     const S = _lhMapSet;
     if (!_lhEnDict && _lhMapWl && /[A-Za-z]/.test(text)) _lhMapEnLoad();
     const needMk = !!_lhMapNeedMk();
     const needRhyme = _lhMapWl && (S.end || S.inner || S.letters || (S.line && S.lnRhyme));   // 詞庫沒載好前不做韻腳分析
-    const paintRows = (_lhMapWl && (S.end || S.inner)) || needMk;   // 只開結構字母：鏡像層不必逐行排版
+    const paintRows = (_lhMapWl && (S.end || S.inner)) || needMk || !!rl;   // 只開結構字母：鏡像層不必逐行排版
     const res = needRhyme ? lhRhymeAnalyze(text, { strict: S.strict, skipParticles: S.skipParticles, inner: S.inner, multi: S.multi, structs,
         palette: S.autoColor ? Array.from({ length: 16 }, (_, n) => _lhMapEffColor(n)) : null }, readings) : null;
     const frag = document.createDocumentFragment();
@@ -178,7 +179,15 @@ function _lhMapBuildFrag(text, readings, refText, structs) {
     // 對照差異：對照段落每個可分析行的字數（只要字數，不猜斷句，所以傳一個永遠說「沒有這個詞」的判斷）
     const diff = { refN: S.line && S.lnDiff ? lhLineRows(refText || '', () => false).map(x => x.n) : [], k: 0 };
     const rows = !paintRows ? [] : res ? res.rows : text.replace(/\r\n?/g, '\n').split('\n').map(line => ({ line, t: null, inner: [], ends: [] }));
+    let off = 0, mi = 0;   // off：這一行第一個字在整段文字裡的 UTF-16 位置；mi：目前對到的角色標記
     rows.forEach((r, n) => {
+        const rowOff = off;
+        off += r.line.length + 1;
+        let hasRl = false;
+        if (rl) {
+            while (mi < rl.marks.length && rl.marks[mi].b <= rowOff) mi++;
+            hasRl = mi < rl.marks.length && rl.marks[mi].a < rowOff + r.line.length;
+        }
         // 這一行要特別標示的字：每個句尾字（色塊，句尾上色開著才有；行中逗號、空白前的也算）、
         // 雙押／多押時句尾前面跟著押的字（同色淡一層，底下一條同色細線把整組連起來）與句中押韻的字（底線）
         const marks = new Map();
@@ -196,21 +205,40 @@ function _lhMapBuildFrag(text, readings, refText, structs) {
         const ga = S.line && S.lnSplit ? lhLineAnalyze(r.line, undefined, structs) : null;
         const gs = new Map();
         if (ga && ga.groups.length >= 2) ga.groups.forEach((g, k) => gs.set(ga.starts[k], { n: g, end: ga.ends[k], guess: ga.guess[k] }));
-        if (!marks.size && !mk && !gs.size) frag.append(r.line);
+        if (!marks.size && !mk && !gs.size && !hasRl) frag.append(r.line);
         else {
             const m = mk && _LH_TRAIL_WS.exec(r.line);
             const core = m ? r.line.slice(0, m.index) : r.line;
             let buf = '', dst = frag, gEnd = -1;
             let sp = null, prev = null;
-            const flush = () => { if (buf) { dst.append(buf); buf = ''; } };
+            let rsp = null, rslot = -1, u = 0;   // rsp：目前的角色底色 span；rslot：它的顏色槽（-1＝沒有角色；-2＝強制重開）
+            const flush = () => { if (buf) { (rsp || dst).append(buf); buf = ''; } };
             Array.from(core).forEach((c, i) => {
                 const g = gs.get(i);
                 if (g) {
                     flush();
+                    rsp = null; rslot = -2;
                     const ge = _lhMk('span', 'lm-g' + (g.guess ? ' lm-g-guess' : ''));
                     ge.dataset.n = String(g.n);
                     frag.append(ge);
                     dst = ge; gEnd = g.end; prev = null;
+                }
+                if (hasRl) {
+                    const o = rowOff + u;
+                    u += c.length;
+                    while (mi < rl.marks.length && rl.marks[mi].b <= o) mi++;
+                    const slot = mi < rl.marks.length && rl.marks[mi].a <= o ? rl.idx.get(rl.marks[mi].r) : -1;
+                    if (slot !== rslot) {
+                        flush();
+                        prev = null;
+                        rsp = null;
+                        if (slot >= 0) {
+                            rsp = _lhMk('span', 'rl');
+                            rsp.dataset.rl = String(slot);
+                            dst.append(rsp);
+                        }
+                        rslot = slot;
+                    }
                 }
                 const hit = marks.get(i);
                 if (!hit) { buf += c; prev = null; }
@@ -221,10 +249,10 @@ function _lhMapBuildFrag(text, readings, refText, structs) {
                     sp.className = hit.cls;
                     _lhMapTint(sp, hit);
                     sp.textContent = c;
-                    dst.append(sp);
+                    (rsp || dst).append(sp);
                     prev = hit;
                 }
-                if (i === gEnd - 1) { flush(); dst = frag; prev = null; }
+                if (i === gEnd - 1) { flush(); dst = frag; prev = null; rsp = null; rslot = -2; }
             });
             flush();
             if (mk) frag.append(mk);
@@ -266,7 +294,7 @@ function lhMapPaint(secEl) {
     const mirror = ta && _lhMapMirrorOf(ta);
     if (!sec || !mirror) return;
     const S = _lhMapSet;
-    const sig = [S.end, S.letters, S.inner, S.multi, S.autoColor, S.strict, S.skipParticles, S.line, S.lnRhyme, S.lnCount, S.lnSplit, S.lnDiff].map(Number).join('') + '|' + _lhMapEpoch + '|' + _lhMapReadVer;   // pos／size／depth／colors 只改 CSS，不進簽名（E2）
+    const sig = [S.end, S.letters, S.inner, S.multi, S.autoColor, S.strict, S.skipParticles, S.line, S.lnRhyme, S.lnCount, S.lnSplit, S.lnDiff].map(Number).join('') + '|' + _lhMapEpoch + '|' + _lhMapReadVer + '|' + (song.roles || []).map(r => r.id).join(',');   // pos／size／depth／colors 只改 CSS，不進簽名（E2）
     // 對照段落的文字（同類型第一段，CONTEXT B1）：對照差異關著就不看；它改了，這一段的快取就失效（RESEARCH X9）
     let refText = null;
     if (S.line && S.lnDiff) {
@@ -274,8 +302,12 @@ function lhMapPaint(secEl) {
         refText = r >= 0 ? song.sections[r].text : null;
     }
     const colOn = _lhMapPaintCols(secEl, sec, song);
+    // 角色標記：只留認得的角色（刪掉的角色留下的標記不畫）；槽號＝角色在清單裡的順序，對應 --rl0..--rl7
+    const idx = new Map((song.roles || []).map((r, k) => [r.id, k]));
+    const rlm = (sec.marks || []).filter(m => idx.has(m.r));
+    const rl = rlm.length ? { marks: rlm, idx } : null;
     const hit = _lhMapCache.get(sec.id);
-    if (hit && hit.text === sec.text && hit.sig === sig && hit.ref === refText) {   // 沒變：只把「暫時藏起來」解除，不重畫
+    if (hit && hit.text === sec.text && hit.sig === sig && hit.ref === refText && hit.marks === sec.marks) {   // 沒變：只把「暫時藏起來」解除，不重畫
         mirror.classList.remove('rm-stale', 'lm-typing');
         secEl.classList.toggle('rm-on', hit.on || colOn);
         _lhMapSync(ta, mirror);
@@ -285,10 +317,10 @@ function lhMapPaint(secEl) {
     let on = false, res = null;
     const big = text.length > LH_WD_BIG || text.split('\n').length > LH_MAP_MAX_LINES;
     // 句尾上色、句中押韻、結構字母、逐行標記全關，或段落太大：完全不分析，和第 9 階段一樣（D-18、D-17）
-    if (!((_lhMapWl && (S.end || S.inner || S.letters)) || _lhMapNeedMk()) || big) {
+    if (!((_lhMapWl && (S.end || S.inner || S.letters)) || _lhMapNeedMk() || rl) || big) {
         mirror.replaceChildren();   // 關掉或太大：不分析，鏡像層留空
     } else {
-        const built = _lhMapBuildFrag(text, song.readings, refText, song.structs);
+        const built = _lhMapBuildFrag(text, song.readings, refText, song.structs, rl);
         res = built.res;
         on = built.on;
         mirror.replaceChildren(built.frag);
@@ -296,7 +328,7 @@ function lhMapPaint(secEl) {
     secEl.classList.toggle('rm-on', on || colOn);
     mirror.classList.remove('rm-stale', 'lm-typing');
     _lhMapSync(ta, mirror);   // 顯示出來之後才設得動 scrollTop，所以放在最後
-    _lhMapCache.set(sec.id, { text, sig, res, ref: refText, on });
+    _lhMapCache.set(sec.id, { text, sig, res, ref: refText, on, marks: sec.marks });
     _lhMapStrip(secEl, res, big);
 }
 
@@ -910,6 +942,7 @@ function lhMapCloseAll() {
     lhMapHideAnalysis();
     lhMapHideBar();
     lhMapCloseStats(false);
+    if (typeof lhRoleSelClose === 'function') lhRoleSelClose();
 }
 
 document.getElementById('rhymeMenuBtn').addEventListener('click', e => {
@@ -1158,6 +1191,9 @@ function lhMapBarBuild() {
     const mv = _lhMkBtn('section-menu-btn rm-bar-move', '移到段落 ▸');   // 桌機與觸控都有（桌機另外還能右鍵）
     mv.setAttribute('aria-haspopup', 'menu');
     mv.setAttribute('aria-controls', 'moveSelSub');
+    const role = _lhMkBtn('section-menu-btn rm-bar-role', '指定角色 ▸');   // 逐字角色標記（js/roles.js）；桌機與觸控都有
+    role.setAttribute('aria-haspopup', 'menu');
+    role.setAttribute('aria-controls', 'roleSelMenu');
     const rd = _lhMkBtn('section-menu-btn rm-bar-rd', '指定讀音');   // 只有句尾的破音字才顯示（lhMapShowBar）
     rd.hidden = true;
     rd.setAttribute('aria-expanded', 'false');
@@ -1165,7 +1201,7 @@ function lhMapBarBuild() {
     row.id = 'rhymeReadingRow';
     row.hidden = true;
     rd.setAttribute('aria-controls', row.id);
-    bar.append(look, ai, an, rd, mv, row);   // 編輯動作排最後
+    bar.append(look, ai, an, rd, role, mv, row);   // 編輯動作排最後
     // 按鈕不能搶走輸入框的焦點與選取（手機鍵盤也才不會收起來）
     for (const t of ['pointerdown', 'mousedown']) bar.addEventListener(t, e => e.preventDefault());
     look.addEventListener('click', e => lhMapLookup(_lhMapBarSnap && _lhMapBarSnap.char, false, e.detail === 0));
@@ -1181,6 +1217,14 @@ function lhMapBarBuild() {
         const snap = { secId: sn.secId, a: sn.a, b: sn.b, text: sn.ta.value.slice(sn.a, sn.b) };   // lhMapHideBar 會清掉 _lhMapBarSnap，先組好
         lhMapHideBar();
         lhMoveSelOpenSub(snap, r.left, r.bottom + 4, e.detail === 0, r);
+    });
+    role.addEventListener('click', e => {
+        const sn = _lhMapBarSnap;
+        if (!sn) return;
+        const r = role.getBoundingClientRect();
+        const snap = { secId: sn.secId, a: sn.a, b: sn.end, text: sn.ta.value.slice(sn.a, sn.end) };   // 結尾空白、換行不算；先組好再收列
+        lhMapHideBar();
+        lhRoleSelOpen(snap, r.left, r.bottom + 4, e.detail === 0, r);
     });
     rd.addEventListener('click', e => lhMapReadingToggle(e.detail === 0));
     row.addEventListener('click', e => {
@@ -1282,7 +1326,7 @@ function _lhMapSelCheck(ta, byMouse) {
     try {
         const a = ta.selectionStart, b = ta.selectionEnd;
         const rpt = document.getElementById('aiWordsContainer');
-        const busy = _lhComposing || _lhDrag || _lhResize || _lhWd || _lhMenuId !== null || _lhMapMenuOn || _lhMoveSel !== null || (rpt && rpt.classList.contains('report-mode'));
+        const busy = _lhComposing || _lhDrag || _lhResize || _lhWd || _lhMenuId !== null || _lhMapMenuOn || _lhMoveSel !== null || (typeof lhRoleBusy === 'function' && lhRoleBusy()) || (rpt && rpt.classList.contains('report-mode'));
         if (busy || a === b || ta.getClientRects().length === 0 || _lhMapSelSig(ta) === _lhMapBarSkip) return lhMapHideBar();
         const v = ta.value;
         const text = v.slice(a, b);

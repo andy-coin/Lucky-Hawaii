@@ -1738,6 +1738,28 @@
             .rm-hl { background: var(--rm-c); opacity: 0.34; }
             .rm-hl.rm-solo, .rm-multi { background: var(--rm-c); opacity: 0.17; }
         }
+        /* 角色標記（js/roles.js）：標記範圍在鏡像層包一層 span.rl，畫角色色的淡底。不加 padding／margin／border，字的位置和輸入框逐字相同；
+           韻腳色塊是和 --card-bg 混成的不透明色，疊在這層淡底上面，兩者不打架。深色主題底更暗，淡底要濃一點才看得出來（--rl-mix 各主題可調） */
+        .rhyme-mirror .rl {
+            background: color-mix(in srgb, var(--rl-c) var(--rl-mix, 24%), transparent);
+            border-radius: 0.2rem;
+            -webkit-box-decoration-break: clone;
+            box-decoration-break: clone;
+        }
+        [data-theme="dark"] .rhyme-mirror .rl { --rl-mix: 36%; }
+        @supports not (background: color-mix(in srgb, red 50%, blue)) {
+            .rhyme-mirror .rl { background: transparent; box-shadow: inset 0 -0.2em 0 var(--rl-c); }
+        }
+        [data-rl="0"] { --rl-c: var(--rl0, transparent); }
+        [data-rl="1"] { --rl-c: var(--rl1, transparent); }
+        [data-rl="2"] { --rl-c: var(--rl2, transparent); }
+        [data-rl="3"] { --rl-c: var(--rl3, transparent); }
+        [data-rl="4"] { --rl-c: var(--rl4, transparent); }
+        [data-rl="5"] { --rl-c: var(--rl5, transparent); }
+        [data-rl="6"] { --rl-c: var(--rl6, transparent); }
+        [data-rl="7"] { --rl-c: var(--rl7, transparent); }
+        .role-dot { display: inline-block; width: 0.75rem; height: 0.75rem; border-radius: 50%; background: var(--rl-c); margin-inline-end: 0.375rem; vertical-align: middle; }
+        .role-sel-new[aria-disabled="true"] { opacity: 0.5; }
         [data-f="0"] { --rm-c: var(--rm-c0); }
         [data-f="1"] { --rm-c: var(--rm-c1); }
         [data-f="2"] { --rm-c: var(--rm-c2); }

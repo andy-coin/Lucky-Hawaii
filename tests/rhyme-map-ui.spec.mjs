@@ -945,13 +945,13 @@ test('浮動列：這些情況不出現，或只剩「分析」', async ({ brows
     // D-07（覆寫第 10 階段）：沒有中文字、或太長，只有分析鈕；碰到的行沒有可數的字才完全不出現
     await pick(page, 0, 3, 1);
     await waitBar(page);                               // 'abc'：英文歌詞也能分析
-    expect(await shown(), "'abc'：分析、移到段落").toEqual(['an', 'move']);
+    expect(await shown(), "'abc'：分析、指定角色、移到段落").toEqual(['an', 'role', 'move']);
     await pick(page, 0, 21, 2);
     await waitBar(page);
-    expect(await shown(), '21 個字：分析、移到段落').toEqual(['an', 'move']);
+    expect(await shown(), '21 個字：分析、指定角色、移到段落').toEqual(['an', 'role', 'move']);
     await pick(page, 0, 20, 2);
     await expect(page.locator(BAR + ' .rm-bar-look')).toBeVisible();
-    expect(await shown(), '20 個字剛好：查韻、AI、分析、移到段落').toEqual(['look', 'ai', 'an', 'move']);
+    expect(await shown(), '20 個字剛好：查韻、AI、分析、指定角色、移到段落').toEqual(['look', 'ai', 'an', 'role', 'move']);
     await expect(page.locator(BAR + ' .rm-bar-look')).toHaveText('🔍 查韻：' + CHINESE21[19]);
     await pick(page, 3, 3);
     await expect(page.locator(BAR)).toBeHidden();

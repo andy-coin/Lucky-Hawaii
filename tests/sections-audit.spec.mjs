@@ -376,7 +376,7 @@ function htmlSinks(code) {
     return hits;
 }
 test('檢查：新程式沒有拼 HTML', () => {
-    const FILES = ['js/sections-core.js', 'js/sections.js', 'js/undo.js', 'js/word-drag.js', 'js/rhyme-core.js', 'js/rhyme-map.js'];
+    const FILES = ['js/sections-core.js', 'js/sections.js', 'js/undo.js', 'js/word-drag.js', 'js/rhyme-core.js', 'js/rhyme-map.js', 'js/roles.js'];
     for (const f of FILES) {
         const code = readFileSync(f, 'utf8');
         expect(code.length, f + ' 有讀到').toBeGreaterThan(500);
