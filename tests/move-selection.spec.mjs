@@ -54,3 +54,79 @@ test('移到段落：右鍵 → 子選單 → 接到 Chorus 最後 → 存檔 �
     expect(errors).toEqual([]);
     await context.close();
 });
+
+test('移到段落：＋ 新段落建在原段落後面，類型用猜的', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, { wordlist: 'stub', storage: two() });
+    await pick(page, 0, 2);
+    await rightClick(page);
+    await page.locator(ROOT + ' button').click();
+    await expect(page.locator(SUB + ' button')).toHaveText(['Verse（目前）', 'Chorus', '＋ 新段落']);
+    await page.locator(SUB + ' .move-sel-new').click();
+    const secs = await page.evaluate(() => curSong().sections.map(s => ({ type: s.type, text: s.text })));
+    expect(secs).toEqual([
+        { type: 'verse', text: '\n三四' }, { type: 'prechorus', text: '一二' }, { type: 'chorus', text: '五' },
+    ]);
+    await expect(page.locator('.section-textarea').nth(1)).toBeFocused();
+    await page.keyboard.press('ControlOrMeta+z');
+    expect(await texts(page)).toEqual(['一二\n三四', '五']);
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('移到段落：整段被移走，原段落保留為空', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, { wordlist: 'stub', storage: two() });
+    await pick(page, 0, 5);
+    await rightClick(page);
+    await page.locator(ROOT + ' button').click();
+    await page.locator(SUB + ' .move-sel-to').nth(1).click();
+    expect(await texts(page)).toEqual(['', '五\n一二\n三四']);
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('移到段落：沒選取、只選到空白換行，維持原生右鍵選單', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, { wordlist: 'stub', storage: two() });
+    await pick(page, 3, 3);
+    expect(await rightClick(page)).toBe(false);
+    await pick(page, 2, 3);   // 只選到換行
+    expect(await rightClick(page)).toBe(false);
+    await expect(page.locator(ROOT)).toBeHidden();
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('移到段落：快照過期不動任何字、不多記歷史', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, { wordlist: 'stub', storage: two() });
+    await pick(page, 3, 5);
+    await rightClick(page);
+    await page.locator(ROOT + ' button').click();
+    const before = await page.evaluate(() => _hists.get(curSong().id).past.length);
+    await page.evaluate(() => { curSong().sections[0].text = 'XX\nYY'; });   // 模擬內容在選單開著時變了
+    await page.locator(SUB + ' .move-sel-to').nth(1).click();
+    expect(await texts(page)).toEqual(['XX\nYY', '五']);
+    expect(await page.evaluate(() => _hists.get(curSong().id).past.length)).toBe(before);
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('移到段落：Esc 收起選單、焦點回文字框；方向鍵在項目間移動', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, { wordlist: 'stub', storage: two() });
+    await pick(page, 3, 5);
+    await rightClick(page);
+    await page.locator(ROOT + ' button').focus();
+    await page.keyboard.press('ArrowRight');
+    await expect(page.locator(SUB)).toBeVisible();
+    await expect(page.locator(SUB + ' .move-sel-to').nth(1)).toBeFocused();
+    await page.keyboard.press('ArrowDown');
+    await expect(page.locator(SUB + ' .move-sel-new')).toBeFocused();
+    await page.keyboard.press('ArrowDown');
+    await expect(page.locator(SUB + ' .move-sel-to').first()).toBeFocused();   // 頭尾相接；灰掉的可聚焦
+    await page.keyboard.press('ArrowLeft');
+    await expect(page.locator(SUB)).toBeHidden();
+    await expect(page.locator(ROOT + ' button')).toBeFocused();
+    await page.keyboard.press('Escape');
+    await expect(page.locator(ROOT)).toBeHidden();
+    await expect(page.locator('.section-textarea').first()).toBeFocused();
+    expect(errors).toEqual([]);
+    await context.close();
+});

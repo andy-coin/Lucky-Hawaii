@@ -430,6 +430,7 @@ function lhSecAbortInteractions() {
     lhSecDragEnd(false);
     lhSecResizeEnd(false);
     lhSecCloseMenu();
+    lhMoveSelClose();   // 選取移動選單（檔尾；函式宣告會提升）
     if (typeof lhMapCloseAll === 'function') lhMapCloseAll();   // 韻腳選單（js/rhyme-map.js 最後才載入）
     if (typeof lhWordDragCancel === 'function') lhWordDragCancel();   // word-drag.js 最後才載入；第一次重畫時它還不存在
 }
@@ -1081,7 +1082,7 @@ let _lhMoveSel = null;    // 選取快照 { secId, a, b, text }；null＝選單�
 let _lhMoveRoot = null;   // #moveSelMenu（第一次打開才建）
 let _lhMoveSub = null;    // #moveSelSub
 
-// toId 有值＝接在該段最後；null＝在原段落後面建新段落（Task 2 補）
+// toId 有值＝接在該段最後；null＝在原段落後面建新段落
 function lhSecMoveText(srcId, a, b, text, toId) {
     let dstId = toId;
     const step = lhSecApply('moveText', song => {
@@ -1091,7 +1092,12 @@ function lhSecMoveText(srcId, a, b, text, toId) {
         if (src.text.slice(a, b) !== text) return false;   // 快照過期：不動任何字，免得剪錯（T-q-01）
         const moved = text.replace(/^\n+|\n+$/g, '');
         if (!moved) return false;
-        const dst = song.sections.find(s => s.id === toId);
+        let dst;
+        if (toId === null) {   // 新段落：建在原段落正後方，類型用 lhNextSecType 猜
+            dst = makeEmptySection(lhNextSecType(src.type));
+            dstId = dst.id;
+            song.sections.splice(i + 1, 0, dst);
+        } else dst = song.sections.find(s => s.id === toId);
         if (!dst) return false;
         src.text = src.text.slice(0, a) + src.text.slice(b);
         dst.text = dst.text === '' ? moved : dst.text + (dst.text.endsWith('\n') ? '' : '\n') + moved;
@@ -1136,11 +1142,28 @@ function _lhMoveBuild() {
     });
     btn.addEventListener('click', e => _lhMoveOpenSubFromRoot(e.detail === 0));
     _lhMoveSub.addEventListener('click', e => {
-        const b = e.target.closest && e.target.closest('.move-sel-to');
+        const b = e.target.closest && e.target.closest('.move-sel-to, .move-sel-new');
         if (!b || b.getAttribute('aria-disabled') === 'true' || !_lhMoveSel) return;
         const s = _lhMoveSel;
         lhMoveSelClose();
-        lhSecMoveText(s.secId, s.a, s.b, s.text, b.dataset.id);
+        lhSecMoveText(s.secId, s.a, s.b, s.text, b.dataset.id || null);
+    });
+    // 方向鍵：上下在看得到的項目間移動（頭尾相接，灰掉的也可聚焦）；右鍵開子選單、左鍵收回
+    for (const m of [_lhMoveRoot, _lhMoveSub]) m.addEventListener('keydown', e => {
+        const items = [...m.querySelectorAll('button')].filter(x => x.offsetParent !== null), i = items.indexOf(document.activeElement);
+        if (i < 0) return;
+        if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+            e.preventDefault();
+            items[(i + (e.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length].focus({ preventScroll: true });
+        } else if (e.key === 'ArrowRight' && m === _lhMoveRoot) {
+            e.preventDefault();
+            _lhMoveOpenSubFromRoot(true);
+        } else if (e.key === 'ArrowLeft' && m === _lhMoveSub && _lhMoveRoot.classList.contains('show')) {
+            e.preventDefault();
+            m.classList.remove('show');
+            _lhMoveRoot.firstChild.setAttribute('aria-expanded', 'false');
+            _lhMoveRoot.firstChild.focus({ preventScroll: true });
+        }
     });
 }
 
@@ -1155,6 +1178,9 @@ function _lhMoveFillSub() {
         if (cur) b.setAttribute('aria-disabled', 'true');
         kids.push(b);
     }
+    const nb = _lhMkBtn('section-menu-btn move-sel-new', '＋ 新段落');
+    nb.setAttribute('role', 'menuitem');
+    kids.push(nb);
     _lhMoveSub.replaceChildren(...kids);
 }
 
