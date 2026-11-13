@@ -221,3 +221,124 @@ function _dkResizeStart(e, key) {
 }
 
 LH_MQ_DOCK.addEventListener('change', () => syncCenterPanel());
+
+// ==================== 拖標題列吸附（換位置／分割） ====================
+// 純函式 _dkDrop(t, src, dst, zone)：zone＝'left'|'right'|'top'|'bottom'|'center'。回傳新樹；落點不被允許回 null。不改動輸入。
+// 中間＝兩塊互換；邊緣＝把 src 拿掉後，在 dst 旁邊分割（父節點同方向就直接插進去、對半分 dst 的權重，否則 dst 換成分割）
+function _dkDrop(t, src, dst, zone) {
+    if (src === dst || !_dkInTree(t, src) || !_dkInTree(t, dst)) return null;
+    let out;
+    if (zone === 'center') {
+        const swap = n => typeof n === 'string' ? (n === src ? dst : n === dst ? src : n) : { d: n.d, k: n.k.map(swap), s: n.s.slice() };
+        out = swap(t);
+    } else {
+        const dir = zone === 'left' || zone === 'right' ? 'row' : 'col';
+        const pair = zone === 'left' || zone === 'top' ? [src, dst] : [dst, src];
+        const ins = n => {
+            if (n === dst) return { d: dir, k: pair, s: [1, 1] };
+            if (typeof n === 'string') return n;
+            const k = [], s = [];
+            n.k.forEach((c, i) => {
+                if (c === dst && n.d === dir) { k.push(...pair); s.push(n.s[i] / 2, n.s[i] / 2); }
+                else { k.push(ins(c)); s.push(n.s[i]); }
+            });
+            return { d: n.d, k, s };
+        };
+        out = ins(_dkPrune(t, id => id !== src));
+    }
+    return LH_DOCK_SHAPES.has(_dkSig(out)) ? out : null;
+}
+
+const LH_DOCK_HANDLES = { lyrics: '#leftPanel .lyrics-head', results: '#mainContainer > .header', ai: '#rightPanel .side-panel-body > .side-panel-title' };
+// 標題列上這些照樣是一般點擊，不會變成拖曳
+const LH_DOCK_NODRAG = 'button, input, select, textarea, a, label, [onclick], [role="button"], [contenteditable="true"], .model-picker';
+
+// 指標在目標塊裡的落點：最近的邊距離 < 0.25 取那一邊，否則中間
+function _dkZone(r, x, y) {
+    const nx = (x - r.x) / r.w, ny = (y - r.y) / r.h;
+    const d = { left: nx, right: 1 - nx, top: ny, bottom: 1 - ny };
+    const edge = Object.keys(d).reduce((a, b) => d[a] <= d[b] ? a : b);
+    return d[edge] < 0.25 ? edge : 'center';
+}
+
+// 預覽框的矩形：邊緣＝目標那一半，中間＝整塊
+function _dkPreviewRect(r, zone) {
+    const hw = r.w / 2, hh = r.h / 2;
+    switch (zone) {
+        case 'left': return { x: r.x, y: r.y, w: hw, h: r.h };
+        case 'right': return { x: r.x + hw, y: r.y, w: hw, h: r.h };
+        case 'top': return { x: r.x, y: r.y, w: r.w, h: hh };
+        case 'bottom': return { x: r.x, y: r.y + hh, w: r.w, h: hh };
+        default: return r;
+    }
+}
+
+document.addEventListener('pointerdown', e => {
+    if (!document.body.classList.contains('dock') || !e.isPrimary || e.button !== 0 || e.pointerType !== 'mouse') return;
+    const t = e.target instanceof Element ? e.target : null;
+    if (!t || t.closest(LH_DOCK_NODRAG)) return;
+    const src = Object.keys(LH_DOCK_HANDLES).find(id => t.closest(LH_DOCK_HANDLES[id]));
+    if (!src || !_dkRects[src]) return;
+    const x0 = e.clientX, y0 = e.clientY;
+    let started = false, cand = null;
+    const srcEl = document.getElementById(LH_DOCK_BLOCKS[src]);
+    let pv = null;
+    const hide = () => { if (pv) pv.hidden = true; };
+    const finish = commit => {
+        document.removeEventListener('pointermove', move);
+        document.removeEventListener('pointerup', up);
+        document.removeEventListener('pointercancel', cancel);
+        document.removeEventListener('keydown', key, true);
+        window.removeEventListener('blur', cancel);
+        hide();
+        document.body.classList.remove('dock-dragging');
+        srcEl.classList.remove('dock-src');
+        if (started && commit && cand) {
+            _dkTree = cand;
+            _dkSave();
+            lhDockRender();
+        }
+    };
+    const move = ev => {
+        if (!started) {
+            if (Math.hypot(ev.clientX - x0, ev.clientY - y0) <= 6) return;   // 還沒超過門檻：點擊與雙擊照舊
+            started = true;
+            window.getSelection().removeAllRanges();   // 清掉標題字上可能已經開始的原生選取
+            document.body.classList.add('dock-dragging');
+            srcEl.classList.add('dock-src');
+            pv = document.getElementById('dockPreview');
+            if (!pv) {
+                pv = document.createElement('div');
+                pv.id = 'dockPreview';
+                pv.setAttribute('aria-hidden', 'true');
+                document.body.appendChild(pv);
+            }
+        }
+        const dst = Object.keys(_dkRects).find(id => {
+            const r = _dkRects[id];
+            return id !== src && ev.clientX >= r.x && ev.clientX <= r.x + r.w && ev.clientY >= r.y && ev.clientY <= r.y + r.h;
+        });
+        cand = null;
+        if (dst) {
+            const zone = _dkZone(_dkRects[dst], ev.clientX, ev.clientY);
+            cand = _dkDrop(_dkVis, src, dst, zone);
+            if (cand) {
+                // 剛從隱藏變顯示：直接出現在位置上，不要從左上角滑過來
+                const fresh = pv.hidden;
+                if (fresh) pv.style.transition = 'none';
+                _dkSetVars(pv, _dkPreviewRect(_dkRects[dst], zone));
+                pv.hidden = false;
+                if (fresh) { pv.offsetWidth; pv.style.transition = ''; }
+            }
+        }
+        if (!cand) hide();
+    };
+    const up = () => finish(true);
+    const cancel = () => finish(false);
+    const key = ev => { if (ev.key === 'Escape' && started) { ev.stopPropagation(); finish(false); } };
+    document.addEventListener('pointermove', move);
+    document.addEventListener('pointerup', up);
+    document.addEventListener('pointercancel', cancel);
+    document.addEventListener('keydown', key, true);
+    window.addEventListener('blur', cancel);
+});

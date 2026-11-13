@@ -295,3 +295,112 @@ test('重設版面：只在 dock 顯示；點了回預設並清存檔', async ({
     expect(small.errors).toEqual([]);
     await small.context.close();
 });
+
+// ==================== 拖標題列吸附 ====================
+const L = 'lyrics', R = 'results', A = 'ai';
+const row = (k, s = k.map(() => 1)) => ({ d: 'row', k, s });
+const col = (k, s = k.map(() => 1)) => ({ d: 'col', k, s });
+// 只比結構（k 的樹），權重另外測
+const shape = t => typeof t === 'string' ? t : { d: t.d, k: t.k.map(shape) };
+
+test('_dkDrop：邊緣分割、中間互換、白名單之外回 null', async ({ browser }) => {
+    const { context, page, errors } = await boot(browser);
+    const drop = (t, src, dst, zone) => page.evaluate(([t, src, dst, zone]) => { const r = _dkDrop(t ?? _dkDefault(), src, dst, zone); return r && JSON.parse(JSON.stringify(r)); }, [t, src, dst, zone]);
+    const sh = r => r && shape(r);
+    expect(sh(await drop(null, A, R, 'bottom'))).toEqual(shape(row([L, col([R, A])])));
+    expect(sh(await drop(null, L, R, 'bottom'))).toEqual(shape(row([col([R, L]), A])));
+    expect(sh(await drop(null, L, A, 'center'))).toEqual(shape(row([A, R, L])));
+    expect(sh(await drop(null, L, A, 'right'))).toEqual(shape(row([R, A, L])));
+    expect(await drop(null, A, A, 'left')).toBeNull();
+    expect(sh(await drop(row([L, col([R, A])]), L, A, 'left'))).toEqual(shape(col([R, row([L, A])])));
+    expect(await drop(col([R, row([L, A])]), A, R, 'bottom')).toBeNull();
+    // 輸入沒被改動
+    const t = row([L, R, A], [28, 44, 28]);
+    await page.evaluate(t => { window.__t = t; _dkDrop(t, 'ai', 'results', 'bottom'); }, t);
+    expect(await page.evaluate(() => window.__t)).toEqual(t);
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+// 滑鼠拖：按下 → 分段移動；回傳放開前的 hook
+const grab = async (page, handle, to, steps = 12) => {
+    const [x, y] = await centerOf(page.locator(handle));
+    await page.mouse.move(x, y);
+    await page.mouse.down();
+    await page.mouse.move(to[0], to[1], { steps });
+};
+const atFraction = (b, fx, fy) => [b.x + b.width * fx, b.y + b.height * fy];
+
+test('拖放：AI 標題列拖到查詢區下緣 → 預覽在下半、放開變一大兩小並可重新整理保留', async ({ browser }) => {
+    const { context, page, errors } = await boot(browser);
+    const b0 = await boxes(page);
+    await grab(page, '#rightPanel .ai-title-group', atFraction(b0.results, 0.5, 0.9));
+    const pv = page.locator('#dockPreview');
+    await expect(pv).toBeVisible();
+    // 預覽框有 0.12 秒的位移動畫，等它到位
+    await expect.poll(async () => {
+        const pb = await pv.boundingBox();
+        return Math.max(Math.abs(pb.x - b0.results.x), Math.abs(pb.width - b0.results.width), Math.abs(pb.y - (b0.results.y + b0.results.height / 2)));
+    }).toBeLessThanOrEqual(12);
+    expect(await page.evaluate(() => getComputedStyle(document.getElementById('dockPreview')).zIndex)).toBe('850');
+    await page.mouse.up();
+    await expect(pv).toBeHidden();
+    const b = await boxes(page);
+    near(b.ai.x, b.results.x); near(b.ai.width, b.results.width);
+    expect(b.ai.y).toBeGreaterThan(b.results.y + b.results.height - 1);
+    near(b.lyrics.height, b.results.height + b.ai.height + 8, 2);   // gap = 0.5rem
+    expect(b.lyrics.x).toBeLessThan(b.results.x);
+    expect(await page.evaluate(() => window.getSelection().toString())).toBe('');
+    await reloadReady(page);
+    const r = await boxes(page);
+    for (const k of ['lyrics', 'results', 'ai']) sameBox(r[k], b[k]);
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('拖放：歌曲名稱拖到 AI 中間 → 歌詞與 AI 互換', async ({ browser }) => {
+    const { context, page, errors } = await boot(browser, withSong([typed('sa', 'verse', '一二三')]));
+    const b0 = await boxes(page);
+    await grab(page, '#songCurrent', atFraction(b0.ai, 0.5, 0.5));
+    await expect(page.locator('#dockPreview')).toBeVisible();
+    await page.mouse.up();
+    const b = await boxes(page);
+    near(b.ai.x, b0.lyrics.x); near(b.ai.width, b0.lyrics.width);
+    near(b.lyrics.x, b0.ai.x); near(b.lyrics.width, b0.ai.width);
+    near(b.results.x, b0.results.x);
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('拖放：不支援的落點不顯示預覽、放開不變；收起 AI 變上下二分', async ({ browser }) => {
+    const { context, page, errors } = await boot(browser, { ...BASE_SEEDS, ...seedDock(col([R, row([L, A])])) });
+    const b0 = await boxes(page);
+    await grab(page, '#rightPanel .ai-title-group', atFraction(b0.results, 0.5, 0.9));
+    await expect(page.locator('#dockPreview')).toBeHidden();
+    await page.mouse.up();
+    const b1 = await boxes(page);
+    for (const k of ['lyrics', 'results', 'ai']) sameBox(b1[k], b0[k]);
+    await page.locator('#rightPanel .side-panel-tab').click();
+    const b2 = await boxes(page);
+    near(b2.results.x, b2.lyrics.x); near(b2.results.width, b2.lyrics.width);
+    expect(b2.lyrics.y).toBeGreaterThan(b2.results.y + b2.results.height - 1);
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('拖放：Esc 取消、標題列按鈕仍是點擊', async ({ browser }) => {
+    const { context, page, errors } = await boot(browser, withSong([typed('sa', 'verse', '一二三')]));
+    const b0 = await boxes(page);
+    await grab(page, '#rightPanel .ai-title-group', atFraction(b0.results, 0.5, 0.9));
+    await expect(page.locator('#dockPreview')).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(page.locator('#dockPreview')).toBeHidden();
+    await page.mouse.up();
+    const b1 = await boxes(page);
+    for (const k of ['lyrics', 'results', 'ai']) sameBox(b1[k], b0[k]);
+    expect(await storedDock(page)).toBeNull();
+    await page.locator('#editorOpenBtn').click();
+    await expect(page.locator('#lyricsEditor')).toBeVisible();
+    expect(errors).toEqual([]);
+    await context.close();
+});

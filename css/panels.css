@@ -2461,4 +2461,26 @@ html[data-lm-under] .section-textarea, html[data-lm-under] .rhyme-mirror { line-
         .dock-divider:hover::after { opacity: 1; }
     }
     body.dock-resizing { user-select: none; }
+
+    /* 三個標題列可以抓著拖；標題列上的按鈕仍是一般點擊 */
+    body.dock #leftPanel .lyrics-head,
+    body.dock #mainContainer > .header,
+    body.dock #rightPanel .side-panel-body > .side-panel-title { cursor: grab; user-select: none; }
+    body.dock-dragging, body.dock-dragging * { cursor: grabbing !important; user-select: none; }
+    .dock-src { opacity: 0.55; }
+    /* 預覽框在面板（800）之上、選單（870+）之下 */
+    #dockPreview {
+        position: fixed;
+        left: var(--dk-x);
+        top: var(--dk-y);
+        width: var(--dk-w);
+        height: var(--dk-h);
+        z-index: 850;
+        pointer-events: none;
+        border: 2px solid var(--highlight-border);
+        background: var(--accent-soft);
+        border-radius: 0.75rem;
+        transition: left 0.12s ease, top 0.12s ease, width 0.12s ease, height 0.12s ease;
+    }
+    #dockPreview[hidden] { display: none; }
 }
