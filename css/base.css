@@ -1211,4 +1211,4 @@ html :is(.m-zoomOut-button, .m-zoomIn-button, .zoom-reset, .theme-toggle, .help-
 @media (hover: hover) and (pointer: fine) { html :is(.m-zoomOut-button, .m-zoomIn-button, .zoom-reset, .theme-toggle, .help-btn):hover { background: color-mix(in srgb, var(--container-bg) 72%, var(--highlight-border)); } }
 
 /* 標題「韻腳查詢器」：頭尾的「韻」「器」低調地帶一點強調色與微光，和中間三個字分開（Andy 0.98.04） */
-.header h1 .h1-cap { color: color-mix(in srgb, var(--text-primary) 68%, var(--highlight-border)); text-shadow: 0 0 0.5em color-mix(in srgb, var(--highlight-border) 22%, transparent); }
+.header h1 .h1-cap { color: color-mix(in srgb, var(--text-primary) 90%, var(--highlight-border)); }   /* 0.98.05：再低調，只帶 10% 強調色、不發光 */

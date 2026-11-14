@@ -185,7 +185,7 @@ async function bootWithStubPacks(browser, { alpha, beta, gamma, afterStubs, ...o
     });
     return { ...booted, alphaState, betaState, gammaState };
 }
-const openSettings = async page => { await page.locator('#settingsTrigger').click(); await page.locator('#prefsTab-search').click(); };   // 詞庫包在「查詢與詞庫」分頁（R2）
+const openSettings = async page => { await page.locator('#settingsTrigger').click(); await page.locator('#prefsTab-search').click(); await page.evaluate(() => { document.getElementById('lexiconPackSection').hidden = false; }); };   // 0.98.05 起詞庫包區塊先藏起來（邏輯不動），測試時打開   // 詞庫包在「查詢與詞庫」分頁（R2）
 const radio = (page, id) => page.locator(`#lexiconPackList input[name="lexiconPack"][value="${id}"]`);
 const gateOf = state => { let release; state.gate = new Promise(r => { release = r; }); return release; };
 

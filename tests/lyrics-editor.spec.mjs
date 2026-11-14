@@ -37,7 +37,7 @@ test('編輯器：展開鈕把歌詞面板拉寬、再按或 Esc 收回，段落
     expect(await page.locator('#leftPanel #lyricsSections').count()).toBe(1);
     expect((await page.locator('#leftPanel').boundingBox()).width).toBeGreaterThan(1440 * 0.9);
     await expect(page.locator('#canvasTools')).toBeVisible();
-    await expect(page.locator('#lpTabs .editor-tab:not(.editor-tab-add)')).toHaveText(['第一首', '第二首']);
+    await expect(page.locator('#lpTabs .editor-tab:not(.editor-tab-add):not(.editor-tab-color)')).toHaveText(['第一首', '第二首']);
     await expect(page.locator('#editorOpenBtn')).toHaveAttribute('aria-pressed', 'true');
     await page.keyboard.press('Escape'); await still(page);
     expect(await FULL(page)).toBe(false);
@@ -110,7 +110,7 @@ test('編輯器：拉寬後新增段落、拖曳排序、切歌分頁、新增�
     await expect(name).toBeFocused();
     await name.fill('新歌');
     await page.keyboard.press('Enter');
-    await expect(page.locator('#lpTabs .editor-tab:not(.editor-tab-add)')).toHaveText(['第一首', '第二首', '新歌']);
+    await expect(page.locator('#lpTabs .editor-tab:not(.editor-tab-add):not(.editor-tab-color)')).toHaveText(['第一首', '第二首', '新歌']);
     await expect(page.locator('#lpTabs .editor-tab[aria-current="true"]')).toBeFocused();
     expect((await activeSongRaw(page)).title).toBe('新歌');
     await page.keyboard.press('Escape'); await still(page);

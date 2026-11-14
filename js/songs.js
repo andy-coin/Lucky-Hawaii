@@ -138,6 +138,7 @@ function _normalizeSong(s) {
     lhSecFinalize(s.sections);
     lhSongRolesFix(s);   // 角色與逐字標記：壞值丟掉；同樣不設 changed
     // 畫布排版模式：壞值回預設、不是物件就拿掉（段落位置 pos 已在 lhSecFinalize 整理）；同樣不設 changed。sections-core.js 最先載入，不用 typeof 守門
+    if ('color' in s && !LH_SEC_COLOR_RE.test(s.color || '')) delete s.color;   // 歌曲顏色標籤（0.98.05）：壞值拿掉
     if ('canvas' in s) {
         const cv = lhCanvasClean(s.canvas);
         if (cv) s.canvas = cv;
@@ -331,6 +332,17 @@ function renderSongHeader() {
     if (typeof lhEditorRenderTabs === 'function') lhEditorRenderTabs();   // 完整編輯器的歌曲分頁（js/lyrics.js）
 }
 
+// 歌曲顏色標籤（0.98.05）：分頁列最後的「●」選色；null＝拿掉。和角色同一組顏色
+function lhSongSetColor(id, color) {
+    const s = songs.find(x => x.id === id);
+    if (!s) return;
+    if (color && LH_SEC_COLOR_RE.test(color)) s.color = color; else delete s.color;
+    markDirty(s.id);
+    flushSongs();
+    renderSongList();
+    if (typeof lhEditorRenderTabs === 'function') lhEditorRenderTabs();
+}
+
 // 歌名一律用 createElement／textContent／setAttribute 進 DOM，動作用 data-song-id 加委派監聽（T-08-12）
 function renderSongList() {
     const ul = document.getElementById('songItems');
@@ -348,6 +360,7 @@ function renderSongList() {
         pick.tabIndex = active ? 0 : -1;
         pick.textContent = s.title;
         pick.title = s.title;
+        if (s.color) { pick.classList.add('has-color'); pick.style.setProperty('--song-c', s.color); }
         const acts = document.createElement('div');
         acts.className = 'song-actions';
         const ren = document.createElement('button');
@@ -434,6 +447,7 @@ function switchSong(id) {
         // 清單原地換標記、不重畫：按鈕還是同一顆，連續點兩下（雙擊改名）才點得到同一個目標
         renderActiveSong();
         renderSongHeader();
+        if (typeof lhCwSongChanged === 'function') lhCwSongChanged();   // 只在某首歌顯示的自訂詞跟著換
         document.querySelectorAll('#songItems .song-pick').forEach(p => {
             const on = p.dataset.songId === id;
             p.tabIndex = on ? 0 : -1;

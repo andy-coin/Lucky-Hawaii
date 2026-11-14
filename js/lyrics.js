@@ -452,6 +452,7 @@
                 b.dataset.songId = s.id;
                 b.textContent = s.title;
                 b.title = s.title + '（雙擊改名）';
+                if (s.color) { b.classList.add('has-color'); b.style.setProperty('--song-c', s.color); }
                 if (s.id === activeSongId) b.setAttribute('aria-current', 'true');
                 return b;
             });
@@ -461,10 +462,52 @@
             add.textContent = '＋';
             add.title = '新增歌曲';
             add.setAttribute('aria-label', '新增一首歌曲');
-            bar.replaceChildren(...tabs, add);
+            // 目前這首歌的顏色標籤：點了選色
+            const col = document.createElement('button');
+            col.type = 'button';
+            col.className = 'editor-tab editor-tab-color';
+            const cs = curSong();
+            if (cs && cs.color) col.style.setProperty('--song-c', cs.color);
+            col.title = '這首歌的顏色標籤';
+            col.setAttribute('aria-label', '設定這首歌的顏色標籤');
+            col.setAttribute('aria-haspopup', 'true');
+            bar.replaceChildren(...tabs, add, col);
             const cur = bar.querySelector('[aria-current="true"]');
             if (cur) cur.scrollIntoView({ block: 'nearest', inline: 'nearest' });
             if (hadFocus && cur) cur.focus({ preventScroll: true });
+        }
+
+        // 選色小面板：八個顏色＋「無」，點外面或 Esc 關
+        function _lhSongColorPop(anchor) {
+            document.getElementById('songColorPop')?.remove();
+            const song = curSong();
+            if (!song) return;
+            const pop = document.createElement('div');
+            pop.id = 'songColorPop';
+            pop.className = 'song-color-pop';
+            pop.setAttribute('role', 'group');
+            pop.setAttribute('aria-label', '歌曲顏色');
+            const close = () => { pop.remove(); document.removeEventListener('pointerdown', out, true); document.removeEventListener('keydown', key, true); };
+            const out = e => { if (!pop.contains(e.target) && e.target !== anchor) close(); };
+            const key = e => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); close(); anchor.focus(); } };
+            for (const c of [...LH_ROLE_COLORS, null]) {
+                const b = document.createElement('button');
+                b.type = 'button';
+                b.className = 'swatch song-color-sw' + (c ? '' : ' none');
+                if (c) b.style.setProperty('--song-c', c);
+                b.setAttribute('aria-label', c ? '顏色 ' + c : '不要顏色');
+                b.setAttribute('aria-pressed', String((song.color || null) === c));
+                if (!c) b.textContent = '無';
+                b.addEventListener('click', () => { lhSongSetColor(song.id, c); close(); });
+                pop.append(b);
+            }
+            document.body.append(pop);
+            const r = anchor.getBoundingClientRect();
+            if (typeof lhPlaceMenu === 'function') lhPlaceMenu(pop, r.left, r.bottom + 4);
+            else { pop.style.left = r.left + 'px'; pop.style.top = r.bottom + 4 + 'px'; }
+            document.addEventListener('pointerdown', out, true);
+            document.addEventListener('keydown', key, true);
+            pop.querySelector('[aria-pressed="true"]')?.focus();
         }
 
         for (const id of ['editorTabs', 'lpTabs']) {
@@ -472,6 +515,7 @@
             bar?.addEventListener('click', e => {
                 const t = e.target.closest('.editor-tab');
                 if (!t) return;
+                if (t.classList.contains('editor-tab-color')) { _lhSongColorPop(t); return; }
                 if (t.classList.contains('editor-tab-add')) {
                     const before = activeSongId;
                     createSong({ rename: false });

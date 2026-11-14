@@ -34,7 +34,8 @@ const LH_KEYS = [
     { key: 'lh:bgFx', group: 'ui' },
     { key: 'lh:dock', group: 'ui' },
     { key: 'lh:panelW', group: 'ui' },
-    { key: 'lh:sheetH', group: 'ui' }
+    { key: 'lh:sheetH', group: 'ui' },
+    { key: 'lh:customWords', group: 'data' }
 ];
 // secret 旗標讓之後的匯出（Phase 8）可以排除金鑰
 const LH_KEY_PREFIXES = [{ prefix: 'apiKey_', group: 'setting', secret: true }];
@@ -229,7 +230,7 @@ function lhIdbOpen() {
 
 // ===== 備份 =====
 // 備份記錄格式 { id, seq, label, createdAt, appVersion, schema, data }，之後的遷移與還原都讀這個形狀（D-11、D-12）
-const LH_APP_VERSION = '0.98.04';
+const LH_APP_VERSION = '0.98.05';
 const LH_BACKUP_KEEP = 3;
 // 基準備份與升級前的安全副本釘住，淘汰永遠不碰（F1）：刪歌、匯入產生的自動備份再多，也擠不掉升級前那份
 // corrupt-songs-*：lh:songs 損毀時保留的原始內容（WR-10），蓋掉損毀的存檔之前唯一的一份，同樣不能被輪替擠掉
@@ -652,6 +653,7 @@ function lhNormalizeSong(raw, takenIds, stats) {
         ...(readings ? { readings } : {}),
         ...(structs ? { structs } : {}),
         ...(canvas ? { canvas } : {}),
+        ...(LH_SEC_COLOR_RE.test(raw.color || '') ? { color: raw.color } : {}),
         roles: raw.roles
     };
     // 角色與逐字標記（同樣在匯入時才呼叫 sections-core.js）：沒有有效角色就整個拿掉

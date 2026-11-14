@@ -216,10 +216,22 @@
             renderSavedWords();
         }
 
+        // 「清除全部」：先問一次，再清空保留池
+        async function lhSavedClearAll() {
+            if (!savedWords.length) return;
+            const ok = await lhAsk({ title: '清除全部 ' + savedWords.length + ' 個保留的詞？', buttons: [{ label: '清除', value: true, kind: 'danger' }, { label: '取消', value: null }] });
+            if (!ok) return;
+            savedWords = [];
+            lhSet('haiku_savedwords', JSON.stringify(savedWords));
+            renderSavedWords();
+        }
+
         function renderSavedWords() {
             const container = document.getElementById('savedWordsContainer');
             const countEl = document.getElementById('savedCount');
             if (!container) return;
+            const clr = document.getElementById('savedClearBtn');
+            if (clr) clr.hidden = !savedWords.length;
             if (countEl) {
                 countEl.textContent = savedWords.length;
                 countEl.style.display = savedWords.length ? 'inline' : 'none';

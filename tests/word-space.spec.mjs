@@ -48,7 +48,7 @@ test('查整個詞：判斷、押韻比對（同母音／同子音／同讀音�
     await expect(page.locator('#wsModeGroup')).toBeHidden();
     // 詞宇宙：用假清單打開，三塊面板收走、Esc 收合回來
     await page.evaluate(() => { _lhWs.input = '安打'; _lhWs.list = [{ w: '辦法', z: 'ㄅㄢˋ ㄈㄚˇ', p: 50 }, { w: '看法', z: 'ㄎㄢˋ ㄈㄚˇ', p: 90 }]; lhWsOpen(); });
-    await expect(page.locator('#wordSpace .ws-word')).toHaveCount(2);
+    await expect.poll(() => page.evaluate(() => _lhSp.words.length)).toBe(2);   // 0.98.05 起畫在 canvas 上
     await expect(page.locator('body')).toHaveClass(/ws-open/);
     expect(await page.evaluate(() => document.getElementById('mainContainer').inert)).toBe(true);
     // 圖例：一欄、依第一個字的聲調收納，點開才看到組合；釘三個詞連成星座
@@ -59,19 +59,30 @@ test('查整個詞：判斷、押韻比對（同母音／同子音／同讀音�
         ws.push(...ws.map(w => ({ ...w })));   // 只有兩個詞：複製出第三、四個假的位置點就好
         _lhSp.pins = ws.slice(0, 3).map(w => Object.assign(w, { pinned: true }));
         await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
-        return document.querySelector('.ws-stars path').getAttribute('d');
+        return _lhSp.segs.length;
     });
-    expect(pts).toMatch(/^M[^M]*L[^M]*L[^M]*Z$/);   // 三個點頭尾相連成三角形
+    expect(pts).toBe(3);   // 三個點頭尾相連成三角形（三條邊）
     // 按住恆星還沒拖：整團不動（之前會被拉到畫面中央）
     const star0 = await page.evaluate(() => { const c = _lhSp.groups[0]; return c ? [c.x, c.y] : null; });
     if (star0) {
-        const st = page.locator('.ws-word.star').first(), sb = await st.boundingBox();
-        await page.mouse.move(sb.x + sb.width / 2, sb.y + sb.height / 2);
+        const sp = await page.evaluate(() => _lhSpScreenOf(_lhSp.words.find(w => w.star)));
+        await page.mouse.move(sp.x, sp.y);
         await page.mouse.down();
         await page.waitForTimeout(200);
         const c1 = await page.evaluate(() => [_lhSp.groups[0].x, _lhSp.groups[0].y]);
         await page.mouse.up();
         expect(Math.hypot(c1[0] - star0[0], c1[1] - star0[1])).toBeLessThan(15);
+    }
+        // 點一下釘住、再點一次取消釘選（滑鼠還停在上面也不會再亮）
+    const w0 = await page.evaluate(() => { const w = _lhSp.words.find(x => !x.comet); return w ? w.w : null; });
+    if (w0) {
+        await page.evaluate(() => { _lhSp.words = _lhSp.words.slice(0, 2); _lhSpClear(); });   // 拿掉上面為了星座複製的假點
+        const at = await page.evaluate(n => _lhSpScreenOf(_lhSp.words.find(x => x.w === n)), w0);
+        await page.mouse.click(at.x, at.y);
+        expect(await page.evaluate(n => _lhSp.words.find(x => x.w === n).pinned, w0)).toBe(true);
+        const at2 = await page.evaluate(n => _lhSpScreenOf(_lhSp.words.find(x => x.w === n)), w0);
+        await page.mouse.click(at2.x, at2.y);
+        expect(await page.evaluate(n => { const w = _lhSp.words.find(x => x.w === n); return [w.pinned, w.hot]; }, w0)).toEqual([false, false]);
     }
         // 點空白處＝取消選取
     await page.mouse.click(5, 450);
