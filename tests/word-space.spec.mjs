@@ -51,6 +51,17 @@ test('查整個詞：判斷、押韻比對（同母音／同子音／同讀音�
     await expect(page.locator('#wordSpace .ws-word')).toHaveCount(2);
     await expect(page.locator('body')).toHaveClass(/ws-open/);
     expect(await page.evaluate(() => document.getElementById('mainContainer').inert)).toBe(true);
+    // 圖例：一欄、依第一個字的聲調收納，點開才看到組合；釘三個詞連成星座
+    expect(await page.locator('.ws-leg-tone').count()).toBe(1);
+    await expect(page.locator('.ws-sub')).toBeHidden();
+    const pts = await page.evaluate(async () => {
+        const ws = _lhSp.words;
+        ws.push(...ws.map(w => ({ ...w })));   // 只有兩個詞：複製出第三、四個假的位置點就好
+        _lhSp.pins = ws.slice(0, 3).map(w => Object.assign(w, { pinned: true }));
+        await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+        return document.querySelector('.ws-stars polyline').getAttribute('points').split(' ').length;
+    });
+    expect(pts).toBe(3);
     await page.keyboard.press('Escape');
     await expect(page.locator('#wordSpace')).toBeHidden();
     expect(await page.evaluate(() => document.getElementById('mainContainer').inert)).toBe(false);
