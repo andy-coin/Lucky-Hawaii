@@ -23,6 +23,19 @@
         // 3. 收起的面板鍵盤選不到（inert）；展開的面板絕不 inert，否則寫詞／AI 建議就用不了
         // 4. 寬螢幕（lhIsDockMode）：三塊分割畫面、不必收一邊，略過第 2 點；最後交給 lhDockRender 重算版面（js/dock.js）
         // opener：'left'／'right' 代表使用者剛打開那邊；沒給（開頁、改視窗大小）就保留左邊、收右邊
+        // 收起的面板：兩邊都放得下就照樣留出它的位置，主畫面留在原地、不跟著變寬（背景露出來）；放不下才讓主畫面吃掉（Andy 0.98.04）。
+        // 縮放、改視窗、拖交界之後都要重算
+        function lhPanelRoom() {
+            const lp = document.getElementById('leftPanel'), rp = document.getElementById('rightPanel');
+            if (!lp || !rp) return;
+            const rootStyle = getComputedStyle(document.documentElement);
+            const rem = parseFloat(rootStyle.fontSize) || 16, gutter = parseFloat(rootStyle.getPropertyValue('--page-pad')) || 0;
+            const fit = !lhIsSheetMode() && !lhIsDockMode() && window.innerWidth - lp.getBoundingClientRect().width - rp.getBoundingClientRect().width - 2 * gutter >= 24 * rem;
+            document.body.classList.toggle('lp-room', fit && lp.classList.contains('collapsed'));
+            document.body.classList.toggle('rp-room', fit && rp.classList.contains('collapsed'));
+        }
+        window.addEventListener('resize', () => lhPanelRoom());
+
         function syncCenterPanel(opener) {
             const lp = document.getElementById('leftPanel');
             const rp = document.getElementById('rightPanel');
@@ -49,6 +62,7 @@
                 }
                 document.body.classList.toggle('lp-open', !lp.classList.contains('collapsed'));
                 document.body.classList.toggle('rp-open', !rp.classList.contains('collapsed'));
+                lhPanelRoom();
             }
 
             if (typeof lhDockRender === 'function') lhDockRender();
@@ -256,7 +270,8 @@ function _lhPaneApply() {
 function _lhPaneClamp(side, rem) {
     const root = getComputedStyle(document.documentElement), r = _lhRem();
     const other = side === 'l' ? document.getElementById('rightPanel') : document.getElementById('leftPanel');
-    const otherW = other.classList.contains('collapsed') ? 0 : other.getBoundingClientRect().width / r;   // 另一邊收起來：只剩兩塊分寬度
+    // 另一邊收起來：不算它（拉寬時用掉它留的位置，lhPanelRoom 會把位置收回）
+    const otherW = other.classList.contains('collapsed') ? 0 : other.getBoundingClientRect().width / r;
     const songW = side === 'l' ? 0 : (parseFloat(root.getPropertyValue('--song-w')) || 0) / r;
     const gutter = 2 * (parseFloat(root.getPropertyValue('--page-pad')) || 0) / r;
     const max = innerWidth / r - otherW - songW - gutter - LH_PANE_MAIN_MIN;
@@ -265,6 +280,7 @@ function _lhPaneClamp(side, rem) {
 function _lhPaneSet(side, rem) {
     _lhPaneW[side] = rem === null ? null : _lhPaneClamp(side, rem);
     _lhPaneApply();
+    lhPanelRoom();
 }
 function _lhPaneSave() { lhSet(LH_PANE_KEY, JSON.stringify(_lhPaneW)); }
 function _lhPaneCur(side) {

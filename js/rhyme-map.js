@@ -1513,11 +1513,11 @@ function lhMapAnalysisBuild() {
     });
     // 面板不能搶走輸入框的焦點與選取（手機鍵盤才不會收起來）；表格的捲動區照常能捲
     for (const t of ['pointerdown', 'mousedown']) m.addEventListener(t, e => { if (!(e.target.closest && e.target.closest('.rm-an-scroll'))) e.preventDefault(); });
-    // Tab 只在「捲動區（有溢出才可聚焦）」和「關閉句構」之間繞
+    // Tab 只在面板裡的捲動區（有溢出才可聚焦）與按鈕之間繞
     m.addEventListener('keydown', e => {
         if (e.key !== 'Tab') return;
         if (e.target.closest && e.target.closest('.rm-an-input')) return;   // 改句構的輸入框：Tab 照常
-        const items = [...m.querySelectorAll('.rm-an-scroll[tabindex="0"], .rm-an-edit, .rm-an-act, .section-menu-close')], i = items.indexOf(document.activeElement);
+        const items = [...m.querySelectorAll('.rm-an-scroll[tabindex="0"], .rm-an-edit, .rm-an-act')], i = items.indexOf(document.activeElement);
         e.preventDefault();
         items[i < 0 ? (e.shiftKey ? items.length - 1 : 0) : (i + (e.shiftKey ? -1 : 1) + items.length) % items.length].focus({ preventScroll: true });
     });
@@ -1738,9 +1738,7 @@ function lhMapOpenAnalysis(snap, byKeyboard) {
             _lhMapBarPlace();
         }
         const m = lhMapAnalysisBuild(), { kids, k } = _lhMapAnContent(song, sec, snap);
-        const close = _lhMkBtn('section-menu-btn section-menu-close', '關閉句構');
-        close.addEventListener('click', () => lhMapHideAnalysis(true));
-        kids.push(close);
+        // 不放「關閉句構」：點空白處、Esc 就會收（Andy 0.98.04）
         m.replaceChildren(...kids);
         _lhMapAnOn = true;
         _lhMapBar.querySelector('.rm-bar-an').setAttribute('aria-expanded', 'true');
@@ -1753,7 +1751,7 @@ function lhMapOpenAnalysis(snap, byKeyboard) {
     }
 }
 
-// refocus：按「關閉句構」或 Esc 才把焦點與選取還給輸入框
+// refocus：按 Esc 才把焦點與選取還給輸入框
 function lhMapHideAnalysis(refocus) {
     _lhDwellCancel();
     if (!_lhMapAn || !_lhMapAnOn) return;

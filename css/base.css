@@ -154,7 +154,7 @@
             --header-gradient-1: #fdf6e3;
             --header-gradient-2: #fdf6e3;
             --card-bg: #fffaee;
-            --char-card-bg: #f1e3bd;   /* 字卡／詞卡：暖羊皮紙（原本混 12% 墨綠變成灰，Andy 0.98.03） */
+            --char-card-bg: #f7eed6;   /* 字卡／詞卡：暖羊皮紙（原本混 12% 墨綠變成灰，Andy 0.98.03） */
             --text-primary: #073642;
             --text-secondary: #55686e;
             --border: #e2d9c0;
@@ -1209,3 +1209,6 @@ html .about-btn, html .about-btn-mobile { background: transparent; border: 1.5px
 /* 查詢器標題列的按鈕（− % ＋ ? 主題 齒輪）：底色和標題列一樣只靠框不好認，墊一層淡淡的強調色（Andy 0.98.03） */
 html :is(.m-zoomOut-button, .m-zoomIn-button, .zoom-reset, .theme-toggle, .help-btn) { background: color-mix(in srgb, var(--container-bg) 86%, var(--highlight-border)); }
 @media (hover: hover) and (pointer: fine) { html :is(.m-zoomOut-button, .m-zoomIn-button, .zoom-reset, .theme-toggle, .help-btn):hover { background: color-mix(in srgb, var(--container-bg) 72%, var(--highlight-border)); } }
+
+/* 標題「韻腳查詢器」：頭尾的「韻」「器」低調地帶一點強調色與微光，和中間三個字分開（Andy 0.98.04） */
+.header h1 .h1-cap { color: color-mix(in srgb, var(--text-primary) 68%, var(--highlight-border)); text-shadow: 0 0 0.5em color-mix(in srgb, var(--highlight-border) 22%, transparent); }

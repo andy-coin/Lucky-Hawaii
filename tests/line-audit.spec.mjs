@@ -95,12 +95,12 @@ test('檢查：三種裝置的觸控大小（句構分析）', async ({ browser 
         expect(rc.seen.filter(s => /section-color-input/.test(s)).length, `${name} 色票全部量到（沒有被預覽蓋住）`).toBeGreaterThanOrEqual(16);
         await page.keyboard.press('Escape');
         await expect(page.locator('#settingsOverlay')).not.toHaveClass(/show/);
-        // 第 3 輪：浮動列的「📏 分析」與分析面板的關閉鈕
+        // 第 3 輪：浮動列的「📏 分析」與分析面板的按鈕
         await pick(page, 11, 26, 1);
         await expect(page.locator(BAR)).toBeVisible();
         await page.locator(AN_BTN).click();
         await expect(page.locator(AN)).toBeVisible();
-        await audit(['#rhymeSelBar .rm-bar-an', '#rhymeAnalysis .section-menu-close'], '浮動列與分析面板');
+        await audit(['#rhymeSelBar .rm-bar-an', '#rhymeAnalysis .rm-an-edit'], '浮動列與分析面板');   // 0.98.04 起沒有關閉鈕
         expect(errors).toEqual([]);
         await context.close();
     }

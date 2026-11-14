@@ -229,7 +229,7 @@ function lhIdbOpen() {
 
 // ===== 備份 =====
 // 備份記錄格式 { id, seq, label, createdAt, appVersion, schema, data }，之後的遷移與還原都讀這個形狀（D-11、D-12）
-const LH_APP_VERSION = '0.98.03';
+const LH_APP_VERSION = '0.98.04';
 const LH_BACKUP_KEEP = 3;
 // 基準備份與升級前的安全副本釘住，淘汰永遠不碰（F1）：刪歌、匯入產生的自動備份再多，也擠不掉升級前那份
 // corrupt-songs-*：lh:songs 損毀時保留的原始內容（WR-10），蓋掉損毀的存檔之前唯一的一份，同樣不能被輪替擠掉

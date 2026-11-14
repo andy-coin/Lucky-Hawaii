@@ -14,7 +14,8 @@ let _lhBgRaf = 0;
 let _lhBgLast = 0;
 let _lhBgColors = ['#888'];
 let _lhBgAlpha = 0.16;
-let _lhBgHidden = false;   // 顯示全部押韻詞時先藏起來（js/word-space.js lhBgFxHide）
+let _lhBgHidden = false;   // 外部要整個藏起來時用（lhBgFxHide）
+let _lhBgFaint = false;    // 星雲（js/word-space.js）開著時：照常飄，但非常淡，當背景
 let _lhBgFont = 'serif';
 let _lhBgW = 0;
 let _lhBgH = 0;
@@ -105,7 +106,7 @@ function _lhBgDraw(dt) {
         ctx.save();
         ctx.translate(f.x + Math.sin(f.phase) * f.sway, f.y);
         ctx.rotate(f.rot);
-        ctx.globalAlpha = _lhBgAlpha * f.a;
+        ctx.globalAlpha = _lhBgAlpha * f.a * (_lhBgFaint ? 0.28 : 1);
         ctx.fillStyle = _lhBgColors[f.color % _lhBgColors.length];
         ctx.font = Math.round(f.size) + 'px ' + _lhBgFont;
         ctx.fillText(f.ch, 0, 0);
@@ -169,6 +170,10 @@ function lhBgFxIsOn() { return _lhBgOn; }
 function lhBgFxHide(h) {
     _lhBgHidden = !!h;
     _lhBgUpdate();
+}
+function lhBgFxFaint(f) {
+    _lhBgFaint = !!f;
+    if (_lhBgCanvas && !_lhBgRaf) _lhBgDraw(0);
 }
 
 window.addEventListener('resize', _lhBgResize);

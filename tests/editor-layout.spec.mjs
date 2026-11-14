@@ -243,7 +243,7 @@ test('三直排（非寬螢幕）：拖左右交界線改面板寬度，重新�
     await context.close();
 });
 
-test('三直排（非寬螢幕）：一邊收起來，剩下兩塊的交界照樣能拉', async ({ browser }) => {
+test('三直排（非寬螢幕）：一邊收起來，展開那邊的交界照樣能拉；主畫面留在原地', async ({ browser }) => {
     const { context, page, errors } = await bootPage(browser, { wordlist: 'stub', device: { viewport: { width: 1366, height: 900 }, deviceScaleFactor: 1 }, storage: { 'lh:tourSeen': '1', leftPanelCollapsed: 'true', rightPanelCollapsed: 'false' } });
     const w = sel => page.locator(sel).evaluate(e => e.getBoundingClientRect().width);
     await expect(page.locator('.pane-divider-l')).toBeHidden();
@@ -254,7 +254,8 @@ test('三直排（非寬螢幕）：一邊收起來，剩下兩塊的交界照�
     await page.mouse.down();
     await page.mouse.move(b.x + b.width / 2 - 200, b.y + b.height / 2, { steps: 5 });
     await page.mouse.up();
-    expect(Math.abs((await w('#rightPanel')) - r0 - 200)).toBeLessThan(3);   // 左邊收著：比兩邊都開時能拉更寬
+    expect(Math.abs((await w('#rightPanel')) - r0 - 200)).toBeLessThan(3);   // 拉寬時可以用掉收起那邊留的位置
+    expect(await w('#mainContainer')).toBeGreaterThanOrEqual(24 * 16 - 2);
     expect(errors).toEqual([]);
     await context.close();
 });

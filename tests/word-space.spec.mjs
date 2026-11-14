@@ -82,3 +82,53 @@ test('查整個詞：判斷、押韻比對（同母音／同子音／同讀音�
     expect(errors).toEqual([]);
     await context.close();
 });
+
+test('關聯詞彙：選了字卡才出現按鈕；字首／字尾／任意的清單；星雲面板有字首、字尾', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, { wordlist: 'stub' });
+    const r = await page.evaluate(() => {
+        const keep = wordlistData;
+        wordlistData = [{ w: '安心', z: '', p: 9 }, { w: '平安', z: '', p: 8 }, { w: '心安理得', z: '', p: 7 }, { w: '天空', z: '', p: 6 }];
+        const f = pos => _lhWsRelList(['安'], pos).map(e => e.w).join(',');
+        const out = { any: f(''), head: f('head'), tail: f('tail') };
+        wordlistData = keep;
+        return out;
+    });
+    expect(r).toEqual({ any: '安心,平安,心安理得', head: '安心', tail: '平安' });
+    await page.fill('#searchInput', 'ㄢ');
+    await expect(page.locator('#resultsContainer .char-card').first()).toBeVisible();
+    await expect(page.locator('#wsRelBtn')).toBeHidden();
+    await page.locator('#resultsContainer .char-card .char-main').first().click();
+    await expect(page.locator('#wsRelBtn')).toBeVisible();
+    await page.evaluate(() => { const c = [...selectedChars][0]; wordlistData = [...wordlistData, { w: c + '心', z: 'ㄚ ㄒㄧㄣ', p: 9 }, { w: '平' + c, z: 'ㄆㄧㄥˊ ㄚ', p: 8 }, { w: c + '靜', z: 'ㄚ ㄐㄧㄥˋ', p: 7 }]; });   // stub 詞庫補幾個含選取字的詞
+    await page.locator('#wsRelBtn').click();
+    await expect(page.locator('body')).toHaveClass(/ws-open/);
+    await expect(page.locator('#wordSpace .ws-pos')).toBeVisible();
+    await page.locator('#wordSpace [data-pos="head"]').click();
+    await expect(page.locator('#wordSpace [data-pos="head"]')).toHaveAttribute('aria-pressed', 'true');
+    await page.locator('#wordSpace [data-pos="tail"]').click();
+    await expect(page.locator('#wordSpace [data-pos="head"]')).toHaveAttribute('aria-pressed', 'false');
+    await expect(page.locator('#wordSpace [data-pos="tail"]')).toHaveAttribute('aria-pressed', 'true');
+    await page.keyboard.press('Escape');
+    await expect(page.locator('#wordSpace')).toBeHidden();
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('詞卡回報：數量那一列右邊，先挑詞卡再送出', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, { wordlist: 'stub' });
+    await page.evaluate(() => { _lhWs.list = []; });
+    await page.fill('#searchInput', '安打');
+    const head = page.locator('.ws-header');
+    await expect(head).toBeVisible();
+    const rep = head.locator('.ws-rep .btn-report');
+    if (await page.locator('.ws-card').count() === 0) { await context.close(); return; }   // stub 詞庫沒有押到的詞就略過互動
+    const [cb, rb] = [await head.locator('.results-count').boundingBox(), await rep.boundingBox()];
+    expect(Math.abs((cb.y + cb.height / 2) - (rb.y + rb.height / 2))).toBeLessThan(12);   // 同一列
+    await rep.click();
+    await page.locator('.ws-card').first().click();
+    await expect(rep).toContainText('送出回報（1）');
+    await rep.click();
+    await expect(page.locator('#reportModalOverlay')).toHaveClass(/show/);
+    expect(errors).toEqual([]);
+    await context.close();
+});

@@ -42,6 +42,7 @@ function setUiScale(pct, save = true) {
     _lhSyncScaleControls();
     if (save) lhSet(LH_UI_SCALE_KEY, String(n));
     // 間距、最小寬高、分頁寬都是 rem：縮放一變，寬螢幕版面要重算（head 執行時 dock.js 還沒載入，守衛會略過）
+    if (typeof lhPanelRoom === 'function') lhPanelRoom();
     if (typeof lhDockRender === 'function') lhDockRender();
     return n;
 }

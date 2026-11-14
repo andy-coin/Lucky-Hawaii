@@ -1547,12 +1547,9 @@ test('分析面板：收起來的各種情況', async ({ browser }) => {
     await page.keyboard.press('Escape');
     await expect(bar).toBeHidden();
     expect(await anTa(page)).toEqual({ ta: true, a: 11, b: 26 });
-    // 「關閉句構」：收面板、焦點回輸入框
+    // 0.98.04 起沒有「關閉句構」：點外面、Esc 就收
     await anShow(page, 10, 26, 1);
-    await panel.locator('.section-menu-close').click();
-    await closed('關閉句構');
-    await expect(bar).toBeVisible();
-    expect(await anTa(page)).toEqual({ ta: true, a: 10, b: 26 });
+    expect(await panel.locator('.section-menu-close').count()).toBe(0);
     // 點外面
     await page.locator('#songTotal').click();
     await closed('點外面');
@@ -1616,22 +1613,22 @@ test('分析面板：鍵盤與焦點', async ({ browser }) => {
     await expect(panel).toBeVisible();
     await expect(panel).toBeFocused();
     expect(await live(page)).toBe('句構分析：選到 3 行');
-    // 這麼短的表格沒有溢出：Tab 依序繞過三個結構鈕、「AI 斷句」、「關閉句構」，兩個方向都不跑出面板
+    // 這麼短的表格沒有溢出：Tab 依序繞過三個結構鈕、「AI 斷句」，兩個方向都不跑出面板
     expect(await panel.locator('.rm-an-scroll').getAttribute('tabindex')).toBeNull();
     await expect(panel.locator('.rm-an-edit')).toHaveCount(3);
-    for (let i = 0; i < 5; i++) { await page.keyboard.press('Tab'); expect(await inPanel(), 'Tab ' + i).toBe(true); }
-    await expect(panel.locator('.section-menu-close')).toBeFocused();
+    for (let i = 0; i < 4; i++) { await page.keyboard.press('Tab'); expect(await inPanel(), 'Tab ' + i).toBe(true); }
+    await expect(panel.locator('.rm-an-act').last()).toBeFocused();
     await page.keyboard.press('Tab');
     await expect(panel.locator('.rm-an-edit').first()).toBeFocused();
     await page.keyboard.press('Shift+Tab');
-    await expect(panel.locator('.section-menu-close')).toBeFocused();
+    await expect(panel.locator('.rm-an-act').last()).toBeFocused();
     // Esc：面板收起，焦點與選取回輸入框
     await page.keyboard.press('Escape');
     await expect(panel).toBeHidden();
     await expect(ta0).toBeFocused();
     expect(await anTa(page)).toEqual({ ta: true, a: 10, b: 26 });
     await expect(page.locator(ANBAR)).toBeVisible();
-    // 溢出時（80 行整段）捲動區可用 Tab 聚焦：Tab 在「捲動區」與「關閉句構」之間繞
+    // 溢出時（80 行整段）捲動區可用 Tab 聚焦：Tab 在「捲動區」與按鈕之間繞
     await page.keyboard.press('Escape');
     await anPick(page, 0, AN_LONG80.length, 1);
     await expect(page.locator(ANBAR)).toBeVisible();
@@ -1644,9 +1641,7 @@ test('分析面板：鍵盤與焦點', async ({ browser }) => {
     await page.keyboard.press('Tab');
     await expect(sc).toBeFocused();
     await page.keyboard.press('Shift+Tab');
-    await expect(panel.locator('.section-menu-close')).toBeFocused();
-    await page.keyboard.press('Shift+Tab');
-    await expect(panel.locator('.rm-an-act').first()).toBeFocused();
+    await expect(panel.locator('.rm-an-act').last()).toBeFocused();
     expect(errors).toEqual([]);
     await context.close();
 });
@@ -1750,7 +1745,7 @@ test('分析面板：貼底與鍵盤打開時看得到', async ({ browser }) => 
     const b = await panel.boundingBox();
     expect(b.y + b.height, '不蓋到鍵盤').toBeLessThanOrEqual(before.height - 336 + 0.5);
     expect(await panel.locator('.rm-an-scroll').evaluate(e => e.scrollHeight > e.clientHeight), '放不下的部分在面板內捲動').toBe(true);
-    expect(await panel.locator('.section-menu-close').evaluate(e => { const r = e.getBoundingClientRect(), v = window.visualViewport; return r.top >= v.offsetTop - 0.5 && r.bottom <= v.offsetTop + v.height + 0.5; }), '「關閉句構」看得到').toBe(true);
+    expect(await panel.locator('.rm-an-act').last().evaluate(e => { const r = e.getBoundingClientRect(), v = window.visualViewport; return r.top >= v.offsetTop - 0.5 && r.bottom <= v.offsetTop + v.height + 0.5; }), '最後一顆按鈕看得到').toBe(true);
     await expect(page.locator(ANBAR)).toBeVisible();
     expect(errors).toEqual([]);
     await context.close();

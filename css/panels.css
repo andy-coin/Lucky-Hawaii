@@ -2869,6 +2869,14 @@ body.dock.dock-classic .side-panel.collapsed[data-dk-side="r"] .side-panel-tab::
 .ws-header { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2) var(--sp-3); margin-bottom: var(--sp-3); }
 .ws-header .results-count { margin: 0; }
 .ws-header .ws-expand-btn { margin-inline-start: auto; }
+.ws-rep { display: inline-flex; gap: var(--sp-1); margin-inline-start: auto; }
+.ws-rep .batch-btn { flex-direction: row; padding: 0.1875rem 0.625rem; font-size: 0.8rem; }
+.ws-rep .batch-btn[hidden] { display: none; }
+.report-mode .ws-card { cursor: pointer; }
+.report-mode .ws-card.report-picked { border-color: var(--danger-line); box-shadow: inset 0 0 0 2px var(--danger-line); }
+/* 關聯詞彙（查單字時選了字卡才出現，js/cards.js updateBatchCount） */
+.ws-rel-btn:not([hidden]) { display: flex; width: auto; margin: var(--sp-2) var(--sp-4) 0; flex: 0 0 auto; }
+body:not([data-q="char"]) .ws-rel-btn { display: none; }
 /* 搜尋欄空的時候整排選項收起；查單字用字卡那兩組，查整個詞換成詞卡那兩組（js/results.js 設 body[data-q]） */
 body:not([data-q="char"]):not([data-q="word"]) .options, body:not([data-q="char"]):not([data-q="word"]) .mobile-batch-area,
 body:not([data-q="char"]) .q-char, body:not([data-q="word"]) .q-word { display: none !important; }
@@ -2877,10 +2885,12 @@ body[data-q="word"] .ws-filters { display: flex; }
 /* 「展開詞宇宙」：和「新增段落」「提供詞語建議」同一個主要動作色、同高 */
 .ws-expand-btn {
     flex: 1 0 100%; height: 2.25rem; border: none; border-radius: var(--radius-m);
+    display: inline-flex; align-items: center; justify-content: center; gap: var(--sp-2);
     background: var(--action-bg); color: var(--action-text);
     font-family: inherit; font-size: 0.9375rem; font-weight: 700; letter-spacing: 0.04em; cursor: pointer;
 }
 .ws-expand-btn:disabled { opacity: 0.5; cursor: default; }
+.ws-expand-btn[hidden] { display: none; }
 @media (hover: hover) and (pointer: fine) { .ws-expand-btn:not(:disabled):hover { background: var(--action-bg-hover); } }
 html .ws-grid { grid-template-columns: repeat(auto-fill, minmax(7.5rem, 1fr)); }   /* 0.98.01：原本 8.5rem 的 0.88 倍 */   /* html：壓過手機、平板字卡格線的欄寬 */
 @media (max-width: 440px) { html .ws-grid { grid-template-columns: repeat(auto-fill, minmax(6.125rem, 1fr)); } }
@@ -2973,6 +2983,10 @@ body.ws-open .ws-space { opacity: 1; }
 }
 .ws-leg::before { content: ''; width: 0.625rem; height: 0.625rem; border-radius: 50%; background: var(--c); margin-inline-end: 0.375rem; }
 @media (hover: hover) and (pointer: fine) { .ws-leg:hover { border-color: var(--c); } }
+.ws-pos { display: flex; gap: var(--sp-1); }
+.ws-pos[hidden] { display: none; }
+.ws-pos .ws-hud-btn { flex: 1; }
+.ws-pos .ws-hud-btn[aria-pressed="true"] { border-color: var(--highlight-border); color: var(--highlight-border); box-shadow: inset 0 -2px 0 var(--highlight-border); }
 .ws-tools { display: flex; flex-direction: column; align-items: stretch; gap: var(--sp-2); }
 .ws-filter { display: inline-flex; align-items: center; gap: var(--sp-2); font-size: 0.75rem; color: var(--text-secondary); }
 .ws-filter { flex-direction: column; align-items: stretch; }
@@ -2989,12 +3003,13 @@ body.ws-open .ws-space { opacity: 1; }
 @media (max-width: 600px) { .ws-panel { max-width: calc(100% - 1.5rem); top: calc(env(safe-area-inset-top, 0px) + 3.5rem); } }
 @media (pointer: coarse) { .ws-hud-btn, .ws-leg { min-height: var(--hit); min-width: var(--hit); } }
 /* 三塊面板往左、上、右收走（只在打開／收合的動畫期間加 transition，不動面板平常的收合動畫） */
-body.ws-anim :is(#leftPanel, #rightPanel, #mainContainer, #mobileTabBar) { transition: translate 0.5s cubic-bezier(0.6, 0, 0.3, 1), opacity 0.5s ease; }
-body.ws-open :is(.pane-divider, .dock-divider) { display: none !important; }   /* 交界把手也收走，不然會透過星雲看到 */
-body.ws-open #leftPanel { translate: -120vw 0; opacity: 0; }
-body.ws-open #rightPanel { translate: 120vw 0; opacity: 0; }
-body.ws-open #mainContainer { translate: 0 -120vh; opacity: 0; }
-body.ws-open #mobileTabBar { translate: 0 120%; opacity: 0; }
+/* 打開：先 ws-leave（三塊面板收走 0.45 秒），面板走完才 ws-open（星雲淡入）；關閉反過來（js/word-space.js _lhSpShow／lhWsClose） */
+body.ws-anim :is(#leftPanel, #rightPanel, #mainContainer, #mobileTabBar) { transition: translate 0.45s cubic-bezier(0.6, 0, 0.3, 1), opacity 0.45s ease; will-change: translate, opacity; }
+body.ws-leave :is(.pane-divider, .dock-divider) { display: none !important; }   /* 交界把手也收走，不然會透過星雲看到 */
+body.ws-leave #leftPanel { translate: -120vw 0; opacity: 0; }
+body.ws-leave #rightPanel { translate: 120vw 0; opacity: 0; }
+body.ws-leave #mainContainer { translate: 0 -120vh; opacity: 0; }
+body.ws-leave #mobileTabBar { translate: 0 120%; opacity: 0; }
 @media (prefers-reduced-motion: reduce) {
     .ws-space, body.ws-anim :is(#leftPanel, #rightPanel, #mainContainer, #mobileTabBar) { transition: none; }
 }
@@ -3026,3 +3041,10 @@ body.lp-wide:not(.editor-open) .lp-tabs { display: flex; flex: 0 0 auto; padding
     #editorOpenBtn[aria-pressed="true"] { border-color: var(--highlight-border); color: var(--highlight-border); }
 }
 @media (prefers-reduced-motion: reduce) { body.lp-anim #leftPanel { transition: none; } }
+
+/* ===== 平板／窄桌機：左右面板收起時主畫面留在原地（js/panels.js syncCenterPanel 的 lp-room／rp-room），面板滑出去的動畫和歌詞面板展開同一條曲線 ===== */
+@media (min-width: 901px) {
+    body:not(.dock) .side-panel { transition: transform 0.38s cubic-bezier(0.3, 0, 0.2, 1); }
+    body.lp-room:not(.dock) { padding-left: calc(var(--lp-w, var(--panel-w)) + var(--song-w, 0px) + var(--page-pad)); }
+    body.rp-room:not(.dock) { padding-right: calc(var(--rp-w, var(--panel-w)) + var(--page-pad)); }
+}

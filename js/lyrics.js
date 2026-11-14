@@ -323,15 +323,14 @@
 
         // 0.98.03 起平板、電腦不再用浮動面板：「展開」＝歌詞面板貼著原本的邊拉寬到接近全螢幕（body.lp-full）；
         // 面板夠寬（不管是展開還是拖交界拉寬）就是完整編輯器（body.lp-wide）：歌曲分頁、自由／吸附、畫布縮放才出現。手機（≤ 900）照舊用浮動面板
-        const LH_LP_WIDE = 44;   // rem：歌詞欄（不含歌曲清單）寬到這樣才算完整編輯器
+        // 歌詞面板寬到整個畫面的一半以上，才算完整編輯器（Andy 0.98.04；原本是歌詞欄 44rem）
         let _lhLpWide = false;
         function lhEditorIsOpen() { return !!_lhEdMoved || _lhLpWide; }
         function _lhLpSync() {
             const lp = document.getElementById('leftPanel'), main = lp && lp.querySelector('.lyrics-main');
             if (!main) return;
             if (lp.classList.contains('collapsed') || lhIsSheetMode()) document.body.classList.remove('lp-full');
-            const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
-            const wide = !_lhEdMoved && !lhIsSheetMode() && !lp.classList.contains('collapsed') && main.getBoundingClientRect().width / rem >= LH_LP_WIDE;
+            const wide = !_lhEdMoved && !lhIsSheetMode() && !lp.classList.contains('collapsed') && lp.getBoundingClientRect().width >= document.documentElement.clientWidth / 2;
             _lhLpBtn();
             if (wide === _lhLpWide) return;
             _lhLpWide = wide;
