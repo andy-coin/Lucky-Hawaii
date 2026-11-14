@@ -18,7 +18,7 @@ const near = (a, b, tol = 1) => expect(Math.abs(a - b), `${a} 應約等於 ${b}`
 const WIDE = { viewport: { width: 1920, height: 1080 }, deviceScaleFactor: 1 };
 const BASE_SEEDS = { 'lh:tourSeen': '1', leftPanelCollapsed: 'false', rightPanelCollapsed: 'false' };
 
-// ===== 完整編輯器幾乎全螢幕 =====
+// ===== 完整編輯器幾乎全螢幕（0.98.03 起平板、電腦是歌詞面板拉寬：#leftPanel；手機仍是浮動面板） =====
 
 test('編輯器：非 dock 桌機，四邊留白 = --page-pad，上下與左側面板對齊', async ({ browser }) => {
     const { context, page, errors } = await bootPage(browser, { device: DEVICES.desktop, storage: storage() });
@@ -27,8 +27,8 @@ test('編輯器：非 dock 桌機，四邊留白 = --page-pad，上下與左側�
     const panel = await page.locator('#leftPanel').boundingBox();
     const pad = await page.evaluate(() => parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--page-pad')));
     expect(pad).toBe(20);
-    await page.locator('#editorOpenBtn').click();
-    const box = await page.locator('#lyricsEditor .lyrics-editor').boundingBox();
+    await page.locator('#editorOpenBtn').click(); await page.waitForFunction(() => !document.body.classList.contains('lp-anim'));
+    const box = await page.locator('#leftPanel').boundingBox();
     near(box.x, pad);
     near(1440 - (box.x + box.width), pad);
     near(box.y, panel.y);
@@ -47,8 +47,8 @@ test('編輯器：dock 寬螢幕，四邊與三塊合起來的外框對齊', asy
     const top = Math.min(...bs.map(b => b.y));
     const right = Math.max(...bs.map(b => b.x + b.width));
     const bottom = Math.max(...bs.map(b => b.y + b.height));
-    await page.locator('#editorOpenBtn').click();
-    const box = await page.locator('#lyricsEditor .lyrics-editor').boundingBox();
+    await page.locator('#editorOpenBtn').click(); await page.waitForFunction(() => !document.body.classList.contains('lp-anim'));
+    const box = await page.locator('#leftPanel').boundingBox();
     near(box.x, left);
     near(box.y, top);
     near(box.x + box.width, right);
@@ -57,15 +57,15 @@ test('編輯器：dock 寬螢幕，四邊與三塊合起來的外框對齊', asy
     await context.close();
 });
 
-test('編輯器：鍵盤開啟時貼滿可見範圍，收起後恢復留白', async ({ browser }) => {
-    const { context, page, errors } = await bootPage(browser, { device: DEVICES.desktop, storage: storage() });
+test('編輯器（手機浮動面板）：鍵盤開啟時貼滿可見範圍，收起後恢復留白', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, { device: DEVICES.phone, storage: storage() });
     await openLeft(page);
-    await page.locator('#editorOpenBtn').click();
+    await page.evaluate(() => lhEditorOpen());
     const before = await page.locator('#lyricsEditor .lyrics-editor').boundingBox();
     await page.evaluate(() => document.documentElement.classList.add('kb-open'));
     const kb = await page.locator('#lyricsEditor .lyrics-editor').boundingBox();
     near(kb.x, 0);
-    near(kb.width, 1440);
+    near(kb.width, page.viewportSize().width);
     await page.evaluate(() => document.documentElement.classList.remove('kb-open'));
     const after = await page.locator('#lyricsEditor .lyrics-editor').boundingBox();
     near(after.x, before.x);

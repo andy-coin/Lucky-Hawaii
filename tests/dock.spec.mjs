@@ -99,11 +99,15 @@ test('不啟用與切換：1440 不啟用、縮放視窗與觸控來回', async 
 test('編輯器：dock 裡展開再 Esc，歌詞區搬出去再搬回、面板不動', async ({ browser }) => {
     const { context, page, errors } = await boot(browser, withSong([typed('sa', 'verse', '一二三\n四五六')]));
     const before = await boxes(page);
-    await page.locator('#editorOpenBtn').click();
-    await expect(page.locator('#lyricsEditor')).toBeVisible();
-    await expect(page.locator('#lyricsEditor #lyricsSections')).toHaveCount(1);
-    await page.keyboard.press('Escape');
+    await page.locator('#editorOpenBtn').click(); await page.waitForFunction(() => !document.body.classList.contains('lp-anim'));
+    // 0.98.03：不開浮動面板，歌詞面板拉寬到整個可用範圍；段落一直留在原處
+    await expect(page.locator('body')).toHaveClass(/lp-full/);
     await expect(page.locator('#lyricsEditor')).toBeHidden();
+    await expect(page.locator('#canvasTools')).toBeVisible();
+    expect((await boxes(page)).lyrics.width).toBeGreaterThan(before.lyrics.width * 1.5);
+    await page.keyboard.press('Escape');
+    await page.waitForFunction(() => !document.body.classList.contains('lp-anim'));
+    await expect(page.locator('body')).not.toHaveClass(/lp-full/);
     await expect(page.locator('#leftPanel .lyrics-layout #lyricsSections')).toHaveCount(1);
     sameBox((await boxes(page)).lyrics, before.lyrics);
     expect(errors).toEqual([]);
@@ -400,8 +404,8 @@ test('拖放：Esc 取消、標題列按鈕仍是點擊', async ({ browser }) =>
     const b1 = await boxes(page);
     for (const k of ['lyrics', 'results', 'ai']) sameBox(b1[k], b0[k]);
     expect(await storedDock(page)).toBeNull();
-    await page.locator('#editorOpenBtn').click();
-    await expect(page.locator('#lyricsEditor')).toBeVisible();
+    await page.locator('#editorOpenBtn').click(); await page.waitForFunction(() => !document.body.classList.contains('lp-anim'));
+    await expect(page.locator('body')).toHaveClass(/lp-full/);
     expect(errors).toEqual([]);
     await context.close();
 });

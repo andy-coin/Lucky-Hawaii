@@ -521,7 +521,7 @@ function startRenameSong(id, opts = {}) {
             const btn = document.getElementById('songListToggle');
             if (refocus && btn) btn.focus();
         } else if (refocus) {
-            const p = opts.anchor ? [...document.querySelectorAll('#editorTabs .editor-tab')].find(b => b.dataset.songId === id) : _songPick(id);
+            const p = opts.anchor ? [...document.querySelectorAll('#editorTabs .editor-tab, #lpTabs .editor-tab')].find(b => b.dataset.songId === id) : _songPick(id);
             if (p) p.focus();
         }
     };

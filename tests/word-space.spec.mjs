@@ -59,9 +59,23 @@ test('查整個詞：判斷、押韻比對（同母音／同子音／同讀音�
         ws.push(...ws.map(w => ({ ...w })));   // 只有兩個詞：複製出第三、四個假的位置點就好
         _lhSp.pins = ws.slice(0, 3).map(w => Object.assign(w, { pinned: true }));
         await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
-        return document.querySelector('.ws-stars polyline').getAttribute('points').split(' ').length;
+        return document.querySelector('.ws-stars path').getAttribute('d');
     });
-    expect(pts).toBe(3);
+    expect(pts).toMatch(/^M[^M]*L[^M]*L[^M]*Z$/);   // 三個點頭尾相連成三角形
+    // 按住恆星還沒拖：整團不動（之前會被拉到畫面中央）
+    const star0 = await page.evaluate(() => { const c = _lhSp.groups[0]; return c ? [c.x, c.y] : null; });
+    if (star0) {
+        const st = page.locator('.ws-word.star').first(), sb = await st.boundingBox();
+        await page.mouse.move(sb.x + sb.width / 2, sb.y + sb.height / 2);
+        await page.mouse.down();
+        await page.waitForTimeout(200);
+        const c1 = await page.evaluate(() => [_lhSp.groups[0].x, _lhSp.groups[0].y]);
+        await page.mouse.up();
+        expect(Math.hypot(c1[0] - star0[0], c1[1] - star0[1])).toBeLessThan(15);
+    }
+        // 點空白處＝取消選取
+    await page.mouse.click(5, 450);
+    expect(await page.evaluate(() => _lhSp.words.some(w => w.pinned))).toBe(false);
     await page.keyboard.press('Escape');
     await expect(page.locator('#wordSpace')).toBeHidden();
     expect(await page.evaluate(() => document.getElementById('mainContainer').inert)).toBe(false);

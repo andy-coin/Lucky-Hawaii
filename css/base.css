@@ -154,6 +154,7 @@
             --header-gradient-1: #fdf6e3;
             --header-gradient-2: #fdf6e3;
             --card-bg: #fffaee;
+            --char-card-bg: #f1e3bd;   /* 字卡／詞卡：暖羊皮紙（原本混 12% 墨綠變成灰，Andy 0.98.03） */
             --text-primary: #073642;
             --text-secondary: #55686e;
             --border: #e2d9c0;
@@ -934,7 +935,7 @@
         }
         
         .char-card {
-            background: color-mix(in srgb, var(--card-bg) 88%, var(--text-primary) 12%);   /* 字卡原本跟面板底色幾乎一樣（對比 1.04–1.12），混入 12% 文字色拉開 */
+            background: var(--char-card-bg, color-mix(in srgb, var(--card-bg) 88%, var(--text-primary) 12%));   /* 字卡原本跟面板底色幾乎一樣（對比 1.04–1.12），混入 12% 文字色拉開；主題可用 --char-card-bg 指定 */
             border: 1px solid var(--border);
             border-radius: var(--radius-m);
             padding: 0.75rem 0.5rem 0.625rem;
@@ -1204,3 +1205,7 @@ html .about-btn, html .about-btn-mobile { background: transparent; border: 1.5px
 @media (display-mode: standalone) and (pointer: coarse) and (min-width: 768px), (display-mode: fullscreen) and (pointer: coarse) and (min-width: 768px) {
     :root { --pad-t: calc(max(var(--page-pad), env(safe-area-inset-top)) + 1.25rem); }
 }
+
+/* 查詢器標題列的按鈕（− % ＋ ? 主題 齒輪）：底色和標題列一樣只靠框不好認，墊一層淡淡的強調色（Andy 0.98.03） */
+html :is(.m-zoomOut-button, .m-zoomIn-button, .zoom-reset, .theme-toggle, .help-btn) { background: color-mix(in srgb, var(--container-bg) 86%, var(--highlight-border)); }
+@media (hover: hover) and (pointer: fine) { html :is(.m-zoomOut-button, .m-zoomIn-button, .zoom-reset, .theme-toggle, .help-btn):hover { background: color-mix(in srgb, var(--container-bg) 72%, var(--highlight-border)); } }

@@ -1353,10 +1353,14 @@ for (const [name, device] of Object.entries(DEVICES)) {
             const ta = page.locator('#lyricsSections .section-textarea').first();
             await hit(ta, '第一個歌詞輸入框');
             // 觸控點歌詞會打開完整編輯器（R2），游標跟著搬進去；打完字用 ✕ 關掉再往下走
-            if (device.hasTouch) await expect(page.locator('#lyricsEditor')).toBeVisible();
+            // 平板、電腦（> 900）改成歌詞面板拉寬（0.98.03），手機照舊開浮動面板
+            const sheet = await page.evaluate(() => lhIsSheetMode());
+            if (device.hasTouch && sheet) await expect(page.locator('#lyricsEditor')).toBeVisible();
+            if (device.hasTouch && !sheet) { await expect(page.locator('body')).toHaveClass(/lp-full/); await page.waitForFunction(() => !document.body.classList.contains('lp-anim')); }
             await page.keyboard.type('月光下');
             expect(await ta.inputValue()).toContain('月光下');
-            if (device.hasTouch) await hit(page.locator('#lyricsEditor .editor-close'), '關閉完整編輯器');
+            if (device.hasTouch && sheet) await hit(page.locator('#lyricsEditor .editor-close'), '關閉完整編輯器');
+            if (device.hasTouch && !sheet) { await hit(page.locator('#editorOpenBtn'), '收回歌詞面板'); await page.waitForFunction(() => !document.body.classList.contains('lp-anim')); }
             await closeSheet(page, device);
             // 4. AI 建議：打開、按提供詞語建議
             await toggleSide(page, device, 'ai');

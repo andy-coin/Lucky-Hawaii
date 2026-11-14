@@ -92,7 +92,7 @@ test('復原：位置算內容，改位置是一步', async ({ browser }) => {
 });
 
 // ===== 切換、移動、拉大小、推開、復原 =====
-const ED = '#lyricsEditor';
+const ED = '#canvasTools';   // 0.98.03：平板、電腦的完整編輯器＝拉寬的歌詞面板，看排版工具在不在
 const openLeft = page => page.evaluate(() => { const lp = document.getElementById('leftPanel'); if (lp.classList.contains('collapsed')) { if (lhIsSheetMode()) mobileTab('lyrics'); else toggleLeftPanel(); } });
 const POS = { sa: { x: 24, y: 24, w: 360, h: 200 }, sb: { x: 408, y: 24, w: 360, h: 200 }, sc: { x: 24, y: 248, w: 360, h: 200 } };
 // 標準種子：三張卡片，自由模式
@@ -103,7 +103,7 @@ const GRIP = id => page => page.locator(`${SEC(id)} .section-handle`);
 async function boot(browser, songs, { device = DEVICES.desktop, extra = {}, open = true } = {}) {
     const r = await bootPage(browser, { device, storage: storage(songs, extra), wordlist: 'stub' });
     await openLeft(r.page);
-    if (open) await r.page.locator('#editorOpenBtn').click();
+    if (open) await r.page.locator('#editorOpenBtn').click(); await r.page.waitForFunction(() => !document.body.classList.contains('lp-anim'));
     return r;
 }
 const posOf = (page, id) => page.evaluate(id => curSong().sections.find(s => s.id === id).pos ?? null, id);
@@ -125,7 +125,7 @@ const overlap = (a, b) => a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.
 test('切換：吸附／自由只在編輯器，吸附不寫資料，自由寫 {mode}，關編輯器回直列', async ({ browser }) => {
     const { context, page, errors } = await boot(browser, plain(), { open: false });
     await expect(page.locator('#canvasTools')).toBeHidden();
-    await page.locator('#editorOpenBtn').click();
+    await page.locator('#editorOpenBtn').click(); await page.waitForFunction(() => !document.body.classList.contains('lp-anim'));
     await expect(page.locator('#canvasTools')).toBeVisible();
     await expect(page.locator('#canvasSnapBtn')).toHaveAttribute('aria-pressed', 'true');
     await expect(page.locator('#canvasSnapBtn')).toHaveText('吸附');
@@ -146,7 +146,7 @@ test('切換：吸附／自由只在編輯器，吸附不寫資料，自由寫 {
     await expect(page.locator(ED)).toBeHidden();
     expect(await page.evaluate(() => document.getElementById('lyricsSections').dataset.canvas)).toBeUndefined();
     expect(await page.locator('#lyricsSections .lyrics-section').evaluateAll(els => els.map(e => getComputedStyle(e).position))).toEqual(['relative', 'relative']);
-    await page.locator('#editorOpenBtn').click();
+    await page.locator('#editorOpenBtn').click(); await page.waitForFunction(() => !document.body.classList.contains('lp-anim'));
     await expect(page.locator('#lyricsSections')).toHaveAttribute('data-canvas', 'free');
     await page.locator('#canvasSnapBtn').click();
     await expect(page.locator('#lyricsSections')).not.toHaveAttribute('data-canvas', 'free');
@@ -175,7 +175,7 @@ test('移動：拖 ⋮⋮ 一整段、不誤收合不誤排序、一步復原、
     expect(await posOf(page, 'sa')).toEqual({ x: 824, y: 64, w: 360, h: 200 });
     await page.reload();
     await openLeft(page);
-    await page.locator('#editorOpenBtn').click();
+    await page.locator('#editorOpenBtn').click(); await page.waitForFunction(() => !document.body.classList.contains('lp-anim'));
     await expect(page.locator('#lyricsSections')).toHaveAttribute('data-canvas', 'free');
     expect(await posOf(page, 'sa')).toEqual({ x: 824, y: 64, w: 360, h: 200 });
     const b3 = await boxOf(page, 'sa');
@@ -220,7 +220,8 @@ test('移動：名稱鈕、字母條不會拖動卡片，點了照樣開選單',
         const b = await boxOf(page, 'sa');
         near(b.x, b0.x); near(b.y, b0.y);
         await page.keyboard.press('Escape');   // 拖完若有選單先關（編輯器的 Esc 在選單開著時只關選單）
-        if (!(await page.locator(ED).isVisible())) await page.locator('#editorOpenBtn').click();
+        await page.waitForFunction(() => !document.body.classList.contains('lp-anim'));
+        if (!(await page.locator(ED).isVisible())) { await page.locator('#editorOpenBtn').click(); await page.waitForFunction(() => !document.body.classList.contains('lp-anim')); }
     }
     await page.locator(`${SEC('sa')} .section-type`).click();
     await expect(page.locator('#sectionMenu')).toBeVisible();
@@ -250,8 +251,8 @@ test('推開：放到別張上面，被壓到的推開、不重疊，一步復�
 
 test('拉大小：右下角改寬高、文字框撐滿、鏡像層同大小', async ({ browser }) => {
     const { context, page, errors } = await boot(browser, seeded());
-    await drag(page, await cen(page.locator(`${SEC('sc')} .cv-corner`)), 80, 60);
-    expect(await posOf(page, 'sc')).toEqual({ x: 24, y: 248, w: 440, h: 260 });
+    await drag(page, await cen(page.locator(`${SEC('sc')} .cv-corner`)), 80, 40);
+    expect(await posOf(page, 'sc')).toEqual({ x: 24, y: 248, w: 440, h: 240 });
     expect(await posOf(page, 'sa')).toEqual(POS.sa);
     expect(await posOf(page, 'sb')).toEqual(POS.sb);
     const g = await page.locator(SEC('sc')).evaluate(c => {
@@ -288,10 +289,10 @@ test('吸附保留位置，每首歌各自記模式', async ({ browser }) => {
     await page.locator('#canvasFreeBtn').click();
     near((await boxOf(page, 'sa')).x - (await page.locator('#lyricsSections').boundingBox()).x, 824 + 1, 3);
     expect(await posOf(page, 'sa')).toEqual(moved);
-    await page.locator('#editorTabs .editor-tab', { hasText: '第二首' }).click();
+    await page.locator('#lpTabs .editor-tab', { hasText: '第二首' }).click();
     await expect(page.locator('#canvasSnapBtn')).toHaveAttribute('aria-pressed', 'true');
     expect(await page.evaluate(() => document.getElementById('lyricsSections').dataset.canvas)).toBeUndefined();
-    await page.locator('#editorTabs .editor-tab', { hasText: '第一首' }).click();
+    await page.locator('#lpTabs .editor-tab', { hasText: '第一首' }).click();
     await expect(page.locator('#lyricsSections')).toHaveAttribute('data-canvas', 'free');
     expect(await posOf(page, 'sa')).toEqual(moved);
     expect(errors).toEqual([]);
@@ -336,7 +337,7 @@ test('手機：觸控拖標題列能移動卡片', async ({ browser }) => {
     const small = { sa: { x: 24, y: 24, w: 300, h: 200 }, sb: { x: 24, y: 300, w: 300, h: 200 } };
     const s = [song('s1', '第一首', [typed('sa', 'verse', '一二三', { pos: small.sa }), typed('sb', 'chorus', '七八九', { pos: small.sb })], 1, { canvas: { mode: 'free' } })];
     const { context, page, errors } = await boot(browser, s, { device: DEVICES.phone, open: false });
-    await page.evaluate(() => lhEditorOpen());
+    await page.evaluate(() => lhEditorOpen()); await page.waitForFunction(() => !document.body.classList.contains('lp-anim'));
     await expect(page.locator('#lyricsSections')).toHaveAttribute('data-canvas', 'free');
     const from = await cen(GRIP('sa')(page));
     await touchSession(page).then(t => t.drag(from, [from[0], from[1] + 60]));
@@ -430,7 +431,7 @@ test('帶游標打開編輯器：只捲畫布，外層與頁面不動', async ({
     await page.keyboard.press('Escape');
     await expect(page.locator(ED)).toBeHidden();
     const w0 = await page.evaluate(() => [window.scrollX, window.scrollY]);
-    await page.evaluate(() => lhEditorOpen(document.querySelector('#lyricsSections [data-id="sc"] .section-textarea'), [0, 0]));
+    await page.evaluate(() => lhEditorOpen(document.querySelector('#lyricsSections [data-id="sc"] .section-textarea'), [0, 0])); await page.waitForFunction(() => !document.body.classList.contains('lp-anim'));
     expect(await revealed(page, 'sc')).toBe(true);
     const o = await outerScroll(page);
     expect(o.slice(0, -1).every(v => v[0] === 0 && v[1] === 0)).toBe(true);
@@ -460,7 +461,7 @@ test('手機鍵盤打開：退回整齊直列，收起來再排回自由', async
     const small = { sa: { x: 24, y: 24, w: 300, h: 200 }, sb: { x: 24, y: 300, w: 300, h: 200 } };
     const s = [song('s1', '第一首', [typed('sa', 'verse', '一二三', { pos: small.sa }), typed('sb', 'chorus', '七八九', { pos: small.sb })], 1, { canvas: { mode: 'free' } })];
     const { context, page, errors } = await boot(browser, s, { device: DEVICES.phone, open: false });
-    await page.evaluate(() => lhEditorOpen());
+    await page.evaluate(() => lhEditorOpen()); await page.waitForFunction(() => !document.body.classList.contains('lp-anim'));
     await expect(page.locator('#lyricsSections')).toHaveAttribute('data-canvas', 'free');
     await page.evaluate(() => document.querySelector('#lyricsSections [data-id="sa"] .section-textarea').focus({ preventScroll: true }));
     const size = await emulateKeyboard(page, 300);

@@ -321,7 +321,54 @@
         let _lhEdOpener = null;   // 關閉後焦點要回去的元素（滑鼠裝置）
         const _lhEdMouse = () => matchMedia('(hover: hover) and (pointer: fine)').matches;
 
-        function lhEditorIsOpen() { return !!_lhEdMoved; }
+        // 0.98.03 起平板、電腦不再用浮動面板：「展開」＝歌詞面板貼著原本的邊拉寬到接近全螢幕（body.lp-full）；
+        // 面板夠寬（不管是展開還是拖交界拉寬）就是完整編輯器（body.lp-wide）：歌曲分頁、自由／吸附、畫布縮放才出現。手機（≤ 900）照舊用浮動面板
+        const LH_LP_WIDE = 44;   // rem：歌詞欄（不含歌曲清單）寬到這樣才算完整編輯器
+        let _lhLpWide = false;
+        function lhEditorIsOpen() { return !!_lhEdMoved || _lhLpWide; }
+        function _lhLpSync() {
+            const lp = document.getElementById('leftPanel'), main = lp && lp.querySelector('.lyrics-main');
+            if (!main) return;
+            if (lp.classList.contains('collapsed') || lhIsSheetMode()) document.body.classList.remove('lp-full');
+            const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+            const wide = !_lhEdMoved && !lhIsSheetMode() && !lp.classList.contains('collapsed') && main.getBoundingClientRect().width / rem >= LH_LP_WIDE;
+            _lhLpBtn();
+            if (wide === _lhLpWide) return;
+            _lhLpWide = wide;
+            document.body.classList.toggle('lp-wide', wide);
+            lhEditorRenderTabs();
+            if (typeof lhCanvasApply === 'function') lhCanvasApply();
+            if (typeof lhMapRenderAll === 'function') lhMapRenderAll();
+        }
+        function _lhLpBtn() {
+            const b = document.getElementById('editorOpenBtn'), full = document.body.classList.contains('lp-full');
+            if (!b) return;
+            b.setAttribute('aria-pressed', String(full));
+            b.setAttribute('aria-label', full ? '收回歌詞面板' : '展開完整歌詞編輯器');
+            b.title = full ? '收回歌詞面板（Esc）' : '展開完整歌詞編輯器（也可以雙擊歌詞）';
+            const l = b.querySelector('.btn-label');
+            if (l) l.textContent = full ? '收回' : '展開';
+        }
+        function lhLpFull(on, after) {
+            const lp = document.getElementById('leftPanel');
+            if (on && lp.classList.contains('collapsed')) toggleLeftPanel();
+            document.body.classList.add('lp-anim');   // 只有展開／收回這一下有動畫（平常拖交界不做 transition）
+            document.body.classList.toggle('lp-full', on);
+            clearTimeout(lhLpFull.t);
+            lhLpFull.t = setTimeout(() => { document.body.classList.remove('lp-anim'); _lhLpSync(); if (typeof lhMapRenderAll === 'function') lhMapRenderAll(); if (after) after(); }, 420);
+            _lhLpSync();
+        }
+        function lhEditorToggle() {
+            if (document.body.classList.contains('lp-full')) lhLpFull(false); else lhEditorOpen();
+        }
+        {
+            const lp = document.getElementById('leftPanel');
+            if (lp) {
+                new ResizeObserver(() => _lhLpSync()).observe(lp);
+                new MutationObserver(() => _lhLpSync()).observe(lp, { attributes: true, attributeFilter: ['class'] });
+                LH_MQ_SHEET.addEventListener('change', () => _lhLpSync());
+            }
+        }
 
         // 搬節點會讓 textarea 的捲動歸零、焦點丟掉：先記下來，搬完放回去
         function _lhEdMove(fn) {
@@ -337,6 +384,14 @@
         // ta／sel：觸控點歌詞或雙擊打開時，把游標放回同一段、同一個位置
         function lhEditorOpen(ta, sel) {
             if (_lhEdMoved) return;
+            if (!lhIsSheetMode()) {   // 平板、電腦：歌詞面板拉寬，不開浮動面板
+                if (ta && ta.isConnected) { ta.focus({ preventScroll: true }); if (sel) ta.setSelectionRange(sel[0], sel[1]); }
+                lhLpFull(true, () => {   // 拉寬、排好版之後再把那一段露出來（自由畫布只捲畫布）
+                    const card = ta && ta.isConnected && ta.closest('.lyrics-section');
+                    if (card) if (!(typeof lhCanvasReveal === 'function' && lhCanvasReveal(card))) card.scrollIntoView({ block: 'nearest' });
+                });
+                return;
+            }
             const layout = document.querySelector('#leftPanel .lyrics-layout');
             const box = document.getElementById('lyricsEditorBody');
             const exp = document.getElementById('exportToggle');
@@ -387,8 +442,8 @@
 
         // 上方一排歌曲分頁：舊的在左、新的在右，最後是「＋」；點了換歌、雙擊改名
         function lhEditorRenderTabs() {
-            const bar = document.getElementById('editorTabs');
-            if (!bar || !_lhEdMoved) return;
+            const bar = _lhEdMoved ? document.getElementById('editorTabs') : _lhLpWide ? document.getElementById('lpTabs') : null;
+            if (!bar) return;
             const hadFocus = bar.contains(document.activeElement) && !document.activeElement.classList.contains('song-name-input');
             if (bar.querySelector('.song-name-input')) return;   // 改名中不重畫（改完會再畫一次）
             const tabs = sortedSongs().reverse().map(s => {
@@ -413,21 +468,24 @@
             if (hadFocus && cur) cur.focus({ preventScroll: true });
         }
 
-        document.getElementById('editorTabs')?.addEventListener('click', e => {
-            const t = e.target.closest('.editor-tab');
-            if (!t) return;
-            if (t.classList.contains('editor-tab-add')) {
-                const before = activeSongId;
-                createSong({ rename: false });
-                if (activeSongId === before) return;
-                const tab = [...document.querySelectorAll('#editorTabs .editor-tab')].find(b => b.dataset.songId === activeSongId);
-                if (tab) startRenameSong(activeSongId, { isNew: true, anchor: tab });
-            } else if (t.dataset.songId) switchSong(t.dataset.songId);
-        });
-        document.getElementById('editorTabs')?.addEventListener('dblclick', e => {
-            const t = e.target.closest('.editor-tab');
-            if (t && t.dataset.songId) startRenameSong(t.dataset.songId, { anchor: t });
-        });
+        for (const id of ['editorTabs', 'lpTabs']) {
+            const bar = document.getElementById(id);
+            bar?.addEventListener('click', e => {
+                const t = e.target.closest('.editor-tab');
+                if (!t) return;
+                if (t.classList.contains('editor-tab-add')) {
+                    const before = activeSongId;
+                    createSong({ rename: false });
+                    if (activeSongId === before) return;
+                    const tab = [...bar.querySelectorAll('.editor-tab')].find(b => b.dataset.songId === activeSongId);
+                    if (tab) startRenameSong(activeSongId, { isNew: true, anchor: tab });
+                } else if (t.dataset.songId) switchSong(t.dataset.songId);
+            });
+            bar?.addEventListener('dblclick', e => {
+                const t = e.target.closest('.editor-tab');
+                if (t && t.dataset.songId) startRenameSong(t.dataset.songId, { anchor: t });
+            });
+        }
 
         // 電腦（滑鼠）：雙擊歌詞打開，單擊不打開；手指／觸控筆：點歌詞就打開，游標留在點的位置
         // 觸控等到 click 才搬：那時游標已經放好，而且還在使用者手勢裡，重新聚焦鍵盤才會照常出現。
@@ -435,7 +493,7 @@
         let _lhEdTapTa = null;
         document.getElementById('lyricsSections')?.addEventListener('dblclick', e => {
             const ta = e.target.closest && e.target.closest('.section-textarea');
-            if (ta && !_lhEdMoved) lhEditorOpen(ta, [ta.selectionStart, ta.selectionEnd]);
+            if (ta && !_lhEdMoved && !_lhLpWide) lhEditorOpen(ta, [ta.selectionStart, ta.selectionEnd]);
         });
         // 觸控點歌詞、標籤輸入框、情境框都會彈出編輯器（Andy：行動裝置點情境標籤也要彈）
         document.querySelector('#leftPanel .lyrics-layout')?.addEventListener('pointerdown', e => {
@@ -444,7 +502,7 @@
         document.addEventListener('click', () => {
             const ta = _lhEdTapTa;
             _lhEdTapTa = null;
-            if (ta && !_lhEdMoved && document.activeElement === ta) lhEditorOpen(ta, [ta.selectionStart, ta.selectionEnd]);
+            if (ta && !_lhEdMoved && !_lhLpWide && document.activeElement === ta) lhEditorOpen(ta, [ta.selectionStart, ta.selectionEnd]);
         }, true);
 
         // 點遮罩（按下與放開都在遮罩上）關閉；在面板裡選字拖到外面放開不算
@@ -457,6 +515,10 @@
 
         // Esc 關閉（選單、浮動列、拖曳在 capture 階段先用掉 Esc；組字中的 Esc 是取消組字）；Tab 在面板內循環
         document.addEventListener('keydown', e => {
+            // 拉寬的歌詞面板：Esc 收回（選單、浮層先用掉的不算）
+            if (!_lhEdMoved && e.key === 'Escape' && !e.isComposing && document.body.classList.contains('lp-full') && !e.defaultPrevented
+                && !document.querySelector('.word-ctx-menu.show, .settings-overlay.show, .about-overlay.show, .feedback-modal-overlay.show, #wordSpace:not([hidden])')
+                && !(e.target.classList && e.target.classList.contains('song-name-input'))) { e.preventDefault(); lhLpFull(false); return; }
             if (!_lhEdMoved || e.isComposing || e.keyCode === 229) return;
             if (e.key === 'Escape') {
                 if (e.defaultPrevented || document.querySelector('.word-ctx-menu.show, .settings-overlay.show, .about-overlay.show, .feedback-modal-overlay.show')) return;

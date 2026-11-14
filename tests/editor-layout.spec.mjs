@@ -13,7 +13,7 @@ const HEAD = id => `#lyricsSections [data-id="${id}"] .lyrics-section-header`;
 const order = page => page.evaluate(() => curSong().sections.map(s => s.id + (s.rj ? '+' : '')).join(','));
 const boot = async (browser, songs, device = DEVICES.desktop, extra = {}) => {
     const r = await bootPage(browser, { device, storage: storage(songs, extra) });
-    await r.page.evaluate(() => lhEditorOpen());
+    await r.page.evaluate(() => lhEditorOpen()); await r.page.waitForFunction(() => !document.body.classList.contains('lp-anim'));
     return r;
 };
 // 滑鼠拖標題列到目標卡片的相對位置（fx, fy：0～1）
@@ -52,7 +52,7 @@ test('吸附分列：照使用者的例子——verse2 拖到 verse1 右邊、ve
     // 重新整理後版面還在
     await page.evaluate(() => flushSongs());
     await page.reload();
-    await page.evaluate(() => lhEditorOpen());
+    await page.evaluate(() => lhEditorOpen()); await page.waitForFunction(() => !document.body.classList.contains('lp-anim'));
     expect(await order(page)).toBe('s1,s2+,s3+');
     expect(errors).toEqual([]);
     await context.close();
