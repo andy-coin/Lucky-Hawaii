@@ -49,9 +49,9 @@ let _dkRects = {};            // 區塊 id → { x, y, w, h }（最近一次版�
 let _dkDivs = new Map();      // 分隔線 key → 描述（最近一次版面）
 const _dkDivEls = new Map();  // 分隔線 key → 元素（拖到一半重排時沿用同一個）
 
-// 查詢區永遠開著；歌詞／AI 看面板有沒有收起
+// 查詢區平常永遠開著；只有三直排裡被換到側邊、而且收起來（body.dk-rs-fold，lhDockRender 決定）才不佔版面。歌詞／AI 看面板有沒有收起
 function _dkOpen(id) {
-    if (id === 'results') return true;
+    if (id === 'results') return !document.body.classList.contains('dk-rs-fold');
     const el = document.getElementById(LH_DOCK_BLOCKS[id]);
     return !!el && !el.classList.contains('collapsed');
 }
@@ -124,29 +124,38 @@ function lhDockRender() {
     if (!document.body) return;
     const on = lhIsDockMode();
     document.body.classList.toggle('dock', on);
-    if (!on) { document.body.classList.remove('dock-classic', 'dk-tab-l', 'dk-tab-r'); _dkSyncDividers(); return; }
-    // 先加 body.dock（它的 padding 規則決定外框），再量 body 內容區
-    const cs = getComputedStyle(document.body);
-    const padL = parseFloat(cs.paddingLeft) || 0, padR = parseFloat(cs.paddingRight) || 0;
-    const padT = parseFloat(cs.paddingTop) || 0, padB = parseFloat(cs.paddingBottom) || 0;
-    const root = document.documentElement;
-    const frame = { x: padL, y: padT, w: root.clientWidth - padL - padR, h: root.clientHeight - padT - padB };
-    const gap = (parseFloat(getComputedStyle(root).fontSize) || 16) * 0.5;
+    if (!on) { document.body.classList.remove('dock-classic', 'dk-tab-l', 'dk-tab-r', 'dk-mid-lyrics', 'dk-mid-ai', 'dk-rs-l', 'dk-rs-r', 'dk-rs-fold'); _dkSyncDividers(); return; }
     // 存的樹一定含每個展開的區塊（此處不存檔）
     // ponytail: 收起期間做拖放重排（Task 3 從只含可見區塊的樹產生新樹）會讓收起那塊失去舊位置，
     // 重新打開時吸回老家邊；分隔線縮放寫回 _dkTree 所以不受影響。要保留就在重開時把葉子插回舊鄰居旁
     for (const id of Object.keys(LH_DOCK_BLOCKS)) {
         if (_dkOpen(id) && !_dkInTree(_dkTree, id)) _dkTree = _dkAddEdge(_dkTree, id);
     }
-    _dkVis = _dkPrune(_dkTree, _dkOpen);
     // 最傳統的三直排（三塊並排）才保留左右兩側的收合分頁；其他版型改用標題列上的小三角形，免得分頁被誤認成也能拖去排版
     // 看整棵樹（含收起的）：三直排只是收起其中一塊，仍算三直排，另一側照樣留分頁
     const full = _dkPrune(_dkTree, () => true);
     const classic = _dkSig(full) === 'row(L,L,L)';
     document.body.classList.toggle('dock-classic', classic);
-    // 側邊分頁只給站在外側的那塊：歌詞在最左、AI 在最右；排到中間（例如 查詢｜歌詞｜AI）就改用小三角形
+    // 側邊分頁只給站在外側的那塊：歌詞在最左、AI 在最右；中間那塊不給收合（分頁、小三角形都藏起來，CSS 看 dk-mid-*）
     document.body.classList.toggle('dk-tab-l', classic && full.k[0] === 'lyrics');
     document.body.classList.toggle('dk-tab-r', classic && full.k[2] === 'ai');
+    for (const id of ['lyrics', 'ai']) document.body.classList.toggle('dk-mid-' + id, classic && full.k[1] === id);
+    // 查詢區被換到側邊：也給它一條側邊分頁（和另一側對稱）。收起時貼到那一邊只露分頁；
+    // 同一邊的抽屜面板（左＝歌詞、右＝AI）收著時不讓它收，兩條分頁才不會疊在同一邊、也不會三塊全收光
+    const rs = classic ? (full.k[0] === 'results' ? 'l' : full.k[2] === 'results' ? 'r' : '') : '';
+    document.body.classList.toggle('dk-rs-l', rs === 'l');
+    document.body.classList.toggle('dk-rs-r', rs === 'r');
+    const sameSideOpen = rs && _dkOpen(rs === 'l' ? 'lyrics' : 'ai');
+    document.body.classList.toggle('dk-rs-fold', !!sameSideOpen && lhGet('resultsPanelCollapsed') === 'true');
+    if (!_dkInTree(_dkTree, 'results')) _dkTree = _dkAddEdge(_dkTree, 'results');   // 收著時重排過，查詢區不在樹裡：打開時補回來
+    _dkVis = _dkPrune(_dkTree, _dkOpen);
+    // 先加 body.dock 與上面這些 class（它們的 padding 規則決定外框），再量 body 內容區
+    const cs = getComputedStyle(document.body);
+    const padL = parseFloat(cs.paddingLeft) || 0, padR = parseFloat(cs.paddingRight) || 0;
+    const padT = parseFloat(cs.paddingTop) || 0, padB = parseFloat(cs.paddingBottom) || 0;
+    const root = document.documentElement;
+    const frame = { x: padL, y: padT, w: root.clientWidth - padL - padR, h: root.clientHeight - padT - padB };
+    const gap = (parseFloat(getComputedStyle(root).fontSize) || 16) * 0.5;
     for (const sel of Object.values(LH_DOCK_HANDLES)) {   // 標題列的說明（滑鼠停一下浮出）
         const h = document.querySelector(sel);
         if (h) h.title = '抓著標題列拖曳：放到別塊中間＝互換，放到別塊邊緣＝分割畫面';
@@ -159,6 +168,12 @@ function lhDockRender() {
         if (el) _dkSetVars(el, _dkRects[id]);
     }
     _dkSyncDividers();
+}
+
+// 查詢區的側邊分頁：收起／打開（只在三直排、查詢區站在側邊時看得到）
+function toggleResultsPanel() {
+    lhSet('resultsPanelCollapsed', document.body.classList.contains('dk-rs-fold') ? 'false' : 'true');
+    lhDockRender();
 }
 
 function _dkSave() {

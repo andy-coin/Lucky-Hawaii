@@ -310,6 +310,8 @@ function lhMapPaint(secEl) {
     if (hit && hit.text === sec.text && hit.sig === sig && hit.ref === refText && hit.marks === sec.marks) {   // 沒變：只把「暫時藏起來」解除，不重畫
         mirror.classList.remove('rm-stale', 'lm-typing');
         secEl.classList.toggle('rm-on', hit.on || colOn);
+        secEl.classList.toggle('rl-text', !!hit.rlOn);
+        secEl.classList.remove('rl-typing');
         _lhMapSync(ta, mirror);
         return;
     }
@@ -326,9 +328,13 @@ function lhMapPaint(secEl) {
         mirror.replaceChildren(built.frag);
     }
     secEl.classList.toggle('rm-on', on || colOn);
+    // 角色標記改字色：鏡像層的字顯示出來、輸入框的字變透明（打字中 rl-typing 先退回輸入框的字，重畫完再換回角色色）
+    const rlOn = !!rl && on;
+    secEl.classList.toggle('rl-text', rlOn);
+    secEl.classList.remove('rl-typing');
     mirror.classList.remove('rm-stale', 'lm-typing');
     _lhMapSync(ta, mirror);   // 顯示出來之後才設得動 scrollTop，所以放在最後
-    _lhMapCache.set(sec.id, { text, sig, res, ref: refText, on, marks: sec.marks });
+    _lhMapCache.set(sec.id, { text, sig, res, ref: refText, on, marks: sec.marks, rlOn });
     _lhMapStrip(secEl, res, big);
 }
 

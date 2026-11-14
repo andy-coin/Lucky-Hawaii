@@ -170,13 +170,20 @@ test('舊歌（沒有 roles）打字存檔後不會多出 roles／marks 欄位',
 const ALL_OFF = JSON.stringify({ end: false, letters: false, inner: false, strict: true, skipParticles: true });
 const rlSpans = (page, k) => page.locator('.rhyme-mirror span.rl[data-rl="' + k + '"]').first();
 
-test('鏡像層：角色範圍畫成淡底（rhyme 全關也有），預設模式下韻腳色塊照常', async ({ browser }) => {
+test('鏡像層：角色範圍改字色、不畫底（rhyme 全關也有），預設模式下韻腳色塊照常', async ({ browser }) => {
     let r = await bootPage(browser, { wordlist: 'stub', storage: { ...withRoles(), 'lh:map': ALL_OFF } });
     await expect(r.page.locator('.lyrics-section').first()).toHaveClass(/rm-on/);
+    await expect(r.page.locator('.lyrics-section').first()).toHaveClass(/rl-text/);
     await expect(rlSpans(r.page, 0)).toHaveText('我愛你');
     await expect(rlSpans(r.page, 1)).toHaveText('你愛我');
-    const bg = await rlSpans(r.page, 0).evaluate(e => getComputedStyle(e).backgroundColor);
-    expect(bg).not.toMatch(/rgba\(0, 0, 0, 0\)|transparent/);
+    const st = await rlSpans(r.page, 0).evaluate(e => ({ bg: getComputedStyle(e).backgroundColor, c: getComputedStyle(e).color, base: getComputedStyle(e.parentElement).color }));
+    expect(st.bg).toMatch(/rgba\(0, 0, 0, 0\)|transparent/);   // 底色留給韻腳地圖
+    expect(st.c).not.toBe(st.base);                              // 字換成角色色
+    // 輸入框自己的字變透明（看到的是鏡像層的彩色字）；打字中先退回輸入框的字
+    const ta = r.page.locator('.lyrics-section').first().locator('.section-textarea');
+    expect(await ta.evaluate(e => getComputedStyle(e).webkitTextFillColor)).toMatch(/rgba\(0, 0, 0, 0\)|transparent/);
+    await r.page.evaluate(() => document.querySelector('.lyrics-section').classList.add('rl-typing'));
+    expect(await ta.evaluate(e => getComputedStyle(e).webkitTextFillColor)).not.toMatch(/rgba\(0, 0, 0, 0\)|transparent/);
     expect(r.errors).toEqual([]);
     await r.context.close();
     r = await bootPage(browser, { wordlist: 'stub', storage: withRoles() });
@@ -220,30 +227,25 @@ test('鏡像層：加了角色包裝後每個字的位置不變（誤差 ≤ 0.5
     await context.close();
 });
 
-for (const scheme of ['light', 'dark']) {
-    test('鏡像層：' + scheme + ' 主題 8 個預設角色色的淡底上文字對比 ≥ 4.5', async ({ browser }) => {
-        const { context, page, errors } = await bootPage(browser, { wordlist: 'stub', storage: scheme === 'dark' ? { ...withRoles(), hoyun_theme_mode: 'dark' } : withRoles(), colorScheme: scheme });
+for (const theme of ['plain', 'moon', 'city', 'midnight']) {
+    test('鏡像層：' + theme + ' 主題 8 個預設角色色的字對比 ≥ 4.5', async ({ browser }) => {
+        const { context, page, errors } = await bootPage(browser, { wordlist: 'stub', storage: { ...withRoles(), hoyun_theme_mode: theme } });
         await expect(rlSpans(page, 0)).toBeVisible();
         const r = await page.evaluate(() => {
-            const rgb = s => s.match(/[\d.]+/g).slice(0, 3).map(Number);
+            // color-mix 算出來是 color(srgb 0–1 …)，一般顏色是 rgb(0–255 …)
+            const rgb = s => { const v = s.match(/[\d.]+/g).slice(0, 3).map(Number); return s.startsWith('color(') ? v.map(x => x * 255) : v; };
             const lum = c => { const [r, g, b] = c.map(v => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; }); return 0.2126 * r + 0.7152 * g + 0.0722 * b; };
             const span = document.querySelector('.rhyme-mirror span.rl');
-            const mix = parseFloat(getComputedStyle(span).getPropertyValue('--rl-mix') || '24') / 100;
-            const mixPct = getComputedStyle(span).getPropertyValue('--rl-mix').trim();
-            const sec = document.querySelector('.lyrics-section');
-            const bg = rgb(getComputedStyle(sec.querySelector('.section-body')).backgroundColor);
-            const fg = rgb(getComputedStyle(sec.querySelector('.section-textarea')).color);
+            const bg = rgb(getComputedStyle(document.querySelector('.lyrics-section .section-body')).backgroundColor);
             const worst = LH_ROLE_COLORS.map(hex => {
-                const c = [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16));
-                const comp = c.map((v, i) => v * mix + bg[i] * (1 - mix));
-                const l1 = lum(fg), l2 = lum(comp);
+                document.documentElement.style.setProperty('--rl' + span.dataset.rl, hex);
+                const fg = rgb(getComputedStyle(span).color);
+                const l1 = lum(fg), l2 = lum(bg);
                 return (Math.max(l1, l2) + 0.05) / (Math.min(l1, l2) + 0.05);
             });
-            return { theme: document.documentElement.dataset.theme, mixPct, min: Math.min(...worst) };
+            return Math.min(...worst);
         });
-        expect(r.theme).toBe(scheme);
-        expect(r.min).toBeGreaterThanOrEqual(4.5);
-        expect(r.mixPct).toBe(scheme === 'dark' ? '36%' : '');
+        expect(r).toBeGreaterThanOrEqual(4.5);
         expect(errors).toEqual([]);
         await context.close();
     });
@@ -518,12 +520,12 @@ test('面板：色票改色立刻反映在鏡像層與變數，並存檔', async
     const { context, page, errors } = await bootPage(browser, { wordlist: 'stub', storage: withRoles() });
     const span = rlSpans(page, 1);
     await expect(span).toBeVisible();
-    const before = await span.evaluate(e => getComputedStyle(e).backgroundColor);
+    const before = await span.evaluate(e => getComputedStyle(e).color);
     await open(page);
     await rows(page).nth(1).locator('.swatch[data-hex="#48a868"]').click();
     expect(await page.evaluate(() => curSong().roles[1].color)).toBe('#48a868');
     expect(await page.evaluate(() => document.documentElement.style.getPropertyValue('--rl1'))).toBe('#48a868');
-    expect(await span.evaluate(e => getComputedStyle(e).backgroundColor)).not.toBe(before);
+    expect(await span.evaluate(e => getComputedStyle(e).color)).not.toBe(before);
     await expect(rows(page).nth(1).locator('.swatch[aria-pressed="true"]')).toHaveAttribute('data-hex', '#48a868');
     await expect.poll(async () => (await activeSongRaw(page)).roles[1].color).toBe('#48a868');
     expect(errors).toEqual([]);

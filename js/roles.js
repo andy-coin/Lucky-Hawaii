@@ -15,6 +15,12 @@ function lhRolesRefresh() {
     }
 }
 
+// 角色字色：打字時鏡像層還沒重畫（停 200 毫秒才畫），先讓輸入框自己的字顯示，免得看到舊字（js/rhyme-map.js lhMapPaint 會拿掉 rl-typing）
+document.addEventListener('input', e => {
+    const t = e.target;
+    if (t && t.classList && t.classList.contains('section-textarea')) t.closest('.lyrics-section')?.classList.add('rl-typing');
+}, true);
+
 // 角色清單的增、改、刪都記進復原歷史：改之前先 lhHistEnsure（確保歷史的「現在」是改之前的樣子），改完呼叫 _lhRoleCommit（內容沒變就不記）
 function _lhRoleCommit(song) {
     const h = lhHistEnsure(song);

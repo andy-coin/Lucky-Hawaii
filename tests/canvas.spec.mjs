@@ -700,9 +700,9 @@ test('自由畫布：移動卡片時左緣貼齊別張卡片，並出現導引�
 test('拉大小：右緣吸到別張卡片的左緣，Shift 等比例', async ({ browser }) => {
     const { context, page, errors } = await boot(browser, seeded());
     const corner = async id => { const b = await page.locator(`${SEC(id)} .cv-corner`).boundingBox(); return [b.x + b.width / 2, b.y + b.height / 2]; };
-    // sa 右緣 384，sb 左緣 408：往右拉 21px（差 3px）就吸到 408
+    // sa 右緣 384，sb 左緣 408：往右拉 21px（差 3px）就吸過去，貼齊時留 1px 縫（右緣停在 407）
     await drag(page, await corner('sa'), 21, 0);
-    expect((await posOf(page, 'sa')).w).toBe(408 - 24);
+    expect((await posOf(page, 'sa')).w).toBe(408 - 1 - 24);
     // Shift：寬度多拉 60，高度照 384:200 的比例跟著變
     const before = await posOf(page, 'sc');
     const from = await corner('sc');

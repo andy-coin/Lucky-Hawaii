@@ -118,11 +118,9 @@ async function lhSecRemoveAsk(id) {
     const song = curSong();
     const s = song && song.sections.find(x => x.id === id);
     if (!s || song.sections.length < 2) return;
-    const n = lhCountWords(s.text);
     const ok = await lhAsk({
         title: '刪除「' + cutName(s.label || '段落', 16) + '」？',
-        body: (n ? '這個區塊有 ' + n + ' 個字，' : '這個區塊是空的，') + '刪除後 5 秒內可以按「復原」，之後也可以用復原鍵（↶）找回來。',
-        buttons: [{ label: '先不刪除', value: null }, { label: '刪除', value: true, kind: 'danger' }],
+        buttons: [{ label: '刪除', value: true, kind: 'danger' }, { label: '取消', value: null }],
     });
     if (ok) lhSecRemove(id);
 }
@@ -214,10 +212,10 @@ function lhSecMoveDom(id, beforeId /* null＝最後面 */) {
 let _lhDrag = null;   // 進行中的拖曳：{ handle, secEl, id, pointerId, sx, sy, x, y, started, raf, ghost, line, scroller, drop, touch }
 
 // ===== 吸附分列（完整編輯器的吸附模式）：落點看指標在目標卡片的哪個位置 =====
-// 條件：完整編輯器開著、不是自由畫布、手機鍵盤沒打開、寬度夠分列（> 900）
+// 條件：完整編輯器開著、不是自由畫布、手機鍵盤沒打開（手機、平板直版也能分列）
 function lhRowsDragOn() {
     return typeof lhEditorIsOpen === 'function' && lhEditorIsOpen() && document.getElementById('lyricsSections').dataset.canvas !== 'free'
-        && !document.documentElement.classList.contains('kb-open') && matchMedia('(min-width: 901px)').matches;
+        && !document.documentElement.classList.contains('kb-open');
 }
 
 // 預覽框：邊緣＝目標那一半（左右＝那一列的卡片、上下＝整列上方或下方一條），中間＝整張

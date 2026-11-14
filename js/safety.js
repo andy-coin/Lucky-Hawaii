@@ -21,6 +21,7 @@ const LH_KEYS = [
     { key: 'recentPanelCollapsed', group: 'ui' },
     { key: 'leftPanelCollapsed', group: 'ui' },
     { key: 'rightPanelCollapsed', group: 'ui' },
+    { key: 'resultsPanelCollapsed', group: 'ui' },
     { key: 'contextSectionCollapsed', group: 'ui' },
     { key: 'savedPoolCollapsed', group: 'ui' },
     { key: 'lh:uiScale', group: 'ui' },

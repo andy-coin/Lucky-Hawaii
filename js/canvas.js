@@ -256,7 +256,8 @@ function _lhCvSnap(g, r, mode = 'move') {
         for (const [k, size, ok, os] of [['x', 'w', 'x', 'w'], ['y', 'h', 'y', 'h']]) {
             if (mode === 'ratio' && k === 'y') continue;
             for (const mine of (mode === 'move' ? [0, 1] : [1])) for (const theirs of [0, 1]) {
-                const diff = (o[ok] + o[os] * theirs) - (r[k] + r[size] * mine);
+                // 我的左緣貼他的右緣（或反過來）時留 1px 縫，兩張卡片不黏成一條線
+                const diff = (o[ok] + o[os] * theirs + (theirs - mine)) - (r[k] + r[size] * mine);
                 if (Math.abs(diff) <= tol && (!best[k] || Math.abs(diff) < Math.abs(best[k].diff))) best[k] = { diff, at: o[ok] + o[os] * theirs, o };
             }
         }
@@ -401,7 +402,7 @@ document.addEventListener('pointercancel', _lhPanEnd, true);
 
 // 觸控手勢（畫布 CSS 是 touch-action: none，瀏覽器完全不接手，所以不會一下順一下卡、也不會把背後的主視窗拖著走）：
 // ‧ 單指拖畫布空白處＝手掌工具（平移）；單指拖文字框＝捲文字框，文字框沒得捲就平移畫布
-// ‧ 雙指＝以兩指中點為中心縮放，同時跟著中點平移；第二根手指一落下就放棄進行中的卡片手勢
+// ‧ 雙指＝以兩指中點為中心縮放（只縮放、不平移）；第二根手指一落下就放棄進行中的卡片手勢
 // 兩指放開剩一指時不接著平移（免得畫面跳一下），要抬起再按
 let _lhPinch = null;
 let _lhTouchPan = null;   // { id, ta, x, y }：ta 有值＝從文字框開始，能捲就捲文字框
@@ -433,12 +434,9 @@ document.addEventListener('pointermove', e => {
     _lhPts.set(e.pointerId, { x: e.clientX, y: e.clientY });
     const box = _lhCvBox();
     if (_lhPinch && _lhPts.size >= 2) {
+        // 雙指只縮放（以兩指剛落下時的中點為中心），不跟著平移；平移交給單指
         const m = _lhMid(), r = box.getBoundingClientRect();
-        lhCanvasZoom(_lhPinch.z0 * m.d / _lhPinch.d0, m.x - r.left - box.clientLeft, m.y - r.top - box.clientTop);
-        box.scrollLeft -= m.x - _lhPinch.mx;
-        box.scrollTop -= m.y - _lhPinch.my;
-        _lhPinch.mx = m.x;
-        _lhPinch.my = m.y;
+        lhCanvasZoom(_lhPinch.z0 * m.d / _lhPinch.d0, _lhPinch.mx - r.left - box.clientLeft, _lhPinch.my - r.top - box.clientTop);
         return;
     }
     const p = _lhTouchPan;
@@ -482,7 +480,7 @@ _lhCvBox().addEventListener('keydown', e => {
 // 兩列之間的橫縫：上一列變高、下一列同時變矮（最後一列下面的縫只拉那一列）。連點兩下縫＝回預設（均分／跟著內容）。
 // 縫上沒有元素：直接看指標落在 #lyricsSections 本身（卡片之外）的哪個位置；放開才寫模型，一步復原
 let _lhRz = null;
-const _lhRowsOn = () => _lhCvBox().dataset.layout === 'rows' && !_lhCvFree() && matchMedia('(min-width: 901px)').matches;
+const _lhRowsOn = () => _lhCvBox().dataset.layout === 'rows' && !_lhCvFree();
 
 function _lhRowsGeom() {
     const song = curSong();

@@ -205,7 +205,9 @@ function lhAsk({ title, body, buttons }) {
     if (_lhAskResolve) _lhAskResolve(null);
     const ov = document.getElementById('lhAskOverlay'), box = document.getElementById('lhAskActions');
     document.getElementById('lhAskTitle').textContent = title;
-    document.getElementById('lhAskBody').textContent = body || '';
+    const bodyEl = document.getElementById('lhAskBody');
+    bodyEl.textContent = body || '';
+    bodyEl.hidden = !body;
     const back = document.activeElement;
     return new Promise(resolve => {
         const done = v => {

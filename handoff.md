@@ -1,3 +1,16 @@
+## 2026-11-14 回報 10 點（?v=0.97.1，已 push，待 Andy 實機驗收）
+- 1 匯出 icon 改往上箭頭（index.html #exportToggle）。
+- 2 刪除段落確認窗：只留標題、按鈕「刪除｜取消」（js/sections.js lhSecRemoveAsk；js/ui-common.js lhAsk 沒內文就藏 #lhAskBody）。
+- 3 吸附分列不再限 > 900：手機、平板直版也能拖標題列排版（js/sections.js lhRowsDragOn、js/canvas.js _lhRowsOn、css/panels.css 兩段改 @media all）。
+- 4 角色改字色：鏡像層 span.rl 字色＝角色色混主題文字色（淺底 55%、其他 75%，tests/roles 量 4 主題對比 ≥ 4.5）；段落 .rl-text 時輸入框字透明、鏡像層字顯示；打字中 .rl-typing 退回輸入框的字（js/roles.js input 監聽加、js/rhyme-map.js lhMapPaint 拿掉）。
+- 5 自由畫布貼齊別張卡片相反邊時留 1px（js/canvas.js _lhCvSnap 的 theirs - mine）。
+- 6 雙指只縮放、不平移，錨點固定在兩指落下時的中點（js/canvas.js pinch）。
+- 7 導引線：--snap-guide #ff2da0（base.css :root）混 80% 半透明，沿用 lhPulse steps(1) 0.4167s＝2.4Hz 閃；減少動態不閃。
+- 8 「歌曲」鈕：panels.css 同權重 .song-toggle（卡片底）較晚載入蓋掉綠色 → base.css 改 html .song-toggle，字色 --song-btn-ink。
+- 9 三直排：中間那塊不給收合（dk-mid-lyrics／dk-mid-ai 藏小三角與分頁）；查詢區換到側邊時有「查詢」側邊分頁（.results-side-tab，dk-rs-l／dk-rs-r），收起＝dk-rs-fold 貼邊只露分頁，存 resultsPanelCollapsed；同側抽屜面板收著時不讓查詢區收（避免分頁疊在同一邊）。js/dock.js lhDockRender／toggleResultsPanel、css/panels.css 檔尾。
+- 10 未修：Chromium 模擬 iPad／iPhone 的四主題變數與元件顏色和電腦完全相同；Playwright WebKit 在這台機器卡住無法比對。疑似 iOS 畫 SVG 雜訊質地（feTurbulence）不同、或 True Tone／夜覽。等 Andy 給同主題的電腦＋iPad 截圖再決定（可選：把質地烤成 PNG）。
+- 測試：全套只剩舊的 rhyme-map-ui:280；roles 改測字色、canvas 吸附改 407、scan 鍵數 28。
+
 ## 2026-11-14 v0.97（已 push）
 - 版本號 0.97：index.html ?v=0.97 與「關於」、README、js/safety.js LH_APP_VERSION、.claude/CLAUDE.md。
 - 「歌曲」鈕所有主題都是土耳其綠 #4fd1c5＋深色字（css/base.css 檔尾；style.spec 白名單只留 #4fd1c5）。

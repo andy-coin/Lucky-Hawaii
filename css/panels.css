@@ -1745,17 +1745,14 @@
             .rm-hl { background: var(--rm-c); opacity: 0.34; }
             .rm-hl.rm-solo, .rm-multi { background: var(--rm-c); opacity: 0.17; }
         }
-        /* 角色標記（js/roles.js）：標記範圍在鏡像層包一層 span.rl，畫角色色的淡底。不加 padding／margin／border，字的位置和輸入框逐字相同；
-           韻腳色塊是和 --card-bg 混成的不透明色，疊在這層淡底上面，兩者不打架。深色主題底更暗，淡底要濃一點才看得出來（--rl-mix 各主題可調） */
-        .rhyme-mirror .rl {
-            background: color-mix(in srgb, var(--rl-c) var(--rl-mix, 24%), transparent);
-            border-radius: 0.2rem;
-            -webkit-box-decoration-break: clone;
-            box-decoration-break: clone;
-        }
-        [data-theme="dark"] .rhyme-mirror .rl { --rl-mix: 36%; }
-        @supports not (background: color-mix(in srgb, red 50%, blue)) {
-            .rhyme-mirror .rl { background: transparent; box-shadow: inset 0 -0.2em 0 var(--rl-c); }
+        /* 角色標記（js/roles.js）：標記範圍在鏡像層包一層 span.rl，直接換成角色色的字（底色留給韻腳地圖）。
+           段落有角色標記時（.rl-text，js/rhyme-map.js）鏡像層的字顯示出來、輸入框的字變透明；
+           打字中（.rl-typing）或鏡像層暫時藏起來（.rm-stale）時退回輸入框自己的字，字不會消失 */
+        .rhyme-mirror .rl { color: color-mix(in srgb, var(--rl-c) var(--rl-mix, 75%), var(--text-primary)); }   /* 往主題文字色混一點，各主題字都夠清楚（tests/roles.spec.mjs 量對比）；不加粗：粗體英數字寬會和輸入框錯開 */
+        [data-theme="light"] .rhyme-mirror .rl { --rl-mix: 55%; }   /* 淺底：多混一點深色字才夠對比 */
+        .lyrics-section.rl-text:not(.rl-typing) .rhyme-mirror { color: var(--text-primary); }
+        .lyrics-section.rl-text:not(.rl-typing) .rhyme-mirror:not(.rm-stale) + .section-textarea {
+            color: transparent; -webkit-text-fill-color: transparent; caret-color: var(--text-primary);
         }
         [data-rl="0"] { --rl-c: var(--rl0, transparent); }
         [data-rl="1"] { --rl-c: var(--rl1, transparent); }
@@ -2599,8 +2596,8 @@ html[data-lm-under] .section-textarea, html[data-lm-under] .rhyme-mirror { line-
     #dockPreview[hidden] { display: none; }
 }
 
-/* ===== 吸附分列（完整編輯器，js/canvas.js _lhRowsLayout）：120 格格線，每列均分寬度，列高跟著內容 ===== */
-@media (min-width: 901px) {
+/* ===== 吸附分列（完整編輯器，js/canvas.js _lhRowsLayout）：120 格格線，每列均分寬度，列高跟著內容；所有寬度都分列（含手機、平板直版） ===== */
+@media all {
     html:not(.kb-open) #lyricsSections[data-layout="rows"] {
         display: grid;
         grid-template-columns: repeat(120, minmax(0, 1fr));
@@ -2645,8 +2642,8 @@ html:not(.kb-open) #lyricsSections[data-canvas="free"] .lyrics-section-header { 
 /* ===== 主視窗（寬螢幕吸附）：標題列更明顯、展開的面板不留側邊分頁 ===== */
 .panel-fold-btn { display: none; }
 @media (hover: hover) and (pointer: fine) {
-    body.dock:not(.dk-tab-l) #leftPanel .panel-fold-btn,
-    body.dock:not(.dk-tab-r) #rightPanel .panel-fold-btn {
+    body.dock:not(.dk-tab-l):not(.dk-mid-lyrics) #leftPanel .panel-fold-btn,
+    body.dock:not(.dk-tab-r):not(.dk-mid-ai) #rightPanel .panel-fold-btn {
         display: inline-flex;
         align-items: center;
         justify-content: center;
@@ -2738,7 +2735,9 @@ html:not(.kb-open) #lyricsSections[data-canvas="free"] .lyrics-section-header { 
 }
 #dockPreview[hidden], #lhRowPreview[hidden] { display: none; }
 /* 自由畫布隔空對齊的導引線（js/canvas.js _lhCvSnap） */
-.cv-guide { position: absolute; z-index: 3; pointer-events: none; background: var(--highlight-border); opacity: 0.9; }
+/* 導引線：鮮豔洋紅（--snap-guide）、半透明、2.4Hz 閃爍（一個週期 1/2.4 ≈ 0.417 秒；沿用 lhPulse 加 steps 變成一明一暗，不新增 @keyframes；減少動態時不閃） */
+.cv-guide { position: absolute; z-index: 3; pointer-events: none; background: color-mix(in srgb, var(--snap-guide) 80%, transparent); animation: lhPulse 0.4167s steps(1, end) infinite; }
+@media (prefers-reduced-motion: reduce) { .cv-guide, #lhRowGuide.snap { animation: none; } }
 
 /* ===== 2026-11-14 收尾 ===== */
 /* ⋮⋮ 看不見（標題列整條可拖）：電腦全部、完整編輯器所有裝置；手機平板的左側面板保留（手指在那裡只能抓 ⋮⋮，標題列要留給捲動）。
@@ -2769,7 +2768,7 @@ body.editor-open .lyrics-section-header { touch-action: none; }
     .prefs-panel > .lm-preview-block .lm-preview { max-height: 11rem; overflow-y: auto; }
 }
 /* 吸附分列：縫加寬一點好抓（js/canvas.js 拖縫調整兩邊）；同一列卡片等高；有固定列高（data-rh）時文字框撐滿、字多在裡面捲 */
-@media (min-width: 901px) {
+@media all {
     /* 120 欄之間不能有 column-gap（會被乘上 119 次把卡片擠出去）：每張卡片依位置分攤左右邊距（js/canvas.js 寫 --r-ml／--r-mr），等寬的仍等寬 */
     html:not(.kb-open) #lyricsSections[data-layout="rows"] { column-gap: 0; row-gap: 0.75rem; align-items: stretch; padding-bottom: 0.875rem; }
     html:not(.kb-open) #lyricsSections[data-layout="rows"] > .lyrics-section { margin-left: calc(0.75rem * var(--r-ml, 0)); margin-right: calc(0.75rem * var(--r-mr, 0)); }
@@ -2779,7 +2778,7 @@ body.editor-open .lyrics-section-header { touch-action: none; }
 }
 body.rows-resizing { user-select: none; }
 #lhRowGuide { position: fixed; z-index: 955; width: 2px; pointer-events: none; background: var(--highlight-border); opacity: 0.5; }
-#lhRowGuide.snap { opacity: 1; width: 3px; }
+#lhRowGuide.snap { opacity: 1; width: 3px; background: color-mix(in srgb, var(--snap-guide) 80%, transparent); animation: lhPulse 0.4167s steps(1, end) infinite; }
 #lhRowGuide[hidden] { display: none; }
 /* 自由畫布：卡片範圍外多留空白（js/canvas.js _lhCvExtent），手掌工具才有地方拖 */
 html:not(.kb-open) #lyricsSections[data-canvas="free"]::after { content: ''; position: absolute; left: var(--cv-ex, 0); top: var(--cv-ey, 0); width: 1px; height: 1px; pointer-events: none; }
@@ -2807,3 +2806,51 @@ html .section-add-btn, html .generate-btn { height: 2.25rem; min-height: 0; line
 /* 保留池：內容離左邊線遠一點，底色比面板深一階 */
 .saved-pool-section:not(.collapsed) .saved-pool-body { padding: 0.5rem 0.625rem; background: var(--fill-soft); }
 
+
+/* ===== 三直排：查詢區被換到側邊時也有側邊分頁（js/dock.js lhDockRender 加 dk-rs-l／dk-rs-r／dk-rs-fold）=====
+   分頁貼在查詢區靠中間那一側（和歌詞、AI 的分頁對稱）；收起時查詢區縮成貼邊的一條分頁。中間那塊不給收合 */
+.results-side-tab { display: none; }
+@media screen {
+    body.dock.dk-mid-lyrics #leftPanel:not(.collapsed) .side-panel-tab,
+    body.dock.dk-mid-ai #rightPanel:not(.collapsed) .side-panel-tab { display: none; }
+    body.dock:is(.dk-rs-l, .dk-rs-r) .results-side-tab {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        writing-mode: vertical-rl;
+        font-size: 0.8125rem;
+        font-weight: 700;
+        letter-spacing: 0.3em;
+        user-select: none;
+        background: var(--fill-soft);
+        position: absolute;
+        top: 0; bottom: 0;
+        width: var(--tab-w);
+        z-index: 2;
+        padding: 1rem 0;
+        color: var(--text-secondary);
+    }
+    body.dock.dk-rs-l .results-side-tab { right: 0; border-left: 1px solid var(--border); border-radius: 0 0.75rem 0.75rem 0; }
+    body.dock.dk-rs-r .results-side-tab { left: 0; border-right: 1px solid var(--border); border-radius: 0.75rem 0 0 0.75rem; }
+    body.dock.dk-rs-l:not(.dk-rs-fold) #mainContainer { padding-right: var(--tab-w); }
+    body.dock.dk-rs-r:not(.dk-rs-fold) #mainContainer { padding-left: var(--tab-w); }
+    /* 收起：貼到那一邊，只露分頁（和收起的抽屜面板同高） */
+    body.dock.dk-rs-fold #mainContainer {
+        position: fixed;
+        top: var(--pad-t);
+        width: var(--tab-w);
+        height: calc(var(--app-h) - var(--pad-t) - var(--page-pad));
+        padding: 0;
+        z-index: 800;
+    }
+    body.dock.dk-rs-fold.dk-rs-l #mainContainer { left: 0; border-radius: 0 0.75rem 0.75rem 0; }
+    body.dock.dk-rs-fold.dk-rs-r #mainContainer { left: auto; right: 0; border-radius: 0.75rem 0 0 0.75rem; }
+    body.dock.dk-rs-fold #mainContainer > :not(.results-side-tab) { display: none; }
+    body.dock.dk-rs-fold .results-side-tab { left: 0; right: 0; width: auto; border: none; }
+    body.dock.dk-rs-fold.dk-rs-l { padding-left: max(var(--page-pad), env(safe-area-inset-left), calc(var(--tab-w) + 0.25rem)); }
+    body.dock.dk-rs-fold.dk-rs-r { padding-right: max(var(--page-pad), env(safe-area-inset-right), calc(var(--tab-w) + 0.25rem)); }
+    @media (hover: hover) and (pointer: fine) {
+        body.dock .results-side-tab:hover { background: var(--accent-soft); color: var(--text-primary); }
+    }
+}
