@@ -6,27 +6,30 @@
 const LH_TOUR_KEY = 'lh:tourSeen';
 
 // panel：這一步要開哪一邊（'left'／'right'／null＝都不用）；手機版對應底部分頁
+// place：'left'＝說明框放在目標左邊、靠上半段（目標是整個高高的面板時，不要壓在右下角）
 const LH_TOUR_STEPS = [
     { sel: '.search-box', panel: null, title: '從一個字開始',
-      body: '輸入一個字、詞，或注音／拼音（例如「安」「ㄢ」「an」），按 Enter 就列出所有同韻的字。' },
+      body: '輸入一個字或注音／拼音（例如「安」「ㄢ」「an」），列出所有同韻的字。字中間加空白（「安 打」）就是每個字各查各的。' },
     { sel: '#resultsContainer', panel: null, title: '同韻字卡',
-      body: '常用的字排前面。點字卡會選字，AI 建議就只找含這些字的詞；上方三顆按鈕切換排列方式。' },
+      body: '常用的字排前面。點字卡會選字，AI 建議就只找含這些字的詞；上方三顆按鈕切換排列方式；按住字卡可以直接拖進歌詞。' },
+    { sel: '.search-box', panel: null, title: '一次找雙押、多押',
+      body: '直接打整個詞（例如「安打」），會列出每個字都押韻的詞，可以只看同聲調、排除借韻。按「顯示全部」，所有押韻詞會攤開在整個畫面上，慢慢瀏覽、挑喜歡的保留。' },
     { sel: '#leftPanel .lyrics-head', panel: 'left', title: '歌曲與匯出',
       body: '這裡切換、新增歌曲，也能匯出。按「展開」打開完整歌詞編輯器，空間更大。' },
     { sel: '#contextSection', panel: 'left', title: '標籤與情境',
-      body: '先替這首歌定方向：加幾個標籤、寫一兩句情境。按小燈泡讓 AI 從歌詞整理；已經有內容時會問你要取代還是擴充。' },
+      body: '先替這首歌定方向：加幾個標籤、寫一兩句情境。按小燈泡讓 AI 從歌詞整理；這些都會當作 AI 建議的參考。' },
     { sel: '#lyricsSections', panel: 'left', title: '分段寫歌詞',
-      body: 'Verse、Chorus 一段一段寫。抓著標題列拖曳可以換順序，右鍵可以複製、刪除，也能設定文字靠左、置中或靠右。' },
+      body: 'Verse、Chorus 一段一段寫，抓著標題列拖曳換順序、右鍵複製或刪除。反白幾個字會浮出選字列：查韻、問 AI、指定角色都在那裡。' },
     { sel: '#rhymeMenuBtn', panel: 'left', title: '韻腳地圖與角色',
-      body: '把押韻的句尾上色，一眼看出哪幾句押在一起；旁邊的「角色」可以替對唱、音樂劇的字標上不同顏色。' },
+      body: '把押韻的句尾上色，一眼看出哪幾句押在一起；「角色」替對唱、音樂劇的字換上不同顏色。' },
     { sel: '#editorOpenBtn', panel: 'left', title: '完整編輯器與排版',
-      body: '展開後有「吸附」與「自由」兩種排版。吸附：把區塊拖到另一塊的中間是互換，拖到邊緣是並排分寬度；自由：想放哪就放哪，還能縮放。' },
-    { sel: '#rightPanel .side-panel-body', panel: 'right', title: 'AI 建議詞語',
-      body: '查完韻腳按「提供詞語建議」。最上面那列會告訴你 AI 這次參考了哪些標籤、情境與歌詞。' },
+      body: '展開後有「吸附」與「自由」兩種排版。吸附：拖到另一塊中間是互換、拖到邊緣是並排；自由：想放哪就放哪，還能縮放。' },
+    { sel: '#rightPanel .side-panel-body', panel: 'right', place: 'left', title: 'AI 建議詞語',
+      body: '查完韻腳按「提供詞語建議」。最上面那列會告訴你 AI 這次參考了哪些標籤、情境與歌詞；點詞就保留到下面的「保留」。' },
     { sel: '#mainContainer > .header', panel: null, title: '自己排版面',
-      body: '寬螢幕上，抓著歌詞、查詢、AI 建議的標題列拖曳：放到別塊中間是對調，放到邊緣是左右或上下分割。設定裡可以重設版面。' },
+      body: '寬螢幕上抓著三塊的標題列拖曳：放到別塊中間是對調，放到邊緣是分割畫面。三塊並排時，左右兩塊旁邊的小三角形可以收合。' },
     { sel: '#settingsTrigger', panel: null, title: '偏好設定',
-      body: '讀音顯示、詞庫、客製顏色、備份都在這裡。其他按鈕把滑鼠停上去會浮出說明；想再看一次導覽，按標題列的「?」。' },
+      body: '讀音顯示、詞庫、主題顏色、備份都在這裡。按鈕停一下會浮出說明；想再看一次導覽，按標題列的「?」。' },
 ];
 
 let _lhTour = null;   // 進行中：{ i, root, spot, card, raf, restore, back }
@@ -145,6 +148,14 @@ function _lhTourPlace() {
 
     const cw = card.offsetWidth, ch = card.offsetHeight;
     let top, side;
+    if (LH_TOUR_STEPS[i].place === 'left' && s.l - m - cw >= m) {
+        // 放在目標左邊、目標上緣往下約 1/4 處（AI 建議面板：不壓在右下角）
+        const left = s.l - m - cw, tp = Math.max(m, Math.min(vh - m - ch, s.t + (s.b - s.t) * 0.25));
+        card.style.transform = `translate(${Math.round(left)}px, ${Math.round(tp)}px)`;
+        card.dataset.side = 'right';
+        card.style.setProperty('--arrow-y', '1.5rem');
+        return;
+    }
     if (s.b + m + ch <= vh - m) { top = s.b + m; side = 'top'; }
     else if (s.t - m - ch >= m) { top = s.t - m - ch; side = 'bottom'; }
     else { top = vh - m - ch; side = 'none'; }   // 目標很高（整個面板）：說明框疊在下緣

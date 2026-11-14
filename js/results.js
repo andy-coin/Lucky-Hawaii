@@ -168,6 +168,8 @@
                 height: section ? section.clientHeight : 0,
             };
             _lastRenderKey = renderKey;
+            // 選項列跟著查詢種類換：空的收起、查整個詞換詞卡選項、其他是字卡選項（css/panels.css）
+            document.body.dataset.q = !currentInput ? 'none' : (typeof lhWsQuery === 'function' && lhWsQuery(currentInput)) ? 'word' : 'char';
             if (!currentInput) {
                 const container = document.getElementById('resultsContainer');
                 container.innerHTML = `

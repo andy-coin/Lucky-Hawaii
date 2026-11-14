@@ -14,7 +14,7 @@ let _lhBgRaf = 0;
 let _lhBgLast = 0;
 let _lhBgColors = ['#888'];
 let _lhBgAlpha = 0.16;
-let _lhBgBoost = 1;   // 詞宇宙打開時加深（js/word-space.js lhBgFxBoost）
+let _lhBgHidden = false;   // 顯示全部押韻詞時先藏起來（js/word-space.js lhBgFxHide）
 let _lhBgFont = 'serif';
 let _lhBgW = 0;
 let _lhBgH = 0;
@@ -23,8 +23,42 @@ function _lhBgAllowed() {
     return _lhBgOn && !(navigator.webdriver && !window.__lhBgFxTest);
 }
 
+// 這首歌自己的字也會飄：歌詞、情境、標籤。單字：照句構分組切出來的詞（含標籤）＝ 8：2。4 秒重算一次就好
+let _lhBgPool = null, _lhBgPoolAt = -1e9;
+function _lhBgUserPool() {
+    const now = performance.now();
+    if (_lhBgPool && now - _lhBgPoolAt < 4000) return _lhBgPool;
+    _lhBgPoolAt = now;
+    const chars = [], words = [];
+    const song = typeof curSong === 'function' ? curSong() : null;
+    if (song) {
+        const lines = [...(song.sections || []).map(s => s.text || ''), song.context || ''].join('\n').split('\n');
+        for (const line of lines.slice(0, 400)) {
+            for (const c of line) if (/[一-鿿]/.test(c)) chars.push(c);
+            if (typeof lhLineAnalyze !== 'function' || !line.trim()) continue;
+            const r = lhLineAnalyze(line), cps = Array.from(line);
+            r.starts.forEach((st, k) => {
+                const w = cps.slice(st, r.ends[k]).join('').trim();
+                if (w.length >= 2 && w.length <= 6) words.push(w);
+            });
+        }
+        for (const t of song.hashtags || []) { const w = String(t).replace(/^#/, '').trim(); if (w && w.length <= 8) words.push(w); }
+    }
+    return (_lhBgPool = { chars, words });
+}
+function _lhBgPick() {
+    const p = _lhBgUserPool(), pick = a => a[Math.floor(Math.random() * a.length)];
+    // 有寫東西：一半飄自己的字（其中單字 80%、詞 20%），另一半照舊是押韻常用字與注音
+    if ((p.chars.length || p.words.length) && Math.random() < 0.5) {
+        if (p.words.length && (!p.chars.length || Math.random() < 0.2)) return { ch: pick(p.words), word: true };
+        return { ch: pick(p.chars), word: false };
+    }
+    return { ch: LH_BGFX_CHARS[Math.floor(Math.random() * LH_BGFX_CHARS.length)], word: false };
+}
+
 function _lhBgNewFlake(anywhere) {
-    const size = 14 + Math.random() * 22;
+    const pk = _lhBgPick();
+    const size = (14 + Math.random() * 22) * (pk.word ? 0.7 : 1);   // 詞比較長，字小一點
     return {
         x: Math.random() * _lhBgW,
         y: anywhere ? Math.random() * _lhBgH : -size - Math.random() * 80,
@@ -34,7 +68,7 @@ function _lhBgNewFlake(anywhere) {
         phase: Math.random() * Math.PI * 2,
         rot: (Math.random() - 0.5) * 0.6,
         vr: (Math.random() - 0.5) * 0.25,
-        ch: LH_BGFX_CHARS[Math.floor(Math.random() * LH_BGFX_CHARS.length)],
+        ch: pk.ch,
         color: Math.floor(Math.random() * 8),
         a: 0.55 + Math.random() * 0.45,
     };
@@ -71,7 +105,7 @@ function _lhBgDraw(dt) {
         ctx.save();
         ctx.translate(f.x + Math.sin(f.phase) * f.sway, f.y);
         ctx.rotate(f.rot);
-        ctx.globalAlpha = Math.min(1, _lhBgAlpha * _lhBgBoost * f.a);
+        ctx.globalAlpha = _lhBgAlpha * f.a;
         ctx.fillStyle = _lhBgColors[f.color % _lhBgColors.length];
         ctx.font = Math.round(f.size) + 'px ' + _lhBgFont;
         ctx.fillText(f.ch, 0, 0);
@@ -107,6 +141,8 @@ function _lhBgUpdate() {
         document.body.prepend(_lhBgCanvas);
         _lhBgResize();
     }
+    _lhBgCanvas.style.visibility = _lhBgHidden ? 'hidden' : '';
+    if (_lhBgHidden) { _lhBgStop(); return; }
     if (_lhBgReduce.matches || document.hidden) { _lhBgStop(); _lhBgDraw(0); return; }
     if (!_lhBgRaf) _lhBgRaf = requestAnimationFrame(_lhBgFrame);
 }
@@ -129,10 +165,10 @@ function lhBgFxSet(on) {
     _lhBgUpdate();
 }
 function lhBgFxIsOn() { return _lhBgOn; }
-// 加深倍率（1＝平常）：只改濃度，不改字數與速度
-function lhBgFxBoost(k) {
-    _lhBgBoost = k > 0 ? k : 1;
-    if (_lhBgCanvas && !_lhBgRaf) _lhBgDraw(0);
+// 暫時藏起來（顯示全部押韻詞時，飄落的字會和漂浮的詞搶眼）；不改使用者的開關
+function lhBgFxHide(h) {
+    _lhBgHidden = !!h;
+    _lhBgUpdate();
 }
 
 window.addEventListener('resize', _lhBgResize);

@@ -422,6 +422,7 @@ for (const [name, device] of LAYOUT_DEVICES) {
 test('回報入口：手機四欄', async ({ browser }) => {
     const { context, page } = await bootPage(browser, { wordlist: 'stub', device: DEVICES.phone });
     try {
+        await page.fill('#searchInput', 'ㄢ');   // 批次鈕搜尋後才出現
         const rows = () => page.evaluate(() => {
             const p = document.getElementById('m-batchPanel');
             const rs = [...p.children].map(b => b.getBoundingClientRect());

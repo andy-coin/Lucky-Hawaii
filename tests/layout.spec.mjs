@@ -1621,8 +1621,8 @@ const openRhymeMenu = async (page, d) => {
     await waitStill(page);
 };
 const TOUCH_STATES = [
-    ['閒置', ['button#MzoomIn', 'button#themeToggle', 'input#searchInput', 'button.mode-button', 'button.mtab-btn', 'button#settingsTrigger'], async () => {}],
-    ['搜尋後', ['div.char-card', 'button.poly-chip', 'span.mark-badge', 'button.m-batch-btn, button.batch-btn'], async page => {
+    ['閒置', ['button#MzoomIn', 'button#themeToggle', 'input#searchInput', 'button.mtab-btn', 'button#settingsTrigger'], async () => {}],
+    ['搜尋後', ['div.char-card', 'button.mode-button', 'button.poly-chip', 'span.mark-badge', 'button.m-batch-btn, button.batch-btn'], async page => {
         await page.fill('#searchInput', '樂');
         await settle(page);
     }],
@@ -1750,6 +1750,8 @@ test('觸控：桌機滑鼠維持原本大小', async ({ browser }) => {
     const { context, page } = await bootPage(browser, { device: DEVICES.desktop });
     try {
         expect(await page.evaluate(() => matchMedia('(pointer: fine) and (hover: hover)').matches), '這個 context 是滑鼠').toBe(true);
+        await page.fill('#searchInput', 'ㄢ');   // 選項列搜尋後才出現
+        await settle(page);
         const hs = await page.evaluate(() => Object.fromEntries(['.mode-button', '.batch-btn'].map(s => [s, [...document.querySelectorAll(s)].filter(e => e.getClientRects().length).map(e => e.getBoundingClientRect().height)])));
         for (const [sel, list] of Object.entries(hs)) {
             expect(list.length, `${sel} 有看得見的`).toBeGreaterThan(0);

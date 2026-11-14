@@ -2,7 +2,7 @@
 import { test, expect } from '@playwright/test';
 import { bootPage } from './helpers.mjs';
 
-const STEPS = 10;
+const STEPS = 11;
 const card = page => page.locator('.tour-card');
 const inView = (b, vw, vh) => b.x >= 0 && b.y >= 0 && b.x + b.width <= vw + 0.5 && b.y + b.height <= vh + 0.5;
 

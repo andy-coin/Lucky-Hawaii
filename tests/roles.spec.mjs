@@ -299,7 +299,9 @@ test('沒有角色：選單只有「＋ 新角色」，建立後依序取預設�
     await expect(page.locator(MENU + ' .role-sel-item')).toHaveCount(0);
     await expect(page.locator(MENU + ' .role-sel-clear')).toHaveCount(0);
     await page.locator(MENU + ' .role-sel-new').click();
-    await expect(page.locator('#copyToast')).toContainText('角色 ▾');
+    // 選單原地換成小表單（名稱＋顏色）：不填直接確定＝預設名稱與第一個沒用過的顏色
+    await expect(page.locator(MENU + ' .role-new-name')).toBeFocused();
+    await page.locator(MENU + ' .role-new-ok').click();
     let song1 = await page.evaluate(() => ({ roles: curSong().roles, marks: curSong().sections[0].marks }));
     expect(song1.roles.length).toBe(1);
     expect(song1.roles[0].name).toBe('角色 1');
@@ -312,9 +314,14 @@ test('沒有角色：選單只有「＋ 新角色」，建立後依序取預設�
     await page.locator(BAR + ' .rm-bar-role').click();
     await expect(page.locator(MENU + ' .role-sel-item')).toHaveCount(1);
     await page.locator(MENU + ' .role-sel-new').click();
+    // 這次直接取名、挑顏色，按 Enter 確定
+    await page.locator(MENU + ' .role-new-name').fill('女聲');
+    await page.locator(MENU + ' .role-new-sw[data-hex="#48a868"]').click();
+    await page.locator(MENU + ' .role-new-name').press('Enter');
     const roles = await page.evaluate(() => curSong().roles);
-    expect(roles.map(r => r.color)).toEqual(['#e05d5d', '#4a7fd4']);
-    expect(roles[1].name).toBe('角色 2');
+    expect(roles.map(r => r.color)).toEqual(['#e05d5d', '#48a868']);
+    expect(roles[1].name).toBe('女聲');
+    expect(await page.evaluate(() => curSong().sections[0].marks.length)).toBe(2);
     expect(errors).toEqual([]);
     await context.close();
 });

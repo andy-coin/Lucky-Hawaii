@@ -526,6 +526,7 @@ test('自由模式：指定角色（新角色與既有角色）標記正確、�
     await kbSelect(page, 0, 2, 1);
     await page.locator(BAR + ' .rm-bar-role').click();
     await page.locator(MENU + ' .role-sel-new').click();
+    await page.locator(MENU + ' .role-new-ok').click();
     const r = await page.evaluate(() => ({ roles: curSong().roles.length, marks: curSong().sections[1].marks }));
     expect(r.roles).toBe(3);
     expect(r.marks).toEqual([mk(0, 2, r.marks[0].r)]);

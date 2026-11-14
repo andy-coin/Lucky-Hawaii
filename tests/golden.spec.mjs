@@ -124,7 +124,7 @@ for (const c of CASES) {
             // 因為字卡顏色 class 依賴全域狀態（lastTarget／colorClass），跨輸入共用頁面會互相影響
             const modes = { common: await capture(page) };
             for (const m of ['initial', 'tone']) {
-                await page.click(`.mode-button[data-mode="${m}"]`);
+                await page.evaluate(m => document.querySelector(`.mode-button[data-mode="${m}"]`).click(), m);   // 空白輸入時選項列是收起的
                 await settle(page);
                 modes[m] = await capture(page);
             }

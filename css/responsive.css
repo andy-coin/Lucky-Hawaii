@@ -7,7 +7,7 @@
             :root { --page-pad: 12px; }
         }
         @media (pointer: coarse) {
-            :root { --tab-w: 2.75rem; }
+            :root { --tab-w: 1.125rem; }
         }
 
         @media (max-width: 900px) {

@@ -37,16 +37,16 @@ function lhRolesChanged() {
     }
 }
 
-// 新增角色：滿 8 個回 null。顏色取預設色盤第一個沒用過的
-function lhRoleAdd(song) {
+// 新增角色：滿 8 個回 null。顏色取預設色盤第一個沒用過的；opt 可直接指定名稱與顏色（選字列「＋ 新角色」的小表單）
+function lhRoleAdd(song, opt = {}) {
     const roles = song.roles || [];
     if (roles.length >= LH_ROLE_MAX) return null;
     lhHistEnsure(song);
     const used = new Set(roles.map(r => r.color));
     const role = {
         id: lhNewId('role-'),
-        name: '角色 ' + (roles.length + 1),
-        color: LH_ROLE_COLORS.find(c => !used.has(c)) || LH_ROLE_COLORS[roles.length]
+        name: (opt.name || '').trim().slice(0, 40) || '角色 ' + (roles.length + 1),
+        color: LH_SEC_COLOR_RE.test(opt.color || '') ? opt.color : (LH_ROLE_COLORS.find(c => !used.has(c)) || LH_ROLE_COLORS[roles.length])
     };
     song.roles = [...roles, role];
     markDirty(song.id);
@@ -83,22 +83,22 @@ function _lhRoleBuild() {
     m.id = 'roleSelMenu';
     m.setAttribute('role', 'menu');
     m.setAttribute('aria-label', '指定角色');
-    // 不搶文字框的焦點與選取（手機鍵盤也才不會收）
-    for (const t of ['pointerdown', 'mousedown']) m.addEventListener(t, e => e.preventDefault());
+    // 不搶文字框的焦點與選取（手機鍵盤也才不會收）；新角色表單的名稱框例外，要能打字
+    for (const t of ['pointerdown', 'mousedown']) m.addEventListener(t, e => { if (!(e.target.closest && e.target.closest('.role-new-name'))) e.preventDefault(); });
     m.addEventListener('click', e => {
-        const b = e.target.closest && e.target.closest('.role-sel-item, .role-sel-clear, .role-sel-new');
+        const b = e.target.closest && e.target.closest('.role-sel-item, .role-sel-clear, .role-sel-new, .role-new-sw, .role-new-ok');
         const snap = _lhRoleSel;
         if (!b || !snap) return;
         if (b.classList.contains('role-sel-new')) {
             if (b.getAttribute('aria-disabled') === 'true') { showToast('最多 ' + LH_ROLE_MAX + ' 個角色'); return; }
-            lhRoleSelClose();
-            const role = lhRoleAdd(curSong());
-            if (role) {
-                lhRoleMark(snap, role.id);
-                showToast('已新增「' + cutName(role.name, 12) + '」，可按工具列「角色 ▾」改名、改色', 3000);
-            } else showToast('最多 ' + LH_ROLE_MAX + ' 個角色');
+            _lhRoleNewForm();
             return;
         }
+        if (b.classList.contains('role-new-sw')) {
+            m.querySelectorAll('.role-new-sw').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+            return;
+        }
+        if (b.classList.contains('role-new-ok')) { _lhRoleNewCommit(); return; }
         lhRoleSelClose();
         lhRoleMark(snap, b.classList.contains('role-sel-clear') ? null : b.dataset.id);
     });
@@ -111,6 +111,48 @@ function _lhRoleBuild() {
     });
     document.body.appendChild(m);
     _lhRoleMenu = m;
+}
+
+// 「＋ 新角色」：選單原地換成小表單（名稱＋顏色），按「確定」或 Enter 就新增並指定給選取的字
+function _lhRoleNewForm() {
+    const roles = curSong().roles || [], used = new Set(roles.map(r => r.color));
+    const first = LH_ROLE_COLORS.find(c => !used.has(c)) || LH_ROLE_COLORS[0];
+    const name = _lhMk('input', 'role-new-name');
+    name.type = 'text';
+    name.maxLength = 40;
+    name.placeholder = '角色 ' + (roles.length + 1);
+    name.setAttribute('aria-label', '新角色的名稱');
+    name.addEventListener('keydown', e => {
+        if (e.key === 'Enter' && !e.isComposing && e.keyCode !== 229) { e.preventDefault(); _lhRoleNewCommit(); }
+    });
+    const sws = _lhMk('div', 'role-new-sws');
+    sws.setAttribute('role', 'group');
+    sws.setAttribute('aria-label', '顏色');
+    for (const c of LH_ROLE_COLORS) {
+        const sw = _lhMkBtn('swatch role-new-sw', '');
+        sw.dataset.hex = c;
+        sw.style.setProperty('--sw', c);
+        sw.setAttribute('aria-label', '顏色 ' + c);
+        sw.setAttribute('aria-pressed', String(c === first));
+        sws.append(sw);
+    }
+    const ok = _lhMkBtn('section-menu-btn role-new-ok', '確定');
+    _lhRoleMenu.replaceChildren(_lhMk('span', 'section-menu-cap', '新角色'), name, sws, ok);
+    const r = _lhRoleMenu.getBoundingClientRect();
+    lhPlaceMenu(_lhRoleMenu, r.left, r.top);   // 變高了：重新夾進畫面
+    name.focus({ preventScroll: true });
+}
+
+function _lhRoleNewCommit() {
+    const snap = _lhRoleSel;
+    if (!snap) return;
+    const name = _lhRoleMenu.querySelector('.role-new-name')?.value || '';
+    const color = _lhRoleMenu.querySelector('.role-new-sw[aria-pressed="true"]')?.dataset.hex;
+    lhRoleSelClose();
+    const role = lhRoleAdd(curSong(), { name, color });
+    if (!role) { showToast('最多 ' + LH_ROLE_MAX + ' 個角色'); return; }
+    lhRoleMark(snap, role.id);
+    lhSecEl(snap.secId)?.querySelector('.section-textarea')?.focus({ preventScroll: true });
 }
 
 // 每次打開重填

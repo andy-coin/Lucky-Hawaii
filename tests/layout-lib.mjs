@@ -201,6 +201,8 @@ export async function auditTouchTargets(page, { sample = 30, mustSee = [] } = {}
             const cs = getComputedStyle(el);
             if (cs.visibility === 'hidden' || Number(cs.opacity) === 0 || cs.pointerEvents === 'none') continue;
             if (el.tagName === 'INPUT' && /^(hidden|file)$/i.test(el.type)) continue;
+            // 側邊收合分頁：Andy 2026-11-14 指定縮成原本 40% 寬、只放三角形（整條和面板一樣高），不套 44 寬的下限
+            if (el.matches('.side-panel-tab, .results-side-tab')) continue;
             const b = el.getBoundingClientRect();
             if (b.width === 0 || b.height === 0) continue;
             const key = el.tagName + '|' + el.className;

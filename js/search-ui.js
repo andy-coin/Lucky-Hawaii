@@ -240,9 +240,9 @@
         document.getElementById('filterDuplicate').addEventListener('change', _refreshFromCurrentInput);
 
         // 按鈕組切換（常用字 / 同聲韻 / 同聲調）
-        document.querySelectorAll('.mode-button').forEach(button => {
+        document.querySelectorAll('.mode-button[data-mode]').forEach(button => {
             button.addEventListener('click', function() {
-                document.querySelectorAll('.mode-button').forEach(b => b.classList.remove('active'));
+                document.querySelectorAll('.mode-button[data-mode]').forEach(b => b.classList.remove('active'));
                 this.classList.add('active');
                 currentMode = this.dataset.mode;
                 _refreshFromCurrentInput();
