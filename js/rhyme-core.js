@@ -18,7 +18,7 @@ const LH_MAP_DEFAULTS = Object.freeze(Object.assign({}, LH_RHYME_DEFAULTS, {
     pos: 'right', size: 'm', depth: 'std',
 }));
 // 列舉值只收清單裡的；顏色鍵固定 '0'…'15'（16 個韻族，空韻 16 不開放自訂），色碼只收小寫 #rrggbb（與 rhyme-map.js 的 LH_MAP_HEX 同形）
-const LH_MAP_ENUM = Object.freeze({ pos: Object.freeze(['right', 'tail']), size: Object.freeze(['s', 'm', 'l']), depth: Object.freeze(['light', 'std', 'heavy']) });
+const LH_MAP_ENUM = Object.freeze({ pos: Object.freeze(['right', 'left']), size: Object.freeze(['s', 'm', 'l']), depth: Object.freeze(['light', 'std', 'heavy']) });
 const LH_MAP_COLOR_RE = /^#[0-9a-f]{6}$/;
 const LH_MAP_COLOR_KEYS = Object.freeze(Array.from({ length: 16 }, (_, i) => String(i)));
 
@@ -35,6 +35,7 @@ function lhRhymeNormalizeSettings(o) {
         for (const k of Object.keys(LH_MAP_ENUM)) {
             if (own(o, k) && LH_MAP_ENUM[k].includes(o[k])) out[k] = o[k];
         }
+        if (own(o, 'pos') && o.pos === 'tail') out.pos = 'left';   // 0.98.06：「句尾後」改成「靠左欄」，舊設定搬過去
         const c = own(o, 'colors') ? o.colors : null;
         if (c && typeof c === 'object' && !Array.isArray(c)) {
             for (const k of LH_MAP_COLOR_KEYS) {

@@ -1,12 +1,17 @@
 // ==================== 背景飄字（R2 主題）====================
 // 最底層一張 <canvas>（面板後面）：押韻常用字與注音像雪花慢慢飄落，非常淡。顏色跟著主題的重點色（js/theme.js 換主題時呼叫 lhBgFxRefresh）。
 // 省電：最多約 30 fps、字數少、頁面隱藏時停；系統要求減少動態時只畫一張靜態的；自動化測試（navigator.webdriver）不畫，截圖才穩定。
-// 開關：localStorage 'lh:bgFx'（'off' 才關，預設開）；全域 lhBgFxSet(on) 給偏好設定的「外觀」分頁接。
+// 等級（0.98.06）：localStorage 'lh:bgFx' 存 '1'～'5'（舊值 'off'＝1、'on'＝3，預設 3）。偏好設定 → 外觀「背景動畫與特效」。
+// 1、2 級沒有背景飄字；3 級約 20 fps、字少一點；4 級 30 fps；5 級 60 fps。星雲（js/word-space.js LH_SP_LV）也照這個等級。
+// lhFxLevel()／lhFxSetLevel(n)；舊的 lhBgFxSet(on)／lhBgFxIsOn() 保留（on＝3 級以上）。
 
 const LH_BGFX_KEY = 'lh:bgFx';
 const LH_BGFX_CHARS = '韻押歌詞月光晚安夢心風雨唱聲情ㄢㄤㄥㄧㄨㄩㄞㄠㄡㄣㄚㄛ';
 const _lhBgReduce = matchMedia('(prefers-reduced-motion: reduce)');
-let _lhBgOn = lhGet(LH_BGFX_KEY) !== 'off';
+const LH_FX_DEFAULT = 3;
+let _lhFxLv = (v => v === 'off' ? 1 : v === 'on' ? LH_FX_DEFAULT : /^[1-5]$/.test(v || '') ? +v : LH_FX_DEFAULT)(lhGet(LH_BGFX_KEY));
+let _lhBgOn = _lhFxLv >= 3;
+document.documentElement.dataset.fx = _lhFxLv;
 let _lhBgCanvas = null;
 let _lhBgCtx = null;
 let _lhBgFlakes = [];
@@ -84,7 +89,7 @@ function _lhBgResize() {
     _lhBgCanvas.height = Math.round(_lhBgH * dpr);
     _lhBgCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
     // 字數跟面積走，iPad 約 16 個、桌機約 20 個，上限 24
-    const n = Math.max(10, Math.min(24, Math.round(_lhBgW * _lhBgH / 55000)));
+    const n = Math.round(Math.max(10, Math.min(24, Math.round(_lhBgW * _lhBgH / 55000))) * (_lhFxLv <= 3 ? 0.6 : 1));
     while (_lhBgFlakes.length < n) _lhBgFlakes.push(_lhBgNewFlake(true));
     _lhBgFlakes.length = n;
     if (_lhBgReduce.matches) _lhBgDraw(0);
@@ -116,7 +121,7 @@ function _lhBgDraw(dt) {
 
 function _lhBgFrame(t) {
     _lhBgRaf = requestAnimationFrame(_lhBgFrame);
-    if (t - _lhBgLast < 32) return;   // 約 30 fps 就夠慢慢飄
+    if (t - _lhBgLast < ({ 3: 50, 4: 32 }[_lhFxLv] || 12)) return;   // 3 級約 20 fps、4 級 30 fps、5 級 60 fps
     const dt = _lhBgLast ? Math.min((t - _lhBgLast) / 1000, 0.1) : 0;
     _lhBgLast = t;
     _lhBgDraw(dt);
@@ -160,11 +165,16 @@ function lhBgFxRefresh() {
 }
 
 // 開關（偏好設定之後接這個）：記住選擇並立刻生效
-function lhBgFxSet(on) {
-    _lhBgOn = !!on;
-    lhSet(LH_BGFX_KEY, _lhBgOn ? 'on' : 'off');
+function lhFxSetLevel(n) {
+    _lhFxLv = Math.min(5, Math.max(1, Math.round(+n) || LH_FX_DEFAULT));
+    _lhBgOn = _lhFxLv >= 3;
+    document.documentElement.dataset.fx = _lhFxLv;
+    lhSet(LH_BGFX_KEY, String(_lhFxLv));
     _lhBgUpdate();
+    _lhBgResize();
 }
+function lhFxLevel() { return _lhFxLv; }
+function lhBgFxSet(on) { lhFxSetLevel(on ? Math.max(LH_FX_DEFAULT, _lhFxLv) : 1); }
 function lhBgFxIsOn() { return _lhBgOn; }
 // 暫時藏起來（顯示全部押韻詞時，飄落的字會和漂浮的詞搶眼）；不改使用者的開關
 function lhBgFxHide(h) {

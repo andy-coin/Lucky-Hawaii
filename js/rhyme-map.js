@@ -94,6 +94,7 @@ function _lhMapSync(ta, mirror) {
     mirror.style.width = ta.offsetWidth + 'px';
     mirror.style.height = ta.offsetHeight + 'px';
     mirror.style.paddingRight = ((parseFloat(cs.paddingRight) || 0) + Math.max(0, bar)) + 'px';   // 靠右欄開著時，輸入框的內距已含欄寬，一併複製
+    mirror.style.paddingLeft = cs.paddingLeft;   // 靠左欄（0.98.06）：左內距含欄寬，一併複製
     mirror.style.setProperty('--lm-bar', Math.max(0, bar) + 'px');   // 標記靠右欄時要讓開捲軸
     mirror.scrollTop = ta.scrollTop;
     mirror.scrollLeft = ta.scrollLeft;
@@ -552,7 +553,7 @@ const LH_MAP_DEPTH_HELP = '濃：色塊比較明顯，深色主題下有些顏�
 // 目前位置的說明文字（UI-SPEC 第 7 節逐字）
 const LH_MAP_POS_HELP = {
     right: '靠右欄：輸入框右邊留一條欄位，數字上下對齊，但寫字的寬度會少一點',
-    tail: '句尾後：標記緊貼每行最後一個字，不佔寬度；行太滿時會被輸入框邊緣切掉',
+    left: '靠左欄：輸入框左邊留一條欄位，歌詞本身不會被標記擠亂',
 };
 
 // 開關一列：文字＋右邊的「開／關」藥丸（狀態用字不用色，D-14）
@@ -673,21 +674,34 @@ function _lhMapPrefRow(key, label, cap, capId) {
     return [sw, c];
 }
 
+// 兩組選項並排成一行（各自上面一個小標題）；窄螢幕自動換行
+function _lhMapPair(...groups) {
+    const row = _lhMk('div', 'rm-row rm-row-2');
+    for (const [label, el] of groups) {
+        const col = _lhMk('div', 'rm-col');
+        col.append(_lhMk('span', 'section-menu-cap', label), el);
+        row.append(col);
+    }
+    return row;
+}
 function lhMapPrefsBuild() {
     const sec = document.getElementById('mapSettingsSection');
     if (!sec || _lhMapPrefsBuilt) return;
     _lhMapPrefsBuilt = true;
     const hint = _lhMk('p', 'settings-backups-hint', '調整句尾上色、逐行字數與斷句標記的開關、位置、大小和顏色');
-    const sub = _lhMk('div', 'rm-sub');   // 四個細項縮排在逐行標記底下；總開關關著也照樣能設（UI-SPEC D-17）
-    sub.append(
-        ..._lhMapPrefRow('lnRhyme', '行尾韻腳', '直接寫這一行的韻腳（ㄤ、ㄠ…），跟著上面的寬韻／嚴格', 'rmPrefRhyme'),
-        ..._lhMapPrefRow('lnCount', '字數', '每行幾個字（空白、標點不算）', 'rmPrefCount'),
-        ..._lhMapPrefRow('lnSplit', '斷句結構', '畫在每行下面：每一組字底下一個小括號和字數；斜體數字是機器猜的，可以在「📏 分析」裡改', 'rmPrefSplit'),
-    );
+    const sub = _lhMk('div', 'rm-sub');   // 三個細項縮排在逐行標記底下；總開關關著也照樣能設（UI-SPEC D-17）
+    // 0.98.06：三個細項排成同一行，說明合成底下一行（各自的說明保留給讀屏，畫面上不重複）
+    const r3 = [_lhMapPrefRow('lnRhyme', '行尾韻腳', '直接寫這一行的韻腳（ㄤ、ㄠ…），跟著上面的寬韻／嚴格', 'rmPrefRhyme'),
+        _lhMapPrefRow('lnCount', '字數', '每行幾個字（空白、標點不算）', 'rmPrefCount'),
+        _lhMapPrefRow('lnSplit', '斷句結構', '畫在每行下面：每一組字底下一個小括號和字數；斜體數字是機器猜的，可以在「📏 分析」裡改', 'rmPrefSplit')];
+    const row3 = _lhMk('div', 'rm-row rm-row-3');
+    row3.append(...r3.map(r => r[0]));
+    r3.forEach(r => r[1].classList.add('sr-only'));
+    sub.append(row3, ...r3.map(r => r[1]), _lhMk('span', 'section-menu-cap', '行尾韻腳＝這行的韻腳；字數＝每行幾個字；斷句結構＝每組字底下的小括號（斜體是機器猜的，可在「📏 分析」裡改）'));
     // 對照差異先藏起來（Andy 2026-11-13：太複雜，之後再說）；設定與程式都還在
     // 詞庫沒載好時，斷句結構的 ≈ 還出不來：提醒一句，載好就自己收起來
     const wait = _lhMk('span', 'section-menu-cap rm-lex-wait', '詞庫載入中，括號裡的自動斷句稍後補上');
-    sub.children[5].after(wait);   // 緊接在斷句結構的說明後面
+    sub.append(wait);
     const none = _lhMk('span', 'section-menu-cap rm-none', '細項都關著，所以沒有東西可顯示');
     none.hidden = true;
     sub.append(none);
@@ -705,9 +719,9 @@ function lhMapPrefsBuild() {
     const posHelp = _lhMk('span', 'section-menu-cap rm-pos-help');
     const depthHelp = _lhMk('span', 'section-menu-cap rm-depth-help', LH_MAP_DEPTH_HELP);
     const look = _lhMkBlock('顯示方式',
-        _lhMk('span', 'section-menu-cap', '標記位置'), _lhMapLookRadios('標記位置', 'pos', [['right', '靠右欄'], ['tail', '句尾後']], false), posHelp,
-        _lhMk('span', 'section-menu-cap', '標記文字大小'), _lhMapLookRadios('標記文字大小', 'size', [['s', '小'], ['m', '中'], ['l', '大']], true),
-        _lhMk('span', 'section-menu-cap', '句尾上色濃淡'), _lhMapLookRadios('句尾上色濃淡', 'depth', [['light', '淡'], ['std', '標準'], ['heavy', '濃']], true), depthHelp);
+        _lhMk('span', 'section-menu-cap', '標記位置'), _lhMapLookRadios('標記位置', 'pos', [['left', '靠左欄'], ['right', '靠右欄']], false), posHelp,
+        _lhMapPair(['標記文字大小', _lhMapLookRadios('標記文字大小', 'size', [['s', '小'], ['m', '中'], ['l', '大']], true)],
+            ['句尾上色濃淡', _lhMapLookRadios('句尾上色濃淡', 'depth', [['light', '淡'], ['std', '標準'], ['heavy', '濃']], true)]), depthHelp);
     // 韻族顏色（D-15）：16 個原生色票 + 不能點的「空韻」；顏色日夜共用，存在 lh:map.colors
     const grid = _lhMk('div', 'rm-colors');
     for (let n = 0; n < 16; n++) {

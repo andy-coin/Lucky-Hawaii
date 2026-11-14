@@ -5,32 +5,78 @@
         let LLM_MODELS = [AUTO_MODEL];
 
         // ===== 用自己的金鑰（BYOK）：有金鑰就從瀏覽器直連服務商，不經 Worker；金鑰存在 apiKey_<服務商>（safety.js 標為機密，不進備份） =====
-        // 模型與「用量」格數依據（2026-11 官方文件）：見 R2-byok.md。usage：1～3 格＝每次請求吃掉免費額度的多寡
+        // 模型清單依各家官方文件（2026-11 查證）：Anthropic models overview、OpenAI All models、Gemini models、xAI models、Groq models、DeepSeek updates。
+        // usage：1～3 格＝每次請求的花費／額度多寡（同一家裡相對比較）。
+        // kind：anthropic／gemini／openai（OpenAI 相容的 /chat/completions）。local：自己填網址（Ollama、其他相容服務），模型清單在「測試連線」時讀回來存在 lh:aiLocal
+        // （TypeSafe 的 Jev 是只回答選擇題／分數的判斷模型、不會產生文字，不能拿來給詞，所以沒有列）
         const BYOK_PROVIDERS = {
-            gemini: {
-                name: 'Gemini',
-                models: [
-                    { id: 'gemini-3.5-flash-lite', label: 'Gemini 3.5 Flash-Lite', usage: 2 },
-                    { id: 'gemini-3.8-flash', label: 'Gemini 3.8 Flash', usage: 3 },
-                ],
-            },
-            groq: {
-                name: 'Groq',
-                models: [
-                    { id: 'openai/gpt-oss-20b', label: 'GPT-OSS 20B', usage: 1 },
-                    { id: 'openai/gpt-oss-120b', label: 'GPT-OSS 120B', usage: 2 },
-                ],
-            },
+            anthropic: { name: 'Anthropic（Claude）', kind: 'anthropic', key: 'https://platform.claude.com/settings/keys', models: [
+                { id: 'claude-haiku-5-5', label: 'Claude Haiku 5.5', usage: 1 },
+                { id: 'claude-sonnet-5-5', label: 'Claude Sonnet 5.5', usage: 2 },
+                { id: 'claude-opus-5-5', label: 'Claude Opus 5.5', usage: 3 },
+            ] },
+            openai: { name: 'OpenAI', kind: 'openai', base: 'https://api.openai.com/v1', noTemp: true, key: 'https://platform.openai.com/api-keys', models: [
+                { id: 'gpt-6-luna', label: 'GPT-6 Luna', usage: 1 },
+                { id: 'gpt-6.1-terra', label: 'GPT-6.1 Terra', usage: 2 },
+                { id: 'gpt-6.1-sol', label: 'GPT-6.1 Sol', usage: 3 },
+            ] },
+            gemini: { name: 'Gemini', kind: 'gemini', key: 'https://aistudio.google.com/apikey', video: 'https://www.youtube.com/watch?v=Upk-iMyC3aM', models: [
+                { id: 'gemini-3.1-flash-lite', label: 'Gemini 3.1 Flash-Lite', usage: 1 },
+                { id: 'gemini-3.5-flash-lite', label: 'Gemini 3.5 Flash-Lite', usage: 2 },
+                { id: 'gemini-3.8-flash', label: 'Gemini 3.8 Flash', usage: 3 },
+            ] },
+            xai: { name: 'xAI（Grok）', kind: 'openai', base: 'https://api.x.ai/v1', key: 'https://console.x.ai/', models: [
+                { id: 'grok-4.3', label: 'Grok 4.3', usage: 1 },
+                { id: 'grok-4.7', label: 'Grok 4.7', usage: 3 },
+            ] },
+            groq: { name: 'Groq', kind: 'openai', base: 'https://api.groq.com/openai/v1', key: 'https://console.groq.com/keys', video: 'https://www.youtube.com/watch?v=nt1PJu47nTk', models: [
+                { id: 'openai/gpt-oss-20b', label: 'GPT-OSS 20B', usage: 1 },
+                { id: 'openai/gpt-oss-120b', label: 'GPT-OSS 120B', usage: 2 },
+                { id: 'llama-3.3-70b-versatile', label: 'Llama 3.3 70B', usage: 2 },
+            ] },
+            deepseek: { name: 'DeepSeek', kind: 'openai', base: 'https://api.deepseek.com', key: 'https://platform.deepseek.com/api_keys', models: [
+                { id: 'deepseek-flash', label: 'DeepSeek V4.1 Flash', usage: 1 },
+                { id: 'deepseek-v4-pro', label: 'DeepSeek V4 Pro', usage: 2 },
+            ] },
+            ollama: { name: 'Ollama（本機模型）', kind: 'openai', local: true, keyless: true, defBase: 'http://localhost:11434/v1', models: [] },
+            generic: { name: '其他 OpenAI 相容服務', kind: 'openai', local: true, defBase: '', models: [] },
         };
         const BYOK_USAGE_TEXT = ['', '用量少', '用量中', '用量多'];
         // 金鑰只收可見的 ASCII（貼上時夾帶空白、中文會讓請求標頭直接失敗）
         const BYOK_KEY_RE = /^[\x21-\x7e]{10,200}$/;
+        const LH_AI_LOCAL_KEY = 'lh:aiLocal';   // { ollama: { base, models: [id] }, generic: {...} }
 
         function byokKey(provider) { return lhGet(`apiKey_${provider}`) || ''; }
-        // 有金鑰的服務商才有選項；id 加 byok: 前綴，不會和 Worker 的模型撞名
+        function _byokLocal() {
+            return lhGetJSON(LH_AI_LOCAL_KEY, {}, o => !!o && typeof o === 'object' && !Array.isArray(o));
+        }
+        function _byokLocalCfg(p) {
+            const c = _byokLocal()[p];
+            const base = c && typeof c.base === 'string' && /^https?:\/\/[^\s]+$/.test(c.base) ? c.base.replace(/\/+$/, '') : BYOK_PROVIDERS[p].defBase;
+            const models = c && Array.isArray(c.models) ? c.models.filter(m => typeof m === 'string' && m && m.length <= 120).slice(0, 60) : [];
+            return { base, models };
+        }
+        function _byokLocalSave(p, patch) {
+            const all = _byokLocal();
+            all[p] = Object.assign(_byokLocalCfg(p), patch);
+            lhSet(LH_AI_LOCAL_KEY, JSON.stringify(all));
+        }
+        function _byokBase(p) { return BYOK_PROVIDERS[p].local ? _byokLocalCfg(p).base : BYOK_PROVIDERS[p].base; }
+        // 這家能不能用：雲端看有沒有金鑰；本機／自訂看網址和讀回來的模型清單（Ollama 不用金鑰）
+        function byokReady(p) {
+            const cfg = BYOK_PROVIDERS[p];
+            if (!cfg.local) return !!byokKey(p);
+            const c = _byokLocalCfg(p);
+            return !!c.base && c.models.length > 0;   // 自訂服務的金鑰可有可無
+        }
+        function _byokModelList(p) {
+            const cfg = BYOK_PROVIDERS[p];
+            return cfg.local ? _byokLocalCfg(p).models.map(id => ({ id, label: id, usage: 0 })) : cfg.models;
+        }
+        // 能用的服務商才有選項；id 加 byok: 前綴，不會和 Worker 的模型撞名
         function byokModels() {
-            return Object.entries(BYOK_PROVIDERS).filter(([p]) => byokKey(p)).flatMap(([p, cfg]) =>
-                cfg.models.map(m => ({ id: `byok:${p}:${m.id}`, label: m.label, provider: p, model: m.id, usage: m.usage, byok: true })));
+            return Object.keys(BYOK_PROVIDERS).filter(byokReady).flatMap(p =>
+                _byokModelList(p).map(m => ({ id: `byok:${p}:${m.id}`, label: m.label, provider: p, model: m.id, usage: m.usage, byok: true })));
         }
         function allModels() { return [...LLM_MODELS, ...byokModels()]; }
         function currentModel() {
@@ -114,8 +160,10 @@
             btn.setAttribute('aria-label', `AI 模型：${m.label}${m.byok ? '（用你自己的金鑰）' : ''}`);
             const selected = m.id;
             const own = byokModels();
+            // 有設定的每一家各一組，組裡就是那一家自己的模型
+            const groups = Object.keys(BYOK_PROVIDERS).map(p => [p, own.filter(x => x.provider === p)]).filter(([, ms]) => ms.length);
             list.replaceChildren(...(own.length
-                ? [_modelGroup('好韻器提供', LLM_MODELS, selected), _modelGroup('用你自己的金鑰', own, selected)]
+                ? [_modelGroup('好韻器提供', LLM_MODELS, selected), ...groups.map(([p, ms]) => _modelGroup('你的 ' + BYOK_PROVIDERS[p].name, ms, selected))]
                 : LLM_MODELS.map(x => _modelOption(x, selected))));
             _syncKeyBtn(m);
         }
@@ -186,7 +234,7 @@
             const on = !!m?.byok;
             k.dataset.on = String(on);
             const label = on ? `正在使用你自己的 ${BYOK_PROVIDERS[m.provider].name} 金鑰，點此設定`
-                : byokModels().length ? '目前沒有用你自己的金鑰（模型選單裡「用你自己的金鑰」那組才會用），點此設定'
+                : byokModels().length ? '目前沒有用你自己的金鑰（模型選單裡「你的 …」那幾組才會用），點此設定'
                 : '用你自己的 AI 金鑰，點此設定';
             k.setAttribute('aria-label', label);
             k.title = label;
@@ -197,9 +245,11 @@
             lhPrefsSelectTab('ai', true);
         }
 
-        // ===== 偏好設定「AI」分頁：每家一個金鑰欄、顯示／隱藏、測試連線、清除 =====
+        // ===== 偏好設定「AI」分頁：先在下拉選服務商，一行貼金鑰（本機／自訂多一行網址）、顯示／隱藏、測試連線、清除 =====
+        let _byokCur = Object.keys(BYOK_PROVIDERS).find(byokReady) || 'gemini';
         function _byokStatus(provider, text, kind) {
-            const el = document.querySelector(`.byok-provider[data-provider="${provider}"] .byok-status`);
+            if (provider !== _byokCur) return;
+            const el = document.getElementById('byokStatus');
             el.textContent = text;
             el.dataset.kind = kind || '';
         }
@@ -217,6 +267,7 @@
                 _byokStatus(provider, '已存在這台裝置的瀏覽器裡', 'ok');
             }
             renderModelSelect();
+            _byokHave();
             return true;
         }
 
@@ -225,20 +276,24 @@
             const name = BYOK_PROVIDERS[provider].name;
             const raw = JSON.stringify(data ?? '');
             if (status === 401 || status === 403 || raw.includes('API_KEY_INVALID') || raw.includes('invalid_api_key')) return `${name} 金鑰無效，請到偏好設定的「AI」分頁重新貼上金鑰`;
-            if (status === 429) return `${name} 的免費額度暫時用完了（每分鐘或每天的上限），請稍後再試，或換一個模型`;
+            if (status === 429) return `${name} 的額度暫時用完了（每分鐘或每天的上限），請稍後再試，或換一個模型`;
+            if (status === 402) return `${name} 帳戶餘額不足，請到 ${name} 的網站儲值，或換一個模型`;
             if (status === 404) return `${name} 找不到這個模型，請換一個模型`;
             if (status === 400) return `${name} 不接受這次的請求，請換一個模型再試`;
             return `${name} 暫時無法使用，請稍後再試`;
         }
         // 直連服務商：回傳 JSON；任何失敗 throw aiError
         async function _byokFetch(provider, url, init, timeoutMs) {
-            const name = BYOK_PROVIDERS[provider].name;
+            const cfg = BYOK_PROVIDERS[provider], name = cfg.name;
             let res;
             try {
                 res = await fetch(url, { ...init, signal: AbortSignal.timeout(timeoutMs) });
             } catch (e) {
                 lhWarn(name + ' 請求送不出去', e);
-                throw aiError(e.name === 'TimeoutError' ? `${name} 回應太久，請稍後再試` : `連不上 ${name}，請檢查網路後再試`);
+                if (e.name === 'TimeoutError') throw aiError(`${name} 回應太久，請稍後再試`);
+                throw aiError(provider === 'ollama' ? '連不上本機的 Ollama：確認它正在執行，並把環境變數 OLLAMA_ORIGINS 設成允許這個網站（例如 *）'
+                    : cfg.local ? `連不上 ${_byokBase(provider) || '這個網址'}：確認網址正確、服務有開，而且允許瀏覽器直接連線（CORS）`
+                    : `連不上 ${name}（網路問題，或這家不允許瀏覽器直接連線），請檢查網路後再試`);
             }
             let data = null;
             try { data = await res.json(); } catch (e) { lhWarn(name + ' 回應不是 JSON', e); }
@@ -250,27 +305,35 @@
             return data;
         }
         function _byokHeaders(provider, key) {
-            return provider === 'gemini' ? { 'x-goog-api-key': key } : { Authorization: 'Bearer ' + key };
+            const kind = BYOK_PROVIDERS[provider].kind;
+            if (kind === 'gemini') return { 'x-goog-api-key': key };
+            if (kind === 'anthropic') return { 'x-api-key': key, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' };
+            return key ? { Authorization: 'Bearer ' + key } : {};
         }
         async function _callByok(model, prompt) {
-            const key = byokKey(model.provider);
-            const name = BYOK_PROVIDERS[model.provider].name;
-            if (!key) throw aiError(`這台裝置沒有 ${name} 金鑰了，請到偏好設定的「AI」分頁貼上，或換回好韻器提供的模型`);
-            const headers = { 'Content-Type': 'application/json', ..._byokHeaders(model.provider, key) };
+            const p = model.provider, cfg = BYOK_PROVIDERS[p], key = byokKey(p), name = cfg.name;
+            if (!key && !cfg.local) throw aiError(`這台裝置沒有 ${name} 金鑰了，請到偏好設定的「AI」分頁貼上，或換回好韻器提供的模型`);
+            const headers = { 'Content-Type': 'application/json', ..._byokHeaders(p, key) };
             let text, tokens;
-            if (model.provider === 'gemini') {
+            if (cfg.kind === 'gemini') {
                 // 金鑰放標頭，不放網址
-                const data = await _byokFetch('gemini', `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model.model)}:generateContent`, {
+                const data = await _byokFetch(p, `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model.model)}:generateContent`, {
                     method: 'POST', headers,
                     body: JSON.stringify({ contents: [{ role: 'user', parts: [{ text: prompt }] }], generationConfig: { temperature: 0.95 } }),
                 }, 35000);
-                text = (data.candidates?.[0]?.content?.parts || []).filter(p => !p.thought && typeof p.text === 'string').map(p => p.text).join('');
+                text = (data.candidates?.[0]?.content?.parts || []).filter(x => !x.thought && typeof x.text === 'string').map(x => x.text).join('');
                 tokens = data.usageMetadata?.totalTokenCount;
-            } else {
-                const data = await _byokFetch('groq', 'https://api.groq.com/openai/v1/chat/completions', {
+            } else if (cfg.kind === 'anthropic') {
+                const data = await _byokFetch(p, 'https://api.anthropic.com/v1/messages', {
                     method: 'POST', headers,
-                    body: JSON.stringify({ model: model.model, messages: [{ role: 'user', content: prompt }], temperature: 0.95 }),
-                }, 35000);
+                    body: JSON.stringify({ model: model.model, max_tokens: 4096, messages: [{ role: 'user', content: prompt }] }),
+                }, 60000);
+                text = (data.content || []).filter(b => b.type === 'text').map(b => b.text).join('');
+                tokens = data.usage ? (data.usage.input_tokens || 0) + (data.usage.output_tokens || 0) : undefined;
+            } else {
+                const body = { model: model.model, messages: [{ role: 'user', content: prompt }] };
+                if (!cfg.noTemp) body.temperature = 0.95;   // OpenAI 新一代模型只收預設溫度
+                const data = await _byokFetch(p, _byokBase(p) + '/chat/completions', { method: 'POST', headers, body: JSON.stringify(body) }, cfg.local ? 120000 : 60000);
                 text = data.choices?.[0]?.message?.content;
                 tokens = data.usage?.total_tokens;
             }
@@ -278,43 +341,113 @@
             lhAiNotice(`${model.label}（你的金鑰）${Number.isFinite(tokens) ? `｜${tokens} tokens` : ''}`);
             return text.replace(/<think>[\s\S]*?<\/think>/g, '').trim();
         }
-        // 測試連線：讀一次各家的模型清單（不花生成額度）
+        // 測試連線：讀一次各家的模型清單（不花生成額度）；本機／自訂服務順便把模型清單存起來
         async function byokTest(provider) {
-            const input = document.getElementById('byokKey-' + provider);
-            if (!byokSaveKey(provider, input.value)) return;
+            const cfg = BYOK_PROVIDERS[provider];
+            const input = document.getElementById('byokKey');
+            if (input.value.trim() || !cfg.local) { if (!byokSaveKey(provider, input.value)) return; }
+            if (cfg.local) {
+                const base = document.getElementById('byokBase').value.trim().replace(/\/+$/, '');
+                if (!/^https?:\/\/\S+$/.test(base)) { _byokStatus(provider, '請先填服務網址（http:// 或 https:// 開頭，通常以 /v1 結尾）', 'err'); return; }
+                _byokLocalSave(provider, { base });
+            }
             const key = byokKey(provider);
-            if (!key) { _byokStatus(provider, '請先貼上金鑰', 'err'); return; }
+            if (!key && !cfg.local) { _byokStatus(provider, '請先貼上金鑰', 'err'); return; }
             _byokStatus(provider, '測試中…', '');
-            const url = provider === 'gemini' ? 'https://generativelanguage.googleapis.com/v1beta/models?pageSize=200' : 'https://api.groq.com/openai/v1/models';
+            const url = cfg.kind === 'gemini' ? 'https://generativelanguage.googleapis.com/v1beta/models?pageSize=200'
+                : cfg.kind === 'anthropic' ? 'https://api.anthropic.com/v1/models' : _byokBase(provider) + '/models';
             try {
-                await _byokFetch(provider, url, { headers: _byokHeaders(provider, key) }, 10000);
-                _byokStatus(provider, `連線成功！${BYOK_PROVIDERS[provider].name} 金鑰可以用，模型選單裡「用你自己的金鑰」那組已經可以選`, 'ok');
+                const data = await _byokFetch(provider, url, { headers: _byokHeaders(provider, key) }, 10000);
+                if (cfg.local) {
+                    const ids = (Array.isArray(data.data) ? data.data : Array.isArray(data.models) ? data.models : []).map(m => m && (m.id || m.name)).filter(x => typeof x === 'string' && x);
+                    if (!ids.length) { _byokStatus(provider, '連得上，但沒讀到任何模型（Ollama 請先 ollama pull 一個模型）', 'err'); return; }
+                    _byokLocalSave(provider, { models: ids.slice(0, 60) });
+                    renderModelSelect();
+                    _byokHave();
+                    _byokStatus(provider, `連線成功！讀到 ${ids.length} 個模型，已經可以在 AI 建議的模型選單裡選`, 'ok');
+                    return;
+                }
+                _byokStatus(provider, `連線成功！${cfg.name} 金鑰可以用，模型選單裡「你的 ${cfg.name}」那組已經可以選`, 'ok');
             } catch (e) {
                 _byokStatus(provider, e.plain ? e.message : AI_FALLBACK_MSG, 'err');
             }
         }
-        function byokRenderPrefs() {
-            for (const p of Object.keys(BYOK_PROVIDERS)) {
-                const input = document.getElementById('byokKey-' + p);
-                if (input && document.activeElement !== input) input.value = byokKey(p);
+        // 切換服務商：金鑰欄換成這家的、本機／自訂多一行網址、說明與取得金鑰的連結跟著換
+        function _byokShow(p) {
+            _byokCur = p;
+            const cfg = BYOK_PROVIDERS[p];
+            document.getElementById('byokProvider').value = p;
+            const input = document.getElementById('byokKey');
+            input.value = byokKey(p);
+            input.placeholder = cfg.keyless ? '不用金鑰（留空）' : cfg.local ? '金鑰（沒有就留空）' : '貼上 ' + cfg.name + ' 金鑰';
+            input.setAttribute('aria-label', cfg.name + ' 金鑰');
+            const baseRow = document.getElementById('byokBaseRow');
+            baseRow.hidden = !cfg.local;
+            if (cfg.local) document.getElementById('byokBase').value = _byokLocalCfg(p).base;
+            const st = document.getElementById('byokStatus');
+            st.textContent = ''; st.dataset.kind = '';
+            const note = document.getElementById('byokNote');
+            note.replaceChildren();
+            if (cfg.local) note.append(p === 'ollama'
+                ? '在這台電腦執行 Ollama，填網址後按「測試連線」，會讀出你下載過的模型。'
+                : '任何 OpenAI 相容的服務（LM Studio、OpenRouter、自架…）：填網址（通常以 /v1 結尾）和金鑰，按「測試連線」讀出模型。');
+            else {
+                note.append('模型：' + cfg.models.map(m => m.label).join('、') + '。');
+                const a = document.createElement('a');
+                a.href = cfg.key; a.target = '_blank'; a.rel = 'noopener';
+                a.textContent = '取得 ' + cfg.name + ' 金鑰';
+                note.append(' ', a);
+                if (cfg.video) {
+                    const v = document.createElement('a');
+                    v.href = cfg.video; v.target = '_blank'; v.rel = 'noopener'; v.className = 'byok-video';
+                    v.textContent = '（教學影片）';
+                    note.append(' ', v);
+                }
             }
         }
+        // 已設定的服務商：一排小標籤，點了就切過去
+        function _byokHave() {
+            const box = document.getElementById('byokHave');
+            if (!box) return;
+            const ps = Object.keys(BYOK_PROVIDERS).filter(byokReady);
+            box.replaceChildren(...(ps.length ? [Object.assign(document.createElement('span'), { textContent: '已設定：' })] : []), ...ps.map(p => {
+                const b = document.createElement('button');
+                b.type = 'button'; b.className = 'byok-chip'; b.dataset.p = p;
+                b.textContent = BYOK_PROVIDERS[p].name;
+                return b;
+            }));
+            document.querySelectorAll('#byokProvider option').forEach(o => { o.textContent = BYOK_PROVIDERS[o.value].name + (byokReady(o.value) ? '　✓' : ''); });
+        }
+        function byokRenderPrefs() {
+            const input = document.getElementById('byokKey');
+            if (input && document.activeElement !== input) _byokShow(_byokCur);
+            _byokHave();
+            if (typeof lhAiTuneSync === 'function') lhAiTuneSync();
+        }
         (function _wireByokPrefs() {
-            for (const box of document.querySelectorAll('.byok-provider')) {
-                const p = box.dataset.provider;
-                const input = box.querySelector('.byok-input');
-                input.value = byokKey(p);
-                input.addEventListener('change', () => byokSaveKey(p, input.value));
-                box.querySelector('.byok-eye').addEventListener('click', e => {
-                    const show = input.type === 'password';
-                    input.type = show ? 'text' : 'password';
-                    e.currentTarget.setAttribute('aria-pressed', String(show));
-                    e.currentTarget.setAttribute('aria-label', show ? '隱藏金鑰' : '顯示金鑰');
-                    e.currentTarget.title = show ? '隱藏金鑰' : '顯示金鑰';
-                });
-                box.querySelector('[data-act="test"]').addEventListener('click', () => byokTest(p));
-                box.querySelector('[data-act="clear"]').addEventListener('click', () => { input.value = ''; byokSaveKey(p, ''); });
-            }
+            const sel = document.getElementById('byokProvider');
+            if (!sel) return;
+            sel.replaceChildren(...Object.keys(BYOK_PROVIDERS).map(p => new Option(BYOK_PROVIDERS[p].name, p)));
+            sel.addEventListener('change', () => _byokShow(sel.value));
+            const input = document.getElementById('byokKey');
+            input.addEventListener('change', () => { if (input.value.trim() || !BYOK_PROVIDERS[_byokCur].local) byokSaveKey(_byokCur, input.value); });
+            document.getElementById('byokBase').addEventListener('change', e => _byokLocalSave(_byokCur, { base: e.target.value.trim().replace(/\/+$/, '') }));
+            document.querySelector('#byokBox .byok-eye').addEventListener('click', e => {
+                const show = input.type === 'password';
+                input.type = show ? 'text' : 'password';
+                e.currentTarget.setAttribute('aria-pressed', String(show));
+                e.currentTarget.setAttribute('aria-label', show ? '隱藏金鑰' : '顯示金鑰');
+                e.currentTarget.title = show ? '隱藏金鑰' : '顯示金鑰';
+            });
+            document.querySelector('#byokBox [data-act="test"]').addEventListener('click', () => byokTest(_byokCur));
+            document.querySelector('#byokBox [data-act="clear"]').addEventListener('click', () => {
+                input.value = '';
+                byokSaveKey(_byokCur, '');
+                if (BYOK_PROVIDERS[_byokCur].local) { _byokLocalSave(_byokCur, { models: [] }); renderModelSelect(); _byokHave(); }
+            });
+            document.getElementById('byokHave').addEventListener('click', e => { const b = e.target.closest('[data-p]'); if (b) _byokShow(b.dataset.p); });
+            _byokShow(_byokCur);
+            _byokHave();
         })();
 
         // 從 Worker 取得目前可用的模型，選單 = 自動 + 這份清單（依 Worker 給的順序）

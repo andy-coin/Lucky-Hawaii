@@ -148,7 +148,7 @@
                 : filterWordsByInitialSingle(searchChar, 1);
             if (all.length > 0) {
                 lastCandidatesTotal = all.length;
-                return all.length > 1000 ? all.slice(0, 1000) : all;
+                return all;
             }
             lastCandidatesTotal = 0;
             return [];

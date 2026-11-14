@@ -424,7 +424,7 @@ const markGeo = (page, secIdx, idxs) => page.evaluate(([secIdx, idxs]) => {
     });
 }, [secIdx, idxs]);
 
-test('顯示方式：切到句尾後，標記貼在最後一個字後面，游標選取捲動都不動', async ({ browser }) => {
+test('顯示方式：切到靠左欄（0.98.06 取代句尾後），左邊留欄位，游標選取捲動都不動', async ({ browser }) => {
     const sections = [typed('sa', 'verse', TAIL_A), typed('sb', 'verse', TAIL_B)];
     const { context, page, errors } = await bootPage(browser, { wordlist: 'stub', storage: v2Storage([song(sections)], { ...OPEN_PANELS, ...LOOK_ON }) });
     await expect(page.locator('.lyrics-section').nth(1).locator('.lm-mk')).toHaveCount(60);
@@ -445,7 +445,7 @@ test('顯示方式：切到句尾後，標記貼在最後一個字後面，游�
         return {
             same: t === window.__ta, sel: [t.selectionStart, t.selectionEnd], top: t.scrollTop,
             nodes: window.__mks.every(m => m.isConnected), count: document.querySelectorAll('.lyrics-section')[1].querySelectorAll('.lm-mk').length,
-            lm: document.documentElement.getAttribute('data-lm'), pad: parseFloat(getComputedStyle(t).paddingRight), base: 0.75 * rem,
+            lm: document.documentElement.getAttribute('data-lm'), pad: parseFloat(getComputedStyle(t).paddingRight), padL: parseFloat(getComputedStyle(t).paddingLeft), base: 0.75 * rem,
         };
     });
     const right = await state();
@@ -455,38 +455,26 @@ test('顯示方式：切到句尾後，標記貼在最後一個字後面，游�
     await page.evaluate(() => lhMapOpenPrefs());
     await expect(lookRadio(page, 'pos', 'right')).toHaveAttribute('aria-checked', 'true');
     await expect(page.locator('#mapSettingsSection .rm-pos-help')).toHaveText('靠右欄：輸入框右邊留一條欄位，數字上下對齊，但寫字的寬度會少一點');
-    await lookRadio(page, 'pos', 'tail').click();
-    const tail = await state();
-    expect(tail.lm).toBe('tail');
-    expect(tail.same, '輸入框還是同一個節點').toBe(true);
-    expect(tail.sel, '選取不動').toEqual([3, 5]);
-    expect(tail.top, '捲動位置不動').toBe(120);
-    expect(tail.nodes, '標記節點沒有被重建').toBe(true);
-    expect(tail.count).toBe(60);
-    expect(tail.pad, '句尾後不加內距').toBeCloseTo(tail.base, 1);
-    await expect(lookRadio(page, 'pos', 'tail')).toHaveAttribute('aria-checked', 'true');
+    await lookRadio(page, 'pos', 'left').click();
+    const left = await state();
+    expect(left.lm).toBe('left');
+    expect(left.same, '輸入框還是同一個節點').toBe(true);
+    expect(left.sel, '選取不動').toEqual([3, 5]);
+    expect(left.top, '捲動位置不動').toBe(120);
+    expect(left.nodes, '標記節點沒有被重建').toBe(true);
+    expect(left.count).toBe(60);
+    expect(left.pad, '靠左欄右邊不加內距').toBeCloseTo(left.base, 1);
+    expect(left.padL, '靠左欄左邊留欄位').toBeGreaterThan(left.base + 20);
+    await expect(lookRadio(page, 'pos', 'left')).toHaveAttribute('aria-checked', 'true');
     await expect(lookRadio(page, 'pos', 'right')).toHaveAttribute('aria-checked', 'false');
-    await expect(page.locator('#mapSettingsSection .rm-pos-help')).toHaveText('句尾後：標記緊貼每行最後一個字，不佔寬度；行太滿時會被輸入框邊緣切掉');
-    expect(await lsGetMap(page)).toContain('"pos":"tail"');
-
-    // 標記緊貼最後一個字：左緣在字的右邊 0.5em 內（0.95rem 的 0.5em ≈ 7.6px），上緣在同一個視覺列
-    for (const g of await markGeo(page, 1, [1, 5, 41])) {
-        expect(g.dx, '標記在字的右邊').toBeGreaterThanOrEqual(-0.5);
-        expect(g.dx, '標記離字不遠').toBeLessThan(12);
-        expect(Math.abs(g.dTop), '標記在字所在的視覺列').toBeLessThanOrEqual(1);
-    }
-    // 讀起來是「字母 · 字數 ≠對方 · 斷句」，空欄位不出現；· 是 ::before，所以逐個欄位組字串
-    const text = await page.evaluate(() => {
-        const m = document.querySelectorAll('.lyrics-section')[1].querySelectorAll('.lm-mk')[1];
-        return [...m.querySelectorAll('.lm-t')].filter(t => getComputedStyle(t).display !== 'none').map((t, n) => {
-            const b = getComputedStyle(t, '::before').content;
-            return (b === 'none' || b === 'normal' ? (n ? ' ' : '') : ' ' + JSON.parse(b)) + t.textContent;
-        }).join('');
+    await expect(page.locator('#mapSettingsSection .rm-pos-help')).toHaveText('靠左欄：輸入框左邊留一條欄位，歌詞本身不會被標記擠亂');
+    expect(await lsGetMap(page)).toContain('"pos":"left"');
+    // 標記在左邊欄位裡：右緣不超過歌詞開始的地方
+    const inCol = await page.evaluate(() => {
+        const t = document.querySelectorAll('.section-textarea')[1], left = t.getBoundingClientRect().left + parseFloat(getComputedStyle(t).paddingLeft);
+        return [...document.querySelectorAll('.lyrics-section')[1].querySelectorAll('.lm-mk')].slice(0, 5).every(m => m.getBoundingClientRect().right <= left + 1);
     });
-    expect(text.replace(/\s+/g, ' ')).toMatch(/^\S+ · 7 ≠6$/);   // 斷句改畫在行下面，不在標記裡
-    // 沒有對照差異的偶數行：沒有 ≠ 欄位
-    const even = await page.evaluate(() => [...document.querySelectorAll('.lyrics-section')[1].querySelectorAll('.lm-mk')[0].querySelectorAll('.lm-t')].filter(t => getComputedStyle(t).display !== 'none').map(t => t.className.replace('lm-t ', '')));
-    expect(even).toEqual(['lm-t-r', 'lm-t-c']);
+    expect(inCol).toBe(true);
 
     // 切回靠右欄：內距回來、標記還是同一批節點、游標選取捲動照舊
     await lookRadio(page, 'pos', 'right').click();
@@ -585,7 +573,7 @@ test('顯示方式：字級與濃淡馬上生效、不重畫', async ({ browser 
     expect(await bandBg(page)).toBe(stdBg);
 
     // 壞值：位置、字級、濃淡都退回預設，別的東西不受影響
-    await page.evaluate(() => localStorage.setItem('lh:map', JSON.stringify({ line: true, lnCount: true, pos: 'left', size: 'xl', depth: 'x;}body{display:none' })));
+    await page.evaluate(() => localStorage.setItem('lh:map', JSON.stringify({ line: true, lnCount: true, pos: 'middle', size: 'xl', depth: 'x;}body{display:none' })));
     await page.reload();
     await ready(page);
     expect(await page.evaluate(() => document.documentElement.getAttribute('data-lm'))).toBe('right');
@@ -704,7 +692,7 @@ test('換行不變：標記開關前後每個字的位置都一樣', async () =>
         await setScale(page, pct);
         await expect(page.locator('.lm-mk').first()).toBeAttached();
         await loadCoreSnap(page);
-        for (const pos of ['right', 'tail']) {
+        for (const pos of ['right', 'left']) {
             await page.evaluate(p => lhMapSetSetting('pos', p), pos);
             for (const bar of [false, true]) {
                 await injectScrollbar(page, bar);
@@ -764,7 +752,7 @@ test('最後視覺列：換行的行標記在最後一個視覺列', async () =>
         await setScale(page, pct);
         await expect(page.locator('.lm-mk').first()).toBeAttached();
         await loadCoreSnap(page);
-        for (const pos of ['right', 'tail']) {
+        for (const pos of ['right', 'left']) {
             await page.evaluate(p => lhMapSetSetting('pos', p), pos);
             for (const bar of [false, true]) {
                 await injectScrollbar(page, bar);
@@ -851,7 +839,7 @@ const counters = page => page.evaluate(() => ({ analyze: window.__an, paint: win
 const mirrorCls = page => page.locator('.rhyme-mirror').first().evaluate(m => ({ stale: m.classList.contains('rm-stale'), typing: m.classList.contains('lm-typing') }));
 const lastCount = page => page.locator('.rhyme-mirror .lm-mk').last().evaluate(m => m.querySelector('.lm-t-c').textContent);
 const F_TAIL = ['我望著遠方的光', '走過熟悉的街道', '你笑著說天亮', '不怕前方的路遙'].join('\n');
-const tailStorage = pos => v2Storage([song([typed('sa', 'verse', F_TAIL)])], { ...OPEN_PANELS, 'lh:map': JSON.stringify({ line: true, lnCount: true, ...(pos === 'tail' ? { pos } : {}) }) });
+const tailStorage = pos => v2Storage([song([typed('sa', 'verse', F_TAIL)])], { ...OPEN_PANELS, 'lh:map': JSON.stringify({ line: true, lnCount: true, ...(pos !== 'right' ? { pos } : {}) }) });
 const caretToEnd = page => page.evaluate(() => { const ta = document.querySelector('.section-textarea'); ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length); ta.scrollTop = ta.scrollHeight; });
 
 test('組字：標記開著時組字中鏡像零變動', async ({ browser }) => {
@@ -879,7 +867,7 @@ test('組字：標記開著時組字中鏡像零變動', async ({ browser }) => 
 });
 
 test('組字：句尾打字標記先藏、換行或句中修改整層藏，重畫後恢復', async ({ browser }) => {
-    for (const pos of ['tail', 'right']) {
+    for (const pos of ['left', 'right']) {
         const { context, page, errors } = await bootPage(browser, { wordlist: 'stub', storage: tailStorage(pos) });
         await expect(page.locator('.rhyme-mirror .lm-mk')).toHaveCount(4);
         const vis = () => page.evaluate(() => {
@@ -890,10 +878,10 @@ test('組字：句尾打字標記先藏、換行或句中修改整層藏，重�
         await page.keyboard.type('亮');   // 行尾打字
         let cls = await mirrorCls(page);
         expect(cls.stale, pos + '：行尾打字不整層藏').toBe(false);
-        expect(cls.typing, pos + '：只有句尾後才藏標記').toBe(pos === 'tail');
+        expect(cls.typing, pos + '：欄位式標記打字中不藏').toBe(false);
         const v = await vis();
         expect(v.mirror).toBe('visible');
-        expect(v.mk, pos + '：標記').toBe(pos === 'tail' ? 'hidden' : 'visible');
+        expect(v.mk, pos + '：標記').toBe('visible');
         expect(v.hl, pos + '：色塊照舊').not.toBe('hidden');
         await expect.poll(() => lastCount(page), { timeout: 2000, message: pos + '：重畫後字數更新' }).toBe('8');
         expect(await mirrorCls(page)).toEqual({ stale: false, typing: false });
@@ -1211,7 +1199,7 @@ test('預覽：每個開關都看得到', async ({ browser }) => {
     await expect(diffCap).toHaveText('對照差異要有同類型的前一段才看得到');
     await page.evaluate(() => lhMapSetSetting('lnDiff', !_lhMapSet.lnDiff));   // 對照差異的開關先藏起來了
     await expect(diffCap).toBeHidden();
-    // 位置：句尾後 → 右內距回到 0.75rem，標記貼在最後一個字後面
+    // 位置：靠左欄 → 右內距回到 0.75rem
     const geo = () => page.evaluate(() => {
         const el = document.querySelector('#mapSettingsSection .lm-preview'), rem = parseFloat(getComputedStyle(document.documentElement).fontSize);
         const mk = el.querySelector('.lm-mk');
@@ -1222,11 +1210,9 @@ test('預覽：每個開關都看得到', async ({ browser }) => {
     });
     const right = await geo();
     expect(right.pad).toBeGreaterThan(1.5);
-    await lookRadio(page, 'pos', 'tail').click();
+    await lookRadio(page, 'pos', 'left').click();
     const tail = await geo();
-    expect(tail.pad).toBeCloseTo(0.75, 2);
-    expect(tail.dx).toBeGreaterThanOrEqual(0);
-    expect(tail.dx).toBeLessThan(1);
+    expect(tail.pad).toBeCloseTo(0.75, 2);   // 靠左欄：右邊不留欄位
     // 大小
     expect(tail.fs).toBeCloseTo(0.875, 2);
     await lookRadio(page, 'size', 'l').click();
@@ -1247,14 +1233,13 @@ test('預覽：每個開關都看得到', async ({ browser }) => {
     await context.close();
 });
 
-test('預覽：電腦／平板黏在分頁頂端（往下捲選項時一直看得到），手機在 line-audit 檢查不固定', async ({ browser }) => {
+test('預覽：完整顯示、不在裡面捲（0.98.06），不進 Tab 順序', async ({ browser }) => {
     const { context, page, errors } = await bootPage(browser, { wordlist: 'stub', storage: v2Storage([song([typed('sa', 'verse', F_AABB)])]) });
     await page.setViewportSize({ width: 1280, height: 900 });
     await page.evaluate(() => lhMapOpenPrefs());
     const blk = page.locator('#mapSettingsSection .lm-preview-block');
-    expect(await blk.evaluate(e => getComputedStyle(e).position)).toBe('sticky');
-    const top = await page.evaluate(() => { const sec = document.getElementById('mapSettingsSection'); sec.scrollTop = 600; return sec.querySelector('.lm-preview-block').getBoundingClientRect().top - sec.getBoundingClientRect().top; });
-    expect(Math.abs(top), '捲下去預覽還在頂端').toBeLessThanOrEqual(2);
+    expect(await blk.evaluate(e => getComputedStyle(e).position)).toBe('static');
+    expect(await page.evaluate(() => { const p = document.querySelector('#mapSettingsSection .lm-preview'); return p.scrollHeight <= p.clientHeight + 1; }), '預覽完整顯示').toBe(true);
     // 預覽不在 Tab 順序裡，讀屏軟體也略過
     const pv = page.locator('#mapSettingsSection .lm-preview');
     expect(await pv.evaluate(e => [e.tabIndex, e.querySelectorAll('button, a, input, [tabindex]').length, e.getAttribute('aria-hidden')])).toEqual([-1, 0, 'true']);

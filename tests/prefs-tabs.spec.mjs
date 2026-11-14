@@ -25,11 +25,11 @@ test('分頁：結構、無障礙屬性、每個設定都在某個分頁裡', as
     }));
     expect(rel).toEqual([['tabpanel', true, 'true', false, 0], ...Array(5).fill(['tabpanel', true, 'false', true, -1])]);
     // 原本的設定都還在（id 不變），各在自己的分頁
-    const where = await page.evaluate(() => Object.fromEntries(['sBgColor1', 'sContainerBg', 'sTextColor', 'sHighlightColor', 'showPinyin', 'highlightSearch', 'hideRare', 'filterDuplicate', 'lexiconPackList', 'byokKey-gemini', 'byokKey-groq', 'autoBackupSection', 'mapSettingsSection', 'importFileInput']
+    const where = await page.evaluate(() => Object.fromEntries(['sBgColor1', 'sContainerBg', 'sTextColor', 'sHighlightColor', 'showPinyin', 'highlightSearch', 'hideRare', 'filterDuplicate', 'lexiconPackList', 'byokProvider', 'byokKey', 'aiTune', 'autoBackupSection', 'mapSettingsSection', 'importFileInput']
         .map(id => [id, document.getElementById(id)?.closest('[role=tabpanel]')?.id ?? null])));
     expect(where).toEqual({
         sBgColor1: 'prefsPanel-look', sContainerBg: 'prefsPanel-look', sTextColor: 'prefsPanel-look', sHighlightColor: 'prefsPanel-look',
-        showPinyin: 'prefsPanel-search', highlightSearch: 'prefsPanel-search', hideRare: 'prefsPanel-search', filterDuplicate: 'prefsPanel-search', lexiconPackList: 'prefsPanel-search', 'byokKey-gemini': 'prefsPanel-ai', 'byokKey-groq': 'prefsPanel-ai',
+        showPinyin: 'prefsPanel-search', highlightSearch: 'prefsPanel-search', hideRare: 'prefsPanel-search', filterDuplicate: 'prefsPanel-search', lexiconPackList: 'prefsPanel-search', byokProvider: 'prefsPanel-ai', byokKey: 'prefsPanel-ai', aiTune: 'prefsPanel-ai',
         autoBackupSection: 'prefsPanel-data', mapSettingsSection: 'mapSettingsSection', importFileInput: null,
     });
     const btnTab = async text => page.locator('.settings-dropdown button', { hasText: text }).first().evaluate(b => b.closest('[role=tabpanel]').id);
@@ -131,18 +131,18 @@ test('分頁：手機上分頁列橫向捲動、每個分頁夠高、選到的�
     await context.close();
 });
 
-test('外觀：背景動畫開關接上 js/bgfx.js（狀態讀 lhBgFxIsOn，按了呼叫 lhBgFxSet）', async ({ browser }) => {
+test('外觀：背景動畫與特效五個等級（預設 3，按了呼叫 lhFxSetLevel、存 lh:bgFx）', async ({ browser }) => {
     const { context, page, errors } = await bootPage(browser, { wordlist: 'stub' });
     await page.evaluate(() => toggleSettings());
-    const sw = page.getByRole('switch', { name: /背景動畫/ });
-    await expect(sw).toBeVisible();
-    const on0 = await page.evaluate(() => lhBgFxIsOn());
-    await expect(sw).toHaveAttribute('aria-checked', String(on0));
-    await sw.click();
-    await expect(sw).toHaveAttribute('aria-checked', String(!on0));
-    expect(await page.evaluate(() => lhBgFxIsOn())).toBe(!on0);
-    await sw.click();
-    expect(await page.evaluate(() => lhBgFxIsOn())).toBe(on0);
+    const group = page.getByRole('radiogroup', { name: /背景動畫/ });
+    await expect(group).toBeVisible();
+    expect(await page.evaluate(() => lhFxLevel())).toBe(3);
+    await expect(group.getByRole('radio', { name: /^3：/ })).toHaveAttribute('aria-checked', 'true');
+    await group.getByRole('radio', { name: /^1：/ }).click();
+    expect(await page.evaluate(() => [lhFxLevel(), lhBgFxIsOn(), localStorage.getItem('lh:bgFx')])).toEqual([1, false, '1']);
+    await group.getByRole('radio', { name: /^5：/ }).click();
+    expect(await page.evaluate(() => [lhFxLevel(), lhBgFxIsOn()])).toEqual([5, true]);
+    await expect(page.locator('#prefsFxDesc')).toContainText('60');
     expect(errors).toEqual([]);
     await context.close();
 });

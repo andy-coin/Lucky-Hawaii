@@ -1,3 +1,67 @@
+## 2026-11-15 v0.98.06（測試中／待 Andy 實機驗收）
+- 背景動畫與特效改 1–5 級（js/bgfx.js lhFxLevel／lhFxSetLevel，lh:bgFx 存 '1'～'5'，舊 off→1、on→3，預設 3；偏好設定外觀 #prefsBgFx 五段＋說明，js/search-ui.js _lhPrefsBgFxSync）。
+  - 星雲各級（js/word-space.js LH_SP_LV）：1 靜止、不逐幀畫（有變化才畫）、滑過直接變粗發光、保留＝外框、詞不能拖；2 靜止＋Dock 式靠近放大、拖了彈回、保留＝外框＋柔光；3 30fps、軌道 0.6 倍、無團互推、保留閃（便宜版）；4 40fps 全效果；5 60fps 全效果。背景飄字 1–2 關、3 約 20fps 字少、4 30fps、5 60fps。
+- 星雲：保留閃爍 1.2 秒一次（快一倍）；📌 再按＝取消保留（removeSavedWord）；縮放時不重畫小圖，手停 160ms 後在背景照新縮放整批畫好再一次換上（_lhSpRescale）；打開時面板慢慢收走 1.2 秒（body.ws-in），這段時間先畫小圖，之後一團團浮現（_lhSpReveal、queue）；流星走弧線（cv）、尾巴沿軌跡、加亮；恆星飄速照團大小分 20 級＋恆星越不常用越快；超過 800 詞「宇宙 1/n」翻頁（_lhSpPage，.ws-pages）；關聯詞加字數篩選兩字／三字／多字可多選（_lhRel.len）；關聯詞圖例固定 開頭→中間→結尾。
+- 保留池清除全部：不跳視窗，按鈕變「確定清除 N 個？」4 秒內再按（js/panels.js lhSavedClearAll）。導覽第 2 步文字更新（js/tour.js）。
+- 三直排收起一邊：平板／窄桌機 lhPanelRoom 改成 --lp-room／--rp-room 逐漸縮（主畫面最窄後再拉會整塊移過去，不跳）；電腦 dock 三直排照完整三欄排、收起那欄空著，拖交界到中間最窄時吃收起那欄的位置（js/dock.js lhDockRender／_dkResizeStart）。
+- 韻腳與句構設定：預覽完整顯示不捲；三個細項一行；大小＋濃淡一行；標記位置改「靠左欄／靠右欄」（舊 tail 自動轉 left，js/rhyme-core.js）。
+- AI：AI 會參考三樣變開關（預設有標籤或情境時歌詞關；歌詞送整首）；偏好設定 AI 分頁改「服務商下拉＋一行金鑰」：Anthropic、OpenAI、Gemini、xAI、Groq、DeepSeek、Ollama、其他 OpenAI 相容（本機／自訂存 lh:aiLocal，測試連線讀 /models）；Jev 不支援（判斷型模型不產生文字）；模型選單每家一組。用量三滑桿 lh:aiTune（一次幾個 8–60、候選上限 40–1000 預設 120、常用度前 %）；候選詞照常用度排名送前 N，AI 挑走的扣掉下次往後補（js/ai-generate.js）。
+- 待驗：各家直連的 CORS（xAI、DeepSeek 不確定瀏覽器能不能直接連）；OpenAI 新模型不送 temperature。
+
+## 2026-11-14 v0.98.05（已 push，待 Andy 實機驗收）
+- 星雲改 canvas（js/word-space.js 後半）：一張 .ws-canvas 畫全部；每個詞先畫成小圖（字＋淡光暈，_lhSpSprite，縮放跨半個八度才重畫、每幀最多 60 個），每幀只貼圖；停住／釘住的詞畫膠囊外框光暈在最上層；保留的詞 lighter 疊光 2.4 秒呼吸；流星尾巴 6 段漸淡；星座線 _lhSp.segs。點擊用 _lhSpHit 自己算；📌✕ 是真按鈕 .ws-acts，只浮在游標停住（觸控：最後釘住）的詞上。顏色經 .ws-probe 換成 canvas 看得懂的值（_lhSpColor／_lhSpTheme，每次打開重讀）。dpr 最多 2。量測：481 詞 60fps。
+- 釘住的詞再點一次＝取消釘選，滑鼠還停著也不會再亮（_lhSp.mute，離開再回來才亮）。
+- 自訂詞彙（新檔 js/custom-words.js，載在 word-space.js 前；lh:customWords 加進 safety.js 登錄、scan 29 鍵）：設定 → 查詢與詞庫，詞庫包區塊先 hidden（邏輯不動，測試會打開它）。新增（2–6 字，自動猜讀音）、全域／只在這首歌、清單改讀音（驗證節數與注音）、勾選刪除、重設全部。lhCwMerge 讓詞卡、星雲、關聯詞彙一起索引，自訂詞排最前、卡片右上「自訂」；換歌 lhCwSongChanged 重畫。備份檔還沒包含自訂詞。
+- 歌曲顏色標籤：song.color（#rrggbb，壞值讀入時拿掉、匯入驗證）；分頁列最後「●」開選色（角色同一組 8 色＋無），分頁上方色條、歌曲清單歌名前色點（js/songs.js lhSongSetColor、js/lyrics.js _lhSongColorPop）。
+- 保留池「清除全部」（先 lhAsk 確認，js/panels.js lhSavedClearAll）；標題「韻」「器」只帶 10% 強調色、不發光。
+- 測試：新增 tests/custom-words.spec.mjs；word-space 改用 _lhSp 狀態與 _lhSpScreenOf 定位、加「再點取消釘選」；split-tags 36 個 js；lexicon-packs 打開藏起來的區塊。全套只剩舊的 rhyme-map-ui:280。
+
+## 2026-11-14 v0.98.04（已 push，待 Andy 實機驗收）
+- 星雲開關動畫分段（js/word-space.js _lhSpShow／lhWsClose）：body.ws-leave 三塊面板先收走 0.45s → 0.48s 後才顯示星雲、加 ws-open 淡入；關閉反過來。背景飄字改成非常淡（js/bgfx.js lhBgFxFaint，×0.28），不再整個藏起來。
+- 關聯詞彙（新）：查單字選了字卡 → #wsRelBtn（index.html，results-section 上方；js/cards.js updateBatchCount 開關，body[data-q=char] 才顯示）→ lhWsRelOpen：詞庫裡含選取字的 2–6 字詞（_lhWsRelList），左上「字首／字尾」二選一或都不選（.ws-pos）；分團＝字＋位置（任意）或字＋字數；圖例大類＝每個字。_lhSpLayout 改吃 cfg（groupOf／headOf／colorOf）。
+- 詞卡回報：.ws-header 數量那列右邊 .ws-rep（回報 → 挑詞卡 report-picked → 送出回報（n）／取消），送 kind:'word'。
+- 星座：第五點起的額外連線，和現有任何一條線夾角 < 2° 就改試別的點（_lhSpPin）。
+- 軌道「水彩筆」：同圈半徑偏差 ±30% 間距、角度偏差 35%、每個詞呼吸幅度 3–7（同速度，彼此距離不變）。
+- 拿掉：句構分析面板的「關閉句構」（點外面／Esc 收）、星雲的「取消選取」（點空白處）。
+- 「顯示全部」加星形 icon；標題「韻」「器」低調混強調色＋微光（.h1-cap）；Moon 字卡底色 #f7eed6（更淺）。
+- 歌詞面板寬 ≥ 畫面一半＝lp-wide（自由／吸附、分頁出現）。
+- 平板／窄桌機：左右面板收起時主畫面留在原地（js/panels.js lhPanelRoom → body.lp-room／rp-room 保留位置；放不下、縮放、拖交界時重算），面板滑出動畫 0.38s 同歌詞展開曲線。dock（寬螢幕分割）沒動。
+- 測試：line-analysis、line-audit、word-space（關聯詞彙、詞卡回報）、editor-layout、lyrics-editor 跟著新規格；visual 快照更新；transition 額度 +1。全套 1118 通過，只剩舊的 rhyme-map-ui:280。
+
+## 2026-11-14 v0.98.03（已 push，待 Andy 實機驗收）
+- 歌詞面板＝完整編輯器（js/lyrics.js lhLpFull／_lhLpSync／lhEditorToggle；css/panels.css 檔尾）：平板、電腦按「展開」不再開浮動面板，body.lp-full 讓 #leftPanel 貼著原本的邊拉到整個可用範圍（transition 只在 lp-anim 0.42s）；歌詞欄寬 ≥ 44rem（不管是展開還是拖交界）＝body.lp-wide：#lpTabs 歌曲分頁、#canvasTools 才出現，lhEditorIsOpen() 也回 true（自由畫布、分列拖曳跟著）。Esc／再按「收回」收回。手機（≤ 900）照舊浮動面板。songs.js 改名錨點也找 #lpTabs。
+- 星雲：同一圈共用扁度／傾角／速度（只留很小的偏差，不再越轉越擠）；彈簧拉回慢三倍（K 0.155、阻尼 0.53）；團太近會在約 12 秒內慢慢互推；星座兩點就連線、三點以上頭尾相連、第五點起七成機會多一條隨機對角線（_lhSpPin／chords，path）；點空白處＝取消選取；保留的詞疊一層更亮的發光字慢慢閃（.ws-txt::after）；聲調色：支援 oklch from 時從強調色每聲轉 72°，一團＝第一、二字聲調色互混（_lhWsToneMix）；面板寬 10rem。
+- 恆星被隱藏：剩下最常用的詞慢慢飄到中心接任（_lhSpPromote，rising）。釘住的詞被隱藏：從星座拿掉、前後點直接接上、相關對角線拿掉，之後再釘的接在最後。修：按住恆星還沒拖時整團被拉到畫面中央（frame 裡 star && free 才帶整團）。
+- 詞卡字距一個半形空格；Moon 字卡／詞卡底色 --char-card-bg #f1e3bd；查詢器標題列按鈕墊 86% 容器色＋強調色。
+- 測試：編輯器相關（lyrics-editor、canvas、dock、workflow-polish、layout 流程）改成新行為；sections-audit transition 額度 +2。全套 1116 通過，只剩舊的 rhyme-map-ui:280。
+
+## 2026-11-14 v0.98.02（已 push，待 Andy 實機驗收）
+- 星雲開著時把交界把手（.pane-divider、.dock-divider）藏起來（panels.css body.ws-open）。
+- 平板三直排：一邊收起來，另一條交界照樣能拉（panels.css 改成 lp-open／rp-open 各自顯示；js/panels.js _lhPaneClamp 收著的那邊寬度算 0）。交界線改放在面板和主畫面中間的空隙（寬＝--page-pad），不再蓋到面板邊的收合分頁；拖曳改照移動距離算（不跳）。layout-lib 觸控稽核豁免 .pane-divider。
+- 詞卡注音／拼音上色（js/word-space.js _lhWsPhonEl）：第 i 個字用 search-highlight-(i+1)；同母音標韻母、同子音標聲母、同讀音整個標；跟著「標記搜尋」開關。
+- (i) 置中：直立、字距 0、行高 1（base.css 檔尾）。「AI 建議」標題不換行（.ai-title-group nowrap）。
+- 平板加到主畫面（display-mode standalone／fullscreen＋coarse＋≥768）：--pad-t 多 1.25rem 讓開 iOS 狀態列。
+- 待討論（未動）：第 3 點「展開完整版」改成面板拉寬到接近全螢幕、仍貼著原本的邊；夠寬才出現自由／吸附等按鈕。牽動 lyrics.js lhEditorOpen（把歌詞搬進 #lyricsEditor 浮窗）、canvas.js、歌曲分頁，先跟 Andy 確認設計。
+- 測試：editor-layout 加「一邊收起來仍能拉」。全套除了這輪改到的檔都綠，重跑受影響檔 170＋13 通過。
+
+## 2026-11-14 v0.98.01（已 push，待 Andy 實機驗收）
+- 星雲（js/word-space.js）：軌道改成每個詞各自隨機的半徑／橢圓扁度／傾角／起始角／速度（_lhSpOrbit）；恆星在 D 範圍內慢慢飄（_lhSpDrift＝和最近一團空隙的一半，兩團各飄各的碰不到）；甩出去的行星被恆星像彈簧拉回軌道；拖恆星＝整團被沖散跟著走，停下後那裡變新的家；釘 3 個以上照順序連星座線（svg .ws-stars，線寬不隨縮放）。
+- 顏色：第一個字聲調決定色系（LH_WS_TONE_C 五色），同團每個詞依常用度＋隨機混 --text-primary／secondary 出深淺。
+- 左上面板固定 14rem 一欄：一～輕聲開頭五顆，點開顯示該聲調開頭的組合（.ws-sub），點組合導覽；取消選取連星座一起清。
+- 已保留的詞：不留圖釘、不加外框，整個詞慢慢閃（lhPulse 2.4s）。
+- 「顯示全部」同「新增段落」「提供詞語建議」高度規則（panels.css html .ws-expand-btn）。三塊側邊分頁拿掉 title 提示文字（aria-label 保留）。
+- 詞卡：字跟字之間兩個半形空格（white-space: pre），欄寬 8.5rem→7.5rem、手機 7rem→6.125rem（×0.88），高度不動。
+- 測試：word-space 加圖例收納、星座線。全套 1115 通過。
+
+## 2026-11-14 v0.98（已 push，待 Andy 實機驗收）
+- 補充：選項列（字卡模式鈕＋批次鈕，含手機 #m-batchPanel）搜尋欄空的時候收起；查單字顯示原本那兩組、查整個詞換成同排樣式的「同母音／同子音／同讀音」（三選一）＋「同聲調」「排除借韻」（可多選）。
+  - 切換：js/results.js displayResults 設 body[data-q]=none/char/word；CSS 在 panels.css .ws-header 附近（.q-char／.q-word）。index.html #wsModeGroup、.ws-filters；search-ui.js 模式鈕改綁 .mode-button[data-mode]。
+  - js/word-space.js lhWsMatch 加 mode：initial＝每字 _effInitial 相同；same＝至少一字 stripTone 讀音相同，其他字押韻（受排除借韻影響）或同聲母。排序固定 p 大在前。詞卡標題的勾選框拿掉。
+- 第 3 輪 18 點（同一個 commit）：「顯示全部」改名、bgfx 開啟時隱藏＋用歌詞／標籤／情境的字詞、📌✕ 圖示、75% 起始縮放、字級依常用度 2.5×、行星繞恆星、流星、取消選取＋常用度滑桿、圖例可點跳轉、10 色、✕ 關閉、三直排三角分頁（data-dk-side，中間不收、兩側可收）、導覽 11 步、(i) 陽刻、新角色就地輸入名稱＋顏色。
+- 測試：word-space 加同讀音（誇張→誇獎、看漲、跨行）與選項列切換；golden／layout／report-entry 因選項列平常收起改成先搜尋或直接點。全套只剩舊的 rhyme-map-ui:280。
+- 待驗：側邊三角分頁觸控寬 18px（低於 44px 建議，依 Andy 指定 40% 寬，測試已豁免）；圖例超過 10 團顏色會重複。
+- 版本 0.98（?v=、關於、README、LH_APP_VERSION、.claude/CLAUDE.md）。
+
 ## 2026-11-14 v0.97.03（已 push，待 Andy 實機驗收）
 - 0 「自訂」主題起始色改冷調鼠尾草紙＋覆盆子紅（css/base.css :root），和 Moon 分開。
 - 1 觸控選字列躲開系統拷貝／貼上選單：選取在上半貼可見範圍底部、下半貼頂（js/rhyme-map.js _lhMapBarPlace）。

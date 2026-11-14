@@ -106,8 +106,8 @@ test('整合：句構分析一次走完', async ({ browser }) => {
 
     // ===== d. 顯示方式與韻族顏色，馬上生效 =====
     const bg0 = await bandBg(page);
-    await lookRadio(page, 'pos', 'tail').click();
-    expect(await page.evaluate(() => document.documentElement.getAttribute('data-lm'))).toBe('tail');
+    await lookRadio(page, 'pos', 'left').click();
+    expect(await page.evaluate(() => document.documentElement.getAttribute('data-lm'))).toBe('left');
     const fs0 = await page.evaluate(() => parseFloat(getComputedStyle(document.querySelector('#lyricsSections .lm-t')).fontSize));
     await lookRadio(page, 'size', 'l').click();
     const fs1 = await page.evaluate(() => parseFloat(getComputedStyle(document.querySelector('#lyricsSections .lm-t')).fontSize));
@@ -214,14 +214,14 @@ test('整合：句構分析一次走完', async ({ browser }) => {
     await waitStill(page);
     await seedWords(page);
     expect(await mapOf(page)).toBe(mapBefore);
-    expect(await page.evaluate(() => document.documentElement.getAttribute('data-lm'))).toBe('tail');
+    expect(await page.evaluate(() => document.documentElement.getAttribute('data-lm'))).toBe('left');
     await expect.poll(async () => JSON.stringify([await markers(page, 0), await markers(page, 1), await markers(page, 2)])).toBe(JSON.stringify(marksBefore));
     expect(await page.evaluate(f => document.documentElement.style.getPropertyValue('--rm-c' + f), f0)).toBe('#123456');
     await page.evaluate(() => lhMapOpenPrefs());
     for (const [label, on] of [['句構判定', 'true'], ['行尾韻腳', 'true'], ['反白停留自動分析', 'true'], ['字數', 'true']]) {
         await expect(prefSw(page, label), label).toHaveAttribute('aria-checked', on);
     }
-    await expect(lookRadio(page, 'pos', 'tail')).toHaveAttribute('aria-checked', 'true');
+    await expect(lookRadio(page, 'pos', 'left')).toHaveAttribute('aria-checked', 'true');
     await expect(lookRadio(page, 'size', 'l')).toHaveAttribute('aria-checked', 'true');
     await expect(lookRadio(page, 'depth', 'heavy')).toHaveAttribute('aria-checked', 'true');
     await expect(page.locator(`#mapSettingsSection .rm-colors input[data-n="${f0}"]`)).toHaveValue('#123456');

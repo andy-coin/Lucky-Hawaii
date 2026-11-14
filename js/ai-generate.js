@@ -77,11 +77,14 @@
             // 歌詞、#標籤、情境都從目前這首歌的模型取（不讀畫面）
             const song = curSong();
             if (!song) return;
-            const contextText = song.context.trim();
-            const hashtagStr = song.hashtags.length > 0 ? song.hashtags.map(t => '#' + t).join(' ') : '';
+            // AI 會參考的三樣（標籤、情境、歌詞）各自可以關掉（右邊 AI 面板頂部的按鈕，lhAiUseOn）
+            const st = lhAiRefState();
+            const contextText = st && lhAiUseOn('context', st) ? song.context.trim() : '';
+            const hashtagStr = st && lhAiUseOn('tags', st) && song.hashtags.length > 0 ? song.hashtags.map(t => '#' + t).join(' ') : '';
             const contextFull = [contextText, hashtagStr].filter(Boolean).join('　');
-            const lyricsText = lastLyricsSelection ||
-                song.sections.map(s => s.text.trim()).filter(Boolean).join('\n');
+            const lyricsText = st && lhAiUseOn('lyrics', st) ? (lastLyricsSelection ||
+                song.sections.map(s => s.text.trim()).filter(Boolean).join('\n')) : '';
+            const tune = lhAiTune(), AI_N = tune.n;
 
             lhFxAnchorSet(document.getElementById('generateBtn'), 'coins');
             lhAiRefPulse();
@@ -113,26 +116,28 @@
                     : getWordlistCandidatesInitial(currentRhymes, currentRhymes.length);
                 if (newBatch === null) { showToast('詞庫載入失敗，請重新整理頁面'); return; }
 
-                // 活躍累積池：移除已被推薦或已保留的詞，新候選排前面
+                // 候選池（0.98.06）：照常用度排名（同分的維持隨機），扣掉已推薦、已保留的；常用度滑桿只留前幾 %。
+                // 每次只把前 AI_POOL 名送給 AI；AI 挑走的詞進 suggestedPool，下次自然從第 AI_POOL+1 名往後補
                 const savedSet = new Set(savedWords);
-                const activePool = cumulativeCandidates.filter(w => !suggestedPool.has(w) && !savedSet.has(w));
-                newBatch.forEach(w => sentCandidatesSet.add(w));
-                const pool = [...new Set([...newBatch, ...activePool])];
+                const rank = w => wordPriorityMap.get(w) ?? 0;
+                let pool = [...new Set(newBatch)].filter(w => !suggestedPool.has(w) && !savedSet.has(w)).sort((a, b) => rank(b) - rank(a));
+                if (tune.freq) pool = pool.slice(0, Math.max(0, Math.ceil((pool.length + suggestedPool.size) * (100 - tune.freq) / 100) - suggestedPool.size));
                 cumulativeCandidates = pool;
                 lastCandidatesTotal = pool.length;
 
                 // 填滿或造詞只差這一個比較：造詞只在池子不夠時才走到（D-03）
-                if (pool.length >= AI_TARGET) {
+                if (pool.length >= AI_N) {
                     const posStr = rhymeMode === 'rhyme' ? '字尾' : '字首';
                     const lead = selectedChars.size > 0 ? `以下詞語的${posStr}含有指定字`
                         : rhymeMode === 'rhyme' ? '以下詞語的押韻符合要求' : '以下詞語的聲母（字首）符合要求';
                     const selectedLine = selectedChars.size > 0 ? `\n【指定${posStr}字】：${[...selectedChars].join('、')}` : '';
                     const ctxBlock = contextFull ? `\n【情境與#標籤】（請重點優先參考）：${contextFull}` : '';
-                    const lyricsBlock = lyricsText ? `\n【歌詞風格參考】：${lyricsText.slice(0, AI_LYRICS_MAX)}` : '';
+                    const lyricsBlock = lyricsText ? `\n【歌詞風格參考】：${lyricsText}` : '';
                     const savedBlock = savedWords.length > 0 ? `\n已保留（不可重複）：${savedWords.slice(-30).join('、')}` : '';
-                    // 只限制送給 AI 的清單；補滿仍用整個候選池（AI_POOL_MAX）
-                    const prompt = `你是歌詞創作助手。${lead}，請挑出最適合此創作情境的 ${AI_TARGET} 個詞語，最適合的排前面。
-候選詞：${pool.slice(0, AI_POOL_MAX).join('、')}${selectedLine}${ctxBlock}${lyricsBlock}${savedBlock}
+                    // 只限制送給 AI 的清單；補滿也只從送出去的這批裡照常用度補（下一批留給下次）
+                    const fed = pool.slice(0, tune.pool);
+                    const prompt = `你是歌詞創作助手。${lead}，請挑出最適合此創作情境的 ${AI_N} 個詞語，最適合的排前面。
+候選詞：${fed.join('、')}${selectedLine}${ctxBlock}${lyricsBlock}${savedBlock}
 直接輸出詞語，頓號「、」分隔，不要說明或編號。`;
 
                     // 只呼叫一次 AI 排序，數量由程式補滿（AI 亂回、少回、失敗都一樣給滿）
@@ -146,10 +151,10 @@
                         aiErr = e;
                     }
                     if (stale()) return;   // callLLM 最久等 35 秒，期間換了搜尋就丟掉這次結果
-                    const { words } = fillToTarget(pool, picks, AI_TARGET, w => wordPriorityMap.get(w) ?? 0);
+                    const { words } = fillToTarget(fed, picks, AI_N, rank);
                     words.forEach(w => { suggestedPool.add(w); sentCandidatesSet.add(w); });
                     container.innerHTML = words.map(w => aiWordCardHtml(w, false)).join('')
-                        + `<div class="candidate-report">從 ${lastCandidatesTotal} 個候選詞中，挑出 ${words.length} 個</div>`;
+                        + `<div class="candidate-report">從 ${lastCandidatesTotal} 個候選詞（送出最常用的 ${fed.length} 個）中，挑出 ${words.length} 個</div>`;
                     if (aiErr) {
                         // AI 沒排成就不假裝是正常結果；原因只在 Worker 白話訊息（e.plain）時附上，用 textContent 塞，不拼 HTML
                         const hint = document.createElement('div');
@@ -167,7 +172,7 @@
                         + `<div class="candidate-report">共 ${pool.length} 個候選詞，已全數列出</div>`;
                 }
                 loading.style.display = 'none';
-                const added = await generateAIWords(AI_TARGET - pool.length, container, new Set([...suggestedPool, ...savedWords]), stale);
+                const added = await generateAIWords(AI_N - pool.length, container, new Set([...suggestedPool, ...savedWords]), stale);
                 if (stale()) return;
                 if (pool.length === 0 && added === 0) {
                     const what = selectedChars.size > 0 ? '含選字' : '符合';
@@ -284,10 +289,13 @@
 
 
         // ===== AI 會參考什麼（Andy 1-b）：右邊 AI 面板頂部的即時狀態列 =====
-        // 只宣稱真的有送的東西（對照 generateAISuggestions 的挑詞 prompt）：
-        //   情境＋#標籤 全部送；歌詞送「反白的那段」或整首的前 AI_LYRICS_MAX 字。
-        //   候選詞不夠、改成 AI 自己造詞時（buildGenPrompt）只看韻腳，這點寫在提示文字裡。
-        const AI_LYRICS_MAX = 200;   // 挑詞 prompt 的歌詞上限（上面 lyricsBlock 用同一個常數）
+        // 0.98.06：三樣（標籤、情境、歌詞）都是開關按鈕，自己決定餵多少給 AI；歌詞送整首（或反白的那段）。
+        // 預設：標籤、情境開著；有標籤或情境時歌詞先關著（省 token），都沒有才開歌詞。按過就照你按的（這次開著網頁期間）
+        const _lhAiUse = { tags: null, context: null, lyrics: null };
+        function lhAiUseOn(ref, st) {
+            if (_lhAiUse[ref] !== null) return _lhAiUse[ref];
+            return ref === 'lyrics' ? !(st && (st.tags || st.ctx)) : true;
+        }
         function lhAiRefState() {
             const song = curSong();
             if (!song) return null;
@@ -296,7 +304,7 @@
             const full = song.sections.map(s => s.text.trim()).filter(Boolean).join('\n');
             const sel = lastLyricsSelection;
             const lines = full ? full.split('\n').filter(l => l.trim()).length : 0;
-            return { tags, tagList, ctx, lines, sel: sel ? Array.from(sel).length : 0, cut: !sel && full.length > AI_LYRICS_MAX };
+            return { tags, tagList, ctx, lines, sel: sel ? Array.from(sel).length : 0 };
         }
 
         function lhAiRefRender() {
@@ -304,19 +312,23 @@
             const st = lhAiRefState();
             if (!bar || !st) return;
             const items = [];
-            const mk = (ref, text, title) => {
+            const mk = (ref, text, title, toggle) => {
                 const b = document.createElement('button');
                 b.type = 'button';
                 b.className = 'ai-ref-item';
                 b.dataset.ref = ref;
                 b.textContent = text;
-                b.title = title;
+                if (toggle) {
+                    const on = lhAiUseOn(ref, st);
+                    b.setAttribute('aria-pressed', String(on));
+                    b.title = (on ? '會送給 AI：' : '不送給 AI：') + title + '（點一下切換）';
+                } else b.title = title;
                 return b;
             };
-            if (st.tags) items.push(mk('tags', st.tagList.map(t => '#' + t).join(' '), '跳到標籤：' + st.tagList.join('、')));
-            if (st.ctx) items.push(mk('context', '情境', '跳到情境描述'));
-            if (st.sel) items.push(mk('lyrics', '反白歌詞 ' + st.sel + ' 字', '你在歌詞裡反白的那段'));
-            else if (st.lines) items.push(mk('lyrics', st.cut ? '歌詞前 ' + AI_LYRICS_MAX + ' 字' : '歌詞 ' + st.lines + ' 行', st.cut ? '歌詞很長時只送開頭 ' + AI_LYRICS_MAX + ' 字；反白一段就改送那段' : '跳到歌詞'));
+            if (st.tags) items.push(mk('tags', st.tagList.map(t => '#' + t).join(' '), '標籤 ' + st.tagList.join('、'), true));
+            if (st.ctx) items.push(mk('context', '情境', '情境描述', true));
+            if (st.sel) items.push(mk('lyrics', '反白歌詞 ' + st.sel + ' 字', '你在歌詞裡反白的那段', true));
+            else if (st.lines) items.push(mk('lyrics', '歌詞 ' + st.lines + ' 行', '整首歌詞', true));
             const label = document.createElement('span');
             label.className = 'ai-ref-label';
             if (items.length) {
@@ -327,9 +339,38 @@
             } else {
                 label.textContent = '先寫幾句歌詞或加標籤，AI 會更懂你';
                 bar.classList.add('is-empty');
-                bar.replaceChildren(label, mk('context', '去寫 →', '打開左邊的標籤與歌詞'));
+                bar.replaceChildren(label, mk('context', '去寫 →', '打開左邊的標籤與歌詞', false));
             }
         }
+
+        // ===== AI 用量（偏好設定 → AI）：一次建議幾個、送幾個候選詞、候選詞常用度；存在 lh:aiTune =====
+        const LH_AI_TUNE_KEY = 'lh:aiTune';
+        function lhAiTune() {
+            const o = lhGetJSON(LH_AI_TUNE_KEY, {}, x => !!x && typeof x === 'object' && !Array.isArray(x));
+            const num = (v, lo, hi, step, def) => Number.isFinite(v) ? Math.min(hi, Math.max(lo, Math.round(v / step) * step)) : def;
+            const n = num(o.n, 8, 60, 4, AI_TARGET);
+            return { n, pool: Math.max(n, num(o.pool, 40, 1000, 20, AI_POOL_MAX)), freq: num(o.freq, 0, 95, 5, 0) };
+        }
+        function lhAiTuneSync() {
+            const t = lhAiTune();
+            const set = (id, v, txt) => { const el = document.getElementById(id); if (el && document.activeElement !== el) el.value = v; const o = document.getElementById(id + 'Out'); if (o) o.textContent = txt; };
+            set('aiTuneN', t.n, t.n + ' 個');
+            set('aiTunePool', t.pool, '最多 ' + t.pool + ' 個');
+            set('aiTuneFreq', t.freq, t.freq ? '只用前 ' + (100 - t.freq) + '%' : '不限');
+        }
+        (function _wireAiTune() {
+            const box = document.getElementById('aiTune');
+            if (!box) return;
+            box.addEventListener('input', e => {
+                const k = { aiTuneN: 'n', aiTunePool: 'pool', aiTuneFreq: 'freq' }[e.target.id];
+                if (!k) return;
+                const t = lhAiTune();
+                t[k] = +e.target.value;
+                lhSet(LH_AI_TUNE_KEY, JSON.stringify(t));
+                lhAiTuneSync();
+            });
+            lhAiTuneSync();
+        })();
 
         // 標籤：一行放得下就全列；放不下就少列幾個，後面寫「…共 n 項標籤」，一個都放不下就只寫「n 項標籤」
         function _lhAiRefFitTags(bar, list) {
@@ -380,7 +421,10 @@
         }
         document.getElementById('aiRef')?.addEventListener('click', e => {
             const b = e.target.closest('.ai-ref-item');
-            if (b) lhAiRefJump(b.dataset.ref);
+            if (!b) return;
+            if (!b.hasAttribute('aria-pressed')) { lhAiRefJump(b.dataset.ref); return; }
+            _lhAiUse[b.dataset.ref] = b.getAttribute('aria-pressed') !== 'true';
+            lhAiRefRender();
         });
 
         function lhReducedMotion() { return matchMedia('(prefers-reduced-motion: reduce)').matches; }
@@ -396,9 +440,9 @@
         function lhAiRefPulse() {
             const st = lhAiRefState();
             if (!st) return;
-            document.querySelectorAll('#aiRef .ai-ref-item').forEach(lhFlash);
+            document.querySelectorAll('#aiRef .ai-ref-item:not([aria-pressed="false"])').forEach(lhFlash);
             const lp = document.getElementById('leftPanel');
             if (!lp || lp.classList.contains('collapsed')) return;
-            if (st.tags || st.ctx) lhFlash(document.getElementById('contextSection'));
-            if (st.lines) lhFlash(document.getElementById('lyricsSections'));
+            if ((st.tags && lhAiUseOn('tags', st)) || (st.ctx && lhAiUseOn('context', st))) lhFlash(document.getElementById('contextSection'));
+            if (st.lines && lhAiUseOn('lyrics', st)) lhFlash(document.getElementById('lyricsSections'));
         }

@@ -2767,8 +2767,8 @@ body.editor-open .lyrics-section-header { touch-action: none; }
 /* 設定「韻腳與句構」：預覽黏在分頁頂端，下面的選項自己捲，切換時馬上看得到 */
 /* 手機（窄或矮）維持整個面板一起捲，不讓預覽吃掉半個畫面 */
 @media (min-width: 600px) and (min-height: 600px) {
-    .prefs-panel > .lm-preview-block { position: sticky; top: -1px; z-index: 2; background: var(--card-bg); padding-bottom: var(--sp-2); border-bottom: 1px solid var(--border); }
-    .prefs-panel > .lm-preview-block .lm-preview { max-height: 11rem; overflow-y: auto; }
+    .prefs-panel > .lm-preview-block { position: static; padding-bottom: var(--sp-2); border-bottom: 1px solid var(--border); }
+    .prefs-panel > .lm-preview-block .lm-preview { max-height: none; overflow: visible; }   /* 0.98.06：預覽完整顯示，不在裡面捲 */
 }
 /* 吸附分列：縫加寬一點好抓（js/canvas.js 拖縫調整兩邊）；同一列卡片等高；有固定列高（data-rh）時文字框撐滿、字多在裡面捲 */
 @media all {
@@ -3007,13 +3007,14 @@ body.lp-wide:not(.editor-open) .lp-tabs { display: flex; flex: 0 0 auto; padding
 /* ===== 平板／窄桌機：左右面板收起時主畫面留在原地（js/panels.js syncCenterPanel 的 lp-room／rp-room），面板滑出去的動畫和歌詞面板展開同一條曲線 ===== */
 @media (min-width: 901px) {
     body:not(.dock) .side-panel { transition: transform 0.38s cubic-bezier(0.3, 0, 0.2, 1); }
-    body.lp-room:not(.dock) { padding-left: calc(var(--lp-w, var(--panel-w)) + var(--song-w, 0px) + var(--page-pad)); }
-    body.rp-room:not(.dock) { padding-right: calc(var(--rp-w, var(--panel-w)) + var(--page-pad)); }
+    body.lp-room:not(.dock) { padding-left: calc(var(--lp-room, 0px) + var(--page-pad)); }
+    body.rp-room:not(.dock) { padding-right: calc(var(--rp-room, 0px) + var(--page-pad)); }
 }
 
 /* 保留池「清除全部」：標題列右邊，小小的、危險色字（0.98.05） */
 .saved-clear-btn { margin-inline-start: auto; padding: 0.125rem var(--sp-2); border: 1px solid var(--border); border-radius: var(--radius-s); background: transparent; color: var(--danger-line); font: inherit; font-size: 0.75rem; font-weight: 400; cursor: pointer; }
 .saved-clear-btn[hidden] { display: none; }
+.saved-clear-btn.armed { background: var(--danger-line); border-color: var(--danger-line); color: #fff; font-weight: 700; }
 .saved-clear-btn + .saved-pool-chevron { margin-inline-start: 0; }
 @media (pointer: coarse), (max-width: 900px) { .saved-clear-btn { min-height: var(--hit); min-width: var(--hit); } }
 @media (hover: hover) and (pointer: fine) { .saved-clear-btn:hover { background: var(--danger-bg); color: var(--danger-text); } }
@@ -3051,3 +3052,40 @@ body.lp-wide:not(.editor-open) .lp-tabs { display: flex; flex: 0 0 auto; padding
 /* 詞卡上的自訂詞：右上角一個小小的「自訂」 */
 .ws-card.ws-custom { position: relative; }
 .ws-card.ws-custom::after { content: '自訂'; position: absolute; top: 0.125rem; right: 0.25rem; font-size: 0.75rem; line-height: 1; color: var(--highlight-border); opacity: 0.8; }
+
+/* ===== 0.98.06：星雲打開慢一點（面板收走 1.2 秒，這段時間背景先畫字的小圖）；字數篩選、平行宇宙翻頁 ===== */
+body.ws-anim.ws-in :is(#leftPanel, #rightPanel, #mainContainer, #mobileTabBar) { transition-duration: 1.2s; }
+.ws-len .ws-hud-btn { font-size: 0.75rem; }
+.ws-pages { display: flex; align-items: center; gap: var(--sp-1); }
+.ws-pages[hidden] { display: none; }
+.ws-pages .ws-page-cap { flex: 1; text-align: center; font-size: 0.75rem; color: var(--text-secondary); white-space: nowrap; }
+
+/* ===== 0.98.06：韻腳與句構設定——三個細項一行、大小＋濃淡一行；標記位置「靠左欄」 ===== */
+#mapSettingsSection .rm-row { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+#mapSettingsSection .rm-row-3 > .rm-switch { flex: 1 1 8rem; min-width: 0; }
+#mapSettingsSection .rm-row-2 > .rm-col { flex: 1 1 12rem; min-width: 0; display: flex; flex-direction: column; gap: var(--sp-1); }
+html[data-lm="left"] .section-textarea, html[data-lm="left"] .lm-preview { padding-left: calc(0.75rem + min(var(--lm-cols), 36%) + var(--sp-2)); }
+html[data-lm="left"] .lm-mk { left: 0.75rem; width: min(var(--lm-cols), 36%); overflow: hidden; }
+html[data-lm="left"] .lm-t-c { width: 1.5em; text-align: right; }
+html[data-lm="left"] .lm-t-s { width: 5.5em; overflow: clip; text-overflow: ellipsis; }
+html[data-lm="left"] .lm-t-r { width: 1.25em; text-align: center; }
+html[data-lm="left"] .lm-t-d { width: 2.25em; }
+html[data-lm] .section-body.has-cols .section-textarea { padding-left: 0.75rem; }
+
+/* ===== 0.98.06：AI 分頁——服務商下拉、一行金鑰、用量滑桿；AI 會參考＝可開關的按鈕 ===== */
+.byok-select { min-height: 2.25rem; padding: 0 var(--sp-2); border: 1px solid var(--border); border-radius: var(--radius-s); background: var(--container-bg); color: var(--text-primary); font: inherit; }
+.byok-row[hidden] { display: none; }
+.byok-row .byok-mini { flex: none; padding: 0 var(--sp-3); }
+.byok-note { margin: 0; font-size: 0.8rem; line-height: 1.6; color: var(--text-secondary); }
+.byok-note a { color: var(--accent-strong); }
+@media (pointer: coarse) { .byok-note a { display: inline-flex; align-items: center; min-height: var(--hit); } }
+.byok-have { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-1); font-size: 0.8rem; color: var(--text-secondary); }
+.byok-have:empty { display: none; }
+.byok-chip { padding: 0.125rem var(--sp-2); border: 1px solid var(--border); border-radius: 10rem; background: var(--card-bg); color: var(--text-primary); font: inherit; font-size: 0.78rem; cursor: pointer; }
+.ai-tune { display: flex; flex-direction: column; gap: var(--sp-2); padding-top: var(--sp-3); border-top: 1px solid var(--border); }
+.ai-tune-row { display: grid; grid-template-columns: 1fr auto; gap: 0.25rem var(--sp-2); align-items: center; font-size: 0.85rem; color: var(--text-primary); }
+.ai-tune-row output { font-size: 0.8rem; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+.ai-tune-row input { grid-column: 1 / -1; width: 100%; min-height: var(--hit, 2rem); accent-color: var(--highlight-border); }
+.ai-ref-item[aria-pressed="false"] { opacity: 0.45; text-decoration: line-through; }
+.ai-ref-item[aria-pressed] { cursor: pointer; }
+@media (pointer: coarse) { .byok-select, .byok-row .byok-mini, .byok-chip { min-height: var(--hit); } }

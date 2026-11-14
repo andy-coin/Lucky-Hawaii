@@ -447,7 +447,7 @@ test('連按：候選池再大，送給 AI 的清單也有上限', async ({ brow
             return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, text: '', model: MODEL, tried: [] }) });
         });
         const poolMax = await page.evaluate(() => AI_POOL_MAX);
-        expect(poolMax).toBe(1000);
+        expect(poolMax).toBe(120);   // 0.98.06 預設只送最常用的 120 個（偏好設定 → AI 用量可調）
         await page.fill('#searchInput', '安');
         await settle(page);
         const seen = new Set();

@@ -26,34 +26,38 @@ test('AI 參考：空的歌顯示提示，有內容時列出標籤、情境、�
     await context.close();
 });
 
-test('AI 參考：長歌詞照實寫「前 200 字」（和挑詞 prompt 同一個上限）', async ({ browser }) => {
+test('AI 參考：預設有標籤或情境時歌詞先關著（送整首，不再截 200 字）', async ({ browser }) => {
     const long = '一二三四五六七八九十'.repeat(30);   // 300 字
     const { context, page, errors } = await bootPage(browser, { wordlist: 'stub', storage: storage([long], { hashtags: ['夜'] }) });
-    await expect(items(page)).toHaveText(['#夜', '歌詞前 200 字']);
-    expect(await page.evaluate(() => AI_LYRICS_MAX)).toBe(200);
+    await expect(items(page)).toHaveText(['#夜', '歌詞 1 行']);
+    await expect(page.locator('#aiRef [data-ref="tags"]')).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.locator('#aiRef [data-ref="lyrics"]')).toHaveAttribute('aria-pressed', 'false');
     expect(errors).toEqual([]);
     await context.close();
 });
 
-test('AI 參考：點了跳到左邊對應區塊（左面板收著會打開）', async ({ browser }) => {
+test('AI 參考：三樣都是開關，點了切換、不跳走', async ({ browser }) => {
     const { context, page, errors } = await bootPage(browser, { wordlist: 'stub', storage: { ...storage(['你好'], { context: '情境', hashtags: ['a'] }), leftPanelCollapsed: 'true' } });
+    const ctx = page.locator('#aiRef .ai-ref-item[data-ref="context"]');
+    await expect(ctx).toHaveAttribute('aria-pressed', 'true');
+    await ctx.click();
+    await expect(ctx).toHaveAttribute('aria-pressed', 'false');
     await expect(page.locator('#leftPanel')).toHaveClass(/collapsed/);
-    await page.locator('#aiRef .ai-ref-item[data-ref="context"]').click();
-    await expect(page.locator('#leftPanel')).not.toHaveClass(/collapsed/);
-    await expect(page.locator('#contextDescription')).toBeFocused();
-    await expect(page.locator('#contextDescription')).toHaveClass(/lh-flash/);
-    await page.locator('#aiRef .ai-ref-item[data-ref="tags"]').click();
-    await expect(page.locator('#hashtagInput')).toBeFocused();
+    const ly = page.locator('#aiRef .ai-ref-item[data-ref="lyrics"]');
+    await ly.click();
+    await expect(ly).toHaveAttribute('aria-pressed', 'true');
+    expect(await page.evaluate(() => [lhAiUseOn('context', lhAiRefState()), lhAiUseOn('lyrics', lhAiRefState())])).toEqual([false, true]);
     expect(errors).toEqual([]);
     await context.close();
 });
 
-test('AI 參考：手機點了切到歌詞分頁', async ({ browser }) => {
+test('AI 參考：手機上也能點開關（沒有標籤情境時歌詞預設開）', async ({ browser }) => {
     const { context, page, errors } = await bootPage(browser, { wordlist: 'stub', storage: storage(['你好']), device: { viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true } });
     await page.evaluate(() => mobileTab('ai'));
-    await page.locator('#aiRef .ai-ref-item[data-ref="lyrics"]').tap();
-    await expect(page.locator('#leftPanel')).not.toHaveClass(/collapsed/);
-    await expect(page.locator('#rightPanel')).toHaveClass(/collapsed/);
+    const ly = page.locator('#aiRef .ai-ref-item[data-ref="lyrics"]');
+    await expect(ly).toHaveAttribute('aria-pressed', 'true');
+    await ly.tap();
+    await expect(ly).toHaveAttribute('aria-pressed', 'false');
     expect(errors).toEqual([]);
     await context.close();
 });

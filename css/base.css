@@ -786,7 +786,18 @@
         .prefs-panel > * { flex-shrink: 0; }
         .prefs-panel[hidden] { display: none; }
         .prefs-panel:focus-visible { outline: 2px solid var(--accent-line); outline-offset: 2px; }
-        .prefs-bgfx[hidden] { display: none; }
+        .prefs-fx[hidden] { display: none; }
+        /* 背景動畫與特效：五段（1 最順暢 … 5 全開），下面一行說明（js/search-ui.js _lhPrefsBgFxSync） */
+        .prefs-fx { display: flex; flex-direction: column; gap: 0.375rem; }
+        .prefs-fx-head { display: flex; justify-content: space-between; align-items: baseline; gap: 0.5rem; font-size: 0.9rem; color: var(--text-primary); }
+        .prefs-fx-cap { font-size: 0.8rem; color: var(--text-secondary); }
+        .prefs-fx-steps { display: grid; grid-template-columns: repeat(5, 1fr); border: 1px solid var(--border); border-radius: var(--radius-s); overflow: hidden; }
+        .prefs-fx-steps button { min-height: 2.25rem; border: 0; border-left: 1px solid var(--border); background: var(--container-bg); color: var(--text-secondary); font: inherit; font-size: 0.875rem; cursor: pointer; }
+        .prefs-fx-steps button:first-child { border-left: 0; }
+        .prefs-fx-steps button[aria-checked="true"] { background: var(--card-bg); color: var(--text-primary); font-weight: 700; box-shadow: inset 0 -2px 0 var(--highlight-border); }
+        .prefs-fx-steps button:focus-visible { outline: 2px solid var(--highlight-border); outline-offset: -2px; }
+        @media (pointer: coarse) { .prefs-fx-steps button { min-height: var(--hit); } }
+        .prefs-fx-desc { margin: 0; font-size: 0.78rem; line-height: 1.5; color: var(--text-secondary); }
         /* 分頁裡的一般按鈕（備份、導覽、回饋、關於）同一種外觀 */
         .prefs-panel .save-load-btn { background: var(--container-bg); color: var(--text-primary); border: 1px solid var(--border); }
         

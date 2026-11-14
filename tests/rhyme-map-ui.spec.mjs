@@ -2045,9 +2045,9 @@ test('備份：句構設定跟著備份走', async ({ browser }) => {
     const { context, page, errors } = await bootPage(browser, { wordlist: 'stub', storage: v2Storage([song([typed('sa', 'verse', LM_TXT)])]) });
     await page.locator('#rhymeMenuBtn').click();
     await sw(page, '句構判定').click();
-    await page.evaluate(() => { lhMapSetSetting('pos', 'tail'); lhMapSetSetting('size', 'l'); });
+    await page.evaluate(() => { lhMapSetSetting('pos', 'left'); lhMapSetSetting('size', 'l'); });
     const live = await page.evaluate(() => lhRhymeSerialize(_lhMapSet));
-    expect(live).toContain('"line":true,"pos":"tail","size":"l"');
+    expect(live).toContain('"line":true,"pos":"left","size":"l"');
     expect(await lsGetMap(page)).toBe(live);
     const backup = await buildBackup(page);
     expect(backup.settings['lh:map'], '備份檔帶著新設定').toBe(live);

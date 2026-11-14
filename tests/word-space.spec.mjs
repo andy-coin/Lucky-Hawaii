@@ -113,7 +113,8 @@ test('關聯詞彙：選了字卡才出現按鈕；字首／字尾／任意的�
     await page.evaluate(() => { const c = [...selectedChars][0]; wordlistData = [...wordlistData, { w: c + '心', z: 'ㄚ ㄒㄧㄣ', p: 9 }, { w: '平' + c, z: 'ㄆㄧㄥˊ ㄚ', p: 8 }, { w: c + '靜', z: 'ㄚ ㄐㄧㄥˋ', p: 7 }]; });   // stub 詞庫補幾個含選取字的詞
     await page.locator('#wsRelBtn').click();
     await expect(page.locator('body')).toHaveClass(/ws-open/);
-    await expect(page.locator('#wordSpace .ws-pos')).toBeVisible();
+    await expect(page.locator('#wordSpace .ws-pos:not(.ws-len)')).toBeVisible();
+    await expect(page.locator('#wordSpace .ws-len [data-len]')).toHaveCount(3);
     await page.locator('#wordSpace [data-pos="head"]').click();
     await expect(page.locator('#wordSpace [data-pos="head"]')).toHaveAttribute('aria-pressed', 'true');
     await page.locator('#wordSpace [data-pos="tail"]').click();

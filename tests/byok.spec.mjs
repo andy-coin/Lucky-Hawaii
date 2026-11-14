@@ -47,28 +47,35 @@ async function generate(page) {
 }
 const openAiTab = async page => { await page.evaluate(() => lhOpenAiPrefs()); await expect(page.locator('#prefsPanel-ai')).toBeVisible(); };
 
-test('AI 分頁：鑰匙打開「AI」分頁；說明、兩個影片連結、金鑰欄是密碼型且可顯示／隱藏', async ({ browser }) => {
+const pick = (page, p) => page.locator('#byokProvider').selectOption(p);
+
+test('AI 分頁：鑰匙打開「AI」分頁；服務商下拉、一行金鑰（密碼型可顯示／隱藏）、取得金鑰連結跟著換', async ({ browser }) => {
     await withPage(browser, {}, async ({ page, errors }) => {
         await page.locator('#aiKeyBtn').click();
         await expect(page.locator('#settingsOverlay')).toHaveClass(/show/);
         await expect(page.getByRole('tab', { name: 'AI' })).toHaveAttribute('aria-selected', 'true');
         await expect(page.getByRole('tab', { name: 'AI' })).toBeFocused();
         await expect(page.locator('#prefsPanel-ai')).toContainText('不會進備份');
-        const links = await page.locator('#prefsPanel-ai a').evaluateAll(as => as.map(a => [a.textContent, a.href, a.target, a.rel]));
-        expect(links).toEqual([
-            ['如何取得免費 Google API 金鑰（影片）', 'https://www.youtube.com/watch?v=Upk-iMyC3aM', '_blank', 'noopener'],
-            ['如何取得免費 Groq API 金鑰（影片）', 'https://www.youtube.com/watch?v=nt1PJu47nTk', '_blank', 'noopener'],
-        ]);
-        const input = page.getByLabel('Gemini（Google AI Studio）金鑰');
+        const opts = await page.locator('#byokProvider option').evaluateAll(os => os.map(o => o.value));
+        expect(opts).toEqual(['anthropic', 'openai', 'gemini', 'xai', 'groq', 'deepseek', 'ollama', 'generic']);
+        await pick(page, 'gemini');
+        await expect(page.locator('#byokNote a.byok-video')).toHaveAttribute('href', 'https://www.youtube.com/watch?v=Upk-iMyC3aM');
+        await pick(page, 'groq');
+        await expect(page.locator('#byokNote a.byok-video')).toHaveAttribute('href', 'https://www.youtube.com/watch?v=nt1PJu47nTk');
+        await expect(page.locator('#byokBaseRow')).toBeHidden();
+        await pick(page, 'ollama');
+        await expect(page.locator('#byokBaseRow')).toBeVisible();
+        await expect(page.locator('#byokBase')).toHaveValue('http://localhost:11434/v1');
+        await pick(page, 'gemini');
+        const input = page.locator('#byokKey');
         await expect(input).toHaveAttribute('type', 'password');
-        const eye = page.locator('.byok-provider[data-provider="gemini"] .byok-eye');
+        const eye = page.locator('#byokBox .byok-eye');
         await eye.click();
         await expect(input).toHaveAttribute('type', 'text');
         await expect(eye).toHaveAttribute('aria-pressed', 'true');
         await expect(eye).toHaveAccessibleName('隱藏金鑰');
         await eye.click();
         await expect(input).toHaveAttribute('type', 'password');
-        // 「查詢與詞庫」不再有那行 Groq 說明
         await expect(page.locator('#prefsPanel-search')).not.toContainText('Groq');
         expect(errors).toEqual([]);
     });
@@ -77,23 +84,25 @@ test('AI 分頁：鑰匙打開「AI」分頁；說明、兩個影片連結、金
 test('金鑰：存在 apiKey_ 鍵、兩家可以都存、不進備份檔；格式不對不存；清除會移除', async ({ browser }) => {
     await withPage(browser, {}, async ({ page, errors }) => {
         await openAiTab(page);
-        await page.locator('#byokKey-gemini').fill('  ' + GKEY + ' ');
-        await page.locator('#byokKey-gemini').blur();
-        await page.locator('#byokKey-groq').fill(QKEY);
-        await page.locator('#byokKey-groq').blur();
+        await pick(page, 'gemini');
+        await page.locator('#byokKey').fill('  ' + GKEY + ' ');
+        await page.locator('#byokKey').blur();
+        await pick(page, 'groq');
+        await page.locator('#byokKey').fill(QKEY);
+        await page.locator('#byokKey').blur();
         expect(await page.evaluate(() => [localStorage.getItem('apiKey_gemini'), localStorage.getItem('apiKey_groq')])).toEqual([GKEY, QKEY]);
+        await expect(page.locator('#byokHave')).toContainText('Gemini');
         const backup = await page.evaluate(() => JSON.stringify(lhBuildBackup(songs, activeSongId, savedWords)));
         expect(backup).not.toContain(GKEY);
         expect(backup).not.toContain(QKEY);
         expect(backup).not.toContain('apiKey_');
-        // 夾中文的金鑰：不存、說明原因
-        await page.locator('#byokKey-groq').fill('gsk_我的金鑰abc');
-        await page.locator('#byokKey-groq').blur();
-        await expect(page.locator('.byok-provider[data-provider="groq"] .byok-status')).toContainText('格式不對');
+        await page.locator('#byokKey').fill('gsk_我的金鑰abc');
+        await page.locator('#byokKey').blur();
+        await expect(page.locator('#byokStatus')).toContainText('格式不對');
         expect(await page.evaluate(() => localStorage.getItem('apiKey_groq'))).toBe(QKEY);
-        await page.locator('.byok-provider[data-provider="groq"] [data-act="clear"]').click();
+        await page.locator('#byokBox [data-act="clear"]').click();
         expect(await page.evaluate(() => localStorage.getItem('apiKey_groq'))).toBeNull();
-        await expect(page.locator('#byokKey-groq')).toHaveValue('');
+        await expect(page.locator('#byokKey')).toHaveValue('');
         expect(errors).toEqual([]);
     });
 });
@@ -105,9 +114,10 @@ test('測試連線：成功、金鑰無效、額度用完、網路問題都是�
             if (mode === 'net') await page.route(/^https:\/\/api\.groq\.com\//, r => r.abort('internetdisconnected'));
             else calls = await routeProviders(page, mode);
             await openAiTab(page);
-            await page.locator('#byokKey-' + provider).fill(provider === 'gemini' ? GKEY : QKEY);
-            await page.locator(`.byok-provider[data-provider="${provider}"] [data-act="test"]`).click();
-            const status = page.locator(`.byok-provider[data-provider="${provider}"] .byok-status`);
+            await pick(page, provider);
+            await page.locator('#byokKey').fill(provider === 'gemini' ? GKEY : QKEY);
+            await page.locator('#byokBox [data-act="test"]').click();
+            const status = page.locator('#byokStatus');
             await expect(status).toContainText(want);
             const text = await status.textContent();
             expect(text, '狀態裡不能出現英文技術字串').not.toMatch(/invalid|rate|error|HTTP|key/i);
@@ -154,7 +164,7 @@ test('直連：Gemini 金鑰放 x-goog-api-key 標頭、不放網址', async ({ 
 });
 
 test('直連失敗：401／429 顯示白話原因，不偷偷改走 Worker、不顯示金鑰', async ({ browser }) => {
-    for (const [mode, want] of [[401, '金鑰無效'], [429, '免費額度暫時用完']]) {
+    for (const [mode, want] of [[401, '金鑰無效'], [429, '額度暫時用完']]) {
         await withPage(browser, { storage: { apiKey_groq: QKEY, selectedModel: GROQ_20B } }, async ({ page }) => {
             await routeProviders(page, mode);
             const worker = workerAiCalls(page);
@@ -212,13 +222,13 @@ test('自製下拉：分組、用量圖示、鍵盤上下選、Enter 選定、Es
         await expect(list).toBeVisible();
         await expect(btn).toHaveAttribute('aria-expanded', 'true');
         await expect(list).toBeFocused();
-        // 兩組：好韻器提供／用你自己的金鑰；自己金鑰的每個選項右邊都有用量圖示（1～3 格）
-        expect(await list.getByRole('group').evaluateAll(gs => gs.map(g => g.getAttribute('aria-label')))).toEqual(['好韻器提供', '用你自己的金鑰']);
-        const own = page.getByRole('group', { name: '用你自己的金鑰' }).getByRole('option');
-        await expect(own).toHaveCount(4);
+        // 好韻器提供＋每家一組（你的 Gemini、你的 Groq）；自己金鑰的每個選項右邊都有用量圖示（1～3 格）
+        expect(await list.getByRole('group').evaluateAll(gs => gs.map(g => g.getAttribute('aria-label')))).toEqual(['好韻器提供', '你的 Gemini', '你的 Groq']);
+        const own = list.locator('[role=group]:not([aria-label="好韻器提供"]) [role=option]');
+        await expect(own).toHaveCount(6);
         const usage = await own.evaluateAll(os => os.map(o => [o.querySelector('.model-opt-usage')?.dataset.usage, o.querySelectorAll('.usage-bars rect.on').length]));
         expect(usage.every(([u, on]) => Number(u) === on && on >= 1 && on <= 3)).toBe(true);
-        expect(await page.locator('.model-opt-usage').count(), '好韻器提供的選項沒有用量圖示').toBe(4);
+        expect(await page.locator('.model-opt-usage').count(), '好韻器提供的選項沒有用量圖示').toBe(6);
         // 用量圖示靠右：圖示右緣貼齊選項右側
         const pos = await own.first().evaluate(o => { const a = o.getBoundingClientRect(), b = o.querySelector('.model-opt-usage').getBoundingClientRect(); return a.right - b.right; });
         expect(pos).toBeLessThan(16);
@@ -231,13 +241,13 @@ test('自製下拉：分組、用量圖示、鍵盤上下選、Enter 選定、Es
         await expect(list).toBeHidden();
         await expect(btn).toBeFocused();
         const last = await page.evaluate(() => localStorage.getItem('selectedModel'));
-        expect(last).toBe('byok:groq:openai/gpt-oss-120b');
-        await expect(btn).toHaveAccessibleName('AI 模型：GPT-OSS 120B（用你自己的金鑰）');
+        expect(last).toBe('byok:groq:llama-3.3-70b-versatile');
+        await expect(btn).toHaveAccessibleName('AI 模型：Llama 3.3 70B（用你自己的金鑰）');
         await expect(page.locator('#aiKeyBtn')).toHaveAttribute('data-on', 'true');
         // Esc 關、不改選擇；設定視窗沒開著也不受影響
         await page.keyboard.press('ArrowDown');
         await expect(list).toBeVisible();
-        expect(await list.getAttribute('aria-activedescendant')).toBe('modelOpt-byok_groq_openai_gpt-oss-120b');
+        expect(await list.getAttribute('aria-activedescendant')).toBe('modelOpt-byok_groq_llama-3_3-70b-versatile');
         await page.keyboard.press('ArrowDown');
         await page.keyboard.press('Escape');
         await expect(list).toBeHidden();
@@ -254,7 +264,8 @@ test('自製下拉：分組、用量圖示、鍵盤上下選、Enter 選定、Es
 test('自製下拉：沒金鑰時不分組、沒有用量圖示；清掉金鑰後選單只顯示「自動」、不改存的值', async ({ browser }) => {
     await withPage(browser, { storage: { apiKey_groq: QKEY, selectedModel: GROQ_20B } }, async ({ page, errors }) => {
         await openAiTab(page);
-        await page.locator('.byok-provider[data-provider="groq"] [data-act="clear"]').click();
+        await page.locator('#byokProvider').selectOption('groq');
+        await page.locator('#byokBox [data-act="clear"]').click();
         await page.keyboard.press('Escape');
         expect(await page.locator('#modelSelect').inputValue()).toBe('auto');
         expect(await page.evaluate(() => localStorage.getItem('selectedModel'))).toBe(GROQ_20B);
@@ -276,7 +287,8 @@ test('觸控：模型選項、鑰匙、金鑰欄都夠大（平板 36、手機 4
         expect(await h('#modelList [role=option]')).toBeGreaterThanOrEqual(min);
         expect(await h('#aiKeyBtn')).toBeGreaterThanOrEqual(min);
         await openAiTab(page);
-        expect(await h('#byokKey-gemini')).toBeGreaterThanOrEqual(min);
+        expect(await h('#byokKey')).toBeGreaterThanOrEqual(min);
+        expect(await h('#byokProvider')).toBeGreaterThanOrEqual(min);
         expect(await h('.byok-eye')).toBeGreaterThanOrEqual(min);
     });
 });

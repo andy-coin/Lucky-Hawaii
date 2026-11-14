@@ -43,12 +43,13 @@ test('三欄：寬螢幕並排填滿、不重疊、都在畫面內', async ({ br
     await context.close();
 });
 
-test('收起 AI：其他補滿、分頁在邊上，再打開回到原位', async ({ browser }) => {
+test('收起 AI：中間不跟著變胖（0.98.06）、分頁在邊上，再打開回到原位', async ({ browser }) => {
     const { context, page, errors } = await boot(browser);
     const before = await boxes(page);
     await page.locator('#rightPanel .side-panel-tab').click();
     const after = await boxes(page);
-    expect(after.results.x + after.results.width).toBeGreaterThan(before.results.x + before.results.width + 50);
+    expect(after.results.x + after.results.width).toBeLessThanOrEqual(before.results.x + before.results.width + 1);
+    expect(Math.abs(after.results.width - before.results.width)).toBeLessThan(80);
     const tab = page.locator('#rightPanel .side-panel-tab');
     await expectFullyInViewport(page, tab);
     expect(rectsOverlap(await tab.boundingBox(), after.results)).toBe(false);
@@ -61,7 +62,7 @@ test('收起 AI：其他補滿、分頁在邊上，再打開回到原位', async
     await context.close();
 });
 
-test('兩邊都收：查詢區填滿兩個分頁之間', async ({ browser }) => {
+test('兩邊都收：查詢區在兩個分頁之間、維持原本寬度不填滿（0.98.06）', async ({ browser }) => {
     const { context, page, errors } = await boot(browser, { 'lh:tourSeen': '1', leftPanelCollapsed: 'true', rightPanelCollapsed: 'true' });
     const b = await boxes(page);
     const lt = await page.locator('#leftPanel .side-panel-tab').boundingBox();
@@ -70,7 +71,7 @@ test('兩邊都收：查詢區填滿兩個分頁之間', async ({ browser }) => 
     expect(rectsOverlap(rt, b.results)).toBe(false);
     expect(b.results.x).toBeGreaterThanOrEqual(lt.x + lt.width - 0.5);
     expect(b.results.x + b.results.width).toBeLessThanOrEqual(rt.x + 0.5);
-    expect(b.results.width).toBeGreaterThan(1920 * 0.8);
+    expect(b.results.width).toBeLessThan(1920 * 0.6);
     expect(errors).toEqual([]);
     await context.close();
 });

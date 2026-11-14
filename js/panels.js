@@ -25,14 +25,26 @@
         // opener：'left'／'right' 代表使用者剛打開那邊；沒給（開頁、改視窗大小）就保留左邊、收右邊
         // 收起的面板：兩邊都放得下就照樣留出它的位置，主畫面留在原地、不跟著變寬（背景露出來）；放不下才讓主畫面吃掉（Andy 0.98.04）。
         // 縮放、改視窗、拖交界之後都要重算
+        // 0.98.06：保留的位置不再是「全有或全無」。另一邊拉寬、主畫面已經是最窄（24rem）時，再拉就吃收起那邊留的位置，
+        // 主畫面整塊跟著往旁邊移（不會一下子跳去貼邊）。保留寬度寫在 --lp-room／--rp-room（px）
         function lhPanelRoom() {
             const lp = document.getElementById('leftPanel'), rp = document.getElementById('rightPanel');
             if (!lp || !rp) return;
             const rootStyle = getComputedStyle(document.documentElement);
             const rem = parseFloat(rootStyle.fontSize) || 16, gutter = parseFloat(rootStyle.getPropertyValue('--page-pad')) || 0;
-            const fit = !lhIsSheetMode() && !lhIsDockMode() && window.innerWidth - lp.getBoundingClientRect().width - rp.getBoundingClientRect().width - 2 * gutter >= 24 * rem;
-            document.body.classList.toggle('lp-room', fit && lp.classList.contains('collapsed'));
-            document.body.classList.toggle('rp-room', fit && rp.classList.contains('collapsed'));
+            const lc = lp.classList.contains('collapsed'), rc = rp.classList.contains('collapsed');
+            const lw = lp.getBoundingClientRect().width, rw = rp.getBoundingClientRect().width;
+            let roomL = 0, roomR = 0;
+            if (!lhIsSheetMode() && !lhIsDockMode()) {
+                const free = Math.max(0, window.innerWidth - 2 * gutter - 24 * rem - (lc ? 0 : lw) - (rc ? 0 : rw));
+                roomL = lc ? lw : 0; roomR = rc ? rw : 0;
+                if (roomL + roomR > free) { const k = free / (roomL + roomR); roomL *= k; roomR *= k; }
+            }
+            const st = document.body.style;
+            st.setProperty('--lp-room', roomL.toFixed(1) + 'px');
+            st.setProperty('--rp-room', roomR.toFixed(1) + 'px');
+            document.body.classList.toggle('lp-room', roomL > 0.5);
+            document.body.classList.toggle('rp-room', roomR > 0.5);
         }
         window.addEventListener('resize', () => lhPanelRoom());
 
@@ -216,11 +228,26 @@
             renderSavedWords();
         }
 
-        // 「清除全部」：先問一次，再清空保留池
-        async function lhSavedClearAll() {
+        // 「清除全部」：不跳視窗，按鈕自己變成「確定清除 N 個？」；4 秒內再按一次才清，時間到或點別的地方就恢復
+        let _lhSavedArm = 0;
+        function _lhSavedDisarm() {
+            clearTimeout(_lhSavedArm); _lhSavedArm = 0;
+            const b = document.getElementById('savedClearBtn');
+            if (b) { b.classList.remove('armed'); b.textContent = '清除全部'; }
+            document.removeEventListener('pointerdown', _lhSavedOutside, true);
+        }
+        function _lhSavedOutside(e) { if (!e.target.closest('#savedClearBtn')) _lhSavedDisarm(); }
+        function lhSavedClearAll() {
             if (!savedWords.length) return;
-            const ok = await lhAsk({ title: '清除全部 ' + savedWords.length + ' 個保留的詞？', buttons: [{ label: '清除', value: true, kind: 'danger' }, { label: '取消', value: null }] });
-            if (!ok) return;
+            const b = document.getElementById('savedClearBtn');
+            if (!_lhSavedArm) {
+                b.classList.add('armed');
+                b.textContent = '確定清除 ' + savedWords.length + ' 個？';
+                _lhSavedArm = setTimeout(_lhSavedDisarm, 4000);
+                document.addEventListener('pointerdown', _lhSavedOutside, true);
+                return;
+            }
+            _lhSavedDisarm();
             savedWords = [];
             lhSet('haiku_savedwords', JSON.stringify(savedWords));
             renderSavedWords();

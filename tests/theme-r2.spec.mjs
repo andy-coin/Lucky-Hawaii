@@ -111,7 +111,7 @@ test('背景飄字：自動化測試下不畫、開關記住、減少動態時�
     const plain = await bootPage(browser, { wordlist: 'stub' });
     expect(await plain.page.evaluate(() => !!document.getElementById('lhBgFx')), 'webdriver 下沒有畫布').toBe(false);
     await plain.page.evaluate(() => lhBgFxSet(false));
-    expect(await plain.page.evaluate(() => [localStorage.getItem('lh:bgFx'), lhBgFxIsOn()])).toEqual(['off', false]);
+    expect(await plain.page.evaluate(() => [localStorage.getItem('lh:bgFx'), lhBgFxIsOn()])).toEqual(['1', false]);
     await plain.context.close();
 
     const on = await bootPage(browser, { wordlist: 'stub', init: () => { window.__lhBgFxTest = true; } });

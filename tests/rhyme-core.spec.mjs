@@ -369,14 +369,14 @@ test('設定：整理成固定的鍵', () => {
 test('設定：新鍵逐鍵退回預設', () => {
     const norm = v => ev(`lhRhymeNormalizeSettings(${j(v)})`);
     // 列舉值不在清單內：只有那一鍵退回預設，其他好的鍵照收
-    const bad = norm({ pos: 'left', size: 'xl', depth: 'max', line: true, lnDiff: true });
+    const bad = norm({ pos: 'middle', size: 'xl', depth: 'max', line: true, lnDiff: true });
     expect(bad.pos).toBe('right');
     expect(bad.size).toBe('m');
     expect(bad.depth).toBe('std');
     expect(bad.line).toBe(true);
     expect(bad.lnDiff).toBe(true);
-    const good = norm({ pos: 'tail', size: 's', depth: 'heavy' });
-    expect([good.pos, good.size, good.depth]).toEqual(['tail', 's', 'heavy']);
+    const good = norm({ pos: 'left', size: 's', depth: 'heavy' });
+    expect([good.pos, good.size, good.depth]).toEqual(['left', 's', 'heavy']);
     // 開關不是真布林：退回那一鍵的預設（lnCount 預設是 true）
     const sw = norm({ line: 'true', lnCount: 0, lnSplit: 'false', autoHover: 1 });
     expect([sw.line, sw.lnCount, sw.lnSplit, sw.autoHover]).toEqual([false, true, true, false]);
@@ -413,14 +413,16 @@ test('設定：最小序列化不改舊字串', () => {
     // 新鍵：只寫與預設不同的，接在五個舊鍵後面
     expect(ser({ line: true })).toBe('{"end":true,"letters":false,"inner":false,"strict":false,"skipParticles":true,"line":true}');
     expect(ser({ line: true, lnCount: true, pos: 'right', size: 'm', depth: 'std' })).toBe('{"end":true,"letters":false,"inner":false,"strict":false,"skipParticles":true,"line":true}');
-    expect(ser({ lnCount: false, pos: 'tail', size: 'l' })).toBe('{"end":true,"letters":false,"inner":false,"strict":false,"skipParticles":true,"lnCount":false,"pos":"tail","size":"l"}');
+    expect(ser({ lnCount: false, pos: 'left', size: 'l' })).toBe('{"end":true,"letters":false,"inner":false,"strict":false,"skipParticles":true,"lnCount":false,"pos":"left","size":"l"}');
+    // 0.98.06：舊的「句尾後」tail 讀進來變成靠左欄
+    expect(ev(`lhRhymeNormalizeSettings({ pos: 'tail' }).pos`)).toBe('left');
     // colors 有東西才寫
     expect(ser({ colors: {} })).toBe(FIVE[0]);
     expect(ser({ colors: { 2: '#aabbcc' } })).toBe('{"end":true,"letters":false,"inner":false,"strict":false,"skipParticles":true,"colors":{"2":"#aabbcc"}}');
     // 壞值不會寫出去
     expect(ser({ pos: 'evil', line: 'yes', colors: { 1: 'red' } })).toBe(FIVE[0]);
     // 序列化再讀回來是同一份設定
-    const s = { end: false, letters: true, line: true, lnRhyme: true, lnDiff: true, autoHover: true, pos: 'tail', size: 's', depth: 'light', colors: { 4: '#010203' } };
+    const s = { end: false, letters: true, line: true, lnRhyme: true, lnDiff: true, autoHover: true, pos: 'left', size: 's', depth: 'light', colors: { 4: '#010203' } };
     expect(ev(`lhRhymeNormalizeSettings(JSON.parse(lhRhymeSerialize(${j(s)})))`)).toEqual(ev(`lhRhymeNormalizeSettings(${j(s)})`));
 });
 

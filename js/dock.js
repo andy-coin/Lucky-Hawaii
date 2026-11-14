@@ -168,7 +168,13 @@ function lhDockRender() {
     document.body.classList.toggle('dk-fold-l', classic && folded(full.k[0]));
     document.body.classList.toggle('dk-fold-r', classic && folded(full.k[2]));
     if (!_dkInTree(_dkTree, 'results')) _dkTree = _dkAddEdge(_dkTree, 'results');   // 收著時重排過，查詢區不在樹裡：打開時補回來
-    _dkVis = _dkPrune(_dkTree, _dkOpen);
+    // 三直排收起一邊：照完整的三欄排（收起那欄的位置空著），中間不跟著變胖；收起那邊旁邊的分隔線拿掉（0.98.06）
+    if (classic) {
+        // 剛打開、但之前位置被吃到快沒有的那欄：補回預設寬（28%）
+        const S = _dkTree.s.reduce((a, b) => a + b, 0);
+        _dkTree.k.forEach((id, i) => { if (_dkOpen(id) && _dkTree.s[i] < 0.12 * S) _dkTree.s[i] = 0.28 * S; });
+    }
+    _dkVis = classic ? _dkPrune(_dkTree, () => true) : _dkPrune(_dkTree, _dkOpen);
     // 先加 body.dock 與上面這些 class（它們的 padding 規則決定外框），再量 body 內容區
     const cs = getComputedStyle(document.body);
     const padL = parseFloat(cs.paddingLeft) || 0, padR = parseFloat(cs.paddingRight) || 0;
@@ -183,6 +189,7 @@ function lhDockRender() {
     _dkRects = {};
     _dkDivs = new Map();
     _dkLayout(_dkVis, frame, gap);
+    if (classic) for (const [k, d] of _dkDivs) if (!_dkOpen(d.src.k[d.ja]) || !_dkOpen(d.src.k[d.jb])) _dkDivs.delete(k);
     for (const id of Object.keys(_dkRects)) {
         const el = document.getElementById(LH_DOCK_BLOCKS[id]);
         if (el) _dkSetVars(el, _dkRects[id]);
@@ -267,6 +274,7 @@ function _dkResizeStart(e, key) {
         const d = _dkDivs.get(k);
         return {
             key: k, vertical: d.vertical, a: d.a, b: d.b, P: d.src.s[d.ja] + d.src.s[d.jb],
+            s0: d.src.s.slice(), u: (d.a + d.b) / (d.src.s[d.ja] + d.src.s[d.jb]),   // 開始時的權重、每單位權重幾 px
             start: d.vertical ? e.clientX : e.clientY,
             c0: d.vertical ? d.rect.x + d.rect.w / 2 : d.rect.y + d.rect.h / 2,   // 分隔線中心線（沿拖動方向）
         };
@@ -293,6 +301,18 @@ function _dkResizeStart(e, key) {
             const min = (vertical ? LH_DOCK_MIN_W : LH_DOCK_MIN_H) * rem();
             if (a + b < 2 * min) continue;
             let delta = (vertical ? ev.clientX : ev.clientY) - it.start;
+            // 三直排、另一邊收著：中間已經最窄還往收起那邊拉 → 吃掉收起那欄留的位置，中間整塊移過去（不會擋住）
+            const src = d.src, ci = [0, 1, 2].find(i => i !== d.ja && i !== d.jb);
+            if (vertical && src.k.length === 3 && ci !== undefined && document.body.classList.contains('dock-classic') && !_dkOpen(src.k[ci]) && (d.ja === 1 || d.jb === 1)) {
+                const o = d.ja === 1 ? d.jb : d.ja, l = it.s0.map(x => x * it.u), total = l[0] + l[1] + l[2];
+                const g = o === 2 ? delta : -delta;   // 正＝中間變寬
+                let M, C = l[ci], O;
+                if (g >= 0) { O = Math.max(min, l[o] - g); M = l[1] + (l[o] - O); }
+                else { M = l[1] + g; if (M < min) { C = Math.max(0, l[ci] - (min - M)); M = min; } O = total - M - C; }
+                const ns = []; ns[1] = M; ns[o] = O; ns[ci] = Math.max(0.01 * total, C);
+                writes.push([d, ns.map(x => x / it.u)]);
+                continue;
+            }
             // 吸附：貼齊其他同方向分隔線的中心線（x 或 y 相同）
             let best = null;
             for (const o of others) {
@@ -313,6 +333,7 @@ function _dkResizeStart(e, key) {
             writes.push([d, Math.max(0, it.P * (a + delta) / (a + b)), it.P]);
         }
         for (const [d, first, P] of writes) {
+            if (Array.isArray(first)) { first.forEach((v, i) => { d.src.s[i] = v; }); continue; }
             d.src.s[d.ja] = first;
             d.src.s[d.jb] = P - first;   // 寫進存的樹（不是修剪後的副本），收起的區塊才不會丟位置
         }

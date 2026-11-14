@@ -478,8 +478,7 @@
             const all = filterWordsByRhyme(rhymes, targetLen, 1);
             if (all.length > 0) {
                 lastCandidatesTotal = all.length;
-                // 每輪最多 1000（候選池會累積，下一輪再加另一個 1000）
-                return all.length > 1000 ? all.slice(0, 1000) : all;
+                return all;   // 0.98.06：整份交出去，由 AI 建議那邊照常用度排名、取前幾名
             }
             lastCandidatesTotal = 0;
             return [];
@@ -527,7 +526,7 @@
             const all = filterWordsByInitial(rhymes, targetLen, 1);
             if (all.length > 0) {
                 lastCandidatesTotal = all.length;
-                return all.length > 1000 ? all.slice(0, 1000) : all;
+                return all;
             }
             lastCandidatesTotal = 0;
             return [];

@@ -294,6 +294,7 @@ test('歌曲清單：AI 讀目前這首', async ({ browser }) => {
     page.on('request', r => { if (r.method() === 'POST' && new URL(r.url()).pathname === '/ai') bodies.push(JSON.parse(r.postData())); });
     await page.locator('#songListToggle').click();
     await page.locator('.song-pick', { hasText: '乙歌' }).click();
+    await page.evaluate(() => { _lhAiUse.lyrics = true; });   // 0.98.06：有標籤、情境時歌詞預設不送，這裡打開
     await page.fill('#searchInput', '心');
     await page.click('#generateBtn');
     await expect.poll(() => bodies.length).toBeGreaterThan(0);
