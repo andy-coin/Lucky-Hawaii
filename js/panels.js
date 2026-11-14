@@ -256,7 +256,7 @@ function _lhPaneApply() {
 function _lhPaneClamp(side, rem) {
     const root = getComputedStyle(document.documentElement), r = _lhRem();
     const other = side === 'l' ? document.getElementById('rightPanel') : document.getElementById('leftPanel');
-    const otherW = other.getBoundingClientRect().width / r;
+    const otherW = other.classList.contains('collapsed') ? 0 : other.getBoundingClientRect().width / r;   // 另一邊收起來：只剩兩塊分寬度
     const songW = side === 'l' ? 0 : (parseFloat(root.getPropertyValue('--song-w')) || 0) / r;
     const gutter = 2 * (parseFloat(root.getPropertyValue('--page-pad')) || 0) / r;
     const max = innerWidth / r - otherW - songW - gutter - LH_PANE_MAIN_MIN;
@@ -286,11 +286,9 @@ for (const side of ['l', 'r']) {
         d.setPointerCapture(e.pointerId);
         d.classList.add('active');
         document.body.classList.add('pane-resizing');
-        const songW = side === 'l' ? (parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--song-w')) || 0) : 0;
-        const move = ev => {
-            const px = side === 'l' ? ev.clientX - songW : innerWidth - ev.clientX;
-            _lhPaneSet(side, px / _lhRem());
-        };
+        // 照手指移動的距離改寬度（交界線在空隙裡，抓的位置不一定剛好是面板邊）
+        const x0 = e.clientX, w0 = _lhPaneCur(side) * _lhRem();
+        const move = ev => _lhPaneSet(side, (w0 + (side === 'l' ? ev.clientX - x0 : x0 - ev.clientX)) / _lhRem());
         const end = () => {
             d.removeEventListener('pointermove', move);
             d.removeEventListener('pointerup', end);

@@ -2284,7 +2284,7 @@
 }
 
         /* ===== 用自己的金鑰（BYOK，js/ai-client.js）：標題旁的鑰匙、自製模型下拉、偏好設定「AI」分頁 ===== */
-        .ai-title-group { display: inline-flex; align-items: center; gap: var(--sp-1); min-width: 0; }
+        .ai-title-group { display: inline-flex; align-items: center; gap: var(--sp-1); min-width: 0; flex-shrink: 0; white-space: nowrap; }   /* 「AI 建議」不換行 */
         /* 鑰匙：無外框；沒在用自己的金鑰時淡淡的，用的時候亮起來慢慢呼吸（沿用既有的 lhPulse，不新增 @keyframes） */
         .ai-key-btn {
             display: inline-flex; align-items: center; justify-content: center;
@@ -2684,18 +2684,19 @@ html:not(.kb-open) #lyricsSections[data-canvas="free"] .lyrics-section-header { 
 /* ===== 平板／窄桌機的三直排：左右兩條交界線可以拖，直接拉寬或縮窄左右面板（js/panels.js 最後）===== */
 .pane-divider { display: none; }
 @media (min-width: 901px) {
-    body.lp-open.rp-open:not(.dock) .pane-divider {
+    body.lp-open:not(.dock) .pane-divider-l, body.rp-open:not(.dock) .pane-divider-r {
         display: block;
         position: fixed;
         top: var(--pad-t);
         height: calc(var(--app-h) - var(--pad-t) - var(--page-pad));
-        width: 1.25rem;
+        width: var(--page-pad);
         z-index: 805;
         touch-action: none;
         cursor: col-resize;
     }
-    body.lp-open.rp-open:not(.dock) .pane-divider-l { left: calc(var(--lp-w, var(--panel-w)) + var(--song-w, 0px) - 0.625rem); }
-    body.lp-open.rp-open:not(.dock) .pane-divider-r { right: calc(var(--rp-w, var(--panel-w)) - 0.625rem); }
+    /* 放在面板和主畫面之間的空隙（不蓋到面板邊上的收合分頁）；另一邊收起來時這條照樣能拉 */
+    body.lp-open:not(.dock) .pane-divider-l { left: calc(var(--lp-w, var(--panel-w)) + var(--song-w, 0px)); }
+    body.rp-open:not(.dock) .pane-divider-r { right: var(--rp-w, var(--panel-w)); }
     .pane-divider::before {   /* 中間一顆小把手，觸控沒有 hover 也看得到 */
         content: '';
         position: absolute;
@@ -2884,7 +2885,7 @@ body[data-q="word"] .ws-filters { display: flex; }
 html .ws-grid { grid-template-columns: repeat(auto-fill, minmax(7.5rem, 1fr)); }   /* 0.98.01：原本 8.5rem 的 0.88 倍 */   /* html：壓過手機、平板字卡格線的欄寬 */
 @media (max-width: 440px) { html .ws-grid { grid-template-columns: repeat(auto-fill, minmax(6.125rem, 1fr)); } }
 .ws-card .char-main { font-size: 1.25rem; white-space: pre; }
-.ws-card .char-pinyin { font-size: 0.75rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ws-card .char-pinyin { font-size: 0.75rem; white-space: pre; overflow: hidden; text-overflow: ellipsis; }
 
 /* 顯示全部（星雲，js/word-space.js）：蓋滿整個畫面，主題底色上四周壓暗一圈 */
 .ws-space {
@@ -2984,6 +2985,7 @@ body.ws-open .ws-space { opacity: 1; }
 @media (pointer: coarse) { .ws-hud-btn, .ws-leg { min-height: var(--hit); min-width: var(--hit); } }
 /* 三塊面板往左、上、右收走（只在打開／收合的動畫期間加 transition，不動面板平常的收合動畫） */
 body.ws-anim :is(#leftPanel, #rightPanel, #mainContainer, #mobileTabBar) { transition: translate 0.5s cubic-bezier(0.6, 0, 0.3, 1), opacity 0.5s ease; }
+body.ws-open :is(.pane-divider, .dock-divider) { display: none !important; }   /* 交界把手也收走，不然會透過星雲看到 */
 body.ws-open #leftPanel { translate: -120vw 0; opacity: 0; }
 body.ws-open #rightPanel { translate: 120vw 0; opacity: 0; }
 body.ws-open #mainContainer { translate: 0 -120vh; opacity: 0; }

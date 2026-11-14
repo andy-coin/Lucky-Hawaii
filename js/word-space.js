@@ -97,6 +97,39 @@ function _lhWsPhon(e) {
     return lastSearchType === 'pinyin' ? syl.map(s => zhuyinToPinyin(stripTone(s)) + (['', '', 'ˊ', 'ˇ', 'ˋ', '˙'][getZhuyinTone(s)] || '')).join(' ') : syl.join(' ');
 }
 
+// 詞卡的注音／拼音：押到的部分像字卡一樣上色（第 i 個字用第 i 種標記色）。
+// 同母音＝標韻母；同子音＝標聲母；同讀音＝讀音一樣的字整個標，其他字標押到的那一半。勾掉「標記搜尋」就不上色
+function _lhWsPhonEl(e) {
+    const box = _lhWsEl('div', 'char-pinyin'), hl = document.getElementById('highlightSearch');
+    const on = !hl || hl.checked, pin = lastSearchType === 'pinyin';
+    e.z.split(' ').forEach((syl, i) => {
+        if (i) box.append('  ');
+        const zy = stripTone(syl), t = _lhWs.target && _lhWs.target[i];
+        let init = getZhuyinInitial(zy) || '', rest = zy.slice(init.length);
+        if (pin) {
+            const py = zhuyinToPinyin(zy), pi = pinyinInitials.find(x => py.startsWith(x) && py.length > x.length) || '';
+            init = pi; rest = py.slice(pi.length);
+        }
+        let part = '';
+        if (on && t && !t.miss) {
+            if (_lhWs.mode === 'same' && zy === t.zy) part = 'all';
+            else if (_lhWs.mode === 'initial') part = 'init';
+            else if (lhRhymeMatch(getZhuyinRhyme(zy), t.rhyme, _lhWs.strict)) part = 'rhyme';
+            else part = 'init';
+            if (part === 'init' && !init) part = 'all';     // 沒有聲母的字（ㄢ、ㄧ…）：整個標
+            if (part === 'rhyme' && !rest) part = 'all';    // 只有聲母的字（ㄓ、ㄙ…）
+        }
+        const mk = s => _lhWsEl('span', 'search-highlight-' + ((i % 5) + 1), s);
+        if (part === 'all') box.append(mk(init + rest));
+        else if (part === 'init') box.append(mk(init), rest);
+        else if (part === 'rhyme') box.append(init, mk(rest));
+        else box.append(init + rest);
+        const tm = ['', '', 'ˊ', 'ˇ', 'ˋ', '˙'][getZhuyinTone(syl)] || '';
+        if (tm) box.append(_lhWsEl('span', 'tone-mark', tm));
+    });
+    return box;
+}
+
 // displayResults 一開始呼叫：是「查整個詞」就畫詞卡並回 true（呼叫端就不畫字卡）
 function lhWsRender(input) {
     const cs = lhWsQuery(input);
@@ -164,7 +197,7 @@ function _lhWsMore(grid) {
         card.dataset.char = e.w;
         card.title = '點一下保留；按住拖到歌詞';
         card.append(_lhWsEl('div', 'char-main', [...e.w].join('  ')),   // 字跟字之間兩個半形空格，對齊比較寬的注音
-             _lhWsEl('div', 'char-pinyin', _lhWsPhon(e)));
+             _lhWsPhonEl(e));
         frag.append(card);
     }
     _lhWs.shown = end;
