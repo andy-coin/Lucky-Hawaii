@@ -840,10 +840,10 @@ test('浮動列：反白後出現、按查韻就查', async ({ browser }) => {
     const line = await lineBottom(page, 7);
     expect(box.y, '浮動列在選取那一行的下方').toBeGreaterThanOrEqual(line.bottom - 0.5);
     expect(Math.abs(box.x - line.left), '左緣約在選取結尾').toBeLessThan(40);
-    // 查韻：搜尋框是「的光」（兩個字一起查）、有字卡；焦點與選取都還在輸入框，浮動列收掉
+    // 查韻：搜尋框是「的光」（兩個字一起查＝查整個詞的韻，出現詞卡區）；焦點與選取都還在輸入框，浮動列收掉
     await page.locator(BAR + ' button').first().click();
     await expect(page.locator('#searchInput')).toHaveValue('的光');
-    await expect.poll(() => page.locator('.char-card').count()).toBeGreaterThan(0);
+    await expect(page.locator('#resultsContainer .ws-header, #resultsContainer .empty-state').first()).toBeVisible();
     expect(await taState(page)).toEqual({ ta: true, a: 5, b: 7 });
     await expect(page.locator(BAR)).toBeHidden();
     expect(errors).toEqual([]);
@@ -1178,8 +1178,10 @@ test('浮動列：手機長按選字，連續改選取只出現一次', async ({
     expect(r.shows.length, '只出現一次').toBe(1);
     expect(r.shows[0] - r.last, '最後一次改變之後約 400ms').toBeGreaterThan(300);
     expect(r.shows[0] - r.last).toBeLessThan(900);
+    // 觸控：系統的拷貝／貼上選單貼在選取旁邊，選字列要躲開——選取在上半貼底、在下半貼頂（0.97.03）
     const line = await lineBottom(page, 7);
-    expect((await barBox(page)).y, '在選取下方').toBeGreaterThanOrEqual(line.bottom - 0.5);
+    const bb = await barBox(page);
+    expect(bb.y > line.bottom + 40 || bb.y + bb.height < line.bottom - 80, '離開選取那一行（貼到可見範圍離選取較遠的那一邊）：' + JSON.stringify({ bb, line })).toBe(true);
     expect(errors).toEqual([]);
     await context.close();
 });

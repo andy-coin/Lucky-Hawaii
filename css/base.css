@@ -7,20 +7,21 @@
            --accent-2＝注音韻母標記；--accent-3＝標籤（常用／冷僻、hashtag）；--accent-4＝AI 區。
            客製顏色（js/theme.js，只在「自訂」主題）覆寫四個：--bg-gradient-1/2、--container-bg、--text-primary、--highlight-border */
         :root {
-            --bg-gradient-1: #e7e2d8;
-            --bg-gradient-2: #e7e2d8;
-            --container-bg: #f6f3ec;
-            --text-primary: #1f1d1a;
-            --text-secondary: #5c574f;
-            --border: #ddd6c9;
-            --card-bg: #fcfaf6;
-            --highlight-border: #c4432a;
-            --shadow: rgba(0, 0, 0, 0.08);
-            --header-gradient-1: #f6f3ec;
-            --header-gradient-2: #f6f3ec;
-            --accent-2: #2a6f8f;
-            --accent-3: #8a5a14;
-            --accent-4: #4f6b2a;
+            /* 「自訂」主題的起始色：冷調鼠尾草紙＋覆盆子紅（和 Moon 的奶油金明顯分開；Andy 2026-11-14） */
+            --bg-gradient-1: #d9e3de;
+            --bg-gradient-2: #d9e3de;
+            --container-bg: #eef3f0;
+            --text-primary: #1a2722;
+            --text-secondary: #4d5f58;
+            --border: #c9d8d0;
+            --card-bg: #f8fbf9;
+            --highlight-border: #b0335f;
+            --shadow: rgba(10, 40, 30, 0.08);
+            --header-gradient-1: #eef3f0;
+            --header-gradient-2: #eef3f0;
+            --accent-2: #24658a;
+            --accent-3: #85520f;
+            --accent-4: #2e6a4b;
             /* 搜尋結果裡的注音高亮（第 1 個是韻母，最常見） */
             --hl-1: var(--accent-2);
             --hl-2: var(--accent-4);
@@ -878,8 +879,8 @@
             animation: lhPulse 1.6s ease-in-out infinite;
         }
         @keyframes lhPulse {
-            0%, 100% { opacity: 0.55; }
-            50% { opacity: 1; }
+            0%, 100% { opacity: var(--pulse-lo, 0.55); }
+            50% { opacity: var(--pulse-hi, 1); }
         }
         
         .results-header {
@@ -1193,3 +1194,6 @@
 html .song-toggle { background: #4fd1c5; border-color: #4fd1c5; color: var(--song-btn-ink); font-weight: 700; }
 html .song-toggle[aria-expanded="true"] { box-shadow: inset 0 0 0 2px var(--card-bg); }
 @media (hover: hover) and (pointer: fine) { html .song-toggle:hover { background: #4fd1c5; filter: brightness(1.08); } }
+/* 頁尾的 (i)「關於」鈕：和「歌曲」鈕同一個土耳其綠（所有主題） */
+html .about-btn, html .about-btn-mobile { background: #4fd1c5; border-color: #4fd1c5; color: var(--song-btn-ink); }
+@media (hover: hover) and (pointer: fine) { html .about-btn:hover, html .about-btn-mobile:hover { border-color: #4fd1c5; color: var(--song-btn-ink); filter: brightness(1.08); } }

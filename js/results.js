@@ -183,6 +183,8 @@
                 _renderIdle(container);
                 return;
             }
+            // 「安打」這種沒有空白的多字輸入＝查整個詞的韻（詞卡，js/word-space.js）；「安 打」才走下面的單字韻
+            if (typeof lhWsRender === 'function' && lhWsRender(currentInput)) { _lastRenderKey = ''; _flushRender = null; _setRenderLive(''); return; }
 
             results.forEach(r => {
                 // 搜尋階段已把 tone/tier 帶上來（含同 base 不同 tone 的破音字），這裡只補搜尋未填入的舊路徑

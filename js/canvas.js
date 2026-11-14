@@ -374,13 +374,12 @@ _lhCvBox().addEventListener('wheel', e => {
     lhCanvasZoom(_lhCvZ() * Math.exp(-e.deltaY * 0.01), e.clientX - r.left - _lhCvBox().clientLeft, e.clientY - r.top - _lhCvBox().clientTop);
 }, { passive: false });
 
-// 滑鼠平移：拖畫布空白處（左鍵或按住右鍵），或按住滑鼠中鍵拖任何地方；觸控的單指、雙指手勢在下面自己處理
-// 空白處沒有右鍵選單，所以右鍵拖曳不會被選單打斷（Mac 的 contextmenu 在按下時就送出，要擋掉）
-_lhCvBox().addEventListener('contextmenu', e => { if (_lhCvFree() && e.target === _lhCvBox()) e.preventDefault(); });
+// 滑鼠平移：左鍵拖畫布空白處，或按住滑鼠中鍵拖任何地方；觸控的單指、雙指手勢在下面自己處理
+// 右鍵不再平移（會叫出瀏覽器自己的右鍵選單，Andy 2026-11-14）
 let _lhPan = null;
 _lhCvBox().addEventListener('pointerdown', e => {
     if (_lhPan || _lhPinch || _lhCv || e.pointerType !== 'mouse' || !_lhCvFree()) return;
-    if (!(e.button === 1 || ((e.button === 0 || e.button === 2) && e.target === _lhCvBox()))) return;   // 中鍵拖哪裡都行；左鍵、右鍵（按住右鍵＝手掌工具）拖空白處
+    if (!(e.button === 1 || (e.button === 0 && e.target === _lhCvBox()))) return;   // 中鍵拖哪裡都行；左鍵拖空白處
     e.preventDefault();
     const box = _lhCvBox();
     _lhPan = { id: e.pointerId, x: e.clientX, y: e.clientY, sl: box.scrollLeft, st: box.scrollTop };

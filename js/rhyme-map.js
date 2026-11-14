@@ -1285,7 +1285,11 @@ function _lhMapBarPlace() {
         if (pos.top + pos.height >= r.top && pos.top <= r.bottom) {
             const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
             x = pos.left;
-            y = pos.top + pos.height + (matchMedia('(pointer: coarse)').matches ? 1.75 : 0.25) * rem;
+            if (matchMedia('(pointer: coarse)').matches) {
+                // 觸控：系統自己的「拷貝／貼上」選單貼在選取旁邊，選字列不能跟它搶位置 → 貼到可見範圍離選取比較遠的那一邊（上半＝貼底、下半＝貼頂）
+                const top = vv ? vv.offsetTop : 0, h = vv ? vv.height : innerHeight;
+                y = (p0.top + pos.top + pos.height) / 2 < top + h / 2 ? top + h : top + 0.5 * rem;
+            } else y = pos.top + pos.height + 0.25 * rem;
         }
     }
     lhPlaceMenu(_lhMapBar, x, y);

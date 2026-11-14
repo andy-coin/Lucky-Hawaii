@@ -168,16 +168,22 @@ test('自由畫布：單指拖空白處＝平移，雙指＝縮放，放開後�
     await context.close();
 });
 
-test('自由畫布：按住右鍵拖空白處＝手掌工具，不跳選單', async ({ browser }) => {
+test('自由畫布：左鍵拖空白處＝手掌工具；右鍵不平移（留給瀏覽器選單）', async ({ browser }) => {
     const songs = [song([typed('sa', 'verse', '一二三', { pos: { x: 40, y: 40, w: 300, h: 200 } }), typed('sb', 'verse', 'b', { pos: { x: 1600, y: 1200, w: 300, h: 200 } })], { canvas: { mode: 'free' } })];
     const { context, page, errors } = await boot(browser, songs);
     const r = await page.locator('#lyricsSections').boundingBox();
     const x = r.x + r.width - 40, y = r.y + r.height - 40;
+    const pos = () => page.evaluate(() => { const b = document.getElementById('lyricsSections'); return [b.scrollLeft, b.scrollTop]; });
     await page.mouse.move(x, y);
     await page.mouse.down({ button: 'right' });
     await page.mouse.move(x - 120, y - 90, { steps: 6 });
     await page.mouse.up({ button: 'right' });
-    const [sl, st] = await page.evaluate(() => { const b = document.getElementById('lyricsSections'); return [b.scrollLeft, b.scrollTop]; });
+    expect(await pos()).toEqual([0, 0]);
+    await page.mouse.move(x, y);
+    await page.mouse.down();
+    await page.mouse.move(x - 120, y - 90, { steps: 6 });
+    await page.mouse.up();
+    const [sl, st] = await pos();
     expect(sl).toBeGreaterThan(80); expect(st).toBeGreaterThan(60);
     await expect(page.locator('#sectionMenu')).not.toBeVisible();
     expect(errors).toEqual([]);

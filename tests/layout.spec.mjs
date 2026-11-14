@@ -566,7 +566,7 @@ test('設定：文字色與底色相同時仍按得到重設顏色', async ({ br
         await expectFullyInViewport(page, reset);
         await reset.click();
         expect(await page.evaluate(() => ({ stored: lhGet('textColor'), bg: lhGet('containerBg'), tp: getComputedStyle(document.documentElement).getPropertyValue('--text-primary').trim() })))
-            .toEqual({ stored: null, bg: null, tp: '#1f1d1a' });
+            .toEqual({ stored: null, bg: null, tp: '#1a2722' });   // 自訂主題的起始文字色（0.97.03 改成鼠尾草紙那組）
     } finally { await context.close(); }
 });
 

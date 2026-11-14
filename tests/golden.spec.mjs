@@ -42,8 +42,9 @@ const CASES = [
     { id: 'han-yu', input: '鬱', nonEmpty: true },
     { id: 'han-o', input: '喔', nonEmpty: true },
     // 詞
-    { id: 'word-anda', input: '安打', nonEmpty: true },
-    { id: 'word-aiqing', input: '愛情', nonEmpty: true },
+    // 0.97.03 起「安打」（沒有空白）改查整個詞的韻（詞卡，tests/word-space.spec.mjs）；「安 打」才是兩個字各自的單字韻
+    { id: 'word-anda', input: '安 打', nonEmpty: true },
+    { id: 'word-aiqing', input: '愛 情', nonEmpty: true },
     // 多詞
     { id: 'multi-py', input: 'an ing' },
     { id: 'multi-zy', input: 'ㄢ ㄧㄥ' },

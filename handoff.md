@@ -1,3 +1,17 @@
+## 2026-11-14 v0.97.03（已 push，待 Andy 實機驗收）
+- 0 「自訂」主題起始色改冷調鼠尾草紙＋覆盆子紅（css/base.css :root），和 Moon 分開。
+- 1 觸控選字列躲開系統拷貝／貼上選單：選取在上半貼可見範圍底部、下半貼頂（js/rhyme-map.js _lhMapBarPlace）。
+- 2 導引線閃爍亮 40%／暗 15%：lhPulse 改吃 --pulse-hi／--pulse-lo（預設不變），.cv-guide、#lhRowGuide.snap 設 0.4／0.15。
+- 3 頁尾 (i)（.about-btn、手機 .about-btn-mobile）土耳其綠（css/base.css 檔尾）。
+- 4 自由畫布右鍵不再平移（js/canvas.js），左鍵拖空白處／中鍵照舊。
+- 5 詞卡＋詞宇宙（新檔 js/word-space.js，載在 results.js 之前；CSS 在 panels.css 檔尾）：
+  - 「安打」（2–6 字、無空白、可含 *）＝查整個詞的韻；「安 打」照舊。displayResults 一開始問 lhWsRender，所有重畫路徑都會走到。
+  - lhWsMatch：每個字都押（lhRhymeMatch，strict＝排除借韻），可加同聲調；常用（p 大）在前；詞卡每頁 240 張、捲到底再補。點詞卡＝保留；可拖到歌詞（.char-card data-char）。
+  - 「✦ 展開詞宇宙」：body.ws-open 讓三塊面板 translate 往左／上／右收走（ws-anim 期間才有 transition）；bgfx 加深 ×2.4（lhBgFxBoost）。最多 800 詞，依聲調組合分群上色＋圖例，開啟時自動縮放（最小 55%）。
+  - 互動：滑過＝定格＋光暈＋淡淡「保留」「隱藏」；單擊＝釘住；拖曳甩動（摩擦減速）；空白處拖＝平移；滾輪／雙指／± 縮放；Esc／收合。隱藏的詞存在本次工作階段，清單也拿掉。
+- 測試：新增 tests/word-space.spec.mjs；golden word-anda／word-aiqing 改輸入「安 打」「愛 情」（結果相同）；選字列、右鍵平移、重設顏色、split 順序、transition 上限（WS_EXTRA 5）跟著新規格改。全套只剩舊的 rhyme-map-ui:280。
+- 版本 0.97.03（?v=、關於、README、LH_APP_VERSION、.claude/CLAUDE.md）。
+
 ## 2026-11-14 回報 10 點（?v=0.97.1，已 push，待 Andy 實機驗收）
 - 1 匯出 icon 改往上箭頭（index.html #exportToggle）。
 - 2 刪除段落確認窗：只留標題、按鈕「刪除｜取消」（js/sections.js lhSecRemoveAsk；js/ui-common.js lhAsk 沒內文就藏 #lhAskBody）。

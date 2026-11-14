@@ -393,7 +393,7 @@ test('檢查：新程式沒有拼 HTML', () => {
 
 // ==================== 沒有新增動畫 ====================
 test('檢查：沒有新增動畫', () => {
-    const START = '29e7c27';   // 2026-11-14 重設起點：第 9 階段後經核准的功能（提示淡入淡出、滑過才顯示韻腳、吸附版面）已加了 6 個 transition，之後新增的才擋
+    const START = '104f147';   // 2026-11-14 再重設起點（之前經核准的都算在內）；詞宇宙另外加的在下面 WS_EXTRA
     const strip = t => t.replace(/\/\*[\s\S]*?\*\//g, '');
     const keyframes = t => (strip(t).match(/@keyframes\b/g) || []).length;
     const transitions = t => (strip(t).match(/(^|[;{\s])transition(?:-property|-duration|-delay|-timing-function)?\s*:/g) || []).length;
@@ -404,7 +404,8 @@ test('檢查：沒有新增動畫', () => {
     expect(sum(then, keyframes), '前置：起點讀得到 @keyframes').toBeGreaterThan(0);
     expect(sum(then, transitions), '前置：起點讀得到 transition').toBeGreaterThan(10);
     expect(sum(now, keyframes), '@keyframes 沒有變多').toBeLessThanOrEqual(sum(then, keyframes));
-    expect(sum(now, transitions), 'transition 宣告沒有變多').toBeLessThanOrEqual(sum(then, transitions));
+    const WS_EXTRA = 5;   // 詞宇宙（css/panels.css 檔尾）經 Andy 指定新增的 5 個 transition
+    expect(sum(now, transitions), 'transition 宣告沒有變多').toBeLessThanOrEqual(sum(then, transitions) + WS_EXTRA);
     // 自檢：計數器抓得到
     expect(transitions('a { transition: all 0.2s; } /* transition: x */ b { transition-duration: 1s; }')).toBe(2);
 });
