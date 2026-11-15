@@ -776,7 +776,7 @@ function _lhSpShow(cfg) {
     _lhSp.act = null;
     _lhSpTheme();
     _lhSp.words = words.map(it => Object.assign(it, {
-        w: it.e.w, p: it.e.p || 0, rgb: _lhSpColor(it.color), phon: _lhWsPhon(it.e), spr: null, nspr: null, tw: _lhSpWidth(it.e.w, it.s) - 22, tH: 22 * it.s,
+        w: it.e.w, p: it.e.p || 0, rgb: _lhSpColor(it.color), phon: _lhWsPhon(it.e), spr: null, tw: _lhSpWidth(it.e.w, it.s) - 22, tH: 22 * it.s,
         cat: cfg.catOf ? cfg.catOf(it.e) : null, off: false, vis: 1, wob: Math.random() * 100, hot: false, pinned: false, kept: savedWords.includes(it.e.w), dim: false, free: false, fx: 0, fy: 0, fvx: 0, fvy: 0, sx: 0, sy: 0, born: 0, mag: 1, kb: 1, twk: 0 }));
     for (const cl of clusters) { const w = _lhSp.words.find(x => x.cl === cl); cl.cat = w ? w.cat : null; }
     if (cfg.rel) _lhRelApply(true);   // 篩選（字首／字尾、字數）換批也照樣套用
@@ -797,7 +797,7 @@ function _lhSpShow(cfg) {
     _lhSp.nav = null;
     _lhSp.z = _lhSp.z100 = _lhSpFitZoom(_lhSp.words);
     _lhSp.dpr = Math.min(window.devicePixelRatio || 1, 2);
-    _lhSp.S = _lhSpBucket(_lhSp.z * _lhSp.dpr);
+    _lhSp.S = _lhSp.S0 = Math.min(LH_SP_SMAX, _lhSpBucket(_lhSp.z * _lhSp.dpr));
     _lhSp.dirty = true;
     if (reopen) {   // 已經開著（換字首／字尾、換一批）：直接換內容、重新浮現
         el.hidden = false;
@@ -985,10 +985,10 @@ function _lhSpPos(w) {
 // img＝星系一張圖（每個星系先畫成一張圖，每格只貼約 50 張）；clBreath＝整團呼吸；whole＝整片星雲一起呼吸；twinkle＝隨機星星閃爍
 const LH_SP_LV = {
     0: { fps: 0, orbit: 0, drag: 'stay', bold: 1 },   // 系統要求減少動態：完全靜止，有變化才畫
-    1: { fps: 24, orbit: 0, drag: 'stay', bold: 1, keptBreathe: 0.06, whole: 1 },   // 不轉，只有整片呼吸
+    1: { fps: 24, idle: 1, orbit: 0, drag: 'stay', bold: 1, keptBreathe: 0.06, cssBreath: 1 },   // 不轉；0.98.15.5：沒變化就不畫（idle），整片呼吸改由 CSS 縮放畫布（顯示卡做、不重畫）
     2: { fps: 24, orbit: 0, drag: 'stay', dock: 1, keptBreathe: 0.06, img: 1, clBreath: 1 },
     3: { fps: 30, orbit: 0.6, drag: 'fling', dock: 1, comet: 1, tail: 1, cometGlow: 1, keptGlow: 1, whole: 1 },   // 0.98.09：3、4 級加整片呼吸
-    4: { fps: 40, orbit: 1, drag: 'fling', dock: 1, comet: 1, tail: 1, cometGlow: 1, jitter: 1, wobble: 1, drift: 1, push: 1, twinkle: 1, starGlow: 1, whole: 1, lineGlow: 1, gather: 1 },   // 0.98.09：保留的詞只有外框（不閃、不加柔光）
+    4: { fps: 30, orbit: 1, drag: 'fling', dock: 1, comet: 1, tail: 1, cometGlow: 1, jitter: 1, wobble: 1, drift: 1, push: 1, twinkle: 1, starGlow: 1, whole: 1, lineGlow: 1, gather: 1 },   // 0.98.09：保留的詞只有外框（不閃、不加柔光）
     5: { fps: 60, orbit: 1, drag: 'fling', dock: 1, comet: 1, tail: 1, cometGlow: 1, keptGlow: 1, keptBreathe: 0.025, jitter: 1, wobble: 1, drift: 1, push: 1, twinkle: 1, starGlow: 1, clBreath: 1, lineGlow: 1, lineFlash: 1, zoomTrail: 1, gather: 1 },   // 0.98.09：保留的詞不閃（閃爍留給隨機星星），只輕輕呼吸
 };
 const _lhSpCfg = () => LH_SP_LV[_lhSpReduce.matches ? 0 : (typeof lhFxLevel === 'function' ? lhFxLevel() : 5)] || LH_SP_LV[5];
@@ -1029,30 +1029,37 @@ function _lhSpReveal(t) {
 }
 
 // 縮放停下來之後：照新縮放在背景把整批小圖畫好（每幀 30 張），全部好了一次換上。回傳還在畫
+// 縮放後換小圖的解析度（0.98.15.5 記憶體修正）：以前放大時把「每一個」詞（含畫面外）重畫成高解析小圖，
+// 放到最大時「不」1466 詞要 700 MB，手機 Safari 超過畫布上限就整頁重載。現在：
+// 1. 只有畫面裡＋外圍 1/4 的詞用目前倍率；畫面外的維持打開時的倍率（_lhSp.S0，很小）
+// 2. 倍率上限：觸控裝置 4、滑鼠 6（實際 z × dpr；再大就拿現有小圖放大，略糊但不爆記憶體）
+// 3. 一個詞一個詞直接換（不再兩套小圖同時存在）；手還在拖、捏時先不畫，每格最多花 4ms，平移時陸續補
+const LH_SP_SMAX = matchMedia('(pointer: coarse)').matches ? 4 : 6;
 function _lhSpRescale(t) {
-    const S = _lhSpBucket(_lhSp.z * (_lhSp.dpr || 1));
-    if (S === _lhSp.S) return false;
-    // 手還在拖、平移、捏：先不畫（不跟手搶時間）；每幀最多花 4ms 畫小圖，畫不完下一幀接著畫
-    if (t - (_lhSp.zt || 0) < 160 || _lhSp.pts.size) return true;
-    const t1 = performance.now();
-    let done = true;
+    const Sv = Math.min(LH_SP_SMAX, _lhSpBucket(_lhSp.z * (_lhSp.dpr || 1))), Sb = Math.min(Sv, _lhSp.S0 || Sv);
+    if (t - (_lhSp.zt || 0) < 160 || _lhSp.pts.size) return Sv !== _lhSp.S;
+    _lhSp.S = Sv;
+    const W = _lhSp.W, H = _lhSp.H, mx = W * 0.25, my = H * 0.25, t1 = performance.now();
+    let left = false;
     for (const w of _lhSp.words) {
-        if (w.nspr && w.nspr.S === S) continue;
-        if (performance.now() - t1 > 4) { done = false; break; }
-        w.nspr = _lhSpSprite(w, S);
+        if (!w.spr) continue;   // 還沒浮現的詞由 _lhSpReveal 負責
+        const p = _lhSpScr(w.px || 0, w.py || 0), want = p.x > -mx && p.x < W + mx && p.y > -my && p.y < H + my ? Sv : Sb;
+        if (w.spr.S === want) continue;
+        if (performance.now() - t1 > 4) { left = true; break; }
+        w.spr = _lhSpSprite(w, want);
+        _lhSp.rsDirty = _lhSp.dirty = true;
     }
-    if (!done) return true;
-    for (const w of _lhSp.words) { w.spr = w.nspr; w.nspr = null; }
-    _lhSp.S = S;
-    _lhSp.dirty = true;
-    return false;
+    // 這一輪都換完才讓星系圖（第 2 級）重畫一次，不會每格重畫、也不會停在一半舊一半新
+    if (!left && _lhSp.rsDirty) { _lhSp.rsDirty = false; for (const cl of _lhSp.groups) cl.ver++; }
+    return left;
 }
 
 function _lhSpFrame(t) {
     _lhSp.raf = requestAnimationFrame(_lhSpFrame);
     const L = _lhSpCfg();
     // 省電：照等級限制每秒畫幾次；第 1、2 級沒變化就完全不畫
-    if (L.fps ? t - (_lhSp.lastDraw || 0) < 1000 / L.fps - 4 : !_lhSp.dirty && !_lhSp.busy) return;
+    if (_lhSp.el && _lhSp.el.classList.contains('ws-breathe') !== !!L.cssBreath) _lhSp.el.classList.toggle('ws-breathe', !!L.cssBreath);
+    if (L.fps ? t - (_lhSp.lastDraw || 0) < 1000 / L.fps - 4 || (L.idle && !_lhSp.dirty && !_lhSp.busy) : !_lhSp.dirty && !_lhSp.busy) return;
     _lhSp.lastDraw = t;
     _lhSp.dirty = false;
     const dt = _lhSp.last ? Math.min((t - _lhSp.last) / 1000, 0.05) : 0;
@@ -1165,6 +1172,7 @@ function _lhSpFrame(t) {
         w.alpha = (L.gather && w.star && w.born ? Math.min(1, (t - w.born) / 1400) : Math.min(1, k * 1.6)) * vv;   // 凝聚模式的恆星 1.4 秒才完全浮現
         // 保留的詞呼吸（第 1、2 級）：3 秒一輪輕輕放大縮小
         w.kb = L.keptBreathe && w.kept && !w.dim ? 1 + L.keptBreathe * Math.sin(t / 3000 * TAU + w.wob) : 1;
+        if (w.kb !== 1) busy = true;   // 保留的詞在呼吸：第 1 級（沒變化就不畫）也要繼續畫
         // 凝聚模式的恆星（0.98.14.13 Andy）：除了淡入，也從小變大（0.2→1 倍），比淡入晚 0.35 秒開始、1.4 秒長完；光暈跟著 kb 一起長
         if (L.gather && w.star && w.born) { const kg = Math.max(0, Math.min(1, (t - w.born - 350) / 1400)); if (kg < 1) { w.kb *= 0.2 + 0.8 * (1 - Math.pow(1 - kg, 3)); busy = true; } }
         // 隨機星星閃爍（第 4、5 級）：每秒大約 5 顆；越常用越容易被選到，但最多只多 15%；亮起來時跟著放大一點點
@@ -1271,7 +1279,7 @@ function _lhSpDraw(t, L) {
     }
     // 星系一張圖：有詞正在動（停住、放大、拖著、還在浮現）的那一團，這一格改回一個個詞畫
     const asImg = new Set();
-    if (L.img) {
+    if (L.img && _lhSp.S <= 2) {   // 0.98.15.5：放大後（倍率 > 2）第 2 級改回一詞一圖，星系圖不畫成超大張
         const live = new Set(), drag = _lhSp.drag && _lhSp.drag.w;
         for (const w of _lhSp.words) if (w.cl && (!w.born || t - w.born < 900 || w.hot || w.free || w === drag || w.mag > 1.01 || w.off || w.vis < 1)) live.add(w.cl);
         for (const cl of _lhSp.groups) {

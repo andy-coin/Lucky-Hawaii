@@ -2928,6 +2928,9 @@ body.ws-open .ws-space { opacity: 1; }
 /* 0.98.05 起星雲畫在一張 canvas 上（js/word-space.js _lhSpDraw），詞不再是一個個 DOM 節點；
    只有游標停住／釘住的那個詞，右上角浮出真的隱藏鈕（.ws-acts，跟著詞移動） */
 .ws-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+/* 第 1 級整片呼吸（0.98.15.5）：交給顯示卡縮放整張畫布，6 秒一輪 ±1.2%，畫布本身不用重畫 */
+@keyframes wsBreath { 0%, 100% { transform: scale(1); } 25% { transform: scale(1.012); } 75% { transform: scale(0.988); } }
+@media (prefers-reduced-motion: no-preference) { .ws-space.ws-breathe .ws-canvas { animation: wsBreath 6s ease-in-out infinite; } }
 .ws-space.on-word { cursor: pointer; }
 .ws-acts { position: absolute; left: 0; top: 0; z-index: 4; pointer-events: none; }
 .ws-acts[hidden] { display: none; }
