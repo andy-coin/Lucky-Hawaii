@@ -278,67 +278,24 @@ test('generatedWordOk：只收字典內的字、押字尾規則與選字模式',
     expect(ok('開心'), '清空選字後回到一般判定（押字首下開心不過）').toBe(false);
 });
 
-// ==================== 造詞一輪：一次按鈕只問一次，驗過才顯示 ====================
-// 搜 心（stub 詞庫 12 個候選 < 24）→ 按生成 → 回傳 prompts / 卡片
-async function genRound(browser, reply) {
-    const { context, page, errors, warnings, offOrigin } = await bootPage(browser, { wordlist: 'stub' });
-    const prompts = [];
-    await page.route('**/ai', route => {
-        prompts.push(route.request().postDataJSON().prompt);
-        return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, text: reply, model: MODEL, tried: [] }) });
-    });
-    await page.fill('#searchInput', '心');
-    await settle(page);
-    await clickGenerate(page);
-    await expect.poll(() => prompts.length).toBe(1);
-    // 按鈕解鎖＋載入列收起＝這次按鈕做完了（finally 才解鎖，之後 DOM 不會再變）
-    await expect(page.locator('#generateBtn')).toBeEnabled();
-    await expect(page.locator('#aiLoading')).toBeHidden();
-    await expect(page.locator('#aiWordsContainer')).not.toContainText('AI 生成補充詞');
-    const box = page.locator('#aiWordsContainer');
-    return {
-        context, page, errors, warnings, offOrigin, prompts,
-        aiCards: await box.locator('.ai-word-card:has(.ai-badge)').evaluateAll(els => els.map(e => e.firstChild.textContent)),
-        total: await box.locator('.ai-word-card').count(),
-        text: await box.textContent(),
-    };
-}
-
-test('造詞一輪：候選不足只造一次、不合格丟掉、不足不追加', async ({ browser }) => {
-    // A：混合回覆，只剩 3 個合格（朋友不押韻、一心已列出、<i>心 夾 HTML、開心重複）
-    let r = await genRound(browser, '開心、傷心、真心、朋友、天空、一心、<i>心、開心');
+// ==================== 候選不足：全數列出，不請 AI 造詞（0.98.07 造詞暫停）====================
+test('候選不足：stub 只有 12 個候選 → 全數列出、不打 /ai', async ({ browser }) => {
+    const { context, page, errors, offOrigin } = await bootPage(browser, { wordlist: 'stub' });
     try {
-        expect(r.prompts.length, '之後沒有第二次 /ai').toBe(1);
-        expect(r.prompts[0]).toContain('直接生成');
-        for (const t of ['末字押「心」的韻腳', '生成28個', '只用台灣日常會用的繁體中文詞語']) expect(r.prompts[0]).toContain(t);
-        expect(r.aiCards).toEqual(['開心', '傷心', '真心']);
-        expect(r.total).toBe(15);
-        expect(await r.page.locator('#aiWordsContainer i').count(), '沒有被注入的元素').toBe(0);
-        expect(r.text).not.toContain('<');
-        expect(r.warnings.filter(w => w.startsWith('[好韻器] AI 造詞')).length).toBe(1);
-        expect(r.errors).toEqual([]);
-        expect(r.offOrigin).toEqual([]);
-    } finally { await r.context.close(); }
-
-    // B：14 個合格，只留前 12（24 − 12）
-    const fourteen = ['開心', '傷心', '真心', '信心', '愛心', '關心', '放心', '小心', '用心', '耐心', '擔心', '決心', '細心', '安心'];
-    r = await genRound(browser, fourteen.join('、'));
-    try {
-        expect(r.prompts.length).toBe(1);
-        expect(r.aiCards).toEqual(fourteen.slice(0, 12));
-        expect(r.total).toBe(24);
-        expect(r.errors).toEqual([]);
-    } finally { await r.context.close(); }
-
-    // C：沒有合格詞 → 唉，沒有 AI 卡
-    r = await genRound(browser, '朋友、天空、開門');
-    try {
-        expect(r.prompts.length).toBe(1);
-        expect(r.aiCards).toEqual([]);
-        expect(r.total).toBe(12);
-        expect(r.text).toContain('唉...ai也想不到更多符合的詞彙，你自己想吧...');
-        expect(r.errors).toEqual([]);
-    } finally { await r.context.close(); }
+        let calls = 0;
+        await page.route('**/ai', route => { calls++; return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, text: '開心、傷心', model: MODEL, tried: [] }) }); });
+        await page.fill('#searchInput', '心');
+        await settle(page);
+        await clickGenerate(page);
+        await expect(page.locator('#generateBtn')).toBeEnabled();
+        await expect(page.locator('#aiLoading')).toBeHidden();
+        await expect(page.locator('#aiWordsContainer .ai-word-card')).toHaveCount(12);
+        await expect(page.locator('#aiWordsContainer .ai-word-card:has(.ai-badge)')).toHaveCount(0);
+        await expect(page.locator('#aiWordsContainer')).toContainText('剩下 12 個詞，已全數列出');
+        expect(calls).toBe(0);
+        expect(errors).toEqual([]);
+        expect(offOrigin).toEqual([]);
+    } finally { await context.close(); }
 });
 
 // ==================== buildGenPrompt：提示與判定說同一件事 ====================
@@ -410,13 +367,12 @@ async function pressOnStub(browser, ndjson) {
     await page.fill('#searchInput', '心');
     await settle(page);
     await clickGenerate(page);
-    await expect.poll(() => prompts.length).toBe(1);
     await expect(page.locator('#generateBtn')).toBeEnabled();
     await expect(page.locator('#aiLoading')).toBeHidden();
     return { context, page, errors, offOrigin, prompts, cards: await page.locator('#aiWordsContainer .ai-word-card').count() };
 }
 
-test('邊界：候選剛好 24 不造詞、23 才造詞', async ({ browser }) => {
+test('邊界：候選剛好 24 請 AI 挑、23 直接全列出', async ({ browser }) => {
     let r = await pressOnStub(browser, xinWords(24));
     try {
         expect(r.cards).toBe(24);
@@ -429,9 +385,8 @@ test('邊界：候選剛好 24 不造詞、23 才造詞', async ({ browser }) =>
 
     r = await pressOnStub(browser, xinWords(23));
     try {
-        expect(r.cards, '23 個候選全列出，造詞回空').toBe(23);
-        expect(r.prompts.length, '只造一次').toBe(1);
-        expect(r.prompts[0]).toContain('直接生成');
+        expect(r.cards, '23 個候選全列出').toBe(23);
+        expect(r.prompts.length, '不足就不打 /ai（造詞暫停）').toBe(0);
         expect(r.errors).toEqual([]);
         expect(r.offOrigin).toEqual([]);
     } finally { await r.context.close(); }
@@ -447,7 +402,7 @@ test('連按：候選池再大，送給 AI 的清單也有上限', async ({ brow
             return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, text: '', model: MODEL, tried: [] }) });
         });
         const poolMax = await page.evaluate(() => AI_POOL_MAX);
-        expect(poolMax).toBe(120);   // 0.98.06 預設只送最常用的 120 個（偏好設定 → AI 用量可調）
+        expect(poolMax).toBe(300);   // 0.98.07 預設只送最常用的 300 個（偏好設定 → AI 用量可調）
         await page.fill('#searchInput', '安');
         await settle(page);
         const seen = new Set();
@@ -492,15 +447,15 @@ test('用完與重置：池子用完顯示已推薦所有…，重置後又能�
         await page.fill('#searchInput', '心');
         await settle(page);
         await press();
-        await expect(cards).toHaveCount(15);   // 12 候選 + 3 AI
+        await expect(cards).toHaveCount(12);   // 12 候選全列出（不足 24，不打 /ai）
         await press();
         await expect(page.locator('#aiWordsContainer .ai-exhausted')).toContainText('已推薦所有符合的詞彙');
         await expect(page.locator('.reset-pool-btn')).toBeVisible();
         await expect(cards).toHaveCount(0);
         await page.evaluate(() => document.querySelector('.reset-pool-btn').click());
         await press();
-        await expect(cards).toHaveCount(15);
-        expect(aiCalls, '三次按鈕各一次 /ai').toBe(3);
+        await expect(cards).toHaveCount(12);
+        expect(aiCalls, '候選不足都不打 /ai').toBe(0);
         expect(errors).toEqual([]);
         expect(offOrigin).toEqual([]);
     } finally { await context.close(); }
@@ -564,16 +519,6 @@ test('舊回覆作廢：挑詞（候選 ≥ 24）等 AI 期間換搜尋／篩選
         wordlist: 'real', first: '安',
         replyOf: p => /候選詞：([^\n]*)/.exec(p)[1].split('、').slice(0, 3).join('、'),
         actions: staleActions, emptyPanel: true,
-    });
-});
-
-test('舊回覆作廢：造詞（候選 < 24）等 AI 期間換搜尋／篩選／字數／重置', async ({ browser }) => {
-    test.setTimeout(90_000);
-    // 回覆給的詞對「心」都合格，若沒作廢就會被塞進畫面與池子；造詞路徑的「換搜尋」要換成別的字
-    await staleCase(browser, {
-        wordlist: 'stub', first: '心',
-        replyOf: () => '開心、傷心、真心',
-        actions: { ...staleActions, 換搜尋: async page => { await page.fill('#searchInput', '安'); await settle(page); } },
     });
 });
 

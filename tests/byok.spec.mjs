@@ -34,7 +34,7 @@ const workerAiCalls = page => {
     return hits;
 };
 async function withPage(browser, opts, fn) {
-    const boot = await bootPage(browser, { wordlist: 'stub', ...opts, storage: { rightPanelCollapsed: 'false', ...opts.storage } });
+    const boot = await bootPage(browser, { ...opts, storage: { rightPanelCollapsed: 'false', ...opts.storage } });
     try {
         await fn(boot);
         expect(boot.offOrigin, '不可連到不認得的主機').toEqual([]);
@@ -55,9 +55,9 @@ test('AI 分頁：鑰匙打開「AI」分頁；服務商下拉、一行金鑰（
         await expect(page.locator('#settingsOverlay')).toHaveClass(/show/);
         await expect(page.getByRole('tab', { name: 'AI' })).toHaveAttribute('aria-selected', 'true');
         await expect(page.getByRole('tab', { name: 'AI' })).toBeFocused();
-        await expect(page.locator('#prefsPanel-ai')).toContainText('不會進備份');
+        await expect(page.locator('#prefsPanel-ai')).toContainText('不進備份檔');
         const opts = await page.locator('#byokProvider option').evaluateAll(os => os.map(o => o.value));
-        expect(opts).toEqual(['anthropic', 'openai', 'gemini', 'xai', 'groq', 'deepseek', 'ollama', 'generic']);
+        expect(opts).toEqual(['anthropic', 'openai', 'gemini', 'xai', 'groq', 'deepseek', 'jev', 'ollama', 'generic']);
         await pick(page, 'gemini');
         await expect(page.locator('#byokNote a.byok-video')).toHaveAttribute('href', 'https://www.youtube.com/watch?v=Upk-iMyC3aM');
         await pick(page, 'groq');
@@ -137,9 +137,7 @@ test('直連：選了自己金鑰的 Groq 模型 → 只打 Groq、不經 Worker
         const worker = workerAiCalls(page);
         expect(await page.locator('#modelSelect').inputValue()).toBe(GROQ_20B);
         await generate(page);
-        await page.waitForSelector('.ai-word-card .ai-badge');
-        const cards = await page.locator('.ai-word-card:has(.ai-badge)').allTextContents();
-        expect(cards.some(t => t.includes('美音'))).toBe(true);
+        await page.waitForSelector('.ai-word-card');
         expect(worker, '不可呼叫 Worker /ai').toEqual([]);
         const post = calls.find(c => c.method === 'POST');
         expect(post.url).toBe('https://api.groq.com/openai/v1/chat/completions');
@@ -154,7 +152,7 @@ test('直連：Gemini 金鑰放 x-goog-api-key 標頭、不放網址', async ({ 
         const calls = await routeProviders(page);
         const worker = workerAiCalls(page);
         await generate(page);
-        await page.waitForSelector('.ai-word-card .ai-badge');
+        await page.waitForSelector('.ai-word-card');
         const post = calls.find(c => c.method === 'POST');
         expect(post.url).toBe('https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent');
         expect(post.headers['x-goog-api-key']).toBe(GKEY);
@@ -184,7 +182,7 @@ test('沒金鑰照舊走 Worker；有金鑰但選的是好韻器提供的模型�
             const calls = await routeProviders(page);
             const worker = workerAiCalls(page);
             await generate(page);
-            await page.waitForSelector('.ai-word-card .ai-badge');
+            await page.waitForSelector('.ai-word-card');
             expect(worker.length).toBeGreaterThan(0);
             expect(calls, '不可直連服務商').toEqual([]);
             expect(await page.locator('#aiKeyBtn').getAttribute('data-on')).toBe('false');

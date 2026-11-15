@@ -24,7 +24,7 @@ let songsReady = false; // initSongs 跑完才是 true；之前 songs 是空的�
         const WORDLIST_CHUNKS = 10;
         // AI 建議目標數與送給 AI 挑選的候選上限：這裡是預設值，使用者可在偏好設定 → AI「用量」改（lh:aiTune，js/ai-generate.js lhAiTune）
         const AI_TARGET = 24;
-        const AI_POOL_MAX = 120;
+        const AI_POOL_MAX = 300;
         let suggestedPool = new Set();
         let sentCandidatesSet = new Set();
         let cumulativeCandidates = [];

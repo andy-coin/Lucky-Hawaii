@@ -248,7 +248,7 @@
             
             const header = `
                 <div class="results-header">
-                    <div class="results-count">找到 ${results.length} 個字</div>
+                    <div class="results-count">${_lhRhymeTags()}找到 ${results.length} 個字</div>
                     <div class="batch-count" id="batchCount"></div>
                     <div class="sel-board" id="selBoard" aria-live="polite"></div>
                 </div>
@@ -450,3 +450,15 @@
             _startRender(container, jobs, results.length, _renderEpoch, showPinyin, scroll);
         }
 
+
+// 「找到 N 個字」前面的韻腳提示（和 AI 建議那邊一樣）：每個搜尋的韻各用自己的標記色
+function _lhRhymeTags() {
+    const seen = new Set(), out = [];
+    for (const t of searchedTerms) {
+        const z = t.zhuyin && t.zhuyin !== '/' ? t.zhuyin : '';
+        if (!z || seen.has(z)) continue;
+        seen.add(z);
+        out.push('<span class="rc-rhyme search-highlight-' + (((t.index || 0) % 5) + 1) + '">' + String(z).replace(/[<>&"']/g, '') + '</span>');
+    }
+    return out.length ? out.join(' ') + ' ' : '';
+}

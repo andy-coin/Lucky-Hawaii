@@ -14,7 +14,7 @@ test('舊模型：舊設定的使用者按 AI 建議拿得到結果', async ({ b
     let context;
     try {
         const boot = await bootPage(browser, {
-            storage: FIXTURE, wordlist: 'stub',
+            storage: FIXTURE,
             beforeGoto: ({ context }) => bridgeWorker(context, env),
         });
         context = boot.context;
@@ -27,10 +27,7 @@ test('舊模型：舊設定的使用者按 AI 建議拿得到結果', async ({ b
         await page.fill('#searchInput', '心');
         await settle(page);
         await page.click('#generateBtn');
-        await page.waitForSelector('.ai-word-card .ai-badge');
-
-        const cards = await page.locator('.ai-word-card:has(.ai-badge)').allTextContents();
-        expect(cards.some(t => t.includes('美音'))).toBe(true);
+        await page.waitForSelector('.ai-word-card');   // 0.98.07 不再造詞：AI 只從詞庫候選裡挑
         // 瀏覽器只送 { prompt, model, temperature }；不帶供應商、金鑰、messages
         expect(bodies.length).toBeGreaterThan(0);
         expect(bodies[0]).toEqual({ prompt: expect.any(String), model: 'auto', temperature: 0.95 });
@@ -67,7 +64,7 @@ async function withPage(browser, opts, fn) {
 }
 
 test('保留：有效的手動選擇保留並送給 Worker', async ({ browser }) => {
-    await withPage(browser, { storage: { selectedModel: GPT }, wordlist: 'stub', aiReply: AI_REPLY }, async ({ page, errors }) => {
+    await withPage(browser, { storage: { selectedModel: GPT }, aiReply: AI_REPLY }, async ({ page, errors }) => {
         expect(await page.locator('#modelSelect').inputValue()).toBe(GPT);
         const bodies = [];
         page.on('request', r => { if (r.method() === 'POST' && new URL(r.url()).pathname === '/ai') bodies.push(JSON.parse(r.postData())); });
@@ -75,7 +72,7 @@ test('保留：有效的手動選擇保留並送給 Worker', async ({ browser })
         await settle(page);
         // 只存了一個鍵 → 面板是收起的，按鈕在畫面外；和 smoke 一樣直接觸發 click
         await page.evaluate(() => document.getElementById('generateBtn').click());
-        await page.waitForSelector('.ai-word-card .ai-badge');
+        await page.waitForSelector('.ai-word-card');
         expect(bodies.length).toBeGreaterThan(0);
         expect(bodies[0].model).toBe(GPT);
         expect(await page.evaluate(() => localStorage.getItem('selectedModel'))).toBe(GPT);
@@ -184,13 +181,13 @@ const aiAreaText = async (page, expected) => {
     return page.locator('#aiWordsContainer').innerText();
 };
 
-test('白話：補充詞路徑 — 每個供應商都 503 時 AI 區顯示 Worker 的白話原因', async ({ browser }) => {
+test('白話：挑詞路徑 — 每個供應商都 503 時 AI 區顯示 Worker 的白話原因', async ({ browser }) => {
     _resetState();
     const env = makeEnv({ ALLOW_LOCAL_ORIGIN: '1', ATTEMPT_TIMEOUT_MS: '5000' });
     const f = installFetch(() => new Response('UPSTREAM-SECRET', { status: 503 }));
     let context;
     try {
-        const boot = await bootPage(browser, { wordlist: 'stub', beforeGoto: ({ context }) => bridgeWorker(context, env) });
+        const boot = await bootPage(browser, { beforeGoto: ({ context }) => bridgeWorker(context, env) });
         context = boot.context;
         const { page, errors, offOrigin } = boot;
         await page.fill('#searchInput', '心');
@@ -223,7 +220,7 @@ test('白話：情境產生器 — 失敗時用提示訊息顯示 Worker 的原�
 });
 
 test('白話：網路 — /ai 連不上時顯示「連不上 AI 服務」，頁面不留轉圈', async ({ browser }) => {
-    await withPage(browser, { wordlist: 'stub' }, async ({ page, errors }) => {
+    await withPage(browser, {}, async ({ page, errors }) => {
         await page.route('**/ai', r => r.abort());              // 開頁之後才掛，/models 不受影響
         await page.fill('#searchInput', '心');
         await settle(page);
@@ -245,7 +242,7 @@ test('白話：語言 — 各種怪回應顯示的字都是白話繁中，沒有
         { name: 'Worker 的白話訊息', status: 503, body: JSON.stringify({ ok: false, code: 'ALL_BUSY', message: ALL_BUSY_MSG }), expected: ALL_BUSY_MSG },
     ];
     for (const c of cases) {
-        await withPage(browser, { wordlist: 'stub' }, async ({ page, errors }) => {
+        await withPage(browser, {}, async ({ page, errors }) => {
             await page.route('**/ai', r => r.fulfill({ status: c.status, contentType: 'application/json', body: c.body }));
             await page.fill('#searchInput', '心');
             await settle(page);

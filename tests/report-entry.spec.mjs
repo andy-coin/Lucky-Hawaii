@@ -550,12 +550,19 @@ test('回報入口：切換斷點', async ({ browser }) => {
 
 // ===== AI 詞卡回報模式（07-06，D-03） =====
 const AI_REPLY = '美音、原因、光陰';
-// 搜尋 心 → 生成（詞庫 stub 只有 12 個候選，由 mock 的 Worker 補 AI 詞）。按鈕直接觸發 click，與 smoke 一樣
+// 搜尋 心 → 生成（詞庫 stub 只有 12 個候選，全數列出）。按鈕直接觸發 click，與 smoke 一樣。
+// 0.98.07 起 AI 造詞暫停：手動補三張帶 AI 標記的詞卡（和以前造詞的樣子一樣），回報 AI 詞的流程照樣測
 async function generateAi(page) {
     await page.fill('#searchInput', '心');
     await settle(page);
     await page.evaluate(() => document.getElementById('generateBtn').click());
-    await page.waitForFunction(() => !document.getElementById('generateBtn').disabled && !document.getElementById('aiWordsContainer').textContent.includes('AI 生成補充詞'));
+    await page.waitForFunction(() => !document.getElementById('generateBtn').disabled && document.querySelector('#aiWordsContainer .ai-word-card'));
+    await page.evaluate(ws => {
+        const c = document.getElementById('aiWordsContainer'), rep = c.querySelector('.candidate-report');
+        const html = ws.map(w => aiWordCardHtml(w, true)).join('');
+        if (rep) rep.insertAdjacentHTML('beforebegin', html); else c.insertAdjacentHTML('beforeend', html);
+        ws.forEach(w => suggestedPool.add(w));
+    }, AI_REPLY.split('、'));
     await page.waitForSelector('.ai-word-card .ai-badge');
 }
 const openAiPanel = page => page.evaluate(() => { if (document.getElementById('rightPanel').classList.contains('collapsed')) toggleRightPanel(); });
@@ -568,7 +575,7 @@ test('回報入口：AI 回報模式', async ({ browser }) => {
     await openAiPanel(page);
     const row = page.locator('#aiReportRow');
     await expect(row).toBeVisible();
-    await expect(page.locator('#aiReportStart')).toHaveText('回報詞語');
+    await expect(page.locator('#aiReportStart')).toHaveText('回報');
     // 一般點擊照舊：存進保留區
     const cards = page.locator('.ai-word-card');
     const before = await savedCount(page);

@@ -61,11 +61,7 @@ test('整合：韻腳地圖一次走完', async ({ browser }) => {
     });
     // 記下所有不是靜態檔案的請求（POST 與站外）
     const posts = [];
-    const aiBodies = [];
-    page.on('request', r => {
-        if (r.method() !== 'GET') posts.push(new URL(r.url()).pathname);
-        if (r.method() === 'POST' && new URL(r.url()).pathname === '/ai') aiBodies.push(r.postData());
-    });
+    page.on('request', r => { if (r.method() !== 'GET') posts.push(new URL(r.url()).pathname); });
     await waitStill(page);
     const fGuang = await famOf(page, '光'), fDao = await famOf(page, '道');
     expect(fGuang).not.toBe(fDao);
@@ -153,7 +149,8 @@ test('整合：韻腳地圖一次走完', async ({ browser }) => {
     await pick(page, 5, 7, 0);   // 同一段範圍收起後不會再出現（10-05 刻意），所以換成「的光」
     await expect(page.locator(BAR)).toBeVisible();
     await page.locator(BAR + ' button').nth(1).click();
-    await expect.poll(() => aiBodies.length, '送出了 AI 請求（「的光」兩個字一起問；假回覆的詞不一定押兩個字，不看詞卡數）').toBeGreaterThan(0);
+    // stub 詞庫沒有押「的光」的詞，0.98.07 起不再造詞，所以不會真的送 /ai；確認 AI 建議確實被叫起來就好
+    await expect.poll(() => page.evaluate(() => window.__songAtAI !== undefined), 'AI 建議被叫起來了').toBe(true);
     expect(await page.evaluate(() => window.__selAtAI), 'AI 按下去時沒有留著被選的字').toBe('');
     expect(await page.evaluate(() => window.__songAtAI), 'AI 用的歌詞是整首（第二段的句子也在）').toContain('我們一起行');
     await expect(page.locator(BAR)).toBeHidden();
@@ -223,8 +220,8 @@ test('整合：韻腳地圖一次走完', async ({ browser }) => {
     expect(JSON.parse(backup.settings['lh:map']), '備份帶著韻腳設定').toEqual(wantMap);
     expect(backup.songs.find(s => s.id === 's1').readings, '備份帶著讀音').toEqual({ [READ_TAIL]: info.other });
 
-    // 全程只有 AI 的 POST，沒有站外請求
-    expect([...new Set(posts)]).toEqual(['/ai']);
+    // 全程最多只有 AI 的 POST（stub 詞庫候選不夠時不送），沒有站外請求
+    expect([...new Set(posts)].filter(p => p !== '/ai')).toEqual([]);
     expect(offOrigin).toEqual([]);
     expect(errors).toEqual([]);
     await context.close();

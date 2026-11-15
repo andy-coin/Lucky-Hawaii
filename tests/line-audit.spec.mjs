@@ -79,6 +79,8 @@ test('檢查：三種裝置的觸控大小（句構分析）', async ({ browser 
         const min = (await hitMin(page)) - 0.5;
         expect(sb.height, `${name} 「韻腳與句構」分頁鈕高度`).toBeGreaterThanOrEqual(min);
         expect(sb.width, `${name} 「韻腳與句構」分頁鈕寬度`).toBeGreaterThanOrEqual(min);
+        // 這裡量的是觸控大小：0.98.07 起預覽凍結在頂端會蓋住捲到上面的選項，量之前先讓它跟著捲（凍結本身另有測試）
+        await page.addStyleTag({ content: PREFS + ' .lm-preview-block { position: static !important; }' });
         const blocks = [
             ['韻腳地圖', [PREFS + ' .rm-switch', PREFS + ' .type-row[data-m]']],
             ['句構分析', [PREFS + ' .rm-sub .rm-switch', PREFS + ' .rm-switch[data-k="autoHover"]']],

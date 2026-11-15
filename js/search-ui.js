@@ -85,40 +85,20 @@
             lhPrefsSelectTab(tabs[(to + n) % n].id.slice('prefsTab-'.length), true);
         });
         // 背景動畫與特效：五個等級（js/bgfx.js lhFxLevel／lhFxSetLevel）；沒有這兩個函式就不顯示
-        const LH_FX_DESC = {
-            1: ['最順暢', '沒有背景飄字；星雲靜止不動，滑過的詞直接變粗發光，保留的詞加外框。'],
-            2: ['省電', '沒有背景飄字；星雲靜止，滑鼠靠近的詞像 Dock 一樣漸漸放大；詞拖了放手會彈回；保留的詞外框加柔光。'],
-            3: ['平衡（預設）', '背景淡淡飄字；星雲慢慢轉，可以甩、會被拉回，有流星；保留的詞閃爍。'],
-            4: ['流暢', '星雲全部效果（恆星飄移、星系互推、流星尾巴、閃光），畫面更新比全開少一點。'],
-            5: ['全開', '全部效果、每秒 60 格，最好看也最吃效能（風扇可能會轉）。'],
-        };
+        const LH_FX_NAME = ['', '簡單', '省電', '預設', '流暢', '全開'];
         function _lhPrefsBgFxSync() {
             const box = document.getElementById('prefsBgFx');
             box.hidden = typeof lhFxLevel !== 'function';
             if (box.hidden) return;
-            const lv = lhFxLevel();
-            box.querySelectorAll('[data-fx]').forEach(b => {
-                const on = +b.dataset.fx === lv;
-                b.setAttribute('aria-checked', String(on));
-                b.tabIndex = on ? 0 : -1;
-                b.setAttribute('aria-label', b.dataset.fx + '：' + LH_FX_DESC[b.dataset.fx][0]);
-            });
-            document.getElementById('prefsFxCap').textContent = lv + '／5　' + LH_FX_DESC[lv][0];
-            document.getElementById('prefsFxDesc').textContent = LH_FX_DESC[lv][1];
+            const lv = lhFxLevel(), r = document.getElementById('prefsFxRange');
+            r.value = lv;
+            r.setAttribute('aria-valuetext', LH_FX_NAME[lv]);
+            document.getElementById('prefsFxCap').textContent = LH_FX_NAME[lv];
         }
-        document.getElementById('prefsBgFx').addEventListener('click', e => {
-            const b = e.target.closest('[data-fx]');
-            if (!b || typeof lhFxSetLevel !== 'function') return;
-            lhFxSetLevel(+b.dataset.fx);
+        document.getElementById('prefsFxRange').addEventListener('input', e => {
+            if (typeof lhFxSetLevel !== 'function') return;
+            lhFxSetLevel(+e.target.value);
             _lhPrefsBgFxSync();
-        });
-        document.getElementById('prefsBgFx').addEventListener('keydown', e => {
-            const d = { ArrowRight: 1, ArrowUp: 1, ArrowLeft: -1, ArrowDown: -1 }[e.key];
-            if (!d || typeof lhFxSetLevel !== 'function') return;
-            e.preventDefault();
-            lhFxSetLevel(Math.min(5, Math.max(1, lhFxLevel() + d)));
-            _lhPrefsBgFxSync();
-            document.querySelector('#prefsBgFx [aria-checked="true"]').focus();
         });
 
         // 詞庫包清單（偏好設定）：只用 createElement + textContent 組畫面，清單文字不會被當成 HTML（T-06-07）

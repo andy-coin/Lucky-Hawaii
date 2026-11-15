@@ -98,7 +98,7 @@ test.describe('分批', () => {
             expect(mid.state).toBe('more');
             expect(mid.busy).toBe('true');
             expect(mid.cards).toBeGreaterThanOrEqual(48);
-            expect(mid.header).toMatch(/^找到 \d+ 個字$/);
+            expect(mid.header).toMatch(/^(\S+ )*找到 \d+ 個字$/);
             const total = Number(mid.header.match(/\d+/)[0]);
             expect(total).toBeGreaterThan(300);                 // 真的是大查詢，才會分很多格
             expect(mid.cards).toBeLessThan(total);
@@ -162,7 +162,7 @@ test.describe('分批', () => {
                     state: root.getAttribute('data-render'),
                     cards: root.querySelectorAll('.char-card').length,
                     statusNow: !!root.querySelector('.render-status'),
-                    header: root.querySelector('.results-count').textContent.trim(),
+                    header: root.querySelector('.results-count').textContent.trim().replace(/^.* (?=找到)/, ''),
                 };
                 return { sync, after };
             }, n);
@@ -172,7 +172,7 @@ test.describe('分批', () => {
             expect(r48.sync.cards).toBe(48);
             expect(r48.sync.statusNow).toBe(false);
             expect(r48.sync.statusEver).toBe(false);          // 狀態列連出現過都沒有
-            expect(r48.after.header).toBe('找到 48 個字');
+            expect(r48.after.header).toMatch(/找到 48 個字$/);
 
             const r49 = await run(49);
             expect(r49.sync.state).toBe('more');
@@ -182,7 +182,7 @@ test.describe('分批', () => {
             expect(r49.after.state).toBe('done');              // 再一格就畫完
             expect(r49.after.cards).toBe(49);
             expect(r49.after.statusNow).toBe(false);
-            expect(r49.after.header).toBe('找到 49 個字');
+            expect(r49.after.header).toMatch(/找到 49 個字$/);
             expect(errors).toEqual([]);
         } finally {
             await context.close();
@@ -281,7 +281,7 @@ test.describe('分批', () => {
                     state: root.getAttribute('data-render'),
                     cards: root.querySelectorAll('.char-card').length,
                     status: !!root.querySelector('.render-status'),
-                    header: root.querySelector('.results-count').textContent.trim(),
+                    header: root.querySelector('.results-count').textContent.trim().replace(/^.* (?=找到)/, ''),
                     busy: root.hasAttribute('aria-busy'),
                     done: window.__probe.done,
                 };

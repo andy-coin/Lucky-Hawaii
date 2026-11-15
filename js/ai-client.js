@@ -8,7 +8,8 @@
         // 模型清單依各家官方文件（2026-11 查證）：Anthropic models overview、OpenAI All models、Gemini models、xAI models、Groq models、DeepSeek updates。
         // usage：1～3 格＝每次請求的花費／額度多寡（同一家裡相對比較）。
         // kind：anthropic／gemini／openai（OpenAI 相容的 /chat/completions）。local：自己填網址（Ollama、其他相容服務），模型清單在「測試連線」時讀回來存在 lh:aiLocal
-        // （TypeSafe 的 Jev 是只回答選擇題／分數的判斷模型、不會產生文字，不能拿來給詞，所以沒有列）
+        // jev：TypeSafe 的 Jev（2026-11 查 docs.typesafe.ai/api）是判斷型模型，只回答選擇題／分數、不會寫文字：
+        //      只能拿來「從候選詞挑最適合的」（一題選擇題，候選詞當選項，照機率排序；byokJevRank），其他要寫文字的功能（整理情境）不能用
         const BYOK_PROVIDERS = {
             anthropic: { name: 'Anthropic（Claude）', kind: 'anthropic', key: 'https://platform.claude.com/settings/keys', models: [
                 { id: 'claude-haiku-5-5', label: 'Claude Haiku 5.5', usage: 1 },
@@ -37,6 +38,9 @@
             deepseek: { name: 'DeepSeek', kind: 'openai', base: 'https://api.deepseek.com', key: 'https://platform.deepseek.com/api_keys', models: [
                 { id: 'deepseek-flash', label: 'DeepSeek V4.1 Flash', usage: 1 },
                 { id: 'deepseek-v4-pro', label: 'DeepSeek V4 Pro', usage: 2 },
+            ] },
+            jev: { name: 'Jev（TypeSafe）', kind: 'jev', base: 'https://api.typesafe.ai/v1', key: 'https://docs.typesafe.ai/', pickOnly: true, models: [
+                { id: 'jev-latest', label: 'Jev（只挑詞）', usage: 1 },
             ] },
             ollama: { name: 'Ollama（本機模型）', kind: 'openai', local: true, keyless: true, defBase: 'http://localhost:11434/v1', models: [] },
             generic: { name: '其他 OpenAI 相容服務', kind: 'openai', local: true, defBase: '', models: [] },
@@ -313,6 +317,7 @@
         async function _callByok(model, prompt) {
             const p = model.provider, cfg = BYOK_PROVIDERS[p], key = byokKey(p), name = cfg.name;
             if (!key && !cfg.local) throw aiError(`這台裝置沒有 ${name} 金鑰了，請到偏好設定的「AI」分頁貼上，或換回好韻器提供的模型`);
+            if (cfg.kind === 'jev') throw aiError('Jev 只會從候選詞裡挑，不會寫文字；這個功能請換別的模型');
             const headers = { 'Content-Type': 'application/json', ..._byokHeaders(p, key) };
             let text, tokens;
             if (cfg.kind === 'gemini') {
@@ -340,6 +345,24 @@
             if (typeof text !== 'string' || !text.trim()) throw aiError(`${name} 沒有回應內容，請再試一次`);
             lhAiNotice(`${model.label}（你的金鑰）${Number.isFinite(tokens) ? `｜${tokens} tokens` : ''}`);
             return text.replace(/<think>[\s\S]*?<\/think>/g, '').trim();
+        }
+        // Jev 挑詞：一題選擇題，候選詞當選項（最多 255 個），回傳照「適合程度」機率由高到低排好的詞
+        async function byokJevRank(model, state, words) {
+            const p = model.provider, key = byokKey(p);
+            if (!key) throw aiError('這台裝置沒有 Jev 金鑰了，請到偏好設定的「AI」分頁貼上，或換回好韻器提供的模型');
+            const list = words.slice(0, 255), criteria = {};
+            list.forEach((w, i) => { criteria['w' + i] = w; });
+            const headers = { 'Content-Type': 'application/json', ..._byokHeaders(p, key) };
+            if (state.length > 4000) headers['TypeSafe-Danger-Zone-Long-Context'] = 'true';
+            const data = await _byokFetch(p, _byokBase(p) + '/systemone', { method: 'POST', headers, body: JSON.stringify({
+                model: model.model, state,
+                questions: { fit: { type: 'choice', instructions: '哪一個詞最適合寫進這首歌的歌詞（符合情境、標籤與歌詞風格）？', criteria } },
+            }) }, 35000);
+            const pr = data.answers?.fit?.probabilities;
+            if (!pr || typeof pr !== 'object') throw aiError('Jev 回應格式不對，請稍後再試');
+            const u = data.usage;
+            lhAiNotice(`${model.label}（你的金鑰）${u ? `｜${(u.input_tokens || 0) + (u.output_tokens || 0)} tokens` : ''}`);
+            return list.map((w, i) => [w, +pr['w' + i] || 0]).sort((a, b) => b[1] - a[1]).map(x => x[0]);
         }
         // 測試連線：讀一次各家的模型清單（不花生成額度）；本機／自訂服務順便把模型清單存起來
         async function byokTest(provider) {
@@ -392,7 +415,7 @@
                 ? '在這台電腦執行 Ollama，填網址後按「測試連線」，會讀出你下載過的模型。'
                 : '任何 OpenAI 相容的服務（LM Studio、OpenRouter、自架…）：填網址（通常以 /v1 結尾）和金鑰，按「測試連線」讀出模型。');
             else {
-                note.append('模型：' + cfg.models.map(m => m.label).join('、') + '。');
+                note.append(cfg.pickOnly ? 'Jev 是判斷型模型：只會從候選詞裡挑出最符合情境的，不會寫文字（整理情境等功能請用別家）。' : '模型：' + cfg.models.map(m => m.label).join('、') + '。');
                 const a = document.createElement('a');
                 a.href = cfg.key; a.target = '_blank'; a.rel = 'noopener';
                 a.textContent = '取得 ' + cfg.name + ' 金鑰';

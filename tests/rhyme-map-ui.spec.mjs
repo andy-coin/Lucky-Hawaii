@@ -869,7 +869,7 @@ const quiet = async (page, ms = 700) => { await page.waitForTimeout(ms); };
 
 test('AI 建議：先查韻再出 AI 詞卡、送整首歌', async ({ browser }) => {
     const { context, page, errors } = await bootPage(browser, {
-        wordlist: 'stub', aiReply: '天亮、心慌、離鄉',
+        aiReply: '天亮、心慌、離鄉',   // 完整詞庫：stub 沒有押「光」的詞，0.98.07 不再造詞就沒得挑
         storage: v2Storage([song([typed('sa', 'verse', F_AABB), typed('sb', 'chorus', '第二段的歌詞')])], { leftPanelCollapsed: 'false', rightPanelCollapsed: 'true' }),
     });
     const bodies = [];
@@ -898,7 +898,7 @@ test('AI 建議：先查韻再出 AI 詞卡、送整首歌', async ({ browser })
 
 test('浮動列：手機查韻與 AI 建議切分頁', async ({ browser }) => {
     const { context, page, errors } = await bootPage(browser, {
-        wordlist: 'stub', device: DEVICES.phone, aiReply: '天亮、心慌、離鄉',
+        device: DEVICES.phone, aiReply: '天亮、心慌、離鄉',   // 完整詞庫（stub 沒有押「光」的詞）
         storage: v2Storage([song([typed('sa', 'verse', F_AABB)])], {}),
     });
     const collapsed = id => page.locator(id).evaluate(n => n.classList.contains('collapsed'));

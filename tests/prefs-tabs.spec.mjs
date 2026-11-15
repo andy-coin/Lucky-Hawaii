@@ -131,18 +131,19 @@ test('分頁：手機上分頁列橫向捲動、每個分頁夠高、選到的�
     await context.close();
 });
 
-test('外觀：背景動畫與特效五個等級（預設 3，按了呼叫 lhFxSetLevel、存 lh:bgFx）', async ({ browser }) => {
+test('外觀：背景動畫與特效滑桿五級（預設 3，拉了呼叫 lhFxSetLevel、存 lh:bgFx）', async ({ browser }) => {
     const { context, page, errors } = await bootPage(browser, { wordlist: 'stub' });
     await page.evaluate(() => toggleSettings());
-    const group = page.getByRole('radiogroup', { name: /背景動畫/ });
-    await expect(group).toBeVisible();
+    const r = page.getByRole('slider', { name: /背景動畫/ });
+    await expect(r).toBeVisible();
     expect(await page.evaluate(() => lhFxLevel())).toBe(3);
-    await expect(group.getByRole('radio', { name: /^3：/ })).toHaveAttribute('aria-checked', 'true');
-    await group.getByRole('radio', { name: /^1：/ }).click();
+    await expect(page.locator('#prefsFxCap')).toHaveText('預設');
+    await r.fill('1');
     expect(await page.evaluate(() => [lhFxLevel(), lhBgFxIsOn(), localStorage.getItem('lh:bgFx')])).toEqual([1, false, '1']);
-    await group.getByRole('radio', { name: /^5：/ }).click();
+    await expect(page.locator('#prefsFxCap')).toHaveText('簡單');
+    await r.fill('5');
     expect(await page.evaluate(() => [lhFxLevel(), lhBgFxIsOn()])).toEqual([5, true]);
-    await expect(page.locator('#prefsFxDesc')).toContainText('60');
+    await expect(page.locator('#prefsFxCap')).toHaveText('全開');
     expect(errors).toEqual([]);
     await context.close();
 });

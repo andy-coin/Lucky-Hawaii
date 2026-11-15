@@ -14,14 +14,14 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700&family=Noto+Serif+TC:wght@400;700&family=JetBrains+Mono:wght@400&display=swap">
-    <link rel="stylesheet" href="css/base.css?v=0.98.06">
-    <link rel="stylesheet" href="css/panels.css?v=0.98.06">
-    <link rel="stylesheet" href="css/responsive.css?v=0.98.06">
-    <link rel="stylesheet" href="css/print.css?v=0.98.06" media="print">
-    <script src="data/rhyme-dict.js?v=0.98.06"></script>
-    <script src="data/polyphonic-order.js?v=0.98.06"></script>
-    <script src="js/safety.js?v=0.98.06"></script>
-    <script src="js/layout.js?v=0.98.06"></script>
+    <link rel="stylesheet" href="css/base.css?v=0.98.07">
+    <link rel="stylesheet" href="css/panels.css?v=0.98.07">
+    <link rel="stylesheet" href="css/responsive.css?v=0.98.07">
+    <link rel="stylesheet" href="css/print.css?v=0.98.07" media="print">
+    <script src="data/rhyme-dict.js?v=0.98.07"></script>
+    <script src="data/polyphonic-order.js?v=0.98.07"></script>
+    <script src="js/safety.js?v=0.98.07"></script>
+    <script src="js/layout.js?v=0.98.07"></script>
 </head>
 <body>
 
@@ -108,6 +108,7 @@
                     <button class="batch-btn" data-ws-f="tone" aria-pressed="false" title="每個字的聲調也要一樣"><span>同聲調</span></button>
                     <button class="batch-btn" data-ws-f="strict" aria-pressed="false" title="韻母完全相同才算（ㄢ 不收 ㄧㄢ、ㄨㄢ）"><span>排除借韻</span></button>
                 </div>
+                <div class="batch-panel inline q-word ws-rep" id="wsRepSlot"></div>
                 <div class="batch-panel inline q-char" id="batchPanel">
                     <button class="batch-btn btn-common" onclick="batchMark('common')" title="標記為常用">
                         <span class="batch-icon"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5l2.6 5.3 5.9.9-4.2 4.1 1 5.8-5.3-2.8-5.3 2.8 1-5.8-4.2-4.1 5.9-.9z"/></svg></span><span>常用</span>
@@ -153,7 +154,7 @@
         <div class="about-overlay" id="aboutOverlay" onclick="closeAbout(event)">
             <div class="about-content" onclick="event.stopPropagation()">
                 <h3>好韻器｜Lucky Hawaii</h3>
-                <p>版本 v0.98.06 beta</p>
+                <p>版本 v0.98.07 beta</p>
                 <p>鑑於目前網路上的韻腳查詢工具幾乎都是以「詞」為架構，且常混雜著大量冷僻詞彙，因此特別開發針對常用「字」為索引系統的工具，並引進AI建議詞彙。</p><p>希望能幫助大家想出絕妙好詞！！</p>
                 <p>有任何心得建議歡迎留言給我 ^_^</p></p><p><a href="https://github.com/andy-coin/Lucky-Hawaii" target="_blank" rel="noopener" style="color:inherit;text-underline-offset:3px;">github: Lucky-Hawaii</a></p>
                 <div class="about-pack">
@@ -188,10 +189,8 @@
                     </div>
                     <div class="prefs-fx" id="prefsBgFx" hidden>
                         <div class="prefs-fx-head"><span id="prefsFxLabel">背景動畫與特效</span><span class="prefs-fx-cap" id="prefsFxCap"></span></div>
-                        <div class="prefs-fx-steps" role="radiogroup" aria-labelledby="prefsFxLabel">
-                            <button type="button" role="radio" data-fx="1" aria-checked="false">1</button><button type="button" role="radio" data-fx="2" aria-checked="false">2</button><button type="button" role="radio" data-fx="3" aria-checked="false">3</button><button type="button" role="radio" data-fx="4" aria-checked="false">4</button><button type="button" role="radio" data-fx="5" aria-checked="false">5</button>
-                        </div>
-                        <p class="prefs-fx-desc" id="prefsFxDesc"></p>
+                        <input type="range" id="prefsFxRange" class="prefs-fx-range" min="1" max="5" step="1" value="3" aria-labelledby="prefsFxLabel">
+                        <div class="prefs-fx-ticks" aria-hidden="true"><span>簡單</span><span>省電</span><span>預設</span><span>流暢</span><span>全開</span></div>
                     </div>
                     <button class="reset-color" onclick="resetColors()" >重設顏色!</button>
                     <button type="button" class="reset-color" id="dockResetBtn" onclick="lhDockReset()">重設版面</button>
@@ -238,11 +237,17 @@
                 </div>
                 <div class="prefs-panel" role="tabpanel" id="mapSettingsSection" aria-labelledby="prefsTab-map" tabindex="0" hidden></div>
                 <div class="prefs-panel" role="tabpanel" id="prefsPanel-ai" aria-labelledby="prefsTab-ai" tabindex="0" hidden>
-                    <p class="byok-intro">不填也能用：好韻器已內建免費 AI，由好韻器的伺服器代為連線。</p>
-                    <p class="byok-intro">想用<strong>自己的金鑰</strong>，就是用你自己的額度：請求直接從這台裝置送到服務商，不經過好韻器的伺服器。金鑰只存在這台裝置的瀏覽器裡，不會進備份檔。存好之後，AI 建議的模型選單會多出「你的 ○○」那一組，裡面是那一家自己的模型。</p>
+                    <div class="ai-tune" id="aiTune">
+                        <div class="settings-pack-title">用量（token 花費）</div>
+                        <label class="ai-tune-row"><span>AI 一次建議幾個詞</span><output id="aiTuneNOut"></output><input type="range" id="aiTuneN" min="8" max="60" step="4"></label>
+                        <label class="ai-tune-row"><span>餵給 AI 的候選詞上限</span><output id="aiTunePoolOut"></output><input type="range" id="aiTunePool" min="40" max="1000" step="20"></label>
+                        <label class="ai-tune-row"><span>候選詞的常用度</span><output id="aiTuneFreqOut"></output><input type="range" id="aiTuneFreq" min="0" max="95" step="5"></label>
+                        <p class="byok-intro">候選詞照常用度排好，每次只送最常用的前幾名；AI 挑走的詞會從候選裡扣掉，下次再往後補。上限越低、建議越少，越省 token。</p>
+                    </div>
                     <div class="byok-provider" id="byokBox">
                         <label class="settings-pack-title" for="byokProvider">服務商</label>
                         <select id="byokProvider" class="byok-select"></select>
+                        <p class="byok-intro">好韻器僅提供基本 API key，表現與額度可能因伺服器使用量有所限制。<br>若您有自己的 API key，則直連服務商、不經過好韻器伺服器，金鑰只存在這台裝置的瀏覽器、不進備份檔。AI 建議的模型選單中，將會多出該雲服務商與其自家模型。</p>
                         <div class="byok-row" id="byokBaseRow" hidden>
                             <input type="url" class="byok-input" id="byokBase" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="服務網址，例如 http://localhost:11434/v1" aria-label="服務網址">
                         </div>
@@ -255,13 +260,6 @@
                         <div class="byok-status" id="byokStatus" role="status" aria-live="polite"></div>
                         <p class="byok-note" id="byokNote"></p>
                         <div class="byok-have" id="byokHave"></div>
-                    </div>
-                    <div class="ai-tune" id="aiTune">
-                        <div class="settings-pack-title">用量（token 花費）</div>
-                        <label class="ai-tune-row"><span>AI 一次建議幾個詞</span><output id="aiTuneNOut"></output><input type="range" id="aiTuneN" min="8" max="60" step="4"></label>
-                        <label class="ai-tune-row"><span>餵給 AI 的候選詞上限</span><output id="aiTunePoolOut"></output><input type="range" id="aiTunePool" min="40" max="1000" step="20"></label>
-                        <label class="ai-tune-row"><span>候選詞的常用度</span><output id="aiTuneFreqOut"></output><input type="range" id="aiTuneFreq" min="0" max="95" step="5"></label>
-                        <p class="byok-intro">候選詞照常用度排好，每次只送最常用的前幾名；AI 挑走的詞會從候選裡扣掉，下次再往後補。上限越低、建議越少，越省 token。</p>
                     </div>
                 </div>
                 <div class="prefs-panel" role="tabpanel" id="prefsPanel-data" aria-labelledby="prefsTab-data" tabindex="0" hidden>
@@ -500,7 +498,7 @@
             </div>
             <div class="ai-scroll-area">
                 <!-- AI 會參考什麼（Andy 1-b）：即時顯示左邊哪些內容會送給 AI，點了跳過去；js/ai-generate.js lhAiRefRender -->
-                <div class="ai-ref" id="aiRef" role="group" aria-label="AI 會參考的內容" title="從詞庫挑詞時參考這些；詞庫不夠、AI 自己造詞時只看韻腳"></div>
+                <div class="ai-ref" id="aiRef" role="group" aria-label="AI 會參考的內容" title="AI 從詞庫挑詞時參考這些"></div>
                 <div class="ai-rhyme-display" id="aiRhymeDisplay">請先搜尋一個字或是詞確認韻腳</div>
                 <div class="selected-chars-hint" id="selectedCharsHint">
                     <span class="hint-label">選字模式</span>
@@ -522,7 +520,7 @@
                 <div class="ai-loading" id="aiLoading" style="display:none">AI 思考中…</div>
                 <div class="ai-report-row" id="aiReportRow" hidden>
                     <span class="ai-report-text" id="aiReportText"></span>
-                    <button type="button" class="ai-report-btn" id="aiReportStart" aria-label="進入選取模式，回報 AI 建議的詞語" title="進入選取模式，回報 AI 建議的詞語">回報詞語</button>
+                    <button type="button" class="batch-btn btn-report" id="aiReportStart" aria-label="進入選取模式，回報 AI 建議的詞語" title="進入選取模式，回報 AI 建議的詞語"><span class="batch-icon"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 21V4M5 4h11l-2 4 2 4H5"/></svg></span><span>回報</span></button>
                     <button type="button" class="ai-report-btn primary" id="aiReportSend" hidden>回報（0）</button>
                     <button type="button" class="ai-report-btn" id="aiReportExit" hidden aria-label="結束回報選取，回到一般點選儲存" title="結束回報選取，回到一般點選儲存">結束選取</button>
                     <span class="ai-status" id="aiStatus" role="status"></span>
@@ -547,41 +545,41 @@
 
     <div id="printSheet" aria-hidden="true"></div>
 
-    <script src="js/phonetic-tables.js?v=0.98.06"></script>
-    <script src="js/dict.js?v=0.98.06"></script>
-    <script src="js/search.js?v=0.98.06"></script>
-    <script src="js/state.js?v=0.98.06"></script>
-    <script src="js/sections-core.js?v=0.98.06"></script>
-    <script src="js/songs.js?v=0.98.06"></script>
-    <script src="js/undo.js?v=0.98.06"></script>
-    <script src="js/polyphonic.js?v=0.98.06"></script>
-    <script src="js/rhyme-core.js?v=0.98.06"></script>
-    <script src="js/line-core.js?v=0.98.06"></script>
-    <script src="js/cards.js?v=0.98.06"></script>
-    <script src="js/lyrics.js?v=0.98.06"></script>
-    <script src="js/sections.js?v=0.98.06"></script>
-    <script src="js/song-io.js?v=0.98.06"></script>
-    <script src="js/wordlist.js?v=0.98.06"></script>
-    <script src="js/panels.js?v=0.98.06"></script>
-<script src="js/dock.js?v=0.98.06"></script>
-    <script src="js/rhyme-display.js?v=0.98.06"></script>
-    <script src="js/ai-client.js?v=0.98.06"></script>
-    <script src="js/candidates.js?v=0.98.06"></script>
-    <script src="js/ai-generate.js?v=0.98.06"></script>
-    <script src="js/ui-common.js?v=0.98.06"></script>
-    <script src="js/custom-words.js?v=0.98.06"></script>
-    <script src="js/word-space.js?v=0.98.06"></script>
-    <script src="js/results.js?v=0.98.06"></script>
-    <script src="js/search-ui.js?v=0.98.06"></script>
-    <script src="js/theme.js?v=0.98.06"></script>
-    <script src="js/init.js?v=0.98.06"></script>
-    <script src="js/report.js?v=0.98.06"></script>
-    <script src="js/ai-word-events.js?v=0.98.06"></script>
-    <script src="js/word-drag.js?v=0.98.06"></script>
-    <script src="js/rhyme-map.js?v=0.98.06"></script>
-    <script src="js/roles.js?v=0.98.06"></script>
-    <script src="js/canvas.js?v=0.98.06"></script>
-    <script src="js/tour.js?v=0.98.06"></script>
-    <script src="js/bgfx.js?v=0.98.06"></script>
+    <script src="js/phonetic-tables.js?v=0.98.07"></script>
+    <script src="js/dict.js?v=0.98.07"></script>
+    <script src="js/search.js?v=0.98.07"></script>
+    <script src="js/state.js?v=0.98.07"></script>
+    <script src="js/sections-core.js?v=0.98.07"></script>
+    <script src="js/songs.js?v=0.98.07"></script>
+    <script src="js/undo.js?v=0.98.07"></script>
+    <script src="js/polyphonic.js?v=0.98.07"></script>
+    <script src="js/rhyme-core.js?v=0.98.07"></script>
+    <script src="js/line-core.js?v=0.98.07"></script>
+    <script src="js/cards.js?v=0.98.07"></script>
+    <script src="js/lyrics.js?v=0.98.07"></script>
+    <script src="js/sections.js?v=0.98.07"></script>
+    <script src="js/song-io.js?v=0.98.07"></script>
+    <script src="js/wordlist.js?v=0.98.07"></script>
+    <script src="js/panels.js?v=0.98.07"></script>
+<script src="js/dock.js?v=0.98.07"></script>
+    <script src="js/rhyme-display.js?v=0.98.07"></script>
+    <script src="js/ai-client.js?v=0.98.07"></script>
+    <script src="js/candidates.js?v=0.98.07"></script>
+    <script src="js/ai-generate.js?v=0.98.07"></script>
+    <script src="js/ui-common.js?v=0.98.07"></script>
+    <script src="js/custom-words.js?v=0.98.07"></script>
+    <script src="js/word-space.js?v=0.98.07"></script>
+    <script src="js/results.js?v=0.98.07"></script>
+    <script src="js/search-ui.js?v=0.98.07"></script>
+    <script src="js/theme.js?v=0.98.07"></script>
+    <script src="js/init.js?v=0.98.07"></script>
+    <script src="js/report.js?v=0.98.07"></script>
+    <script src="js/ai-word-events.js?v=0.98.07"></script>
+    <script src="js/word-drag.js?v=0.98.07"></script>
+    <script src="js/rhyme-map.js?v=0.98.07"></script>
+    <script src="js/roles.js?v=0.98.07"></script>
+    <script src="js/canvas.js?v=0.98.07"></script>
+    <script src="js/tour.js?v=0.98.07"></script>
+    <script src="js/bgfx.js?v=0.98.07"></script>
 </body>
 </html>

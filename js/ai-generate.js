@@ -8,7 +8,7 @@
             return `<div class="ai-word-card" data-word="${escHtml(w)}" onclick="saveWord(${jsArg})">${escHtml(w)}${isAI ? '<span class="ai-badge">AI</span>' : ''}</div>`;
         }
 
-        // AI 生成補足詞（AI 造詞，不從詞庫選），驗證後顯示並標 "AI" 徽章
+        // AI 生成補足詞（AI 造詞，不從詞庫選），驗證後顯示並標 "AI" 徽章。0.98.07 起暫時停用（generateAISuggestions 不再呼叫），之後要恢復就把呼叫接回來
         async function generateAIWords(remaining, container, excludeSet, stale = () => false) {
             const statusDiv = document.createElement('div');
             statusDiv.style.cssText = 'text-align:center;font-size:0.8rem;color:var(--text-secondary);padding:0.375rem 0;width:100%;';
@@ -121,7 +121,8 @@
                 const savedSet = new Set(savedWords);
                 const rank = w => wordPriorityMap.get(w) ?? 0;
                 let pool = [...new Set(newBatch)].filter(w => !suggestedPool.has(w) && !savedSet.has(w)).sort((a, b) => rank(b) - rank(a));
-                if (tune.freq) pool = pool.slice(0, Math.max(0, Math.ceil((pool.length + suggestedPool.size) * (100 - tune.freq) / 100) - suggestedPool.size));
+                // 常用度只留前幾 %，但至少留一次建議的數量（韻很冷門、詞很少時照樣請 AI 挑，不會因為百分比砍太兇就沒得挑）
+                if (tune.freq) pool = pool.slice(0, Math.max(AI_N, Math.ceil((pool.length + suggestedPool.size) * (100 - tune.freq) / 100) - suggestedPool.size));
                 cumulativeCandidates = pool;
                 lastCandidatesTotal = pool.length;
 
@@ -145,7 +146,9 @@
                     let picks = [], aiErr = null;
                     try {
                         loading.textContent = `AI 思考中…（${m.label}）`;
-                        picks = parseAiWords(await callLLM(m, prompt));
+                        // Jev（只會判斷）：同樣的情境、標籤、歌詞當「狀態」，候選詞當選擇題的選項，照機率排
+                        if (m.byok && BYOK_PROVIDERS[m.provider]?.kind === 'jev') picks = (await byokJevRank(m, `${lead}。${selectedLine}${ctxBlock}${lyricsBlock}`.trim(), fed)).slice(0, AI_N);
+                        else picks = parseAiWords(await callLLM(m, prompt));
                     } catch (e) {
                         lhWarn('AI 排序失敗，改依常用度補滿', e);
                         aiErr = e;
@@ -154,7 +157,7 @@
                     const { words } = fillToTarget(fed, picks, AI_N, rank);
                     words.forEach(w => { suggestedPool.add(w); sentCandidatesSet.add(w); });
                     container.innerHTML = words.map(w => aiWordCardHtml(w, false)).join('')
-                        + `<div class="candidate-report">從 ${lastCandidatesTotal} 個候選詞（送出最常用的 ${fed.length} 個）中，挑出 ${words.length} 個</div>`;
+                        + `<div class="candidate-report">從 ${fed.length} 個詞（${fed.length}/${lastCandidatesTotal}）中，挑出 ${words.length} 個</div>`;
                     if (aiErr) {
                         // AI 沒排成就不假裝是正常結果；原因只在 Worker 白話訊息（e.plain）時附上，用 textContent 塞，不拼 HTML
                         const hint = document.createElement('div');
@@ -165,16 +168,12 @@
                     return;
                 }
 
-                // 候選不足：全數列出，再造一輪補足（一次按鈕只造一次，D-05）
+                // 候選不足：全數列出（不再請 AI 造詞，0.98.07：造出來的詞幾乎不能用）
                 if (pool.length > 0) {
                     pool.forEach(w => { suggestedPool.add(w); sentCandidatesSet.add(w); });
                     container.innerHTML = pool.map(w => aiWordCardHtml(w, false)).join('')
-                        + `<div class="candidate-report">共 ${pool.length} 個候選詞，已全數列出</div>`;
-                }
-                loading.style.display = 'none';
-                const added = await generateAIWords(AI_N - pool.length, container, new Set([...suggestedPool, ...savedWords]), stale);
-                if (stale()) return;
-                if (pool.length === 0 && added === 0) {
+                        + `<div class="candidate-report">剩下 ${pool.length} 個詞，已全數列出</div>`;
+                } else {
                     const what = selectedChars.size > 0 ? '含選字' : '符合';
                     container.innerHTML = `<div class="ai-exhausted">已推薦所有${what}的詞彙<button class="reset-pool-btn" onclick="resetSuggestedPool()">↺ 重置</button></div>`;
                 }
@@ -329,6 +328,12 @@
             if (st.ctx) items.push(mk('context', '情境', '情境描述', true));
             if (st.sel) items.push(mk('lyrics', '反白歌詞 ' + st.sel + ' 字', '你在歌詞裡反白的那段', true));
             else if (st.lines) items.push(mk('lyrics', '歌詞 ' + st.lines + ' 行', '整首歌詞', true));
+            else if (items.length) {   // 還沒有歌詞：灰的「歌詞」，打不開
+                const b = mk('lyrics', '歌詞', '還沒有歌詞', false);
+                b.disabled = true;
+                b.setAttribute('aria-pressed', 'false');
+                items.push(b);
+            }
             const label = document.createElement('span');
             label.className = 'ai-ref-label';
             if (items.length) {
@@ -349,7 +354,7 @@
             const o = lhGetJSON(LH_AI_TUNE_KEY, {}, x => !!x && typeof x === 'object' && !Array.isArray(x));
             const num = (v, lo, hi, step, def) => Number.isFinite(v) ? Math.min(hi, Math.max(lo, Math.round(v / step) * step)) : def;
             const n = num(o.n, 8, 60, 4, AI_TARGET);
-            return { n, pool: Math.max(n, num(o.pool, 40, 1000, 20, AI_POOL_MAX)), freq: num(o.freq, 0, 95, 5, 0) };
+            return { n, pool: Math.max(n, num(o.pool, 40, 1000, 20, AI_POOL_MAX)), freq: num(o.freq, 0, 95, 5, 60) };   // 常用度預設：只用前 40%
         }
         function lhAiTuneSync() {
             const t = lhAiTune();

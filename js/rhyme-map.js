@@ -852,13 +852,11 @@ function _lhMapDisarm(btn) {
 }
 // 預覽用的三行範例（含空白斷句、七字句、十字句）：和真正的歌詞走同一個渲染器 _lhMapBuildFrag，所以不可能和歌詞畫得不一樣
 const LH_MAP_PREVIEW_TEXT = [   // Andy 的〈麻雀〉：中英夾雜、空白斷句、語助詞、雙押都測得到
-    'yo yo 麻雀in the house',
     '夜晚還在街道　別管那些尖叫',
     '笑鬧 逃跑 快樂或紛擾',
     '一夜之間　slow down calm down',
     '一念之間　也 好　也 好 奇',
-    '新的家新的我 新的樹有新的蟲',
-    '想新的拆遷名單',
+    '新的家新的我 新的拆遷名單',
     '像辛得勒名單',
     '耳罩帶好好 抗議go to hell',
     'sparrow leave the house',

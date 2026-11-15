@@ -27,6 +27,9 @@ async function searchAndGenerate(page) {
     await page.fill('#searchInput', '心');
     await settle(page);
     await clickGenerate(page);
+    await page.waitForSelector('.ai-word-card');
+    // 0.98.07 造詞暫停：手動補三張帶 AI 標記的詞卡，AI 詞卡的右鍵選單照樣覆蓋得到
+    await page.evaluate(() => document.getElementById('aiWordsContainer').insertAdjacentHTML('afterbegin', ['美音', '原因', '光陰'].map(w => aiWordCardHtml(w, true)).join('')));
     await page.waitForSelector('.ai-word-card .ai-badge');
 }
 const contextMenuOn = (page, selector) => page.evaluate(sel => {
@@ -46,7 +49,7 @@ const SCENARIOS = {
         await searchAndGenerate(page);
         await contextMenuOn(page, '.ai-word-card:has(.ai-badge)');
     },
-    // 再按兩次產生：第二次候選池已空、唯一一輪造詞沒有新詞，出現「已推薦所有符合的詞彙」＋重置鈕
+    // 再按兩次產生：第二次候選池已空，出現「已推薦所有符合的詞彙」＋重置鈕
     resetPool: async page => {
         await searchAndGenerate(page);
         await clickGenerate(page);

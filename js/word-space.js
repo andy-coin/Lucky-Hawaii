@@ -4,7 +4,7 @@
 // 所以換主題、勾選項等所有重畫的路徑都會走到這裡。
 // 「顯示全部」：三塊面板往左、上、右收走，所有詞攤在整個畫面上（介面上不說「宇宙」，視覺上是星雲）：
 // 同一種聲調組合聚成一團，最常用的詞在中心（恆星），其他詞依常用度一圈圈繞著它轉（行星）；很孤立的詞像流星一樣長距離穿過。
-// 停在詞上＝定格＋光暈＋淡淡的 📌（保留）✕（隱藏）；單擊＝釘住（三個以上連成星座）；拖曳＝甩出去，恆星再慢慢拉回來；
+// 停在詞上＝定格＋光暈＋右上角淡淡的隱藏鈕；單擊＝釘住＋保留（連成星座），再點＝取消；面板「取消選取」全部取消；拖曳＝甩出去，恆星再慢慢拉回來；
 // 拖恆星＝整團被沖散拖走、再慢慢聚回來；恆星平常在自己的範圍裡慢慢飄；空白處拖＝平移；滾輪／雙指＝縮放。
 // 詞都是使用者詞庫或覆寫來的字串：一律 textContent，不拼 HTML。
 
@@ -180,8 +180,8 @@ function _lhWsDraw(container, word) {
     go.innerHTML = '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l1.6 4.4L18 9l-4.4 1.6L12 15l-1.6-4.4L6 9l4.4-1.6z"/><circle cx="18.5" cy="17.5" r="1.5"/><circle cx="6" cy="18" r="1"/></svg><span>顯示全部</span>';
     go.disabled = !_lhWs.list.length;
     go.addEventListener('click', () => lhWsOpen());
-    // 回報：跟 AI 詞卡一樣先進「挑選」模式（點詞卡＝勾選，不是保留），再送出；放在數量那一列右邊，不另佔一行
-    const rep = _lhWsEl('div', 'ws-rep');
+    // 回報：跟 AI 詞卡一樣先進「挑選」模式（點詞卡＝勾選，不是保留），再送出；放在選項列最右邊（跟字卡的「回報」同一個位置）
+    const rep = document.getElementById('wsRepSlot');
     const repBtn = _lhWsEl('button', 'batch-btn btn-report');
     repBtn.type = 'button';
     repBtn.title = '回報有問題的詞';
@@ -202,11 +202,11 @@ function _lhWsDraw(container, word) {
         openReportDialog(words.map(word => ({ kind: 'word', word })), { onSent: repExit });
     });
     repCancel.addEventListener('click', repExit);
-    rep.append(repBtn, repCancel);
+    if (rep) rep.replaceChildren(repBtn, repCancel);
     container.classList.remove('report-mode');
     repSync();
     _lhWs.repSync = repSync;
-    head.append(count, rep, go);
+    head.append(count, go);   // 「顯示全部」跟數量同一列，佔滿右邊
     if (!_lhWs.list.length) {
         container.replaceChildren(head, _lhWsEmpty('沒有符合的詞', _lhWs.tone || _lhWs.strict ? '把「同聲調」「排除借韻」取消試試' : '試試換個比對方式、少一個字，或用 * 代替不必押的字（例：*打）'));
         return;
@@ -251,7 +251,7 @@ const _lhSp = { el: null, world: null, words: [], groups: [], raf: 0, last: 0, t
 const LH_SP_ZMIN = 0.25, LH_SP_ZMAX = 3;
 const LH_SP_RING = 46;   // 軌道之間的距離（世界座標 px）
 const _lhSpReduce = matchMedia('(prefers-reduced-motion: reduce)');
-const LH_SP_PIN = '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3h6M10 3v6l-3 4h10l-3-4V3M12 13v8"/></svg>';
+const LH_SP_EYE_OFF = '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/><path d="M4 20L20 4"/></svg>';
 const LH_SP_X = '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>';
 
 function _lhSpBuild() {
@@ -267,11 +267,10 @@ function _lhSpBuild() {
     cv.setAttribute('aria-hidden', 'true');
     const acts = _lhWsEl('div', 'ws-acts');
     acts.hidden = true;
-    const keep = _lhWsEl('button', 'ws-keep'), hide = _lhWsEl('button', 'ws-hide');
-    keep.type = hide.type = 'button';
-    keep.innerHTML = LH_SP_PIN;
-    hide.innerHTML = LH_SP_X;
-    acts.append(keep, hide);
+    const hide = _lhWsEl('button', 'ws-hide');   // 只剩右上角的「隱藏」（點詞本身＝保留）
+    hide.type = 'button';
+    hide.innerHTML = LH_SP_EYE_OFF;
+    acts.append(hide);
     const probe = _lhWsEl('span', 'ws-probe');   // 把 var()／color-mix() 換成 canvas 看得懂的顏色
     probe.hidden = true;
     const mk = (cls, txt, label, fn) => { const b = _lhWsEl('button', 'ws-hud-btn ' + cls, txt); b.type = 'button'; b.setAttribute('aria-label', label); b.title = label; b.addEventListener('click', fn); return b; };
@@ -287,7 +286,12 @@ function _lhSpBuild() {
     range.setAttribute('aria-label', '只顯示比較常用的詞');
     range.addEventListener('input', () => _lhSpFilter(+range.value));
     fl.append(fcap, range);
-    tools.append(fl);   // 不放「取消選取」：點空白處就是取消選取
+    // 取消選取：跟保留池「清除全部」一樣，先變紅色「確定取消 N 個？」，4 秒內再按一次才取消（也一起取消保留）
+    const clr = _lhWsEl('button', 'ws-hud-btn saved-clear-btn ws-clear', '取消選取');
+    clr.type = 'button';
+    clr.hidden = true;
+    clr.addEventListener('click', _lhSpClearAsk);
+    tools.append(clr, fl);
     const posBox = _lhWsEl('div', 'ws-pos');
     posBox.setAttribute('role', 'group');
     posBox.setAttribute('aria-label', '字在詞裡的位置');
@@ -409,7 +413,7 @@ function _lhSpLayout(list, cfg = {}) {
     bySize.forEach((cl, i) => {
         const lv = 1 + Math.round(19 * (bySize.length > 1 ? i / (bySize.length - 1) : 0.5));   // 1＝最小的團 … 20＝最大的團
         const star = words.find(w => w.cl === cl && w.star);
-        const k = (2.2 - 1.6 * (lv - 1) / 19) * (1 + 0.6 * (1 - (star ? norm(star.e) : 0.5)));
+        const k = (2.6 - 2.15 * (lv - 1) / 19) * (1 + 0.8 * (1 - (star ? norm(star.e) : 0.5)));   // 最快約最慢的 10 倍
         cl.f = cl.f.map(f => f * k);
     });
     // 團沿黃金角螺旋往外放，彼此多留一點空間給恆星飄
@@ -447,7 +451,7 @@ function _lhSpOrbit(w) {
     return { x: w.cl.x + c * ct - sn * st + (w.sx || 0), y: w.cl.y + c * st + sn * ct + (w.sy || 0) };
 }
 
-// 一打開的縮放：讓大約 75% 的詞落在畫面裡（詞少就放大一點，詞多就縮小一點）
+// 一打開的縮放：近一點，大約 25% 的詞落在畫面裡（其他的拖過去、縮小再看）
 function _lhSpFitZoom(words) {
     const el = _lhSp.el, W = (el.clientWidth || innerWidth) / 2 - 30, H = (el.clientHeight || innerHeight) / 2 - 40;   // 還藏著（面板還在收）時用視窗大小
     const q = words.filter(w => !w.comet).map(w => {
@@ -455,8 +459,8 @@ function _lhSpFitZoom(words) {
         return Math.max(Math.abs(x) / W, Math.abs(y) / H);
     }).sort((a, b) => a - b);
     if (!q.length) return 1;
-    const p75 = q[Math.min(q.length - 1, Math.floor(q.length * 0.75))] || 1;
-    return Math.min(2.2, Math.max(LH_SP_ZMIN, 1 / p75));
+    const p25 = q[Math.min(q.length - 1, Math.floor(q.length * 0.25))] || 1;
+    return Math.min(2.2, Math.max(LH_SP_ZMIN, 1 / p25));
 }
 
 function lhWsOpen() {
@@ -756,10 +760,10 @@ function _lhSpHit(cx, cy) {
 function _lhSpReveal(t) {
     const q = _lhSp.queue;
     if (!q || !q.length) return false;
-    let budget = 40;
-    for (const g of q) {
-        for (const w of g) if (!w.spr && budget > 0) { w.spr = _lhSpSprite(w, _lhSp.S); budget--; }
-        if (budget <= 0) break;
+    const t1 = performance.now();   // 每幀最多花 6ms 畫小圖
+    outer: for (const g of q) for (const w of g) {
+        if (performance.now() - t1 > 6) break outer;
+        if (!w.spr) w.spr = _lhSpSprite(w, _lhSp.S);
     }
     if (_lhSp.visible && q[0].every(w => w.spr) && t - _lhSp.bornAt >= _lhSp.gap) {
         for (const w of q.shift()) w.born = t;
@@ -772,11 +776,13 @@ function _lhSpReveal(t) {
 function _lhSpRescale(t) {
     const S = _lhSpBucket(_lhSp.z * (_lhSp.dpr || 1));
     if (S === _lhSp.S) return false;
-    if (t - (_lhSp.zt || 0) < 160) return true;
-    let budget = 30, done = true;
+    // 手還在拖、平移、捏：先不畫（不跟手搶時間）；每幀最多花 4ms 畫小圖，畫不完下一幀接著畫
+    if (t - (_lhSp.zt || 0) < 160 || _lhSp.pts.size) return true;
+    const t1 = performance.now();
+    let done = true;
     for (const w of _lhSp.words) {
         if (w.nspr && w.nspr.S === S) continue;
-        if (budget-- <= 0) { done = false; break; }
+        if (performance.now() - t1 > 4) { done = false; break; }
         w.nspr = _lhSpSprite(w, S);
     }
     if (!done) return true;
@@ -893,11 +899,8 @@ function _lhSpFrame(t) {
     }
     if (_lhSp.drag) busy = true;
     _lhSp.busy = busy;
-    // 星座：釘住的詞照順序連線；兩個就一條線，三個以上頭尾相連（三角形、多邊形），五個以上再有幾條隨機的對角線
-    const pins = _lhSp.pins.filter(w => w.pinned), segs = [];
-    if (pins.length >= 2) for (let i = 0; i < pins.length - (pins.length >= 3 ? 0 : 1); i++) segs.push([pins[i], pins[(i + 1) % pins.length]]);
-    for (const c of _lhSp.chords) if (c[0].pinned && c[1].pinned) segs.push(c);
-    _lhSp.segs = segs;
+    // 星座：釘住的詞之間的線（_lhSpPin 決定連哪些）
+    _lhSp.segs = _lhSp.chords.filter(c => c[0].pinned && c[1].pinned);
     _lhSpDraw(t, L);
 }
 
@@ -1002,23 +1005,16 @@ function _lhSpKept(c, w, p, a, t, L, pill, blit) {
     c.restore();
 }
 
-// 📌 ✕：浮在「游標停住的詞」（觸控：最後點的那個釘住的詞）兩端上方，跟著詞移動
+// 隱藏鈕（槓掉的眼睛）：浮在「游標停住的詞」（觸控：最後點的那個釘住的詞）右上角，跟著詞移動
 function _lhSpActsPlace() {
     const a = _lhSp.acts, w = (_lhSp.hover && _lhSp.hover.hot) ? _lhSp.hover : (_lhSp.act && _lhSp.act.pinned ? _lhSp.act : null);
     if (!w || _lhSp.drag && _lhSp.drag.moved || !_lhSp.words.includes(w)) { if (!a.hidden) a.hidden = true; return; }
     const m = w.mag || 1, p = _lhSpScr(w.px, w.py), fs = 16 * w.s * _lhSp.z * m, hw = w.tw * _lhSp.z * m / 2 + fs * 0.55, hh = fs * 0.85;
     a.hidden = false;
     a.style.transform = 'translate(' + p.x.toFixed(1) + 'px,' + (p.y - hh + 6).toFixed(1) + 'px)';
-    a.firstChild.style.left = (-hw + 8) + 'px';
     a.lastChild.style.left = (hw - 8) + 'px';
-    const key = w.w + (w.kept ? '|k' : '');
-    if (a.dataset.k !== key) {
-        a.dataset.k = key;
+    if (a.dataset.w !== w.w) {
         a.dataset.w = w.w;
-        const kl = (w.kept ? '取消保留「' : '保留「') + w.w + '」';
-        a.firstChild.setAttribute('aria-label', kl);
-        a.firstChild.title = kl;
-        a.firstChild.setAttribute('aria-pressed', String(!!w.kept));
         a.lastChild.setAttribute('aria-label', '隱藏「' + w.w + '」');
         a.lastChild.title = '隱藏「' + w.w + '」';
     }
@@ -1033,29 +1029,68 @@ function _lhSpPromote(cl) {
     if (!next.free) Object.assign(next, { free: true, fx: at.x, fy: at.y, fvx: 0, fvy: 0 });
 }
 
-// 釘住／放開之後整理星座：記釘的順序；第五個起每釘一個，有七成機會和一個不相鄰的舊點多連一條
+// 釘住／放開之後整理星座（線都存在 _lhSp.chords）：第 2 點連第 1 點；第 3 點連前兩點（三角形）；
+// 第 4 點起，新的點連 1～3 個舊點，越近的點越容易被選到（機率 ∝ 1／距離²）；和現有的線夾角小於 2° 的不連
 function _lhSpPin(w) {
     _lhSp.pins = _lhSp.pins.filter(x => x !== w);
     _lhSp.chords = _lhSp.chords.filter(c => c[0] !== w && c[1] !== w);
-    if (!w.pinned) return;
-    const ps = _lhSp.pins;
-    ps.push(w);
-    if (ps.length >= 5 && Math.random() < 0.7) {
-        // 候選：不相鄰的舊點，亂序一個個試；和現有任何一條線夾角小於 2° 就放棄、改試下一個
-        const pool = ps.slice(1, -2).sort(() => Math.random() - 0.5);
-        const pt = x => ({ x: x.px || 0, y: x.py || 0 });
-        const segs = ps.map((a, i) => [a, ps[(i + 1) % ps.length]]).concat(_lhSp.chords);
-        const ang = (a, b) => { const p = pt(a), q = pt(b); return Math.atan2(q.y - p.y, q.x - p.x); };
-        const tooClose = (a1, a2) => { let d = Math.abs(a1 - a2) % Math.PI; d = Math.min(d, Math.PI - d); return d < Math.PI / 90; };
-        const pick = pool.find(o => { const a = ang(w, o); return segs.every(([x, y]) => !tooClose(a, ang(x, y))); });
-        if (pick) _lhSp.chords.push([w, pick]);
+    const pt = x => ({ x: x.px || 0, y: x.py || 0 }), dist = (a, b) => Math.hypot(pt(a).x - pt(b).x, pt(a).y - pt(b).y) || 1;
+    if (!w.pinned) {   // 拿掉一個點：因此落單的點，就近連一個
+        for (const o of _lhSp.pins) if (_lhSp.pins.length > 1 && !_lhSp.chords.some(c => c[0] === o || c[1] === o)) {
+            const near = _lhSp.pins.filter(x => x !== o).sort((a, b) => dist(o, a) - dist(o, b))[0];
+            _lhSp.chords.push([o, near]);
+        }
+        return;
     }
+    const old = _lhSp.pins.slice();
+    _lhSp.pins.push(w);
+    if (old.length <= 2) { for (const o of old) _lhSp.chords.push([w, o]); return; }
+    const ang = (a, b) => Math.atan2(pt(b).y - pt(a).y, pt(b).x - pt(a).x);
+    const tooClose = (a1, a2) => { let d = Math.abs(a1 - a2) % Math.PI; d = Math.min(d, Math.PI - d); return d < Math.PI / 90; };
+    const r = Math.random(), want = r < 0.45 ? 1 : r < 0.8 ? 2 : 3;
+    let pool = old.slice();
+    for (let n = 0; n < want && pool.length; n++) {
+        const wt = pool.map(o => 1 / Math.pow(dist(w, o), 2)), sum = wt.reduce((a, b) => a + b, 0);
+        let x = Math.random() * sum, k = 0;
+        while (k < pool.length - 1 && (x -= wt[k]) > 0) k++;
+        const o = pool[k];
+        pool.splice(k, 1);
+        const a = ang(w, o);
+        if (_lhSp.chords.some(([p, q]) => tooClose(a, ang(p, q)))) { n--; continue; }
+        _lhSp.chords.push([w, o]);
+    }
+    if (!_lhSp.chords.some(c => c[0] === w)) _lhSp.chords.push([w, old.sort((a, b) => dist(w, a) - dist(w, b))[0]]);   // 至少一條
 }
 
 function _lhSpClear() {
     for (const w of _lhSp.words) { w.pinned = false; w.hot = false; }
     _lhSp.pins = []; _lhSp.chords = []; _lhSp.act = null;
     _lhSp.dirty = true;
+    _lhSpClearSync();
+}
+// 取消選取（面板按鈕）：第一下變「確定取消 N 個？」，4 秒或點別的地方就恢復；第二下才取消，選過的詞也一起取消保留
+function _lhSpClearSync() {
+    const b = _lhSp.el && _lhSp.el.querySelector('.ws-clear');
+    if (!b) return;
+    clearTimeout(_lhSp.clrArm); _lhSp.clrArm = 0;
+    document.removeEventListener('pointerdown', _lhSpClearOut, true);
+    b.classList.remove('armed');
+    b.textContent = '取消選取';
+    b.hidden = !_lhSp.pins.length;
+}
+function _lhSpClearOut(e) { if (!e.target.closest('.ws-clear')) _lhSpClearSync(); }
+function _lhSpClearAsk() {
+    const b = _lhSp.el.querySelector('.ws-clear'), ps = _lhSp.pins.filter(w => w.pinned);
+    if (!ps.length) return;
+    if (!_lhSp.clrArm) {
+        b.classList.add('armed');
+        b.textContent = '確定取消 ' + ps.length + ' 個？';
+        _lhSp.clrArm = setTimeout(_lhSpClearSync, 4000);
+        document.addEventListener('pointerdown', _lhSpClearOut, true);
+        return;
+    }
+    for (const w of ps) if (w.kept) { removeSavedWord(w.w); w.kept = false; }
+    _lhSpClear();
 }
 
 function _lhSpSetHover(w) {
@@ -1069,17 +1104,11 @@ function _lhSpSetHover(w) {
 }
 
 function _lhSpEvents(el) {
-    // 📌 保留、✕ 隱藏（浮在詞旁的真按鈕）
+    // 隱藏（浮在詞右上角的真按鈕）
     _lhSp.acts.addEventListener('click', e => {
         const w = _lhSp.words.find(x => x.w === _lhSp.acts.dataset.w);
         if (!w) return;
         _lhSp.dirty = true;
-        // 📌 再按一次＝取消保留（保留池一起拿掉）
-        if (e.target.closest('.ws-keep')) {
-            if (w.kept) { removeSavedWord(w.w); w.kept = false; showToast('「' + w.w + '」已取消保留'); }
-            else { saveWord(w.w); w.kept = true; }
-            return;
-        }
         if (e.target.closest('.ws-hide')) {
             _lhWs.hidden.add(w.w);
             _lhSp.words = _lhSp.words.filter(x => x !== w);
@@ -1088,6 +1117,7 @@ function _lhSpEvents(el) {
             if (w.star) _lhSpPromote(w.cl);
             if (_lhSp.hover === w) _lhSpSetHover(null);
             if (_lhSp.act === w) _lhSp.act = null;
+            _lhSpClearSync();
         }
     });
     el.addEventListener('wheel', e => {
@@ -1198,11 +1228,13 @@ function _lhSpEvents(el) {
                     d.w.fvy = Math.max(-vmax, Math.min(vmax, (b.y - a.y) / dt));
                 }
                 if (!d.w.pinned && _lhSp.hover !== d.w) d.w.hot = false;
-            } else if (e.type === 'pointerup') {   // 單擊：釘住；再點一次釘住的詞＝取消釘選（光暈、定格一起拿掉）
+            } else if (e.type === 'pointerup') {   // 單擊：釘住＋保留；再點一次釘住的詞＝取消釘選＋取消保留
                 d.w.pinned = !d.w.pinned;
                 _lhSpPin(d.w);
-                if (d.w.pinned) _lhSp.act = d.w;
+                _lhSpClearSync();
+                if (d.w.pinned) { _lhSp.act = d.w; if (!d.w.kept) { saveWord(d.w.w); d.w.kept = true; } }
                 else {
+                    if (d.w.kept) { removeSavedWord(d.w.w); d.w.kept = false; }
                     if (_lhSp.act === d.w) _lhSp.act = null;
                     if (_lhSp.hover === d.w) _lhSpSetHover(null);
                     d.w.hot = false;
@@ -1211,7 +1243,6 @@ function _lhSpEvents(el) {
             }
         }
         if (_lhSp.pan && _lhSp.pan.id === e.pointerId) {
-            if (!_lhSp.pan.moved && e.type === 'pointerup') _lhSpClear();   // 點空白處（沒拖）＝取消選取
             _lhSp.pan = null;
         }
     };

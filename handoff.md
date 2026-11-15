@@ -1,4 +1,14 @@
-## 2026-11-15 v0.98.06（測試中／待 Andy 實機驗收）
+## 2026-11-15 v0.98.07（已 push，待 Andy 實機驗收；全套 1283 通過）
+- 星雲（js/word-space.js）：恆星飄速落差加大（_lhSpLayout k＝2.6→0.45 × 恆星常用度 1～1.8，約 10 倍）；開場縮放改看 25%（_lhSpFitZoom p25）；畫小圖改時間預算（浮現每幀 ≤6ms、縮放重畫每幀 ≤4ms，手指／滑鼠按著時暫停 _lhSpRescale）。
+- 星雲點詞＝釘住＋保留（saveWord），再點＝取消兩者；拿掉 📌，只剩右上角隱藏鈕（槓掉的眼睛 LH_SP_EYE_OFF）；點空白不再取消選取；面板 .ws-clear「取消選取」兩下確認（_lhSpClearAsk，同保留池清除全部，會一起取消保留）。
+- 星座（_lhSpPin）：2 點一線、3 點三角形；第 4 點起新點連 1～3 個舊點（45/35/20%），機率 ∝ 1/距離²，夾角 <2° 不連；拿掉點後落單的點就近連一條。
+- 第 5～9 點各級效果：先不改程式，做了對照表 https://claude.ai/artifact/NUoEJt5851vJEZdNq814Mf 等 Andy 勾完貼回。
+- 偏好設定：背景動畫改滑桿 #prefsFxRange（簡單／省電／預設／流暢／全開，無說明）；AI 分頁用量在上、服務商在下，說明文字移到服務商下拉下面；候選上限預設 300（state.js AI_POOL_MAX）、常用度預設前 40%（lhAiTune freq 60）。韻腳預覽歌詞縮短、預覽 sticky 凍結。
+- AI：Jev 加回（ai-client.js BYOK_PROVIDERS.jev，kind 'jev'，POST /v1/systemone 一題 choice、候選詞當選項 ≤255，byokJevRank 照機率排）；其他要寫文字的功能用 Jev 會白話報錯。AI 造詞暫停（generateAISuggestions 不呼叫 generateAIWords，函式保留）。結果說明改「從 yy 個詞（yy/xx）中，挑出 zz 個」。AI 會參考：關掉＝灰底（不劃線）、沒歌詞時灰色「歌詞」不能按、閃框不被切（.ai-ref padding 3px）。
+- 版面：詞卡同聲調／排除借韻緊接比對方式、回報移到選項列最右（#wsRepSlot）、顯示全部和數量同一列；AI「回報」改成跟中間一樣的 batch-btn btn-report；AI 詞卡至少兩欄、7rem 起自動多欄；主畫面「找到 N 個字」前加彩色韻腳（results.js _lhRhymeTags）。
+- 待驗：Jev 能不能從瀏覽器直連（CORS）、choice 選項上限 255。
+
+## 2026-11-15 v0.98.06（已 push 7056550，待 Andy 實機驗收；全套 1284 通過）
 - 背景動畫與特效改 1–5 級（js/bgfx.js lhFxLevel／lhFxSetLevel，lh:bgFx 存 '1'～'5'，舊 off→1、on→3，預設 3；偏好設定外觀 #prefsBgFx 五段＋說明，js/search-ui.js _lhPrefsBgFxSync）。
   - 星雲各級（js/word-space.js LH_SP_LV）：1 靜止、不逐幀畫（有變化才畫）、滑過直接變粗發光、保留＝外框、詞不能拖；2 靜止＋Dock 式靠近放大、拖了彈回、保留＝外框＋柔光；3 30fps、軌道 0.6 倍、無團互推、保留閃（便宜版）；4 40fps 全效果；5 60fps 全效果。背景飄字 1–2 關、3 約 20fps 字少、4 30fps、5 60fps。
 - 星雲：保留閃爍 1.2 秒一次（快一倍）；📌 再按＝取消保留（removeSavedWord）；縮放時不重畫小圖，手停 160ms 後在背景照新縮放整批畫好再一次換上（_lhSpRescale）；打開時面板慢慢收走 1.2 秒（body.ws-in），這段時間先畫小圖，之後一團團浮現（_lhSpReveal、queue）；流星走弧線（cv）、尾巴沿軌跡、加亮；恆星飄速照團大小分 20 級＋恆星越不常用越快；超過 800 詞「宇宙 1/n」翻頁（_lhSpPage，.ws-pages）；關聯詞加字數篩選兩字／三字／多字可多選（_lhRel.len）；關聯詞圖例固定 開頭→中間→結尾。

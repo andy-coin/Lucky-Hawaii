@@ -57,11 +57,17 @@ test('查整個詞：判斷、押韻比對（同母音／同子音／同讀音�
     const pts = await page.evaluate(async () => {
         const ws = _lhSp.words;
         ws.push(...ws.map(w => ({ ...w })));   // 只有兩個詞：複製出第三、四個假的位置點就好
-        _lhSp.pins = ws.slice(0, 3).map(w => Object.assign(w, { pinned: true }));
+        ws.forEach((w, i) => { w.px = [0, 100, 0, 300][i]; w.py = [0, 0, 100, 300][i]; });
+        for (const w of ws.slice(0, 3)) { w.pinned = true; _lhSpPin(w); }
         await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
-        return _lhSp.segs.length;
+        const tri = _lhSp.segs.length;
+        ws[3].pinned = true; _lhSpPin(ws[3]);   // 第四點：連 1～3 個舊點
+        const fourth = _lhSp.chords.filter(c => c[0] === ws[3]).length;
+        return [tri, fourth];
     });
-    expect(pts).toBe(3);   // 三個點頭尾相連成三角形（三條邊）
+    expect(pts[0]).toBe(3);   // 三個點連成三角形（三條邊）
+    expect(pts[1]).toBeGreaterThanOrEqual(1);
+    expect(pts[1]).toBeLessThanOrEqual(3);
     // 按住恆星還沒拖：整團不動（之前會被拉到畫面中央）
     const star0 = await page.evaluate(() => { const c = _lhSp.groups[0]; return c ? [c.x, c.y] : null; });
     if (star0) {
@@ -79,14 +85,25 @@ test('查整個詞：判斷、押韻比對（同母音／同子音／同讀音�
         await page.evaluate(() => { _lhSp.words = _lhSp.words.slice(0, 2); _lhSpClear(); });   // 拿掉上面為了星座複製的假點
         const at = await page.evaluate(n => _lhSpScreenOf(_lhSp.words.find(x => x.w === n)), w0);
         await page.mouse.click(at.x, at.y);
-        expect(await page.evaluate(n => _lhSp.words.find(x => x.w === n).pinned, w0)).toBe(true);
+        // 0.98.07：點詞＝釘住＋保留
+        expect(await page.evaluate(n => [_lhSp.words.find(x => x.w === n).pinned, savedWords.includes(n)], w0)).toEqual([true, true]);
         const at2 = await page.evaluate(n => _lhSpScreenOf(_lhSp.words.find(x => x.w === n)), w0);
         await page.mouse.click(at2.x, at2.y);
-        expect(await page.evaluate(n => { const w = _lhSp.words.find(x => x.w === n); return [w.pinned, w.hot]; }, w0)).toEqual([false, false]);
+        expect(await page.evaluate(n => { const w = _lhSp.words.find(x => x.w === n); return [w.pinned, w.hot, savedWords.includes(n)]; }, w0)).toEqual([false, false, false]);
+        // 點空白處不再取消選取；面板「取消選取」要按兩下（第一下變確認）
+        await page.mouse.click(at2.x, at2.y);
+        await page.mouse.move(5, 450);
+        await page.mouse.click(5, 450);
+        expect(await page.evaluate(() => _lhSp.words.some(w => w.pinned))).toBe(true);
+        const clr = page.locator('.ws-clear');
+        await expect(clr).toBeVisible();
+        await clr.click();
+        await expect(clr).toHaveText(/確定取消 1 個/);
+        expect(await page.evaluate(() => _lhSp.words.some(w => w.pinned))).toBe(true);
+        await clr.click();
+        expect(await page.evaluate(n => [_lhSp.words.some(w => w.pinned), savedWords.includes(n)], w0)).toEqual([false, false]);
+        await expect(clr).toBeHidden();
     }
-        // 點空白處＝取消選取
-    await page.mouse.click(5, 450);
-    expect(await page.evaluate(() => _lhSp.words.some(w => w.pinned))).toBe(false);
     await page.keyboard.press('Escape');
     await expect(page.locator('#wordSpace')).toBeHidden();
     expect(await page.evaluate(() => document.getElementById('mainContainer').inert)).toBe(false);
