@@ -428,8 +428,8 @@ function _lhSpLayout(list, cfg = {}) {
         // 小星系漫遊（0.98.09）：3–5 個詞的微星系、6–10 個詞的小星系像流星一樣走長直線、出邊界從對面回來；流星 > 微星系 > 小星系
         if (g.length <= 10) { const a = R() * TAU, v = g.length <= 5 ? 32 + R() * 22 : 12 + R() * 10; cl.vx = Math.cos(a) * v; cl.vy = Math.sin(a) * v; }
         const spiral = g.length > 25;   // 大星系排旋臂、小的維持同心圓（見上面 _lhSpGroupKey 前的說明）
-        // 恆星照星系大小加成（0.98.09）：10 個詞以下不加，100 個以上 2 倍（中間照對數）；常用度和星系規模都看得出來
-        const star = g[0], rings = [[]], starS = sizeOf(star) * (1 + Math.min(1, Math.max(0, Math.log10(g.length / 10))));
+        // 恆星照星系大小加成（0.98.09）：10 個詞以下不加，100 個 2 倍（中間照對數），之後每多 50 個詞再 +0.25 倍（連續，不跳階）；常用度和星系規模都看得出來
+        const star = g[0], rings = [[]], starS = sizeOf(star) * (1 + Math.min(1, Math.max(0, Math.log10(g.length / 10))) + Math.max(0, g.length - 100) / 50 * 0.25);
         let r = _lhSpWidth(star.w, starS) / 2 + LH_SP_RING * 0.9, used = 0;
         const radii = [r];
         for (const e of g.slice(1)) {
