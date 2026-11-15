@@ -246,7 +246,7 @@ function _lhWsMore(grid) {
 // ==================== 顯示全部（星雲） ====================
 const _lhSp = { el: null, world: null, words: [], groups: [], raf: 0, last: 0, t0: 0, z: 1, px: 0, py: 0, pts: new Map(), pan: null, pinch: null, drag: null, nav: null, back: null, bound: 1000, pins: [], chords: [], line: null, tm: 0 };
 const LH_SP_ZMIN = 0.25, LH_SP_ZMAX = 3;
-const LH_SP_RING = 58;   // 軌道之間的距離（世界座標 px）；0.98.09 從 46 拉大，大星系加上隨機偏移也不會疊在一起
+const LH_SP_RING = 64;   // 軌道之間的距離（世界座標 px）；0.98.09 從 46 拉大，大星系加上隨機偏移也不會疊在一起
 const _lhSpReduce = matchMedia('(prefers-reduced-motion: reduce)');
 const LH_SP_EYE_OFF = '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/><path d="M4 20L20 4"/></svg>';
 const LH_SP_X = '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>';
@@ -1031,7 +1031,7 @@ function _lhSpDraw(t, L) {
         const tw = w.twk ? Math.sin(Math.min(1, (t - w.twk) / 1400) * Math.PI) : 0;   // 星星閃爍的亮度（0→1→0）
         const m = (w.kb || 1) * (1 + 0.06 * tw);
         if (w.star && L.starGlow && !w.dim) {   // 0.98.09：第 4 級起恆星自帶光暈（字後面一圈淡淡的放射漸層）
-            const R = (w.tw / 2 + 24 * w.s) * _lhSpZv() * m;
+            const R = (w.tw * 0.9 + 44 * w.s) * _lhSpZv() * m;   // 光暈範圍（0.98.09 再放大）
             const g = c.createRadialGradient(p.x, p.y, 0, p.x, p.y, R);
             g.addColorStop(0, w.rgbG || (w.rgbG = _lhSpRGBA(w.rgb, 0.2)));
             g.addColorStop(1, w.rgb0 || (w.rgb0 = _lhSpRGBA(w.rgb, 0)));
