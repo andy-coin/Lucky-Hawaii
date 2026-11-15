@@ -101,13 +101,14 @@ for (const c of CASES) {
         const { context, page, errors, offOrigin } = await bootPage(browser, { storage });
         try {
             // 先套用選項再輸入（直接設 checked 並送出 change，不依賴版面）
-            if (c.options) await page.evaluate(opts => {
+            // 0.98.09 起「過濾破音字」預設打勾；golden 檔是以「不勾」錄的，沒指定時明確關掉，對照基準不變
+            await page.evaluate(opts => {
                 for (const [k, v] of Object.entries(opts)) {
                     const el = document.getElementById(k);
                     el.checked = v;
                     el.dispatchEvent(new Event('change', { bubbles: true }));
                 }
-            }, c.options);
+            }, { filterDuplicate: false, ...c.options });
             await page.fill('#searchInput', c.input);
             await settle(page);
             if (c.chipIndex !== undefined) {

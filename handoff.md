@@ -5,6 +5,9 @@
 - 中間面板：.options container query，616px 以下藏按鈕圖示、540px 以下換行後靠左；關聯詞彙／顯示全部上下各 12px 置中（.ws-rel-btn margin）。搜尋框上下 padding 縮成約 0.88 倍高；提示字「例如：ㄞ/ai/唉/唉呀」。
 - 偏好設定：分頁改名「韻腳地圖」；第 4 級叫「精緻」；子標題統一 0.9rem 主文字色、內容縮排 --pf-in 0.625rem（panels.css 檔尾）；查詢分頁加「顯示與篩選」子標題；韻腳地圖分頁說明移到預覽上面；AI 分頁兩條分隔線併一條。
 - 英文：AH＋M（come、some、from）→ㄨㄤ。
+- 「過濾破音字」預設打勾（index.html checked；golden.spec 沒指定時明確設 false，golden 檔不用重錄）。
+- 星星閃爍：機率 0.015、放大 10%、發光疊兩次。觸控裝置的 .ws-len／.ws-pos 按鈕 min-width 0（44px 最小寬讓三顆擠成直排）。
+- index.html 的 ?v= 改成 0.98.09.2（只破快取，畫面上的版本號 LH_APP_VERSION 不變）。**待辦：最後跑一次全套（Andy 要求最後一起測）。**
 - 換批過場 _lhSpWhip：畫布用 element.animate 甩出（240ms、往翻頁方向、模糊 14px＋淡出）→ 同一個 onfinish 裡換內容 → 從另一邊甩進來（420ms）；減少動態直接換。
 - 星座線：第 4 級 lineGlow（底下兩層粗淡描線）、第 5 級再加 lineFlash（每條線各自隨機閃，1.2 秒、每秒約 15%，狀態記在 chord 陣列 sg.tw）。
 - 恆星光暈與流星尾巴改在 _lhSpDraw 分流（top／mags）之前畫：hover 放大、釘住時不再消失。

@@ -943,7 +943,7 @@ function _lhSpFrame(t) {
         // 隨機星星閃爍（第 4、5 級）：每秒大約 5 顆；越常用越容易被選到，但最多只多 15%；亮起來時跟著放大一點點
         if (L.twinkle && w.born && !w.dim && dt) {
             if (w.twk && t - w.twk > 1400) w.twk = 0;
-            if (!w.twk && Math.random() < dt * 0.006 * (1 + 0.15 * (w.n || 0))) w.twk = t;
+            if (!w.twk && Math.random() < dt * 0.015 * (1 + 0.15 * (w.n || 0))) w.twk = t;   // 0.98.09：機率 0.006→0.015
         } else if (!L.twinkle) w.twk = 0;
         if (dock) {
             let goal = 1;
@@ -1074,11 +1074,11 @@ function _lhSpDraw(t, L) {
         if (w.mag > 1.01) { mags.push([w, p]); continue; }   // 放大中的詞晚點畫，蓋在旁邊的詞上面
         const a = w.alpha * (w.dim ? 0.06 : 1);
         const tw = w.twk ? Math.sin(Math.min(1, (t - w.twk) / 1400) * Math.PI) : 0;   // 星星閃爍的亮度（0→1→0）
-        const m = (w.kb || 1) * (1 + 0.06 * tw);
+        const m = (w.kb || 1) * (1 + 0.1 * tw);
         c.globalAlpha = a;
         blit(w, p, m);
         if ((w.comet && L.cometGlow || tw) && !w.dim) {   // 流星加亮、星星閃爍：同一張小圖用發光疊加再貼一次
-            c.save(); c.globalCompositeOperation = 'lighter'; c.globalAlpha = a * (tw ? 0.8 * tw : 0.55); blit(w, p, m); c.restore();
+            c.save(); c.globalCompositeOperation = 'lighter'; c.globalAlpha = a * (tw ? tw : 0.55); blit(w, p, m); if (tw) { c.globalAlpha = a * 0.7 * tw; blit(w, p, m); } c.restore();   // 星星閃爍疊兩次，比較亮
         }
         if (w.kept && !w.dim) _lhSpKept(c, w, p, a, t, L, pill, blit, m);
     }
