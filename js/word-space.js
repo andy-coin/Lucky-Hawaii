@@ -398,7 +398,7 @@ function _lhSpWhip(page) {
 // 第 5 級的換批過場：星際穿越（超光速）。上面疊一張透明畫布畫從中心往外射的星光線，先加速再減速（約 1.1 秒）；
 // 舊的星雲往前衝（放大、模糊、淡出），最快的時候換內容，新的從遠處拉近（由小變大、變清楚）
 function _lhSpWarp(go) {
-    if (_lhSp.warp) return;
+    if (_lhSp.warp) { _lhSp.warpNext = go; return; }   // 還在穿越：記下最後一次要換的，播完接著再穿越一次（不吃掉點擊）
     const el = _lhSp.el, cv = _lhSp.cv, W = el.clientWidth, H = el.clientHeight, dpr = Math.min(window.devicePixelRatio || 1, 2);
     const o = document.createElement('canvas');
     o.className = 'ws-warp';
@@ -411,12 +411,13 @@ function _lhSpWarp(go) {
     const pick = () => seen.length ? seen[Math.floor(Math.random() * seen.length)] : fallback;
     const stars = Array.from({ length: 220 }, () => ({ a: Math.random() * Math.PI * 2, d: 20 + Math.random() * maxR, w: 0.6 + Math.random() * 1.4, c: pick() }));
     const T = 730, t0 = performance.now();   // 0.98.09：從 1100 縮短三分之一
+    const GO = (T - 500) / T;   // 0.98.14.10 Andy：新的星系在光線結束前 0.5 秒就開始形成（跟星際穿越重疊），不會有一瞬間全空
     let swapped = false;
-    cv.animate([{ transform: 'none', filter: 'blur(0)', opacity: 1 }, { transform: 'scale(2.4)', filter: 'blur(10px)', opacity: 0 }], { duration: T * 0.5, easing: 'cubic-bezier(.6,0,.9,.4)', fill: 'forwards' });
+    cv.animate([{ transform: 'none', filter: 'blur(0)', opacity: 1 }, { transform: 'scale(2.4)', filter: 'blur(10px)', opacity: 0 }], { duration: T * GO, easing: 'cubic-bezier(.6,0,.9,.4)', fill: 'forwards' });
     _lhSp.warp = true;
     const step = now => {
         const u = Math.min(1, (now - t0) / T), sp = Math.sin(u * Math.PI);   // 速度 0→1→0
-        if (!swapped && u >= 0.5) {
+        if (!swapped && u >= GO) {
             swapped = true;
             cv.getAnimations().forEach(a => a.cancel());
             go();
@@ -434,7 +435,7 @@ function _lhSpWarp(go) {
             x.beginPath(); x.moveTo(cx + c * (s.d - len), cy + n * (s.d - len)); x.lineTo(cx + c * s.d, cy + n * s.d); x.stroke();
         }
         if (u < 1) requestAnimationFrame(step);
-        else { o.remove(); _lhSp.warp = false; }
+        else { o.remove(); _lhSp.warp = false; const nx = _lhSp.warpNext; _lhSp.warpNext = null; if (nx && _lhSp.visible) _lhSpWarp(nx); }
     };
     requestAnimationFrame(step);
 }
