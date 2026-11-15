@@ -773,7 +773,7 @@ function _lhSpShow(cfg) {
     const LH_SP_PIECE = 48, q = [];
     // 凝聚（第 4、5 級）：所有星系的恆星一起先浮現（各在自己的位置，不特別置中），行星之後才一份份聚過來
     const starFirst = _lhSpCfg().gather;
-    if (starFirst) { const st = _lhSp.words.filter(w => w.star); st.lead = 700; q.push(st); }   // lead：恆星先亮 0.7 秒，行星才開始來
+    if (starFirst) { const st = _lhSp.words.filter(w => w.star); st.lead = 0; q.push(st); }   // 0.98.14.14：行星跟恆星同時出發（亂撒在畫面外＋慢起步，實際會落在恆星浮現的後半段才進畫面）
     for (const cl of clusters) { const g = _lhSp.words.filter(w => w.cl === cl && !(starFirst && w.star)); for (let i = 0; i < g.length; i += LH_SP_PIECE) q.push(g.slice(i, i + LH_SP_PIECE)); }
     const cm = _lhSp.words.filter(w => w.comet);
     for (let i = 0; i < cm.length; i += LH_SP_PIECE) q.push(cm.slice(i, i + LH_SP_PIECE));
@@ -1278,15 +1278,15 @@ function _lhSpDraw(t, L) {
         if (!_lhSp.holo || _lhSp.holo.w !== w || w.dim) return;
         const k = Math.min(1, (t - _lhSp.holo.t0) / 300);
         if (k < 1) _lhSp.dirty = true;
-        const R = Math.max(80, w.tw * z * m) * 2;
+        const R = Math.max(50, w.tw * z * m) * 1.3;   // 0.98.14.14：退回第一次加強的亮度（第二次加強是因為 bug 看不到，修好後太亮）
         const g = c.createRadialGradient(p.x, p.y, 0, p.x, p.y, R);
-        g.addColorStop(0, _lhSpRGBA(w.rgb, 0.85 * k)); g.addColorStop(0.35, _lhSpRGBA(w.rgb, 0.45 * k)); g.addColorStop(0.7, _lhSpRGBA(w.rgb, 0.12 * k)); g.addColorStop(1, _lhSpRGBA(w.rgb, 0));
+        g.addColorStop(0, _lhSpRGBA(w.rgb, 0.5 * k)); g.addColorStop(0.45, _lhSpRGBA(w.rgb, 0.18 * k)); g.addColorStop(1, _lhSpRGBA(w.rgb, 0));
         c.fillStyle = g; c.globalAlpha = 1; c.fillRect(p.x - R, p.y - R, R * 2, R * 2);
         // 深淺主題都看得出來：一般疊法描兩次彩色光暈（「疊加發光」在淺色背景上反而變淡），深色主題再用疊加提亮
-        const sb = 48 * Math.max(0.6, Math.min(2, z * m * w.s));
+        const sb = 26 * Math.max(0.6, Math.min(2, z * m * w.s));
         c.save(); c.shadowColor = w.rgb; c.globalAlpha = k;
-        c.shadowBlur = sb; blit(w, p, m); blit(w, p, m); c.shadowBlur = sb * 0.4; blit(w, p, m); c.shadowBlur = sb * 0.15; blit(w, p, m);
-        c.shadowBlur = 0; c.globalCompositeOperation = 'lighter'; c.globalAlpha = 0.6 * k; blit(w, p, m); c.restore();
+        c.shadowBlur = sb; blit(w, p, m); c.shadowBlur = sb * 0.4; blit(w, p, m);
+        c.shadowBlur = 0; c.globalCompositeOperation = 'lighter'; c.globalAlpha = 0.35 * k; blit(w, p, m); c.restore();
         c.globalAlpha = a;
         };
     const top = [], mags = [];
