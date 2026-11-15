@@ -448,11 +448,20 @@ function _lhSpPages(cfg) {
     const groups = new Map();
     for (const e of cfg.list) { const k = _lhSpGroupKey(e, cfg); if (!groups.has(k)) groups.set(k, []); groups.get(k).push(e); }
     // 0.98.10 之後：不再把大星系拆到各批（舊版「輪流發牌」拆法見 git 6fdd3d4）
-    const N = cfg.list.length, B = N <= LH_WS_SPACE_MAX ? 1 : Math.max(2, Math.round(N / 600));
     const chunks = [...groups.values()];
     chunks.sort((a, b) => b.length - a.length);
-    const bins = Array.from({ length: B }, () => new Set());
-    for (const c of chunks) { const b = bins.reduce((m, x) => x.size < m.size ? x : m); for (const e of c) b.add(e); }
+    // 0.98.14：每個宇宙至少兩個星系（3 詞以上才算星系，2 詞以下是流星）→ 批數最多＝星系數 / 2；
+    // 最大的幾個星系先各佔一批，再從最小的星系開始配給最大的那批（大配小，不硬拆），剩下的照舊放進目前最少的那批
+    const N = cfg.list.length, G = chunks.filter(c => c.length > 2).length;
+    const B = N <= LH_WS_SPACE_MAX ? 1 : Math.max(1, Math.min(Math.floor(G / 2), Math.max(2, Math.round(N / 600))));
+    const bins = Array.from({ length: B }, () => new Set()), put = (b, c) => { for (const e of c) b.add(e); };
+    const rest = chunks.slice(B);
+    if (B > 1) {
+        chunks.slice(0, B).forEach((c, i) => put(bins[i], c));
+        const small = rest.filter(c => c.length > 2).reverse();   // 最小的星系在前
+        for (const b of bins) { const c = small.shift(); if (!c) break; put(b, c); rest.splice(rest.indexOf(c), 1); }
+    } else rest.unshift(...chunks.slice(0, B));
+    for (const c of rest) put(bins.reduce((m, x) => x.size < m.size ? x : m), c);
     return (cfg._pages = bins.filter(b => b.size).map(b => cfg.list.filter(e => b.has(e))));   // 每批裡照原本順序（常用的先）
 }
 function _lhSpLayout(list, cfg = {}) {
@@ -652,11 +661,15 @@ function _lhRelShow() {
     for (const e of list) { const k = _lhRelCat(e, set), id = k.c + k.rd; cnt.set(id, (cnt.get(id) || 0) + 1); }
     const rank = new Map();
     for (const c of chars) [...cnt].filter(([id]) => id.startsWith(c)).sort((a, b) => b[1] - a[1]).forEach(([id], i) => rank.set(id, i));
+    // 0.98.14：超過 500 詞的星系再照「這個字是詞裡第幾個字」拆開（第 5 段＝第幾字，例「不」的多字詞拆成第 2／3／4 字）
+    const base = e => { const k = _lhRelCat(e, set); return k.c + '|' + k.pos + '|' + k.len + '|' + k.rd; }, bn = new Map();
+    for (const e of list) { const b = base(e); bn.set(b, (bn.get(b) || 0) + 1); }
     _lhSpShow({ list, title: '「' + chars.join('') + '」關聯詞', rel: true, page: 0,
         catOf: e => _lhRelCat(e, set),
-        groupOf: e => { const k = _lhRelCat(e, set); return k.c + '|' + k.pos + '|' + k.len + '|' + k.rd; },
+        groupOf: e => { const b = base(e); return bn.get(b) > 500 ? b + '|' + ([...e.w].findIndex(c => set.has(c)) + 1) : b; },
         headOf: key => key.split('|')[0],
-        colorOf: key => { const [c, pos, len, rd] = key.split('|'), ri = rank.get(c + rd) || 0, base = _lhRelColor(chars, c, pos, len);
+        colorOf: key => { const [c, pos, len, rd, ix] = key.split('|'), ri = rank.get(c + rd) || 0, b0 = _lhRelColor(chars, c, pos, len);
+            const base = ix && _LH_REL_REL ? 'oklch(from ' + b0 + ' l c calc(h + ' + ((+ix % 3) - 1) * 24 + '))' : b0;   // 細拆的星系：照第幾字轉一點色相
             if (!ri) return base;
             const dl = [0, 0.14, -0.14, 0.24, -0.24][Math.min(ri, 4)], dh = ri % 2 ? 18 : -18;
             return _LH_REL_REL ? 'oklch(from ' + base + ' calc(l + ' + dl + ') c calc(h + ' + dh + '))'
@@ -724,7 +737,7 @@ function _lhSpShow(cfg) {
         sub.hidden = true;
         head.addEventListener('click', () => { sub.hidden = !sub.hidden; head.setAttribute('aria-expanded', String(!sub.hidden)); });
         sub.append(...cs.map(cl => {
-            const label = cfg.rel ? LH_REL_POS_N[cl.key.split('|')[1]] + cl.key.split('|')[2].replace(/./, x => LH_REL_LEN_N[x]) + ' ' + (cl.key.split('|')[3] || '') : cl.key.split('·').map(t => LH_WS_TONE_N[t - 1] ? LH_WS_TONE_N[t - 1][0] : t).join('·');
+            const label = cfg.rel ? LH_REL_POS_N[cl.key.split('|')[1]] + cl.key.split('|')[2].replace(/./, x => LH_REL_LEN_N[x]) + ' ' + (cl.key.split('|')[3] || '') + (cl.key.split('|')[4] ? ' 第' + cl.key.split('|')[4] + '字' : '') : cl.key.split('·').map(t => LH_WS_TONE_N[t - 1] ? LH_WS_TONE_N[t - 1][0] : t).join('·');
             const b = _lhWsEl('button', 'ws-leg', label + '（' + cl.n + '）');
             b.type = 'button';
             b.style.setProperty('--c', cl.color);

@@ -9,7 +9,7 @@ const LH_TOUR_KEY = 'lh:tourSeen';
 // place：'left'＝說明框放在目標左邊、靠上半段（目標是整個高高的面板時，不要壓在右下角）
 const LH_TOUR_STEPS = [
     { sel: '.search-box', panel: null, title: '從一個字開始',
-      body: '輸入一個字或注音／拼音（例如「ㄞ」「ai」「唉」「唉呀」），列出所有同韻的字。字中間加空白（「洋 流」）就是每個字各查各的。' },
+      body: '輸入一個字或注音／拼音（例如「ㄞ」「ai」「唉」「唉呀」），列出所有同韻的字。' },
     { sel: '#resultsContainer', panel: null, title: '同韻字卡',
       body: '一個字或用空白分開的幾個字（「洋 流」），會列出每個字的同韻字卡，常用的排前面。點字卡會選字：AI 建議只找含這些字的詞，也能按「關聯詞彙」看含這些字的詞；按住字卡可以直接拖進歌詞。連在一起打（「洋流」）則是查整個詞，列出的是詞卡（見下一步）。' },
     { sel: '.search-box', panel: null, title: '一次找雙押、多押',
