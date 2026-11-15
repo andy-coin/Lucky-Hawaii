@@ -612,7 +612,9 @@ const LH_REL_POS = ['首', '中', '尾'], LH_REL_LEN = ['2', '3', 'm'];
 const LH_REL_POS_N = { 首: '字首', 中: '中間', 尾: '字尾' }, LH_REL_LEN_N = { 2: '兩字', 3: '三字', m: '多字' };
 const _lhRelCat = (e, set) => {
     const cs = [...e.w], i = cs.findIndex(c => set.has(c));
-    return { c: cs[i], pos: i === 0 ? '首' : i === cs.length - 1 ? '尾' : '中', len: cs.length === 2 ? '2' : cs.length === 3 ? '3' : 'm' };
+    // rd：這個字在這個詞裡的實際讀音（含聲調、變調，例如「一」有ㄧ／ㄧˊ／ㄧˋ）；聲調不同跟旋律倒字有關，一律分開，不看「過濾破音字」
+    const z = (e.z || '').split(' '), rd = z.length === cs.length ? z[i] : '';
+    return { c: cs[i], pos: i === 0 ? '首' : i === cs.length - 1 ? '尾' : '中', len: cs.length === 2 ? '2' : cs.length === 3 ? '3' : 'm', rd };
 };
 const _LH_REL_REL = CSS.supports('color', 'oklch(from red calc(l + 0.1) c calc(h + 10))');
 function _lhRelColor(chars, c, pos, len) {
@@ -631,11 +633,20 @@ function _lhRelShow() {
     const list = _lhWsRelList(chars, '', new Set());
     if (!list.length) { showToast('詞庫裡沒有含這些字的詞'); if (!_lhSp.el || _lhSp.el.hidden) return; }
     const set = new Set(chars);
+    // 每個字的讀音照詞數排名：最多的讀音用原色，其他讀音依序調明暗＋小色偏（同類別不同讀音一眼分得出來）
+    const cnt = new Map();
+    for (const e of list) { const k = _lhRelCat(e, set), id = k.c + k.rd; cnt.set(id, (cnt.get(id) || 0) + 1); }
+    const rank = new Map();
+    for (const c of chars) [...cnt].filter(([id]) => id.startsWith(c)).sort((a, b) => b[1] - a[1]).forEach(([id], i) => rank.set(id, i));
     _lhSpShow({ list, title: '「' + chars.join('') + '」關聯詞', rel: true, page: 0,
         catOf: e => _lhRelCat(e, set),
-        groupOf: e => { const k = _lhRelCat(e, set); return k.c + '|' + k.pos + '|' + k.len; },
+        groupOf: e => { const k = _lhRelCat(e, set); return k.c + '|' + k.pos + '|' + k.len + '|' + k.rd; },
         headOf: key => key.split('|')[0],
-        colorOf: key => { const [c, pos, len] = key.split('|'); return _lhRelColor(chars, c, pos, len); } });
+        colorOf: key => { const [c, pos, len, rd] = key.split('|'), ri = rank.get(c + rd) || 0, base = _lhRelColor(chars, c, pos, len);
+            if (!ri) return base;
+            const dl = [0, 0.14, -0.14, 0.24, -0.24][Math.min(ri, 4)], dh = ri % 2 ? 18 : -18;
+            return _LH_REL_REL ? 'oklch(from ' + base + ' calc(l + ' + dl + ') c calc(h + ' + dh + '))'
+                : 'color-mix(in oklab, ' + base + ' ' + (100 - 15 * Math.min(ri, 4)) + '%, var(' + (dl > 0 ? '--text-primary' : '--text-secondary') + '))'; } });
 }
 // 篩選：不符合的星系（和流星）收回中心淡出，符合的綻放回來；不重排
 function _lhRelApply(now) {
@@ -699,7 +710,7 @@ function _lhSpShow(cfg) {
         sub.hidden = true;
         head.addEventListener('click', () => { sub.hidden = !sub.hidden; head.setAttribute('aria-expanded', String(!sub.hidden)); });
         sub.append(...cs.map(cl => {
-            const label = cfg.rel ? LH_REL_POS_N[cl.key.split('|')[1]] + cl.key.split('|')[2].replace(/./, x => LH_REL_LEN_N[x]) : cl.key.split('·').map(t => LH_WS_TONE_N[t - 1] ? LH_WS_TONE_N[t - 1][0] : t).join('·');
+            const label = cfg.rel ? LH_REL_POS_N[cl.key.split('|')[1]] + cl.key.split('|')[2].replace(/./, x => LH_REL_LEN_N[x]) + ' ' + (cl.key.split('|')[3] || '') : cl.key.split('·').map(t => LH_WS_TONE_N[t - 1] ? LH_WS_TONE_N[t - 1][0] : t).join('·');
             const b = _lhWsEl('button', 'ws-leg', label + '（' + cl.n + '）');
             b.type = 'button';
             b.style.setProperty('--c', cl.color);
