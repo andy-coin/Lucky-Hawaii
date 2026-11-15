@@ -90,11 +90,13 @@ test('查整個詞：判斷、押韻比對（同母音／同子音／同讀音�
         const at2 = await page.evaluate(n => _lhSpScreenOf(_lhSp.words.find(x => x.w === n)), w0);
         await page.mouse.click(at2.x, at2.y);
         expect(await page.evaluate(n => { const w = _lhSp.words.find(x => x.w === n); return [w.pinned, w.hot, savedWords.includes(n)]; }, w0)).toEqual([false, false, false]);
-        // 點空白處不再取消選取；面板「取消選取」要按兩下（第一下變確認）
+        // 0.98.09：只選一個時點空白一下就取消（不問）；兩個以上要雙擊空白，或面板「取消選取」按兩下（第一下變確認）
         await page.mouse.click(at2.x, at2.y);
         await page.mouse.move(5, 450);
         await page.mouse.click(5, 450);
-        expect(await page.evaluate(() => _lhSp.words.some(w => w.pinned))).toBe(true);
+        expect(await page.evaluate(n => [_lhSp.words.some(w => w.pinned), savedWords.includes(n)], w0)).toEqual([false, false]);
+        const at3 = await page.evaluate(n => _lhSpScreenOf(_lhSp.words.find(x => x.w === n)), w0);
+        await page.mouse.click(at3.x, at3.y);
         const clr = page.locator('.ws-clear');
         await expect(clr).toBeVisible();
         await clr.click();
@@ -103,6 +105,17 @@ test('查整個詞：判斷、押韻比對（同母音／同子音／同讀音�
         await clr.click();
         expect(await page.evaluate(n => [_lhSp.words.some(w => w.pinned), savedWords.includes(n)], w0)).toEqual([false, false]);
         await expect(clr).toBeHidden();
+        // 選兩個：點空白一下不取消，雙擊空白才全部取消（不問）
+        for (const w of await page.evaluate(() => _lhSp.words.map(x => x.w))) {
+            const p = await page.evaluate(n => _lhSpScreenOf(_lhSp.words.find(x => x.w === n)), w);
+            await page.mouse.click(p.x, p.y);
+        }
+        await page.mouse.move(5, 450);
+        await page.mouse.click(5, 450);
+        await page.waitForTimeout(500);
+        expect(await page.evaluate(() => _lhSp.words.filter(w => w.pinned).length)).toBe(2);
+        await page.mouse.dblclick(5, 450);
+        expect(await page.evaluate(() => _lhSp.words.some(w => w.pinned))).toBe(false);
     }
     await page.keyboard.press('Escape');
     await expect(page.locator('#wordSpace')).toBeHidden();

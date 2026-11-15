@@ -8,6 +8,7 @@
 - 「過濾破音字」預設打勾（index.html checked；golden.spec 沒指定時明確設 false，golden 檔不用重錄）。
 - 星星閃爍：機率 0.015、放大 10%、發光疊兩次。觸控裝置的 .ws-len／.ws-pos 按鈕 min-width 0（44px 最小寬讓三顆擠成直排）。
 - index.html 的 ?v= 改成 0.98.09.2（只破快取，畫面上的版本號 LH_APP_VERSION 不變）。**待辦：最後跑一次全套（Andy 要求最後一起測）。**
+- 點空白（_lhSpEvents end，pan 沒拖動）：只選一個＝單擊就取消；雙擊（400ms、24px 內）＝全部取消，都不問（_lhSpClearNow 也取消保留）；點過詞會重設 _lhSp.blankTap。
 - 旋臂模式（實驗）：星雲左上「旋臂」鈕切換 _lhSpSpiral（不存檔）；克卜勒 om∝(r0/r)^1.5、每星系 2–5 條臂（cl.arms/arm0/twist/ecc）、一圈只放 55%。
 - 第 5 級換批＝星際穿越 _lhSpWarp（.ws-warp 疊一張畫布畫星光線 1.1 秒，舊的放大模糊、半途換、新的由小拉近）；第 1–4 級照舊鏡頭一甩。換批滑桿移到畫面正上方中間（窄螢幕 760px 以下移到下方）。
 - 背景落字各主題 --fx-opacity +0.04（預設主題 0.28）。第 5 級改名「浮誇」。

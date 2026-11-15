@@ -1304,7 +1304,11 @@ function _lhSpClearAsk() {
         document.addEventListener('pointerdown', _lhSpClearOut, true);
         return;
     }
-    for (const w of ps) if (w.kept) { removeSavedWord(w.w); w.kept = false; }
+    _lhSpClearNow();
+}
+// 取消全部選取（也一起取消保留），不問
+function _lhSpClearNow() {
+    for (const w of _lhSp.pins) if (w.pinned && w.kept) { removeSavedWord(w.w); w.kept = false; }
     _lhSpClear();
 }
 
@@ -1439,6 +1443,7 @@ function _lhSpEvents(el) {
                 }
                 if (!d.w.pinned) d.w.hot = false;   // 0.98.09：游標停在詞上不再定格，放手就恢復
             } else if (e.type === 'pointerup') {   // 單擊：釘住＋保留；再點一次釘住的詞＝取消釘選＋取消保留
+                _lhSp.blankTap = null;   // 點過詞，空白的雙擊重新算
                 d.w.pinned = !d.w.pinned;
                 if (d.w.cl) d.w.cl.ver++;
                 _lhSpPin(d.w);
@@ -1454,7 +1459,15 @@ function _lhSpEvents(el) {
             }
         }
         if (_lhSp.pan && _lhSp.pan.id === e.pointerId) {
+            const pn = _lhSp.pan;
             _lhSp.pan = null;
+            // 點空白（沒拖動）：兩下＝全部取消選取；只選了一個詞時點一下就取消。都不跳確認（0.98.09）
+            if (e.type === 'pointerup' && !pn.moved && _lhSp.pins.some(w => w.pinned)) {
+                const now = e.timeStamp, last = _lhSp.blankTap;
+                const dbl = last && now - last.t < 400 && Math.hypot(e.clientX - last.x, e.clientY - last.y) < 24;
+                _lhSp.blankTap = dbl ? null : { t: now, x: e.clientX, y: e.clientY };
+                if (dbl || _lhSp.pins.filter(w => w.pinned).length === 1) _lhSpClearNow();
+            }
         }
     };
     el.addEventListener('pointerup', end);
