@@ -163,8 +163,8 @@ function _lhBgUpdate() {
     }
     _lhBgCanvas.style.visibility = _lhBgHidden ? 'hidden' : '';
     if (_lhBgHidden) { _lhBgStop(); return; }
-    // 1～3 級（0.98.16 起第 3 級也定格）：定格一張；星雲開著時（_lhBgFaint）也定格——它只剩 28% 淡、被星雲蓋住，照跑會多一整張全螢幕畫布每秒 60 格（0.98.15.6，約省 20%）
-    if (_lhBgReduce.matches || document.hidden || _lhFxLv <= 3 || _lhBgFaint) { _lhBgStop(); _lhBgDraw(0); return; }
+    // 1～3 級（0.98.16 起第 3 級也定格）：定格一張。第 4、5 級一律是落字動畫，星雲開著時也照跑（只是淡到 28%）——0.98.18 Andy 改回（0.98.15.6 曾在星雲開著時定格省約 20%）
+    if (_lhBgReduce.matches || document.hidden || _lhFxLv <= 3) { _lhBgStop(); _lhBgDraw(0); return; }
     if (!_lhBgRaf) _lhBgRaf = requestAnimationFrame(_lhBgFrame);
 }
 

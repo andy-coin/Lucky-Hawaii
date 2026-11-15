@@ -1408,7 +1408,7 @@ function _lhSpDraw(t, L) {
         // 0.98.16：第 2 級流星停著、透明度 5 秒一輪慢慢循環；第 5 級流星固定閃爍（約 1.6 秒一輪）＋自帶光暈
         const cf = w.comet && L.cometHalo ? 0.65 + 0.35 * Math.sin(t / 260 + w.wob * 7) : 1;
         const a = w.alpha * (w.dim ? 0.06 : 1) * (w.comet && L.cometPulse ? 0.55 + 0.45 * Math.sin(t / 5000 * Math.PI * 2 + w.wob) : 1);
-        if (w.comet && L.cometHalo && !w.dim) { const R = Math.max(26, w.tw * 0.9) * _lhSpZv(); M.globalAlpha = Math.min(1, a * cf); M.drawImage(_lhSpGlowImg(w.rgb, 0.3), p.x - R, p.y - R, R * 2, R * 2); }
+        if (w.comet && L.cometHalo && !w.dim) { const R = Math.max(26, w.tw * 0.9) * _lhSpZv(); M.globalAlpha = a * 0.35; M.drawImage(_lhSpGlowImg(w.rgb, 0.3),   /* 0.98.18 Andy：光暈恆亮、淡很多（閃的只有字本身） */ p.x - R, p.y - R, R * 2, R * 2); }
         const tw = w.twk ? Math.sin(Math.min(1, (t - w.twk) / 1400) * Math.PI) : 0;   // 星星閃爍的亮度（0→1→0）
         const m = (w.kb || 1) * (L.twFlat ? 1 : 1 + 0.1 * tw);
         c.globalAlpha = a;
