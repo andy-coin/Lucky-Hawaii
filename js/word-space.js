@@ -1128,7 +1128,7 @@ function _lhSpFrame(t) {
         // 凝聚（第 4、5 級，0.98.14.7 Andy）：打開／換批時每個詞先在整片宇宙亂撒，1.6–2.6 秒慢慢聚回自己的軌道；
         // 只是位置多一道內插，畫的東西不變，不吃效能
         let bx = p.x, by = p.y, ease = (1 - Math.pow(1 - k, 3)) * vv;
-        if (L.gather && w.born && !w.comet) {
+        if (L.gather && w.born && !w.comet && !w.star) {   // 恆星不亂撒：在自己的位置由透明慢慢浮現（光暈跟著 w.alpha）
             if (w.gx0 === undefined) { const B = _lhSp.bound || 1000; w.gx0 = (Math.random() * 2 - 1) * B; w.gy0 = (Math.random() * 2 - 1) * B; w.gd = 1600 + Math.random() * 1000; }
             const kg = Math.min(1, (t - w.born) / w.gd);
             if (kg < 1) {
@@ -1142,7 +1142,7 @@ function _lhSpFrame(t) {
         const b = w.cl && !w.comet ? w.cl.b : 1;
         w.px = w.cl && !w.comet ? w.cl.x + (w.ux - w.cl.x) * b : w.ux;
         w.py = w.cl && !w.comet ? w.cl.y + (w.uy - w.cl.y) * b : w.uy;
-        w.alpha = Math.min(1, k * 1.6) * vv;
+        w.alpha = (L.gather && w.star && w.born ? Math.min(1, (t - w.born) / 1400) : Math.min(1, k * 1.6)) * vv;   // 凝聚模式的恆星 1.4 秒才完全浮現
         // 保留的詞呼吸（第 1、2 級）：3 秒一輪輕輕放大縮小
         w.kb = L.keptBreathe && w.kept && !w.dim ? 1 + L.keptBreathe * Math.sin(t / 3000 * TAU + w.wob) : 1;
         // 隨機星星閃爍（第 4、5 級）：每秒大約 5 顆；越常用越容易被選到，但最多只多 15%；亮起來時跟著放大一點點
@@ -1511,7 +1511,7 @@ function _lhSpClParts(cl, cfg = _lhSp.cfg) {
     const k = cl.key.split('|');
     if (!(cfg && cfg.rel)) return cl.key.split('·').map(t => LH_WS_TONE_N[t - 1] || t);
     const ch = k[0] + (cfg.poly && cfg.poly.has(k[0]) && k[3] ? '（' + _lhSpToneMark(k[3]) + '）' : '');
-    return [ch, LH_REL_POS_N[k[1]] + (k[4] ? '（' + k[4] + '）' : ''), LH_REL_LEN_N[k[2]]];   // 細拆的第幾字併進位置：「中間（3）」
+    return [ch, LH_REL_POS_N[k[1]] + (k[4] && k[1] === '中' ? '（' + k[4] + '）' : ''), LH_REL_LEN_N[k[2]]];   // 細拆的第幾字併進位置：「中間（3）」
 }
 function _lhSpHoloDraw(c, t, z) {
     const h = _lhSp.holo, w = h && h.w;
