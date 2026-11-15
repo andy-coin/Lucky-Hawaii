@@ -288,7 +288,12 @@ function _lhSpBuild() {
     clr.type = 'button';
     clr.hidden = true;
     clr.addEventListener('click', _lhSpClearAsk);
-    tools.append(clr, fl);
+    const spiral = _lhWsEl('button', 'ws-hud-btn ws-spiral', '旋臂');
+    spiral.type = 'button';
+    spiral.title = '試試真實星系的轉法：內圈快、外圈慢，排成螺旋臂';
+    spiral.setAttribute('aria-pressed', String(_lhSpSpiral));
+    spiral.addEventListener('click', () => _lhSpSpiralToggle(spiral));
+    tools.append(clr, spiral, fl);
     const posBox = _lhWsEl('div', 'ws-pos');
     posBox.setAttribute('role', 'group');
     posBox.setAttribute('aria-label', '字在詞裡的位置');
@@ -321,7 +326,7 @@ function _lhSpBuild() {
     pr.addEventListener('change', () => { if (_lhSp.cfg && +pr.value !== (_lhSp.cfg.page || 0)) _lhSpWhip(+pr.value); });
     pages.append(pr, _lhWsEl('div', 'ws-page-ticks'));
     pages._mark = prMark;
-    panel.append(title, posBox, lenBox, pages, legend, tools);
+    panel.append(title, posBox, lenBox, legend, tools);
     // 右上：縮放與關閉
     const zoom = _lhWsEl('div', 'ws-zoom');
     const pct = mk('ws-pct', '100%', '回到 100%', () => _lhSpZoom(1));
@@ -329,7 +334,7 @@ function _lhSpBuild() {
     const close = mk('ws-close', '', '關閉（Esc）', () => lhWsClose());
     close.innerHTML = LH_SP_X;
     zoom.append(close);
-    el.append(cv, acts, probe, panel, zoom);
+    el.append(cv, acts, probe, panel, pages, zoom);   // 換批滑桿獨立放在畫面正上方中間（0.98.09）
     document.body.append(el);
     _lhSp.el = el;
     _lhSp.cv = cv;
@@ -365,6 +370,7 @@ function _lhSpWhip(page) {
     const cv = _lhSp.cv, cfg = _lhSp.cfg, d = page > (cfg.page || 0) ? -1 : 1;
     const go = () => _lhSpShow(Object.assign({}, cfg, { page }));
     if (_lhSpReduce.matches || !cv.animate) { go(); return; }
+    if (typeof lhFxLevel === 'function' && lhFxLevel() >= 5) { _lhSpWarp(go); return; }   // 第 5 級：星際穿越
     if (_lhSp.whip) _lhSp.whip.cancel();
     const away = 'translateX(' + (d * 40) + '%) scale(0.92)', back = 'translateX(' + (-d * 40) + '%) scale(0.92)';
     const out = cv.animate([{ transform: 'none', filter: 'blur(0)', opacity: 1 }, { transform: away, filter: 'blur(14px)', opacity: 0 }],
@@ -376,6 +382,54 @@ function _lhSpWhip(page) {
         _lhSp.whip = cv.animate([{ transform: back, filter: 'blur(14px)', opacity: 0 }, { transform: 'none', filter: 'blur(0)', opacity: 1 }],
             { duration: 420, easing: 'cubic-bezier(.15,.7,.3,1)' });
     };
+}
+// 旋臂模式（0.98.09 實驗，Andy 想比較）：恆星不轉、離中心越遠轉越慢（克卜勒：角速度 ∝ 距離^-1.5），
+// 每個星系 2～5 條往後拖的螺旋臂。關掉＝原本的同心圓（內圈角速度快、外圈線速度快）。不存檔，重新整理回到原本
+let _lhSpSpiral = false;
+function _lhSpSpiralToggle(btn) {
+    _lhSpSpiral = !_lhSpSpiral;
+    btn.setAttribute('aria-pressed', String(_lhSpSpiral));
+    if (_lhSp.cfg) _lhSpShow(Object.assign({}, _lhSp.cfg));
+}
+// 第 5 級的換批過場：星際穿越（超光速）。上面疊一張透明畫布畫從中心往外射的星光線，先加速再減速（約 1.1 秒）；
+// 舊的星雲往前衝（放大、模糊、淡出），最快的時候換內容，新的從遠處拉近（由小變大、變清楚）
+function _lhSpWarp(go) {
+    if (_lhSp.warp) return;
+    const el = _lhSp.el, cv = _lhSp.cv, W = el.clientWidth, H = el.clientHeight, dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const o = document.createElement('canvas');
+    o.className = 'ws-warp';
+    o.width = Math.round(W * dpr); o.height = Math.round(H * dpr);
+    el.insertBefore(o, cv.nextSibling);
+    const x = o.getContext('2d'), cx = W / 2, cy = H / 2, maxR = Math.hypot(cx, cy);
+    const col = getComputedStyle(el).getPropertyValue('--text-primary').trim() || '#fff';
+    const stars = Array.from({ length: 220 }, () => ({ a: Math.random() * Math.PI * 2, d: 20 + Math.random() * maxR, w: 0.6 + Math.random() * 1.4 }));
+    const T = 1100, t0 = performance.now();
+    let swapped = false;
+    cv.animate([{ transform: 'none', filter: 'blur(0)', opacity: 1 }, { transform: 'scale(2.4)', filter: 'blur(10px)', opacity: 0 }], { duration: T * 0.5, easing: 'cubic-bezier(.6,0,.9,.4)', fill: 'forwards' });
+    _lhSp.warp = true;
+    const step = now => {
+        const u = Math.min(1, (now - t0) / T), sp = Math.sin(u * Math.PI);   // 速度 0→1→0
+        if (!swapped && u >= 0.5) {
+            swapped = true;
+            cv.getAnimations().forEach(a => a.cancel());
+            go();
+            cv.animate([{ transform: 'scale(0.35)', filter: 'blur(8px)', opacity: 0 }, { transform: 'none', filter: 'blur(0)', opacity: 1 }], { duration: T * 0.6, easing: 'cubic-bezier(.15,.7,.3,1)' });
+        }
+        x.setTransform(dpr, 0, 0, dpr, 0, 0);
+        x.clearRect(0, 0, W, H);
+        x.strokeStyle = col; x.lineCap = 'round';
+        for (const s of stars) {
+            s.d *= 1 + sp * 0.09;   // 越外面跑越快（透視）
+            if (s.d > maxR) { s.d = 10 + Math.random() * 60; s.a = Math.random() * Math.PI * 2; }
+            const len = s.d * sp * 0.35, c = Math.cos(s.a), n = Math.sin(s.a);
+            x.globalAlpha = Math.min(1, 0.25 + sp) * Math.min(1, s.d / 120);
+            x.lineWidth = s.w * (0.6 + sp);
+            x.beginPath(); x.moveTo(cx + c * (s.d - len), cy + n * (s.d - len)); x.lineTo(cx + c * s.d, cy + n * s.d); x.stroke();
+        }
+        if (u < 1) requestAnimationFrame(step);
+        else { o.remove(); _lhSp.warp = false; }
+    };
+    requestAnimationFrame(step);
 }
 const _lhSpGroupKey = (e, cfg) => cfg.groupOf ? cfg.groupOf(e) : e.z.split(' ').map(s => getZhuyinTone(s)).join('·');
 // 分批（0.98.09）：一批約 500（±50）個詞，整個星系一起分、不拆開（星系本身超過 550 才切）。
@@ -413,7 +467,8 @@ function _lhSpLayout(list, cfg = {}) {
         const t1 = cfg.headOf ? cfg.headOf(key) : Math.min(5, Math.max(1, +key.split('·')[0] || 1));
         const color = cfg.colorOf ? cfg.colorOf(key) : _lhWsToneMix(key);
         const cl = { key, t1, n: g.length, color, x: 0, y: 0, hx: 0, hy: 0, r: 0, D: 0, held: false, dir: R() < 0.5 ? -1 : 1, tilt: R() * Math.PI,
-            ph: [R() * TAU, R() * TAU], f: [0.12 + R() * 0.08, 0.1 + R() * 0.08], bp: 4 + R() * 3, ver: 0 };   // bp：整團呼吸一輪幾秒（每團不同）
+            ph: [R() * TAU, R() * TAU], f: [0.12 + R() * 0.08, 0.1 + R() * 0.08], bp: 4 + R() * 3, ver: 0,   // bp：整團呼吸一輪幾秒（每團不同）
+            arms: 2 + Math.floor(R() * 4), arm0: R() * TAU, twist: 1.4 + R() * 1.2, ecc: 0.82 + R() * 0.12 };   // 旋臂模式：幾條臂、起始角、捲曲程度、整個星系的扁度
         clusters.push(cl);
         // 先照寬度一圈圈分好（第 k 圈半徑 = 中心詞的一半寬 + k × 間距），再給每個詞自己的隨機軌道
         const star = g[0], rings = [[]];
@@ -421,14 +476,31 @@ function _lhSpLayout(list, cfg = {}) {
         const radii = [r];
         for (const e of g.slice(1)) {
             const wd = _lhSpWidth(e.w, sizeOf(e)) + 10;
-            if (used + wd > 2 * Math.PI * r && rings[rings.length - 1].length) { rings.push([]); r += LH_SP_RING; radii.push(r); used = 0; }
+            // 旋臂模式：詞擠在臂上，一圈只放 55% 才不會疊
+            if (used + wd > 2 * Math.PI * r * (_lhSpSpiral ? 0.55 : 1) && rings[rings.length - 1].length) { rings.push([]); r += LH_SP_RING; radii.push(r); used = 0; }
             rings[rings.length - 1].push(e);
             used += wd;
         }
         cl.r = r + LH_SP_RING * 1.1;
         words.push({ e: star, cl, star: true, color, s: sizeOf(star), n: norm(star), r: 0, ecc: 1, tilt: 0, th: 0, om: 0 });
         // 同一圈共用扁度、傾角、速度（才不會越轉越擠在一起），每個詞只再帶一點點偏差
-        rings.forEach((ring, k) => {
+        if (_lhSpSpiral) rings.forEach((ring, k) => {
+            // 第 k 圈：輪流分給每條臂；每條臂在這圈的中心角＝起始角＋第幾條×(360°/臂數)－捲曲×ln(半徑比)（往旋轉的反方向拖）
+            const rk = radii[k], N = cl.arms, per = Array.from({ length: N }, () => []);
+            const om = cl.dir * 0.16 * Math.pow(radii[0] / rk, 1.5);   // 克卜勒：越外面越慢
+            ring.forEach((e, j) => per[j % N].push(e));
+            per.forEach((lst, a) => {
+                const ctr = cl.arm0 + a * TAU / N - cl.dir * cl.twist * Math.log(rk / radii[0]);
+                const ws = lst.map(e => (_lhSpWidth(e.w, sizeOf(e)) + 10) / rk);
+                let ang = ctr - ws.reduce((t, x) => t + x, 0) / 2;
+                lst.forEach((e, i) => {
+                    words.push({ e, cl, color: tint(color, e), s: sizeOf(e), n: norm(e), r: rk + (JIT ? (R() - 0.5) * LH_SP_RING * 0.4 : 0),
+                        ecc: cl.ecc, tilt: cl.tilt, th: ang + ws[i] / 2, om, br: 3 + R() * 4 });
+                    ang += ws[i];
+                });
+            });
+        });
+        else rings.forEach((ring, k) => {
             const th0 = R() * TAU, gap = TAU / ring.length;
             const avgN = ring.reduce((t, e) => t + norm(e), 0) / ring.length;   // 0.98.09：大行星（常用、字大）慢、小行星快，照這圈詞的平均大小（同圈共用速度才不會互撞）
             const om = cl.dir * 0.16 / Math.sqrt(k + 1) * (0.9 + R() * 0.2) * (1.55 - 1.1 * avgN);

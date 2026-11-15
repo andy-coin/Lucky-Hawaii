@@ -143,7 +143,7 @@ test('外觀：背景動畫與特效滑桿五級（預設 3，拉了呼叫 lhFxS
     await expect(page.locator('#prefsFxRange')).toHaveAttribute('aria-valuetext', '簡單');
     await r.fill('5');
     expect(await page.evaluate(() => [lhFxLevel(), lhBgFxIsOn()])).toEqual([5, true]);
-    await expect(page.locator('#prefsFxRange')).toHaveAttribute('aria-valuetext', '全開');
+    await expect(page.locator('#prefsFxRange')).toHaveAttribute('aria-valuetext', '浮誇');
     expect(errors).toEqual([]);
     await context.close();
 });

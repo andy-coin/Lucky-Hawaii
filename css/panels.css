@@ -2965,7 +2965,7 @@ body.ws-open .ws-space { opacity: 1; }
 .ws-pos { display: flex; gap: var(--sp-1); }
 .ws-pos[hidden] { display: none; }
 .ws-pos .ws-hud-btn { flex: 1; }
-.ws-pos .ws-hud-btn[aria-pressed="true"] { border-color: var(--highlight-border); color: var(--highlight-border); box-shadow: inset 0 -2px 0 var(--highlight-border); }
+.ws-spiral[aria-pressed="true"], .ws-pos .ws-hud-btn[aria-pressed="true"] { border-color: var(--highlight-border); color: var(--highlight-border); box-shadow: inset 0 -2px 0 var(--highlight-border); }
 .ws-tools { display: flex; flex-direction: column; align-items: stretch; gap: var(--sp-2); }
 .ws-tools .ws-clear { margin-inline-start: 0; min-height: 2rem; }
 .ws-filter { display: inline-flex; align-items: center; gap: var(--sp-2); font-size: 0.75rem; color: var(--text-secondary); }
@@ -3075,7 +3075,10 @@ body.lp-wide:not(.editor-open) .lp-tabs { display: flex; flex: 0 0 auto; padding
 body.ws-anim.ws-in :is(#leftPanel, #rightPanel, #mainContainer, #mobileTabBar) { transition-duration: 1.2s; }
 .ws-len .ws-hud-btn, .ws-pos .ws-hud-btn { flex: 1 1 0; min-width: 0; white-space: nowrap; }
 .ws-len .ws-hud-btn { font-size: 0.75rem; padding: 0 0.25rem; }   /* 兩字／三字／多字：不換行（觸控的 44px 最小寬度不套在這裡，三顆才放得下）*/
-.ws-pages { display: flex; flex-direction: column; gap: 0.125rem; }
+.ws-pages { position: absolute; z-index: 5; top: calc(env(safe-area-inset-top, 0px) + 0.75rem); left: 50%; transform: translateX(-50%); width: min(22rem, calc(100% - 26rem));
+    display: flex; flex-direction: column; gap: 0.125rem; padding: var(--sp-2) var(--sp-3);
+    background: color-mix(in srgb, var(--card-bg) 88%, transparent); border: 1px solid var(--border); border-radius: var(--radius-m); box-shadow: 0 2px 10px var(--shadow); }
+@media (max-width: 760px) { .ws-pages { top: auto; bottom: calc(env(safe-area-inset-bottom, 0px) + 0.75rem); width: calc(100% - 1.5rem); } }   /* 窄螢幕上方被左右兩塊擋住：移到下方中間 */
 .ws-pages[hidden] { display: none; }
 /* 分批滑桿（0.98.09）：軌道切成幾等份，目前這一份用重點色 */
 .ws-page-range { -webkit-appearance: none; appearance: none; width: 100%; height: 1.25rem; margin: 0; background: transparent; cursor: pointer; }
@@ -3127,3 +3130,4 @@ html[data-lm] .section-body.has-cols .section-textarea { padding-left: 0.75rem; 
 #settingsColorSection > .settings-pack-title, .prefs-fx > .prefs-fx-head, .prefs-panel .settings-pack-section > .settings-pack-title, .ai-tune > .settings-pack-title, .byok-provider > .settings-pack-title,
 #mapSettingsSection .section-menu-block > .section-menu-cap:first-child { margin-inline-start: calc(-1 * var(--pf-in)); }
 .prefs-show { gap: var(--sp-2); }
+.ws-warp { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 1; }   /* 第 5 級換批的星光線（js/word-space.js _lhSpWarp） */

@@ -79,7 +79,7 @@
             lhPrefsSelectTab(tabs[(to + n) % n].id.slice('prefsTab-'.length), true);
         });
         // 背景動畫與特效：五個等級（js/bgfx.js lhFxLevel／lhFxSetLevel）；沒有這兩個函式就不顯示
-        const LH_FX_NAME = ['', '簡單', '省電', '預設', '精緻', '全開'];
+        const LH_FX_NAME = ['', '簡單', '省電', '預設', '精緻', '浮誇'];
         function _lhPrefsBgFxSync() {
             const box = document.getElementById('prefsBgFx');
             box.hidden = typeof lhFxLevel !== 'function';

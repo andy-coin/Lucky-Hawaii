@@ -8,6 +8,9 @@
 - 「過濾破音字」預設打勾（index.html checked；golden.spec 沒指定時明確設 false，golden 檔不用重錄）。
 - 星星閃爍：機率 0.015、放大 10%、發光疊兩次。觸控裝置的 .ws-len／.ws-pos 按鈕 min-width 0（44px 最小寬讓三顆擠成直排）。
 - index.html 的 ?v= 改成 0.98.09.2（只破快取，畫面上的版本號 LH_APP_VERSION 不變）。**待辦：最後跑一次全套（Andy 要求最後一起測）。**
+- 旋臂模式（實驗）：星雲左上「旋臂」鈕切換 _lhSpSpiral（不存檔）；克卜勒 om∝(r0/r)^1.5、每星系 2–5 條臂（cl.arms/arm0/twist/ecc）、一圈只放 55%。
+- 第 5 級換批＝星際穿越 _lhSpWarp（.ws-warp 疊一張畫布畫星光線 1.1 秒，舊的放大模糊、半途換、新的由小拉近）；第 1–4 級照舊鏡頭一甩。換批滑桿移到畫面正上方中間（窄螢幕 760px 以下移到下方）。
+- 背景落字各主題 --fx-opacity +0.04（預設主題 0.28）。第 5 級改名「浮誇」。
 - 換批過場 _lhSpWhip：畫布用 element.animate 甩出（240ms、往翻頁方向、模糊 14px＋淡出）→ 同一個 onfinish 裡換內容 → 從另一邊甩進來（420ms）；減少動態直接換。
 - 星座線：第 4 級 lineGlow（底下兩層粗淡描線）、第 5 級再加 lineFlash（每條線各自隨機閃，1.2 秒、每秒約 15%，狀態記在 chord 陣列 sg.tw）。
 - 恆星光暈與流星尾巴改在 _lhSpDraw 分流（top／mags）之前畫：hover 放大、釘住時不再消失。
