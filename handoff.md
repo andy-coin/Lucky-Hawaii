@@ -5,6 +5,7 @@
 - 中間面板：.options container query，616px 以下藏按鈕圖示、540px 以下換行後靠左；關聯詞彙／顯示全部上下各 12px 置中（.ws-rel-btn margin）。搜尋框上下 padding 縮成約 0.88 倍高；提示字「例如：ㄞ/ai/唉/唉呀」。
 - 偏好設定：分頁改名「韻腳地圖」；第 4 級叫「精緻」；子標題統一 0.9rem 主文字色、內容縮排 --pf-in 0.625rem（panels.css 檔尾）；查詢分頁加「顯示與篩選」子標題；韻腳地圖分頁說明移到預覽上面；AI 分頁兩條分隔線併一條。
 - 英文：AH＋M（come、some、from）→ㄨㄤ。
+- 星座線：第 4 級 lineGlow（底下兩層粗淡描線）、第 5 級再加 lineFlash（每條線各自隨機閃，1.2 秒、每秒約 15%，狀態記在 chord 陣列 sg.tw）。
 - 恆星光暈與流星尾巴改在 _lhSpDraw 分流（top／mags）之前畫：hover 放大、釘住時不再消失。
 - 修 bug：恆星光暈／流星尾巴用字串改 rgba，遇到 oklch 主題色整格報錯（第 4、5 級只剩背景）→ _lhSpRGBA 先畫到 1×1 畫布讀回 RGB；word-space.spec 加測試。第 4 級保留詞只剩外框（拿掉 keptGlow、keptFlash）。
 - 韻腳地圖分頁：說明併成預覽的子標題「…大小和顏色。預覽：」一起凍結；模式三鈕外框貼齊（#mapSettingsSection .rm-seg padding 0）。

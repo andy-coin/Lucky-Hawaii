@@ -766,15 +766,15 @@ function _lhSpPos(w) {
 // wobble＝行星呼吸晃動；drift＝恆星飄移；push＝星系互斥；comet＝流星移動（走微彎的弧線）；tail＝流星尾巴；cometGlow＝流星加亮；
 // drag：'stay'＝拖到哪就停在哪（拖恆星整團一起走）、'fling'＝甩出去再被拉回（拖恆星沖散整團）；
 // dock＝黑洞放大；bold＝停住的詞變粗發光（外框照樣有）；keptGlow／keptFlash／keptBreathe＝保留的詞加柔光／閃＋光暈／呼吸（外框每級都有）；
-// keptBreathe 的值＝保留的詞呼吸時放大多少（0.06＝6%）；starGlow＝恆星自帶光暈
+// keptBreathe 的值＝保留的詞呼吸時放大多少（0.06＝6%）；starGlow＝恆星自帶光暈；lineGlow／lineFlash＝星座線光暈／隨機閃爍
 // img＝星系一張圖（每個星系先畫成一張圖，每格只貼約 50 張）；clBreath＝整團呼吸；whole＝整片星雲一起呼吸；twinkle＝隨機星星閃爍
 const LH_SP_LV = {
     0: { fps: 0, orbit: 0, drag: 'stay', bold: 1 },   // 系統要求減少動態：完全靜止，有變化才畫
     1: { fps: 24, orbit: 0, drag: 'stay', bold: 1, keptBreathe: 0.06, whole: 1 },   // 不轉，只有整片呼吸
     2: { fps: 24, orbit: 0, drag: 'stay', dock: 1, keptBreathe: 0.06, img: 1, clBreath: 1 },
     3: { fps: 30, orbit: 0.6, drag: 'fling', dock: 1, comet: 1, tail: 1, cometGlow: 1, keptGlow: 1, whole: 1 },   // 0.98.09：3、4 級加整片呼吸
-    4: { fps: 40, orbit: 1, drag: 'fling', dock: 1, comet: 1, tail: 1, cometGlow: 1, jitter: 1, wobble: 1, drift: 1, push: 1, twinkle: 1, starGlow: 1, whole: 1 },   // 0.98.09：保留的詞只有外框（不閃、不加柔光）
-    5: { fps: 60, orbit: 1, drag: 'fling', dock: 1, comet: 1, tail: 1, cometGlow: 1, keptGlow: 1, keptBreathe: 0.025, jitter: 1, wobble: 1, drift: 1, push: 1, twinkle: 1, starGlow: 1, clBreath: 1 },   // 0.98.09：保留的詞不閃（閃爍留給隨機星星），只輕輕呼吸
+    4: { fps: 40, orbit: 1, drag: 'fling', dock: 1, comet: 1, tail: 1, cometGlow: 1, jitter: 1, wobble: 1, drift: 1, push: 1, twinkle: 1, starGlow: 1, whole: 1, lineGlow: 1 },   // 0.98.09：保留的詞只有外框（不閃、不加柔光）
+    5: { fps: 60, orbit: 1, drag: 'fling', dock: 1, comet: 1, tail: 1, cometGlow: 1, keptGlow: 1, keptBreathe: 0.025, jitter: 1, wobble: 1, drift: 1, push: 1, twinkle: 1, starGlow: 1, clBreath: 1, lineGlow: 1, lineFlash: 1 },   // 0.98.09：保留的詞不閃（閃爍留給隨機星星），只輕輕呼吸
 };
 const _lhSpCfg = () => LH_SP_LV[_lhSpReduce.matches ? 0 : (typeof lhFxLevel === 'function' ? lhFxLevel() : 5)] || LH_SP_LV[5];
 
@@ -990,6 +990,25 @@ function _lhSpDraw(t, L) {
         c.beginPath();
         for (const [a, b] of _lhSp.segs) { const p = _lhSpScr(a.px, a.py), q = _lhSpScr(b.px, b.py); c.moveTo(p.x, p.y); c.lineTo(q.x, q.y); }
         c.stroke();
+        if (L.lineGlow) {   // 0.98.09：第 4 級起星座線加光暈（底下再描兩層粗、淡的線，不用 shadowBlur 比較省）
+            c.shadowBlur = 0;
+            c.globalAlpha = 0.22; c.lineWidth = 4; c.stroke();
+            c.globalAlpha = 0.1; c.lineWidth = 9; c.stroke();
+        }
+        if (L.lineFlash) {   // 第 5 級：每條線各自偶爾閃一下（1.2 秒，每條每秒約 15% 機率），跟星星閃爍同一種感覺
+            const dt = Math.min(0.2, (t - (_lhSp.lineT || t)) / 1000);
+            _lhSp.lineT = t;
+            c.lineCap = 'round';
+            for (const sg of _lhSp.segs) {
+                if (sg.tw && t - sg.tw > 1200) sg.tw = 0;
+                if (!sg.tw && Math.random() < dt * 0.15) sg.tw = t;
+                if (!sg.tw) continue;
+                const f = Math.sin((t - sg.tw) / 1200 * Math.PI), p = _lhSpScr(sg[0].px, sg[0].py), q = _lhSpScr(sg[1].px, sg[1].py);
+                c.beginPath(); c.moveTo(p.x, p.y); c.lineTo(q.x, q.y);
+                c.globalAlpha = 0.5 * f; c.lineWidth = 3; c.stroke();
+                c.globalAlpha = 0.2 * f; c.lineWidth = 12; c.stroke();
+            }
+        }
         c.restore();
     }
     // 星系一張圖：有詞正在動（停住、放大、拖著、還在浮現）的那一團，這一格改回一個個詞畫
