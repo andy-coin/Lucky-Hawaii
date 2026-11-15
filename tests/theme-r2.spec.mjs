@@ -118,7 +118,7 @@ test('背景飄字：自動化測試下不畫、開關記住、減少動態時�
     const r = await on.page.evaluate(() => { const c = document.getElementById('lhBgFx'); const cs = getComputedStyle(c); return { z: cs.zIndex, pe: cs.pointerEvents, pos: cs.position, running: !!_lhBgRaf }; });
     expect(r).toEqual({ z: '-1', pe: 'none', pos: 'fixed', running: true });
     await on.page.evaluate(() => lhBgFxSet(false));
-    expect(await on.page.evaluate(() => [!!document.getElementById('lhBgFx'), !!_lhBgRaf])).toEqual([false, false]);
+    expect(await on.page.evaluate(() => [!!document.getElementById('lhBgFx'), !!_lhBgRaf]), '1 級：定格一張、不跑（0.98.09）').toEqual([true, false]);
     await on.context.close();
 
     const still = await bootPage(browser, { wordlist: 'stub', device: { reducedMotion: 'reduce' }, init: () => { window.__lhBgFxTest = true; } });

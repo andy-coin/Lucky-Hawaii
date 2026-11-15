@@ -10,7 +10,7 @@
 
 const LH_WS_MIN = 2, LH_WS_MAX = 6;
 const LH_WS_PAGE = 240;            // 詞卡一次多畫幾張（捲到底再補）
-const LH_WS_SPACE_MAX = 800;       // 「顯示全部」最多放幾個詞（最常用的優先）；ponytail: DOM 節點逐幀移動，再多手機會掉幀，要更多就改畫在 canvas
+const LH_WS_SPACE_MAX = 550;       // 「顯示全部」一批最多幾個詞（500±50）：總數照這個切成幾等份（2000 個＝4 批各 500）
 // 顏色跟著第一個字的聲調走（一～四聲＋輕聲五個色系，跟著主題、不寫死色碼）；同一團裡每個詞再依常用度＋一點隨機混出深淺
 const _lhMix = (a, b, k = 50) => 'color-mix(in oklab, var(' + a + ') ' + k + '%, var(' + b + '))';
 // 支援相對色（oklch from）就從主題強調色出發、色相每個聲調轉 72°，五色差最大；不支援就用主題的四個強調色＋一個混色
@@ -246,7 +246,7 @@ function _lhWsMore(grid) {
 // ==================== 顯示全部（星雲） ====================
 const _lhSp = { el: null, world: null, words: [], groups: [], raf: 0, last: 0, t0: 0, z: 1, px: 0, py: 0, pts: new Map(), pan: null, pinch: null, drag: null, nav: null, back: null, bound: 1000, pins: [], chords: [], line: null, tm: 0 };
 const LH_SP_ZMIN = 0.25, LH_SP_ZMAX = 3;
-const LH_SP_RING = 46;   // 軌道之間的距離（世界座標 px）
+const LH_SP_RING = 58;   // 軌道之間的距離（世界座標 px）；0.98.09 從 46 拉大，大星系加上隨機偏移也不會疊在一起
 const _lhSpReduce = matchMedia('(prefers-reduced-motion: reduce)');
 const LH_SP_EYE_OFF = '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/><path d="M4 20L20 4"/></svg>';
 const LH_SP_X = '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>';
@@ -310,11 +310,17 @@ function _lhSpBuild() {
         b.addEventListener('click', () => { const s = _lhRel.len; s.has(k) ? s.delete(k) : s.add(k); _lhRelShow(); });
         lenBox.append(b);
     }
-    // 平行宇宙：超過 800 個詞時分批，換下一批 800 個
+    // 分批（0.98.09）：數字滑桿，一格一批；目前這批在軌道上用重點色標出來
     const pages = _lhWsEl('div', 'ws-pages');
     pages.hidden = true;
-    const pPrev = mk('', '‹', '上一批', () => _lhSpPage(-1)), pNext = mk('', '›', '下一批', () => _lhSpPage(1));
-    pages.append(pPrev, _lhWsEl('span', 'ws-page-cap'), pNext);
+    const pr = _lhWsEl('input', 'ws-page-range');
+    pr.type = 'range'; pr.min = '0'; pr.step = '1';
+    pr.setAttribute('aria-label', '第幾批詞');
+    const prMark = () => { const n = +pr.max + 1, v = +pr.value; pr.style.setProperty('--a', (v / n * 100) + '%'); pr.style.setProperty('--b', ((v + 1) / n * 100) + '%'); };
+    pr.addEventListener('input', prMark);
+    pr.addEventListener('change', () => { if (_lhSp.cfg && +pr.value !== (_lhSp.cfg.page || 0)) _lhSpShow(Object.assign({}, _lhSp.cfg, { page: +pr.value })); });
+    pages.append(pr, _lhWsEl('div', 'ws-page-ticks'));
+    pages._mark = prMark;
     panel.append(title, posBox, lenBox, pages, legend, tools);
     // 右上：縮放與關閉
     const zoom = _lhWsEl('div', 'ws-zoom');
@@ -335,13 +341,6 @@ function _lhSpBuild() {
     return el;
 }
 
-// 換一批（平行宇宙）：同一份清單的下一個／上一個 800
-function _lhSpPage(d) {
-    const cfg = _lhSp.cfg;
-    if (!cfg) return;
-    const n = Math.ceil(cfg.list.length / LH_WS_SPACE_MAX);
-    _lhSpShow(Object.assign({}, cfg, { page: ((cfg.page || 0) + d + n) % n }));
-}
 
 // 常用度篩選：只留前 (100 - v)% 常用的詞；0＝不限
 function _lhSpFilter(v) {
@@ -429,7 +428,7 @@ function _lhSpLayout(list, cfg = {}) {
     for (const cl of clusters) _lhSpDrift(cl, clusters);
     const bound = Math.max(600, ...clusters.map(c => Math.hypot(c.x, c.y) + c.r)) * 1.25;
     for (const e of comets) {   // 流星：隨機起點、隨機方向，沿著微彎的弧線穿過整片（0.98.08 快一點、直一點），出了邊界從對面回來
-        const a = R() * TAU, v = 45 + R() * 45, cv = (R() < 0.5 ? -1 : 1) * (0.002 + R() * 0.006);   // 0.98.08 追加：曲率再低很多，幾乎直線
+        const a = R() * TAU, v = 45 + R() * 45, cv = (R() < 0.5 ? -1 : 1) * (0.00375 + R() * 0.00875);   // 0.98.09：曲率是 0.98.08 的 1/4
         words.push({ e, cl: null, color: 'var(--text-primary)', s: sizeOf(e), n: norm(e), comet: true, x: (R() * 2 - 1) * bound, y: (R() * 2 - 1) * bound, v, cv, ang: a });
     }
     return { words, clusters, bound };
@@ -507,16 +506,19 @@ function _lhSpShow(cfg) {
     const el = _lhSpBuild();
     const reopen = !el.hidden;
     _lhSp.cfg = cfg;
-    const page = cfg.page || 0, pageN = Math.ceil(cfg.list.length / LH_WS_SPACE_MAX);
-    const { words, clusters, bound } = _lhSpLayout(cfg.list.slice(page * LH_WS_SPACE_MAX, (page + 1) * LH_WS_SPACE_MAX), cfg);
+    const pageN = Math.max(1, Math.ceil(cfg.list.length / LH_WS_SPACE_MAX)), size = Math.ceil(cfg.list.length / pageN), page = Math.min(cfg.page || 0, pageN - 1);
+    const { words, clusters, bound } = _lhSpLayout(cfg.list.slice(page * size, (page + 1) * size), cfg);
     _lhSp.bound = bound;
     _lhSp.groups = clusters;
     const n = words.length;
     el.querySelector('.ws-title').textContent = cfg.title + '· ' + n + (cfg.list.length > n ? ' / ' + cfg.list.length : '') + ' 個詞';
-    // 平行宇宙：超過 800 個才出現「‹ 第 1 / 3 批 ›」
-    const pages = el.querySelector('.ws-pages');
+    // 分批滑桿：超過 550 個才出現；底下的數字是每批的編號
+    const pages = el.querySelector('.ws-pages'), pr = pages.querySelector('.ws-page-range');
     pages.hidden = pageN <= 1;
-    pages.querySelector('.ws-page-cap').textContent = '宇宙 ' + (page + 1) + ' / ' + pageN;
+    pr.max = String(pageN - 1); pr.value = String(page);
+    pr.setAttribute('aria-valuetext', '第 ' + (page + 1) + ' 批，共 ' + pageN + ' 批');
+    pages._mark();
+    pages.querySelector('.ws-page-ticks').replaceChildren(...Array.from({ length: pageN }, (_, i) => _lhWsEl('span', i === page ? 'on' : '', String(i + 1))));
     // 圖例：一欄；大類（聲調色系，或關聯詞的字）點開看底下各團，點團導覽過去
     const legend = el.querySelector('.ws-legend');
     legend.replaceChildren();
@@ -737,14 +739,15 @@ function _lhSpPos(w) {
 // wobble＝行星呼吸晃動；drift＝恆星飄移；push＝星系互斥；comet＝流星移動（走微彎的弧線）；tail＝流星尾巴；cometGlow＝流星加亮；
 // drag：'stay'＝拖到哪就停在哪（拖恆星整團一起走）、'fling'＝甩出去再被拉回（拖恆星沖散整團）；
 // dock＝黑洞放大；bold＝停住的詞變粗發光（外框照樣有）；keptGlow／keptFlash／keptBreathe＝保留的詞加柔光／閃＋光暈／呼吸（外框每級都有）；
+// keptBreathe 的值＝保留的詞呼吸時放大多少（0.06＝6%）；starGlow＝恆星自帶光暈
 // img＝星系一張圖（每個星系先畫成一張圖，每格只貼約 50 張）；clBreath＝整團呼吸；whole＝整片星雲一起呼吸；twinkle＝隨機星星閃爍
 const LH_SP_LV = {
     0: { fps: 0, orbit: 0, drag: 'stay', bold: 1 },   // 系統要求減少動態：完全靜止，有變化才畫
-    1: { fps: 24, orbit: 0, drag: 'stay', bold: 1, keptBreathe: 1, whole: 1 },   // 不轉，只有整片呼吸
-    2: { fps: 24, orbit: 0, drag: 'stay', dock: 1, keptBreathe: 1, img: 1, clBreath: 1 },
-    3: { fps: 30, orbit: 0.6, drag: 'fling', dock: 1, comet: 1, tail: 1, cometGlow: 1, keptGlow: 1 },
-    4: { fps: 40, orbit: 1, drag: 'fling', dock: 1, comet: 1, tail: 1, cometGlow: 1, keptGlow: 1, keptFlash: 1, jitter: 1, wobble: 1, drift: 1, push: 1, twinkle: 1 },
-    5: { fps: 60, orbit: 1, drag: 'fling', dock: 1, comet: 1, tail: 1, cometGlow: 1, keptGlow: 1, keptFlash: 1, jitter: 1, wobble: 1, drift: 1, push: 1, twinkle: 1 },
+    1: { fps: 24, orbit: 0, drag: 'stay', bold: 1, keptBreathe: 0.06, whole: 1 },   // 不轉，只有整片呼吸
+    2: { fps: 24, orbit: 0, drag: 'stay', dock: 1, keptBreathe: 0.06, img: 1, clBreath: 1 },
+    3: { fps: 30, orbit: 0.6, drag: 'fling', dock: 1, comet: 1, tail: 1, cometGlow: 1, keptGlow: 1, whole: 1 },   // 0.98.09：3、4 級加整片呼吸
+    4: { fps: 40, orbit: 1, drag: 'fling', dock: 1, comet: 1, tail: 1, cometGlow: 1, keptGlow: 1, keptFlash: 1, jitter: 1, wobble: 1, drift: 1, push: 1, twinkle: 1, starGlow: 1, whole: 1 },
+    5: { fps: 60, orbit: 1, drag: 'fling', dock: 1, comet: 1, tail: 1, cometGlow: 1, keptGlow: 1, keptBreathe: 0.025, jitter: 1, wobble: 1, drift: 1, push: 1, twinkle: 1, starGlow: 1, clBreath: 1 },   // 0.98.09：保留的詞不閃（閃爍留給隨機星星），只輕輕呼吸
 };
 const _lhSpCfg = () => LH_SP_LV[_lhSpReduce.matches ? 0 : (typeof lhFxLevel === 'function' ? lhFxLevel() : 5)] || LH_SP_LV[5];
 
@@ -753,7 +756,7 @@ function _lhSpHit(cx, cy) {
     const p = _lhSpToWorld(cx, cy), z = _lhSp.z;
     const inside = w => {
         const m = w.mag || 1, hw = ((w.tw || 0) / 2 + 9 * w.s) * m, hh = (w.tH || 22 * w.s) / 2 * m;
-        const up = w.hot || w.pinned ? 26 / z : 0;
+        const up = w.hot || w.pinned || w === _lhSp.hover ? 26 / z : 0;   // 滑到隱藏鈕的路上不掉
         return Math.abs(p.x - w.px) <= hw && p.y - w.py <= hh && w.py - p.y <= hh + up;
     };
     // 黑洞放大會讓鄰居放大後蓋住游標下的詞：重疊時選中心離游標最近的那個（停住／釘住的優先）
@@ -890,7 +893,7 @@ function _lhSpFrame(t) {
         w.py = w.cl && !w.comet ? w.cl.y + (w.uy - w.cl.y) * b : w.uy;
         w.alpha = Math.min(1, k * 1.6);
         // 保留的詞呼吸（第 1、2 級）：3 秒一輪輕輕放大縮小
-        w.kb = L.keptBreathe && w.kept && !w.dim ? 1 + 0.06 * Math.sin(t / 3000 * TAU + w.wob) : 1;
+        w.kb = L.keptBreathe && w.kept && !w.dim ? 1 + L.keptBreathe * Math.sin(t / 3000 * TAU + w.wob) : 1;
         // 隨機星星閃爍（第 4、5 級）：每秒大約 5 顆；越常用越容易被選到，但最多只多 15%；亮起來時跟著放大一點點
         if (L.twinkle && w.born && !w.dim && dt) {
             if (w.twk && t - w.twk > 1400) w.twk = 0;
@@ -900,7 +903,7 @@ function _lhSpFrame(t) {
             let goal = 1;
             if (mouse && w.born && !w.dim) {
                 const s = _lhSpScr(w.px, w.py), d = Math.hypot(s.x - mouse.x, s.y - mouse.y);
-                if (d < 240) goal = 1 + 1.3 * Math.pow(1 - d / 240, 2);
+                if (d < 240) goal = 1 + 1.3 * Math.pow(1 - d / 240, 2) * (w.star ? 0.2 : Math.min(1, Math.max(0.2, (2.2 - w.s) / 1.4)));   // 0.98.09：小字照舊放大，大字少放、恆星幾乎不放
             }
             w.mag += (goal - w.mag) * (dt ? mk : 1);
             if (Math.abs(goal - w.mag) > 0.004) busy = true; else w.mag = goal;
@@ -1000,6 +1003,13 @@ function _lhSpDraw(t, L) {
         }
         const tw = w.twk ? Math.sin(Math.min(1, (t - w.twk) / 1400) * Math.PI) : 0;   // 星星閃爍的亮度（0→1→0）
         const m = (w.kb || 1) * (1 + 0.06 * tw);
+        if (w.star && L.starGlow && !w.dim) {   // 0.98.09：第 4 級起恆星自帶光暈（字後面一圈淡淡的放射漸層）
+            const R = (w.tw / 2 + 24 * w.s) * _lhSpZv() * m;
+            const g = c.createRadialGradient(p.x, p.y, 0, p.x, p.y, R);
+            g.addColorStop(0, w.rgbG || (w.rgbG = w.rgb.replace('rgb(', 'rgba(').replace(')', ', 0.2)')));
+            g.addColorStop(1, w.rgb0 || (w.rgb0 = w.rgb.replace('rgb(', 'rgba(').replace(')', ', 0)')));
+            c.globalAlpha = a; c.fillStyle = g; c.fillRect(p.x - R, p.y - R, R * 2, R * 2);
+        }
         c.globalAlpha = a;
         blit(w, p, m);
         if ((w.comet && L.cometGlow || tw) && !w.dim) {   // 流星加亮、星星閃爍：同一張小圖用發光疊加再貼一次
@@ -1056,7 +1066,7 @@ function _lhSpKept(c, w, p, a, t, L, pill, blit, m) {
 
 // 隱藏鈕（槓掉的眼睛）：浮在「游標停住的詞」（觸控：最後點的那個釘住的詞）右上角，跟著詞移動
 function _lhSpActsPlace() {
-    const a = _lhSp.acts, w = (_lhSp.hover && _lhSp.hover.hot) ? _lhSp.hover : (_lhSp.act && _lhSp.act.pinned ? _lhSp.act : null);
+    const a = _lhSp.acts, w = _lhSp.hover ? _lhSp.hover : (_lhSp.act && _lhSp.act.pinned ? _lhSp.act : null);
     if (!w || _lhSp.drag && _lhSp.drag.moved || !_lhSp.words.includes(w)) { if (!a.hidden) a.hidden = true; return; }
     const z = _lhSpZv(), m = (w.mag || 1) * (w.kb || 1), p = _lhSpScr(w.px, w.py), fs = 16 * w.s * z * m, hw = w.tw * z * m / 2 + fs * 0.55, hh = fs * 0.85;
     a.hidden = false;
@@ -1114,7 +1124,7 @@ function _lhSpPin(w) {
     if (old.length <= 2) { for (const o of old) _lhSp.chords.push([w, o]); return; }
     const ang = (a, b) => Math.atan2(pt(b).y - pt(a).y, pt(b).x - pt(a).x);
     const tooClose = (a1, a2) => { let d = Math.abs(a1 - a2) % Math.PI; d = Math.min(d, Math.PI - d); return d < Math.PI / 90; };
-    const r = Math.random(), want = r < 0.4 ? 1 : r < 0.85 ? 2 : 3;   // 0.98.09：一條 40%、兩條 45%、三條 15%
+    const r = Math.random(), want = r < 0.5 ? 1 : r < 0.91 ? 2 : 3;   // 0.98.09：Andy 給 55/45/10（加起來 110），等比例換成 一條 50%、兩條 41%、三條 9%
     let pool = old.slice();
     for (let n = 0; n < want && pool.length; n++) {
         const wt = pool.map(o => 1 / Math.pow(dist(w, o), 2)), sum = wt.reduce((a, b) => a + b, 0);
@@ -1167,7 +1177,6 @@ function _lhSpSetHover(w) {
     if (h && !(_lhSp.drag && _lhSp.drag.w === h)) h.hot = false;
     _lhSp.hover = w;
     _lhSp.dirty = true;
-    if (w) w.hot = true;
     _lhSp.el.classList.toggle('on-word', !!w);
 }
 
@@ -1281,7 +1290,7 @@ function _lhSpEvents(el) {
             const L = _lhSpCfg();
             if (d.moved && L.drag === 'stay') {   // 第 1、2 級：拖到哪就停在哪（行星換一條新軌道、恆星帶著整團搬家）
                 _lhSpSettle(d.w, L, (performance.now() - _lhSp.t0) / 1000);
-                if (!d.w.pinned && _lhSp.hover !== d.w) d.w.hot = false;
+                if (!d.w.pinned) d.w.hot = false;   // 0.98.09：游標停在詞上不再定格，放手就恢復
             } else if (d.moved) {
                 // 甩動：用最後一小段的速度（世界座標／秒）繼續滑，摩擦慢慢停下
                 const h = d.hist, a = h[0], b = h[h.length - 1];
@@ -1291,7 +1300,7 @@ function _lhSpEvents(el) {
                     d.w.fvx = Math.max(-vmax, Math.min(vmax, (b.x - a.x) / dt));
                     d.w.fvy = Math.max(-vmax, Math.min(vmax, (b.y - a.y) / dt));
                 }
-                if (!d.w.pinned && _lhSp.hover !== d.w) d.w.hot = false;
+                if (!d.w.pinned) d.w.hot = false;   // 0.98.09：游標停在詞上不再定格，放手就恢復
             } else if (e.type === 'pointerup') {   // 單擊：釘住＋保留；再點一次釘住的詞＝取消釘選＋取消保留
                 d.w.pinned = !d.w.pinned;
                 if (d.w.cl) d.w.cl.ver++;

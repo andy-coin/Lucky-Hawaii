@@ -1,7 +1,7 @@
         // 事件監聽器
         const searchInputEl = document.getElementById('searchInput');
 
-        // 提示字（index.html）手機和電腦一樣：ㄞ/ai/唉/唉呀
+        // 提示字（index.html）手機和電腦一樣：例如：ㄞ/ai/唉/哎呀
 
         // 「關於」：顯示目前詞庫包的名稱與來源說明（NOTICE.txt）。名稱與內文一律用 textContent，不會被當成 HTML（T-06-11）
         let _aboutNoticeSeq = 0;   // 連續開關時只有最新一次的結果會寫進畫面
@@ -37,7 +37,7 @@
             // 每次打開都重畫詞庫包清單：勾選永遠對得上目前真正在用的包
             if (overlay.classList.contains('show')) {
                 renderLexiconPackList();
-                // 韻腳地圖的浮層會蓋在這個面板前面，先收掉；開到上次看的分頁（這次開網頁第一次開＝「外觀」；「更多設定…」走自己的路開「韻腳與句構」）
+                // 韻腳地圖的浮層會蓋在這個面板前面，先收掉；開到上次看的分頁（這次開網頁第一次開＝「外觀」；「更多設定…」走自己的路開「韻腳地圖」）
                 if (typeof lhMapCloseAll === 'function') lhMapCloseAll();
                 lhPrefsSelectTab(_lhPrefsTab, true);
             }
@@ -79,7 +79,7 @@
             lhPrefsSelectTab(tabs[(to + n) % n].id.slice('prefsTab-'.length), true);
         });
         // 背景動畫與特效：五個等級（js/bgfx.js lhFxLevel／lhFxSetLevel）；沒有這兩個函式就不顯示
-        const LH_FX_NAME = ['', '簡單', '省電', '預設', '流暢', '全開'];
+        const LH_FX_NAME = ['', '簡單', '省電', '預設', '精緻', '全開'];
         function _lhPrefsBgFxSync() {
             const box = document.getElementById('prefsBgFx');
             box.hidden = typeof lhFxLevel !== 'function';

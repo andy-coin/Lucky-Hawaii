@@ -1498,7 +1498,8 @@
         }
         /* 偏好設定裡的「韻腳地圖與句構分析」（第 11 階段）：開關列沿用選單的 .rm-switch；四個細項縮排在逐行標記底下 */
         #mapSettingsSection .section-menu-block { margin-top: var(--sp-3); }
-        #mapSettingsSection > .lm-preview-block:first-child { margin-top: 0; }   /* 最上面的預覽不多留空（其他分頁頂端沒有這段空白） */
+        #mapSettingsSection > .settings-backups-hint:first-child { margin-top: 0; }   /* 最上面的說明不多留空 */
+        #mapSettingsSection > .lm-preview-block { margin-top: 0; }
         #mapSettingsSection .rm-sub { display: flex; flex-direction: column; gap: var(--sp-1); margin-inline-start: var(--sp-4); }
         .rm-more { width: 100%; }
         /* 韻族顏色：16 個原生色票（下面是家族名）加不能點的空韻，每格至少 --hit 寬 */
@@ -2336,7 +2337,7 @@
         /* 偏好設定「AI」分頁 */
         .byok-intro { margin: 0; font-size: 0.85rem; line-height: 1.6; color: var(--text-secondary); }
         .byok-intro strong { color: var(--text-primary); }
-        .byok-provider { display: flex; flex-direction: column; gap: var(--sp-2); padding-top: var(--sp-3); border-top: 1px solid var(--border); }
+        .byok-provider { display: flex; flex-direction: column; gap: var(--sp-2); }   /* 上面 .ai-tune 已經有分隔線 */
         .byok-row { display: flex; align-items: stretch; gap: var(--sp-1); }
         .byok-input {
             flex: 1 1 auto; min-width: 0; min-height: 2.25rem; padding: 0 var(--sp-2);
@@ -2882,13 +2883,17 @@ body.dock.dock-classic .side-panel.collapsed[data-dk-side="r"] .side-panel-tab::
 body[data-q="char"] .options #batchPanel { flex: 1 1 auto; margin-inline-start: var(--sp-3); }
 body[data-q="char"] .options #batchPanel .btn-report { margin-inline-start: auto; }
 .options .batch-panel.inline .batch-btn { padding-inline: var(--sp-2); }   /* 窄一點，字卡模式的四顆才放得進比對分頁同一行 */
+/* 0.98.09：面板變窄時先擠（藏圖示、按鈕往回報靠），真的放不下才換到下一行；換行後靠左對齊分頁 */
+.options { container-type: inline-size; }
+@container (max-width: 38.5rem) { .options .batch-panel.inline .batch-icon { display: none; } }
+@container (max-width: 33.75rem) { body[data-q="char"] .options #batchPanel, body[data-q="word"] .options .ws-filters { margin-inline-start: 0; } }
 body[data-q="word"] .options .ws-filters { margin-inline-start: var(--sp-3); margin-inline-end: auto; }
 .ws-rep { display: inline-flex; gap: var(--sp-1); }
 .ws-rep .batch-btn[hidden] { display: none; }
 .report-mode .ws-card { cursor: pointer; }
 .report-mode .ws-card.report-picked { border-color: var(--danger-line); box-shadow: inset 0 0 0 2px var(--danger-line); }
 /* 關聯詞彙（查單字時選了字卡才出現，js/cards.js updateBatchCount） */
-.ws-rel-btn:not([hidden]) { display: flex; width: auto; margin: var(--sp-2) var(--sp-4) 0; flex: 0 0 auto; }
+.ws-rel-btn:not([hidden]) { display: flex; width: auto; margin: calc(-1 * var(--sp-2)) var(--sp-4) var(--sp-3); flex: 0 0 auto; }   /* 0.98.09：在上面那排按鈕和分隔線的正中間 */
 body:not([data-q="char"]) #wsRelBtn, body:not([data-q="word"]) #wsAllBtn { display: none; }
 /* 搜尋欄空的時候整排選項收起；查單字用字卡那兩組，查整個詞換成詞卡那兩組（js/results.js 設 body[data-q]） */
 body:not([data-q="char"]):not([data-q="word"]) .options, body:not([data-q="char"]):not([data-q="word"]) .mobile-batch-area,
@@ -3069,9 +3074,18 @@ body.lp-wide:not(.editor-open) .lp-tabs { display: flex; flex: 0 0 auto; padding
 /* ===== 0.98.06：星雲打開慢一點（面板收走 1.2 秒，這段時間背景先畫字的小圖）；字數篩選、平行宇宙翻頁 ===== */
 body.ws-anim.ws-in :is(#leftPanel, #rightPanel, #mainContainer, #mobileTabBar) { transition-duration: 1.2s; }
 .ws-len .ws-hud-btn { font-size: 0.75rem; }
-.ws-pages { display: flex; align-items: center; gap: var(--sp-1); }
+.ws-pages { display: flex; flex-direction: column; gap: 0.125rem; }
 .ws-pages[hidden] { display: none; }
-.ws-pages .ws-page-cap { flex: 1; text-align: center; font-size: 0.75rem; color: var(--text-secondary); white-space: nowrap; }
+/* 分批滑桿（0.98.09）：軌道切成幾等份，目前這一份用重點色 */
+.ws-page-range { -webkit-appearance: none; appearance: none; width: 100%; height: 1.25rem; margin: 0; background: transparent; cursor: pointer; }
+.ws-page-range::-webkit-slider-runnable-track { height: 0.375rem; border-radius: 1rem; background: linear-gradient(to right, var(--border) var(--a, 0%), var(--highlight-border) var(--a, 0%), var(--highlight-border) var(--b, 100%), var(--border) var(--b, 100%)); }
+.ws-page-range::-moz-range-track { height: 0.375rem; border-radius: 1rem; background: linear-gradient(to right, var(--border) var(--a, 0%), var(--highlight-border) var(--a, 0%), var(--highlight-border) var(--b, 100%), var(--border) var(--b, 100%)); }
+.ws-page-range::-webkit-slider-thumb { -webkit-appearance: none; width: 0.875rem; height: 0.875rem; margin-top: -0.25rem; border-radius: 50%; background: var(--text-primary); border: none; }
+.ws-page-range::-moz-range-thumb { width: 0.875rem; height: 0.875rem; border-radius: 50%; background: var(--text-primary); border: none; }
+.ws-page-range:focus-visible { outline: 2px solid var(--highlight-border); outline-offset: 2px; }
+.ws-page-ticks { display: flex; font-size: 0.75rem; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+.ws-page-ticks > span { flex: 1; text-align: center; }
+.ws-page-ticks > .on { color: var(--highlight-border); font-weight: 700; }
 
 /* ===== 0.98.06：韻腳與句構設定——三個細項一行、大小＋濃淡一行；標記位置「靠左欄」 ===== */
 #mapSettingsSection .rm-row { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
@@ -3103,3 +3117,12 @@ html[data-lm] .section-body.has-cols .section-textarea { padding-left: 0.75rem; 
 .ai-ref-item:disabled { cursor: default; opacity: 0.7; }
 .ai-ref-item[aria-pressed] { cursor: pointer; }
 @media (pointer: coarse) { .byok-select, .byok-row .byok-mini, .byok-chip { min-height: var(--hit); } }
+
+/* ===== 偏好設定排版統一（0.98.09）：子標題一種樣式（跟「客製顏色」一樣），底下的選項與說明往內縮一點 ===== */
+.prefs-panel { --pf-in: 0.625rem; }
+.prefs-panel .settings-pack-title, .prefs-fx-head, #mapSettingsSection .section-menu-block > .section-menu-cap:first-child { display: block; font-size: 0.9rem; font-weight: 400; color: var(--text-primary); }
+.prefs-fx-head { display: flex; }
+#settingsColorSection, .prefs-fx, .prefs-panel .settings-pack-section, .ai-tune, .byok-provider, #mapSettingsSection .section-menu-block { padding-inline-start: var(--pf-in); }
+#settingsColorSection > .settings-pack-title, .prefs-fx > .prefs-fx-head, .prefs-panel .settings-pack-section > .settings-pack-title, .ai-tune > .settings-pack-title, .byok-provider > .settings-pack-title,
+#mapSettingsSection .section-menu-block > .section-menu-cap:first-child { margin-inline-start: calc(-1 * var(--pf-in)); }
+.prefs-show { gap: var(--sp-2); }

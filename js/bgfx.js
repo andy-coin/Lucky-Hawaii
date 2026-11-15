@@ -2,7 +2,7 @@
 // 最底層一張 <canvas>（面板後面）：押韻常用字與注音像雪花慢慢飄落，非常淡。顏色跟著主題的重點色（js/theme.js 換主題時呼叫 lhBgFxRefresh）。
 // 省電：最多約 30 fps、字數少、頁面隱藏時停；系統要求減少動態時只畫一張靜態的；自動化測試（navigator.webdriver）不畫，截圖才穩定。
 // 等級（0.98.06）：localStorage 'lh:bgFx' 存 '1'～'5'（舊值 'off'＝1、'on'＝3，預設 3）。偏好設定 → 外觀「背景動畫與特效」。
-// 1、2 級沒有背景飄字；3 級約 20 fps、字少一點；4 級 30 fps；5 級 60 fps。星雲（js/word-space.js LH_SP_LV）也照這個等級。
+// 1、2 級背景飄字定格（只畫一張靜態的，0.98.09）；3 級約 20 fps、字少一點；4 級 30 fps；5 級 60 fps。星雲（js/word-space.js LH_SP_LV）也照這個等級。
 // lhFxLevel()／lhFxSetLevel(n)；舊的 lhBgFxSet(on)／lhBgFxIsOn() 保留（on＝3 級以上）。
 
 const LH_BGFX_KEY = 'lh:bgFx';
@@ -27,7 +27,7 @@ let _lhBgH = 0;
 let _lhBgDpr = 1;
 
 function _lhBgAllowed() {
-    return _lhBgOn && !(navigator.webdriver && !window.__lhBgFxTest);
+    return !!_lhFxLv && !(navigator.webdriver && !window.__lhBgFxTest);
 }
 
 // 這首歌自己的字也會飄：歌詞、情境、標籤。單字：照句構分組切出來的詞（含標籤）＝ 8：2。4 秒重算一次就好
@@ -95,7 +95,7 @@ function _lhBgResize() {
     const n = Math.round(Math.max(10, Math.min(24, Math.round(_lhBgW * _lhBgH / 55000))) * (_lhFxLv <= 3 ? 0.6 : 1));
     while (_lhBgFlakes.length < n) _lhBgFlakes.push(_lhBgNewFlake(true));
     _lhBgFlakes.length = n;
-    if (_lhBgReduce.matches) _lhBgDraw(0);
+    if (_lhBgReduce.matches || _lhFxLv <= 2 || !_lhBgRaf) _lhBgDraw(0);
 }
 
 function _lhBgDraw(dt) {
@@ -162,7 +162,7 @@ function _lhBgUpdate() {
     }
     _lhBgCanvas.style.visibility = _lhBgHidden ? 'hidden' : '';
     if (_lhBgHidden) { _lhBgStop(); return; }
-    if (_lhBgReduce.matches || document.hidden) { _lhBgStop(); _lhBgDraw(0); return; }
+    if (_lhBgReduce.matches || document.hidden || _lhFxLv <= 2) { _lhBgStop(); _lhBgDraw(0); return; }   // 1、2 級：定格一張
     if (!_lhBgRaf) _lhBgRaf = requestAnimationFrame(_lhBgFrame);
 }
 

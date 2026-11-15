@@ -775,8 +775,8 @@ function lhMapPrefsBuild() {
     preview.classList.add('lm-preview-block');
     // 最上面是模式三鈕（關閉／重點跟隨／全部標記），取代原本的「句尾上色」與「滑過才顯示」兩個開關
     const modeBlock = _lhMkBlock('韻腳地圖模式', _lhMapModeSeg(), _lhMk('span', 'section-menu-cap', LH_MAP_MODE_HINT));
-    // 預覽放最上面並黏頂（CSS .lm-preview-block sticky）：往下捲著改選項，預覽一直看得到
-    sec.append(preview, hint, modeBlock, _lhMkBlock('韻腳地圖', ...mapRows), _lhMkBlock('句構分析', ...lineRow, sub,
+    // 說明一行在最上面（0.98.09），接著預覽並黏頂（CSS .lm-preview-block sticky）：往下捲著改選項，預覽一直看得到
+    sec.append(hint, preview, modeBlock, _lhMkBlock('韻腳地圖', ...mapRows), _lhMkBlock('句構分析', ...lineRow, sub,
         ..._lhMapPrefRow('autoHover', '反白停留自動分析', LH_MAP_HOVER_HINT, 'rmPrefHover')), look, colors);
     // 整個段落共用一個點擊監聽（和選單一樣）：開關翻轉、寬韻／嚴格選一個，改了就存、就畫
     sec.addEventListener('click', e => {
@@ -792,7 +792,7 @@ function lhMapPrefsBuild() {
     lhMapMenuSync();
 }
 // 「更多設定…」：關掉所有韻腳浮層，打開偏好設定（已經開著就留著，不能走 ⚙️ 的 toggle，那會把它關掉），
-// 直接切到「韻腳與句構」分頁（從最上面開始），焦點放在那個分頁鈕
+// 直接切到「韻腳地圖」分頁（從最上面開始），焦點放在那個分頁鈕
 function lhMapOpenPrefs() {
     lhMapCloseAll();
     const ov = document.getElementById('settingsOverlay');

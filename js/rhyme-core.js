@@ -358,6 +358,7 @@ function lhEnKeyRhyme(key, multi) {
     if (v === 'AH' && !c) return 'ㄚ';   // 字尾的弱音 a（sofa、data）
     if (c === 'L' && LH_EN_DARK_L[v]) return LH_EN_DARK_L[v];
     if (v === 'AH' && multi) return c === 'N' || c === 'M' ? 'ㄣ' : c === 'NG' ? 'ㄤ' : 'ㄜ';
+    if (v === 'AH' && c === 'M') return 'ㄨㄤ';   // come、some、from≈ㄨㄤ（借韻歸ㄤ，0.98.09 Andy）
     if (v === 'OW' && c === 'N') return 'ㄨㄥ';   // alone、phone、stone≈阿龍／風／史東（-ome 的 home 還是ㄡ）
     return m[c === 'N' || c === 'M' ? 1 : c === 'NG' ? 2 : 0];
 }

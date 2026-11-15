@@ -1,4 +1,4 @@
-// R2：偏好設定分頁式（tablist／tab／tabpanel）、「更多設定…」直達「韻腳與句構」、背景動畫開關
+// R2：偏好設定分頁式（tablist／tab／tabpanel）、「更多設定…」直達「韻腳地圖」、背景動畫開關
 import { test, expect } from '@playwright/test';
 import { readFileSync } from 'node:fs';
 import { bootPage } from './helpers.mjs';
@@ -7,7 +7,7 @@ import { DEVICES, waitStill, hitMin } from './layout-lib.mjs';
 const FIXTURE = JSON.parse(readFileSync(new URL('./fixtures/v096-localStorage.json', import.meta.url), 'utf8'));
 const v2Storage = songs => ({ ...FIXTURE, 'lh:schema': '2', 'lh:songs': JSON.stringify(songs), 'lh:activeSong': songs[0].id, leftPanelCollapsed: 'false', rightPanelCollapsed: 'false' });
 const song = { id: 's1', title: '測試歌', sections: [{ id: 'sa', type: 'verse', custom: '', color: '', height: null, label: '', text: '我望著遠方的光\n獨自站在窗', collapsed: false }], hashtags: [], context: '', createdAt: 1, updatedAt: 1 };
-const TABS = ['外觀', '查詢與詞庫', '韻腳與句構', 'AI', '資料與備份', '說明與回饋'];
+const TABS = ['外觀', '查詢與詞庫', '韻腳地圖', 'AI', '資料與備份', '說明與回饋'];
 const tab = (page, name) => page.getByRole('tab', { name });
 const selected = page => page.locator('#prefsTabs [aria-selected="true"]').textContent();
 
@@ -72,7 +72,7 @@ test('分頁：方向鍵、Home、End 切換（頭尾相接），Tab 進到分�
     expect(await selected(page), '下＝下一個').toBe('外觀');
     await page.keyboard.press('ArrowRight');
     await page.keyboard.press('ArrowRight');
-    expect(await selected(page)).toBe('韻腳與句構');
+    expect(await selected(page)).toBe('韻腳地圖');
     await expect(page.locator('#mapSettingsSection .lm-preview')).toBeAttached();   // 鍵盤切到也會建內容
     // Tab 從分頁鈕離開，下一站在分頁內容裡（不是別的分頁鈕）
     await page.keyboard.press('Tab');
@@ -83,14 +83,14 @@ test('分頁：方向鍵、Home、End 切換（頭尾相接），Tab 進到分�
     await context.close();
 });
 
-test('分頁：「更多設定…」直接到「韻腳與句構」，齒輪回到上次的分頁', async ({ browser }) => {
+test('分頁：「更多設定…」直接到「韻腳地圖」，齒輪回到上次的分頁', async ({ browser }) => {
     const { context, page, errors } = await bootPage(browser, { wordlist: 'stub', storage: v2Storage([song]) });
     await page.locator('#rhymeMenuBtn').click();
     await page.locator('#rhymeMenu .rm-more').click();
     await expect(page.locator('#rhymeMenu')).toBeHidden();
     await expect(page.locator('#settingsOverlay')).toHaveClass(/show/);
-    expect(await selected(page)).toBe('韻腳與句構');
-    await expect(tab(page, '韻腳與句構')).toBeFocused();
+    expect(await selected(page)).toBe('韻腳地圖');
+    await expect(tab(page, '韻腳地圖')).toBeFocused();
     await expect(page.locator('#mapSettingsSection .lm-preview')).toBeVisible();
     expect(await page.locator('#mapSettingsSection').evaluate(e => e.scrollTop), '從最上面開始').toBe(0);
     // 換到別的分頁再關，齒輪打開回到那一頁；「更多設定…」不管上次在哪都到韻腳
@@ -101,12 +101,12 @@ test('分頁：「更多設定…」直接到「韻腳與句構」，齒輪回�
     await page.keyboard.press('Escape');
     await page.locator('#rhymeMenuBtn').click();
     await page.locator('#rhymeMenu .rm-more').click();
-    expect(await selected(page)).toBe('韻腳與句構');
+    expect(await selected(page)).toBe('韻腳地圖');
     // 已經開著時再叫一次：還是開著、還是韻腳
     await tab(page, '外觀').click();
     await page.evaluate(() => lhMapOpenPrefs());
     await expect(page.locator('#settingsOverlay')).toHaveClass(/show/);
-    expect(await selected(page)).toBe('韻腳與句構');
+    expect(await selected(page)).toBe('韻腳地圖');
     expect(errors).toEqual([]);
     await context.close();
 });

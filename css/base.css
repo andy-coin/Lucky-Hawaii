@@ -551,7 +551,7 @@
 
         .search-input {
             width: 100%;
-            padding: clamp(0.625rem, 1.5vw, 1.125rem) 4rem clamp(0.625rem, 1.5vw, 1.125rem) clamp(0.875rem, 2vw, 1.5rem);
+            padding: clamp(0.4375rem, 1.05vw, 0.875rem) 4rem clamp(0.4375rem, 1.05vw, 0.875rem) clamp(0.875rem, 2vw, 1.5rem);   /* 0.98.09：高度是原本的約 0.88 倍 */
             font-size: clamp(0.95rem, 1.4vw, 1.2rem);
             border: 1px solid var(--border);
             border-radius: var(--radius-m);
