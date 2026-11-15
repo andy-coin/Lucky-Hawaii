@@ -737,7 +737,7 @@ function _lhSpShow(cfg) {
         sub.hidden = true;
         head.addEventListener('click', () => { sub.hidden = !sub.hidden; head.setAttribute('aria-expanded', String(!sub.hidden)); });
         sub.append(...cs.map(cl => {
-            const label = cfg.rel ? LH_REL_POS_N[cl.key.split('|')[1]] + cl.key.split('|')[2].replace(/./, x => LH_REL_LEN_N[x]) + ' ' + (cl.key.split('|')[3] || '') + (cl.key.split('|')[4] ? ' 第' + cl.key.split('|')[4] + '字' : '') : cl.key.split('·').map(t => LH_WS_TONE_N[t - 1] ? LH_WS_TONE_N[t - 1][0] : t).join('·');
+            const label = _lhSpClLabel(cl, cfg);
             const b = _lhWsEl('button', 'ws-leg', label + '（' + cl.n + '）');
             b.type = 'button';
             b.style.setProperty('--c', cl.color);
@@ -1306,6 +1306,7 @@ function _lhSpDraw(t, L) {
             c.restore();
         } else blit(w, p, m);
     }
+    _lhSpHoloDraw(c, t, z);
     _lhSpActsPlace();
 }
 
@@ -1454,6 +1455,63 @@ function _lhSpClearNow() {
     _lhSpClear();
 }
 
+// 星系的分類名稱（圖例、恆星的全息標籤共用）：關聯詞「中間四字 ㄅㄨˋ 第3字」；押韻詞「一·三」聲調
+function _lhSpClLabel(cl, cfg = _lhSp.cfg) {
+    const k = cl.key.split('|');
+    return cfg && cfg.rel ? LH_REL_POS_N[k[1]] + k[2].replace(/./, x => LH_REL_LEN_N[x]) + ' ' + (k[3] || '') + (k[4] ? ' 第' + k[4] + '字' : '')
+        : cl.key.split('·').map(t => LH_WS_TONE_N[t - 1] ? LH_WS_TONE_N[t - 1][0] : t).join('·');
+}
+// 恆星的全息標籤（0.98.14 Andy）：滑鼠停在恆星上、或手指按住恆星，從恆星拉一條折線出去，框裡寫這個星系的分類和詞數
+function _lhSpHolo(w) {
+    const h = _lhSp.holo;
+    if ((h && h.w) === (w || null)) return;
+    _lhSp.holo = w ? { w, t0: performance.now() } : null;
+    _lhSp.dirty = true;
+}
+function _lhSpHoloDraw(c, t, z) {
+    const h = _lhSp.holo, w = h && h.w;
+    if (!w || !w.cl || !w.born || w.off || !_lhSp.words.includes(w)) return;
+    const p = _lhSpScr(w.px, w.py), k = Math.min(1, (t - h.t0) / 260), e = 1 - Math.pow(1 - k, 3);
+    if (k < 1) _lhSp.dirty = true;
+    const r = Math.max(14, (w.tw || 40) * z * (w.mag || 1) / 2 + 6), W = _lhSp.W;
+    const t1 = _lhSpClLabel(w.cl), t2 = w.cl.n + ' 個詞';
+    c.save();
+    c.font = '600 13px ' + _lhSp.font; const w1 = c.measureText(t1).width;
+    c.font = '12px ' + _lhSp.font; const w2 = c.measureText(t2).width;
+    const bw = Math.max(w1, w2) + 20, bh = 44;
+    const dir = p.x + r + 70 + bw > W - 8 ? -1 : 1;   // 右邊放不下就往左拉
+    const ax = p.x + dir * (r + 4), ay = p.y + 2;   // 從恆星右側（或左側）中間出發，避開右上角的隱藏鈕
+    const bx = ax + dir * 30, by = Math.max(bh / 2 + 8, ay - 40), ex = bx + dir * 26;
+    c.strokeStyle = w.rgb; c.fillStyle = w.rgb; c.lineWidth = 1.2; c.shadowColor = w.rgb; c.shadowBlur = 6;
+    // 折線一段段長出來：斜線 → 橫線
+    const seg1 = Math.min(1, e * 2), seg2 = Math.max(0, e * 2 - 1);
+    c.globalAlpha = 0.9;
+    c.beginPath(); c.arc(ax, ay, 2.2, 0, Math.PI * 2); c.fill();
+    c.beginPath(); c.moveTo(ax, ay); c.lineTo(ax + (bx - ax) * seg1, ay + (by - ay) * seg1);
+    if (seg2) c.lineTo(bx + (ex - bx) * seg2, by);
+    c.stroke();
+    if (seg2 > 0) {
+        const x0 = dir > 0 ? ex : ex - bw, y0 = by - bh / 2;
+        c.globalAlpha = seg2;
+        c.shadowBlur = 14;
+        c.fillStyle = _lhSp.cCard; c.globalAlpha = seg2 * 0.86;
+        c.beginPath(); if (c.roundRect) c.roundRect(x0, y0, bw, bh, 4); else c.rect(x0, y0, bw, bh); c.fill();
+        c.globalAlpha = seg2; c.shadowBlur = 0; c.stroke();
+        // 全息感：框角的亮角＋淡淡的掃描線
+        c.lineWidth = 2;
+        for (const [x, y, sx, sy] of [[x0, y0, 1, 1], [x0 + bw, y0, -1, 1], [x0, y0 + bh, 1, -1], [x0 + bw, y0 + bh, -1, -1]]) {
+            c.beginPath(); c.moveTo(x + sx * 7, y); c.lineTo(x, y); c.lineTo(x, y + sy * 7); c.stroke();
+        }
+        c.globalAlpha = seg2 * 0.08;
+        for (let y = y0 + 3; y < y0 + bh; y += 3) c.fillRect(x0 + 1, y, bw - 2, 1);
+        c.globalAlpha = seg2;
+        c.textBaseline = 'middle'; c.textAlign = 'left';
+        c.fillStyle = w.rgb; c.font = '600 13px ' + _lhSp.font; c.fillText(t1, x0 + 10, y0 + 15);
+        c.fillStyle = _lhSp.cMute; c.font = '12px ' + _lhSp.font; c.fillText(t2, x0 + 10, y0 + 31);
+    }
+    c.restore();
+}
+
 function _lhSpSetHover(w) {
     const h = _lhSp.hover;
     if (h === w) return;
@@ -1500,8 +1558,9 @@ function _lhSpEvents(el) {
         if (_lhSp.mute && w !== _lhSp.mute) _lhSp.mute = null;
         if (w && w === _lhSp.mute) w = null;
         _lhSpSetHover(w);
+        _lhSpHolo(w && w.star ? w : null);
     });
-    el.addEventListener('pointerleave', e => { if (e.pointerType === 'mouse') { _lhSp.mouse = null; _lhSp.dirty = true; if (!_lhSp.drag) _lhSpSetHover(null); } });
+    el.addEventListener('pointerleave', e => { if (e.pointerType === 'mouse') { _lhSp.mouse = null; _lhSp.dirty = true; if (!_lhSp.drag) { _lhSpSetHover(null); _lhSpHolo(null); } } });
     el.addEventListener('pointerdown', e => {
         if (e.target.closest('.ws-panel, .ws-zoom, .ws-acts, .ws-pages')) return;   // 換批滑桿移出面板後也要排除（0.98.09）
         if (e.pointerType === 'mouse' && e.button !== 0) return;
@@ -1520,7 +1579,10 @@ function _lhSpEvents(el) {
         const w = _lhSpHit(e.clientX, e.clientY);
         if (w) {
             const p = _lhSpToWorld(e.clientX, e.clientY), at = _lhSpPos(w);
-            _lhSp.drag = { w, id: e.pointerId, sx: e.clientX, sy: e.clientY, gx: p.x - at.x, gy: p.y - at.y, moved: false, hist: [] };
+            const d = _lhSp.drag = { w, id: e.pointerId, sx: e.clientX, sy: e.clientY, gx: p.x - at.x, gy: p.y - at.y, moved: false, hist: [] };
+            // 觸控按住恆星 0.35 秒：浮出全息標籤（放手就收），這次放手不算點擊（不釘選）
+            clearTimeout(_lhSp.holoTm);
+            if (w.star && e.pointerType !== 'mouse') _lhSp.holoTm = setTimeout(() => { if (_lhSp.drag === d && !d.moved) { d.held = true; _lhSpHolo(w); } }, 350);
         } else _lhSp.pan = { id: e.pointerId, x: e.clientX, y: e.clientY, sx: e.clientX, sy: e.clientY, moved: false };
     });
     el.addEventListener('pointermove', e => {
@@ -1566,6 +1628,7 @@ function _lhSpEvents(el) {
     });
     const end = e => {
         if (!_lhSp.pts.delete(e.pointerId)) return;
+        if (e.pointerType !== 'mouse') { clearTimeout(_lhSp.holoTm); _lhSpHolo(null); }
         if (_lhSp.pts.size < 2) _lhSp.pinch = null;
         el.classList.remove('panning');
         const d = _lhSp.drag;
@@ -1586,7 +1649,7 @@ function _lhSpEvents(el) {
                     d.w.fvy = Math.max(-vmax, Math.min(vmax, (b.y - a.y) / dt));
                 }
                 if (!d.w.pinned) d.w.hot = false;   // 0.98.09：游標停在詞上不再定格，放手就恢復
-            } else if (e.type === 'pointerup') {   // 單擊：釘住＋保留；再點一次釘住的詞＝取消釘選＋取消保留
+            } else if (e.type === 'pointerup' && !d.held) {   // 單擊：釘住＋保留；再點一次釘住的詞＝取消釘選＋取消保留（按住看全息標籤的不算）
                 _lhSp.blankTap = null;   // 點過詞，空白的雙擊重新算
                 d.w.pinned = !d.w.pinned;
                 if (d.w.cl) d.w.cl.ver++;

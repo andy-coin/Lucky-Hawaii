@@ -1,3 +1,9 @@
+## 0.98.14（2026-11-15 已 push，待 Andy 實機驗）
+- 版號 0.98.14（index.html 44 個 ?v、js/safety.js、README、.claude/CLAUDE.md）；內容含 0.98.13.1／.2 的細拆星系、四字、手機面板。
+- 手機特效警告（js/search-ui.js prefsFxRange 的 change）：短邊 < 600 且觸控，從 3 級以下放手停在 4／5 級 → lhAsk「手機開「精緻／浮誇」特效？」；按「改回預設」退回 3 級。
+- 恆星全息標籤（js/word-space.js _lhSpClLabel／_lhSpHolo／_lhSpHoloDraw，_lhSpDraw 最後畫）：滑鼠停在恆星、或觸控按住恆星 0.35 秒 → 從恆星側邊中間拉折線（斜線→橫線，0.26 秒長出來）到框：分類名稱（例「字首兩字 ㄞˋ」）＋「N 個詞」；框角亮角＋淡掃描線；右邊放不下往左。觸控按住放手就收、這次放手不算點擊（drag.held）。圖例標籤也改用 _lhSpClLabel。
+- 測試：word-space、golden、layout、tour、prefs-tabs 133 全過；模擬 iPhone 按住恆星、警告、改回預設都驗過。
+
 ## 0.98.13.2（?v 破快取，LH_APP_VERSION 仍 0.98.13；已 push）
 - 關聯詞字數加「四字」：2／3／4／m（m＝五字以上）。js/word-space.js LH_REL_LEN、LH_REL_LEN_N、_lhRelCat、_lhWsRelList 篩選、字數按鈕（4 顆）；單字配色 3×4＝12 色相；多字配色 li 色偏 [-18,-6,6,18]；圖例排序加第幾字。tests/word-space.spec.mjs 字數按鈕 4 顆。
 - 手機（≤600px）展開的星雲面板也貼上緣（拿掉 3.5rem 下移），跟收合鈕同位置；iPhone 13：面板右緣 138px、縮放列左緣 213px 不重疊。

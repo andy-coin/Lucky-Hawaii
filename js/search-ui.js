@@ -93,6 +93,18 @@
             lhFxSetLevel(+e.target.value);
             _lhPrefsBgFxSync();
         });
+        // 手機（0.98.14 Andy）：放手停在第 4、5 級先警告——手機畫不動大星雲，會卡、比較耗電；不要就退回第 3 級
+        let _lhFxPrev = typeof lhFxLevel === 'function' ? lhFxLevel() : 3;
+        document.getElementById('prefsFxRange').addEventListener('change', async e => {
+            const lv = +e.target.value, was = _lhFxPrev;
+            _lhFxPrev = lv;
+            if (lv < 4 || was >= 4 || Math.min(innerWidth, innerHeight) >= 600 || !matchMedia('(pointer: coarse)').matches) return;
+            const ok = await lhAsk({ title: '手機開「' + LH_FX_NAME[lv] + '」特效？', body: '手機比較畫不動，星雲詞多時可能會卡、也比較耗電。建議用「預設」。',
+                buttons: [{ label: '照樣開啟', value: true }, { label: '改回預設', value: null }] });
+            if (ok) return;
+            lhFxSetLevel(3); _lhFxPrev = 3;
+            _lhPrefsBgFxSync();
+        });
 
         // 詞庫包清單（偏好設定）：只用 createElement + textContent 組畫面，清單文字不會被當成 HTML（T-06-07）
         let _packSwitchSeq = 0;   // 每次點選 +1；連點時只有最後一次的結果會顯示
