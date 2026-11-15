@@ -970,7 +970,7 @@ const LH_SP_LV = {
     2: { fps: 24, orbit: 0, drag: 'stay', dock: 1, keptBreathe: 0.06, img: 1, clBreath: 1 },
     3: { fps: 30, orbit: 0.6, drag: 'fling', dock: 1, comet: 1, tail: 1, cometGlow: 1, keptGlow: 1, whole: 1 },   // 0.98.09：3、4 級加整片呼吸
     4: { fps: 40, orbit: 1, drag: 'fling', dock: 1, comet: 1, tail: 1, cometGlow: 1, jitter: 1, wobble: 1, drift: 1, push: 1, twinkle: 1, starGlow: 1, whole: 1, lineGlow: 1 },   // 0.98.09：保留的詞只有外框（不閃、不加柔光）
-    5: { fps: 60, orbit: 1, drag: 'fling', dock: 1, comet: 1, tail: 1, cometGlow: 1, keptGlow: 1, keptBreathe: 0.025, jitter: 1, wobble: 1, drift: 1, push: 1, twinkle: 1, starGlow: 1, clBreath: 1, lineGlow: 1, lineFlash: 1 },   // 0.98.09：保留的詞不閃（閃爍留給隨機星星），只輕輕呼吸
+    5: { fps: 60, orbit: 1, drag: 'fling', dock: 1, comet: 1, tail: 1, cometGlow: 1, keptGlow: 1, keptBreathe: 0.025, jitter: 1, wobble: 1, drift: 1, push: 1, twinkle: 1, starGlow: 1, clBreath: 1, lineGlow: 1, lineFlash: 1, zoomTrail: 1 },   // 0.98.09：保留的詞不閃（閃爍留給隨機星星），只輕輕呼吸
 };
 const _lhSpCfg = () => LH_SP_LV[_lhSpReduce.matches ? 0 : (typeof lhFxLevel === 'function' ? lhFxLevel() : 5)] || LH_SP_LV[5];
 
@@ -1190,7 +1190,15 @@ function _lhSpDraw(t, L) {
     const c = _lhSp.ctx, z = _lhSpZv(), dpr = _lhSp.dpr || 1;
     if (!c || !_lhSp.W || !_lhSp.visible) return;
     c.setTransform(dpr, 0, 0, dpr, 0, 0);
-    c.clearRect(0, 0, _lhSp.W, _lhSp.H);
+    // 縮放殘影（第 5 級，0.98.14.5 Andy）：縮放中不整張擦掉，只把上一格擦淡一部分 → 星星拖出淡淡的殘影；
+    // 停手後 0.45 秒內擦得越來越乾淨（殘影自然收掉），之後照常整張清
+    const zAge = t - (_lhSp.zt || -1e9), TRAIL = 450;
+    if (L.zoomTrail && zAge < TRAIL) {
+        c.save(); c.globalCompositeOperation = 'destination-out'; c.fillStyle = '#000';   // 一定要不透明的填色：沿用上一格留下的（可能是透明漸層）會什麼都沒擦到
+        c.globalAlpha = 0.6 + 0.4 * Math.max(0, zAge - 120) / (TRAIL - 120);   // 每格留上一格約 40%，停手後收乾淨
+        c.fillRect(0, 0, _lhSp.W, _lhSp.H); c.restore();
+        _lhSp.dirty = true;
+    } else c.clearRect(0, 0, _lhSp.W, _lhSp.H);
     const vis = w => { const p = _lhSpScr(w.px, w.py); return p.x > -200 && p.x < _lhSp.W + 200 && p.y > -80 && p.y < _lhSp.H + 80 ? p : null; };
     const pill = (p, w, m) => {   // 詞外面的膠囊（畫面座標）
         const fs = 16 * w.s * z * m, hw = w.tw * z * m / 2 + fs * 0.55, hh = fs * 0.85;
