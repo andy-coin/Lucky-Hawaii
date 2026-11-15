@@ -467,6 +467,8 @@ function _lhSpLayout(list, cfg = {}) {
         // 先照寬度一圈圈分好（第 k 圈半徑 = 中心詞的一半寬 + k × 間距），再給每個詞自己的隨機軌道
         // 小星系漫遊（0.98.09）：3–5 個詞的微星系、6–10 個詞的小星系像流星一樣走長直線、出邊界從對面回來；流星 > 微星系 > 小星系
         if (g.length <= 10) { const a = R() * TAU, v = g.length <= 5 ? 32 + R() * 22 : 12 + R() * 10; cl.vx = Math.cos(a) * v; cl.vy = Math.sin(a) * v; }
+        // 呼吸（0.98.09）：越大的星系呼吸越慢、幅度越大（10 個詞以下照舊；100 個慢 1.6 倍、±5.4%；500 個約慢 2 倍、±7%）
+        { const sc = Math.max(0, Math.log10(g.length / 10)); cl.bp *= 1 + 0.6 * sc; cl.ba = 0.03 * (1 + 0.8 * sc); }
         const spiral = g.length > 25;   // 大星系排旋臂、小的維持同心圓（見上面 _lhSpGroupKey 前的說明）
         // 恆星照星系大小加成（0.98.09）：10 個詞以下不加，100 個 2 倍（中間照對數），之後每多 50 個詞再 +0.25 倍（連續，不跳階）；常用度和星系規模都看得出來
         const star = g[0], rings = [[]], starS = sizeOf(star) * (1 + Math.min(1, Math.max(0, Math.log10(g.length / 10))) + Math.max(0, g.length - 100) / 50 * 0.25);
@@ -986,7 +988,7 @@ function _lhSpFrame(t) {
     // 整片星雲一起呼吸（第 1 級）：畫面縮放跟著輕輕放大縮小，6 秒一輪
     _lhSp.zb = L.whole ? 1 + 0.012 * Math.sin(T * TAU / 6) : 1;
     // 整團呼吸（第 2 級）：每個星系照自己的節奏（4～7 秒一輪）輕輕放大縮小
-    for (const cl of _lhSp.groups) cl.b = L.clBreath ? 1 + 0.03 * Math.sin(T * TAU / cl.bp + cl.ph[0]) : 1;
+    for (const cl of _lhSp.groups) cl.b = L.clBreath ? 1 + (cl.ba || 0.03) * Math.sin(T * TAU / cl.bp + cl.ph[0]) : 1;
     for (const w of _lhSp.words) {
         const still = w.hot || w.pinned || (w.comet ? !L.comet : !L.orbit);   // 停在詞上、釘住、這一級不動的：定格
         if (w === drag) { if (w.star && w.free) { w.cl.x = w.fx; w.cl.y = w.fy; } }   // 按著還沒拖動（free 還沒開）不動整團
