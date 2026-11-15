@@ -55,7 +55,7 @@ test('AI 分頁：鑰匙打開「AI」分頁；服務商下拉、一行金鑰（
         await expect(page.locator('#settingsOverlay')).toHaveClass(/show/);
         await expect(page.getByRole('tab', { name: 'AI' })).toHaveAttribute('aria-selected', 'true');
         await expect(page.getByRole('tab', { name: 'AI' })).toBeFocused();
-        await expect(page.locator('#prefsPanel-ai')).toContainText('不進備份檔');
+        await expect(page.locator('#prefsPanel-ai')).toContainText('不會進備份檔');
         const opts = await page.locator('#byokProvider option').evaluateAll(os => os.map(o => o.value));
         expect(opts).toEqual(['anthropic', 'openai', 'gemini', 'xai', 'groq', 'deepseek', 'jev', 'ollama', 'generic']);
         await pick(page, 'gemini');

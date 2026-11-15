@@ -354,7 +354,7 @@
             const o = lhGetJSON(LH_AI_TUNE_KEY, {}, x => !!x && typeof x === 'object' && !Array.isArray(x));
             const num = (v, lo, hi, step, def) => Number.isFinite(v) ? Math.min(hi, Math.max(lo, Math.round(v / step) * step)) : def;
             const n = num(o.n, 8, 60, 4, AI_TARGET);
-            return { n, pool: Math.max(n, num(o.pool, 40, 1000, 20, AI_POOL_MAX)), freq: num(o.freq, 0, 95, 5, 60) };   // 常用度預設：只用前 40%
+            return { n, pool: Math.max(n, num(o.pool, 40, 1000, 20, AI_POOL_MAX)), freq: num(o.freq, 0, 95, 5, 40) };   // 常用度預設：只用前 60%
         }
         function lhAiTuneSync() {
             const t = lhAiTune();

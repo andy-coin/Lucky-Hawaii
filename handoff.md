@@ -1,3 +1,14 @@
+## 2026-11-15 v0.98.08（已 push，待 Andy 實機驗收；全套 1281 通過，rhyme-map-ui:280 是舊的、:156 單跑會過）
+- 星雲五級照「星雲效果分級表」（https://claude.ai/artifact/NUoEJt5851vJEZdNq814Mf）Andy 的勾選（js/word-space.js LH_SP_LV；0＝系統減少動態，完全靜止）：
+  - 1：24fps、軌道 0.6 倍、拖到哪停在哪（拖恆星整團走）、停住＝膠囊＋變粗發光、保留的詞呼吸、整片星雲一起呼吸（_lhSp.zb，_lhSpZv）。
+  - 2：20fps、不轉、星系一張圖（_lhSpClImg，cl.ver 變了或縮放換級才重畫，>2048px 不做）＋整團呼吸（cl.b、cl.bp）、黑洞放大（240px、最大約 2.3 倍）、保留的詞呼吸、拖到哪停在哪。
+  - 3：30fps、軌道 0.6、流星（微彎、較快）＋尾巴＋加亮、甩動拉回、保留＝外框＋柔光、黑洞放大。
+  - 4、5（40／60fps）：再加水彩偏移（排版時 jitter）、行星晃動、恆星飄移與互斥、保留閃＋光暈、隨機星星閃爍（每秒約 5 顆，常用最多多 15%，亮時放大 6%）。
+  - 每級：綻放浮現、保留＝外框、停住＝膠囊。拖曳放手的共用收尾 _lhSpSettle（行星換新軌道）。
+- 英文暗 L：hell、well、tell 歸ㄠ（和「好」同族），-ool→ㄨ、-ol→ㄡ、-eel→ㄧㄡ（js/rhyme-core.js LH_EN_DARK_L、lhEnGuess）。
+- 韻腳預覽「像辛得勒名單」併到上一行；預覽上方多出的空白拿掉（#mapSettingsSection > .lm-preview-block:first-child）。
+- AI 服務商說明文字照 Andy 版本；常用度預設改前 60%（lhAiTune freq 40）。
+
 ## 2026-11-15 v0.98.07（已 push，待 Andy 實機驗收；全套 1283 通過）
 - 星雲（js/word-space.js）：恆星飄速落差加大（_lhSpLayout k＝2.6→0.45 × 恆星常用度 1～1.8，約 10 倍）；開場縮放改看 25%（_lhSpFitZoom p25）；畫小圖改時間預算（浮現每幀 ≤6ms、縮放重畫每幀 ≤4ms，手指／滑鼠按著時暫停 _lhSpRescale）。
 - 星雲點詞＝釘住＋保留（saveWord），再點＝取消兩者；拿掉 📌，只剩右上角隱藏鈕（槓掉的眼睛 LH_SP_EYE_OFF）；點空白不再取消選取；面板 .ws-clear「取消選取」兩下確認（_lhSpClearAsk，同保留池清除全部，會一起取消保留）。

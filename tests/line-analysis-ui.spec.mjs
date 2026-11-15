@@ -1140,7 +1140,7 @@ test('韻族顏色：手機上的原生色票', async ({ browser }) => {
 // ==================== 預覽（11-04） ====================
 // 和 js/rhyme-map.js 的 LH_MAP_PREVIEW_TEXT 一樣（Andy 的〈麻雀〉，0.98.07 縮短）
 const PREVIEW_LINES = ['夜晚還在街道　別管那些尖叫', '笑鬧 逃跑 快樂或紛擾', '一夜之間　slow down calm down', '一念之間　也 好　也 好 奇',
-    '新的家新的我 新的拆遷名單', '像辛得勒名單', '耳罩帶好好 抗議go to hell', 'sparrow leave the house', "and who's the next pity mouse?"];
+    '新的家新的我 新的拆遷名單 像辛得勒名單', '耳罩帶好好 抗議go to hell', 'sparrow leave the house', "and who's the next pity mouse?"];
 const PV_WORDS = ['夜晚', '還在', '街道', '那些', '尖叫', '快樂', '紛擾', '拆遷', '名單', '新的', '辛得勒'];
 // 鏡像層（或預覽）裡每個 span 的 [class, 文字, data-f]，外加整段純文字
 const spanSig = (page, sel) => page.evaluate(sel => {
@@ -1186,12 +1186,12 @@ test('預覽：每個開關都看得到', async ({ browser }) => {
     await expect(pv).toHaveAttribute('aria-hidden', 'true');
     await expect(pv).toContainText('辛得勒');
     await expect(page.locator('#mapSettingsSection .lm-preview-block > .section-menu-cap').first()).toHaveText('預覽');
-    await expect(pv.locator('.lm-t-c')).toHaveCount(9);
+    await expect(pv.locator('.lm-t-c')).toHaveCount(8);
     // 字數
     await prefSw(page, '字數').click();
     await expect(pv.locator('.lm-t-c')).toHaveCount(0);
     await prefSw(page, '字數').click();
-    await expect(pv.locator('.lm-t-c')).toHaveCount(9);
+    await expect(pv.locator('.lm-t-c')).toHaveCount(8);
     // 對照差異：單獨一段看不到，所以出說明
     await expect(diffCap).toBeHidden();
     await page.evaluate(() => lhMapSetSetting('lnDiff', !_lhMapSet.lnDiff));   // 對照差異的開關先藏起來了

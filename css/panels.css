@@ -1498,6 +1498,7 @@
         }
         /* 偏好設定裡的「韻腳地圖與句構分析」（第 11 階段）：開關列沿用選單的 .rm-switch；四個細項縮排在逐行標記底下 */
         #mapSettingsSection .section-menu-block { margin-top: var(--sp-3); }
+        #mapSettingsSection > .lm-preview-block:first-child { margin-top: 0; }   /* 最上面的預覽不多留空（其他分頁頂端沒有這段空白） */
         #mapSettingsSection .rm-sub { display: flex; flex-direction: column; gap: var(--sp-1); margin-inline-start: var(--sp-4); }
         .rm-more { width: 100%; }
         /* 韻族顏色：16 個原生色票（下面是家族名）加不能點的空韻，每格至少 --hit 寬 */

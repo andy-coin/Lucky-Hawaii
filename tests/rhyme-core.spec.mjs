@@ -615,6 +615,10 @@ test('英文：片語只看最後一個字、中英互押、拼字猜測', () =>
     expect(ev(`lhRhymeAnalyze('yo yo 麻雀in the house\\n快樂或紛擾', {})`).rows.map(r => r.key)).toEqual(['f8', 'f8']);
     expect(ev(`lhEnRhyme('yo')`)).toBe('ㄡ');        // 字表沒有：照拼字猜
     expect(ev(`lhEnRhyme('down')`)).toBe('ㄤ');
+    // 暗 L：hell、well 和「好」同一族；字表沒有的 -ell 也照拼字猜
+    expect(ev(`lhEnRhyme('hell')`)).toBe('ㄠ');
+    expect(ev(`lhEnRhyme('cool')`)).toBe('ㄨ');
+    expect(ev(`lhEnRhyme('zell')`)).toBe('ㄠ');
     run('_lhEnDict = null');
     expect(ev(`lhRhymeTargets('the house', true)`)).toEqual([]);   // 字表還沒載好：不上色
 });

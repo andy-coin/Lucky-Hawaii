@@ -331,9 +331,13 @@ const LH_EN_VOWEL = {
     AY: ['ㄞ', 'ㄞ', 'ㄞ'], EH: ['ㄝ', 'ㄣ', 'ㄥ'], ER: ['ㄦ', 'ㄣ', 'ㄥ'], EY: ['ㄟ', 'ㄟ', 'ㄟ'], IH: ['ㄧ', 'ㄧㄣ', 'ㄧㄥ'],
     IY: ['ㄧ', 'ㄧㄣ', 'ㄧㄥ'], OW: ['ㄡ', 'ㄡ', 'ㄨㄥ'], OY: ['ㄛ', 'ㄛ', 'ㄛ'], UH: ['ㄨ', 'ㄨㄣ', 'ㄨㄥ'], UW: ['ㄨ', 'ㄨㄣ', 'ㄨㄥ'],
 };
+// 字尾的 L（暗 L）：中文耳朵聽起來像母音後面多一個「喔／嗚」，hell≈嘿喔、call≈扣、cool≈酷，所以照「母音＋ㄨ尾」歸韻，
+// hell、well、tell 和「好」同一族（Andy 0.98.08）。只改母音後面緊接 L 的字（held、felt 也算）
+const LH_EN_DARK_L = { AA: 'ㄠ', AE: 'ㄠ', AH: 'ㄠ', EH: 'ㄠ', AO: 'ㄡ', OW: 'ㄡ', UW: 'ㄨ', UH: 'ㄨ', IY: 'ㄧㄡ', IH: 'ㄧㄡ' };
 function lhEnKeyRhyme(key) {
     const [v, c] = key.split(' '), m = LH_EN_VOWEL[v];
     if (!m) return null;
+    if (c === 'L' && LH_EN_DARK_L[v]) return LH_EN_DARK_L[v];
     if (v === 'AH' && !c) return 'ㄚ';   // 字尾的弱音 a（sofa、data）
     return m[c === 'N' || c === 'M' ? 1 : c === 'NG' ? 2 : 0];
 }
@@ -347,6 +351,10 @@ function lhEnGuess(word) {
     if (!m) return null;
     const nas = /^(n|m|nd|nt|ns)$/.test(m[2]) ? 1 : /^(ng|nk)$/.test(m[2]) ? 2 : 0;
     const v = m[1];
+    if (/^l/.test(m[2])) {   // 暗 L（同上）：-ell／-all→ㄠ、-ol→ㄡ、-ool／-ul→ㄨ、-eel／-il→ㄧㄡ
+        const t = v.slice(-1);
+        return /^(oo|u)$/.test(v) ? 'ㄨ' : /^(ee|ea|i)$/.test(v) ? 'ㄧㄡ' : t === 'o' ? 'ㄡ' : /[ae]/.test(t) ? 'ㄠ' : null;
+    }
     if (nas) return ({ a: ['ㄢ', 'ㄤ'], e: ['ㄣ', 'ㄥ'], i: ['ㄧㄣ', 'ㄧㄥ'], o: ['ㄤ', 'ㄨㄥ'], u: ['ㄣ', 'ㄨㄥ'] })[v.slice(-1)]?.[nas - 1] || null;
     for (const [re, z] of LH_EN_SPELL) if (re.test(v)) return z;
     return null;
