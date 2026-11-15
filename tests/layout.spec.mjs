@@ -964,12 +964,12 @@ test('底部面板：收起時 inert、Tab 選不到', async ({ browser }) => {
     } finally { await context.close(); }
 });
 
-// 面板大小：手機整個寬度；平板最寬 44rem 並置中；高度 = min(可見高度的 78%, 52rem)，上緣至少 22% 看得到背景
+// 面板大小：手機、平板都整個寬度；高度 = min(可見高度的 78%, 52rem)，上緣至少 22% 看得到背景
 test('底部面板：尺寸與置中', async ({ browser }) => {
     for (const [name, device, wantW, wantH] of [
         ['手機 390×844', DEVICES.phone, 390, 844 * 0.78],
-        ['平板 820×1180', DEVICES.tablet, 704, 832],
-        ['橫放手機 844×390', DEVICES.phoneLandscape, 704, 390 * 0.78],
+        ['平板 820×1180', DEVICES.tablet, 820, 832],
+        ['橫放手機 844×390', DEVICES.phoneLandscape, 844, 390 * 0.78],
     ]) {
         const { context, page } = await bootPage(browser, { device });
         try {

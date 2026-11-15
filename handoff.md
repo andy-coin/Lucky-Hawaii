@@ -1,3 +1,17 @@
+## 0.98.12（2026-11-15 已 push，待 Andy 實機驗）
+- 版號 0.98.12：index.html 44 個 ?v、js/safety.js、README、.claude/CLAUDE.md。
+- 星雲左側面板：短邊 < 600px（手機直／橫）打開時預設收合（_lhSpShow 裡 .ws-panel.min）。
+- 手機兩指縮放修（待 iPhone 實測；Chromium 模擬本來就正常）：第一指 pointerdown（isPrimary）先清掉殘留的手指紀錄 _lhSp.pts；擋 Safari gesturestart/gesturechange。若 iPhone 仍不行→下一步加 touchstart/touchmove 的備援縮放。
+- 測試：word-space＋layout＋golden 128 全過。
+
+### 以下 0.98.11.1 內容一併進 0.98.12
+- 手機星雲縮放（js/word-space.js）：根本原因＝恆星加成「每 50 詞 +0.25 倍」沒封頂，880 詞星系恆星 11.8 倍、內圈 5 倍，自動縮放縮到底 0.25 還框不住。改成 300 詞封頂（最多 3 倍，starS 那行）。
+  另外 _lhSpZ100()：螢幕短邊 < 800px 時 100% 照比例縮（手機 390 寬約 0.73 實際倍率）；手動縮放下限也跟著縮（_lhSpZoom）；打開時的自動縮放下限仍 0.25。iPhone 模擬：「一」關聯詞打開 34%、字大小正常。
+- iPad 直式／橫放手機：底部面板（歌詞、AI）寬度改成 100%（css/responsive.css .side-panel width；tests/layout.spec.mjs 底部面板尺寸期望值跟著改）。
+- 手機／平板搜尋框按 Enter／「搜尋」→ blur 收鍵盤（js/search-ui.js keydown，只在 pointer: coarse）。
+- 星雲左側面板加收合／展開鈕（js/word-space.js _lhSpBuild 的 .ws-head／.ws-fold，面板加 .min；css/panels.css .ws-head 那幾行）：收起只剩標題列、寬度縮成一行。不存檔，每次打開都是展開。
+- 測試：layout＋word-space 86 個全過。
+
 ## 0.98.11（2026-11-15 收工）
 - 版號升 0.98.11：index.html 44 個 ?v、js/safety.js LH_APP_VERSION、README、.claude/CLAUDE.md。
 - 內容＝0.98.10.1～.5 的小修：分批 600±30 不拆星系、超大星系散開、關聯詞依讀音（含聲調）拆星系、100%＝實際 1.5 倍、色偏套全部星系、字卡縫不算空白、星座線一起閃、星雲雙擊才取消、星座線避開星系色。

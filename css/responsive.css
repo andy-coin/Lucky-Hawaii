@@ -11,14 +11,14 @@
         }
 
         @media (max-width: 900px) {
-            /* 底部 sheet（UI-SPEC §6）：手機整個寬度；平板最寬 44rem 並置中；高度取可見高度的 78%（最高 52rem），上方至少留 22% 讓人看到背景、知道可以點掉；拖把手可改高度（js/panels.js，存 lh:sheetH） */
+            /* 底部 sheet（UI-SPEC §6）：手機、平板都整個寬度（0.98.11.1 Andy：iPad 直式也撐滿）；高度取可見高度的 78%（最高 52rem），上方至少留 22% 讓人看到背景、知道可以點掉；拖把手可改高度（js/panels.js，存 lh:sheetH） */
             .side-panel {
                 top: auto;
                 bottom: 0;
                 left: 0;
                 right: 0;
                 margin-inline: auto;
-                width: min(100%, 44rem);
+                width: 100%;
                 height: min(calc(var(--app-h) * 0.78), 52rem);
                 border-radius: 1.25rem 1.25rem 0 0;
                 flex-direction: column;

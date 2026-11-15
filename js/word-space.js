@@ -251,6 +251,8 @@ function _lhWsMore(grid) {
 // ==================== 顯示全部（星雲） ====================
 const _lhSp = { el: null, world: null, words: [], groups: [], raf: 0, last: 0, t0: 0, z: 1, px: 0, py: 0, pts: new Map(), pan: null, pinch: null, drag: null, nav: null, back: null, bound: 1000, pins: [], chords: [], line: null, tm: 0 };
 const LH_SP_ZMIN = 0.25, LH_SP_ZMAX = 3;
+// 手機（0.98.11.1）：螢幕短邊不到 800px 時，100% 照比例縮小（390 寬約 0.73），不然 100% 字大到塞不下
+const _lhSpZ100 = () => LH_SP_Z100 * Math.min(1, Math.min(_lhSp.W || innerWidth, _lhSp.H || innerHeight) / 800);
 const LH_SP_Z100 = 1.5;   // 畫面上顯示的「100%」＝實際倍率 1.5（Andy 校正）；ZMIN／ZMAX 和打開時的自動倍率都是實際倍率
 const LH_SP_RING = 64;   // 軌道之間的距離（世界座標 px）；0.98.09 從 46 拉大，大星系加上隨機偏移也不會疊在一起
 const _lhSpReduce = matchMedia('(prefers-reduced-motion: reduce)');
@@ -327,10 +329,20 @@ function _lhSpBuild() {
     pr.addEventListener('change', () => { if (_lhSp.cfg && +pr.value !== (_lhSp.cfg.page || 0)) _lhSpWhip(+pr.value); });
     pages.append(pr, _lhWsEl('div', 'ws-page-ticks'));
     pages._mark = prMark;
-    panel.append(title, posBox, lenBox, legend, tools);
+    // 收合／展開（0.98.11.1）：小螢幕上面板會擋住星雲，收起來只剩標題列
+    const head = _lhWsEl('div', 'ws-head');
+    const fold = mk('ws-fold', '', '收合面板', () => {
+        const min = panel.classList.toggle('min');
+        fold.setAttribute('aria-expanded', String(!min));
+        fold.title = min ? '展開面板' : '收合面板'; fold.setAttribute('aria-label', fold.title);
+    });
+    fold.setAttribute('aria-expanded', 'true');
+    fold.innerHTML = '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 15l6-6 6 6"/></svg>';
+    head.append(title, fold);
+    panel.append(head, posBox, lenBox, legend, tools);
     // 右上：縮放與關閉
     const zoom = _lhWsEl('div', 'ws-zoom');
-    const pct = mk('ws-pct', '100%', '回到 100%', () => _lhSpZoom(LH_SP_Z100));
+    const pct = mk('ws-pct', '100%', '回到 100%', () => _lhSpZoom(_lhSpZ100()));
     zoom.append(mk('', '−', '縮小', () => _lhSpZoom(_lhSp.z / 1.25)), pct, mk('', '＋', '放大', () => _lhSpZoom(_lhSp.z * 1.25)));
     const close = mk('ws-close', '', '關閉（Esc）', () => lhWsClose());
     close.innerHTML = LH_SP_X;
@@ -481,8 +493,8 @@ function _lhSpLayout(list, cfg = {}) {
         const tintB = (base, e) => { const t = tint(base, e); if (!_LH_REL_REL) return t;
             const dl = Math.round((R() - 0.5) * 0.16 * 100) / 100, dh = Math.round((R() - 0.5) * 70 / 5) * 5;   // 量化：顏色快取才不會爆
             return 'oklch(from ' + t + ' calc(l + ' + dl + ') c calc(h + ' + dh + '))'; };   // 大星系排旋臂、小的維持同心圓（見上面 _lhSpGroupKey 前的說明）
-        // 恆星照星系大小加成（0.98.09）：10 個詞以下不加，100 個 2 倍（中間照對數），之後每多 50 個詞再 +0.25 倍（連續，不跳階）；常用度和星系規模都看得出來
-        const star = g[0], rings = [[]], starS = sizeOf(star) * (1 + Math.min(1, Math.max(0, Math.log10(g.length / 10))) + Math.max(0, g.length - 100) / 50 * 0.25);
+        // 恆星照星系大小加成（0.98.09）：10 個詞以下不加，100 個 2 倍（中間照對數），之後每多 50 個詞再 +0.25 倍（連續，不跳階），300 個詞封頂＝3 倍（0.98.11.1：880 詞的星系原本衝到 5.9 倍，手機縮到最小還框不住）；常用度和星系規模都看得出來
+        const star = g[0], rings = [[]], starS = sizeOf(star) * (1 + Math.min(1, Math.max(0, Math.log10(g.length / 10))) + Math.max(0, Math.min(300, g.length) - 100) / 50 * 0.25);
         // 恆星放大後（0.98.09）：靠近中心的幾圈也跟著大一點（第一圈分到恆星多出來的 35%，往外每圈減半），
         // 第一圈離恆星遠一點（恆星每多 1 倍推開 0.8 圈），放大的幾圈之間也跟著加寬
         const extra = starS / sizeOf(star) - 1, boost = k => 1 + extra * 0.35 * Math.pow(0.5, k), szOf = new Map();
@@ -579,7 +591,7 @@ function _lhSpFitZoom(words) {
     }).sort((a, b) => a - b);
     if (!q.length) return 1;
     const p25 = q[Math.min(q.length - 1, Math.floor(q.length * 0.25))] || 1;
-    return Math.min(2.2, Math.max(LH_SP_ZMIN, 1 / p25));
+    return Math.min(2.2, Math.max(LH_SP_ZMIN, 1 / p25));   // 打開時最小仍 0.25（手機字才看得清），想看全貌再手動縮
 }
 
 function lhWsOpen() {
@@ -760,6 +772,9 @@ function _lhSpShow(cfg) {
     }
     // 打開的順序：三塊面板先慢慢收走（1.2 秒）→ 只剩背景（飄字變很淡）→ 星雲淡入、一團團浮現。
     // 面板收走的這段時間，背景已經在畫字的小圖（星雲層還藏著），面板走完就能直接浮現
+    // 小螢幕（短邊 < 600px，手機直放橫放都算）：左上面板預設收合（0.98.12 Andy）
+    { const pn = el.querySelector('.ws-panel'), min = Math.min(innerWidth, innerHeight) < 600, f = pn.querySelector('.ws-fold');
+      pn.classList.toggle('min', min); f.setAttribute('aria-expanded', String(!min)); f.title = min ? '展開面板' : '收合面板'; f.setAttribute('aria-label', f.title); }
     _lhSp.back = document.activeElement;
     _lhSp.visible = false;
     for (const id of ['leftPanel', 'mainContainer', 'rightPanel', 'mobileTabBar']) { const p = document.getElementById(id); if (p) p.inert = true; }
@@ -813,7 +828,7 @@ function _lhSpKey(e) {
 function _lhSpApplyView() {
     _lhSp.dirty = true;
     const b = _lhSp.el.querySelector('.ws-pct');
-    if (b) b.textContent = Math.round(_lhSp.z / LH_SP_Z100 * 100) + '%';
+    if (b) b.textContent = Math.round(_lhSp.z / _lhSpZ100() * 100) + '%';
 }
 
 // ===== canvas：尺寸、顏色、字的小圖 =====
@@ -894,7 +909,7 @@ function _lhSpScreenOf(w) {   // 測試、按鈕定位用：詞在畫面上的�
 // 以畫面上 (cx, cy)（相對左上角，省略＝中心）為中心縮放；世界原點在畫面中心：畫面點 = 中心 + p + 世界點 × z
 function _lhSpZoom(z, cx, cy) {
     const el = _lhSp.el;
-    z = Math.min(LH_SP_ZMAX, Math.max(LH_SP_ZMIN, z));
+    z = Math.min(LH_SP_ZMAX, Math.max(LH_SP_ZMIN * _lhSpZ100() / LH_SP_Z100, z));   // 下限跟 100% 一樣照螢幕縮（手機約 0.12）
     if (cx === undefined) { cx = el.clientWidth / 2; cy = el.clientHeight / 2; }
     const ox = el.clientWidth / 2, oy = el.clientHeight / 2;
     const wx = (cx - ox - _lhSp.px) / _lhSp.z, wy = (cy - oy - _lhSp.py) / _lhSp.z;
@@ -1475,6 +1490,8 @@ function _lhSpEvents(el) {
         if (e.target.closest('.ws-panel, .ws-zoom, .ws-acts, .ws-pages')) return;   // 換批滑桿移出面板後也要排除（0.98.09）
         if (e.pointerType === 'mouse' && e.button !== 0) return;
         _lhSp.nav = null;
+        // 0.98.12：第一根手指放下＝之前的手指都離開了；iOS 偶爾漏掉 pointerup，殘留的點會讓第二指湊不成「剛好 2 指」→ 不能縮放
+        if (e.isPrimary) _lhSp.pts.clear();
         _lhSp.pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
         if (_lhSp.pts.size === 2) {   // 第二根手指：放棄拖曳／平移，改成以兩指中點為中心縮放
             _lhSp.drag = null; _lhSp.pan = null;
@@ -1583,4 +1600,6 @@ function _lhSpEvents(el) {
     };
     el.addEventListener('pointerup', end);
     el.addEventListener('pointercancel', end);
+    // iOS Safari：兩指手勢別被瀏覽器拿去縮整頁（gesture* 是 Safari 專有事件）
+    for (const t of ['gesturestart', 'gesturechange']) el.addEventListener(t, e => e.preventDefault(), { passive: false });
 }

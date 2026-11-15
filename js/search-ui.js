@@ -219,6 +219,11 @@
             _handleSearch(e.target.value);
         });
         
+        // 手機／平板按 Enter 或鍵盤上的「搜尋」：收起螢幕鍵盤（結果是邊打邊出來的，不用再查一次）；電腦不動焦點
+        searchInputEl.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.isComposing && e.keyCode !== 229 && matchMedia('(pointer: coarse)').matches) { e.preventDefault(); e.target.blur(); }
+        });
+
         // 確保手機上點擊搜尋框能正確取得焦點
         searchInputEl.addEventListener('touchend', (e) => {
             setTimeout(() => e.target.focus(), 10);

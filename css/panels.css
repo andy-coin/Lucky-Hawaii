@@ -2950,6 +2950,14 @@ body.ws-open .ws-space { opacity: 1; }
     box-shadow: 0 2px 10px var(--shadow); cursor: default;
 }
 .ws-title { font-family: var(--font-serif); font-size: 1rem; font-weight: 700; color: var(--text-primary); }
+.ws-head { display: flex; align-items: flex-start; gap: var(--sp-1); }
+.ws-head .ws-title { flex: 1; min-width: 0; }
+.ws-fold { flex: none; min-width: 1.75rem; min-height: 1.75rem; padding: 0; border-color: transparent; background: transparent; color: var(--text-secondary); }
+.ws-fold .ic { width: 1rem; height: 1rem; transition: transform 0.2s; }
+.ws-panel.min .ws-fold .ic { transform: rotate(180deg); }
+.ws-panel.min { width: auto; }   /* 收起來時標題盡量一行 */
+.ws-panel.min > :not(.ws-head) { display: none !important; }
+@media (hover: hover) and (pointer: fine) { .ws-fold:hover { color: var(--text-primary); border-color: var(--border); } }
 .ws-legend, .ws-sub { display: flex; flex-direction: column; gap: var(--sp-1); }
 .ws-sub { padding-inline-start: var(--sp-3); }
 .ws-sub[hidden] { display: none; }
