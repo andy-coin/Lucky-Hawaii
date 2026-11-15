@@ -438,8 +438,8 @@
                 if (card) {
                     const char = card.dataset.char;
                     toggleSelection(char, card);
-                } else if (selectedChars.size > 0) {
-                    // 點擊空白處：取消所有選擇
+                } else if (selectedChars.size > 0 && !e.target.classList.contains('results-grid')) {
+                    // 點擊空白處：取消所有選擇（字卡之間的縫＝點到 .results-grid 本身，不算空白）
                     selectedChars.clear();
                     document.querySelectorAll('.char-card.selected').forEach(c => c.classList.remove('selected'));
                     updateBatchCount();

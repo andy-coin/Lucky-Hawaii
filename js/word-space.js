@@ -251,6 +251,7 @@ function _lhWsMore(grid) {
 // ==================== 顯示全部（星雲） ====================
 const _lhSp = { el: null, world: null, words: [], groups: [], raf: 0, last: 0, t0: 0, z: 1, px: 0, py: 0, pts: new Map(), pan: null, pinch: null, drag: null, nav: null, back: null, bound: 1000, pins: [], chords: [], line: null, tm: 0 };
 const LH_SP_ZMIN = 0.25, LH_SP_ZMAX = 3;
+const LH_SP_Z100 = 1.5;   // 畫面上顯示的「100%」＝實際倍率 1.5（Andy 校正）；ZMIN／ZMAX 和打開時的自動倍率都是實際倍率
 const LH_SP_RING = 64;   // 軌道之間的距離（世界座標 px）；0.98.09 從 46 拉大，大星系加上隨機偏移也不會疊在一起
 const _lhSpReduce = matchMedia('(prefers-reduced-motion: reduce)');
 const LH_SP_EYE_OFF = '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/><path d="M4 20L20 4"/></svg>';
@@ -329,7 +330,7 @@ function _lhSpBuild() {
     panel.append(title, posBox, lenBox, legend, tools);
     // 右上：縮放與關閉
     const zoom = _lhWsEl('div', 'ws-zoom');
-    const pct = mk('ws-pct', '100%', '回到 100%', () => _lhSpZoom(1));
+    const pct = mk('ws-pct', '100%', '回到 100%', () => _lhSpZoom(LH_SP_Z100));
     zoom.append(mk('', '−', '縮小', () => _lhSpZoom(_lhSp.z / 1.25)), pct, mk('', '＋', '放大', () => _lhSpZoom(_lhSp.z * 1.25)));
     const close = mk('ws-close', '', '關閉（Esc）', () => lhWsClose());
     close.innerHTML = LH_SP_X;
@@ -473,10 +474,12 @@ function _lhSpLayout(list, cfg = {}) {
         // 10 個詞以下照舊（一輪 4–7 秒、±3%），之後每多 50 個詞慢 10%、幅度 +0.4%（500 個詞約慢 2 倍、±7%）
         { const u = Math.max(0, g.length - 10) / 50; cl.bp *= 1 + 0.1 * u; cl.ba = 0.03 + 0.004 * u; }
         const spiral = g.length > 25;
-        // 超大星系（150 個詞起，550 封頂）：色偏落差加大、圈距和臂上的空隙拉開，散得稀疏一點；big 0→1
+        // 超大星系（150 個詞起，550 封頂）：圈距和臂上的空隙拉開，散得稀疏一點；big 0→1
         const big = Math.min(1, Math.max(0, (g.length - 150) / 400)), RING = LH_SP_RING * (1 + 0.9 * big);
-        const tintB = (base, e) => { const t = tint(base, e); if (!big || !_LH_REL_REL) return t;
-            const dl = Math.round((R() - 0.5) * 0.16 * big * 100) / 100, dh = Math.round((R() - 0.5) * 70 * big / 5) * 5;   // 量化：顏色快取才不會爆
+        // 色偏（原本只給超大星系，Andy 喜歡、改成所有星系都套滿）：每個詞明暗 ±0.08、色相 ±35°。
+        // 只在打開時算一次顏色（之後每格用快取的 rgb），不吃動畫效能，所以每一級都開
+        const tintB = (base, e) => { const t = tint(base, e); if (!_LH_REL_REL) return t;
+            const dl = Math.round((R() - 0.5) * 0.16 * 100) / 100, dh = Math.round((R() - 0.5) * 70 / 5) * 5;   // 量化：顏色快取才不會爆
             return 'oklch(from ' + t + ' calc(l + ' + dl + ') c calc(h + ' + dh + '))'; };   // 大星系排旋臂、小的維持同心圓（見上面 _lhSpGroupKey 前的說明）
         // 恆星照星系大小加成（0.98.09）：10 個詞以下不加，100 個 2 倍（中間照對數），之後每多 50 個詞再 +0.25 倍（連續，不跳階）；常用度和星系規模都看得出來
         const star = g[0], rings = [[]], starS = sizeOf(star) * (1 + Math.min(1, Math.max(0, Math.log10(g.length / 10))) + Math.max(0, g.length - 100) / 50 * 0.25);
@@ -810,7 +813,7 @@ function _lhSpKey(e) {
 function _lhSpApplyView() {
     _lhSp.dirty = true;
     const b = _lhSp.el.querySelector('.ws-pct');
-    if (b) b.textContent = Math.round(_lhSp.z * 100) + '%';
+    if (b) b.textContent = Math.round(_lhSp.z / LH_SP_Z100 * 100) + '%';
 }
 
 // ===== canvas：尺寸、顏色、字的小圖 =====
