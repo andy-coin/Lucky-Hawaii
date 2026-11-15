@@ -1,3 +1,7 @@
+## 0.98.14.4（?v 破快取；已 push）
+- 星雲按「100%」只回倍率（以畫面中心縮放），不再把位置歸零（js/word-space.js ws-pct 按鈕）。
+- **待查**：Andy 說第 5 級縮放時星星有淡淡殘影。headless Chromium 截圖（第 4／5 級滾輪縮放中）看不出差別；第 5 級獨有：keptGlow、keptBreathe、clBreath、lineFlash、fps 60（第 4 級有 whole）。等 Andy 回報裝置／截圖。
+
 ## 0.98.14.3（?v 破快取，LH_APP_VERSION 仍 0.98.14；已 push）
 - 星座線光暈（js/word-space.js _lhSpDraw「星座線」）：寬度跟著縮放 zk＝√(z / 這次的 100%)，夾 0.45–2.4；第 4 級起光暈 4 層由外而內（30／18／10／5 px × zk，透明度 .025／.045／.08／.14），整體慢呼吸（5.6 秒一輪，0.72–1）；主線 1.5px × zk（夾 0.7–1.6）、shadowBlur 5 × zk。第 5 級閃爍照舊 1.2 秒隨機，4 層寬度也乘 zk，跟呼吸不同步。
 

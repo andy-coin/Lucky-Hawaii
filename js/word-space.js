@@ -341,7 +341,7 @@ function _lhSpBuild() {
     panel.append(head, posBox, lenBox, legend, tools);
     // 右上：縮放與關閉
     const zoom = _lhWsEl('div', 'ws-zoom');
-    const pct = mk('ws-pct', '100%', '回到 100%', () => { _lhSpZoom(_lhSpZ100()); _lhSp.px = _lhSp.py = 0; });   // 回到一打開的畫面（倍率和位置）
+    const pct = mk('ws-pct', '100%', '回到 100%', () => _lhSpZoom(_lhSpZ100()));   // 只回到 100% 倍率，以畫面中心縮放、星系位置不動（0.98.14.4 Andy）
     zoom.append(mk('', '−', '縮小', () => _lhSpZoom(_lhSp.z / 1.25)), pct, mk('', '＋', '放大', () => _lhSpZoom(_lhSp.z * 1.25)));
     const close = mk('ws-close', '', '關閉（Esc）', () => lhWsClose());
     close.innerHTML = LH_SP_X;
