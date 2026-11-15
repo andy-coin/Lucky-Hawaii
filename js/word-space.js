@@ -411,7 +411,7 @@ function _lhSpWarp(go) {
     const pick = () => seen.length ? seen[Math.floor(Math.random() * seen.length)] : fallback;
     const stars = Array.from({ length: 220 }, () => ({ a: Math.random() * Math.PI * 2, d: 20 + Math.random() * maxR, w: 0.6 + Math.random() * 1.4, c: pick() }));
     const T = 730, t0 = performance.now();   // 0.98.09：從 1100 縮短三分之一
-    const GO = (T - 500) / T;   // 0.98.14.10 Andy：新的星系在光線結束前 0.5 秒就開始形成（跟星際穿越重疊），不會有一瞬間全空
+    const GO = Math.max(0.02, (T - 700) / T);   // 0.98.14.13 Andy：新的星系在光線結束前 0.7 秒就開始形成（恆星淡入要 1.4 秒，穿越完就看得到恆星的影子）（跟星際穿越重疊），不會有一瞬間全空
     let swapped = false;
     cv.animate([{ transform: 'none', filter: 'blur(0)', opacity: 1 }, { transform: 'scale(2.4)', filter: 'blur(10px)', opacity: 0 }], { duration: T * GO, easing: 'cubic-bezier(.6,0,.9,.4)', fill: 'forwards' });
     _lhSp.warp = true;
@@ -1152,6 +1152,8 @@ function _lhSpFrame(t) {
         w.alpha = (L.gather && w.star && w.born ? Math.min(1, (t - w.born) / 1400) : Math.min(1, k * 1.6)) * vv;   // 凝聚模式的恆星 1.4 秒才完全浮現
         // 保留的詞呼吸（第 1、2 級）：3 秒一輪輕輕放大縮小
         w.kb = L.keptBreathe && w.kept && !w.dim ? 1 + L.keptBreathe * Math.sin(t / 3000 * TAU + w.wob) : 1;
+        // 凝聚模式的恆星（0.98.14.13 Andy）：除了淡入，也從小變大（0.2→1 倍），比淡入晚 0.35 秒開始、1.4 秒長完；光暈跟著 kb 一起長
+        if (L.gather && w.star && w.born) { const kg = Math.max(0, Math.min(1, (t - w.born - 350) / 1400)); if (kg < 1) { w.kb *= 0.2 + 0.8 * (1 - Math.pow(1 - kg, 3)); busy = true; } }
         // 隨機星星閃爍（第 4、5 級）：每秒大約 5 顆；越常用越容易被選到，但最多只多 15%；亮起來時跟著放大一點點
         if (L.twinkle && w.born && !w.dim && dt) {
             if (w.twk && t - w.twk > 1400) w.twk = 0;
