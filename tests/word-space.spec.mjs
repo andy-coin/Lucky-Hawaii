@@ -161,3 +161,9 @@ test('詞卡回報：數量那一列右邊，先挑詞卡再送出', async ({ br
     expect(errors).toEqual([]);
     await context.close();
 });
+
+test('星雲顏色加透明度：oklch 等任何格式都換成合法的 rgba（0.98.09 第 4、5 級整格畫不出來的 bug）', async ({ browser }) => {
+    const { context, page } = await bootPage(browser, { wordlist: 'stub' });
+    expect(await page.evaluate(() => _lhSpRGBA('oklch(0.73 0.12 61)', 0.2))).toMatch(/^rgba\(\d+, \d+, \d+, 0\.2\)$/);
+    await context.close();
+});

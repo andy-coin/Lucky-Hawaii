@@ -688,7 +688,6 @@ function lhMapPrefsBuild() {
     const sec = document.getElementById('mapSettingsSection');
     if (!sec || _lhMapPrefsBuilt) return;
     _lhMapPrefsBuilt = true;
-    const hint = _lhMk('p', 'settings-backups-hint', '調整句尾上色、逐行字數與斷句標記的開關、位置、大小和顏色');
     const sub = _lhMk('div', 'rm-sub');   // 三個細項縮排在逐行標記底下；總開關關著也照樣能設（UI-SPEC D-17）
     // 0.98.06：三個細項排成同一行，說明合成底下一行（各自的說明保留給讀屏，畫面上不重複）
     const r3 = [_lhMapPrefRow('lnRhyme', '行尾韻腳', '直接寫這一行的韻腳（ㄤ、ㄠ…），跟著上面的寬韻／嚴格', 'rmPrefRhyme'),
@@ -771,12 +770,12 @@ function lhMapPrefsBuild() {
     pv.setAttribute('aria-hidden', 'true');
     const pvDiff = _lhMk('span', 'section-menu-cap rm-preview-diff', '對照差異要有同類型的前一段才看得到');
     pvDiff.hidden = true;
-    const preview = _lhMkBlock('預覽', pv, pvDiff);
+    const preview = _lhMkBlock('調整句尾上色、逐行字數與斷句標記的開關、位置、大小和顏色。預覽：', pv, pvDiff);   // 0.98.09：說明併進預覽的子標題，跟預覽一起凍結在頂端
     preview.classList.add('lm-preview-block');
     // 最上面是模式三鈕（關閉／重點跟隨／全部標記），取代原本的「句尾上色」與「滑過才顯示」兩個開關
     const modeBlock = _lhMkBlock('韻腳地圖模式', _lhMapModeSeg(), _lhMk('span', 'section-menu-cap', LH_MAP_MODE_HINT));
     // 說明一行在最上面（0.98.09），接著預覽並黏頂（CSS .lm-preview-block sticky）：往下捲著改選項，預覽一直看得到
-    sec.append(hint, preview, modeBlock, _lhMkBlock('韻腳地圖', ...mapRows), _lhMkBlock('句構分析', ...lineRow, sub,
+    sec.append(preview, modeBlock, _lhMkBlock('韻腳地圖', ...mapRows), _lhMkBlock('句構分析', ...lineRow, sub,
         ..._lhMapPrefRow('autoHover', '反白停留自動分析', LH_MAP_HOVER_HINT, 'rmPrefHover')), look, colors);
     // 整個段落共用一個點擊監聽（和選單一樣）：開關翻轉、寬韻／嚴格選一個，改了就存、就畫
     sec.addEventListener('click', e => {

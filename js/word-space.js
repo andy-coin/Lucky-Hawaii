@@ -360,13 +360,13 @@ const _lhSpWidth = (w, s) => [...w].length * 16 * s + 22;
 // 軌道不是整齊的同心圓：每個詞各自的半徑、橢圓扁度、傾角、起始角度、速度都帶一點隨機。
 // 字的大小照常用度（詞庫的 p，取對數）在 0.8～2 倍之間（最大最小差 2.5 倍）
 // cfg.groupOf(e)→團的 key、cfg.headOf(key)→圖例大類、cfg.colorOf(key)→團色；沒給就用聲調組合（顯示全部）
-const _lhSpKey = (e, cfg) => cfg.groupOf ? cfg.groupOf(e) : e.z.split(' ').map(s => getZhuyinTone(s)).join('·');
+const _lhSpGroupKey = (e, cfg) => cfg.groupOf ? cfg.groupOf(e) : e.z.split(' ').map(s => getZhuyinTone(s)).join('·');
 // 分批（0.98.09）：一批約 500（±50）個詞，整個星系一起分、不拆開（星系本身超過 550 才切）。
 // 批數＝總數 / 500 四捨五入；星系由大到小，每次放進目前最少的那批（批與批的數量會很平均）。結果記在 cfg._pages
 function _lhSpPages(cfg) {
     if (cfg._pages) return cfg._pages;
     const groups = new Map();
-    for (const e of cfg.list) { const k = _lhSpKey(e, cfg); if (!groups.has(k)) groups.set(k, []); groups.get(k).push(e); }
+    for (const e of cfg.list) { const k = _lhSpGroupKey(e, cfg); if (!groups.has(k)) groups.set(k, []); groups.get(k).push(e); }
     const chunks = [];
     for (const g of groups.values()) for (let i = 0, n = Math.ceil(g.length / LH_WS_SPACE_MAX); i < n; i++) chunks.push(g.slice(Math.floor(i * g.length / n), Math.floor((i + 1) * g.length / n)));
     chunks.sort((a, b) => b.length - a.length);
@@ -383,7 +383,7 @@ function _lhSpLayout(list, cfg = {}) {
     const tint = (base, e) => 'color-mix(in oklab, ' + base + ' ' + Math.round(55 + 30 * norm(e) + 15 * R()) + '%, var(' + (R() < 0.5 ? '--text-primary' : '--text-secondary') + '))';
     const groups = new Map();
     for (const e of list) {
-        const k = _lhSpKey(e, cfg);
+        const k = _lhSpGroupKey(e, cfg);
         if (!groups.has(k)) groups.set(k, []);
         groups.get(k).push(e);
     }
@@ -442,7 +442,7 @@ function _lhSpLayout(list, cfg = {}) {
     for (const cl of clusters) _lhSpDrift(cl, clusters);
     const bound = Math.max(600, ...clusters.map(c => Math.hypot(c.x, c.y) + c.r)) * 1.25;
     for (const e of comets) {   // 流星：隨機起點、隨機方向，沿著微彎的弧線穿過整片（0.98.08 快一點、直一點），出了邊界從對面回來
-        const a = R() * TAU, v = 45 + R() * 45, cv = (R() < 0.5 ? -1 : 1) * (0.00375 + R() * 0.00875);   // 0.98.09：曲率是 0.98.08 的 1/4
+        const a = R() * TAU, v = 45 + R() * 45, cv = (R() < 0.5 ? -1 : 1) * (0.005 + R() * 0.035 / 3);   // 0.98.09：曲率是 0.98.08 的 1/3
         words.push({ e, cl: null, color: 'var(--text-primary)', s: sizeOf(e), n: norm(e), comet: true, x: (R() * 2 - 1) * bound, y: (R() * 2 - 1) * bound, v, cv, ang: a });
     }
     return { words, clusters, bound };
@@ -664,6 +664,19 @@ function _lhSpResize() {
     _lhSp.dirty = true;
 }
 const _lhSpColors = new Map();
+// 任何 CSS 顏色（rgb、oklch、color-mix…）加透明度：先在 1×1 畫布上畫一次讀回 RGB（快取），再組 rgba(…)。
+// 不能直接改字串：主題色算出來可能是 oklch(…)，硬改會變成不合法的顏色、整格畫不出來（0.98.09 的 bug）
+const _lhSpRgbC = new Map();
+function _lhSpRGBA(css, a) {
+    let v = _lhSpRgbC.get(css);
+    if (!v) {
+        const x = (_lhSpRGBA.c || (_lhSpRGBA.c = document.createElement('canvas').getContext('2d', { willReadFrequently: true })));
+        x.clearRect(0, 0, 1, 1); x.fillStyle = '#000'; x.fillStyle = css; x.fillRect(0, 0, 1, 1);
+        const d = x.getImageData(0, 0, 1, 1).data;
+        _lhSpRgbC.set(css, v = d[0] + ', ' + d[1] + ', ' + d[2]);
+    }
+    return 'rgba(' + v + ', ' + a + ')';
+}
 function _lhSpColor(css) {
     if (!_lhSpColors.has(css)) { _lhSp.probe.style.color = css; _lhSpColors.set(css, getComputedStyle(_lhSp.probe).color); }
     return _lhSpColors.get(css);
@@ -760,7 +773,7 @@ const LH_SP_LV = {
     1: { fps: 24, orbit: 0, drag: 'stay', bold: 1, keptBreathe: 0.06, whole: 1 },   // 不轉，只有整片呼吸
     2: { fps: 24, orbit: 0, drag: 'stay', dock: 1, keptBreathe: 0.06, img: 1, clBreath: 1 },
     3: { fps: 30, orbit: 0.6, drag: 'fling', dock: 1, comet: 1, tail: 1, cometGlow: 1, keptGlow: 1, whole: 1 },   // 0.98.09：3、4 級加整片呼吸
-    4: { fps: 40, orbit: 1, drag: 'fling', dock: 1, comet: 1, tail: 1, cometGlow: 1, keptGlow: 1, keptFlash: 1, jitter: 1, wobble: 1, drift: 1, push: 1, twinkle: 1, starGlow: 1, whole: 1 },
+    4: { fps: 40, orbit: 1, drag: 'fling', dock: 1, comet: 1, tail: 1, cometGlow: 1, jitter: 1, wobble: 1, drift: 1, push: 1, twinkle: 1, starGlow: 1, whole: 1 },   // 0.98.09：保留的詞只有外框（不閃、不加柔光）
     5: { fps: 60, orbit: 1, drag: 'fling', dock: 1, comet: 1, tail: 1, cometGlow: 1, keptGlow: 1, keptBreathe: 0.025, jitter: 1, wobble: 1, drift: 1, push: 1, twinkle: 1, starGlow: 1, clBreath: 1 },   // 0.98.09：保留的詞不閃（閃爍留給隨機星星），只輕輕呼吸
 };
 const _lhSpCfg = () => LH_SP_LV[_lhSpReduce.matches ? 0 : (typeof lhFxLevel === 'function' ? lhFxLevel() : 5)] || LH_SP_LV[5];
@@ -1009,7 +1022,7 @@ function _lhSpDraw(t, L) {
             if (k > 4) {
                 const nx = Math.sin(w.ang) * 1.8, ny = -Math.cos(w.ang) * 1.8;   // 頭端半寬 1.8px
                 const g = c.createLinearGradient(p.x, p.y, ex, ey);
-                g.addColorStop(0, w.rgb); g.addColorStop(1, w.rgb0 || (w.rgb0 = w.rgb.replace('rgb(', 'rgba(').replace(')', ', 0)')));
+                g.addColorStop(0, w.rgb); g.addColorStop(1, w.rgb0 || (w.rgb0 = _lhSpRGBA(w.rgb, 0)));
                 c.save(); c.globalAlpha = a * 0.75; c.fillStyle = g;
                 c.beginPath(); c.moveTo(p.x + nx, p.y + ny); c.lineTo(ex, ey); c.lineTo(p.x - nx, p.y - ny); c.closePath(); c.fill();
                 c.restore();
@@ -1020,8 +1033,8 @@ function _lhSpDraw(t, L) {
         if (w.star && L.starGlow && !w.dim) {   // 0.98.09：第 4 級起恆星自帶光暈（字後面一圈淡淡的放射漸層）
             const R = (w.tw / 2 + 24 * w.s) * _lhSpZv() * m;
             const g = c.createRadialGradient(p.x, p.y, 0, p.x, p.y, R);
-            g.addColorStop(0, w.rgbG || (w.rgbG = w.rgb.replace('rgb(', 'rgba(').replace(')', ', 0.2)')));
-            g.addColorStop(1, w.rgb0 || (w.rgb0 = w.rgb.replace('rgb(', 'rgba(').replace(')', ', 0)')));
+            g.addColorStop(0, w.rgbG || (w.rgbG = _lhSpRGBA(w.rgb, 0.2)));
+            g.addColorStop(1, w.rgb0 || (w.rgb0 = _lhSpRGBA(w.rgb, 0)));
             c.globalAlpha = a; c.fillStyle = g; c.fillRect(p.x - R, p.y - R, R * 2, R * 2);
         }
         c.globalAlpha = a;

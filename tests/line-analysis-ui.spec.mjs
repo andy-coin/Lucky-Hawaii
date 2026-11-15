@@ -224,8 +224,7 @@ test('偏好設定：內容與順序', async ({ browser }) => {
     expect(await page.locator('#mapSettingsSection').evaluate(e => e.childElementCount), '沒切到這個分頁前只有外殼').toBe(0);
     await openPrefs(page);
     const sec = page.locator('#mapSettingsSection');
-    await expect(sec.locator('> .settings-backups-hint')).toHaveText('調整句尾上色、逐行字數與斷句標記的開關、位置、大小和顏色');
-    expect(await sec.locator('.section-menu-block > .section-menu-cap:first-child').allTextContents()).toEqual(['預覽', '韻腳地圖模式', '韻腳地圖', '句構分析', '顯示方式', '韻族顏色']);
+    expect(await sec.locator('.section-menu-block > .section-menu-cap:first-child').allTextContents()).toEqual(['調整句尾上色、逐行字數與斷句標記的開關、位置、大小和顏色。預覽：', '韻腳地圖模式', '韻腳地圖', '句構分析', '顯示方式', '韻族顏色']);
     expect(await sec.locator('.rm-switch-label').allTextContents()).toEqual(['雙押／多押', '自動配色', '段落結構', '句中押韻', '忽略句尾語助詞', '句構判定', '行尾韻腳', '字數', '斷句結構', '反白停留自動分析']);
     const particle = await page.evaluate(() => LH_MAP_PARTICLE_CAP);
     const caps = await sec.locator('.section-menu-cap').allTextContents();
@@ -1185,7 +1184,7 @@ test('預覽：每個開關都看得到', async ({ browser }) => {
     const diffCap = page.locator('#mapSettingsSection .rm-preview-diff');
     await expect(pv).toHaveAttribute('aria-hidden', 'true');
     await expect(pv).toContainText('辛得勒');
-    await expect(page.locator('#mapSettingsSection .lm-preview-block > .section-menu-cap').first()).toHaveText('預覽');
+    await expect(page.locator('#mapSettingsSection .lm-preview-block > .section-menu-cap').first()).toHaveText('調整句尾上色、逐行字數與斷句標記的開關、位置、大小和顏色。預覽：');
     await expect(pv.locator('.lm-t-c')).toHaveCount(8);
     // 字數
     await prefSw(page, '字數').click();
