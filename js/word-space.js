@@ -10,7 +10,7 @@
 
 const LH_WS_MIN = 2, LH_WS_MAX = 6;
 const LH_WS_PAGE = 240;            // 詞卡一次多畫幾張（捲到底再補）
-const LH_WS_SPACE_MAX = 550;       // 單一星系超過這個數才切開（分批見 _lhSpPages：一批約 500±50，星系不拆）
+const LH_WS_SPACE_MAX = 630;       // 超過這個數才分批（分批見 _lhSpPages：一批約 600±30，星系一律不拆）
 // 顏色跟著第一個字的聲調走（一～四聲＋輕聲五個色系，跟著主題、不寫死色碼）；同一團裡每個詞再依常用度＋一點隨機混出深淺
 const _lhMix = (a, b, k = 50) => 'color-mix(in oklab, var(' + a + ') ' + k + '%, var(' + b + '))';
 // 支援相對色（oklch from）就從主題強調色出發、色相每個聲調轉 72°，五色差最大；不支援就用主題的四個強調色＋一個混色
@@ -429,19 +429,15 @@ function _lhSpWarp(go) {
 // 旋臂（0.98.09）：超過 25 個詞的大星系自動排成旋臂——恆星不轉、離中心越遠轉越慢（克卜勒：角速度 ∝ 距離^-1.5），
 // 每個星系 2～5 條往後拖的螺旋臂；25 個詞以下看不出臂，維持同心圓（內圈角速度快）。兩套同時並存，沒有開關
 const _lhSpGroupKey = (e, cfg) => cfg.groupOf ? cfg.groupOf(e) : e.z.split(' ').map(s => getZhuyinTone(s)).join('·');
-// 分批（0.98.09）：一批約 500（±50）個詞，整個星系一起分、不拆開（星系本身超過 550 才切）。
-// 批數＝總數 / 500 四捨五入；星系由大到小，每次放進目前最少的那批（批與批的數量會很平均）。結果記在 cfg._pages
+// 分批：一批約 600（±30）個詞，星系一律整個放同一批、不拆（同條件的詞沒理由拆散；超大星系改成色偏大、散得開，見 _lhSpLayout）。
+// 批數＝總數 / 600 四捨五入（630 以下一批）；星系由大到小，每次放進目前最少的那批。結果記在 cfg._pages
 function _lhSpPages(cfg) {
     if (cfg._pages) return cfg._pages;
     const groups = new Map();
     for (const e of cfg.list) { const k = _lhSpGroupKey(e, cfg); if (!groups.has(k)) groups.set(k, []); groups.get(k).push(e); }
-    const chunks = [];
-    // 太大的星系要切開時「輪流發牌」（第 1 個詞給第 1 塊、第 2 個給第 2 塊…）：每塊都有常用到冷僻的詞，恆星才不會是個冷門小字
-    // （0.98.09 iPad 實測：原本照常用度一段段切，後面幾批的大星系只剩冷門詞，恆星比旁邊的小星系還小）
-    // 0.98.10：要分好幾批時，超過 150 個詞的星系平均拆到各批（最多拆成批數那麼多塊），每一批才會混到各種星系，
-    // 不會一整批都是同一個超大星系（例如「一」開頭的多字詞）；只有一批時照舊不拆
-    const B = Math.max(1, Math.round(cfg.list.length / 500));
-    for (const g of groups.values()) { const n = Math.max(Math.ceil(g.length / LH_WS_SPACE_MAX), Math.min(B, Math.ceil(g.length / 150))); for (let k = 0; k < n; k++) chunks.push(g.filter((_, i) => i % n === k)); }
+    // 0.98.10 之後：不再把大星系拆到各批（舊版「輪流發牌」拆法見 git 6fdd3d4）
+    const N = cfg.list.length, B = N <= LH_WS_SPACE_MAX ? 1 : Math.max(2, Math.round(N / 600));
+    const chunks = [...groups.values()];
     chunks.sort((a, b) => b.length - a.length);
     const bins = Array.from({ length: B }, () => new Set());
     for (const c of chunks) { const b = bins.reduce((m, x) => x.size < m.size ? x : m); for (const e of c) b.add(e); }
@@ -476,24 +472,29 @@ function _lhSpLayout(list, cfg = {}) {
         // 呼吸（0.98.09）：越大的星系呼吸越慢、幅度越大，以 50 個詞為單位連續變化（跟恆星加成一樣）：
         // 10 個詞以下照舊（一輪 4–7 秒、±3%），之後每多 50 個詞慢 10%、幅度 +0.4%（500 個詞約慢 2 倍、±7%）
         { const u = Math.max(0, g.length - 10) / 50; cl.bp *= 1 + 0.1 * u; cl.ba = 0.03 + 0.004 * u; }
-        const spiral = g.length > 25;   // 大星系排旋臂、小的維持同心圓（見上面 _lhSpGroupKey 前的說明）
+        const spiral = g.length > 25;
+        // 超大星系（150 個詞起，550 封頂）：色偏落差加大、圈距和臂上的空隙拉開，散得稀疏一點；big 0→1
+        const big = Math.min(1, Math.max(0, (g.length - 150) / 400)), RING = LH_SP_RING * (1 + 0.9 * big);
+        const tintB = (base, e) => { const t = tint(base, e); if (!big || !_LH_REL_REL) return t;
+            const dl = Math.round((R() - 0.5) * 0.16 * big * 100) / 100, dh = Math.round((R() - 0.5) * 70 * big / 5) * 5;   // 量化：顏色快取才不會爆
+            return 'oklch(from ' + t + ' calc(l + ' + dl + ') c calc(h + ' + dh + '))'; };   // 大星系排旋臂、小的維持同心圓（見上面 _lhSpGroupKey 前的說明）
         // 恆星照星系大小加成（0.98.09）：10 個詞以下不加，100 個 2 倍（中間照對數），之後每多 50 個詞再 +0.25 倍（連續，不跳階）；常用度和星系規模都看得出來
         const star = g[0], rings = [[]], starS = sizeOf(star) * (1 + Math.min(1, Math.max(0, Math.log10(g.length / 10))) + Math.max(0, g.length - 100) / 50 * 0.25);
         // 恆星放大後（0.98.09）：靠近中心的幾圈也跟著大一點（第一圈分到恆星多出來的 35%，往外每圈減半），
         // 第一圈離恆星遠一點（恆星每多 1 倍推開 0.8 圈），放大的幾圈之間也跟著加寬
         const extra = starS / sizeOf(star) - 1, boost = k => 1 + extra * 0.35 * Math.pow(0.5, k), szOf = new Map();
-        let r = _lhSpWidth(star.w, starS) / 2 + LH_SP_RING * (0.9 + 0.8 * extra), used = 0;
+        let r = _lhSpWidth(star.w, starS) / 2 + RING * (0.9 + 0.8 * extra), used = 0;
         const radii = [r];
         for (const e of g.slice(1)) {
             const k = rings.length - 1, sz = sizeOf(e) * boost(k), wd = _lhSpWidth(e.w, sz) + 10;
             // 旋臂模式：詞擠在臂上，一圈只放 55% 才不會疊
-            if (used + wd > 2 * Math.PI * r * (spiral ? 0.55 : 1) && rings[rings.length - 1].length) { rings.push([]); r += LH_SP_RING * boost(k); radii.push(r); used = 0; }
+            if (used + wd > 2 * Math.PI * r * (spiral ? 0.55 : 1) / (1 + 0.6 * big) && rings[rings.length - 1].length) { rings.push([]); r += RING * boost(k); radii.push(r); used = 0; }
             const kk = rings.length - 1, s2 = sizeOf(e) * boost(kk);
             szOf.set(e, s2);
             rings[kk].push(e);
             used += _lhSpWidth(e.w, s2) + 10;
         }
-        cl.r = r + LH_SP_RING * 1.1;
+        cl.r = r + RING * 1.1;
         words.push({ e: star, cl, star: true, color, s: starS, n: norm(star), r: 0, ecc: 1, tilt: 0, th: 0, om: 0 });
         // 同一圈共用扁度、傾角、速度（才不會越轉越擠在一起），每個詞只再帶一點點偏差
         if (spiral) rings.forEach((ring, k) => {
@@ -506,7 +507,7 @@ function _lhSpLayout(list, cfg = {}) {
                 const ws = lst.map(e => (_lhSpWidth(e.w, szOf.get(e)) + 10) / rk);
                 let ang = ctr - ws.reduce((t, x) => t + x, 0) / 2;
                 lst.forEach((e, i) => {
-                    words.push({ e, cl, color: tint(color, e), s: szOf.get(e), n: norm(e), r: rk + (JIT ? (R() - 0.5) * LH_SP_RING * 0.4 : 0),
+                    words.push({ e, cl, color: tintB(color, e), s: szOf.get(e), n: norm(e), r: rk + (JIT ? (R() - 0.5) * LH_SP_RING * 0.4 : 0),
                         ecc: cl.ecc, tilt: cl.tilt, th: ang + ws[i] / 2, om, br: 3 + R() * 4 });
                     ang += ws[i];
                 });
@@ -517,7 +518,7 @@ function _lhSpLayout(list, cfg = {}) {
             const avgN = ring.reduce((t, e) => t + norm(e), 0) / ring.length;   // 0.98.09：大行星（常用、字大）慢、小行星快，照這圈詞的平均大小（同圈共用速度才不會互撞）
             const om = cl.dir * 0.16 / Math.sqrt(k + 1) * (0.9 + R() * 0.2) * (1.55 - 1.1 * avgN);
             const ecc = 0.82 + R() * 0.15, tilt = cl.tilt + (R() - 0.5) * 0.5;
-            ring.forEach((e, j) => words.push({ e, cl, color: tint(color, e), s: szOf.get(e), n: norm(e),
+            ring.forEach((e, j) => words.push({ e, cl, color: tintB(color, e), s: szOf.get(e), n: norm(e),
                 // 水彩筆畫的圈（第 4、5 級）：同一圈每個詞離軌道多遠不一樣（±30% 間距），角度也不平均；速度相同，所以彼此距離不會變
                 r: radii[k] + (JIT ? (R() - 0.5) * LH_SP_RING * 0.6 : 0), ecc: ecc + (JIT ? (R() - 0.5) * 0.03 : 0), tilt: tilt + (JIT ? (R() - 0.5) * 0.08 : 0),
                 th: th0 + gap * j + (JIT ? (R() - 0.5) * gap * 0.35 : 0), om, br: 3 + R() * 4 }));
@@ -664,7 +665,7 @@ function _lhSpShow(cfg) {
     _lhSp.groups = clusters;
     const n = words.length;
     el.querySelector('.ws-title').textContent = cfg.title + '· ' + n + (cfg.list.length > n ? ' / ' + cfg.list.length : '') + ' 個詞';
-    // 分批滑桿：超過 550 個才出現；底下的數字是每批的編號
+    // 分批滑桿：超過 630 個才出現；底下的數字是每批的編號
     const pages = el.querySelector('.ws-pages'), pr = pages.querySelector('.ws-page-range');
     pages.hidden = pageN <= 1;
     pr.max = String(pageN - 1); pr.value = String(page);
