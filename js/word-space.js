@@ -1053,9 +1053,9 @@ function _lhSpDraw(t, L) {
         const p = vis(w);
         if (!p) continue;
         if (w.star && L.starGlow && !w.dim) {   // 0.98.09：第 4 級起恆星自帶光暈；放大、釘住、停住時也畫（先畫，墊在所有字後面）
-            const R = (w.cl ? w.cl.r / 3 : w.tw) * _lhSpZv() * (w.kb || 1) * (w.mag || 1);   // 光暈半徑＝自己星系半徑的 1/3
+            const R = (w.cl ? w.cl.r / 2 : w.tw) * _lhSpZv() * (w.kb || 1) * (w.mag || 1);   // 光暈半徑＝自己星系半徑的 1/2，中心濃度 13%
             const g = c.createRadialGradient(p.x, p.y, 0, p.x, p.y, R);
-            g.addColorStop(0, w.rgbG || (w.rgbG = _lhSpRGBA(w.rgb, 0.09)));
+            g.addColorStop(0, w.rgbG || (w.rgbG = _lhSpRGBA(w.rgb, 0.13)));
             g.addColorStop(1, w.rgb0 || (w.rgb0 = _lhSpRGBA(w.rgb, 0)));
             c.globalAlpha = w.alpha; c.fillStyle = g; c.fillRect(p.x - R, p.y - R, R * 2, R * 2);
         }
