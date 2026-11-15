@@ -11,7 +11,7 @@
 - 點空白（_lhSpEvents end，pan 沒拖動）：只選一個＝單擊就取消；雙擊（400ms、24px 內）＝全部取消，都不問（_lhSpClearNow 也取消保留）；點過詞會重設 _lhSp.blankTap。
 - 詞卡選取（0.98.09）：.ws-card.kept 外框＝savedWords 有沒有這個詞；點＝保留／再點取消；renderSavedWords 呼叫 lhWsSyncKept 同步（保留區打叉、清除全部都會更新）；換關鍵詞再回來照 savedWords 畫。不用 .selected（cards.js、report.js 會抓字卡的 .selected）。
 - 隱藏的詞只在這次星雲有效：lhWsClose 清 _lhWs.hidden；換批也濾掉已隱藏的。接任恆星彈簧 k12、阻尼 7（實測約 1.3 秒接手，原本 2.1 秒以上），接任中就畫恆星光暈。
-- 恆星照星系大小加成：starS＝sizeOf×(1＋0.5×clamp(log10(n/10),0,1))，只放大不縮小（10 詞以下×1、100 詞以上×1.5）。
+- 恆星照星系大小加成：starS＝sizeOf×(1＋clamp(log10(n/10),0,1))，只放大不縮小（10 詞以下×1、100 詞以上×2）。
 - 小星系漫遊（第 3 級起，L.comet）：3–5 詞 32–54、6–10 詞 12–22（流星 135–270），cl.vx/vy 移動家的位置 hx/hy，出 bound 從對面回來。
 - 旋臂：拿掉開關，>25 詞的星系一律旋臂、其他同心圓（_lhSpLayout 的 spiral 變數）。
 - 旋臂模式（實驗）：星雲左上「旋臂」鈕切換 _lhSpSpiral（不存檔）；克卜勒 om∝(r0/r)^1.5、每星系 2–5 條臂（cl.arms/arm0/twist/ecc）、一圈只放 55%。
