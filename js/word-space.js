@@ -1281,6 +1281,20 @@ function _lhSpDraw(t, L) {
         const m = (w.kb || 1) * (1 + 0.1 * tw);
         c.globalAlpha = a;
         blit(w, p, m);
+        if (_lhSp.holo && _lhSp.holo.w === w) {   // 0.98.14.6：看全息標籤的恆星大幅提亮（光暈＋發光疊加），0.3 秒亮起來
+            const k = Math.min(1, (t - _lhSp.holo.t0) / 300);
+            if (k < 1) _lhSp.dirty = true;
+            const R = Math.max(50, w.tw * z * m) * 1.3;
+            const g = c.createRadialGradient(p.x, p.y, 0, p.x, p.y, R);
+            g.addColorStop(0, _lhSpRGBA(w.rgb, 0.6 * k)); g.addColorStop(0.45, _lhSpRGBA(w.rgb, 0.25 * k)); g.addColorStop(1, _lhSpRGBA(w.rgb, 0));
+            c.fillStyle = g; c.globalAlpha = 1; c.fillRect(p.x - R, p.y - R, R * 2, R * 2);
+            // 深淺主題都看得出來：一般疊法描兩次彩色光暈（「疊加發光」在淺色背景上反而變淡），深色主題再用疊加提亮
+            const sb = 26 * Math.max(0.6, Math.min(2, z * m * w.s));
+            c.save(); c.shadowColor = w.rgb; c.globalAlpha = k;
+            c.shadowBlur = sb; blit(w, p, m); c.shadowBlur = sb * 0.4; blit(w, p, m);
+            c.shadowBlur = 0; c.globalCompositeOperation = 'lighter'; c.globalAlpha = 0.35 * k; blit(w, p, m); c.restore();
+            c.globalAlpha = a;
+        }
         if ((w.comet && L.cometGlow || tw) && !w.dim) {   // 流星加亮、星星閃爍：同一張小圖用發光疊加再貼一次
             c.save(); c.globalCompositeOperation = 'lighter'; c.globalAlpha = a * (tw ? tw : 0.55); blit(w, p, m); if (tw) { c.globalAlpha = a * 0.7 * tw; blit(w, p, m); } c.restore();   // 星星閃爍疊兩次，比較亮
         }
@@ -1484,7 +1498,7 @@ function _lhSpClParts(cl, cfg = _lhSp.cfg) {
     const k = cl.key.split('|');
     if (!(cfg && cfg.rel)) return cl.key.split('·').map(t => LH_WS_TONE_N[t - 1] || t);
     const ch = k[0] + (cfg.poly && cfg.poly.has(k[0]) && k[3] ? '（' + _lhSpToneMark(k[3]) + '）' : '');
-    return [ch, LH_REL_POS_N[k[1]], LH_REL_LEN_N[k[2]], k[4] ? '第' + k[4] + '字' : ''].filter(Boolean);
+    return [ch, LH_REL_POS_N[k[1]] + (k[4] ? '（' + k[4] + '）' : ''), LH_REL_LEN_N[k[2]]];   // 細拆的第幾字併進位置：「中間（3）」
 }
 function _lhSpHoloDraw(c, t, z) {
     const h = _lhSp.holo, w = h && h.w;
