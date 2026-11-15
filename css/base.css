@@ -1182,6 +1182,19 @@
 .results-count, .batch-count { flex: none; white-space: nowrap; }
 .sel-board { flex: 0 1 auto; min-width: 0; display: flex; flex-wrap: nowrap; align-items: center; gap: 0.75rem; padding-left: 1rem; overflow-x: auto; scrollbar-width: none; white-space: nowrap; font-family: var(--font-serif); font-size: 1.25rem; line-height: 1.75rem; height: 1.75rem; color: var(--text-primary); }
 .sel-board::-webkit-scrollbar { display: none; }
+/* 0.98.18.5 Andy：選字一多，破音字讀音鈕被擠到右邊折行、凍結列一直長高 → 兩段都不折行、各自左右捲；
+   空間不夠時照長度一起縮，但已選的字至少留約 4 個字寬、讀音鈕至少留約 2 顆 */
+.results-header .sel-board { min-width: 5em; }
+.results-header .polyphonic-chips { flex: 0 1 auto; min-width: 7.5em; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; white-space: nowrap; }
+.results-header .polyphonic-chips::-webkit-scrollbar { display: none; }
+.results-header .poly-chip, .results-header .polyphonic-chips-label { flex: none; }
+.results-header.has-sel .polyphonic-chips-label { display: none; }   /* 選字時位置緊：「破音字：」三個字讓給讀音鈕 */
+@media (max-width: 600px) {   /* 手機：兩段的最小寬再縮一點；真的塞不下時整列左右滑（不折行、不長高） */
+    .results-header .sel-board { min-width: 3em; }
+    .results-header .polyphonic-chips { min-width: 5em; }
+    .results-header { overflow-x: auto; scrollbar-width: none; }
+    .results-header::-webkit-scrollbar { display: none; }
+}
 .sel-board:empty { display: none; }
 .results-header.has-sel { margin-bottom: 0; padding-bottom: 1.25rem; }   /* 0.98.10：凍結區包含下面那段留白，字卡捲上去不會貼著數量列被切齊 */
 .results-header.has-sel { position: sticky; top: 0; z-index: 5; background-color: var(--container-bg); background-image: var(--tex-panel); background-attachment: fixed; }

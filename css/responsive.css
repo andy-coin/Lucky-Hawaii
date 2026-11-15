@@ -283,7 +283,7 @@
             border-radius: var(--radius-s);
             font-size: 0.82rem;
             margin-bottom: 0.25rem;
-            flex-wrap: wrap;
+            flex-wrap: nowrap;   /* 0.98.18.5 Andy：選的字多了不折行，字那段自己左右捲 */
         }
         .selected-chars-hint .hint-label {
             color: var(--text-secondary);
@@ -294,8 +294,14 @@
             color: var(--text-primary);
             font-weight: 700;
             flex: 1;
+            min-width: 0;
+            overflow-x: auto;
+            white-space: nowrap;
+            scrollbar-width: none;
             letter-spacing: 0.15em;
         }
+        .selected-chars-hint .hint-chars::-webkit-scrollbar { display: none; }
+        .selected-chars-hint .hint-clear { flex: none; }
         .selected-chars-hint .hint-clear {
             background: none;
             border: none;
