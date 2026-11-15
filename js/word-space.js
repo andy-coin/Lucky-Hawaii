@@ -306,11 +306,11 @@ function _lhSpBuild() {
         b.addEventListener('click', () => { _lhRel.pos = _lhRel.pos === k ? '' : k; _lhRelApply(); });
         posBox.append(b);
     }
-    // 字數（可多選，都不選＝不限）：兩字、三字、四字以上
+    // 字數（可多選，都不選＝不限）：兩字、三字、四字、五字以上（0.98.14 加四字）
     const lenBox = _lhWsEl('div', 'ws-pos ws-len');
     lenBox.setAttribute('role', 'group');
     lenBox.setAttribute('aria-label', '詞的字數');
-    for (const [k, label] of [['2', '兩字'], ['3', '三字'], ['m', '多字']]) {
+    for (const [k, label] of [['2', '兩字'], ['3', '三字'], ['4', '四字'], ['m', '多字']]) {
         const b = _lhWsEl('button', 'ws-hud-btn', label);
         b.type = 'button';
         b.dataset.len = k;
@@ -608,7 +608,7 @@ function lhWsOpen() {
 }
 
 // ===== 關聯詞彙：查單字時選了字卡，列出含這些字的詞（js/cards.js updateBatchCount 開關按鈕） =====
-// pos：'head'＝字在詞首、'tail'＝在詞尾、''＝任意位置。len：字數篩選（'2'／'3'／'m'＝四字以上，可多選，空＝不限）。
+// pos：'head'＝字在詞首、'tail'＝在詞尾、''＝任意位置。len：字數篩選（'2'／'3'／'4'／'m'＝五字以上，可多選，空＝不限）。
 // 分團：字＋位置（任意）或字＋字數（詞首／詞尾）
 const _lhRel = { chars: [], pos: '', len: new Set() };
 function _lhWsRelList(chars, pos, len = new Set()) {
@@ -616,7 +616,7 @@ function _lhWsRelList(chars, pos, len = new Set()) {
     for (const e of typeof lhCwMerge === 'function' ? lhCwMerge(wordlistData) : wordlistData || []) {
         const cs = [...e.w], n = cs.length;
         if (n < 2 || n > LH_WS_MAX || _lhWs.hidden.has(e.w)) continue;
-        if (len.size && !len.has(n === 2 ? '2' : n === 3 ? '3' : 'm')) continue;
+        if (len.size && !len.has(n <= 4 ? String(n) : 'm')) continue;
         if (pos === 'head' ? set.has(cs[0]) : pos === 'tail' ? set.has(cs[n - 1]) : cs.some(c => set.has(c))) out.push(e);
     }
     return out.sort((a, b) => (b.p || 0) - (a.p || 0));
@@ -631,24 +631,24 @@ function lhWsRelOpen() {
 // 關聯詞（0.98.10）：一律拿全部的詞，照「字 × 位置（字首／中間／字尾）× 字數（兩字／三字／多字）」拆成獨立星系；
 // 「字首／字尾」「兩字／三字／多字」只是把不符合的星系收起來（_lhRelApply），不重排。
 // 顏色：只選一個字＝每種位置×字數各一個色相；選了好幾個字＝字分基礎色系，位置調明暗、字數調色偏
-const LH_REL_POS = ['首', '中', '尾'], LH_REL_LEN = ['2', '3', 'm'];
-const LH_REL_POS_N = { 首: '字首', 中: '中間', 尾: '字尾' }, LH_REL_LEN_N = { 2: '兩字', 3: '三字', m: '多字' };
+const LH_REL_POS = ['首', '中', '尾'], LH_REL_LEN = ['2', '3', '4', 'm'];
+const LH_REL_POS_N = { 首: '字首', 中: '中間', 尾: '字尾' }, LH_REL_LEN_N = { 2: '兩字', 3: '三字', 4: '四字', m: '多字' };
 const _lhRelCat = (e, set) => {
     const cs = [...e.w], i = cs.findIndex(c => set.has(c));
     // rd：這個字在這個詞裡的實際讀音（含聲調、變調，例如「一」有ㄧ／ㄧˊ／ㄧˋ）；聲調不同跟旋律倒字有關，一律分開，不看「過濾破音字」
     const z = (e.z || '').split(' '), rd = z.length === cs.length ? z[i] : '';
-    return { c: cs[i], pos: i === 0 ? '首' : i === cs.length - 1 ? '尾' : '中', len: cs.length === 2 ? '2' : cs.length === 3 ? '3' : 'm', rd };
+    return { c: cs[i], pos: i === 0 ? '首' : i === cs.length - 1 ? '尾' : '中', len: cs.length <= 4 ? String(cs.length) : 'm', rd };
 };
 const _LH_REL_REL = CSS.supports('color', 'oklch(from red calc(l + 0.1) c calc(h + 10))');
 function _lhRelColor(chars, c, pos, len) {
     const pi = LH_REL_POS.indexOf(pos), li = LH_REL_LEN.indexOf(len);
-    if (chars.length === 1) {   // 一個字：8 種星系各一個色相（從主題強調色轉，不支援相對色就用主題色混）
-        const k = pi * 3 + li;
-        return _LH_REL_REL ? 'oklch(from var(--highlight-border) l max(c, 0.12) calc(h + ' + Math.round(k * 360 / 9) + '))'
+    if (chars.length === 1) {   // 一個字：3 位置 × 4 字數＝12 種星系各一個色相（從主題強調色轉，不支援相對色就用主題色混）
+        const k = pi * 4 + li;
+        return _LH_REL_REL ? 'oklch(from var(--highlight-border) l max(c, 0.12) calc(h + ' + Math.round(k * 360 / 12) + '))'
             : LH_WS_TONE_C[k % 5];
     }
     const base = LH_WS_TONE_C[chars.indexOf(c) % 5];
-    return _LH_REL_REL ? 'oklch(from ' + base + ' calc(l + ' + [0.09, 0, -0.09][pi] + ') c calc(h + ' + [-14, 0, 14][li] + '))'
+    return _LH_REL_REL ? 'oklch(from ' + base + ' calc(l + ' + [0.09, 0, -0.09][pi] + ') c calc(h + ' + [-18, -6, 6, 18][li] + '))'
         : 'color-mix(in oklab, ' + base + ' ' + [70, 100, 80][pi] + '%, var(' + (pi === 2 ? '--text-secondary' : '--text-primary') + '))';
 }
 function _lhRelShow() {
@@ -722,7 +722,7 @@ function _lhSpShow(cfg) {
     legend.replaceChildren();
     const heads = cfg.rel ? _lhRel.chars : [1, 2, 3, 4, 5];
     // 關聯詞的團固定順序：開頭 → 中間 → 結尾；選了字首／字尾時照字數
-    const relRank = k => { const [, p, l] = k.split('|'); return LH_REL_POS.indexOf(p) * 3 + LH_REL_LEN.indexOf(l); };   // 字首→中間→字尾，各自兩字→三字→多字
+    const relRank = k => { const [, p, l] = k.split('|'); return LH_REL_POS.indexOf(p) * 4 + LH_REL_LEN.indexOf(l) + (+k.split('|')[4] || 0) / 100; };   // 字首→中間→字尾，各自兩字→三字→四字→多字（細拆的照第幾字）
     _lhSp.legBtns = [];
     heads.forEach((h, hi) => {
         const cs = clusters.filter(cl => cl.t1 === h);

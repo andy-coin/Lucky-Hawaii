@@ -146,7 +146,7 @@ test('關聯詞彙：選了字卡才出現按鈕；字首／字尾／任意的�
     await page.locator('#wsRelBtn').click();
     await expect(page.locator('body')).toHaveClass(/ws-open/);
     await expect(page.locator('#wordSpace .ws-pos:not(.ws-len)')).toBeVisible();
-    await expect(page.locator('#wordSpace .ws-len [data-len]')).toHaveCount(3);
+    await expect(page.locator('#wordSpace .ws-len [data-len]')).toHaveCount(4);
     await page.locator('#wordSpace [data-pos="head"]').click();
     await expect(page.locator('#wordSpace [data-pos="head"]')).toHaveAttribute('aria-pressed', 'true');
     await page.locator('#wordSpace [data-pos="tail"]').click();
