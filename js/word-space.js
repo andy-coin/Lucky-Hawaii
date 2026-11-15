@@ -403,7 +403,7 @@ function _lhSpWarp(go) {
     const x = o.getContext('2d'), cx = W / 2, cy = H / 2, maxR = Math.hypot(cx, cy);
     const col = getComputedStyle(el).getPropertyValue('--text-primary').trim() || '#fff';
     const stars = Array.from({ length: 220 }, () => ({ a: Math.random() * Math.PI * 2, d: 20 + Math.random() * maxR, w: 0.6 + Math.random() * 1.4 }));
-    const T = 1100, t0 = performance.now();
+    const T = 730, t0 = performance.now();   // 0.98.09：從 1100 縮短三分之一
     let swapped = false;
     cv.animate([{ transform: 'none', filter: 'blur(0)', opacity: 1 }, { transform: 'scale(2.4)', filter: 'blur(10px)', opacity: 0 }], { duration: T * 0.5, easing: 'cubic-bezier(.6,0,.9,.4)', fill: 'forwards' });
     _lhSp.warp = true;
@@ -419,7 +419,7 @@ function _lhSpWarp(go) {
         x.clearRect(0, 0, W, H);
         x.strokeStyle = col; x.lineCap = 'round';
         for (const s of stars) {
-            s.d *= 1 + sp * 0.09;   // 越外面跑越快（透視）
+            s.d *= 1 + sp * 0.13;   // 越外面跑越快（透視）；時間短了，每格多衝一點
             if (s.d > maxR) { s.d = 10 + Math.random() * 60; s.a = Math.random() * Math.PI * 2; }
             const len = s.d * sp * 0.35, c = Math.cos(s.a), n = Math.sin(s.a);
             x.globalAlpha = Math.min(1, 0.25 + sp) * Math.min(1, s.d / 120);
