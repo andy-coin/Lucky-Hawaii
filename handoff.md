@@ -9,7 +9,7 @@
 - 星星閃爍：機率 0.015、放大 10%、發光疊兩次。觸控裝置的 .ws-len／.ws-pos 按鈕 min-width 0（44px 最小寬讓三顆擠成直排）。
 - index.html 的 ?v= 改成 0.98.09.2（只破快取，畫面上的版本號 LH_APP_VERSION 不變）。**待辦：最後跑一次全套（Andy 要求最後一起測）。**
 - 點空白（_lhSpEvents end，pan 沒拖動）：只選一個＝單擊就取消；雙擊（400ms、24px 內）＝全部取消，都不問（_lhSpClearNow 也取消保留）；點過詞會重設 _lhSp.blankTap。
-- 星系呼吸照大小：sc＝log10(n/10)，週期 bp×(1＋0.6sc)、幅度 cl.ba＝0.03×(1＋0.8sc)。
+- 星系呼吸照大小：u＝(n−10)/50，週期 bp×(1＋0.1u)、幅度 cl.ba＝0.03＋0.004u（連續）。
 - 恆星放大後：內圈詞跟著放大（boost(k)＝1＋extra×0.35×0.5^k，extra＝恆星加成−1）、第一圈半徑多推 0.8×extra 圈、放大的圈間距×boost（_lhSpLayout 的 szOf）。
 - 修：換批滑桿移出面板後，畫布的 pointer 處理沒排除 .ws-pages（點不到）；拿掉旋臂開關時誤刪 _lhSpWarp（第 5 級換批報錯）→ 補回，word-space.spec 加真點擊換批測試（第 3、5 級）。
 - 詞卡選取（0.98.09）：.ws-card.kept 外框＝savedWords 有沒有這個詞；點＝保留／再點取消；renderSavedWords 呼叫 lhWsSyncKept 同步（保留區打叉、清除全部都會更新）；換關鍵詞再回來照 savedWords 畫。不用 .selected（cards.js、report.js 會抓字卡的 .selected）。
