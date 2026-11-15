@@ -471,20 +471,23 @@ function _lhSpLayout(list, cfg = {}) {
             arms: 2 + Math.floor(R() * 4), arm0: R() * TAU, twist: 1.4 + R() * 1.2, ecc: 0.82 + R() * 0.12 };   // 旋臂模式：幾條臂、起始角、捲曲程度、整個星系的扁度
         clusters.push(cl);
         // 先照寬度一圈圈分好（第 k 圈半徑 = 中心詞的一半寬 + k × 間距），再給每個詞自己的隨機軌道
+        // 小星系漫遊（0.98.09）：3–5 個詞的微星系、6–10 個詞的小星系像流星一樣走長直線、出邊界從對面回來；流星 > 微星系 > 小星系
+        if (g.length <= 10) { const a = R() * TAU, v = g.length <= 5 ? 32 + R() * 22 : 12 + R() * 10; cl.vx = Math.cos(a) * v; cl.vy = Math.sin(a) * v; }
+        const spiral = _lhSpSpiral && g.length > 25;   // 旋臂只套在大星系（25 個詞以下看不出臂，維持同心圓）
         const star = g[0], rings = [[]];
         let r = _lhSpWidth(star.w, sizeOf(star)) / 2 + LH_SP_RING * 0.9, used = 0;
         const radii = [r];
         for (const e of g.slice(1)) {
             const wd = _lhSpWidth(e.w, sizeOf(e)) + 10;
             // 旋臂模式：詞擠在臂上，一圈只放 55% 才不會疊
-            if (used + wd > 2 * Math.PI * r * (_lhSpSpiral ? 0.55 : 1) && rings[rings.length - 1].length) { rings.push([]); r += LH_SP_RING; radii.push(r); used = 0; }
+            if (used + wd > 2 * Math.PI * r * (spiral ? 0.55 : 1) && rings[rings.length - 1].length) { rings.push([]); r += LH_SP_RING; radii.push(r); used = 0; }
             rings[rings.length - 1].push(e);
             used += wd;
         }
         cl.r = r + LH_SP_RING * 1.1;
         words.push({ e: star, cl, star: true, color, s: sizeOf(star), n: norm(star), r: 0, ecc: 1, tilt: 0, th: 0, om: 0 });
         // 同一圈共用扁度、傾角、速度（才不會越轉越擠在一起），每個詞只再帶一點點偏差
-        if (_lhSpSpiral) rings.forEach((ring, k) => {
+        if (spiral) rings.forEach((ring, k) => {
             // 第 k 圈：輪流分給每條臂；每條臂在這圈的中心角＝起始角＋第幾條×(360°/臂數)－捲曲×ln(半徑比)（往旋轉的反方向拖）
             const rk = radii[k], N = cl.arms, per = Array.from({ length: N }, () => []);
             const om = cl.dir * 0.16 * Math.pow(radii[0] / rk, 1.5);   // 克卜勒：越外面越慢
@@ -943,6 +946,17 @@ function _lhSpFrame(t) {
         busy = true;
     }
     const T = (t - _lhSp.t0) / 1000;
+    // 小星系漫遊（第 3 級起，跟流星一樣）：家的位置沿直線走，出了邊界從對面回來
+    if (L.comet && dt) {
+        const B = _lhSp.bound;
+        for (const cl of _lhSp.groups) {
+            if (!cl.vx || cl.held) continue;
+            cl.hx += cl.vx * dt; cl.hy += cl.vy * dt;
+            if (cl.hx > B) cl.hx -= 2 * B; else if (cl.hx < -B) cl.hx += 2 * B;
+            if (cl.hy > B) cl.hy -= 2 * B; else if (cl.hy < -B) cl.hy += 2 * B;
+            if (!L.drift) { cl.x = cl.hx; cl.y = cl.hy; }
+        }
+    }
     // 恆星在自己的範圍裡慢慢飄（被拖著的那團跟著恆星走）
     if (L.drift) for (const cl of _lhSp.groups) if (!cl.held) { cl.x = cl.hx + _lhSpDx(cl, T); cl.y = cl.hy + _lhSpDy(cl, T); }
     // 兩團靠太近：慢慢互相推開（約 12 秒推到位）；被拖著的那團不動，另一團讓開
