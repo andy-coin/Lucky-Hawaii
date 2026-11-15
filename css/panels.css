@@ -3088,7 +3088,10 @@ body.ws-anim.ws-in :is(#leftPanel, #rightPanel, #mainContainer, #mobileTabBar) {
 .ws-page-range::-moz-range-thumb { width: 0.875rem; height: 0.875rem; border-radius: 50%; background: transparent; border: none; opacity: 0; }   /* 0.98.09：不顯示圓點，區段上色就夠清楚（仍可點、可拖、可用鍵盤） */
 .ws-page-range:focus-visible { outline: 2px solid var(--highlight-border); outline-offset: 2px; }
 .ws-page-ticks { display: flex; font-size: 0.75rem; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
-.ws-page-ticks > span { flex: 1; text-align: center; }
+.ws-page-ticks > button { flex: 1; min-height: 1.5rem; padding: 0; border: none; background: none; color: inherit; font: inherit; cursor: pointer; border-radius: var(--radius-s); }
+@media (hover: hover) and (pointer: fine) { .ws-page-ticks > button:hover:not(.on) { color: var(--text-primary); } }
+.ws-page-ticks > button:focus-visible { outline: 2px solid var(--highlight-border); outline-offset: -2px; }
+@media (pointer: coarse) { .ws-page-ticks > button { min-height: var(--hit); } }
 .ws-page-ticks > .on { color: var(--highlight-border); font-weight: 700; }
 
 /* ===== 0.98.06：韻腳與句構設定——三個細項一行、大小＋濃淡一行；標記位置「靠左欄」 ===== */

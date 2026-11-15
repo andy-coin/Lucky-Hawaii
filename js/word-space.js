@@ -626,7 +626,14 @@ function _lhSpShow(cfg) {
     pr.max = String(pageN - 1); pr.value = String(page);
     pr.setAttribute('aria-valuetext', '第 ' + (page + 1) + ' 批，共 ' + pageN + ' 批');
     pages._mark();
-    pages.querySelector('.ws-page-ticks').replaceChildren(...Array.from({ length: pageN }, (_, i) => _lhWsEl('span', i === page ? 'on' : '', String(i + 1))));
+    pages.querySelector('.ws-page-ticks').replaceChildren(...Array.from({ length: pageN }, (_, i) => {   // 數字也能按（0.98.09）
+        const b = _lhWsEl('button', i === page ? 'on' : '', String(i + 1));
+        b.type = 'button';
+        b.setAttribute('aria-label', '第 ' + (i + 1) + ' 批');
+        if (i === page) b.setAttribute('aria-current', 'true');
+        b.addEventListener('click', () => { if (i !== (_lhSp.cfg.page || 0)) _lhSpWhip(i); });
+        return b;
+    }));
     // 圖例：一欄；大類（聲調色系，或關聯詞的字）點開看底下各團，點團導覽過去
     const legend = el.querySelector('.ws-legend');
     legend.replaceChildren();
