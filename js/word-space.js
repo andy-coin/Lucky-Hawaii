@@ -664,7 +664,8 @@ function _lhRelShow() {
     // 0.98.14：超過 500 詞的星系再照「這個字是詞裡第幾個字」拆開（第 5 段＝第幾字，例「不」的多字詞拆成第 2／3／4 字）
     const base = e => { const k = _lhRelCat(e, set); return k.c + '|' + k.pos + '|' + k.len + '|' + k.rd; }, bn = new Map();
     for (const e of list) { const b = base(e); bn.set(b, (bn.get(b) || 0) + 1); }
-    _lhSpShow({ list, title: '「' + chars.join('') + '」關聯詞', rel: true, page: 0,
+    const poly = new Set(chars.filter(c => [...rank.keys()].filter(id => id.startsWith(c)).length > 1));   // 這批詞裡有兩種以上讀音（含變調）＝破音字
+    _lhSpShow({ list, title: '「' + chars.join('') + '」關聯詞', rel: true, page: 0, poly,
         catOf: e => _lhRelCat(e, set),
         groupOf: e => { const b = base(e); return bn.get(b) > 500 ? b + '|' + ([...e.w].findIndex(c => set.has(c)) + 1) : b; },
         headOf: key => key.split('|')[0],
@@ -1468,11 +1469,14 @@ function _lhSpHolo(w) {
     _lhSp.holo = w ? { w, t0: performance.now() } : null;
     _lhSp.dirty = true;
 }
-// 全息標籤的分類，一段一段（0.98.14.1 Andy：先注音、再字首、最後幾個字，中間分隔開）
+// 全息標籤的分類，一段一段（0.98.14.2 Andy）：
+// 關聯詞＝國字 · 位置 · 字數（破音字在國字後面加聲調符號，例「不（ˋ）」；超大星系細拆的再加「第N字」）；顯示全部＝聲調 · 聲調（例「二聲 · 四聲」）
+const _lhSpToneMark = rd => (rd.match(/[ˊˇˋ˙]/) || ['ˉ'])[0];
 function _lhSpClParts(cl, cfg = _lhSp.cfg) {
     const k = cl.key.split('|');
-    if (!(cfg && cfg.rel)) return [_lhSpClLabel(cl, cfg)];
-    return [k[3], LH_REL_POS_N[k[1]], LH_REL_LEN_N[k[2]], k[4] ? '第' + k[4] + '字' : ''].filter(Boolean);
+    if (!(cfg && cfg.rel)) return cl.key.split('·').map(t => LH_WS_TONE_N[t - 1] || t);
+    const ch = k[0] + (cfg.poly && cfg.poly.has(k[0]) && k[3] ? '（' + _lhSpToneMark(k[3]) + '）' : '');
+    return [ch, LH_REL_POS_N[k[1]], LH_REL_LEN_N[k[2]], k[4] ? '第' + k[4] + '字' : ''].filter(Boolean);
 }
 function _lhSpHoloDraw(c, t, z) {
     const h = _lhSp.holo, w = h && h.w;
