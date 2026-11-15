@@ -14,7 +14,23 @@
         // 把原本的模板字串拆成「外殼」與「字卡清單」：
         // 外殼 = 模板去掉字卡清單，且保留 grid 開頭的空白；grid 結尾的空白等這一組字卡畫完再補回去，
         // 這樣最後的 HTML（連空白）跟舊版一次 map().join('') 完全相同。
+        // 0.98.15.3 Andy：搜尋的國字本身（「安 打」就是安、打）——從這次搜尋的詞條「安→ㄢ」取箭頭前的字；注音／拼音搜尋沒有
+        function _lhSearchPins() {
+            const out = [];
+            for (const t of searchedTerms) {
+                const q = String(t.original || '').split('→')[0];
+                if (t.original && t.original.includes('→') && /^[\u4e00-\u9fff]$/.test(q) && !out.includes(q)) out.push(q);
+            }
+            return out;
+        }
+
         function _makeJob(tpl, items, hl) {
+            // 0.98.15.3 Andy：每一組字卡裡，搜尋的字無條件排最前面（各種排序都在這之前做完，所以一處就好）
+            const pins = _lhSearchPins();
+            if (pins.length) {
+                const rk = r => { const k = pins.indexOf(r.char); return k < 0 ? Infinity : k; };
+                items = items.slice().sort((a, b) => rk(a) - rk(b));   // 穩定排序：其他字維持原本順序
+            }
             const i = tpl.indexOf(_CARD_SLOT);
             const pre = tpl.slice(0, i);
             const post = tpl.slice(i + _CARD_SLOT.length);
@@ -212,6 +228,7 @@
             const hideRare = document.getElementById('hideRare').checked;
             const filterDup = document.getElementById('filterDuplicate').checked;
 
+            const allResults = results;   // 篩選前的完整結果（搜尋的字被篩掉時從這裡找回來）
             // 過濾冷僻字
             if (hideRare) {
                 results = results.filter(r => {
@@ -228,6 +245,13 @@
                     seen.add(r.char);
                     return true;
                 });
+            }
+            // 0.98.15.3 Andy：搜尋的字「無條件」出現——被冷僻字／破音字篩選拿掉的話放回來（過濾破音字時只放回一個讀音）
+            const pins = _lhSearchPins();
+            for (const ch of pins) {
+                if (results.some(r => r.char === ch)) continue;
+                const back = allResults.filter(r => r.char === ch);
+                results = results.concat(filterDup || !showPinyin ? back.slice(0, 1) : back);
             }
             
             if (results.length === 0) {
@@ -428,6 +452,12 @@
                 </div>`, results, undefined));
             }
             
+            // 0.98.15.3 Andy：同聲調／同聲韻分組時，含搜尋字的那一組排到最前面，搜尋的字才會是最左上第一張（多個字照輸入順序）
+            if (pins.length) {
+                const jr = j => { const k = j.items.length ? pins.indexOf(j.items[0].char) : -1; return k < 0 ? Infinity : k; };
+                jobs.sort((a, b) => jr(a) - jr(b));
+            }
+
             // 標題一定要同步就位（renderPolyphonicChips 會把破音字 chips 放進 .results-header）
             container.innerHTML = header;
 

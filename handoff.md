@@ -1,3 +1,8 @@
+## 0.98.15.3（?v 破快取；已 push）
+- 星雲恆星 hover 光暈改柔和（js/word-space.js `_lhSpDraw` 的 starHi）：漸層中心 0.8→0.3、stop 改 0/0.3/0.6/1＝0.3/0.16/0.06/0；字發光描層 3→2 層（透明度 ×0.6）；lighter 疊加 0.5→0.2。R 上限、k≥0、0.3 秒淡入照舊。
+- 主畫面搜尋國字：搜尋的字無條件排第一張（js/results.js：新 `_lhSearchPins` 從 searchedTerms「安→ㄢ」取字；`_makeJob` 每組把它排最前；displayResults 篩選後被冷僻／破音篩掉的放回來；同聲韻／同聲調模式含該字的組排最前）。「安 打」每個字各自在自己那組第一；注音／拼音不動。注意：打 在資料裡被標冷僻，現在 hideRare 下也會出現。
+- 測試：word-space + golden + render + rhyme-journey + parity + smoke 全過；golden 15 檔因排序改變重錄（UPDATE_GOLDEN=1）。
+
 ## 0.98.15.2（?v 破快取；已 push）
 - 超大星系宇宙（非 organic）也不死釘中央：整組置中後再隨機偏移，最多最大星系半徑 25%（橫向，縱向 ×0.8）；只有一個星系也偏。全是流星（clusters 空）時跳過（不然 Math.min() 爆掉、星雲打不開——word-space.spec 抓到）。
 

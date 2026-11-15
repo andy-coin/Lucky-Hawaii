@@ -1295,13 +1295,15 @@ function _lhSpDraw(t, L) {
         // 0.98.14.15 Andy：亮度、光暈再大幅提高，但光暈半徑最多＝這個星系半徑的一半（照目前縮放與呼吸）
         const R = Math.min(Math.max(60, w.tw * z * m) * 1.8, w.cl ? w.cl.r * z * (w.cl.b || 1) / 2 : 1e9);
         const g = c.createRadialGradient(p.x, p.y, 0, p.x, p.y, R);
-        g.addColorStop(0, _lhSpRGBA(w.rgb, 0.8 * k)); g.addColorStop(0.35, _lhSpRGBA(w.rgb, 0.38 * k)); g.addColorStop(0.7, _lhSpRGBA(w.rgb, 0.1 * k)); g.addColorStop(1, _lhSpRGBA(w.rgb, 0));
+        // 0.98.15.3 Andy：中心太濃不像光暈 → 中心降到 0.3、多幾個 stop 讓衰減更平滑
+        g.addColorStop(0, _lhSpRGBA(w.rgb, 0.3 * k)); g.addColorStop(0.3, _lhSpRGBA(w.rgb, 0.16 * k)); g.addColorStop(0.6, _lhSpRGBA(w.rgb, 0.06 * k)); g.addColorStop(1, _lhSpRGBA(w.rgb, 0));
         c.fillStyle = g; c.globalAlpha = 1; c.fillRect(p.x - R, p.y - R, R * 2, R * 2);
         // 深淺主題都看得出來：一般疊法描兩次彩色光暈（「疊加發光」在淺色背景上反而變淡），深色主題再用疊加提亮
         const sb = Math.min(R * 0.6, 38 * Math.max(0.6, Math.min(2, z * m * w.s)));   // 字的發光也不超出光暈範圍
-        c.save(); c.shadowColor = w.rgb; c.globalAlpha = k;
-        c.shadowBlur = sb; blit(w, p, m); blit(w, p, m); c.shadowBlur = sb * 0.35; blit(w, p, m);
-        c.shadowBlur = 0; c.globalCompositeOperation = 'lighter'; c.globalAlpha = 0.5 * k; blit(w, p, m); c.restore();
+        // 0.98.15.3 Andy：字的發光描層 3→2 層、透明度降低；疊加提亮 0.5→0.2
+        c.save(); c.shadowColor = w.rgb; c.globalAlpha = 0.6 * k;
+        c.shadowBlur = sb; blit(w, p, m); c.shadowBlur = sb * 0.35; blit(w, p, m);
+        c.shadowBlur = 0; c.globalCompositeOperation = 'lighter'; c.globalAlpha = 0.2 * k; blit(w, p, m); c.restore();
         c.globalAlpha = a;
         };
     const top = [], mags = [];
