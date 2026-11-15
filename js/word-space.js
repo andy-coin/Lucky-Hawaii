@@ -565,7 +565,7 @@ function _lhSpShow(cfg) {
     const reopen = !el.hidden;
     _lhSp.cfg = cfg;
     const batches = _lhSpPages(cfg), pageN = batches.length, page = Math.min(cfg.page || 0, pageN - 1);
-    const { words, clusters, bound } = _lhSpLayout(batches[page], cfg);
+    const { words, clusters, bound } = _lhSpLayout(batches[page].filter(e => !_lhWs.hidden.has(e.w)), cfg);   // 這次隱藏過的詞換批也不回來
     _lhSp.bound = bound;
     _lhSp.groups = clusters;
     const n = words.length;
@@ -690,7 +690,8 @@ function lhWsClose() {
         if (_lhSp.back && _lhSp.back.isConnected) _lhSp.back.focus({ preventScroll: true });
         _lhSp.tm = setTimeout(() => { if (!document.body.classList.contains('ws-leave')) document.body.classList.remove('ws-anim'); }, fast ? 0 : 550);
     }, fast ? 0 : 380);
-    // 這裡隱藏的詞，清單也一起拿掉
+    // 隱藏只在這次星雲裡有效（0.98.09）：關掉就全部還原，詞卡清單也跟著恢復
+    _lhWs.hidden.clear();
     if (_lhWs.input && lhWsQuery(document.getElementById('searchInput').value)) lhWsRender(_lhWs.input);
 }
 
@@ -948,8 +949,9 @@ function _lhSpFrame(t) {
             } else {   // 行星被甩出去或被沖散：自己的恆星像彈簧一樣慢慢把它拉回軌道
                 if (!still) w.th += w.om * L.orbit * dt;
                 const o = _lhSpOrbit(w);
-                w.fvx = (w.fvx + (o.x - w.fx) * K * dt) * damp;
-                w.fvy = (w.fvy + (o.y - w.fy) * K * dt) * damp;
+                const k = w.rising ? 12 : K, dm = w.rising ? Math.exp(-dt * 7) : damp;   // 接任的恆星：拉得更快、不彈（約 1 秒內到中心）
+                w.fvx = (w.fvx + (o.x - w.fx) * k * dt) * dm;
+                w.fvy = (w.fvy + (o.y - w.fy) * k * dt) * dm;
                 w.fx += w.fvx * dt; w.fy += w.fvy * dt;
                 const tol = w.rising ? 10 : 3;   // 接任的恆星：差不多到中心就接手，不必等完全停穩
                 if (Math.hypot(o.x - w.fx, o.y - w.fy) < tol && Math.hypot(w.fvx, w.fvy) < tol * 5) { w.free = false; if (w.rising) { w.rising = false; w.star = true; } if (w.cl) w.cl.ver++; }
@@ -1095,7 +1097,7 @@ function _lhSpDraw(t, L) {
         if (w.cl && asImg.has(w.cl) && w.cl.img.ws.has(w)) continue;   // 已經在星系圖裡
         const p = vis(w);
         if (!p) continue;
-        if (w.star && L.starGlow && !w.dim) {   // 0.98.09：第 4 級起恆星自帶光暈；放大、釘住、停住時也畫（先畫，墊在所有字後面）
+        if ((w.star || w.rising) && L.starGlow && !w.dim) {   // 0.98.09：第 4 級起恆星自帶光暈（接任中的也先亮）；放大、釘住、停住時也畫（先畫，墊在所有字後面）
             const R = (w.cl ? w.cl.r / 2 : w.tw) * _lhSpZv() * (w.kb || 1) * (w.mag || 1);   // 光暈半徑＝自己星系半徑的 1/2，中心濃度 13%
             const g = c.createRadialGradient(p.x, p.y, 0, p.x, p.y, R);
             g.addColorStop(0, w.rgbG || (w.rgbG = _lhSpRGBA(w.rgb, 0.13)));
