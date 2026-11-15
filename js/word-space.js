@@ -852,6 +852,7 @@ function _lhSpTheme() {
     _lhSp.font = getComputedStyle(pr).fontFamily;
     _lhSp.cCard = _lhSpColor('var(--card-bg)');
     _lhSp.cLine = _lhSpColor('var(--highlight-border)');
+    _lhSp.lineFor = _lhSp.lineCur = null;   // 換主題：星座線顏色重算、不從舊顏色漸層
     _lhSp.cMute = _lhSpColor('var(--text-secondary)');
 }
 // 字的小圖（字＋淡淡光暈）照某個縮放畫好，每一幀只要貼上去。
@@ -1118,6 +1119,11 @@ function _lhSpFrame(t) {
     _lhSp.busy = busy;
     // 星座：釘住的詞之間的線（_lhSpPin 決定連哪些）
     _lhSp.segs = _lhSp.chords.filter(c => c[0].pinned && c[1].pinned);
+    if (_lhSp.lineFor !== _lhSp.pins) { _lhSp.lineFor = _lhSp.pins; _lhSp.lineGoal = _lhSpLineGoal(); }
+    { const g = _lhSp.lineGoal, cur = _lhSp.lineCur || (_lhSp.lineCur = g.slice()), k = Math.min(1, (dt || 0.016) * 3);   // 約 0.6 秒漸層過去
+        let d = 0; for (let i = 0; i < 3; i++) { cur[i] += (g[i] - cur[i]) * k; d += Math.abs(g[i] - cur[i]); }
+        if (d > 1) _lhSp.dirty = true; else cur.splice(0, 3, ...g);
+        _lhSp.cLineNow = 'rgb(' + cur.map(Math.round).join(',') + ')'; }
     _lhSpDraw(t, L);
 }
 
@@ -1163,8 +1169,8 @@ function _lhSpDraw(t, L) {
     // 星座線
     if (_lhSp.segs.length) {
         c.save();
-        c.strokeStyle = _lhSp.cLine; c.lineWidth = 1.5; c.lineJoin = 'round'; c.globalAlpha = 0.85;
-        c.shadowColor = _lhSp.cLine; c.shadowBlur = 6;
+        c.strokeStyle = _lhSp.cLineNow || _lhSp.cLine; c.lineWidth = 1.5; c.lineJoin = 'round'; c.globalAlpha = 0.85;
+        c.shadowColor = c.strokeStyle; c.shadowBlur = 6;
         c.beginPath();
         for (const [a, b] of _lhSp.segs) { const p = _lhSpScr(a.px, a.py), q = _lhSpScr(b.px, b.py); c.moveTo(p.x, p.y); c.lineTo(q.x, q.y); }
         c.stroke();
@@ -1362,6 +1368,25 @@ function _lhSpPin(w) {
     if (!_lhSp.chords.some(c => c[0] === w)) _lhSp.chords.push([w, old.sort((a, b) => dist(w, a) - dist(w, b))[0]]);   // 至少一條
 }
 
+// 星座線的顏色：跟釘住的詞（可能跨好幾個星系）的顏色錯開。每次釘住／取消就重算：
+// 把這些詞的色相照彩度加權取「圓周平均」，線用平均的對面色（+180°）；色相太分散（平均向量長度 < 0.45）就避不開，改用白色（淺色主題用主文字色）。
+// 都是灰的（流星）或還沒釘：主題強調色
+function _lhSpLineGoal() {
+    const num = css => _lhSpRGBA(css, 1).slice(5, -1).split(',').slice(0, 3).map(Number);
+    const bg = num(_lhSp.cCard), dark = 0.299 * bg[0] + 0.587 * bg[1] + 0.114 * bg[2] < 128;
+    let sx = 0, sy = 0, sw = 0;
+    for (const w of _lhSp.pins) {
+        if (!w.pinned || !w.rgb) continue;
+        const [r, g, b] = num(w.rgb).map(v => v / 255), mx = Math.max(r, g, b), mn = Math.min(r, g, b), c = mx - mn;
+        if (c < 0.08) continue;   // 幾乎沒顏色的不算
+        const h = mx === r ? ((g - b) / c) % 6 : mx === g ? (b - r) / c + 2 : (r - g) / c + 4, a = h * Math.PI / 3;
+        sx += Math.cos(a) * c; sy += Math.sin(a) * c; sw += c;
+    }
+    if (!sw) return num(_lhSp.cLine);
+    if (Math.hypot(sx, sy) / sw < 0.45) return dark ? [255, 255, 255] : num(_lhSpColor('var(--text-primary)'));
+    const hue = (Math.atan2(sy, sx) * 180 / Math.PI + 180 + 360) % 360;
+    return num('hsl(' + Math.round(hue) + ' 75% ' + (dark ? 68 : 40) + '%)');
+}
 function _lhSpClear() {
     for (const w of _lhSp.words) { w.pinned = false; w.hot = false; }
     for (const cl of _lhSp.groups) cl.ver++;
