@@ -383,6 +383,46 @@ function _lhSpWhip(page) {
             { duration: 420, easing: 'cubic-bezier(.15,.7,.3,1)' });
     };
 }
+// 第 5 級的換批過場：星際穿越（超光速）。上面疊一張透明畫布畫從中心往外射的星光線，先加速再減速（約 1.1 秒）；
+// 舊的星雲往前衝（放大、模糊、淡出），最快的時候換內容，新的從遠處拉近（由小變大、變清楚）
+function _lhSpWarp(go) {
+    if (_lhSp.warp) return;
+    const el = _lhSp.el, cv = _lhSp.cv, W = el.clientWidth, H = el.clientHeight, dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const o = document.createElement('canvas');
+    o.className = 'ws-warp';
+    o.width = Math.round(W * dpr); o.height = Math.round(H * dpr);
+    el.insertBefore(o, cv.nextSibling);
+    const x = o.getContext('2d'), cx = W / 2, cy = H / 2, maxR = Math.hypot(cx, cy);
+    const col = getComputedStyle(el).getPropertyValue('--text-primary').trim() || '#fff';
+    const stars = Array.from({ length: 220 }, () => ({ a: Math.random() * Math.PI * 2, d: 20 + Math.random() * maxR, w: 0.6 + Math.random() * 1.4 }));
+    const T = 730, t0 = performance.now();   // 0.98.09：從 1100 縮短三分之一
+    let swapped = false;
+    cv.animate([{ transform: 'none', filter: 'blur(0)', opacity: 1 }, { transform: 'scale(2.4)', filter: 'blur(10px)', opacity: 0 }], { duration: T * 0.5, easing: 'cubic-bezier(.6,0,.9,.4)', fill: 'forwards' });
+    _lhSp.warp = true;
+    const step = now => {
+        const u = Math.min(1, (now - t0) / T), sp = Math.sin(u * Math.PI);   // 速度 0→1→0
+        if (!swapped && u >= 0.5) {
+            swapped = true;
+            cv.getAnimations().forEach(a => a.cancel());
+            go();
+            cv.animate([{ transform: 'scale(0.35)', filter: 'blur(8px)', opacity: 0 }, { transform: 'none', filter: 'blur(0)', opacity: 1 }], { duration: T * 0.6, easing: 'cubic-bezier(.15,.7,.3,1)' });
+        }
+        x.setTransform(dpr, 0, 0, dpr, 0, 0);
+        x.clearRect(0, 0, W, H);
+        x.strokeStyle = col; x.lineCap = 'round';
+        for (const s of stars) {
+            s.d *= 1 + sp * 0.13;   // 越外面跑越快（透視）；時間短了，每格多衝一點
+            if (s.d > maxR) { s.d = 10 + Math.random() * 60; s.a = Math.random() * Math.PI * 2; }
+            const len = s.d * sp * 0.35, c = Math.cos(s.a), n = Math.sin(s.a);
+            x.globalAlpha = Math.min(1, 0.25 + sp) * Math.min(1, s.d / 120);
+            x.lineWidth = s.w * (0.6 + sp);
+            x.beginPath(); x.moveTo(cx + c * (s.d - len), cy + n * (s.d - len)); x.lineTo(cx + c * s.d, cy + n * s.d); x.stroke();
+        }
+        if (u < 1) requestAnimationFrame(step);
+        else { o.remove(); _lhSp.warp = false; }
+    };
+    requestAnimationFrame(step);
+}
 // 旋臂（0.98.09）：超過 25 個詞的大星系自動排成旋臂——恆星不轉、離中心越遠轉越慢（克卜勒：角速度 ∝ 距離^-1.5），
 // 每個星系 2～5 條往後拖的螺旋臂；25 個詞以下看不出臂，維持同心圓（內圈角速度快）。兩套同時並存，沒有開關
 const _lhSpGroupKey = (e, cfg) => cfg.groupOf ? cfg.groupOf(e) : e.z.split(' ').map(s => getZhuyinTone(s)).join('·');
@@ -1318,7 +1358,7 @@ function _lhSpEvents(el) {
         }
     });
     el.addEventListener('wheel', e => {
-        if (e.target.closest('.ws-panel')) return;
+        if (e.target.closest('.ws-panel, .ws-pages')) return;
         e.preventDefault();
         const r = el.getBoundingClientRect();
         _lhSpZoom(_lhSp.z * Math.exp(-e.deltaY * (e.ctrlKey ? 0.01 : 0.0015)), e.clientX - r.left, e.clientY - r.top);
@@ -1327,10 +1367,10 @@ function _lhSpEvents(el) {
     el.addEventListener('pointermove', e => {
         if (e.pointerType === 'mouse' && _lhSpCfg().dock) {   // 黑洞放大要知道游標在哪
             const r = el.getBoundingClientRect();
-            _lhSp.mouse = e.target.closest('.ws-panel, .ws-zoom') ? null : { x: e.clientX - r.left, y: e.clientY - r.top };
+            _lhSp.mouse = e.target.closest('.ws-panel, .ws-zoom, .ws-pages') ? null : { x: e.clientX - r.left, y: e.clientY - r.top };
             _lhSp.dirty = true;
         }
-        if (e.pointerType !== 'mouse' || _lhSp.pts.size || e.target.closest('.ws-panel, .ws-zoom')) return;
+        if (e.pointerType !== 'mouse' || _lhSp.pts.size || e.target.closest('.ws-panel, .ws-zoom, .ws-pages')) return;
         if (e.target.closest('.ws-acts')) return;
         let w = _lhSpHit(e.clientX, e.clientY);
         if (_lhSp.mute && w !== _lhSp.mute) _lhSp.mute = null;
@@ -1339,7 +1379,7 @@ function _lhSpEvents(el) {
     });
     el.addEventListener('pointerleave', e => { if (e.pointerType === 'mouse') { _lhSp.mouse = null; _lhSp.dirty = true; if (!_lhSp.drag) _lhSpSetHover(null); } });
     el.addEventListener('pointerdown', e => {
-        if (e.target.closest('.ws-panel, .ws-zoom, .ws-acts')) return;
+        if (e.target.closest('.ws-panel, .ws-zoom, .ws-acts, .ws-pages')) return;   // 換批滑桿移出面板後也要排除（0.98.09）
         if (e.pointerType === 'mouse' && e.button !== 0) return;
         _lhSp.nav = null;
         _lhSp.pts.set(e.pointerId, { x: e.clientX, y: e.clientY });

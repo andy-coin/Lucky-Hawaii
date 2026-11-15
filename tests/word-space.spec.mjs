@@ -201,3 +201,22 @@ test('詞卡選取：點了有外框（＝保留）、再點取消、保留區�
     await expect(page.locator(`.ws-card[data-char="${w}"]`)).toHaveClass(/\bkept\b/);
     await context.close();
 });
+
+test('換批：點數字、點滑桿都能切換（第 3 級鏡頭一甩、第 5 級星際穿越）', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, {});
+    await page.fill('#searchInput', '心');
+    await expect(page.locator('.char-card').first()).toBeVisible({ timeout: 20000 });
+    for (const lv of [3, 5]) {
+        await page.evaluate(lv => { lhFxSetLevel(lv); selectedChars.clear(); selectedChars.add('心'); lhWsRelOpen(); }, lv);
+        await expect(page.locator('.ws-pages')).toBeVisible({ timeout: 10000 });
+        await page.locator('.ws-page-ticks button', { hasText: '3' }).click();
+        await expect.poll(() => page.evaluate(() => _lhSp.cfg.page)).toBe(2);
+        const box = await page.locator('.ws-page-range').boundingBox();
+        await page.mouse.click(box.x + box.width * 0.05, box.y + box.height / 2);
+        await expect.poll(() => page.evaluate(() => _lhSp.cfg.page)).toBe(0);
+        await page.evaluate(() => lhWsClose());
+        await expect(page.locator('#wordSpace')).toBeHidden();
+    }
+    expect(errors).toEqual([]);
+    await context.close();
+});
