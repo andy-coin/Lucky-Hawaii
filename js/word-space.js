@@ -416,12 +416,15 @@ function _lhSpWarp(go) {
     const fallback = getComputedStyle(el).getPropertyValue('--text-primary').trim() || '#fff';
     const pick = () => seen.length ? seen[Math.floor(Math.random() * seen.length)] : fallback;
     const stars = Array.from({ length: 220 }, () => ({ a: Math.random() * Math.PI * 2, d: 20 + Math.random() * maxR, w: 0.6 + Math.random() * 1.4, c: pick() }));
-    const T = 730, t0 = performance.now();   // 0.98.09：從 1100 縮短三分之一
-    const GO = Math.max(0.02, (T - 700) / T);   // 0.98.14.13 Andy：新的星系在光線結束前 0.7 秒就開始形成（恆星淡入要 1.4 秒，穿越完就看得到恆星的影子）（跟星際穿越重疊），不會有一瞬間全空
-    let swapped = false;
-    cv.animate([{ transform: 'none', filter: 'blur(0)', opacity: 1 }, { transform: 'scale(2.4)', filter: 'blur(10px)', opacity: 0 }], { duration: T * GO, easing: 'cubic-bezier(.6,0,.9,.4)', fill: 'forwards' });
+    const T = 730;   // 0.98.09：從 1100 縮短三分之一
+    // 0.98.17 Andy：舊宇宙先放大＋漸漸變透明（0.7 秒，製造加速感），最後 0.2 秒才接上星光線；光線開始 0.2 秒後（舊的剛好消失）換新宇宙
+    const PRE = 700, OVL = 200, GO = OVL / T;
     _lhSp.warp = true;
+    cv.animate([{ transform: 'none', filter: 'blur(0)', opacity: 1 }, { transform: 'scale(2.4)', filter: 'blur(6px)', opacity: 0 }], { duration: PRE, easing: 'cubic-bezier(.5,0,.85,.5)', fill: 'forwards' });
+    let t0 = 0;   // 光線第一格才開始計時
+    let swapped = false;
     const step = now => {
+        if (!t0) t0 = now;
         const u = Math.min(1, (now - t0) / T), sp = Math.sin(u * Math.PI);   // 速度 0→1→0
         if (!swapped && u >= GO) {
             swapped = true;
@@ -443,7 +446,7 @@ function _lhSpWarp(go) {
         if (u < 1) requestAnimationFrame(step);
         else { o.remove(); _lhSp.warp = false; const nx = _lhSp.warpNext; _lhSp.warpNext = null; if (nx && _lhSp.visible) _lhSpWarp(nx); }
     };
-    requestAnimationFrame(step);
+    setTimeout(() => requestAnimationFrame(step), PRE - OVL);
 }
 // 旋臂（0.98.09）：超過 25 個詞的大星系自動排成旋臂——恆星不轉、離中心越遠轉越慢（克卜勒：角速度 ∝ 距離^-1.5），
 // 每個星系 2～5 條往後拖的螺旋臂；25 個詞以下看不出臂，維持同心圓（內圈角速度快）。兩套同時並存，沒有開關
@@ -991,13 +994,20 @@ function _lhSpPos(w) {
 // dock＝黑洞放大；bold＝停住的詞變粗發光（外框照樣有）；keptGlow／keptFlash／keptBreathe＝保留的詞加柔光／閃＋光暈／呼吸（外框每級都有）；
 // keptBreathe 的值＝保留的詞呼吸時放大多少（0.06＝6%）；starGlow＝恆星自帶光暈；lineGlow／lineFlash＝星座線光暈／隨機閃爍
 // img＝星系一張圖（每個星系先畫成一張圖，每格只貼約 50 張）；clBreath＝整團呼吸；whole＝整片星雲一起呼吸；twinkle＝隨機星星閃爍
+// 0.98.16 起：保留詞五級一樣（外框＋柔光＋呼吸 3%）；comet＝流星會動，curve＝流星彎度倍數（0 直線）；cometPulse＝流星停著、透明度循環；
+// cometHalo＝流星自帶光暈＋固定閃爍；roam＝小星系漫遊速度倍數（0 不漫遊）
 const LH_SP_LV = {
     0: { fps: 0, orbit: 0, drag: 'stay', bold: 1 },   // 系統要求減少動態：完全靜止，有變化才畫
-    1: { fps: 24, idle: 1, orbit: 0, drag: 'stay', bold: 1, keptBreathe: 0.06, cssBreath: 1, fadeIn: 1 },   // 0.98.16：進宇宙整片一起淡入   // 不轉；0.98.15.5：沒變化就不畫（idle），整片呼吸改由 CSS 縮放畫布（顯示卡做、不重畫）
-    2: { fps: 24, orbit: 0, drag: 'fling', starStay: 1, dock: 1, keptBreathe: 0.06, img: 1, clBreath: 1, keptGlow: 1, lineGlow: 'still', swap: 'fade' },   // 0.98.16：放手會滑（拖恆星仍整團搬）、換批淡出淡入   // 0.98.16 Andy：加保留詞柔光、星座線光暈（不呼吸）
-    3: { fps: 30, orbit: 1, drag: 'fling', dock: 1, comet: 1, tail: 1, cometGlow: 1, keptGlow: 1, whole: 1, twinkle: 0.4, twFlat: 1 },   // 0.98.16：全速公轉、少量閃爍（第 4 級的 4 成、只亮不放大）   // 0.98.09：3、4 級加整片呼吸
-    4: { fps: 30, orbit: 1, drag: 'fling', dock: 1, comet: 1, tail: 1, cometGlow: 1, jitter: 1, wobble: 1, drift: 1, push: 1, twinkle: 1, starGlow: 1, whole: 1, lineGlow: 1, zoomTrail: 1 },   // 0.98.16：縮放殘影下放；凝聚改第 5 級獨有（第 4 級回到分批浮現）   // 0.98.09：保留的詞只有外框（不閃、不加柔光）
-    5: { fps: 60, orbit: 1, drag: 'fling', dock: 1, comet: 1, tail: 1, cometGlow: 1, keptGlow: 1, keptBreathe: 0.025, jitter: 1, wobble: 1, drift: 1, push: 1, twinkle: 1, starGlow: 1, clBreath: 1, lineGlow: 1, lineFlash: 0.4, zoomTrail: 2, gather: 1 },   // 0.98.16：星座線閃爍每秒 20%→40%   // 0.98.09：保留的詞不閃（閃爍留給隨機星星），只輕輕呼吸
+    // 第 1 級：不轉、沒變化就不畫（idle）、整片呼吸交給 CSS 縮放畫布；進宇宙整片淡入；流星是孤星，完全不動
+    1: { fps: 24, idle: 1, orbit: 0, drag: 'stay', bold: 1, keptBreathe: 0.03, keptGlow: 1, cssBreath: 1, fadeIn: 1, swap: 'fade' },   // 0.98.17：換批也原地淡出淡入
+    // 第 2 級：星系一張圖；放手會滑（拖恆星仍整團搬）；星座線固定光暈；換批淡出淡入；流星停著、透明度慢慢循環
+    2: { fps: 24, orbit: 0, drag: 'fling', starStay: 1, dock: 1, keptBreathe: 0.03, keptGlow: 1, img: 1, clBreath: 1, lineGlow: 'still', swap: 'fade', cometPulse: 1 },
+    // 第 3 級：公轉 0.6 倍、少量閃爍（只亮不放大）；流星走直線；小星系不漫遊
+    3: { fps: 30, orbit: 0.6, drag: 'fling', dock: 1, comet: 1, curve: 0, tail: 1, cometGlow: 1, keptBreathe: 0.03, keptGlow: 1, whole: 1, twinkle: 0.4, twFlat: 1 },
+    // 第 4 級：分批浮現（螺旋發牌）、縮放殘影、恆星光暈；流星原本的彎度；小星系漫遊
+    4: { fps: 30, orbit: 1, drag: 'fling', dock: 1, comet: 1, curve: 1, roam: 1, tail: 1, cometGlow: 1, keptBreathe: 0.03, keptGlow: 1, jitter: 1, wobble: 1, drift: 1, push: 1, twinkle: 1, starGlow: 1, whole: 1, lineGlow: 1, zoomTrail: 1 },
+    // 第 5 級：混沌凝聚獨有、常駐殘影、星座線常閃；流星彎度 2.5 倍＋光暈＋固定閃爍；小星系漫遊 1.8 倍速
+    5: { fps: 60, orbit: 1, drag: 'fling', dock: 1, comet: 1, curve: 2.5, roam: 1.8, tail: 1, cometGlow: 1, cometHalo: 1, keptBreathe: 0.03, keptGlow: 1, jitter: 1, wobble: 1, drift: 1, push: 1, twinkle: 1, starGlow: 1, clBreath: 1, lineGlow: 1, lineFlash: 0.4, zoomTrail: 2, gather: 1 },
 };
 const _lhSpCfg = () => LH_SP_LV[_lhSpReduce.matches ? 0 : (typeof lhFxLevel === 'function' ? lhFxLevel() : 5)] || LH_SP_LV[5];
 
@@ -1088,11 +1098,11 @@ function _lhSpFrame(t) {
     // 停住期間累計 tOff，飄移時間扣掉它 → 放開後從原地接著飄，不會跳一下
     const hc = _lhSp.holo && _lhSp.holo.w && _lhSp.holo.w.cl;
     if (hc && dt) hc.tOff = (hc.tOff || 0) + dt;
-    if (L.comet && dt) {
+    if (L.roam && dt) {   // 0.98.16：第 3 級不漫遊（跟第 4 級拉開差別），第 5 級 1.8 倍速
         const B = _lhSp.bound;
         for (const cl of _lhSp.groups) {
             if (!cl.vx || cl.held || cl === hc) continue;
-            cl.hx += cl.vx * dt; cl.hy += cl.vy * dt;
+            cl.hx += cl.vx * L.roam * dt; cl.hy += cl.vy * L.roam * dt;
             if (cl.hx > B) cl.hx -= 2 * B; else if (cl.hx < -B) cl.hx += 2 * B;
             if (cl.hy > B) cl.hy -= 2 * B; else if (cl.hy < -B) cl.hy += 2 * B;
             if (!L.drift) { cl.x = cl.hx; cl.y = cl.hy; }
@@ -1136,13 +1146,14 @@ function _lhSpFrame(t) {
                 w.fvx = (w.fvx + (o.x - w.fx) * k * dt) * dm;
                 w.fvy = (w.fvy + (o.y - w.fy) * k * dt) * dm;
                 w.fx += w.fvx * dt; w.fy += w.fvy * dt;
+                gv = Math.max(gv, Math.min(0.85, Math.hypot(w.fvx, w.fvy) / 400));   // 0.98.16：沖散、甩出去的行星越快，第 5 級殘影越濃
                 const tol = w.rising ? 10 : 3;   // 接任的恆星：差不多到中心就接手，不必等完全停穩
                 if (Math.hypot(o.x - w.fx, o.y - w.fy) < tol && Math.hypot(w.fvx, w.fvy) < tol * 5) { w.free = false; if (w.rising) { w.rising = false; w.star = true; } if (w.cl) w.cl.ver++; }
             }
             busy = true;
         } else if (!still) {
             if (w.comet) {   // 流星走弧線：前進方向慢慢轉（尾巴照前進方向畫，不用記走過的點）
-                w.ang += w.cv * dt;
+                w.ang += w.cv * (L.curve ?? 1) * dt;
                 w.x += Math.cos(w.ang) * w.v * dt; w.y += Math.sin(w.ang) * w.v * dt;
                 let wrap = false;
                 if (w.x > B) { w.x = -B; wrap = true; } else if (w.x < -B) { w.x = B; wrap = true; }
@@ -1168,11 +1179,13 @@ function _lhSpFrame(t) {
         // 只是位置多一道內插，畫的東西不變，不吃效能
         let bx = p.x, by = p.y, ease = (1 - Math.pow(1 - k, 3)) * vv;
         if (L.gather && w.born && !w.comet && !w.star) {   // 恆星不亂撒：在自己的位置由透明慢慢浮現（光暈跟著 w.alpha）
-            if (w.gx0 === undefined) { const B = _lhSp.bound || 1000; w.gx0 = (Math.random() * 2 - 1) * B; w.gy0 = (Math.random() * 2 - 1) * B; w.gd = 3200 + Math.random() * 2000; }   // 0.98.14.12：凝聚放慢一倍（3.2–5.2 秒）
+            if (w.gx0 === undefined) { const B = _lhSp.bound || 1000; w.gx0 = (Math.random() * 2 - 1) * B; w.gy0 = (Math.random() * 2 - 1) * B; w.gd = 4000 + Math.random() * 2500; }   // 0.98.17：凝聚再拉長（4–6.5 秒；原 3.2–5.2）
             const kg = Math.min(1, (t - w.born) / w.gd);
-            if (kg < 1) gv = Math.max(gv, Math.sin(kg * Math.PI));   // 凝聚的速度（中段最快），給第 5 級殘影用
+            // 0.98.17 Andy：太像「奔跑歸隊」→ 時間先扭一下（kg^0.6），最快的點從一半提早到約 3 成，之後一路慢慢減速、緩緩凝聚
+            const ku = Math.pow(kg, 0.6);
+            if (kg < 1) gv = Math.max(gv, Math.sin(ku * Math.PI));   // 凝聚的速度（最快時最濃），給第 5 級殘影用
             if (kg < 1) {
-                const eg = kg < 0.5 ? 4 * kg * kg * kg : 1 - Math.pow(-2 * kg + 2, 3) / 2;   // 慢起、加速、慢慢停（像被引力拉回來）
+                const eg = ku < 0.5 ? 4 * ku * ku * ku : 1 - Math.pow(-2 * ku + 2, 3) / 2;   // 慢起、加速、提早開始減速
                 bx = w.gx0 + (p.x - w.gx0) * eg; by = w.gy0 + (p.y - w.gy0) * eg;
                 busy = true;
             }
@@ -1192,7 +1205,7 @@ function _lhSpFrame(t) {
         // 隨機星星閃爍（第 4、5 級）：每秒大約 5 顆；越常用越容易被選到，但最多只多 15%；亮起來時跟著放大一點點
         if (L.twinkle && w.born && !w.dim && dt) {
             if (w.twk && t - w.twk > 1400) w.twk = 0;
-            if (!w.twk && Math.random() < dt * 0.015 * L.twinkle * (1 + 0.15 * (w.n || 0))) w.twk = t;   // 0.98.09：機率 0.006→0.015
+            if (!w.twk && Math.random() < dt * 0.015 * L.twinkle * (1 + 0.15 * (w.n || 0)) * (w.star ? 0.4 : 1)) w.twk = t;   // 0.98.17：恆星閃爍機率降到 4 成   // 0.98.09：機率 0.006→0.015
         } else if (!L.twinkle) w.twk = 0;
         if (dock) {
             let goal = 1;
@@ -1244,18 +1257,28 @@ function _lhSpClImg(cl) {
 
 // 每一幀畫一次：星座線 → 星系圖（第 2 級）→ 流星尾巴 → 一般的詞 → 已保留的詞 → 放大中的詞 → 停住／釘住的詞（外框、光暈、在最上層）
 function _lhSpDraw(t, L) {
-    const c = _lhSp.ctx, z = _lhSpZv(), dpr = _lhSp.dpr || 1;
-    if (!c || !_lhSp.W || !_lhSp.visible) return;
-    c.setTransform(dpr, 0, 0, dpr, 0, 0);
+    const M = _lhSp.ctx, z = _lhSpZv(), dpr = _lhSp.dpr || 1;
+    if (!M || !_lhSp.W || !_lhSp.visible) return;
+    M.setTransform(dpr, 0, 0, dpr, 0, 0);
+    // 0.98.17：有殘影的等級（4、5），字畫在另一張「殘影層」上，每格只擦掉一部分；光暈（恆星、流星、hover）直接畫在主畫布、每格清乾淨，
+    // 最後把殘影層蓋上去 → 光暈不會跟著殘影留下一圈圈的印子（Andy：縮放時恆星光暈跟殘影疊出難看的印記）
+    let c = M;
+    if (L.zoomTrail) {
+        const cv = _lhSp.cv, tc = _lhSp.tc || (_lhSp.tc = document.createElement('canvas'));
+        if (tc.width !== cv.width || tc.height !== cv.height) { tc.width = cv.width; tc.height = cv.height; }
+        c = _lhSp.tctx || (_lhSp.tctx = tc.getContext('2d'));
+        c.setTransform(dpr, 0, 0, dpr, 0, 0);
+        M.clearRect(0, 0, _lhSp.W, _lhSp.H);
+    } else if (_lhSp.tc) { _lhSp.tc.width = _lhSp.tc.height = 0; _lhSp.tc = _lhSp.tctx = null; }   // 降到沒殘影的等級：放掉殘影層
     // 縮放殘影（第 5 級，0.98.14.5 Andy）：縮放中不整張擦掉，只把上一格擦淡一部分 → 星星拖出淡淡的殘影；
     // 停手後 0.45 秒內擦得越來越乾淨（殘影自然收掉），之後照常整張清
-    const zAge = t - (_lhSp.zt || -1e9), [TRAIL, HOLD, ERASE] = L.zoomTrail === 2 ? [1500, 450, 0.18] : [900, 250, 0.3];   // 第 5 級（2）：每格只擦 18%、停手後撐 0.45 秒、共 1.5 秒；第 4 級（1）：擦 30%、共 0.9 秒   // 0.98.16 Andy：殘影更明顯——停手後撐 0.25 秒再花 0.65 秒收乾淨
+    const zAge = t - (_lhSp.zt || -1e9), [TRAIL, HOLD, ERASE] = L.zoomTrail === 2 ? [1200, 350, 0.3] : [900, 250, 0.3];   // 0.98.17 Andy：第 5 級收回一點（擦 18%→30%、共 1.5→1.2 秒）   // 第 5 級（2）：每格只擦 18%、停手後撐 0.45 秒、共 1.5 秒；第 4 級（1）：擦 30%、共 0.9 秒   // 0.98.16 Andy：殘影更明顯——停手後撐 0.25 秒再花 0.65 秒收乾淨
     // trailK：殘影時每格只擦掉一部分，半透明的光暈會一層層疊上去變濃 → 光暈透明度乘上「擦掉的比例」抵銷（0.98.15.6，縮放時光暈跟停下來一樣）
     let trailK = 1;
     // 0.98.16 Andy：第 5 級殘影一直都在——平常只留一點點（每格擦 70%），縮放、凝聚時大膽（凝聚最快時每格只擦 25%）；
     // 擦的比例對整張一樣，跑得越快的星星前後兩格離得越遠，尾巴自然越長
     let ERASE_NOW = zAge < TRAIL ? ERASE + (1 - ERASE) * Math.max(0, zAge - HOLD) / (TRAIL - HOLD) : 1;
-    if (L.zoomTrail === 2) ERASE_NOW = Math.min(ERASE_NOW, 0.7, 1 - 0.75 * (_lhSp.gv || 0));
+    if (L.zoomTrail === 2) ERASE_NOW = Math.min(ERASE_NOW, 0.82, 1 - 0.6 * (_lhSp.gv || 0));   // 0.98.17：平常擦 70%→82%、凝聚最濃 25%→40%
     if (L.zoomTrail && ERASE_NOW < 1) {
         c.save(); c.globalCompositeOperation = 'destination-out'; c.fillStyle = '#000';   // 一定要不透明的填色：沿用上一格留下的（可能是透明漸層）會什麼都沒擦到
         c.globalAlpha = trailK = ERASE_NOW;   // 每格留上一格約 70%（原 40%，尾巴更長），停手後收乾淨
@@ -1279,7 +1302,7 @@ function _lhSpDraw(t, L) {
         for (const [a, b] of _lhSp.segs) { const p = _lhSpScr(a.px, a.py), q = _lhSpScr(b.px, b.py); c.moveTo(p.x, p.y); c.lineTo(q.x, q.y); }
         if (L.lineGlow) {   // 第 4 級起：光暈由外而內一層層描（越外越寬越淡），整體慢慢呼吸（一輪約 5.6 秒，跟第 5 級的閃爍各走各的）
             const br = L.lineGlow === 'still' ? 0.8 : 0.72 + 0.28 * Math.sin(t / 5600 * Math.PI * 2);   // 'still'＝第 2 級：光暈固定不呼吸（不用每格重畫）
-            for (const [wd, al] of [[30, 0.025], [18, 0.045], [10, 0.08], [5, 0.14]]) { c.globalAlpha = al * br * trailK; c.lineWidth = wd * zk; c.stroke(); }
+            for (const [wd, al] of [[18, 0.025], [11, 0.045], [6.5, 0.08], [3.5, 0.14]]) { c.globalAlpha = al * br * trailK; c.lineWidth = wd * zk; c.stroke(); }
         }
         c.globalAlpha = 0.85; c.lineWidth = 1.5 * Math.min(1.6, Math.max(0.7, zk));
         c.shadowColor = c.strokeStyle; c.shadowBlur = 5 * zk;
@@ -1292,7 +1315,7 @@ function _lhSpDraw(t, L) {
             if (!_lhSp.lineTw && Math.random() < dt * L.lineFlash) _lhSp.lineTw = t;
             if (_lhSp.lineTw) {
                 const f = Math.sin((t - _lhSp.lineTw) / 1200 * Math.PI);   // 上面那條路徑還在，直接再描幾層（寬度一樣跟著縮放）
-                for (const [wd, al] of [[24, 0.12], [12, 0.28], [5, 0.5], [2.4, 0.95]]) { c.globalAlpha = al * f; c.lineWidth = wd * zk; c.stroke(); }
+                for (const [wd, al] of [[15, 0.12], [8, 0.28], [4, 0.5], [2.2, 0.95]]) { c.globalAlpha = al * f; c.lineWidth = wd * zk; c.stroke(); }
             }
         }
         c.restore();
@@ -1322,10 +1345,10 @@ function _lhSpDraw(t, L) {
         if (k < 1) _lhSp.dirty = true;
         // 0.98.14.15 Andy：亮度、光暈再大幅提高，但光暈半徑最多＝這個星系半徑的一半（照目前縮放與呼吸）
         const R = Math.min(Math.max(60, w.tw * z * m) * 1.8, w.cl ? w.cl.r * z * (w.cl.b || 1) / 2 : 1e9);
-        const g = c.createRadialGradient(p.x, p.y, 0, p.x, p.y, R);
+        const g = M.createRadialGradient(p.x, p.y, 0, p.x, p.y, R);
         // 0.98.15.3 Andy：中心太濃不像光暈 → 中心降到 0.3、多幾個 stop 讓衰減更平滑
         g.addColorStop(0, _lhSpRGBA(w.rgb, 0.3 * k)); g.addColorStop(0.3, _lhSpRGBA(w.rgb, 0.16 * k)); g.addColorStop(0.6, _lhSpRGBA(w.rgb, 0.06 * k)); g.addColorStop(1, _lhSpRGBA(w.rgb, 0));
-        c.fillStyle = g; c.globalAlpha = trailK; c.fillRect(p.x - R, p.y - R, R * 2, R * 2);
+        M.fillStyle = g; M.globalAlpha = 1; M.fillRect(p.x - R, p.y - R, R * 2, R * 2);   // 光暈畫在主畫布（不留殘影）
         // 0.98.15.6 Andy：字不再描發光層（太亮），改成跟閃爍一樣：字本身疊加提亮兩次、微微放大 6%
         const mk = m * (1 + 0.06 * k);
         c.save(); c.globalCompositeOperation = 'lighter';
@@ -1343,7 +1366,7 @@ function _lhSpDraw(t, L) {
             // 0.98.15.6：每種顏色先畫好一張 128px 的光暈圖，每格只貼上去放大（以前每顆恆星每格算一次幾百 px 的放射漸層，筆電內顯最吃這個，約占第 5 級的 4 成）
             // 0.98.16 Andy：中心濃度 0.13→0.18；這顆恆星剛好被抽到閃爍時，光暈跟著暫時亮到 2 倍
             const tg = w.twk ? Math.sin(Math.min(1, (t - w.twk) / 1400) * Math.PI) : 0;
-            c.globalAlpha = Math.min(1, w.alpha * trailK * (1 + tg)); c.drawImage(_lhSpGlowImg(w.rgb, 0.18), p.x - R, p.y - R, R * 2, R * 2);
+            M.globalAlpha = Math.min(1, w.alpha * (1 + tg)); M.drawImage(_lhSpGlowImg(w.rgb, 0.18), p.x - R, p.y - R, R * 2, R * 2);
         }
         if (w.comet && !w.dim && L.tail) {   // 流星尾巴：一整條往後漸細、漸淡的光（連續漸層，不分段），長度＝約 0.8 秒走的路（速度 3 倍後縮短）；放大、釘住時也畫（先畫，墊在字後面）
             const z = _lhSpZv(), k = w.v * 0.8 * z, ex = p.x - Math.cos(w.ang) * k, ey = p.y - Math.sin(w.ang) * k;
@@ -1358,14 +1381,17 @@ function _lhSpDraw(t, L) {
         }
         if (w.pinned || w.hot) { top.push([w, p]); continue; }
         if (w.mag > 1.01) { mags.push([w, p]); continue; }   // 放大中的詞晚點畫，蓋在旁邊的詞上面
-        const a = w.alpha * (w.dim ? 0.06 : 1);
+        // 0.98.16：第 2 級流星停著、透明度 5 秒一輪慢慢循環；第 5 級流星固定閃爍（約 1.6 秒一輪）＋自帶光暈
+        const cf = w.comet && L.cometHalo ? 0.65 + 0.35 * Math.sin(t / 260 + w.wob * 7) : 1;
+        const a = w.alpha * (w.dim ? 0.06 : 1) * (w.comet && L.cometPulse ? 0.55 + 0.45 * Math.sin(t / 5000 * Math.PI * 2 + w.wob) : 1);
+        if (w.comet && L.cometHalo && !w.dim) { const R = Math.max(26, w.tw * 0.9) * _lhSpZv(); M.globalAlpha = Math.min(1, a * cf); M.drawImage(_lhSpGlowImg(w.rgb, 0.3), p.x - R, p.y - R, R * 2, R * 2); }
         const tw = w.twk ? Math.sin(Math.min(1, (t - w.twk) / 1400) * Math.PI) : 0;   // 星星閃爍的亮度（0→1→0）
         const m = (w.kb || 1) * (L.twFlat ? 1 : 1 + 0.1 * tw);
         c.globalAlpha = a;
         blit(w, p, m);
         starHi(w, p, m, a);
         if ((w.comet && L.cometGlow || tw) && !w.dim) {   // 流星加亮、星星閃爍：同一張小圖用發光疊加再貼一次
-            c.save(); c.globalCompositeOperation = 'lighter'; c.globalAlpha = a * (tw ? tw : 0.55); blit(w, p, m); if (tw) { c.globalAlpha = a * 0.7 * tw; blit(w, p, m); } c.restore();   // 星星閃爍疊兩次，比較亮
+            c.save(); c.globalCompositeOperation = 'lighter'; c.globalAlpha = a * (tw ? tw : 0.55 * cf); blit(w, p, m); if (tw) { c.globalAlpha = a * 0.7 * tw; blit(w, p, m); } c.restore();   // 星星閃爍疊兩次，比較亮
         }
         if (w.kept && !w.dim) _lhSpKept(c, w, p, a, t, L, pill, blit, m);
     }
@@ -1400,7 +1426,8 @@ function _lhSpDraw(t, L) {
         } else blit(w, p, m);
         starHi(w, p, m, 1);
     }
-    _lhSpHoloDraw(c, t, z);
+    if (c !== M) { M.save(); M.setTransform(1, 0, 0, 1, 0, 0); M.globalAlpha = 1; M.globalCompositeOperation = 'source-over'; M.drawImage(c.canvas, 0, 0); M.restore(); M.setTransform(dpr, 0, 0, dpr, 0, 0); }
+    _lhSpHoloDraw(M, t, z);   // 全息標籤畫在主畫布最上面，不留殘影
     _lhSpActsPlace();
 }
 

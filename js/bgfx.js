@@ -93,7 +93,7 @@ function _lhBgResize() {
     _lhBgCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
     // 字數跟面積走，iPad 約 16 個、桌機約 20 個，上限 24
     // 0.98.16：上限 24 是第 3 級以下的基準，第 4、5 級再乘倍數
-    const n = Math.round(Math.max(10, Math.min(24, Math.round(_lhBgW * _lhBgH / 55000))) * ({ 4: 1.4, 5: 1.9 }[_lhFxLv] || 0.6));   // 0.98.16 Andy：第 4 級密一點、第 5 級再密
+    const n = Math.round(Math.max(10, Math.min(24, Math.round(_lhBgW * _lhBgH / 55000))) * ({ 4: 1.4, 5: 2.8 }[_lhFxLv] || 0.6));   // 0.98.16 Andy：第 4 級 1.4 倍、第 5 級 2.8 倍
     while (_lhBgFlakes.length < n) _lhBgFlakes.push(_lhBgNewFlake(true));
     _lhBgFlakes.length = n;
     if (_lhBgReduce.matches || _lhFxLv <= 3 || !_lhBgRaf) _lhBgDraw(0);
