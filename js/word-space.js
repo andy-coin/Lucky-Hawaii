@@ -1102,7 +1102,7 @@ function _lhSpFrame(t) {
     // 小星系漫遊（第 3 級起，跟流星一樣）：家的位置沿直線走，出了邊界從對面回來
     // 0.98.16 Andy：滑鼠停在恆星上（看全息標籤）時，那一團不飄、不漫遊、不被推，免得自己跑出游標範圍；
     // 停住期間累計 tOff，飄移時間扣掉它 → 放開後從原地接著飄，不會跳一下
-    const hw = _lhSp.holo && _lhSp.holo.w, hc = hw && hw.cl;
+    const hw = _lhSp.holo && _lhSp.holo.w, hc = hw && hw.star && hw.cl;   // 0.98.18.2 Andy：看行星的面板時恆星照常旅行，只有看恆星時整團停
     if (hc && dt) hc.tOff = (hc.tOff || 0) + dt;
     if (L.roam && dt) {   // 0.98.16：第 3 級不漫遊（跟第 4 級拉開差別），第 5 級 1.8 倍速
         const B = _lhSp.bound;
@@ -1129,7 +1129,7 @@ function _lhSpFrame(t) {
             if (!bh) { b.x += ux * m * fb; b.y += uy * m * fb; }
         }
     }
-    let gv = 0; const fr = Math.exp(-dt * 3.2),   /* 0.98.16 Andy：甩太遠 → 摩擦 2.2→3.2（滑行距離約剩 7 成） */ damp = Math.exp(-dt * 0.53), K = 0.155, B = _lhSp.bound, drag = _lhSp.drag && _lhSp.drag.w;
+    let gv = 0; const fr = Math.exp(-dt * 3.2),   /* 0.98.16 Andy：甩太遠 → 摩擦 2.2→3.2（滑行距離約剩 7 成） */ damp = Math.exp(-dt * 0.53), K = 0.155, B = _lhSp.bound, drag = _lhSp.drag && _lhSp.drag.w, dg = _lhSp.drag;
     // 黑洞放大：游標附近 240px 內的詞依距離放大，最近的約 2.3 倍，放大縮小都是緩動
     const dock = L.dock, mk = 1 - Math.exp(-dt * 14), mouse = _lhSp.mouse, TAU = Math.PI * 2;
     // 整片星雲一起呼吸（第 1 級）：畫面縮放跟著輕輕放大縮小，6 秒一輪
@@ -1138,7 +1138,8 @@ function _lhSpFrame(t) {
     for (const cl of _lhSp.groups) cl.b = L.clBreath ? 1 + (cl.ba || 0.03) * Math.sin(T * TAU / cl.bp + cl.ph[0]) : 1;
     for (const w of _lhSp.words) {
         const still = w.hot || w.pinned || w === hw || (w.comet ? !L.comet : !L.orbit);   // hw：正在看全息標籤的那個（行星也停，0.98.18）   // 停在詞上、釘住、這一級不動的：定格
-        if (w === drag) { if (w.star && w.free) { w.cl.x = w.fx; w.cl.y = w.fy; } }   // 按著還沒拖動（free 還沒開）不動整團
+        // 0.98.18.2 Andy：觸控按住恆星／行星還沒拖、面板也還沒出來 → 照常動（面板出來才定格）；流星一碰就定格
+        if (w === drag && !(dg.touch && !dg.moved && !dg.held && !w.comet)) { if (w.star && w.free) { w.cl.x = w.fx; w.cl.y = w.fy; } }   // 按著還沒拖動（free 還沒開）不動整團
         else if (w.free) {
             if (w.comet || w.star) {   // 流星、恆星甩出去：照速度滑，摩擦慢慢停
                 w.fx += w.fvx * dt; w.fy += w.fvy * dt;
@@ -1763,7 +1764,7 @@ function _lhSpEvents(el) {
         const w = _lhSpHit(e.clientX, e.clientY);
         if (w) {
             const p = _lhSpToWorld(e.clientX, e.clientY), at = _lhSpPos(w);
-            const d = _lhSp.drag = { w, id: e.pointerId, sx: e.clientX, sy: e.clientY, gx: p.x - at.x, gy: p.y - at.y, moved: false, hist: [] };
+            const d = _lhSp.drag = { w, id: e.pointerId, sx: e.clientX, sy: e.clientY, gx: p.x - at.x, gy: p.y - at.y, moved: false, hist: [], touch: e.pointerType !== 'mouse' };
             // 觸控按住恆星 0.35 秒：浮出全息標籤（放手就收），這次放手不算點擊（不釘選）
             clearTimeout(_lhSp.holoTm);
             if (w.cl && e.pointerType !== 'mouse') _lhSp.holoTm = setTimeout(() => { if (_lhSp.drag === d && !d.moved) { d.held = true; _lhSpHolo(w); } }, w.star ? 350 : 875);   // 觸控按住：恆星 0.35 秒、行星 2.5 倍
