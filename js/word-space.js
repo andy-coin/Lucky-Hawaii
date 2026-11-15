@@ -318,7 +318,7 @@ function _lhSpBuild() {
     pr.setAttribute('aria-label', '第幾批詞');
     const prMark = () => { const n = +pr.max + 1, v = +pr.value; pr.style.setProperty('--a', (v / n * 100) + '%'); pr.style.setProperty('--b', ((v + 1) / n * 100) + '%'); };
     pr.addEventListener('input', prMark);
-    pr.addEventListener('change', () => { if (_lhSp.cfg && +pr.value !== (_lhSp.cfg.page || 0)) _lhSpShow(Object.assign({}, _lhSp.cfg, { page: +pr.value })); });
+    pr.addEventListener('change', () => { if (_lhSp.cfg && +pr.value !== (_lhSp.cfg.page || 0)) _lhSpWhip(+pr.value); });
     pages.append(pr, _lhWsEl('div', 'ws-page-ticks'));
     pages._mark = prMark;
     panel.append(title, posBox, lenBox, pages, legend, tools);
@@ -360,6 +360,23 @@ const _lhSpWidth = (w, s) => [...w].length * 16 * s + 22;
 // 軌道不是整齊的同心圓：每個詞各自的半徑、橢圓扁度、傾角、起始角度、速度都帶一點隨機。
 // 字的大小照常用度（詞庫的 p，取對數）在 0.8～2 倍之間（最大最小差 2.5 倍）
 // cfg.groupOf(e)→團的 key、cfg.headOf(key)→圖例大類、cfg.colorOf(key)→團色；沒給就用聲調組合（顯示全部）
+// 換一批的過場（0.98.09）：鏡頭一甩，舊的帶模糊甩出去、新的從另一邊甩進來（往後翻往左甩）；減少動態時直接換
+function _lhSpWhip(page) {
+    const cv = _lhSp.cv, cfg = _lhSp.cfg, d = page > (cfg.page || 0) ? -1 : 1;
+    const go = () => _lhSpShow(Object.assign({}, cfg, { page }));
+    if (_lhSpReduce.matches || !cv.animate) { go(); return; }
+    if (_lhSp.whip) _lhSp.whip.cancel();
+    const away = 'translateX(' + (d * 40) + '%) scale(0.92)', back = 'translateX(' + (-d * 40) + '%) scale(0.92)';
+    const out = cv.animate([{ transform: 'none', filter: 'blur(0)', opacity: 1 }, { transform: away, filter: 'blur(14px)', opacity: 0 }],
+        { duration: 240, easing: 'cubic-bezier(.55,0,.9,.45)', fill: 'forwards' });
+    _lhSp.whip = out;
+    out.onfinish = () => {
+        go();   // 同一個工作裡換內容、接著開始甩進來，中間不會露出空白的一格
+        out.cancel();
+        _lhSp.whip = cv.animate([{ transform: back, filter: 'blur(14px)', opacity: 0 }, { transform: 'none', filter: 'blur(0)', opacity: 1 }],
+            { duration: 420, easing: 'cubic-bezier(.15,.7,.3,1)' });
+    };
+}
 const _lhSpGroupKey = (e, cfg) => cfg.groupOf ? cfg.groupOf(e) : e.z.split(' ').map(s => getZhuyinTone(s)).join('·');
 // 分批（0.98.09）：一批約 500（±50）個詞，整個星系一起分、不拆開（星系本身超過 550 才切）。
 // 批數＝總數 / 500 四捨五入；星系由大到小，每次放進目前最少的那批（批與批的數量會很平均）。結果記在 cfg._pages
