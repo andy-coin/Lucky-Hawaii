@@ -368,7 +368,9 @@ function _lhSpPages(cfg) {
     const groups = new Map();
     for (const e of cfg.list) { const k = _lhSpGroupKey(e, cfg); if (!groups.has(k)) groups.set(k, []); groups.get(k).push(e); }
     const chunks = [];
-    for (const g of groups.values()) for (let i = 0, n = Math.ceil(g.length / LH_WS_SPACE_MAX); i < n; i++) chunks.push(g.slice(Math.floor(i * g.length / n), Math.floor((i + 1) * g.length / n)));
+    // 太大的星系要切開時「輪流發牌」（第 1 個詞給第 1 塊、第 2 個給第 2 塊…）：每塊都有常用到冷僻的詞，恆星才不會是個冷門小字
+    // （0.98.09 iPad 實測：原本照常用度一段段切，後面幾批的大星系只剩冷門詞，恆星比旁邊的小星系還小）
+    for (const g of groups.values()) { const n = Math.ceil(g.length / LH_WS_SPACE_MAX); for (let k = 0; k < n; k++) chunks.push(g.filter((_, i) => i % n === k)); }
     chunks.sort((a, b) => b.length - a.length);
     const bins = Array.from({ length: Math.max(1, Math.round(cfg.list.length / 500)) }, () => new Set());
     for (const c of chunks) { const b = bins.reduce((m, x) => x.size < m.size ? x : m); for (const e of c) b.add(e); }
