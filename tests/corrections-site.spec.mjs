@@ -69,6 +69,7 @@ test('修正層：抓不到、慢過 3 秒、形狀不對 → 只留一則警告
 // ── 字庫（rhymeDict）：修正層疊在 data/rhyme-dict-overrides.json 之上 ──
 const rdView = rd => ({ ...EMPTY_CORRECTIONS, rev: 1, rhymeDict: { removed: [], hidden: [], fixed: [], added: [], ...rd } });
 const cardCount = async (page, input, ch, key) => {
+    await page.evaluate(() => { document.getElementById('filterDuplicate').checked = false; });   // 0.98.10 起預設打勾；這裡要看破音字的每個讀音
     await page.fill('#searchInput', input);
     await settle(page);
     return page.locator(`.char-card[data-char="${ch}"][data-key="${key}"]`).count();

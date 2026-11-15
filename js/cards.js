@@ -89,16 +89,16 @@
                 }
             }
 
-            // 標記徽章（帶 dictKey 供直接修改字庫）
+            // 標記徽章：只顯示狀態（0.98.10：點徽章改屬性太容易誤觸，改成選字卡後按上面的常用／一般／冷僻）
             const dictKey = (item.zhuyin || '') + (item.tone || 0);
             let badgeHTML = '';
             const badgeAttr = `data-char="${item.char}" data-key="${dictKey}"`;
             if (mark === 'common') {
-                badgeHTML = `<span class="mark-badge common" ${badgeAttr} onclick="handleBadgeClick(event)">常用</span>`;
+                badgeHTML = `<span class="mark-badge common" ${badgeAttr}>常用</span>`;
             } else if (mark === 'rare') {
-                badgeHTML = `<span class="mark-badge rare" ${badgeAttr} onclick="handleBadgeClick(event)">冷僻</span>`;
+                badgeHTML = `<span class="mark-badge rare" ${badgeAttr}>冷僻</span>`;
             } else {
-                badgeHTML = `<span class="mark-badge normal" ${badgeAttr} onclick="handleBadgeClick(event)">一般</span>`;
+                badgeHTML = `<span class="mark-badge normal" ${badgeAttr}>一般</span>`;
             }
             
             return `
@@ -134,41 +134,6 @@
                     }, 500);
                 }
             }, REORDER_DELAY);
-        }
-
-        function handleBadgeClick(event) {
-            event.stopPropagation();
-            event.preventDefault();
-            const badge = event.target;
-            const char = badge.dataset.char;
-            const dictKey = badge.dataset.key;
-            if (!char || !dictKey) return;
-
-            const baseZhuyin = dictKey.slice(0, -1);
-            const snapKey = char + dictKey;
-
-            // 拍快照：記錄「改動前」的狀態（只在首次改動該字時記錄）
-            if (!pendingChanges.has(snapKey)) {
-                pendingChanges.set(snapKey, getCharMark(char, baseZhuyin));
-            }
-
-            // 執行狀態切換
-            cycleCharMark(char, dictKey);
-
-            // 取得切換後的新狀態
-            const newMark = getCharMark(char, baseZhuyin);
-
-            // 比對快照：新狀態 === 舊狀態 → 改回去了 → 消除快照
-            if (pendingChanges.get(snapKey) === newMark) {
-                pendingChanges.delete(snapKey);
-            }
-
-            // 更新徽章外觀
-            const tierLabels = { common: '常用', normal: '一般', rare: '冷僻' };
-            badge.className = `mark-badge ${newMark}`;
-            badge.textContent = tierLabels[newMark];
-
-            scheduleReorder();
         }
 
         // 切換選中狀態

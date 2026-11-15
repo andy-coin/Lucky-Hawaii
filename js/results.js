@@ -434,7 +434,6 @@
             // 點擊事件（使用事件委派）：必須在第一批字卡出現之前就綁好
             const resultsContainer = document.getElementById('resultsContainer');
             resultsContainer.onclick = function(e) {
-                if (e.target.classList.contains('mark-badge')) return;
                 const card = e.target.closest('.char-card');
                 if (card) {
                     const char = card.dataset.char;

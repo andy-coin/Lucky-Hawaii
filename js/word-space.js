@@ -301,7 +301,7 @@ function _lhSpBuild() {
         const b = _lhWsEl('button', 'ws-hud-btn', label);
         b.type = 'button';
         b.dataset.pos = k;
-        b.addEventListener('click', () => { _lhRel.pos = _lhRel.pos === k ? '' : k; _lhRelShow(); });
+        b.addEventListener('click', () => { _lhRel.pos = _lhRel.pos === k ? '' : k; _lhRelApply(); });
         posBox.append(b);
     }
     // 字數（可多選，都不選＝不限）：兩字、三字、四字以上
@@ -312,7 +312,7 @@ function _lhSpBuild() {
         const b = _lhWsEl('button', 'ws-hud-btn', label);
         b.type = 'button';
         b.dataset.len = k;
-        b.addEventListener('click', () => { const s = _lhRel.len; s.has(k) ? s.delete(k) : s.add(k); _lhRelShow(); });
+        b.addEventListener('click', () => { const s = _lhRel.len; s.has(k) ? s.delete(k) : s.add(k); _lhRelApply(); });
         lenBox.append(b);
     }
     // 分批（0.98.09）：數字滑桿，一格一批；目前這批在軌道上用重點色標出來
@@ -393,8 +393,11 @@ function _lhSpWarp(go) {
     o.width = Math.round(W * dpr); o.height = Math.round(H * dpr);
     el.insertBefore(o, cv.nextSibling);
     const x = o.getContext('2d'), cx = W / 2, cy = H / 2, maxR = Math.hypot(cx, cy);
-    const col = getComputedStyle(el).getPropertyValue('--text-primary').trim() || '#fff';
-    const stars = Array.from({ length: 220 }, () => ({ a: Math.random() * Math.PI * 2, d: 20 + Math.random() * maxR, w: 0.6 + Math.random() * 1.4 }));
+    // 0.98.10：光線顏色取畫面上看得到的詞（隨機抽，哪個色系佔得多，光線就多是那個色）；畫面空的才用文字色
+    const seen = _lhSp.words.filter(w => w.born && !w.dim && !w.off && w.rgb && (p => p.x > 0 && p.x < W && p.y > 0 && p.y < H)(_lhSpScr(w.px, w.py))).map(w => w.rgb);
+    const fallback = getComputedStyle(el).getPropertyValue('--text-primary').trim() || '#fff';
+    const pick = () => seen.length ? seen[Math.floor(Math.random() * seen.length)] : fallback;
+    const stars = Array.from({ length: 220 }, () => ({ a: Math.random() * Math.PI * 2, d: 20 + Math.random() * maxR, w: 0.6 + Math.random() * 1.4, c: pick() }));
     const T = 730, t0 = performance.now();   // 0.98.09：從 1100 縮短三分之一
     let swapped = false;
     cv.animate([{ transform: 'none', filter: 'blur(0)', opacity: 1 }, { transform: 'scale(2.4)', filter: 'blur(10px)', opacity: 0 }], { duration: T * 0.5, easing: 'cubic-bezier(.6,0,.9,.4)', fill: 'forwards' });
@@ -409,13 +412,13 @@ function _lhSpWarp(go) {
         }
         x.setTransform(dpr, 0, 0, dpr, 0, 0);
         x.clearRect(0, 0, W, H);
-        x.strokeStyle = col; x.lineCap = 'round';
+        x.lineCap = 'round';
         for (const s of stars) {
             s.d *= 1 + sp * 0.13;   // 越外面跑越快（透視）；時間短了，每格多衝一點
             if (s.d > maxR) { s.d = 10 + Math.random() * 60; s.a = Math.random() * Math.PI * 2; }
             const len = s.d * sp * 0.35, c = Math.cos(s.a), n = Math.sin(s.a);
             x.globalAlpha = Math.min(1, 0.25 + sp) * Math.min(1, s.d / 120);
-            x.lineWidth = s.w * (0.6 + sp);
+            x.lineWidth = s.w * (0.6 + sp); x.strokeStyle = s.c;
             x.beginPath(); x.moveTo(cx + c * (s.d - len), cy + n * (s.d - len)); x.lineTo(cx + c * s.d, cy + n * s.d); x.stroke();
         }
         if (u < 1) requestAnimationFrame(step);
@@ -435,9 +438,12 @@ function _lhSpPages(cfg) {
     const chunks = [];
     // 太大的星系要切開時「輪流發牌」（第 1 個詞給第 1 塊、第 2 個給第 2 塊…）：每塊都有常用到冷僻的詞，恆星才不會是個冷門小字
     // （0.98.09 iPad 實測：原本照常用度一段段切，後面幾批的大星系只剩冷門詞，恆星比旁邊的小星系還小）
-    for (const g of groups.values()) { const n = Math.ceil(g.length / LH_WS_SPACE_MAX); for (let k = 0; k < n; k++) chunks.push(g.filter((_, i) => i % n === k)); }
+    // 0.98.10：要分好幾批時，超過 150 個詞的星系平均拆到各批（最多拆成批數那麼多塊），每一批才會混到各種星系，
+    // 不會一整批都是同一個超大星系（例如「一」開頭的多字詞）；只有一批時照舊不拆
+    const B = Math.max(1, Math.round(cfg.list.length / 500));
+    for (const g of groups.values()) { const n = Math.max(Math.ceil(g.length / LH_WS_SPACE_MAX), Math.min(B, Math.ceil(g.length / 150))); for (let k = 0; k < n; k++) chunks.push(g.filter((_, i) => i % n === k)); }
     chunks.sort((a, b) => b.length - a.length);
-    const bins = Array.from({ length: Math.max(1, Math.round(cfg.list.length / 500)) }, () => new Set());
+    const bins = Array.from({ length: B }, () => new Set());
     for (const c of chunks) { const b = bins.reduce((m, x) => x.size < m.size ? x : m); for (const e of c) b.add(e); }
     return (cfg._pages = bins.filter(b => b.size).map(b => cfg.list.filter(e => b.has(e))));   // 每批裡照原本順序（常用的先）
 }
@@ -598,18 +604,53 @@ function lhWsRelOpen() {
     _lhRel.chars = chars;
     _lhRelShow();
 }
+// 關聯詞（0.98.10）：一律拿全部的詞，照「字 × 位置（字首／中間／字尾）× 字數（兩字／三字／多字）」拆成獨立星系；
+// 「字首／字尾」「兩字／三字／多字」只是把不符合的星系收起來（_lhRelApply），不重排。
+// 顏色：只選一個字＝每種位置×字數各一個色相；選了好幾個字＝字分基礎色系，位置調明暗、字數調色偏
+const LH_REL_POS = ['首', '中', '尾'], LH_REL_LEN = ['2', '3', 'm'];
+const LH_REL_POS_N = { 首: '字首', 中: '中間', 尾: '字尾' }, LH_REL_LEN_N = { 2: '兩字', 3: '三字', m: '多字' };
+const _lhRelCat = (e, set) => {
+    const cs = [...e.w], i = cs.findIndex(c => set.has(c));
+    return { c: cs[i], pos: i === 0 ? '首' : i === cs.length - 1 ? '尾' : '中', len: cs.length === 2 ? '2' : cs.length === 3 ? '3' : 'm' };
+};
+const _LH_REL_REL = CSS.supports('color', 'oklch(from red calc(l + 0.1) c calc(h + 10))');
+function _lhRelColor(chars, c, pos, len) {
+    const pi = LH_REL_POS.indexOf(pos), li = LH_REL_LEN.indexOf(len);
+    if (chars.length === 1) {   // 一個字：8 種星系各一個色相（從主題強調色轉，不支援相對色就用主題色混）
+        const k = pi * 3 + li;
+        return _LH_REL_REL ? 'oklch(from var(--highlight-border) l max(c, 0.12) calc(h + ' + Math.round(k * 360 / 9) + '))'
+            : LH_WS_TONE_C[k % 5];
+    }
+    const base = LH_WS_TONE_C[chars.indexOf(c) % 5];
+    return _LH_REL_REL ? 'oklch(from ' + base + ' calc(l + ' + [0.09, 0, -0.09][pi] + ') c calc(h + ' + [-14, 0, 14][li] + '))'
+        : 'color-mix(in oklab, ' + base + ' ' + [70, 100, 80][pi] + '%, var(' + (pi === 2 ? '--text-secondary' : '--text-primary') + '))';
+}
 function _lhRelShow() {
-    const { chars, pos, len } = _lhRel;
-    const list = _lhWsRelList(chars, pos, len);
-    if (!list.length) { showToast('詞庫裡沒有' + (pos === 'head' ? '以這些字開頭' : pos === 'tail' ? '以這些字結尾' : '含這些字') + (len.size ? '、這個字數' : '') + '的詞'); if (!_lhSp.el || _lhSp.el.hidden) return; }
+    const { chars } = _lhRel;
+    const list = _lhWsRelList(chars, '', new Set());
+    if (!list.length) { showToast('詞庫裡沒有含這些字的詞'); if (!_lhSp.el || _lhSp.el.hidden) return; }
     const set = new Set(chars);
-    const where = e => { const cs = [...e.w]; return pos === 'tail' ? cs[cs.length - 1] : pos === 'head' ? cs[0] : cs.find(c => set.has(c)); };
-    const groupOf = e => {
-        const cs = [...e.w], c = where(e), i = cs.indexOf(c);
-        return c + '|' + (pos ? cs.length + ' 字' : i === 0 ? '開頭' : i === cs.length - 1 ? '結尾' : '中間');
-    };
     _lhSpShow({ list, title: '「' + chars.join('') + '」關聯詞', rel: true, page: 0,
-        groupOf, headOf: key => key.split('|')[0], colorOf: key => LH_WS_TONE_C[chars.indexOf(key.split('|')[0]) % 5] });
+        catOf: e => _lhRelCat(e, set),
+        groupOf: e => { const k = _lhRelCat(e, set); return k.c + '|' + k.pos + '|' + k.len; },
+        headOf: key => key.split('|')[0],
+        colorOf: key => { const [c, pos, len] = key.split('|'); return _lhRelColor(chars, c, pos, len); } });
+}
+// 篩選：不符合的星系（和流星）收回中心淡出，符合的綻放回來；不重排
+function _lhRelApply(now) {
+    const { pos, len } = _lhRel, P = { head: '首', tail: '尾' }[pos];
+    const ok = k => k && (!P || k.pos === P) && (!len.size || len.has(k.len));
+    let n = 0;
+    for (const w of _lhSp.words) { w.off = !!w.cat && !ok(w.cat); if (now) w.vis = w.off ? 0 : 1; if (!w.off) n++; if (w.off && w.pinned) { w.pinned = false; _lhSpPin(w); } }
+    for (const [cl, b] of _lhSp.legBtns || []) b.hidden = !!cl.cat && !ok(cl.cat);
+    const el = _lhSp.el;
+    el.querySelectorAll('[data-pos]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.pos === pos)));
+    el.querySelectorAll('[data-len]').forEach(b => b.setAttribute('aria-pressed', String(len.has(b.dataset.len))));
+    el.querySelector('.ws-title').textContent = _lhSp.cfg.title + '· ' + n + (_lhSp.cfg.list.length > n ? ' / ' + _lhSp.cfg.list.length : '') + ' 個詞';
+    for (const cl of _lhSp.groups) cl.ver++;
+    _lhSp.dirty = true;
+    _lhSpClearSync();
+    if (!n && !now) showToast('這一批沒有符合的詞，換一批或取消篩選試試');
 }
 
 // 打開星雲（或已經開著時換內容）：cfg = { list, title, rel, groupOf, headOf, colorOf }
@@ -642,7 +683,8 @@ function _lhSpShow(cfg) {
     legend.replaceChildren();
     const heads = cfg.rel ? _lhRel.chars : [1, 2, 3, 4, 5];
     // 關聯詞的團固定順序：開頭 → 中間 → 結尾；選了字首／字尾時照字數
-    const relRank = k => { const s = k.split('|')[1] || ''; const i = ['開頭', '中間', '結尾'].indexOf(s); return i >= 0 ? i : parseInt(s, 10) || 99; };
+    const relRank = k => { const [, p, l] = k.split('|'); return LH_REL_POS.indexOf(p) * 3 + LH_REL_LEN.indexOf(l); };   // 字首→中間→字尾，各自兩字→三字→多字
+    _lhSp.legBtns = [];
     heads.forEach((h, hi) => {
         const cs = clusters.filter(cl => cl.t1 === h);
         if (cfg.rel) cs.sort((a, b) => relRank(a.key) - relRank(b.key));
@@ -656,20 +698,19 @@ function _lhSpShow(cfg) {
         sub.hidden = true;
         head.addEventListener('click', () => { sub.hidden = !sub.hidden; head.setAttribute('aria-expanded', String(!sub.hidden)); });
         sub.append(...cs.map(cl => {
-            const label = cfg.rel ? cl.key.split('|')[1] : cl.key.split('·').map(t => LH_WS_TONE_N[t - 1] ? LH_WS_TONE_N[t - 1][0] : t).join('·');
+            const label = cfg.rel ? LH_REL_POS_N[cl.key.split('|')[1]] + cl.key.split('|')[2].replace(/./, x => LH_REL_LEN_N[x]) : cl.key.split('·').map(t => LH_WS_TONE_N[t - 1] ? LH_WS_TONE_N[t - 1][0] : t).join('·');
             const b = _lhWsEl('button', 'ws-leg', label + '（' + cl.n + '）');
             b.type = 'button';
             b.style.setProperty('--c', cl.color);
             b.title = '移到這一團';
             b.addEventListener('click', () => _lhSpGoTo(cl));
+            _lhSp.legBtns.push([cl, b]);
             return b;
         }));
         legend.append(head, sub);
     });
     // 關聯詞才有的「字首／字尾」（最多選一個，都不選＝任意位置）和字數（可多選）
     for (const box of el.querySelectorAll('.ws-pos')) box.hidden = !cfg.rel;
-    el.querySelectorAll('[data-pos]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.pos === _lhRel.pos)));
-    el.querySelectorAll('[data-len]').forEach(b => b.setAttribute('aria-pressed', String(_lhRel.len.has(b.dataset.len))));
     el.querySelector('.ws-range').value = '0';
     el.querySelector('.ws-filter-cap').textContent = '常用度：不限';
     _lhSp.pins = [];
@@ -680,7 +721,9 @@ function _lhSpShow(cfg) {
     _lhSpTheme();
     _lhSp.words = words.map(it => Object.assign(it, {
         w: it.e.w, p: it.e.p || 0, rgb: _lhSpColor(it.color), phon: _lhWsPhon(it.e), spr: null, nspr: null, tw: _lhSpWidth(it.e.w, it.s) - 22, tH: 22 * it.s,
-        wob: Math.random() * 100, hot: false, pinned: false, kept: savedWords.includes(it.e.w), dim: false, free: false, fx: 0, fy: 0, fvx: 0, fvy: 0, sx: 0, sy: 0, born: 0, mag: 1, kb: 1, twk: 0 }));
+        cat: cfg.catOf ? cfg.catOf(it.e) : null, off: false, vis: 1, wob: Math.random() * 100, hot: false, pinned: false, kept: savedWords.includes(it.e.w), dim: false, free: false, fx: 0, fy: 0, fvx: 0, fvy: 0, sx: 0, sy: 0, born: 0, mag: 1, kb: 1, twk: 0 }));
+    for (const cl of clusters) { const w = _lhSp.words.find(x => x.cl === cl); cl.cat = w ? w.cat : null; }
+    if (cfg.rel) _lhRelApply(true);   // 篩選（字首／字尾、字數）換批也照樣套用
     // 分批浮現：一次一個星系（大的先），流星最後；字的小圖先在背景畫好，畫好的那一團才出現，不會有一幀卡很久
     _lhSp.queue = clusters.map(cl => _lhSp.words.filter(w => w.cl === cl));
     const cm = _lhSp.words.filter(w => w.comet);
@@ -894,7 +937,7 @@ function _lhSpHit(cx, cy) {
     // 黑洞放大會讓鄰居放大後蓋住游標下的詞：重疊時選中心離游標最近的那個（停住／釘住的優先）
     let best = null, bd = Infinity;
     for (const w of _lhSp.words) {
-        if (!w.born || w.dim || !inside(w)) continue;
+        if (!w.born || w.dim || w.off || !inside(w)) continue;
         const d = Math.hypot(p.x - w.px, p.y - w.py) - ((w.hot || w.pinned) ? 1e6 : 0);
         if (d < bd) { bd = d; best = w; }
     }
@@ -1028,14 +1071,17 @@ function _lhSpFrame(t) {
         }
         const p = _lhSpPos(w);
         // 浮現：從自己那團的中心散開到位置（0.9 秒緩出）
-        const k = w.born ? Math.min(1, (t - w.born) / 900) : 0, ease = 1 - Math.pow(1 - k, 3);
+        const k = w.born ? Math.min(1, (t - w.born) / 900) : 0;
         if (k < 1 && w.born) busy = true;
+        // 篩選掉的星系：收回中心並淡出（0.45 秒）；篩選取消時同一條路綻放回來
+        if (w.off ? w.vis > 0 : w.vis < 1) { w.vis = Math.max(0, Math.min(1, w.vis + (w.off ? -1 : 1) * dt / 0.45)); busy = true; }
+        const vv = 1 - Math.pow(1 - w.vis, 3), ease = (1 - Math.pow(1 - k, 3)) * vv;
         const ox = w.cl && !w.star ? w.cl.x : p.x, oy = w.cl && !w.star ? w.cl.y : p.y;
         w.ux = ox + (p.x - ox) * ease; w.uy = oy + (p.y - oy) * ease;   // 還沒乘上整團呼吸的位置（星系一張圖照這個畫）
         const b = w.cl && !w.comet ? w.cl.b : 1;
         w.px = w.cl && !w.comet ? w.cl.x + (w.ux - w.cl.x) * b : w.ux;
         w.py = w.cl && !w.comet ? w.cl.y + (w.uy - w.cl.y) * b : w.uy;
-        w.alpha = Math.min(1, k * 1.6);
+        w.alpha = Math.min(1, k * 1.6) * vv;
         // 保留的詞呼吸（第 1、2 級）：3 秒一輪輕輕放大縮小
         w.kb = L.keptBreathe && w.kept && !w.dim ? 1 + L.keptBreathe * Math.sin(t / 3000 * TAU + w.wob) : 1;
         // 隨機星星閃爍（第 4、5 級）：每秒大約 5 顆；越常用越容易被選到，但最多只多 15%；亮起來時跟著放大一點點
@@ -1122,8 +1168,9 @@ function _lhSpDraw(t, L) {
                 if (!sg.tw) continue;
                 const f = Math.sin((t - sg.tw) / 1200 * Math.PI), p = _lhSpScr(sg[0].px, sg[0].py), q = _lhSpScr(sg[1].px, sg[1].py);
                 c.beginPath(); c.moveTo(p.x, p.y); c.lineTo(q.x, q.y);
-                c.globalAlpha = 0.5 * f; c.lineWidth = 3; c.stroke();
-                c.globalAlpha = 0.2 * f; c.lineWidth = 12; c.stroke();
+                c.globalAlpha = 0.95 * f; c.lineWidth = 3.5; c.stroke();   // 0.98.10：亮暗落差加大
+                c.globalAlpha = 0.45 * f; c.lineWidth = 10; c.stroke();
+                c.globalAlpha = 0.18 * f; c.lineWidth = 22; c.stroke();
             }
         }
         c.restore();
@@ -1132,7 +1179,7 @@ function _lhSpDraw(t, L) {
     const asImg = new Set();
     if (L.img) {
         const live = new Set(), drag = _lhSp.drag && _lhSp.drag.w;
-        for (const w of _lhSp.words) if (w.cl && (!w.born || t - w.born < 900 || w.hot || w.free || w === drag || w.mag > 1.01)) live.add(w.cl);
+        for (const w of _lhSp.words) if (w.cl && (!w.born || t - w.born < 900 || w.hot || w.free || w === drag || w.mag > 1.01 || w.off || w.vis < 1)) live.add(w.cl);
         for (const cl of _lhSp.groups) {
             if (live.has(cl)) continue;
             const im = _lhSpClImg(cl);
@@ -1146,7 +1193,7 @@ function _lhSpDraw(t, L) {
     }
     const top = [], mags = [];
     for (const w of _lhSp.words) {
-        if (!w.born || !w.spr) continue;
+        if (!w.born || !w.spr || w.vis <= 0.01) continue;
         if (w.cl && asImg.has(w.cl) && w.cl.img.ws.has(w)) continue;   // 已經在星系圖裡
         const p = vis(w);
         if (!p) continue;
@@ -1287,7 +1334,7 @@ function _lhSpPin(w) {
     if (old.length <= 2) { for (const o of old) _lhSp.chords.push([w, o]); return; }
     const ang = (a, b) => Math.atan2(pt(b).y - pt(a).y, pt(b).x - pt(a).x);
     const tooClose = (a1, a2) => { let d = Math.abs(a1 - a2) % Math.PI; d = Math.min(d, Math.PI - d); return d < Math.PI / 90; };
-    const r = Math.random(), want = r < 0.5 ? 1 : r < 0.91 ? 2 : 3;   // 0.98.09：Andy 給 55/45/10（加起來 110），等比例換成 一條 50%、兩條 41%、三條 9%
+    const r = Math.random(), want = r < 0.55 ? 1 : r < 0.9 ? 2 : 3;   // 0.98.10：一條 55%、兩條 35%、三條 10%
     let pool = old.slice();
     for (let n = 0; n < want && pool.length; n++) {
         const wt = pool.map(o => 1 / Math.pow(dist(w, o), 2)), sum = wt.reduce((a, b) => a + b, 0);

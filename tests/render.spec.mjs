@@ -10,6 +10,9 @@ async function showAllRare(page) {
         const el = document.getElementById('hideRare');
         el.checked = false;
         el.dispatchEvent(new Event('change', { bubbles: true }));
+        const d = document.getElementById('filterDuplicate');   // 0.98.10 起預設打勾；這裡要看到破音字的每張卡
+        d.checked = false;
+        d.dispatchEvent(new Event('change', { bubbles: true }));
     });
 }
 

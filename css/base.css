@@ -1004,7 +1004,7 @@
             font-size: 0.9em;
         }
         
-        /* 常用/冷僻標記 - 可點擊區域 */
+        /* 常用／一般／冷僻標記：只顯示（0.98.10 起不能點，點了等於點字卡） */
         .mark-badge {
             display: inline-block;
             font-size: 0.75rem;
@@ -1012,19 +1012,12 @@
             border-radius: 0.25rem;
             margin-top: 0.25rem;
             font-weight: 400;
-            cursor: pointer;
-            transition: all 0.2s ease;
             user-select: none;
             min-width: 2rem;
             min-height: 1.125rem;
             line-height: 0.875rem;
         }
 
-        @media (hover: hover) and (pointer: fine) {
-            .mark-badge:hover {
-                background: var(--accent-soft);
-            }
-        }
         
         /* 常用／一般／冷僻：不靠顏色也分得出（淡底／細框／虛線框）；常用最多，所以最安靜 */
         .mark-badge.common {
@@ -1190,6 +1183,7 @@
 .sel-board { flex: 0 1 auto; min-width: 0; display: flex; flex-wrap: nowrap; align-items: center; gap: 0.75rem; padding-left: 1rem; overflow-x: auto; scrollbar-width: none; white-space: nowrap; font-family: var(--font-serif); font-size: 1.25rem; line-height: 1.75rem; height: 1.75rem; color: var(--text-primary); }
 .sel-board::-webkit-scrollbar { display: none; }
 .sel-board:empty { display: none; }
+.results-header.has-sel { margin-bottom: 0; padding-bottom: 1.25rem; }   /* 0.98.10：凍結區包含下面那段留白，字卡捲上去不會貼著數量列被切齊 */
 .results-header.has-sel { position: sticky; top: 0; z-index: 5; background-color: var(--container-bg); background-image: var(--tex-panel); background-attachment: fixed; }
 .results-header.has-sel::before { content: ''; position: absolute; left: 0; right: 0; bottom: 100%; height: 2rem; background: inherit; }   /* 往上多蓋一截同樣的底：捲動區的上內距裡不會露出字卡 */
 @media (max-width: 900px) {

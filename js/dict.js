@@ -221,15 +221,5 @@
             }
         }
 
-        // 循環切換：常用 → 一般 → 冷僻 → 常用
-        function cycleCharMark(char, dictKey) {
-            const baseZhuyin = dictKey.slice(0, -1);
-            const current = getCharMark(char, baseZhuyin);
-            let newTier;
-            if (current === 'common') newTier = 'normal';
-            else if (current === 'normal') newTier = 'rare';
-            else newTier = 'common';
-
-            moveCharTier(char, dictKey, newTier);
-        }
+        // （0.98.10 拿掉 cycleCharMark：徽章不能點了，改屬性只走 batchMark）
 

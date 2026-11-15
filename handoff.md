@@ -1,3 +1,11 @@
+## 2026-11-15 v0.98.10（已 push；全套 1252＋修正後重跑通過，只剩 rhyme-map-ui:280 舊失敗）
+- 關聯詞（js/word-space.js _lhRelShow／_lhRelApply）：一律拿全部的詞，照「字×位置（首/中/尾）×字數（2/3/多）」拆星系（key "字|首|2"）；字首／字尾、兩字三字多字＝_lhRelApply 把不符合的星系（含流星）收回中心淡出（w.off／w.vis 0.45 秒），不重排；換批也重套。顏色 _lhRelColor：一個字＝9 等分色相；多個字＝字分 LH_WS_TONE_C 色系，位置調 l ±0.09、字數調 h ±14（不支援相對色走 color-mix）。圖例按鈕 _lhSp.legBtns 跟著藏。
+- 分批 _lhSpPages：多批時 >150 詞的星系平均拆到各批（每批混到各種星系，不會一整批同一色）。
+- 星座 55/35/10；第 5 級連線閃爍三層（0.95／0.45／0.18）。星際穿越光線顏色＝隨機抽畫面上看得到的詞色。
+- 主畫面：常用／冷僻／取消 → 常用／一般／冷僻（batchMark('normal')）；字卡上的常用度徽章只顯示、不能點（拿掉 handleBadgeClick、cycleCharMark）。
+- 凍結的數量列 .results-header.has-sel 改 padding-bottom 1.25rem、margin 0：凍結區含下方留白，字卡不會貼著文字切齊（桌機／iPad／手機都看過）。
+- 測試：golden 只有 htmlSha1 變（徽章拿掉 onclick），已 UPDATE_GOLDEN；render.spec showAllRare 和 corrections-site cardCount 明確關掉「過濾破音字」（預設已打勾）。
+
 ## 2026-11-15 v0.98.09 追加（版本號不變）
 - 星雲（js/word-space.js）：星座 50/41/9（Andy 給 55/45/10 加起來 110，等比例換算）；LH_SP_RING 46→64；恆星光暈半徑＝星系半徑 cl.r 的 1/2、中心不透明度 13%；流星速度 3 倍（135–270）、轉彎速率同乘 3（看起來曲率仍是 0.98.08 的 1/2）、尾巴長＝0.8 秒路程；hover 不再設 w.hot（不定格、不畫膠囊），隱藏鈕跟著 _lhSp.hover；黑洞放大照字大小打折（恆星 0.2 倍，(2.2−s)/1.4）；第 4、5 級 starGlow（恆星後面放射漸層）；第 5 級拿掉 keptFlash、keptBreathe 0.025＋clBreath；第 3、4 級加 whole；keptBreathe 改成數值＝幅度。
 - 分批（_lhSpPages）：一批約 500±50、星系整團不拆（超過 550 的星系才切，切法是輪流發牌 i % n，每塊都有常用詞當恆星）；批數＝round(n/500)，星系由大到小放進最少的那批；‹宇宙 n/N› 改成 .ws-page-range 滑桿＋數字（目前那份用重點色，--a/--b）。
