@@ -470,14 +470,19 @@ function _lhSpLayout(list, cfg = {}) {
         const spiral = g.length > 25;   // 大星系排旋臂、小的維持同心圓（見上面 _lhSpGroupKey 前的說明）
         // 恆星照星系大小加成（0.98.09）：10 個詞以下不加，100 個 2 倍（中間照對數），之後每多 50 個詞再 +0.25 倍（連續，不跳階）；常用度和星系規模都看得出來
         const star = g[0], rings = [[]], starS = sizeOf(star) * (1 + Math.min(1, Math.max(0, Math.log10(g.length / 10))) + Math.max(0, g.length - 100) / 50 * 0.25);
-        let r = _lhSpWidth(star.w, starS) / 2 + LH_SP_RING * 0.9, used = 0;
+        // 恆星放大後（0.98.09）：靠近中心的幾圈也跟著大一點（第一圈分到恆星多出來的 35%，往外每圈減半），
+        // 第一圈離恆星遠一點（恆星每多 1 倍推開 0.8 圈），放大的幾圈之間也跟著加寬
+        const extra = starS / sizeOf(star) - 1, boost = k => 1 + extra * 0.35 * Math.pow(0.5, k), szOf = new Map();
+        let r = _lhSpWidth(star.w, starS) / 2 + LH_SP_RING * (0.9 + 0.8 * extra), used = 0;
         const radii = [r];
         for (const e of g.slice(1)) {
-            const wd = _lhSpWidth(e.w, sizeOf(e)) + 10;
+            const k = rings.length - 1, sz = sizeOf(e) * boost(k), wd = _lhSpWidth(e.w, sz) + 10;
             // 旋臂模式：詞擠在臂上，一圈只放 55% 才不會疊
-            if (used + wd > 2 * Math.PI * r * (spiral ? 0.55 : 1) && rings[rings.length - 1].length) { rings.push([]); r += LH_SP_RING; radii.push(r); used = 0; }
-            rings[rings.length - 1].push(e);
-            used += wd;
+            if (used + wd > 2 * Math.PI * r * (spiral ? 0.55 : 1) && rings[rings.length - 1].length) { rings.push([]); r += LH_SP_RING * boost(k); radii.push(r); used = 0; }
+            const kk = rings.length - 1, s2 = sizeOf(e) * boost(kk);
+            szOf.set(e, s2);
+            rings[kk].push(e);
+            used += _lhSpWidth(e.w, s2) + 10;
         }
         cl.r = r + LH_SP_RING * 1.1;
         words.push({ e: star, cl, star: true, color, s: starS, n: norm(star), r: 0, ecc: 1, tilt: 0, th: 0, om: 0 });
@@ -489,10 +494,10 @@ function _lhSpLayout(list, cfg = {}) {
             ring.forEach((e, j) => per[j % N].push(e));
             per.forEach((lst, a) => {
                 const ctr = cl.arm0 + a * TAU / N - cl.dir * cl.twist * Math.log(rk / radii[0]);
-                const ws = lst.map(e => (_lhSpWidth(e.w, sizeOf(e)) + 10) / rk);
+                const ws = lst.map(e => (_lhSpWidth(e.w, szOf.get(e)) + 10) / rk);
                 let ang = ctr - ws.reduce((t, x) => t + x, 0) / 2;
                 lst.forEach((e, i) => {
-                    words.push({ e, cl, color: tint(color, e), s: sizeOf(e), n: norm(e), r: rk + (JIT ? (R() - 0.5) * LH_SP_RING * 0.4 : 0),
+                    words.push({ e, cl, color: tint(color, e), s: szOf.get(e), n: norm(e), r: rk + (JIT ? (R() - 0.5) * LH_SP_RING * 0.4 : 0),
                         ecc: cl.ecc, tilt: cl.tilt, th: ang + ws[i] / 2, om, br: 3 + R() * 4 });
                     ang += ws[i];
                 });
@@ -503,7 +508,7 @@ function _lhSpLayout(list, cfg = {}) {
             const avgN = ring.reduce((t, e) => t + norm(e), 0) / ring.length;   // 0.98.09：大行星（常用、字大）慢、小行星快，照這圈詞的平均大小（同圈共用速度才不會互撞）
             const om = cl.dir * 0.16 / Math.sqrt(k + 1) * (0.9 + R() * 0.2) * (1.55 - 1.1 * avgN);
             const ecc = 0.82 + R() * 0.15, tilt = cl.tilt + (R() - 0.5) * 0.5;
-            ring.forEach((e, j) => words.push({ e, cl, color: tint(color, e), s: sizeOf(e), n: norm(e),
+            ring.forEach((e, j) => words.push({ e, cl, color: tint(color, e), s: szOf.get(e), n: norm(e),
                 // 水彩筆畫的圈（第 4、5 級）：同一圈每個詞離軌道多遠不一樣（±30% 間距），角度也不平均；速度相同，所以彼此距離不會變
                 r: radii[k] + (JIT ? (R() - 0.5) * LH_SP_RING * 0.6 : 0), ecc: ecc + (JIT ? (R() - 0.5) * 0.03 : 0), tilt: tilt + (JIT ? (R() - 0.5) * 0.08 : 0),
                 th: th0 + gap * j + (JIT ? (R() - 0.5) * gap * 0.35 : 0), om, br: 3 + R() * 4 }));
