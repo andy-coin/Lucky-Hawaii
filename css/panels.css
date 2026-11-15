@@ -3073,7 +3073,7 @@ body.lp-wide:not(.editor-open) .lp-tabs { display: flex; flex: 0 0 auto; padding
 
 /* ===== 0.98.06：星雲打開慢一點（面板收走 1.2 秒，這段時間背景先畫字的小圖）；字數篩選、平行宇宙翻頁 ===== */
 body.ws-anim.ws-in :is(#leftPanel, #rightPanel, #mainContainer, #mobileTabBar) { transition-duration: 1.2s; }
-.ws-len .ws-hud-btn { font-size: 0.75rem; }
+.ws-len .ws-hud-btn { font-size: 0.75rem; padding: 0 0.25rem; white-space: nowrap; }   /* 兩字／三字／多字：不換行 */
 .ws-pages { display: flex; flex-direction: column; gap: 0.125rem; }
 .ws-pages[hidden] { display: none; }
 /* 分批滑桿（0.98.09）：軌道切成幾等份，目前這一份用重點色 */
