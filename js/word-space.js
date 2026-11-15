@@ -1468,13 +1468,23 @@ function _lhSpHolo(w) {
     _lhSp.holo = w ? { w, t0: performance.now() } : null;
     _lhSp.dirty = true;
 }
+// 全息標籤的分類，一段一段（0.98.14.1 Andy：先注音、再字首、最後幾個字，中間分隔開）
+function _lhSpClParts(cl, cfg = _lhSp.cfg) {
+    const k = cl.key.split('|');
+    if (!(cfg && cfg.rel)) return [_lhSpClLabel(cl, cfg)];
+    return [k[3], LH_REL_POS_N[k[1]], LH_REL_LEN_N[k[2]], k[4] ? '第' + k[4] + '字' : ''].filter(Boolean);
+}
 function _lhSpHoloDraw(c, t, z) {
     const h = _lhSp.holo, w = h && h.w;
     if (!w || !w.cl || !w.born || w.off || !_lhSp.words.includes(w)) return;
-    const p = _lhSpScr(w.px, w.py), k = Math.min(1, (t - h.t0) / 260), e = 1 - Math.pow(1 - k, 3);
-    if (k < 1) _lhSp.dirty = true;
+    // 時間軸（毫秒）：折線 0–520 長出來 → 框 520–760 淡入 → 分類一段一段（每段隔 300、淡入 220）→ 最後詞數
+    const parts = _lhSpClParts(w.cl), age = t - h.t0, LINE = 520, BOX = 240, STEP = 300, FADE = 220;
+    const tCount = LINE + BOX + parts.length * STEP, k = Math.min(1, age / LINE), e = 1 - Math.pow(1 - k, 3);
+    const fade = t0 => Math.max(0, Math.min(1, (age - t0) / FADE));
+    if (age < tCount + FADE) _lhSp.dirty = true;
+    const p = _lhSpScr(w.px, w.py);
     const r = Math.max(14, (w.tw || 40) * z * (w.mag || 1) / 2 + 6), W = _lhSp.W;
-    const t1 = _lhSpClLabel(w.cl), t2 = w.cl.n + ' 個詞';
+    const SEP = '  ·  ', t1 = parts.join(SEP), t2 = w.cl.n + ' 個詞';
     c.save();
     c.font = '600 13px ' + _lhSp.font; const w1 = c.measureText(t1).width;
     c.font = '12px ' + _lhSp.font; const w2 = c.measureText(t2).width;
@@ -1484,14 +1494,14 @@ function _lhSpHoloDraw(c, t, z) {
     const bx = ax + dir * 30, by = Math.max(bh / 2 + 8, ay - 40), ex = bx + dir * 26;
     c.strokeStyle = w.rgb; c.fillStyle = w.rgb; c.lineWidth = 1.2; c.shadowColor = w.rgb; c.shadowBlur = 6;
     // 折線一段段長出來：斜線 → 橫線
-    const seg1 = Math.min(1, e * 2), seg2 = Math.max(0, e * 2 - 1);
+    const seg1 = Math.min(1, e * 2), seg2 = Math.max(0, e * 2 - 1), boxA = Math.max(0, Math.min(1, (age - LINE) / BOX));
     c.globalAlpha = 0.9;
     c.beginPath(); c.arc(ax, ay, 2.2, 0, Math.PI * 2); c.fill();
     c.beginPath(); c.moveTo(ax, ay); c.lineTo(ax + (bx - ax) * seg1, ay + (by - ay) * seg1);
     if (seg2) c.lineTo(bx + (ex - bx) * seg2, by);
     c.stroke();
-    if (seg2 > 0) {
-        const x0 = dir > 0 ? ex : ex - bw, y0 = by - bh / 2;
+    if (boxA > 0) {
+        const seg2 = boxA, x0 = dir > 0 ? ex : ex - bw, y0 = by - bh / 2;
         c.globalAlpha = seg2;
         c.shadowBlur = 14;
         c.fillStyle = _lhSp.cCard; c.globalAlpha = seg2 * 0.86;
@@ -1506,8 +1516,15 @@ function _lhSpHoloDraw(c, t, z) {
         for (let y = y0 + 3; y < y0 + bh; y += 3) c.fillRect(x0 + 1, y, bw - 2, 1);
         c.globalAlpha = seg2;
         c.textBaseline = 'middle'; c.textAlign = 'left';
-        c.fillStyle = w.rgb; c.font = '600 13px ' + _lhSp.font; c.fillText(t1, x0 + 10, y0 + 15);
-        c.fillStyle = _lhSp.cMute; c.font = '12px ' + _lhSp.font; c.fillText(t2, x0 + 10, y0 + 31);
+        // 分類一段一段浮現，段與段之間用淡色的「·」隔開
+        let x = x0 + 10;
+        parts.forEach((pt, i) => {
+            const a = fade(LINE + BOX + i * STEP);
+            c.font = '600 13px ' + _lhSp.font;
+            if (i) { c.globalAlpha = a * 0.6; c.fillStyle = _lhSp.cMute; c.fillText(SEP, x, y0 + 15); x += c.measureText(SEP).width; }
+            c.globalAlpha = a; c.fillStyle = w.rgb; c.fillText(pt, x, y0 + 15); x += c.measureText(pt).width;
+        });
+        c.globalAlpha = fade(tCount); c.fillStyle = _lhSp.cMute; c.font = '12px ' + _lhSp.font; c.fillText(t2, x0 + 10, y0 + 31);
     }
     c.restore();
 }

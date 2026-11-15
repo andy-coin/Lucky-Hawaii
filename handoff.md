@@ -1,3 +1,6 @@
+## 0.98.14.1（?v 破快取，LH_APP_VERSION 仍 0.98.14；已 push）
+- 全息標籤分段慢慢浮現（js/word-space.js _lhSpClParts／_lhSpHoloDraw）：折線 0.52 秒 → 框 0.24 秒 → 注音 → 字首／中間／字尾 → 幾字 → 第N字（每段隔 0.3 秒、淡入 0.22 秒），段落之間淡色「·」隔開；最後才出「N 個詞」。例「ㄅㄨˋ · 中間 · 四字 · 第3字」。圖例標籤沒改。
+
 ## 0.98.14（2026-11-15 已 push，待 Andy 實機驗）
 - 版號 0.98.14（index.html 44 個 ?v、js/safety.js、README、.claude/CLAUDE.md）；內容含 0.98.13.1／.2 的細拆星系、四字、手機面板。
 - 手機特效警告（js/search-ui.js prefsFxRange 的 change）：短邊 < 600 且觸控，從 3 級以下放手停在 4／5 級 → lhAsk「手機開「精緻／浮誇」特效？」；按「改回預設」退回 3 級。
