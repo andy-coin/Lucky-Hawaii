@@ -1136,7 +1136,7 @@ function _lhSpFrame(t) {
         // 只是位置多一道內插，畫的東西不變，不吃效能
         let bx = p.x, by = p.y, ease = (1 - Math.pow(1 - k, 3)) * vv;
         if (L.gather && w.born && !w.comet && !w.star) {   // 恆星不亂撒：在自己的位置由透明慢慢浮現（光暈跟著 w.alpha）
-            if (w.gx0 === undefined) { const B = _lhSp.bound || 1000; w.gx0 = (Math.random() * 2 - 1) * B; w.gy0 = (Math.random() * 2 - 1) * B; w.gd = 1600 + Math.random() * 1000; }
+            if (w.gx0 === undefined) { const B = _lhSp.bound || 1000; w.gx0 = (Math.random() * 2 - 1) * B; w.gy0 = (Math.random() * 2 - 1) * B; w.gd = 3200 + Math.random() * 2000; }   // 0.98.14.12：凝聚放慢一倍（3.2–5.2 秒）
             const kg = Math.min(1, (t - w.born) / w.gd);
             if (kg < 1) {
                 const eg = kg < 0.5 ? 4 * kg * kg * kg : 1 - Math.pow(-2 * kg + 2, 3) / 2;   // 慢起、加速、慢慢停（像被引力拉回來）
@@ -1270,6 +1270,23 @@ function _lhSpDraw(t, L) {
             c.drawImage(im.c, x, y, wd, ht);
         }
     }
+    // 看全息標籤的恆星大幅提亮（0.98.14.6／.12）：放射光暈＋彩色發光描好幾層＋疊加提亮，0.3 秒亮起來。
+    // 一般、黑洞放大中（滑鼠停住時恆星會被放大，走 mags）、停住／釘住（top）三條路都要呼叫
+    const starHi = (w, p, m, a) => {
+        if (!_lhSp.holo || _lhSp.holo.w !== w || w.dim) return;
+        const k = Math.min(1, (t - _lhSp.holo.t0) / 300);
+        if (k < 1) _lhSp.dirty = true;
+        const R = Math.max(80, w.tw * z * m) * 2;
+        const g = c.createRadialGradient(p.x, p.y, 0, p.x, p.y, R);
+        g.addColorStop(0, _lhSpRGBA(w.rgb, 0.85 * k)); g.addColorStop(0.35, _lhSpRGBA(w.rgb, 0.45 * k)); g.addColorStop(0.7, _lhSpRGBA(w.rgb, 0.12 * k)); g.addColorStop(1, _lhSpRGBA(w.rgb, 0));
+        c.fillStyle = g; c.globalAlpha = 1; c.fillRect(p.x - R, p.y - R, R * 2, R * 2);
+        // 深淺主題都看得出來：一般疊法描兩次彩色光暈（「疊加發光」在淺色背景上反而變淡），深色主題再用疊加提亮
+        const sb = 48 * Math.max(0.6, Math.min(2, z * m * w.s));
+        c.save(); c.shadowColor = w.rgb; c.globalAlpha = k;
+        c.shadowBlur = sb; blit(w, p, m); blit(w, p, m); c.shadowBlur = sb * 0.4; blit(w, p, m); c.shadowBlur = sb * 0.15; blit(w, p, m);
+        c.shadowBlur = 0; c.globalCompositeOperation = 'lighter'; c.globalAlpha = 0.6 * k; blit(w, p, m); c.restore();
+        c.globalAlpha = a;
+        };
     const top = [], mags = [];
     for (const w of _lhSp.words) {
         if (!w.born || !w.spr || w.vis <= 0.01) continue;
@@ -1301,20 +1318,7 @@ function _lhSpDraw(t, L) {
         const m = (w.kb || 1) * (1 + 0.1 * tw);
         c.globalAlpha = a;
         blit(w, p, m);
-        if (_lhSp.holo && _lhSp.holo.w === w) {   // 0.98.14.6：看全息標籤的恆星大幅提亮（光暈＋發光疊加），0.3 秒亮起來
-            const k = Math.min(1, (t - _lhSp.holo.t0) / 300);
-            if (k < 1) _lhSp.dirty = true;
-            const R = Math.max(50, w.tw * z * m) * 1.3;
-            const g = c.createRadialGradient(p.x, p.y, 0, p.x, p.y, R);
-            g.addColorStop(0, _lhSpRGBA(w.rgb, 0.6 * k)); g.addColorStop(0.45, _lhSpRGBA(w.rgb, 0.25 * k)); g.addColorStop(1, _lhSpRGBA(w.rgb, 0));
-            c.fillStyle = g; c.globalAlpha = 1; c.fillRect(p.x - R, p.y - R, R * 2, R * 2);
-            // 深淺主題都看得出來：一般疊法描兩次彩色光暈（「疊加發光」在淺色背景上反而變淡），深色主題再用疊加提亮
-            const sb = 26 * Math.max(0.6, Math.min(2, z * m * w.s));
-            c.save(); c.shadowColor = w.rgb; c.globalAlpha = k;
-            c.shadowBlur = sb; blit(w, p, m); c.shadowBlur = sb * 0.4; blit(w, p, m);
-            c.shadowBlur = 0; c.globalCompositeOperation = 'lighter'; c.globalAlpha = 0.35 * k; blit(w, p, m); c.restore();
-            c.globalAlpha = a;
-        }
+        starHi(w, p, m, a);
         if ((w.comet && L.cometGlow || tw) && !w.dim) {   // 流星加亮、星星閃爍：同一張小圖用發光疊加再貼一次
             c.save(); c.globalCompositeOperation = 'lighter'; c.globalAlpha = a * (tw ? tw : 0.55); blit(w, p, m); if (tw) { c.globalAlpha = a * 0.7 * tw; blit(w, p, m); } c.restore();   // 星星閃爍疊兩次，比較亮
         }
@@ -1325,6 +1329,7 @@ function _lhSpDraw(t, L) {
         const m = w.mag * (w.kb || 1);
         c.globalAlpha = w.alpha * (w.dim ? 0.06 : 1);
         blit(w, p, m);
+        starHi(w, p, m, c.globalAlpha);
         if (w.kept && !w.dim) _lhSpKept(c, w, p, 1, t, L, pill, blit, m);
     }
     c.globalAlpha = 1;
@@ -1348,6 +1353,7 @@ function _lhSpDraw(t, L) {
             c.fillText(w.w, p.x, p.y);
             c.restore();
         } else blit(w, p, m);
+        starHi(w, p, m, 1);
     }
     _lhSpHoloDraw(c, t, z);
     _lhSpActsPlace();
