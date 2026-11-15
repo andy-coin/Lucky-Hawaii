@@ -9,28 +9,37 @@ const LH_TOUR_KEY = 'lh:tourSeen';
 // place：'left'＝說明框放在目標左邊、靠上半段（目標是整個高高的面板時，不要壓在右下角）
 const LH_TOUR_STEPS = [
     { sel: '.search-box', panel: null, title: '從一個字開始',
-      body: '輸入一個字或注音／拼音（例如「安」「ㄢ」「an」），列出所有同韻的字。字中間加空白（「安 打」）就是每個字各查各的。' },
+      body: '輸入一個字或注音／拼音（例如「安」「ㄢ」「an」），列出所有同韻的字。字中間加空白（「洋 流」）就是每個字各查各的。' },
     { sel: '#resultsContainer', panel: null, title: '同韻字卡',
-      body: '一個字或用空白分開的幾個字（「安 打」），會列出每個字的同韻字卡，常用的排前面。點字卡會選字：AI 建議只找含這些字的詞，也能按「關聯詞彙」看含這些字的詞；按住字卡可以直接拖進歌詞。連在一起打（「安打」）則是查整個詞，列出的是詞卡（見下一步）。' },
+      body: '一個字或用空白分開的幾個字（「洋 流」），會列出每個字的同韻字卡，常用的排前面。點字卡會選字：AI 建議只找含這些字的詞，也能按「關聯詞彙」看含這些字的詞；按住字卡可以直接拖進歌詞。連在一起打（「洋流」）則是查整個詞，列出的是詞卡（見下一步）。' },
     { sel: '.search-box', panel: null, title: '一次找雙押、多押',
-      body: '直接打整個詞（例如「安打」），會列出每個字都押韻的詞，可以只看同聲調、排除借韻。按「顯示全部」，所有押韻詞會像星雲一樣攤開在整個畫面上：點一下詞就保留，拖曳可以搬動，滾輪縮放；詞太多時用左上的滑桿換一批。' },
+      body: '直接打整個詞（例如「洋流」），會列出每個字都押韻的詞，可以只看同聲調、排除借韻。按「顯示全部」，所有押韻詞會像星雲一樣攤開在整個畫面上：點一下詞就保留，拖曳可以搬動，滾輪縮放；詞太多時用上方的滑桿換一批。',
+      bodyTouch: '直接打整個詞（例如「洋流」），會列出每個字都押韻的詞，可以只看同聲調、排除借韻。按「顯示全部」，所有押韻詞會像星雲一樣攤開在整個畫面上：點一下詞就保留，拖曳可以搬動，兩指縮放；詞太多時用上方的滑桿換一批。' },
     { sel: '#leftPanel .lyrics-head', panel: 'left', title: '歌曲與匯出',
       body: '這裡切換、新增歌曲，也能匯出。按「展開」打開完整歌詞編輯器，空間更大。' },
     { sel: '#contextSection', panel: 'left', title: '標籤與情境',
       body: '先替這首歌定方向：加幾個標籤、寫一兩句情境。按小燈泡讓 AI 從歌詞整理；這些都會當作 AI 建議的參考。' },
     { sel: '#lyricsSections', panel: 'left', title: '分段寫歌詞',
-      body: 'Verse、Chorus 一段一段寫，抓著標題列拖曳換順序、右鍵複製或刪除。反白幾個字會浮出選字列：查韻、問 AI、指定角色都在那裡。' },
+      body: 'Verse、Chorus 一段一段寫，抓著標題列拖曳換順序、右鍵複製或刪除。反白幾個字會浮出選字列：查韻、問 AI、指定角色都在那裡。',
+      bodyTouch: 'Verse、Chorus 一段一段寫，抓著標題列拖曳換順序、長按段落名稱可以複製或刪除。反白幾個字會浮出選字列：查韻、問 AI、指定角色都在那裡。' },
     { sel: '#rhymeMenuBtn', panel: 'left', title: '韻腳地圖與角色',
       body: '把押韻的句尾上色，一眼看出哪幾句押在一起；「角色」替對唱、音樂劇的字換上不同顏色。' },
     { sel: '#editorOpenBtn', panel: 'left', title: '完整編輯器與排版',
       body: '展開後有「吸附」與「自由」兩種排版。吸附：拖到另一塊中間是互換、拖到邊緣是並排；自由：想放哪就放哪，還能縮放。' },
     { sel: '#rightPanel .side-panel-body', panel: 'right', place: 'left', title: 'AI 建議詞語',
       body: '查完韻腳按「提供詞語建議」。最上面那列會告訴你 AI 這次參考了哪些標籤、情境與歌詞；點詞就保留到下面的「保留」。' },
-    { sel: '#mainContainer > .header', panel: null, title: '自己排版面',
+    { sel: '#mainContainer > .header', panel: null, title: '自己排版面', mouse: true,   // 平板、手機沒有這個功能，導覽跳過
       body: '寬螢幕上抓著三塊的標題列拖曳：放到別塊中間是對調，放到邊緣是分割畫面。三塊並排時，左右兩塊旁邊的小三角形可以收合。' },
     { sel: '#settingsTrigger', panel: null, title: '偏好設定',
-      body: '讀音顯示、自訂詞彙、主題顏色、背景動畫與特效（電腦比較慢就調低）、韻腳地圖、AI 服務商與自己的金鑰、備份都在這裡。按鈕停一下會浮出說明；想再看一次導覽，按標題列的「?」。' },
+      body: '讀音顯示、自訂詞彙、主題顏色、背景動畫與特效（電腦比較慢就調低）、韻腳地圖、AI 服務商與自己的金鑰、備份都在這裡。按鈕停一下會浮出說明；想再看一次導覽，按標題列的「?」。',
+      bodyTouch: '讀音顯示、自訂詞彙、主題顏色、背景動畫與特效（裝置比較慢就調低）、韻腳地圖、AI 服務商與自己的金鑰、備份都在這裡。想再看一次導覽，按標題列的「?」。' },
 ];
+
+// 電腦（滑鼠、不是底部 sheet 版面）走完整的步驟；平板、手機跳過 mouse: true 的步驟，說明有 bodyTouch 就用觸控版（0.98.12 Andy）
+function lhTourSteps() {
+    const desk = matchMedia('(hover: hover) and (pointer: fine)').matches && !lhIsSheetMode();
+    return LH_TOUR_STEPS.filter(s => desk || !s.mouse).map(s => desk || !s.bodyTouch ? s : { ...s, body: s.bodyTouch });
+}
 
 let _lhTour = null;   // 進行中：{ i, root, spot, card, raf, restore, back }
 
@@ -42,6 +51,7 @@ function lhTourStart(at = 0) {
     const lp = document.getElementById('leftPanel'), rp = document.getElementById('rightPanel');
     _lhTour = {
         i: -1,
+        steps: lhTourSteps(),
         back: document.activeElement,
         restore: { left: lp && lp.classList.contains('collapsed'), right: rp && rp.classList.contains('collapsed') },
     };
@@ -65,14 +75,14 @@ function lhTourStart(at = 0) {
         + '<button type="button" class="tour-btn tour-skip">略過</button>'
         + '<button type="button" class="tour-btn tour-prev">上一步</button>'
         + '<button type="button" class="tour-btn tour-next primary">下一步</button></div>';
-    card.querySelector('.tour-dots').append(...LH_TOUR_STEPS.map(() => document.createElement('span')));
+    card.querySelector('.tour-dots').append(..._lhTour.steps.map(() => document.createElement('span')));
     root.append(spot, card);
     document.body.appendChild(root);
     Object.assign(_lhTour, { root, spot, card });
     card.querySelector('.tour-skip').addEventListener('click', () => lhTourEnd());
     card.querySelector('.tour-prev').addEventListener('click', () => _lhTourGo(_lhTour.i - 1));
     card.querySelector('.tour-next').addEventListener('click', () => {
-        if (_lhTour.i >= LH_TOUR_STEPS.length - 1) lhTourEnd();
+        if (_lhTour.i >= _lhTour.steps.length - 1) lhTourEnd();
         else _lhTourGo(_lhTour.i + 1);
     });
     // 點暗處不做事（不小心點到不會跳掉）；鍵盤：Esc 關、← → 換步、Tab 留在說明框裡
@@ -85,7 +95,7 @@ function lhTourStart(at = 0) {
 function _lhTourKey(e) {
     if (!_lhTour) return;
     if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); lhTourEnd(); return; }
-    if (e.key === 'ArrowRight' && _lhTour.i < LH_TOUR_STEPS.length - 1) { e.preventDefault(); _lhTourGo(_lhTour.i + 1); return; }
+    if (e.key === 'ArrowRight' && _lhTour.i < _lhTour.steps.length - 1) { e.preventDefault(); _lhTourGo(_lhTour.i + 1); return; }
     if (e.key === 'ArrowLeft' && _lhTour.i > 0) { e.preventDefault(); _lhTourGo(_lhTour.i - 1); return; }
     if (e.key === 'Tab') {
         const f = [..._lhTour.card.querySelectorAll('button:not([hidden])')];
@@ -111,18 +121,18 @@ function _lhTourPanel(want) {
 
 function _lhTourGo(i) {
     if (!_lhTour) return;
-    i = Math.max(0, Math.min(LH_TOUR_STEPS.length - 1, i));
+    i = Math.max(0, Math.min(_lhTour.steps.length - 1, i));
     _lhTour.i = i;
-    const step = LH_TOUR_STEPS[i];
+    const step = _lhTour.steps[i];
     _lhTourPanel(step.panel);
     const { card } = _lhTour;
-    card.querySelector('#lhTourCount').textContent = `${i + 1} / ${LH_TOUR_STEPS.length}`;
+    card.querySelector('#lhTourCount').textContent = `${i + 1} / ${_lhTour.steps.length}`;
     card.querySelector('#lhTourTitle').textContent = step.title;
     card.querySelector('#lhTourBody').textContent = step.body;
     card.querySelectorAll('.tour-dots span').forEach((d, k) => d.classList.toggle('on', k === i));
     card.querySelector('.tour-prev').hidden = i === 0;
-    card.querySelector('.tour-skip').hidden = i === LH_TOUR_STEPS.length - 1;
-    card.querySelector('.tour-next').textContent = i === LH_TOUR_STEPS.length - 1 ? '開始使用' : '下一步';
+    card.querySelector('.tour-skip').hidden = i === _lhTour.steps.length - 1;
+    card.querySelector('.tour-next').textContent = i === _lhTour.steps.length - 1 ? '開始使用' : '下一步';
     // 目標在畫面外（手機、捲動區裡）先捲過去；面板滑進來的動畫期間由 rAF 迴圈一路跟著
     const t = document.querySelector(step.sel);
     if (t) {
@@ -130,13 +140,13 @@ function _lhTourGo(i) {
         if (r.top < 0 || r.bottom > innerHeight) t.scrollIntoView({ block: r.height > innerHeight * 0.6 ? 'start' : 'center' });
     }
     card.querySelector('.tour-next').focus({ preventScroll: true });
-    if (typeof lhAnnounce === 'function') lhAnnounce(`導覽第 ${i + 1} 步，共 ${LH_TOUR_STEPS.length} 步：${step.title}`);
+    if (typeof lhAnnounce === 'function') lhAnnounce(`導覽第 ${i + 1} 步，共 ${_lhTour.steps.length} 步：${step.title}`);
 }
 
 // 依目標的位置擺亮框與說明框：說明框放在目標下方，放不下就上方，再不行就貼畫面底；一律夾在畫面內
 function _lhTourPlace() {
     const { spot, card, i } = _lhTour;
-    const t = document.querySelector(LH_TOUR_STEPS[i].sel);
+    const t = document.querySelector(_lhTour.steps[i].sel);
     const vw = document.documentElement.clientWidth, vh = innerHeight, m = 12, pad = 6;
     let r = t ? t.getBoundingClientRect() : null;
     if (!r || (r.width === 0 && r.height === 0)) r = { left: vw / 2, top: vh / 2, right: vw / 2, bottom: vh / 2, width: 0, height: 0 };
@@ -148,7 +158,7 @@ function _lhTourPlace() {
 
     const cw = card.offsetWidth, ch = card.offsetHeight;
     let top, side;
-    if (LH_TOUR_STEPS[i].place === 'left' && s.l - m - cw >= m) {
+    if (_lhTour.steps[i].place === 'left' && s.l - m - cw >= m) {
         // 放在目標左邊、目標上緣往下約 1/4 處（AI 建議面板：不壓在右下角）
         const left = s.l - m - cw, tp = Math.max(m, Math.min(vh - m - ch, s.t + (s.b - s.t) * 0.25));
         card.style.transform = `translate(${Math.round(left)}px, ${Math.round(tp)}px)`;

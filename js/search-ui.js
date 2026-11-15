@@ -175,6 +175,7 @@
             const overlay = document.getElementById('aboutOverlay');
             overlay.classList.toggle('show');
             // 每次打開都重讀：換包之後看到的永遠是目前這一包的來源說明
+            document.getElementById('aboutVer').textContent = LH_APP_VERSION;   // 版本號只寫在 js/safety.js 一個地方（0.98.12：原本 index.html 寫死，升版常漏）
             if (overlay.classList.contains('show')) renderAboutPackNotice();
         }
 

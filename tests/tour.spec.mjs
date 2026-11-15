@@ -42,7 +42,7 @@ test('導覽：桌機逐步走完，亮框對準目標、說明框在畫面內�
     for (let i = 0; i < STEPS; i++) {
         await page.waitForTimeout(450);   // 面板滑入與亮框過渡
         await expect(page.locator('#lhTourCount')).toHaveText(`${i + 1} / ${STEPS}`);
-        const sel = await page.evaluate(k => LH_TOUR_STEPS[k].sel, i);
+        const sel = await page.evaluate(k => _lhTour.steps[k].sel, i);
         const t = await page.locator(sel).first().boundingBox();
         const s = await page.locator('.tour-spot').boundingBox();
         // 亮框包住目標看得到的部分（容許 8px 內距與畫面夾住）
@@ -73,9 +73,12 @@ test('導覽：手機每一步目標可見、說明框不超出畫面，結束�
     const { context, page, errors } = await bootPage(browser, { wordlist: 'stub', device });
     await page.evaluate(() => lhTourStart());
     const vp = page.viewportSize();
-    for (let i = 0; i < STEPS; i++) {
+    // 手機沒有「自己排版面」：少一步（0.98.12）
+    await expect(page.locator('#lhTourCount')).toHaveText('1 / ' + (STEPS - 1));
+    expect(await page.evaluate(() => _lhTour.steps.some(s => s.mouse))).toBe(false);
+    for (let i = 0; i < STEPS - 1; i++) {
         await page.waitForTimeout(500);
-        const sel = await page.evaluate(k => LH_TOUR_STEPS[k].sel, i);
+        const sel = await page.evaluate(k => _lhTour.steps[k].sel, i);
         const t = await page.locator(sel).first().boundingBox();
         expect(t, `第 ${i + 1} 步目標 ${sel} 有畫出來`).not.toBeNull();
         expect(t.y + Math.min(t.height, 40), `第 ${i + 1} 步目標有一部分在畫面內`).toBeGreaterThan(0);
