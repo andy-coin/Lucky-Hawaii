@@ -1203,7 +1203,7 @@ function _lhSpFrame(t) {
         // 只是位置多一道內插，畫的東西不變，不吃效能
         let bx = p.x, by = p.y, ease = (1 - Math.pow(1 - k, 3)) * vv;
         if (L.gather && w.born && !w.comet && !w.star) {   // 恆星不亂撒：在自己的位置由透明慢慢浮現（光暈跟著 w.alpha）
-            if (w.gx0 === undefined) { const B = _lhSp.bound || 1000; w.gx0 = (Math.random() * 2 - 1) * B; w.gy0 = (Math.random() * 2 - 1) * B; w.gd = 4000 + Math.random() * 2500; }   // 0.98.17：凝聚再拉長（4–6.5 秒；原 3.2–5.2）
+            if (w.gx0 === undefined) { const cl = w.cl, Rg = cl ? cl.r * 2 : (_lhSp.bound || 1000), ra = Rg * Math.sqrt(Math.random()), an = Math.random() * Math.PI * 2; w.gx0 = (cl ? cl.x : 0) + Math.cos(an) * ra; w.gy0 = (cl ? cl.y : 0) + Math.sin(an) * ra;   /* 0.98.19.1 Andy：不再撒滿整片宇宙，只撒在自己恆星周圍、直徑＝星系直徑 2 倍的圓裡（均勻分布） */ w.gd = 4000 + Math.random() * 2500; }   // 0.98.17：凝聚再拉長（4–6.5 秒；原 3.2–5.2）
             const kg = Math.min(1, (t - w.born) / w.gd);
             // 0.98.17 Andy：太像「奔跑歸隊」→ 時間先扭一下（kg^0.6），最快的點從一半提早到約 3 成，之後一路慢慢減速、緩緩凝聚
             const ku = Math.pow(kg, 0.45);   // 0.98.18：0.6→0.45，最快點再提早到約 2 成，離目標更遠就開始減速
