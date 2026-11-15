@@ -573,10 +573,12 @@ function _lhSpLayout(list, cfg = {}) {
         placed.push(cl);
     });
     // 0.98.15 Andy：最大的星系不必釘在原點——整組排好後，把所有星系的外框中心移到 (0,0)（畫面一打開對準的地方），各星系彼此的相對位置不變
-    if (clusters.length > 1) {
+    if (clusters.length) {   // 全是流星（沒有星系）就跳過
         const x0 = Math.min(...clusters.map(c => c.x - c.r)), x1 = Math.max(...clusters.map(c => c.x + c.r));
         const y0 = Math.min(...clusters.map(c => c.y - c.r)), y1 = Math.max(...clusters.map(c => c.y + c.r));
-        const ox = (x0 + x1) / 2, oy = (y0 + y1) / 2;
+        // 0.98.15.2 Andy：不死釘在正中——超大星系宇宙（照大小擺的）整組再隨機偏一點，最多最大星系半徑的 25%
+        const jr = organic ? 0 : clusters[0].r * 0.25 * Math.sqrt(R()), ja = R() * TAU;
+        const ox = (x0 + x1) / 2 + Math.cos(ja) * jr, oy = (y0 + y1) / 2 + Math.sin(ja) * jr * 0.8;
         for (const c of clusters) { c.x -= ox; c.y -= oy; }
     }
     for (const cl of clusters) { cl.hx = cl.x; cl.hy = cl.y; }
