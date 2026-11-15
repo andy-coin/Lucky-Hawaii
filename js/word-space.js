@@ -442,7 +442,7 @@ function _lhSpLayout(list, cfg = {}) {
     for (const cl of clusters) _lhSpDrift(cl, clusters);
     const bound = Math.max(600, ...clusters.map(c => Math.hypot(c.x, c.y) + c.r)) * 1.25;
     for (const e of comets) {   // 流星：隨機起點、隨機方向，沿著微彎的弧線穿過整片（0.98.08 快一點、直一點），出了邊界從對面回來
-        const a = R() * TAU, v = 45 + R() * 45, cv = (R() < 0.5 ? -1 : 1) * (0.005 + R() * 0.035 / 3);   // 0.98.09：曲率是 0.98.08 的 1/3
+        const a = R() * TAU, v = 45 + R() * 45, cv = (R() < 0.5 ? -1 : 1) * (0.0075 + R() * 0.0175);   // 0.98.09：曲率是 0.98.08 的 1/2
         words.push({ e, cl: null, color: 'var(--text-primary)', s: sizeOf(e), n: norm(e), comet: true, x: (R() * 2 - 1) * bound, y: (R() * 2 - 1) * bound, v, cv, ang: a });
     }
     return { words, clusters, bound };
