@@ -1021,20 +1021,20 @@ function _lhSpDraw(t, L) {
             g.addColorStop(1, w.rgb0 || (w.rgb0 = _lhSpRGBA(w.rgb, 0)));
             c.globalAlpha = w.alpha; c.fillStyle = g; c.fillRect(p.x - R, p.y - R, R * 2, R * 2);
         }
-        if (w.pinned || w.hot) { top.push([w, p]); continue; }
-        if (w.mag > 1.01) { mags.push([w, p]); continue; }   // 放大中的詞晚點畫，蓋在旁邊的詞上面
-        const a = w.alpha * (w.dim ? 0.06 : 1);
-        if (w.comet && !w.dim && L.tail) {   // 流星尾巴：一整條往後漸細、漸淡的光（連續漸層，不分段），長度＝約 1.6 秒走的路
+        if (w.comet && !w.dim && L.tail) {   // 流星尾巴：一整條往後漸細、漸淡的光（連續漸層，不分段），長度＝約 1.6 秒走的路；放大、釘住時也畫（先畫，墊在字後面）
             const z = _lhSpZv(), k = w.v * 1.6 * z, ex = p.x - Math.cos(w.ang) * k, ey = p.y - Math.sin(w.ang) * k;
             if (k > 4) {
                 const nx = Math.sin(w.ang) * 1.8, ny = -Math.cos(w.ang) * 1.8;   // 頭端半寬 1.8px
                 const g = c.createLinearGradient(p.x, p.y, ex, ey);
                 g.addColorStop(0, w.rgb); g.addColorStop(1, w.rgb0 || (w.rgb0 = _lhSpRGBA(w.rgb, 0)));
-                c.save(); c.globalAlpha = a * 0.75; c.fillStyle = g;
+                c.save(); c.globalAlpha = w.alpha * 0.75; c.fillStyle = g;
                 c.beginPath(); c.moveTo(p.x + nx, p.y + ny); c.lineTo(ex, ey); c.lineTo(p.x - nx, p.y - ny); c.closePath(); c.fill();
                 c.restore();
             }
         }
+        if (w.pinned || w.hot) { top.push([w, p]); continue; }
+        if (w.mag > 1.01) { mags.push([w, p]); continue; }   // 放大中的詞晚點畫，蓋在旁邊的詞上面
+        const a = w.alpha * (w.dim ? 0.06 : 1);
         const tw = w.twk ? Math.sin(Math.min(1, (t - w.twk) / 1400) * Math.PI) : 0;   // 星星閃爍的亮度（0→1→0）
         const m = (w.kb || 1) * (1 + 0.06 * tw);
         c.globalAlpha = a;
