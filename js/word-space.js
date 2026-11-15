@@ -812,7 +812,7 @@ function _lhSpShow(cfg) {
     _lhSp.px = 0; _lhSp.py = 0;
     _lhSp.nav = null;
     _lhSp.z = _lhSp.z100 = _lhSpFitZoom(_lhSp.words);
-    _lhSp.zAcc = _lhSp.pAcc = 0; _lhSp.zPrev = _lhSp.pxPrev = _lhSp.pyPrev = undefined;   // 換宇宙重設縮放、位置：不算成「動很快」
+    _lhSp.zAcc = _lhSp.pAcc = _lhSp.holdT = 0; _lhSp.zPrev = _lhSp.pxPrev = _lhSp.pyPrev = undefined;   // 換宇宙重設縮放、位置：不算成「動很快」
     _lhSp.dpr = Math.min(window.devicePixelRatio || 1, 2);
     _lhSp.S = _lhSp.S0 = Math.min(LH_SP_SMAX, _lhSpBucket(_lhSp.z * _lhSp.dpr));
     _lhSp.dirty = true;
@@ -1294,7 +1294,12 @@ function _lhSpDraw(t, L) {
         const zN = Math.min(1, _lhSp.zAcc / 0.3 / 2), pN = Math.min(1, _lhSp.pAcc / 0.3 / 1800);   // 每秒縮放 e^2 倍（約 7 倍）、每秒拖 1800px 算「最快」
         const mv = L.zoomTrail === 2 ? Math.max(zN, pN, _lhSp.gv || 0) : zN;
         ERASE_NOW = L.zoomTrail === 2 ? 0.82 - 0.54 * mv : mv < 0.03 ? 1 : 1 - 0.7 * mv;   // 第 5 級：平常擦 82%、最快擦 28%；第 4 級：不動就整張清、最快擦 30%
-        if (_lhSp.zAcc > 0.003 || _lhSp.pAcc > 1 || mv > 0.01) _lhSp.dirty = true;   // 桶子還沒漏完：繼續畫，殘影才收得乾淨
+        // 0.98.18.3 Andy：快速縮放／拖曳後尾巴先停住（HOLD）——越快停越久、最多 0.8 秒，停的時候幾乎不擦；時間到再 0.22 秒快速擦掉
+        const fastN = Math.max(zN, L.zoomTrail === 2 ? pN : 0);
+        if (fastN > 0.12) _lhSp.holdT = Math.max(_lhSp.holdT || 0, t + 800 * Math.min(1, fastN * 1.25));
+        const hT = _lhSp.holdT || 0;
+        if (t < hT) ERASE_NOW = 0.07; else if (t < hT + 220) ERASE_NOW = Math.max(ERASE_NOW, 0.35);
+        if (_lhSp.zAcc > 0.003 || _lhSp.pAcc > 1 || mv > 0.01 || t < hT + 220) _lhSp.dirty = true;   // 桶子還沒漏完、尾巴還在停／在收：繼續畫
     }
     if (L.zoomTrail && ERASE_NOW < 1) {
         c.save(); c.globalCompositeOperation = 'destination-out'; c.fillStyle = '#000';   // 一定要不透明的填色：沿用上一格留下的（可能是透明漸層）會什麼都沒擦到
@@ -1381,10 +1386,17 @@ function _lhSpDraw(t, L) {
         // 0.98.18 Andy：只有「在畫面上真的在動」的詞才畫進殘影層（照這一格跟上一格的螢幕位移＋大小變化）；
         // 縮放中心附近的詞幾乎沒位移，留在主畫布 → 不會疊成一團粗糙的光暈；外圈跑得快的行星才拖尾巴
         if (TL) {
-            const ds = Math.hypot(p.x - (w.lsx ?? p.x), p.y - (w.lsy ?? p.y)) + Math.abs(z - (w.lsz ?? z)) * w.tw * 0.5;
+            const x0 = w.lsx ?? p.x, y0 = w.lsy ?? p.y, mv1 = Math.hypot(p.x - x0, p.y - y0);
+            const ds = mv1 + Math.abs(z - (w.lsz ?? z)) * w.tw * 0.5;
             w.lsx = p.x; w.lsy = p.y; w.lsz = z;
             w.spd = Math.max(ds, (w.spd || 0) * 0.85);   // 停下來後慢慢退，不會一格在殘影層、一格不在而閃
             c = w.spd > 1.5 ? TL : M;
+            // 0.98.18.3 Andy：上一格到這一格之間用光帶填滿 → 疊影之間連成一片漸層（像流星尾巴），不是一個一個分開
+            if (c === TL && mv1 > 2 && mv1 < 600 && !w.dim) {
+                c.save(); c.globalAlpha = w.alpha * 0.28; c.strokeStyle = w.rgb; c.lineCap = 'butt';   // 平頭：圓頭每段互相重疊會變成一串珠子
+                c.lineWidth = Math.max(1.5, 16 * w.s * z * (w.mag || 1) * 0.45);
+                c.beginPath(); c.moveTo(x0, y0); c.lineTo(p.x, p.y); c.stroke(); c.restore();
+            }
         }
         if ((w.star || w.rising) && L.starGlow && !w.dim) {   // 0.98.09：第 4 級起恆星自帶光暈（接任中的也先亮）；放大、釘住、停住時也畫（先畫，墊在所有字後面）
             const R = (w.cl ? w.cl.r / 2 : w.tw) * _lhSpZv() * (w.kb || 1) * (w.mag || 1);   // 光暈半徑＝自己星系半徑的 1/2，中心濃度 13%
