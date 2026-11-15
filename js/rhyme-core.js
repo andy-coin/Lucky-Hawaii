@@ -325,27 +325,48 @@ function lhEnSetDict(obj) {
     _lhEnDict = new Map();
     for (const k of Object.keys(obj || {})) for (const w of String(obj[k]).split(' ')) _lhEnDict.set(w, k);
 }
-// 母音 → [沒有鼻音韻尾, 收 N／M, 收 NG]
+// 母音 → [沒有鼻音韻尾, 收 N／M, 收 NG]（中文耳朵聽到的樣子，0.98.08 逐條檢查過）
 const LH_EN_VOWEL = {
-    AA: ['ㄚ', 'ㄢ', 'ㄤ'], AE: ['ㄝ', 'ㄢ', 'ㄤ'], AH: ['ㄜ', 'ㄣ', 'ㄤ'], AO: ['ㄛ', 'ㄤ', 'ㄨㄥ'], AW: ['ㄠ', 'ㄤ', 'ㄤ'],
-    AY: ['ㄞ', 'ㄞ', 'ㄞ'], EH: ['ㄝ', 'ㄣ', 'ㄥ'], ER: ['ㄦ', 'ㄣ', 'ㄥ'], EY: ['ㄟ', 'ㄟ', 'ㄟ'], IH: ['ㄧ', 'ㄧㄣ', 'ㄧㄥ'],
-    IY: ['ㄧ', 'ㄧㄣ', 'ㄧㄥ'], OW: ['ㄡ', 'ㄡ', 'ㄨㄥ'], OY: ['ㄛ', 'ㄛ', 'ㄛ'], UH: ['ㄨ', 'ㄨㄣ', 'ㄨㄥ'], UW: ['ㄨ', 'ㄨㄣ', 'ㄨㄥ'],
+    AA: ['ㄚ', 'ㄤ', 'ㄤ'],          // car、ah；on、John、calm、want≈昂／旺
+    AE: ['ㄝ', 'ㄢ', 'ㄤ'],          // cat；man、hand≈漢；bank、thank
+    AH: ['ㄚ', 'ㄢ', 'ㄤ'],          // 重音的 a：love、up、what≈拉／阿；one、fun、done≈萬／反；young≈楊（弱讀見 lhEnKeyRhyme）
+    AO: ['ㄛ', 'ㄤ', 'ㄨㄥ'],        // more、law；gone；long、song≈隆／頌
+    AW: ['ㄠ', 'ㄤ', 'ㄤ'],          // house；down、town≈當／湯
+    AY: ['ㄞ', 'ㄞ', 'ㄞ'],          // night、time、smile
+    EH: ['ㄝ', 'ㄣ', 'ㄥ'],          // bed、there；men、then≈門
+    ER: ['ㄦ', 'ㄣ', 'ㄥ'],          // her；turn
+    EY: ['ㄟ', 'ㄟ', 'ㄟ'],          // day、rain、name、sale
+    IH: ['ㄧ', 'ㄧㄣ', 'ㄧㄥ'],      // here；win；sing、-ing≈英
+    IY: ['ㄧ', 'ㄧㄣ', 'ㄧㄥ'],      // see；seen、dream
+    OW: ['ㄡ', 'ㄡ', 'ㄨㄥ'],        // go；home；（alone、phone 見下）
+    OY: ['ㄛ', 'ㄛ', 'ㄛ'],          // boy
+    UH: ['ㄨ', 'ㄨㄣ', 'ㄨㄥ'],      // good、sure
+    UW: ['ㄨ', 'ㄨㄣ', 'ㄨㄥ'],      // you；moon、soon
 };
-// 字尾的 L（暗 L）：中文耳朵聽起來像母音後面多一個「喔／嗚」，hell≈嘿喔、call≈扣、cool≈酷，所以照「母音＋ㄨ尾」歸韻，
-// hell、well、tell 和「好」同一族（Andy 0.98.08）。只改母音後面緊接 L 的字（held、felt 也算）
-const LH_EN_DARK_L = { AA: 'ㄠ', AE: 'ㄠ', AH: 'ㄠ', EH: 'ㄠ', AO: 'ㄡ', OW: 'ㄡ', UW: 'ㄨ', UH: 'ㄨ', IY: 'ㄧㄡ', IH: 'ㄧㄡ' };
-function lhEnKeyRhyme(key) {
+// 字尾的 L（暗 L）：中文耳朵聽起來像母音後面多一個「喔／嗚」：hell≈嘿喔、call≈扣、cool≈酷、people≈皮剖、world≈沃，
+// 所以照「母音＋ㄨ尾」歸韻：hell、well、tell 和「好」同一族。只改母音後面緊接 L 的字（help、felt、world 也算）；
+// 本身已經是複合母音的（day、night、boy 加 L：sale、smile、oil）聽起來還是原本的韻，不改
+const LH_EN_DARK_L = { AE: 'ㄠ', EH: 'ㄠ', AA: 'ㄡ', AH: 'ㄡ', AO: 'ㄡ', OW: 'ㄡ', ER: 'ㄡ', UW: 'ㄨ', UH: 'ㄨ', IY: 'ㄧㄡ', IH: 'ㄧㄡ' };
+// 字表只記最後一個母音、不記重音。多音節字最後的 a（AH）幾乎都是弱讀：button、seven≈ㄣ、freedom≈ㄣ、accurate≈ㄜ；
+// 單音節的才是重音：one、fun≈ㄢ、love≈ㄚ。所以多音節的 AH 另外處理（above、enough 這種重音在最後的會猜成弱讀，少數）
+function lhEnKeyRhyme(key, multi) {
     const [v, c] = key.split(' '), m = LH_EN_VOWEL[v];
     if (!m) return null;
-    if (c === 'L' && LH_EN_DARK_L[v]) return LH_EN_DARK_L[v];
     if (v === 'AH' && !c) return 'ㄚ';   // 字尾的弱音 a（sofa、data）
+    if (c === 'L' && LH_EN_DARK_L[v]) return LH_EN_DARK_L[v];
+    if (v === 'AH' && multi) return c === 'N' || c === 'M' ? 'ㄣ' : c === 'NG' ? 'ㄤ' : 'ㄜ';
+    if (v === 'OW' && c === 'N') return 'ㄨㄥ';   // alone、phone、stone≈阿龍／風／史東（-ome 的 home 還是ㄡ）
     return m[c === 'N' || c === 'M' ? 1 : c === 'NG' ? 2 : 0];
 }
+// 大約幾個音節：母音字母一組算一個，字尾不發音的 e 不算（love、come、one 都是 1）
+const _lhEnSyl = w => (w.replace(/([^aeiouy])e$/, '$1').match(/[aeiouy]+/g) || []).length;
 // 字表沒有的字（俚語、自創字）照拼字猜：最後一組母音字母＋後面的子音
 // ponytail: 拼字規則很粗，只求常見結尾大致對；猜錯可以之後加例外表
 const LH_EN_SPELL = [[/(ee|ea|ie|y|i)$/, 'ㄧ'], [/(ay|ey|ai|ei|a_e)$/, 'ㄟ'], [/(ow|ou)$/, 'ㄠ'], [/(oo|ue|u|ew)$/, 'ㄨ'], [/(oy|oi)$/, 'ㄛ'],
     [/(o|oe|oa)$/, 'ㄡ'], [/a$/, 'ㄚ'], [/e$/, 'ㄝ']];
 function lhEnGuess(word) {
+    if (/[^aeiou]le$/.test(word.toLowerCase())) return 'ㄡ';   // -le（people、little）≈ 剖／透
+    if (/[st]ion$/.test(word.toLowerCase())) return 'ㄣ';     // -tion、-sion（motion）≈ 遜
     let w = word.toLowerCase().replace(/['’]s$/, '').replace(/([^aeiou])e$/, '$1');
     const m = /([aeiouy]+)([^aeiouy]*)$/.exec(w);
     if (!m) return null;
@@ -363,7 +384,7 @@ function lhEnRhyme(word) {
     if (!_lhEnDict) return null;
     const w = word.toLowerCase().replace(/’/g, "'");
     const k = _lhEnDict.get(w);
-    return k ? lhEnKeyRhyme(k) : lhEnGuess(w);
+    return k ? lhEnKeyRhyme(k, _lhEnSyl(w) > 1) : lhEnGuess(w);
 }
 
 // ==================== 自動配色 ====================

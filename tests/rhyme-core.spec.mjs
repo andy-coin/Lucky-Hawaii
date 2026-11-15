@@ -619,6 +619,10 @@ test('英文：片語只看最後一個字、中英互押、拼字猜測', () =>
     expect(ev(`lhEnRhyme('hell')`)).toBe('ㄠ');
     expect(ev(`lhEnRhyme('cool')`)).toBe('ㄨ');
     expect(ev(`lhEnRhyme('zell')`)).toBe('ㄠ');
+    // 重音：單音節的 a 是重音（one≈萬），多音節字最後的 a 是弱讀（button≈ㄣ）；-one≈ㄨㄥ；-le≈ㄡ
+    run(`lhEnSetDict({ 'AH N': 'one button', 'OW N': 'alone', 'AH L': 'people', 'AH V': 'love', 'AA N': 'on' })`);
+    expect(ev(`['one', 'button', 'alone', 'people', 'love', 'on'].map(lhEnRhyme)`)).toEqual(['ㄢ', 'ㄣ', 'ㄨㄥ', 'ㄡ', 'ㄚ', 'ㄤ']);
+    expect(ev(`lhEnRhyme('tickle')`)).toBe('ㄡ');     // 字表沒有：-le 照拼字猜
     run('_lhEnDict = null');
     expect(ev(`lhRhymeTargets('the house', true)`)).toEqual([]);   // 字表還沒載好：不上色
 });

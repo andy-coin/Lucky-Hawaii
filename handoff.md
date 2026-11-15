@@ -1,3 +1,9 @@
+## 2026-11-15 v0.98.08 追加（版本號不變；已 push，全套 1283 通過）
+- 搜尋框提示字改「ㄞ/ai/唉/唉呀」，手機電腦同一句（拿掉 js/search-ui.js 換提示字的程式）。
+- 星雲：第 1 級不轉（orbit 0，只剩整片呼吸＋保留呼吸），第 2 級 24fps（LH_SP_LV）。
+- 點選判定（_lhSpHit）：重疊時選中心離游標最近的詞（黑洞放大讓鄰居蓋住游標下的詞，原本會點到鄰居）。
+- 英文韻腳逐條重看（js/rhyme-core.js LH_EN_VOWEL／LH_EN_DARK_L／lhEnKeyRhyme）：AA＋N/M→ㄤ（on、calm、want）；AH 單音節重音→ㄚ／ㄢ（love、one），多音節弱讀→ㄜ／ㄣ（accurate、button）用 _lhEnSyl 判斷；OW＋N→ㄨㄥ（alone、phone）；暗 L 加 AA、AH、ER→ㄡ（doll、people、world）；拼字猜測加 -le→ㄡ、-tion→ㄣ。限制：字表沒記重音，above、enough 這類重音在最後的多音節字會被當弱讀。
+
 ## 2026-11-15 v0.98.08（已 push，待 Andy 實機驗收；全套 1281 通過，rhyme-map-ui:280 是舊的、:156 單跑會過）
 - 星雲五級照「星雲效果分級表」（https://claude.ai/artifact/NUoEJt5851vJEZdNq814Mf）Andy 的勾選（js/word-space.js LH_SP_LV；0＝系統減少動態，完全靜止）：
   - 1：24fps、軌道 0.6 倍、拖到哪停在哪（拖恆星整團走）、停住＝膠囊＋變粗發光、保留的詞呼吸、整片星雲一起呼吸（_lhSp.zb，_lhSpZv）。

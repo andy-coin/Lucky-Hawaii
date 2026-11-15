@@ -741,8 +741,8 @@ function _lhSpPos(w) {
 // img＝星系一張圖（每個星系先畫成一張圖，每格只貼約 50 張）；clBreath＝整團呼吸；whole＝整片星雲一起呼吸；twinkle＝隨機星星閃爍
 const LH_SP_LV = {
     0: { fps: 0, orbit: 0, drag: 'stay', bold: 1 },   // 系統要求減少動態：完全靜止，有變化才畫
-    1: { fps: 24, orbit: 0.6, drag: 'stay', bold: 1, keptBreathe: 1, whole: 1 },
-    2: { fps: 20, orbit: 0, drag: 'stay', dock: 1, keptBreathe: 1, img: 1, clBreath: 1 },
+    1: { fps: 24, orbit: 0, drag: 'stay', bold: 1, keptBreathe: 1, whole: 1 },   // 不轉，只有整片呼吸
+    2: { fps: 24, orbit: 0, drag: 'stay', dock: 1, keptBreathe: 1, img: 1, clBreath: 1 },
     3: { fps: 30, orbit: 0.6, drag: 'fling', dock: 1, comet: 1, tail: 1, cometGlow: 1, keptGlow: 1 },
     4: { fps: 40, orbit: 1, drag: 'fling', dock: 1, comet: 1, tail: 1, cometGlow: 1, keptGlow: 1, keptFlash: 1, jitter: 1, wobble: 1, drift: 1, push: 1, twinkle: 1 },
     5: { fps: 60, orbit: 1, drag: 'fling', dock: 1, comet: 1, tail: 1, cometGlow: 1, keptGlow: 1, keptFlash: 1, jitter: 1, wobble: 1, drift: 1, push: 1, twinkle: 1 },
@@ -757,10 +757,14 @@ function _lhSpHit(cx, cy) {
         const up = w.hot || w.pinned ? 26 / z : 0;
         return Math.abs(p.x - w.px) <= hw && p.y - w.py <= hh && w.py - p.y <= hh + up;
     };
-    const ws = _lhSp.words, ok = w => w.born && !w.dim;
-    for (let i = ws.length - 1; i >= 0; i--) if ((ws[i].hot || ws[i].pinned) && ok(ws[i]) && inside(ws[i])) return ws[i];
-    for (let i = ws.length - 1; i >= 0; i--) if (ok(ws[i]) && inside(ws[i])) return ws[i];
-    return null;
+    // 黑洞放大會讓鄰居放大後蓋住游標下的詞：重疊時選中心離游標最近的那個（停住／釘住的優先）
+    let best = null, bd = Infinity;
+    for (const w of _lhSp.words) {
+        if (!w.born || w.dim || !inside(w)) continue;
+        const d = Math.hypot(p.x - w.px, p.y - w.py) - ((w.hot || w.pinned) ? 1e6 : 0);
+        if (d < bd) { bd = d; best = w; }
+    }
+    return best;
 }
 
 // 分批浮現：照 _lhSp.queue 一團團畫小圖（每幀最多 40 張），一團畫好、離上一團至少 gap 毫秒就讓它出現。回傳還有沒有沒浮現的

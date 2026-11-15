@@ -1,13 +1,7 @@
         // 事件監聽器
         const searchInputEl = document.getElementById('searchInput');
 
-        // 手機寬度用短提示字，其餘沿用 HTML 裡的完整說明；轉向／調整視窗時跟著換
-        const _SEARCH_PLACEHOLDER_LONG = searchInputEl.placeholder;
-        function _syncSearchPlaceholder() {
-            searchInputEl.placeholder = lhIsPhone() ? '輸入注音、拼音或漢字' : _SEARCH_PLACEHOLDER_LONG;
-        }
-        _syncSearchPlaceholder();
-        LH_MQ_PHONE.addEventListener('change', _syncSearchPlaceholder);
+        // 提示字（index.html）手機和電腦一樣：ㄞ/ai/唉/唉呀
 
         // 「關於」：顯示目前詞庫包的名稱與來源說明（NOTICE.txt）。名稱與內文一律用 textContent，不會被當成 HTML（T-06-11）
         let _aboutNoticeSeq = 0;   // 連續開關時只有最新一次的結果會寫進畫面
