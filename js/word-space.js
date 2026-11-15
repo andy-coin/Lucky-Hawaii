@@ -1276,17 +1276,19 @@ function _lhSpDraw(t, L) {
     // 一般、黑洞放大中（滑鼠停住時恆星會被放大，走 mags）、停住／釘住（top）三條路都要呼叫
     const starHi = (w, p, m, a) => {
         if (!_lhSp.holo || _lhSp.holo.w !== w || w.dim) return;
-        const k = Math.min(1, (t - _lhSp.holo.t0) / 300);
+        // 夾 ≥ 0：t0 是滑鼠事件當下的時間，這一格的 rAF 時間可能比它早 → k 變負數，負的 globalAlpha 會被忽略、沿用全亮 → 先閃一下（0.98.14.15 修）
+        const k = Math.max(0, Math.min(1, (t - _lhSp.holo.t0) / 300));
         if (k < 1) _lhSp.dirty = true;
-        const R = Math.max(50, w.tw * z * m) * 1.3;   // 0.98.14.14：退回第一次加強的亮度（第二次加強是因為 bug 看不到，修好後太亮）
+        // 0.98.14.15 Andy：亮度、光暈再大幅提高，但光暈半徑最多＝這個星系半徑的一半（照目前縮放與呼吸）
+        const R = Math.min(Math.max(60, w.tw * z * m) * 1.8, w.cl ? w.cl.r * z * (w.cl.b || 1) / 2 : 1e9);
         const g = c.createRadialGradient(p.x, p.y, 0, p.x, p.y, R);
-        g.addColorStop(0, _lhSpRGBA(w.rgb, 0.5 * k)); g.addColorStop(0.45, _lhSpRGBA(w.rgb, 0.18 * k)); g.addColorStop(1, _lhSpRGBA(w.rgb, 0));
+        g.addColorStop(0, _lhSpRGBA(w.rgb, 0.8 * k)); g.addColorStop(0.35, _lhSpRGBA(w.rgb, 0.38 * k)); g.addColorStop(0.7, _lhSpRGBA(w.rgb, 0.1 * k)); g.addColorStop(1, _lhSpRGBA(w.rgb, 0));
         c.fillStyle = g; c.globalAlpha = 1; c.fillRect(p.x - R, p.y - R, R * 2, R * 2);
         // 深淺主題都看得出來：一般疊法描兩次彩色光暈（「疊加發光」在淺色背景上反而變淡），深色主題再用疊加提亮
-        const sb = 26 * Math.max(0.6, Math.min(2, z * m * w.s));
+        const sb = Math.min(R * 0.6, 38 * Math.max(0.6, Math.min(2, z * m * w.s)));   // 字的發光也不超出光暈範圍
         c.save(); c.shadowColor = w.rgb; c.globalAlpha = k;
-        c.shadowBlur = sb; blit(w, p, m); c.shadowBlur = sb * 0.4; blit(w, p, m);
-        c.shadowBlur = 0; c.globalCompositeOperation = 'lighter'; c.globalAlpha = 0.35 * k; blit(w, p, m); c.restore();
+        c.shadowBlur = sb; blit(w, p, m); blit(w, p, m); c.shadowBlur = sb * 0.35; blit(w, p, m);
+        c.shadowBlur = 0; c.globalCompositeOperation = 'lighter'; c.globalAlpha = 0.5 * k; blit(w, p, m); c.restore();
         c.globalAlpha = a;
         };
     const top = [], mags = [];
@@ -1532,7 +1534,7 @@ function _lhSpHoloDraw(c, t, z) {
     const h = _lhSp.holo, w = h && h.w;
     if (!w || !w.cl || !w.born || w.off || !_lhSp.words.includes(w)) return;
     // 時間軸（毫秒）：折線 0–520 長出來 → 框 520–760 淡入 → 分類一段一段（每段隔 300、淡入 220）→ 最後詞數
-    const parts = _lhSpClParts(w.cl), age = t - h.t0, LINE = 520, BOX = 240, STEP = 300, FADE = 220;
+    const parts = _lhSpClParts(w.cl), age = Math.max(0, t - h.t0),   /* 夾 ≥ 0，理由同 starHi */ LINE = 520, BOX = 240, STEP = 300, FADE = 220;
     const tCount = LINE + BOX + parts.length * STEP, k = Math.min(1, age / LINE), e = 1 - Math.pow(1 - k, 3);
     const fade = t0 => Math.max(0, Math.min(1, (age - t0) / FADE));
     if (age < tCount + FADE) _lhSp.dirty = true;

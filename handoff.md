@@ -1,3 +1,7 @@
+## 0.98.14.15（?v 破快取；已 push）
+- 修 hover 恆星「先閃一下」：holo.t0 用 performance.now()（事件當下），rAF 的 t 可能比它早 → k 負數 → 負的 globalAlpha 被忽略、沿用 1 → 第一格全亮。starHi 的 k、_lhSpHoloDraw 的 age 都夾 ≥ 0。
+- 恆星 hover 光暈再加強但封頂：R＝min(max(60, 字寬)×1.8, 星系半徑×縮放×呼吸 / 2)；中心 0.8／0.35 處 0.38／0.7 處 0.1；字發光 shadowBlur ≤ R×0.6、描 3 層；lighter 0.5。
+
 ## 0.98.14.14（?v 破快取；已 push）
 - 恆星 hover 發光退回 0.98.14.6 的強度（R×1.3、中心 0.5、shadowBlur 26 兩層、lighter 0.35）：.12 那次加強是因為 bug 看不到，修好後太亮。
 - 凝聚：行星不等恆星（lead 0）。實測原本行星在恆星後 0.78–1.95 秒才 born，加上亂撒在畫面外、easeInOut 慢起步，看起來像等恆星完成。
