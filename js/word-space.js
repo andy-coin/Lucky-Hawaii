@@ -1014,6 +1014,13 @@ function _lhSpDraw(t, L) {
         if (w.cl && asImg.has(w.cl) && w.cl.img.ws.has(w)) continue;   // 已經在星系圖裡
         const p = vis(w);
         if (!p) continue;
+        if (w.star && L.starGlow && !w.dim) {   // 0.98.09：第 4 級起恆星自帶光暈；放大、釘住、停住時也畫（先畫，墊在所有字後面）
+            const R = (w.tw * 0.9 + 44 * w.s) * _lhSpZv() * (w.kb || 1) * (w.mag || 1);
+            const g = c.createRadialGradient(p.x, p.y, 0, p.x, p.y, R);
+            g.addColorStop(0, w.rgbG || (w.rgbG = _lhSpRGBA(w.rgb, 0.2)));
+            g.addColorStop(1, w.rgb0 || (w.rgb0 = _lhSpRGBA(w.rgb, 0)));
+            c.globalAlpha = w.alpha; c.fillStyle = g; c.fillRect(p.x - R, p.y - R, R * 2, R * 2);
+        }
         if (w.pinned || w.hot) { top.push([w, p]); continue; }
         if (w.mag > 1.01) { mags.push([w, p]); continue; }   // 放大中的詞晚點畫，蓋在旁邊的詞上面
         const a = w.alpha * (w.dim ? 0.06 : 1);
@@ -1030,13 +1037,6 @@ function _lhSpDraw(t, L) {
         }
         const tw = w.twk ? Math.sin(Math.min(1, (t - w.twk) / 1400) * Math.PI) : 0;   // 星星閃爍的亮度（0→1→0）
         const m = (w.kb || 1) * (1 + 0.06 * tw);
-        if (w.star && L.starGlow && !w.dim) {   // 0.98.09：第 4 級起恆星自帶光暈（字後面一圈淡淡的放射漸層）
-            const R = (w.tw * 0.9 + 44 * w.s) * _lhSpZv() * m;   // 光暈範圍（0.98.09 再放大）
-            const g = c.createRadialGradient(p.x, p.y, 0, p.x, p.y, R);
-            g.addColorStop(0, w.rgbG || (w.rgbG = _lhSpRGBA(w.rgb, 0.2)));
-            g.addColorStop(1, w.rgb0 || (w.rgb0 = _lhSpRGBA(w.rgb, 0)));
-            c.globalAlpha = a; c.fillStyle = g; c.fillRect(p.x - R, p.y - R, R * 2, R * 2);
-        }
         c.globalAlpha = a;
         blit(w, p, m);
         if ((w.comet && L.cometGlow || tw) && !w.dim) {   // 流星加亮、星星閃爍：同一張小圖用發光疊加再貼一次
