@@ -353,8 +353,8 @@ test('輸入：viewport 設定保留縮放手勢', async ({ browser }) => {
 });
 
 // ---- Pass B-1：頂部工具列與縮放不吃邊 ----
-const PHONE_PLACEHOLDER = '例如：ㄞ/ai/唉/哎呀';
-const DESKTOP_PLACEHOLDER = '例如：ㄞ/ai/唉/哎呀';
+const PHONE_PLACEHOLDER = '例如：ㄞ/ai/唉/唉呀';
+const DESKTOP_PLACEHOLDER = '例如：ㄞ/ai/唉/唉呀';
 
 // 標題／搜尋／分頁列裡，框超出視窗的可互動元素（名稱加位置）
 async function controlsOutside(page) {

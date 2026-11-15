@@ -1,8 +1,8 @@
 ## 2026-11-15 v0.98.09 追加（版本號不變）
 - 星雲（js/word-space.js）：星座 50/41/9（Andy 給 55/45/10 加起來 110，等比例換算）；LH_SP_RING 46→58；流星曲率 0.00375–0.0125（0.98.08 的 1/4）；hover 不再設 w.hot（不定格、不畫膠囊），隱藏鈕跟著 _lhSp.hover；黑洞放大照字大小打折（恆星 0.2 倍，(2.2−s)/1.4）；第 4、5 級 starGlow（恆星後面放射漸層）；第 5 級拿掉 keptFlash、keptBreathe 0.025＋clBreath；第 3、4 級加 whole；keptBreathe 改成數值＝幅度。
-- 分批：LH_WS_SPACE_MAX 550，總數切 ceil(n/550) 等份；‹宇宙 n/N› 改成 .ws-page-range 滑桿＋數字（目前那份用重點色，--a/--b）。
+- 分批（_lhSpPages）：一批約 500±50、星系整團不拆（超過 550 的星系才切）；批數＝round(n/500)，星系由大到小放進最少的那批；‹宇宙 n/N› 改成 .ws-page-range 滑桿＋數字（目前那份用重點色，--a/--b）。
 - 背景飄字（js/bgfx.js）：1、2 級也有畫布，定格一張不跑（_lhBgUpdate）；lhBgFxIsOn 仍是 3 級以上。
-- 中間面板：.options container query，616px 以下藏按鈕圖示、540px 以下換行後靠左；關聯詞彙／顯示全部上下各 12px 置中（.ws-rel-btn margin）。搜尋框上下 padding 縮成約 0.88 倍高；提示字「例如：ㄞ/ai/唉/哎呀」。
+- 中間面板：.options container query，616px 以下藏按鈕圖示、540px 以下換行後靠左；關聯詞彙／顯示全部上下各 12px 置中（.ws-rel-btn margin）。搜尋框上下 padding 縮成約 0.88 倍高；提示字「例如：ㄞ/ai/唉/唉呀」。
 - 偏好設定：分頁改名「韻腳地圖」；第 4 級叫「精緻」；子標題統一 0.9rem 主文字色、內容縮排 --pf-in 0.625rem（panels.css 檔尾）；查詢分頁加「顯示與篩選」子標題；韻腳地圖分頁說明移到預覽上面；AI 分頁兩條分隔線併一條。
 - 英文：AH＋M（come、some、from）→ㄨㄤ。
 - 導覽（js/tour.js）：結構沿用，只更新「一次找雙押」（星雲操作、換批滑桿）和「偏好設定」兩步的文字。

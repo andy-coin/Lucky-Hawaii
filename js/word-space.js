@@ -10,7 +10,7 @@
 
 const LH_WS_MIN = 2, LH_WS_MAX = 6;
 const LH_WS_PAGE = 240;            // 詞卡一次多畫幾張（捲到底再補）
-const LH_WS_SPACE_MAX = 550;       // 「顯示全部」一批最多幾個詞（500±50）：總數照這個切成幾等份（2000 個＝4 批各 500）
+const LH_WS_SPACE_MAX = 550;       // 單一星系超過這個數才切開（分批見 _lhSpPages：一批約 500±50，星系不拆）
 // 顏色跟著第一個字的聲調走（一～四聲＋輕聲五個色系，跟著主題、不寫死色碼）；同一團裡每個詞再依常用度＋一點隨機混出深淺
 const _lhMix = (a, b, k = 50) => 'color-mix(in oklab, var(' + a + ') ' + k + '%, var(' + b + '))';
 // 支援相對色（oklch from）就從主題強調色出發、色相每個聲調轉 72°，五色差最大；不支援就用主題的四個強調色＋一個混色
@@ -360,6 +360,20 @@ const _lhSpWidth = (w, s) => [...w].length * 16 * s + 22;
 // 軌道不是整齊的同心圓：每個詞各自的半徑、橢圓扁度、傾角、起始角度、速度都帶一點隨機。
 // 字的大小照常用度（詞庫的 p，取對數）在 0.8～2 倍之間（最大最小差 2.5 倍）
 // cfg.groupOf(e)→團的 key、cfg.headOf(key)→圖例大類、cfg.colorOf(key)→團色；沒給就用聲調組合（顯示全部）
+const _lhSpKey = (e, cfg) => cfg.groupOf ? cfg.groupOf(e) : e.z.split(' ').map(s => getZhuyinTone(s)).join('·');
+// 分批（0.98.09）：一批約 500（±50）個詞，整個星系一起分、不拆開（星系本身超過 550 才切）。
+// 批數＝總數 / 500 四捨五入；星系由大到小，每次放進目前最少的那批（批與批的數量會很平均）。結果記在 cfg._pages
+function _lhSpPages(cfg) {
+    if (cfg._pages) return cfg._pages;
+    const groups = new Map();
+    for (const e of cfg.list) { const k = _lhSpKey(e, cfg); if (!groups.has(k)) groups.set(k, []); groups.get(k).push(e); }
+    const chunks = [];
+    for (const g of groups.values()) for (let i = 0, n = Math.ceil(g.length / LH_WS_SPACE_MAX); i < n; i++) chunks.push(g.slice(Math.floor(i * g.length / n), Math.floor((i + 1) * g.length / n)));
+    chunks.sort((a, b) => b.length - a.length);
+    const bins = Array.from({ length: Math.max(1, Math.round(cfg.list.length / 500)) }, () => new Set());
+    for (const c of chunks) { const b = bins.reduce((m, x) => x.size < m.size ? x : m); for (const e of c) b.add(e); }
+    return (cfg._pages = bins.filter(b => b.size).map(b => cfg.list.filter(e => b.has(e))));   // 每批裡照原本順序（常用的先）
+}
 function _lhSpLayout(list, cfg = {}) {
     const lp = list.map(e => Math.log1p(e.p || 0)), lo = Math.min(...lp), hi = Math.max(...lp);
     const norm = e => hi > lo ? (Math.log1p(e.p || 0) - lo) / (hi - lo) : 0.5;
@@ -369,7 +383,7 @@ function _lhSpLayout(list, cfg = {}) {
     const tint = (base, e) => 'color-mix(in oklab, ' + base + ' ' + Math.round(55 + 30 * norm(e) + 15 * R()) + '%, var(' + (R() < 0.5 ? '--text-primary' : '--text-secondary') + '))';
     const groups = new Map();
     for (const e of list) {
-        const k = cfg.groupOf ? cfg.groupOf(e) : e.z.split(' ').map(s => getZhuyinTone(s)).join('·');
+        const k = _lhSpKey(e, cfg);
         if (!groups.has(k)) groups.set(k, []);
         groups.get(k).push(e);
     }
@@ -506,8 +520,8 @@ function _lhSpShow(cfg) {
     const el = _lhSpBuild();
     const reopen = !el.hidden;
     _lhSp.cfg = cfg;
-    const pageN = Math.max(1, Math.ceil(cfg.list.length / LH_WS_SPACE_MAX)), size = Math.ceil(cfg.list.length / pageN), page = Math.min(cfg.page || 0, pageN - 1);
-    const { words, clusters, bound } = _lhSpLayout(cfg.list.slice(page * size, (page + 1) * size), cfg);
+    const batches = _lhSpPages(cfg), pageN = batches.length, page = Math.min(cfg.page || 0, pageN - 1);
+    const { words, clusters, bound } = _lhSpLayout(batches[page], cfg);
     _lhSp.bound = bound;
     _lhSp.groups = clusters;
     const n = words.length;
