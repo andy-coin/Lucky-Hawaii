@@ -558,7 +558,7 @@ function _lhSpLayout(list, cfg = {}) {
         const k = (2.6 - 2.15 * (lv - 1) / 19) * (1 + 0.8 * (1 - (star ? norm(star.e) : 0.5)));   // 最快約最慢的 10 倍
         cl.f = cl.f.map(f => f * k);
     });
-    // 團沿黃金角螺旋往外放，彼此多留一點空間給恆星飄
+    // 團沿黃金角螺旋往外放（最大的先放在中間），彼此多留一點空間給恆星飄
     const placed = [];
     clusters.forEach((cl, i) => {
         for (let k = 0; i > 0; k++) {
@@ -566,9 +566,16 @@ function _lhSpLayout(list, cfg = {}) {
             cl.x = Math.cos(a) * d; cl.y = Math.sin(a) * d * 0.8;
             if (placed.every(p => Math.hypot(p.x - cl.x, p.y - cl.y) > p.r + cl.r + 90)) break;
         }
-        cl.hx = cl.x; cl.hy = cl.y;
         placed.push(cl);
     });
+    // 0.98.15 Andy：最大的星系不必釘在原點——整組排好後，把所有星系的外框中心移到 (0,0)（畫面一打開對準的地方），各星系彼此的相對位置不變
+    if (clusters.length > 1) {
+        const x0 = Math.min(...clusters.map(c => c.x - c.r)), x1 = Math.max(...clusters.map(c => c.x + c.r));
+        const y0 = Math.min(...clusters.map(c => c.y - c.r)), y1 = Math.max(...clusters.map(c => c.y + c.r));
+        const ox = (x0 + x1) / 2, oy = (y0 + y1) / 2;
+        for (const c of clusters) { c.x -= ox; c.y -= oy; }
+    }
+    for (const cl of clusters) { cl.hx = cl.x; cl.hy = cl.y; }
     for (const cl of clusters) _lhSpDrift(cl, clusters);
     const bound = Math.max(600, ...clusters.map(c => Math.hypot(c.x, c.y) + c.r)) * 1.25;
     for (const e of comets) {   // 流星：隨機起點、隨機方向，沿著微彎的弧線穿過整片（0.98.08 快一點、直一點），出了邊界從對面回來
