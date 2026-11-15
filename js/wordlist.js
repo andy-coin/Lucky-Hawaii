@@ -54,7 +54,8 @@
         async function resolveLexiconPack() {
             const m = await loadLexiconManifest();
             if (!m) return LH_LEGACY_PACK;
-            const stored = lhGet(LH_PACK_KEY);
+            // 0.98.13：詞庫包選單藏起來了（0.98.05），以前選過別包的裝置會卡在那包、切不回來（Andy 的 iPad 卡在新酷音，「不」少一半）→ 一律用預設包
+            const stored = window.__lhPacksOn ? lhGet(LH_PACK_KEY) : null;
             if (stored) {
                 if (LH_PACK_ID_RE.test(stored)) {
                     const hit = m.packs.find(e => e.id === stored);

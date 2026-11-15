@@ -119,7 +119,7 @@ export async function bootPage(browser, { storage = {}, init = null, wordlist = 
     });
     const offOrigin = await routeExternal(context, { aiReply, aiFail, models, corrections });
     if (wordlist === 'stub') await stubWordlist(context, readFileSync(new URL('./fixtures/wordlist-stub.ndjson', import.meta.url), 'utf8'));
-    await context.addInitScript(() => { window.__lhDockMinW = 1600; });   // 測試沿用舊的寬螢幕門檻（1440 寬＝抽屜版面）
+    await context.addInitScript(() => { window.__lhDockMinW = 1600; window.__lhPacksOn = true; });   // __lhPacksOn：詞庫包選單藏起來時網站一律用預設包，測試照舊吃存的設定   // 測試沿用舊的寬螢幕門檻（1440 寬＝抽屜版面）
     if (init) await context.addInitScript(init);
     const page = await context.newPage();
     const { errors, warnings } = collectErrors(page);

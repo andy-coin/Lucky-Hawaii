@@ -250,10 +250,9 @@ function _lhWsMore(grid) {
 
 // ==================== 顯示全部（星雲） ====================
 const _lhSp = { el: null, world: null, words: [], groups: [], raf: 0, last: 0, t0: 0, z: 1, px: 0, py: 0, pts: new Map(), pan: null, pinch: null, drag: null, nav: null, back: null, bound: 1000, pins: [], chords: [], line: null, tm: 0 };
-const LH_SP_ZMIN = 0.25, LH_SP_ZMAX = 3;
-// 手機（0.98.11.1）：螢幕短邊不到 800px 時，100% 照比例縮小（390 寬約 0.73），不然 100% 字大到塞不下
-const _lhSpZ100 = () => LH_SP_Z100 * Math.min(1, Math.min(_lhSp.W || innerWidth, _lhSp.H || innerHeight) / 800);
-const LH_SP_Z100 = 1.5;   // 畫面上顯示的「100%」＝實際倍率 1.5（Andy 校正）；ZMIN／ZMAX 和打開時的自動倍率都是實際倍率
+const LH_SP_ZMIN = 0.1, LH_SP_ZMAX = 3, LH_SP_FIT_MIN = 0.2;   // 實際倍率（1＝世界 1px 對螢幕 1px）
+// 0.98.13 Andy：畫面上的「100%」＝這次打開時自動抓的縮放（_lhSp.z100，見 _lhSpFitZoom），按 100% 就回到一打開那個舒服的畫面
+const _lhSpZ100 = () => _lhSp.z100 || 1;
 const LH_SP_RING = 64;   // 軌道之間的距離（世界座標 px）；0.98.09 從 46 拉大，大星系加上隨機偏移也不會疊在一起
 const _lhSpReduce = matchMedia('(prefers-reduced-motion: reduce)');
 const LH_SP_EYE_OFF = '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/><path d="M4 20L20 4"/></svg>';
@@ -342,7 +341,7 @@ function _lhSpBuild() {
     panel.append(head, posBox, lenBox, legend, tools);
     // 右上：縮放與關閉
     const zoom = _lhWsEl('div', 'ws-zoom');
-    const pct = mk('ws-pct', '100%', '回到 100%', () => _lhSpZoom(_lhSpZ100()));
+    const pct = mk('ws-pct', '100%', '回到 100%', () => { _lhSpZoom(_lhSpZ100()); _lhSp.px = _lhSp.py = 0; });   // 回到一打開的畫面（倍率和位置）
     zoom.append(mk('', '−', '縮小', () => _lhSpZoom(_lhSp.z / 1.25)), pct, mk('', '＋', '放大', () => _lhSpZoom(_lhSp.z * 1.25)));
     const close = mk('ws-close', '', '關閉（Esc）', () => lhWsClose());
     close.innerHTML = LH_SP_X;
@@ -591,7 +590,7 @@ function _lhSpFitZoom(words) {
     }).sort((a, b) => a - b);
     if (!q.length) return 1;
     const p25 = q[Math.min(q.length - 1, Math.floor(q.length * 0.25))] || 1;
-    return Math.min(2.2, Math.max(LH_SP_ZMIN, 1 / p25));   // 打開時最小仍 0.25（手機字才看得清），想看全貌再手動縮
+    return Math.min(2.2, Math.max(LH_SP_FIT_MIN, 1 / p25));   // 打開時最小 0.2（手機上幾千詞的星系，0.1 只剩恆星看得清）；手動還能縮到 LH_SP_ZMIN
 }
 
 function lhWsOpen() {
@@ -752,14 +751,18 @@ function _lhSpShow(cfg) {
     for (const cl of clusters) { const w = _lhSp.words.find(x => x.cl === cl); cl.cat = w ? w.cat : null; }
     if (cfg.rel) _lhRelApply(true);   // 篩選（字首／字尾、字數）換批也照樣套用
     // 分批浮現：一次一個星系（大的先），流星最後；字的小圖先在背景畫好，畫好的那一團才出現，不會有一幀卡很久
-    _lhSp.queue = clusters.map(cl => _lhSp.words.filter(w => w.cl === cl));
+    // 0.98.13：大星系再切成一小份一小份（恆星和內圈先），手機不用等整團幾千個字的小圖都畫好才看得到東西；
+    // 每份間隔照份數縮短，整個浮現大約 1.4–2.5 秒
+    const LH_SP_PIECE = 48, q = [];
+    for (const cl of clusters) { const g = _lhSp.words.filter(w => w.cl === cl); for (let i = 0; i < g.length; i += LH_SP_PIECE) q.push(g.slice(i, i + LH_SP_PIECE)); }
     const cm = _lhSp.words.filter(w => w.comet);
-    if (cm.length) _lhSp.queue.push(cm);
-    _lhSp.gap = Math.max(40, Math.min(140, 1400 / Math.max(1, _lhSp.queue.length)));
+    for (let i = 0; i < cm.length; i += LH_SP_PIECE) q.push(cm.slice(i, i + LH_SP_PIECE));
+    _lhSp.queue = q;
+    _lhSp.gap = Math.max(16, Math.min(140, 1400 / Math.max(1, q.length)));
     _lhSp.bornAt = 0;
     _lhSp.px = 0; _lhSp.py = 0;
     _lhSp.nav = null;
-    _lhSp.z = _lhSpFitZoom(_lhSp.words);
+    _lhSp.z = _lhSp.z100 = _lhSpFitZoom(_lhSp.words);
     _lhSp.dpr = Math.min(window.devicePixelRatio || 1, 2);
     _lhSp.S = _lhSpBucket(_lhSp.z * _lhSp.dpr);
     _lhSp.dirty = true;
@@ -909,7 +912,7 @@ function _lhSpScreenOf(w) {   // 測試、按鈕定位用：詞在畫面上的�
 // 以畫面上 (cx, cy)（相對左上角，省略＝中心）為中心縮放；世界原點在畫面中心：畫面點 = 中心 + p + 世界點 × z
 function _lhSpZoom(z, cx, cy) {
     const el = _lhSp.el;
-    z = Math.min(LH_SP_ZMAX, Math.max(LH_SP_ZMIN * _lhSpZ100() / LH_SP_Z100, z));   // 下限跟 100% 一樣照螢幕縮（手機約 0.12）
+    z = Math.min(LH_SP_ZMAX, Math.max(LH_SP_ZMIN, z));
     if (cx === undefined) { cx = el.clientWidth / 2; cy = el.clientHeight / 2; }
     const ox = el.clientWidth / 2, oy = el.clientHeight / 2;
     const wx = (cx - ox - _lhSp.px) / _lhSp.z, wy = (cy - oy - _lhSp.py) / _lhSp.z;

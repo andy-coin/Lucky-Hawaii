@@ -1,3 +1,11 @@
+## 0.98.13（2026-11-15 已 push，待 Andy 實機驗）
+- 版號 0.98.13（index.html 44 個 ?v、js/safety.js、README、.claude/CLAUDE.md）。
+- 手機 vs iPad「不」關聯詞數量不同（6016 vs 2991）：iPad 存著舊設定 lh:lexiconPack＝新酷音（含「不」2957 詞），詞庫包選單 0.98.05 起藏起來切不回來。修：js/wordlist.js resolveLexiconPack 只有 window.__lhPacksOn 才讀存的包，否則一律預設 v096；tests/helpers.mjs 開 __lhPacksOn 讓舊測試照舊。
+- 縮放 100% 重新定義（js/word-space.js）：100%＝這次打開時自動抓的縮放 _lhSp.z100（_lhSpFitZoom，約 25% 的詞在畫面裡）；按 100% 回到該倍率＋位置歸零。拿掉 0.98.11.1 的照螢幕縮 Z100。實際倍率下限 LH_SP_ZMIN 0.25→0.1，打開時的自動縮放下限 LH_SP_FIT_MIN 0.2（手機 0.1 只剩恆星看得清）。模擬：iPhone「不」0.2、「一」約 0.2；iPad「不」0.195、「一」0.27。**Andy 若覺得太小／太大→調 LH_SP_FIT_MIN 或 25% 的比例。**
+- 分批浮現：_lhSpShow 的 queue 把每個星系切成 48 詞一份（恆星、內圈先），間隔 16–140ms；第一批字約在打開動畫結束（1.2 秒）就出現。
+- 手機（≤600px）面板收合只剩小三角形、移回右上縮放列同一排（css/panels.css .ws-panel.min 的 600px media）。
+- 測試：word-space、layout、golden、tour、lexicon-packs、corrections-site 165 全過。
+
 ## 0.98.12（2026-11-15 已 push，待 Andy 實機驗）
 - 版號 0.98.12：index.html 44 個 ?v、js/safety.js、README、.claude/CLAUDE.md。
 - 星雲左側面板：短邊 < 600px（手機直／橫）打開時預設收合（_lhSpShow 裡 .ws-panel.min）。

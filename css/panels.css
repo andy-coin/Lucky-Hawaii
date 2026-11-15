@@ -2957,6 +2957,8 @@ body.ws-open .ws-space { opacity: 1; }
 .ws-panel.min .ws-fold .ic { transform: rotate(180deg); }
 .ws-panel.min { width: auto; }   /* 收起來時標題盡量一行 */
 .ws-panel.min > :not(.ws-head) { display: none !important; }
+/* 手機（0.98.13 Andy）：收起來只剩小三角形，不寫字，才不會跟右上的縮放鈕重疊 */
+@media (max-width: 600px) { .ws-panel.min { padding: 0; top: calc(env(safe-area-inset-top, 0px) + 0.75rem); } .ws-panel.min .ws-title { display: none; } }
 @media (hover: hover) and (pointer: fine) { .ws-fold:hover { color: var(--text-primary); border-color: var(--border); } }
 .ws-legend, .ws-sub { display: flex; flex-direction: column; gap: var(--sp-1); }
 .ws-sub { padding-inline-start: var(--sp-3); }
