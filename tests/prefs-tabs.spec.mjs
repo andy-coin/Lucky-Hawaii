@@ -137,13 +137,13 @@ test('外觀：背景動畫與特效滑桿五級（預設 3，拉了呼叫 lhFxS
     const r = page.getByRole('slider', { name: /背景動畫/ });
     await expect(r).toBeVisible();
     expect(await page.evaluate(() => lhFxLevel())).toBe(3);
-    await expect(page.locator('#prefsFxCap')).toHaveText('預設');
+    await expect(page.locator('#prefsFxRange')).toHaveAttribute('aria-valuetext', '預設');
     await r.fill('1');
     expect(await page.evaluate(() => [lhFxLevel(), lhBgFxIsOn(), localStorage.getItem('lh:bgFx')])).toEqual([1, false, '1']);
-    await expect(page.locator('#prefsFxCap')).toHaveText('簡單');
+    await expect(page.locator('#prefsFxRange')).toHaveAttribute('aria-valuetext', '簡單');
     await r.fill('5');
     expect(await page.evaluate(() => [lhFxLevel(), lhBgFxIsOn()])).toEqual([5, true]);
-    await expect(page.locator('#prefsFxCap')).toHaveText('全開');
+    await expect(page.locator('#prefsFxRange')).toHaveAttribute('aria-valuetext', '全開');
     expect(errors).toEqual([]);
     await context.close();
 });

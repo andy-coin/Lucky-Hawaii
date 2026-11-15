@@ -87,7 +87,6 @@
             const lv = lhFxLevel(), r = document.getElementById('prefsFxRange');
             r.value = lv;
             r.setAttribute('aria-valuetext', LH_FX_NAME[lv]);
-            document.getElementById('prefsFxCap').textContent = LH_FX_NAME[lv];
         }
         document.getElementById('prefsFxRange').addEventListener('input', e => {
             if (typeof lhFxSetLevel !== 'function') return;
