@@ -969,8 +969,8 @@ const LH_SP_LV = {
     1: { fps: 24, orbit: 0, drag: 'stay', bold: 1, keptBreathe: 0.06, whole: 1 },   // 不轉，只有整片呼吸
     2: { fps: 24, orbit: 0, drag: 'stay', dock: 1, keptBreathe: 0.06, img: 1, clBreath: 1 },
     3: { fps: 30, orbit: 0.6, drag: 'fling', dock: 1, comet: 1, tail: 1, cometGlow: 1, keptGlow: 1, whole: 1 },   // 0.98.09：3、4 級加整片呼吸
-    4: { fps: 40, orbit: 1, drag: 'fling', dock: 1, comet: 1, tail: 1, cometGlow: 1, jitter: 1, wobble: 1, drift: 1, push: 1, twinkle: 1, starGlow: 1, whole: 1, lineGlow: 1 },   // 0.98.09：保留的詞只有外框（不閃、不加柔光）
-    5: { fps: 60, orbit: 1, drag: 'fling', dock: 1, comet: 1, tail: 1, cometGlow: 1, keptGlow: 1, keptBreathe: 0.025, jitter: 1, wobble: 1, drift: 1, push: 1, twinkle: 1, starGlow: 1, clBreath: 1, lineGlow: 1, lineFlash: 1, zoomTrail: 1 },   // 0.98.09：保留的詞不閃（閃爍留給隨機星星），只輕輕呼吸
+    4: { fps: 40, orbit: 1, drag: 'fling', dock: 1, comet: 1, tail: 1, cometGlow: 1, jitter: 1, wobble: 1, drift: 1, push: 1, twinkle: 1, starGlow: 1, whole: 1, lineGlow: 1, gather: 1 },   // 0.98.09：保留的詞只有外框（不閃、不加柔光）
+    5: { fps: 60, orbit: 1, drag: 'fling', dock: 1, comet: 1, tail: 1, cometGlow: 1, keptGlow: 1, keptBreathe: 0.025, jitter: 1, wobble: 1, drift: 1, push: 1, twinkle: 1, starGlow: 1, clBreath: 1, lineGlow: 1, lineFlash: 1, zoomTrail: 1, gather: 1 },   // 0.98.09：保留的詞不閃（閃爍留給隨機星星），只輕輕呼吸
 };
 const _lhSpCfg = () => LH_SP_LV[_lhSpReduce.matches ? 0 : (typeof lhFxLevel === 'function' ? lhFxLevel() : 5)] || LH_SP_LV[5];
 
@@ -1123,9 +1123,22 @@ function _lhSpFrame(t) {
         if (k < 1 && w.born) busy = true;
         // 篩選掉的星系：收回中心並淡出（0.45 秒）；篩選取消時同一條路綻放回來
         if (w.off ? w.vis > 0 : w.vis < 1) { w.vis = Math.max(0, Math.min(1, w.vis + (w.off ? -1 : 1) * dt / 0.45)); busy = true; }
-        const vv = 1 - Math.pow(1 - w.vis, 3), ease = (1 - Math.pow(1 - k, 3)) * vv;
+        const vv = 1 - Math.pow(1 - w.vis, 3);
         const ox = w.cl && !w.star ? w.cl.x : p.x, oy = w.cl && !w.star ? w.cl.y : p.y;
-        w.ux = ox + (p.x - ox) * ease; w.uy = oy + (p.y - oy) * ease;   // 還沒乘上整團呼吸的位置（星系一張圖照這個畫）
+        // 凝聚（第 4、5 級，0.98.14.7 Andy）：打開／換批時每個詞先在整片宇宙亂撒，1.6–2.6 秒慢慢聚回自己的軌道；
+        // 只是位置多一道內插，畫的東西不變，不吃效能
+        let bx = p.x, by = p.y, ease = (1 - Math.pow(1 - k, 3)) * vv;
+        if (L.gather && w.born && !w.comet) {
+            if (w.gx0 === undefined) { const B = _lhSp.bound || 1000; w.gx0 = (Math.random() * 2 - 1) * B; w.gy0 = (Math.random() * 2 - 1) * B; w.gd = 1600 + Math.random() * 1000; }
+            const kg = Math.min(1, (t - w.born) / w.gd);
+            if (kg < 1) {
+                const eg = kg < 0.5 ? 4 * kg * kg * kg : 1 - Math.pow(-2 * kg + 2, 3) / 2;   // 慢起、加速、慢慢停（像被引力拉回來）
+                bx = w.gx0 + (p.x - w.gx0) * eg; by = w.gy0 + (p.y - w.gy0) * eg;
+                busy = true;
+            }
+            ease = vv;
+        }
+        w.ux = ox + (bx - ox) * ease; w.uy = oy + (by - oy) * ease;   // 還沒乘上整團呼吸的位置（星系一張圖照這個畫）
         const b = w.cl && !w.comet ? w.cl.b : 1;
         w.px = w.cl && !w.comet ? w.cl.x + (w.ux - w.cl.x) * b : w.ux;
         w.py = w.cl && !w.comet ? w.cl.y + (w.uy - w.cl.y) * b : w.uy;
