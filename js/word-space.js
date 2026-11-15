@@ -288,12 +288,7 @@ function _lhSpBuild() {
     clr.type = 'button';
     clr.hidden = true;
     clr.addEventListener('click', _lhSpClearAsk);
-    const spiral = _lhWsEl('button', 'ws-hud-btn ws-spiral', '旋臂');
-    spiral.type = 'button';
-    spiral.title = '試試真實星系的轉法：內圈快、外圈慢，排成螺旋臂';
-    spiral.setAttribute('aria-pressed', String(_lhSpSpiral));
-    spiral.addEventListener('click', () => _lhSpSpiralToggle(spiral));
-    tools.append(clr, spiral, fl);
+    tools.append(clr, fl);
     const posBox = _lhWsEl('div', 'ws-pos');
     posBox.setAttribute('role', 'group');
     posBox.setAttribute('aria-label', '字在詞裡的位置');
@@ -383,54 +378,8 @@ function _lhSpWhip(page) {
             { duration: 420, easing: 'cubic-bezier(.15,.7,.3,1)' });
     };
 }
-// 旋臂模式（0.98.09 實驗，Andy 想比較）：恆星不轉、離中心越遠轉越慢（克卜勒：角速度 ∝ 距離^-1.5），
-// 每個星系 2～5 條往後拖的螺旋臂。關掉＝原本的同心圓（內圈角速度快、外圈線速度快）。不存檔，重新整理回到原本
-let _lhSpSpiral = false;
-function _lhSpSpiralToggle(btn) {
-    _lhSpSpiral = !_lhSpSpiral;
-    btn.setAttribute('aria-pressed', String(_lhSpSpiral));
-    if (_lhSp.cfg) _lhSpShow(Object.assign({}, _lhSp.cfg));
-}
-// 第 5 級的換批過場：星際穿越（超光速）。上面疊一張透明畫布畫從中心往外射的星光線，先加速再減速（約 1.1 秒）；
-// 舊的星雲往前衝（放大、模糊、淡出），最快的時候換內容，新的從遠處拉近（由小變大、變清楚）
-function _lhSpWarp(go) {
-    if (_lhSp.warp) return;
-    const el = _lhSp.el, cv = _lhSp.cv, W = el.clientWidth, H = el.clientHeight, dpr = Math.min(window.devicePixelRatio || 1, 2);
-    const o = document.createElement('canvas');
-    o.className = 'ws-warp';
-    o.width = Math.round(W * dpr); o.height = Math.round(H * dpr);
-    el.insertBefore(o, cv.nextSibling);
-    const x = o.getContext('2d'), cx = W / 2, cy = H / 2, maxR = Math.hypot(cx, cy);
-    const col = getComputedStyle(el).getPropertyValue('--text-primary').trim() || '#fff';
-    const stars = Array.from({ length: 220 }, () => ({ a: Math.random() * Math.PI * 2, d: 20 + Math.random() * maxR, w: 0.6 + Math.random() * 1.4 }));
-    const T = 730, t0 = performance.now();   // 0.98.09：從 1100 縮短三分之一
-    let swapped = false;
-    cv.animate([{ transform: 'none', filter: 'blur(0)', opacity: 1 }, { transform: 'scale(2.4)', filter: 'blur(10px)', opacity: 0 }], { duration: T * 0.5, easing: 'cubic-bezier(.6,0,.9,.4)', fill: 'forwards' });
-    _lhSp.warp = true;
-    const step = now => {
-        const u = Math.min(1, (now - t0) / T), sp = Math.sin(u * Math.PI);   // 速度 0→1→0
-        if (!swapped && u >= 0.5) {
-            swapped = true;
-            cv.getAnimations().forEach(a => a.cancel());
-            go();
-            cv.animate([{ transform: 'scale(0.35)', filter: 'blur(8px)', opacity: 0 }, { transform: 'none', filter: 'blur(0)', opacity: 1 }], { duration: T * 0.6, easing: 'cubic-bezier(.15,.7,.3,1)' });
-        }
-        x.setTransform(dpr, 0, 0, dpr, 0, 0);
-        x.clearRect(0, 0, W, H);
-        x.strokeStyle = col; x.lineCap = 'round';
-        for (const s of stars) {
-            s.d *= 1 + sp * 0.13;   // 越外面跑越快（透視）；時間短了，每格多衝一點
-            if (s.d > maxR) { s.d = 10 + Math.random() * 60; s.a = Math.random() * Math.PI * 2; }
-            const len = s.d * sp * 0.35, c = Math.cos(s.a), n = Math.sin(s.a);
-            x.globalAlpha = Math.min(1, 0.25 + sp) * Math.min(1, s.d / 120);
-            x.lineWidth = s.w * (0.6 + sp);
-            x.beginPath(); x.moveTo(cx + c * (s.d - len), cy + n * (s.d - len)); x.lineTo(cx + c * s.d, cy + n * s.d); x.stroke();
-        }
-        if (u < 1) requestAnimationFrame(step);
-        else { o.remove(); _lhSp.warp = false; }
-    };
-    requestAnimationFrame(step);
-}
+// 旋臂（0.98.09）：超過 25 個詞的大星系自動排成旋臂——恆星不轉、離中心越遠轉越慢（克卜勒：角速度 ∝ 距離^-1.5），
+// 每個星系 2～5 條往後拖的螺旋臂；25 個詞以下看不出臂，維持同心圓（內圈角速度快）。兩套同時並存，沒有開關
 const _lhSpGroupKey = (e, cfg) => cfg.groupOf ? cfg.groupOf(e) : e.z.split(' ').map(s => getZhuyinTone(s)).join('·');
 // 分批（0.98.09）：一批約 500（±50）個詞，整個星系一起分、不拆開（星系本身超過 550 才切）。
 // 批數＝總數 / 500 四捨五入；星系由大到小，每次放進目前最少的那批（批與批的數量會很平均）。結果記在 cfg._pages
@@ -473,7 +422,7 @@ function _lhSpLayout(list, cfg = {}) {
         // 先照寬度一圈圈分好（第 k 圈半徑 = 中心詞的一半寬 + k × 間距），再給每個詞自己的隨機軌道
         // 小星系漫遊（0.98.09）：3–5 個詞的微星系、6–10 個詞的小星系像流星一樣走長直線、出邊界從對面回來；流星 > 微星系 > 小星系
         if (g.length <= 10) { const a = R() * TAU, v = g.length <= 5 ? 32 + R() * 22 : 12 + R() * 10; cl.vx = Math.cos(a) * v; cl.vy = Math.sin(a) * v; }
-        const spiral = _lhSpSpiral && g.length > 25;   // 旋臂只套在大星系（25 個詞以下看不出臂，維持同心圓）
+        const spiral = g.length > 25;   // 大星系排旋臂、小的維持同心圓（見上面 _lhSpGroupKey 前的說明）
         // 恆星照星系大小加成（0.98.09）：10 個詞以下不加，100 個以上多 50%（中間照對數）；常用度和星系規模都看得出來
         const star = g[0], rings = [[]], starS = sizeOf(star) * (1 + 0.5 * Math.min(1, Math.max(0, Math.log10(g.length / 10))));
         let r = _lhSpWidth(star.w, starS) / 2 + LH_SP_RING * 0.9, used = 0;
