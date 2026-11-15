@@ -768,7 +768,10 @@ function _lhSpShow(cfg) {
     // 0.98.13：大星系再切成一小份一小份（恆星和內圈先），手機不用等整團幾千個字的小圖都畫好才看得到東西；
     // 每份間隔照份數縮短，整個浮現大約 1.4–2.5 秒
     const LH_SP_PIECE = 48, q = [];
-    for (const cl of clusters) { const g = _lhSp.words.filter(w => w.cl === cl); for (let i = 0; i < g.length; i += LH_SP_PIECE) q.push(g.slice(i, i + LH_SP_PIECE)); }
+    // 凝聚（第 4、5 級）：所有星系的恆星一起先浮現（各在自己的位置，不特別置中），行星之後才一份份聚過來
+    const starFirst = _lhSpCfg().gather;
+    if (starFirst) { const st = _lhSp.words.filter(w => w.star); st.lead = 700; q.push(st); }   // lead：恆星先亮 0.7 秒，行星才開始來
+    for (const cl of clusters) { const g = _lhSp.words.filter(w => w.cl === cl && !(starFirst && w.star)); for (let i = 0; i < g.length; i += LH_SP_PIECE) q.push(g.slice(i, i + LH_SP_PIECE)); }
     const cm = _lhSp.words.filter(w => w.comet);
     for (let i = 0; i < cm.length; i += LH_SP_PIECE) q.push(cm.slice(i, i + LH_SP_PIECE));
     _lhSp.queue = q;
@@ -1002,8 +1005,9 @@ function _lhSpReveal(t) {
         if (!w.spr) w.spr = _lhSpSprite(w, _lhSp.S);
     }
     if (_lhSp.visible && q[0].every(w => w.spr) && t - _lhSp.bornAt >= _lhSp.gap) {
-        for (const w of q.shift()) w.born = t;
-        _lhSp.bornAt = t;
+        const g = q.shift();
+        for (const w of g) w.born = t;
+        _lhSp.bornAt = t + (g.lead || 0);
     }
     return true;
 }
