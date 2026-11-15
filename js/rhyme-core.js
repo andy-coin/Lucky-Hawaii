@@ -329,7 +329,7 @@ function lhEnSetDict(obj) {
 const LH_EN_VOWEL = {
     AA: ['ㄚ', 'ㄤ', 'ㄤ'],          // car、ah；on、John、calm、want≈昂／旺
     AE: ['ㄝ', 'ㄢ', 'ㄤ'],          // cat；man、hand≈漢；bank、thank
-    AH: ['ㄚ', 'ㄢ', 'ㄤ'],          // 重音的 a：love、up、what≈拉／阿；one、fun、done≈萬／反；young≈楊（弱讀見 lhEnKeyRhyme）
+    AH: ['ㄜ', 'ㄤ', 'ㄤ'],          // 重音的 a：love、up≈ㄜ；done、sun≈ㄤ；young≈楊（0.98.09 Andy；what、one、fun、run 見 LH_EN_WORD；弱讀見 lhEnKeyRhyme）
     AO: ['ㄛ', 'ㄤ', 'ㄨㄥ'],        // more、law；gone；long、song≈隆／頌
     AW: ['ㄠ', 'ㄤ', 'ㄤ'],          // house；down、town≈當／湯
     AY: ['ㄞ', 'ㄞ', 'ㄞ'],          // night、time、smile
@@ -346,9 +346,12 @@ const LH_EN_VOWEL = {
 // 字尾的 L（暗 L）：中文耳朵聽起來像母音後面多一個「喔／嗚」：hell≈嘿喔、call≈扣、cool≈酷、people≈皮剖、world≈沃，
 // 所以照「母音＋ㄨ尾」歸韻：hell、well、tell 和「好」同一族。只改母音後面緊接 L 的字（help、felt、world 也算）；
 // 本身已經是複合母音的（day、night、boy 加 L：sale、smile、oil）聽起來還是原本的韻，不改
-const LH_EN_DARK_L = { AE: 'ㄠ', EH: 'ㄠ', AA: 'ㄡ', AH: 'ㄡ', AO: 'ㄡ', OW: 'ㄡ', ER: 'ㄡ', UW: 'ㄨ', UH: 'ㄨ', IY: 'ㄧㄡ', IH: 'ㄧㄡ' };
+// ER 不算（world、girl 聽起來還是ㄦ，0.98.09 Andy）
+const LH_EN_DARK_L = { AE: 'ㄠ', EH: 'ㄠ', AA: 'ㄡ', AH: 'ㄡ', AO: 'ㄡ', OW: 'ㄡ', UW: 'ㄨ', UH: 'ㄨ', IY: 'ㄧㄡ', IH: 'ㄧㄡ' };
+// 規則套不到的個別字（Andy 逐字聽過）
+const LH_EN_WORD = { what: 'ㄚ', one: 'ㄨㄢ', won: 'ㄨㄢ', fun: 'ㄨㄤ', run: 'ㄨㄤ' };
 // 字表只記最後一個母音、不記重音。多音節字最後的 a（AH）幾乎都是弱讀：button、seven≈ㄣ、freedom≈ㄣ、accurate≈ㄜ；
-// 單音節的才是重音：one、fun≈ㄢ、love≈ㄚ。所以多音節的 AH 另外處理（above、enough 這種重音在最後的會猜成弱讀，少數）
+// 單音節的才是重音：done≈ㄤ、love≈ㄜ。所以多音節的 AH 另外處理（above、enough 這種重音在最後的會猜成弱讀，少數）
 function lhEnKeyRhyme(key, multi) {
     const [v, c] = key.split(' '), m = LH_EN_VOWEL[v];
     if (!m) return null;
@@ -383,7 +386,9 @@ function lhEnGuess(word) {
 function lhEnRhyme(word) {
     if (!_lhEnDict) return null;
     const w = word.toLowerCase().replace(/’/g, "'");
+    if (LH_EN_WORD[w]) return LH_EN_WORD[w];
     const k = _lhEnDict.get(w);
+    if (k === 'AH T' && /rate$/.test(w)) return 'ㄨㄟ';   // accurate、desperate、separate 的 -rate≈瑞
     return k ? lhEnKeyRhyme(k, _lhEnSyl(w) > 1) : lhEnGuess(w);
 }
 

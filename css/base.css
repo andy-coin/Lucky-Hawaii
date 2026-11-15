@@ -848,6 +848,7 @@
 
         .results-section {
             padding: 1.875rem;
+            padding-top: 1.25rem;   /* 跟 .results-header 的下距一樣：數量列在上框線與字卡之間置中 */
             min-height: 18.75rem;
             flex: 1;
             overflow-y: auto;

@@ -2875,10 +2875,13 @@ body.dock.dock-classic .side-panel.collapsed[data-dk-side="r"] .side-panel-tab::
 .side-panel-tab:focus-visible, .results-side-tab:focus-visible { outline: 2px solid var(--highlight-border); outline-offset: -2px; }
 
 /* ===== 詞卡（多字查雙押）與詞宇宙（js/word-space.js）===== */
-.ws-header { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2) var(--sp-3); margin-bottom: var(--sp-3); }
+.ws-header { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2) var(--sp-3); margin-bottom: 1.25rem; }   /* 跟字卡的 .results-header 一樣，數量列上下等距 */
 .ws-header .results-count { margin: 0; }
-.ws-header .ws-expand-btn { flex: 1 1 12rem; }
 /* 選項列（詞卡）：同聲調／排除借韻緊接在比對方式後面，回報靠最右（和字卡的排法一樣） */
+/* 字卡模式：常用／冷僻／取消緊接比對分頁（跟詞卡的同聲調／排除借韻同位置），回報靠最右 */
+body[data-q="char"] .options #batchPanel { flex: 1 1 auto; margin-inline-start: var(--sp-3); }
+body[data-q="char"] .options #batchPanel .btn-report { margin-inline-start: auto; }
+.options .batch-panel.inline .batch-btn { padding-inline: var(--sp-2); }   /* 窄一點，字卡模式的四顆才放得進比對分頁同一行 */
 body[data-q="word"] .options .ws-filters { margin-inline-start: var(--sp-3); margin-inline-end: auto; }
 .ws-rep { display: inline-flex; gap: var(--sp-1); }
 .ws-rep .batch-btn[hidden] { display: none; }
@@ -2886,7 +2889,7 @@ body[data-q="word"] .options .ws-filters { margin-inline-start: var(--sp-3); mar
 .report-mode .ws-card.report-picked { border-color: var(--danger-line); box-shadow: inset 0 0 0 2px var(--danger-line); }
 /* 關聯詞彙（查單字時選了字卡才出現，js/cards.js updateBatchCount） */
 .ws-rel-btn:not([hidden]) { display: flex; width: auto; margin: var(--sp-2) var(--sp-4) 0; flex: 0 0 auto; }
-body:not([data-q="char"]) .ws-rel-btn { display: none; }
+body:not([data-q="char"]) #wsRelBtn, body:not([data-q="word"]) #wsAllBtn { display: none; }
 /* 搜尋欄空的時候整排選項收起；查單字用字卡那兩組，查整個詞換成詞卡那兩組（js/results.js 設 body[data-q]） */
 body:not([data-q="char"]):not([data-q="word"]) .options, body:not([data-q="char"]):not([data-q="word"]) .mobile-batch-area,
 body:not([data-q="char"]) .q-char, body:not([data-q="word"]) .q-word { display: none !important; }

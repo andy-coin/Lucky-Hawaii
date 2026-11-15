@@ -1,3 +1,11 @@
+## 2026-11-15 v0.98.09（已 push，待 Andy 實機驗收；全套 1279 通過，rhyme-map-ui:280 是舊的）
+- 中間面板：「顯示全部」改成 index.html #wsAllBtn（跟 #wsRelBtn 同位置、滿版，查整個詞才出現；word-space.js _lhWsDraw 只設 disabled）；.results-section 上距 1.25rem、.ws-header 下距 1.25rem（數量列上下等距）；字卡模式 #batchPanel 緊接比對分頁、回報 margin-inline-start:auto 靠右，選項列小按鈕 padding 改 sp-2 才放得下（css/panels.css 詞卡段落）。平板截圖已更新。
+- 流星：曲率 0.002–0.008（原 0.015–0.05）；尾巴改一條漸層漸細三角形（照前進方向、長約 1.6 秒路程），拿掉 trail 陣列。
+- 行星速度：每圈照該圈詞平均常用度調速（1.55−1.1×avgN，大詞圈慢約 0.45 倍、小詞圈快約 1.55 倍；同圈共用速度不互撞）。
+- 星座第 4 點起：一條 40%／兩條 45%／三條 15%（_lhSpPin）。
+- 耗電：離開星雲後實測 rAF 有停、CPU 回到進去前；持續吃的是背景飄字（bgfx.js）。飄字改成每字一張小圖（_lhBgSprite，換主題／dpr 重畫），第 5 級上限 60fps；關星雲時清掉 _lhSp.words／queue 等（放掉小圖與星系圖）。無頭量測第 5 級閒置 12%→8.7%。
+- 英文：ER 不再走暗 L（world、girl→ㄦ）；AH 單音節 ㄜ／ㄤ（love、up→ㄜ，done→ㄤ）；個別字 LH_EN_WORD（what ㄚ、one/won ㄨㄢ、fun/run ㄨㄤ）；AH T 的 -rate→ㄨㄟ（accurate）。待確認：AH＋M（come、some、from）維持ㄢ沒動。
+
 ## 2026-11-15 v0.98.08 追加（版本號不變；已 push，全套 1283 通過）
 - 搜尋框提示字改「ㄞ/ai/唉/唉呀」，手機電腦同一句（拿掉 js/search-ui.js 換提示字的程式）。
 - 星雲：第 1 級不轉（orbit 0，只剩整片呼吸＋保留呼吸），第 2 級 24fps（LH_SP_LV）。

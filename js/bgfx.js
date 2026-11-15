@@ -24,6 +24,7 @@ let _lhBgFaint = false;    // 星雲（js/word-space.js）開著時：照常飄�
 let _lhBgFont = 'serif';
 let _lhBgW = 0;
 let _lhBgH = 0;
+let _lhBgDpr = 1;
 
 function _lhBgAllowed() {
     return _lhBgOn && !(navigator.webdriver && !window.__lhBgFxTest);
@@ -87,6 +88,8 @@ function _lhBgResize() {
     _lhBgH = window.innerHeight;
     _lhBgCanvas.width = Math.round(_lhBgW * dpr);
     _lhBgCanvas.height = Math.round(_lhBgH * dpr);
+    if (dpr !== _lhBgDpr) for (const f of _lhBgFlakes) f.img = null;
+    _lhBgDpr = dpr;
     _lhBgCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
     // 字數跟面積走，iPad 約 16 個、桌機約 20 個，上限 24
     const n = Math.round(Math.max(10, Math.min(24, Math.round(_lhBgW * _lhBgH / 55000))) * (_lhFxLv <= 3 ? 0.6 : 1));
@@ -96,10 +99,8 @@ function _lhBgResize() {
 }
 
 function _lhBgDraw(dt) {
-    const ctx = _lhBgCtx;
+    const ctx = _lhBgCtx, d = _lhBgDpr;
     ctx.clearRect(0, 0, _lhBgW, _lhBgH);
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
     for (let i = 0; i < _lhBgFlakes.length; i++) {
         let f = _lhBgFlakes[i];
         if (dt) {
@@ -108,20 +109,32 @@ function _lhBgDraw(dt) {
             f.rot += f.vr * dt;
             if (f.y > _lhBgH + f.size) f = _lhBgFlakes[i] = _lhBgNewFlake(false);
         }
-        ctx.save();
-        ctx.translate(f.x + Math.sin(f.phase) * f.sway, f.y);
-        ctx.rotate(f.rot);
+        if (!f.img) f.img = _lhBgSprite(f);
+        const cs = Math.cos(f.rot) * d, sn = Math.sin(f.rot) * d, iw = f.img.width / d, ih = f.img.height / d;
+        ctx.setTransform(cs, sn, -sn, cs, (f.x + Math.sin(f.phase) * f.sway) * d, f.y * d);
         ctx.globalAlpha = _lhBgAlpha * f.a * (_lhBgFaint ? 0.28 : 1);
-        ctx.fillStyle = _lhBgColors[f.color % _lhBgColors.length];
-        ctx.font = Math.round(f.size) + 'px ' + _lhBgFont;
-        ctx.fillText(f.ch, 0, 0);
-        ctx.restore();
+        ctx.drawImage(f.img, -iw / 2, -ih / 2, iw, ih);
     }
+    ctx.setTransform(d, 0, 0, d, 0, 0);
+    ctx.globalAlpha = 1;
+}
+// 0.98.09：每個字先畫成一張小圖，每格只貼圖、不再 fillText（每格重畫中文字型很吃 CPU，風扇會轉）；換主題時清掉重畫
+function _lhBgSprite(f) {
+    const d = _lhBgDpr, font = Math.round(f.size) + 'px ' + _lhBgFont;
+    const c = document.createElement('canvas'), x = c.getContext('2d');
+    x.font = font;
+    const w = Math.ceil(x.measureText(f.ch).width + 4), h = Math.ceil(f.size * 1.4);
+    c.width = Math.max(1, Math.round(w * d)); c.height = Math.max(1, Math.round(h * d));
+    x.scale(d, d);
+    x.font = font; x.textAlign = 'center'; x.textBaseline = 'middle';
+    x.fillStyle = _lhBgColors[f.color % _lhBgColors.length];
+    x.fillText(f.ch, w / 2, h / 2);
+    return c;
 }
 
 function _lhBgFrame(t) {
     _lhBgRaf = requestAnimationFrame(_lhBgFrame);
-    if (t - _lhBgLast < ({ 3: 50, 4: 32 }[_lhFxLv] || 12)) return;   // 3 級約 20 fps、4 級 30 fps、5 級 60 fps
+    if (t - _lhBgLast < ({ 3: 50, 4: 32 }[_lhFxLv] || 15)) return;   // 3 級約 20 fps、4 級 30 fps、5 級最多 60 fps（高刷螢幕不多畫）
     const dt = _lhBgLast ? Math.min((t - _lhBgLast) / 1000, 0.1) : 0;
     _lhBgLast = t;
     _lhBgDraw(dt);
@@ -161,6 +174,7 @@ function lhBgFxRefresh() {
     if (!_lhBgColors.length) _lhBgColors = ['#888'];
     _lhBgAlpha = parseFloat(cs.getPropertyValue('--fx-opacity')) || 0.16;
     _lhBgFont = cs.getPropertyValue('--font-serif').trim() || 'serif';   // 每幀不再讀樣式
+    for (const f of _lhBgFlakes) f.img = null;   // 顏色、字型換了：小圖重畫
     if (_lhBgCanvas && !_lhBgRaf) _lhBgDraw(0);
 }
 

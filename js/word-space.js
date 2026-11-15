@@ -175,11 +175,8 @@ function _lhWsDraw(container, word) {
     const head = _lhWsEl('div', 'ws-header');
     const how = { rhyme: '押「' + word + '」的詞', initial: '跟「' + word + '」同子音的詞', same: '跟「' + word + '」有字同讀音的詞' }[_lhWs.mode];
     const count = _lhWsEl('div', 'results-count', how + '：' + _lhWs.list.length.toLocaleString('zh-TW') + ' 個');
-    const go = _lhWsEl('button', 'ws-expand-btn');
-    go.type = 'button';
-    go.innerHTML = '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l1.6 4.4L18 9l-4.4 1.6L12 15l-1.6-4.4L6 9l4.4-1.6z"/><circle cx="18.5" cy="17.5" r="1.5"/><circle cx="6" cy="18" r="1"/></svg><span>顯示全部</span>';
-    go.disabled = !_lhWs.list.length;
-    go.addEventListener('click', () => lhWsOpen());
+    const go = document.getElementById('wsAllBtn');   // 「顯示全部」在結果區上方（index.html，跟「關聯詞彙」同位置）
+    if (go) go.disabled = !_lhWs.list.length;
     // 回報：跟 AI 詞卡一樣先進「挑選」模式（點詞卡＝勾選，不是保留），再送出；放在選項列最右邊（跟字卡的「回報」同一個位置）
     const rep = document.getElementById('wsRepSlot');
     const repBtn = _lhWsEl('button', 'batch-btn btn-report');
@@ -206,7 +203,7 @@ function _lhWsDraw(container, word) {
     container.classList.remove('report-mode');
     repSync();
     _lhWs.repSync = repSync;
-    head.append(count, go);   // 「顯示全部」跟數量同一列，佔滿右邊
+    head.append(count);
     if (!_lhWs.list.length) {
         container.replaceChildren(head, _lhWsEmpty('沒有符合的詞', _lhWs.tone || _lhWs.strict ? '把「同聲調」「排除借韻」取消試試' : '試試換個比對方式、少一個字，或用 * 代替不必押的字（例：*打）'));
         return;
@@ -401,7 +398,8 @@ function _lhSpLayout(list, cfg = {}) {
         // 同一圈共用扁度、傾角、速度（才不會越轉越擠在一起），每個詞只再帶一點點偏差
         rings.forEach((ring, k) => {
             const th0 = R() * TAU, gap = TAU / ring.length;
-            const om = cl.dir * 0.16 / Math.sqrt(k + 1) * (0.9 + R() * 0.2);   // 內圈快、外圈慢（像行星）
+            const avgN = ring.reduce((t, e) => t + norm(e), 0) / ring.length;   // 0.98.09：大行星（常用、字大）慢、小行星快，照這圈詞的平均大小（同圈共用速度才不會互撞）
+            const om = cl.dir * 0.16 / Math.sqrt(k + 1) * (0.9 + R() * 0.2) * (1.55 - 1.1 * avgN);
             const ecc = 0.82 + R() * 0.15, tilt = cl.tilt + (R() - 0.5) * 0.5;
             ring.forEach((e, j) => words.push({ e, cl, color: tint(color, e), s: sizeOf(e), n: norm(e),
                 // 水彩筆畫的圈（第 4、5 級）：同一圈每個詞離軌道多遠不一樣（±30% 間距），角度也不平均；速度相同，所以彼此距離不會變
@@ -431,8 +429,8 @@ function _lhSpLayout(list, cfg = {}) {
     for (const cl of clusters) _lhSpDrift(cl, clusters);
     const bound = Math.max(600, ...clusters.map(c => Math.hypot(c.x, c.y) + c.r)) * 1.25;
     for (const e of comets) {   // 流星：隨機起點、隨機方向，沿著微彎的弧線穿過整片（0.98.08 快一點、直一點），出了邊界從對面回來
-        const a = R() * TAU, v = 45 + R() * 45, cv = (R() < 0.5 ? -1 : 1) * (0.015 + R() * 0.035);
-        words.push({ e, cl: null, color: 'var(--text-primary)', s: sizeOf(e), n: norm(e), comet: true, x: (R() * 2 - 1) * bound, y: (R() * 2 - 1) * bound, v, cv, ang: a, trail: [], tt: 0 });
+        const a = R() * TAU, v = 45 + R() * 45, cv = (R() < 0.5 ? -1 : 1) * (0.002 + R() * 0.006);   // 0.98.08 追加：曲率再低很多，幾乎直線
+        words.push({ e, cl: null, color: 'var(--text-primary)', s: sizeOf(e), n: norm(e), comet: true, x: (R() * 2 - 1) * bound, y: (R() * 2 - 1) * bound, v, cv, ang: a });
     }
     return { words, clusters, bound };
 }
@@ -617,6 +615,7 @@ function lhWsClose() {
     _lhSp.tm = setTimeout(() => {
         el.hidden = true;
         cancelAnimationFrame(_lhSp.raf); _lhSp.raf = 0;
+        _lhSp.words = []; _lhSp.queue = []; _lhSp.pins = []; _lhSp.chords = []; _lhSp.segs = []; _lhSp.hover = _lhSp.act = null;   // 0.98.09：放掉每個詞的小圖、星系圖（下次打開會重建）
         document.body.classList.remove('ws-leave');
         for (const id of ['leftPanel', 'mainContainer', 'rightPanel', 'mobileTabBar']) { const p = document.getElementById(id); if (p) p.inert = false; }
         if (typeof syncCenterPanel === 'function') syncCenterPanel();   // 收起的面板要回到 inert（syncCenterPanel 是唯一管 inert 的地方）
@@ -865,14 +864,12 @@ function _lhSpFrame(t) {
             }
             busy = true;
         } else if (!still) {
-            if (w.comet) {   // 流星走弧線：前進方向慢慢轉；尾巴記最近走過的點
+            if (w.comet) {   // 流星走弧線：前進方向慢慢轉（尾巴照前進方向畫，不用記走過的點）
                 w.ang += w.cv * dt;
                 w.x += Math.cos(w.ang) * w.v * dt; w.y += Math.sin(w.ang) * w.v * dt;
                 let wrap = false;
                 if (w.x > B) { w.x = -B; wrap = true; } else if (w.x < -B) { w.x = B; wrap = true; }
                 if (w.y > B) { w.y = -B; wrap = true; } else if (w.y < -B) { w.y = B; wrap = true; }
-                if (wrap) w.trail = [];
-                if ((w.tt += dt) > 0.12) { w.tt = 0; w.trail.unshift({ x: w.x, y: w.y }); if (w.trail.length > 16) w.trail.pop(); }
             } else if (!w.star) {
                 w.th += w.om * L.orbit * dt;
                 if (L.wobble) {   // 行星呼吸晃動（第 4、5 級），每個詞幅度不同（水彩的毛邊）
@@ -990,17 +987,16 @@ function _lhSpDraw(t, L) {
         if (w.pinned || w.hot) { top.push([w, p]); continue; }
         if (w.mag > 1.01) { mags.push([w, p]); continue; }   // 放大中的詞晚點畫，蓋在旁邊的詞上面
         const a = w.alpha * (w.dim ? 0.06 : 1);
-        if (w.comet && !w.dim && L.tail && w.trail.length) {   // 流星尾巴：沿著走過的弧線，越後面越淡
-            c.save();
-            c.strokeStyle = w.rgb; c.lineWidth = 1.6; c.lineCap = 'round';
-            let q = p;
-            w.trail.forEach((pt, i) => {
-                const s = _lhSpScr(pt.x, pt.y);
-                c.globalAlpha = a * 0.85 * (1 - i / w.trail.length);
-                c.beginPath(); c.moveTo(q.x, q.y); c.lineTo(s.x, s.y); c.stroke();
-                q = s;
-            });
-            c.restore();
+        if (w.comet && !w.dim && L.tail) {   // 流星尾巴：一整條往後漸細、漸淡的光（連續漸層，不分段），長度＝約 1.6 秒走的路
+            const z = _lhSpZv(), k = w.v * 1.6 * z, ex = p.x - Math.cos(w.ang) * k, ey = p.y - Math.sin(w.ang) * k;
+            if (k > 4) {
+                const nx = Math.sin(w.ang) * 1.8, ny = -Math.cos(w.ang) * 1.8;   // 頭端半寬 1.8px
+                const g = c.createLinearGradient(p.x, p.y, ex, ey);
+                g.addColorStop(0, w.rgb); g.addColorStop(1, w.rgb0 || (w.rgb0 = w.rgb.replace('rgb(', 'rgba(').replace(')', ', 0)')));
+                c.save(); c.globalAlpha = a * 0.75; c.fillStyle = g;
+                c.beginPath(); c.moveTo(p.x + nx, p.y + ny); c.lineTo(ex, ey); c.lineTo(p.x - nx, p.y - ny); c.closePath(); c.fill();
+                c.restore();
+            }
         }
         const tw = w.twk ? Math.sin(Math.min(1, (t - w.twk) / 1400) * Math.PI) : 0;   // 星星閃爍的亮度（0→1→0）
         const m = (w.kb || 1) * (1 + 0.06 * tw);
@@ -1077,7 +1073,7 @@ function _lhSpActsPlace() {
 // 行星：照放手的位置換一條新軌道（離恆星多遠、在哪個角度），之後照常繞
 function _lhSpSettle(w, L, T) {
     w.free = false;
-    if (w.comet) { w.x = w.fx; w.y = w.fy; w.trail = []; return; }
+    if (w.comet) { w.x = w.fx; w.y = w.fy; return; }
     const cl = w.cl;
     if (w.star) {
         _lhSpDrift(Object.assign(cl, { hx: w.fx, hy: w.fy }), _lhSp.groups);
@@ -1118,7 +1114,7 @@ function _lhSpPin(w) {
     if (old.length <= 2) { for (const o of old) _lhSp.chords.push([w, o]); return; }
     const ang = (a, b) => Math.atan2(pt(b).y - pt(a).y, pt(b).x - pt(a).x);
     const tooClose = (a1, a2) => { let d = Math.abs(a1 - a2) % Math.PI; d = Math.min(d, Math.PI - d); return d < Math.PI / 90; };
-    const r = Math.random(), want = r < 0.45 ? 1 : r < 0.8 ? 2 : 3;
+    const r = Math.random(), want = r < 0.4 ? 1 : r < 0.85 ? 2 : 3;   // 0.98.09：一條 40%、兩條 45%、三條 15%
     let pool = old.slice();
     for (let n = 0; n < want && pool.length; n++) {
         const wt = pool.map(o => 1 / Math.pow(dist(w, o), 2)), sum = wt.reduce((a, b) => a + b, 0);
