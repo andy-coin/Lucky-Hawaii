@@ -3080,8 +3080,8 @@ body.ws-anim.ws-in :is(#leftPanel, #rightPanel, #mainContainer, #mobileTabBar) {
 .ws-page-range { -webkit-appearance: none; appearance: none; width: 100%; height: 1.25rem; margin: 0; background: transparent; cursor: pointer; }
 .ws-page-range::-webkit-slider-runnable-track { height: 0.375rem; border-radius: 1rem; background: linear-gradient(to right, var(--border) var(--a, 0%), var(--highlight-border) var(--a, 0%), var(--highlight-border) var(--b, 100%), var(--border) var(--b, 100%)); }
 .ws-page-range::-moz-range-track { height: 0.375rem; border-radius: 1rem; background: linear-gradient(to right, var(--border) var(--a, 0%), var(--highlight-border) var(--a, 0%), var(--highlight-border) var(--b, 100%), var(--border) var(--b, 100%)); }
-.ws-page-range::-webkit-slider-thumb { -webkit-appearance: none; width: 0.875rem; height: 0.875rem; margin-top: -0.25rem; border-radius: 50%; background: var(--text-primary); border: none; }
-.ws-page-range::-moz-range-thumb { width: 0.875rem; height: 0.875rem; border-radius: 50%; background: var(--text-primary); border: none; }
+.ws-page-range::-webkit-slider-thumb { -webkit-appearance: none; width: 0.875rem; height: 0.875rem; margin-top: -0.25rem; border-radius: 50%; background: transparent; border: none; opacity: 0; }   /* 0.98.09：不顯示圓點，區段上色就夠清楚（仍可點、可拖、可用鍵盤） */
+.ws-page-range::-moz-range-thumb { width: 0.875rem; height: 0.875rem; border-radius: 50%; background: transparent; border: none; opacity: 0; }   /* 0.98.09：不顯示圓點，區段上色就夠清楚（仍可點、可拖、可用鍵盤） */
 .ws-page-range:focus-visible { outline: 2px solid var(--highlight-border); outline-offset: 2px; }
 .ws-page-ticks { display: flex; font-size: 0.75rem; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
 .ws-page-ticks > span { flex: 1; text-align: center; }
