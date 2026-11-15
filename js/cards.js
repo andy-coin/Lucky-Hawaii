@@ -2,7 +2,7 @@
         function createCharCard(item, showPinyin, highlightTarget) {
             const isSelected = selectedChars.has(item.char) ? 'selected' : '';
             const highlightSearch = document.getElementById('highlightSearch').checked;
-            const mark = getCharMark(item.char, item.zhuyin);
+            const mark = getCharMark(item.char, item.zhuyin, item.tone);
             const customColorClass = hasCustomTextColor ? 'custom-color' : '';
             
             let displayText = '';
@@ -168,7 +168,7 @@
 
                 // 拍快照（首次改動才記錄）
                 if (!pendingChanges.has(snapKey)) {
-                    pendingChanges.set(snapKey, getCharMark(char, baseZhuyin));
+                    pendingChanges.set(snapKey, getCharMark(char, baseZhuyin, +dictKey.slice(-1)));
                 }
 
                 moveCharTier(char, dictKey, newTier);

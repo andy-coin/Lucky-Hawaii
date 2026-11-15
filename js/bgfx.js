@@ -162,7 +162,8 @@ function _lhBgUpdate() {
     }
     _lhBgCanvas.style.visibility = _lhBgHidden ? 'hidden' : '';
     if (_lhBgHidden) { _lhBgStop(); return; }
-    if (_lhBgReduce.matches || document.hidden || _lhFxLv <= 2) { _lhBgStop(); _lhBgDraw(0); return; }   // 1、2 級：定格一張
+    // 1、2 級：定格一張；星雲開著時（_lhBgFaint）也定格——它只剩 28% 淡、被星雲蓋住，照跑會多一整張全螢幕畫布每秒 60 格（0.98.15.6，約省 20%）
+    if (_lhBgReduce.matches || document.hidden || _lhFxLv <= 2 || _lhBgFaint) { _lhBgStop(); _lhBgDraw(0); return; }
     if (!_lhBgRaf) _lhBgRaf = requestAnimationFrame(_lhBgFrame);
 }
 
@@ -197,7 +198,7 @@ function lhBgFxHide(h) {
 }
 function lhBgFxFaint(f) {
     _lhBgFaint = !!f;
-    if (_lhBgCanvas && !_lhBgRaf) _lhBgDraw(0);
+    _lhBgUpdate();
 }
 
 window.addEventListener('resize', _lhBgResize);

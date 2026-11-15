@@ -1,3 +1,12 @@
+## 0.98.15.6（2026-11-16）
+- js/bgfx.js `_lhBgUpdate`：星雲開著（_lhBgFaint）時背景落字定格一張，不跑 RAF；lhBgFxFaint 改呼叫 _lhBgUpdate。
+- js/word-space.js：
+  - 恆星光暈（L4+ starGlow）改用快取光暈圖 `_lhSpGlowImg(rgb,a)`（128px 放射漸層，drawImage 放大）。
+  - 第 5 級縮放殘影：`trailK`＝每格擦除比例，乘在星座線光暈、恆星光暈、hover 光暈上，避免殘影期間半透明光暈疊濃（Andy 回報滾輪縮放時光暈變另一個樣子）。
+  - starHi：拿掉字的 shadowBlur 描層，改閃爍式 lighter 疊兩次（0.8k／0.5k）＋放大 6%。
+- js/dict.js getCharMark 加 tone 參數（results.js／cards.js 傳 tone）：同注音不同聲調各自依讀音標冷僻（打 ㄉㄚˊ 冷僻、ㄉㄚˇ 常用）。Andy 確認一字兩卡一常用一冷僻是正常結果。
+- 待決：自動降格（提案：連續 1–2 秒平均幀間隔超標→降 30 幀，10 秒後再試 60）、手機第 5 級固定 30 幀、筆電 dpr 1.5。
+
 ## 0.98.15.5（?v 破快取；已 push，待 Andy 手機驗 crash 是否消失）
 - 記憶體修正（js/word-space.js _lhSpRescale 重寫）：只有畫面內＋外圍 1/4 的詞換成目前倍率，畫面外維持打開時的倍率 _lhSp.S0；倍率上限 LH_SP_SMAX＝觸控 4、滑鼠 6；一個詞一個詞直接換（拿掉 nspr 雙份）；一輪換完才讓星系圖重畫。第 2 級倍率 > 2 時不用星系圖。實測（模擬 iPhone）放到最大：「不」706 MB → 9 MB、「愛」272 → 10 MB；各級都 ≤ 17 MB。
 - 第 1 級：idle（沒變化就不畫，保留的詞在呼吸才畫）＋整片呼吸改 CSS 縮放畫布（css/panels.css wsBreath、.ws-space.ws-breathe）。模擬手機「不」1466 詞：每秒 96 ms → 0。代價：呼吸時 hover 判定最多偏 1.2%（邊緣約 7px）。

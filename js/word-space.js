@@ -1236,9 +1236,11 @@ function _lhSpDraw(t, L) {
     // 縮放殘影（第 5 級，0.98.14.5 Andy）：縮放中不整張擦掉，只把上一格擦淡一部分 → 星星拖出淡淡的殘影；
     // 停手後 0.45 秒內擦得越來越乾淨（殘影自然收掉），之後照常整張清
     const zAge = t - (_lhSp.zt || -1e9), TRAIL = 450;
+    // trailK：殘影時每格只擦掉一部分，半透明的光暈會一層層疊上去變濃 → 光暈透明度乘上「擦掉的比例」抵銷（0.98.15.6，縮放時光暈跟停下來一樣）
+    let trailK = 1;
     if (L.zoomTrail && zAge < TRAIL) {
         c.save(); c.globalCompositeOperation = 'destination-out'; c.fillStyle = '#000';   // 一定要不透明的填色：沿用上一格留下的（可能是透明漸層）會什麼都沒擦到
-        c.globalAlpha = 0.6 + 0.4 * Math.max(0, zAge - 120) / (TRAIL - 120);   // 每格留上一格約 40%，停手後收乾淨
+        c.globalAlpha = trailK = 0.6 + 0.4 * Math.max(0, zAge - 120) / (TRAIL - 120);   // 每格留上一格約 40%，停手後收乾淨
         c.fillRect(0, 0, _lhSp.W, _lhSp.H); c.restore();
         _lhSp.dirty = true;
     } else c.clearRect(0, 0, _lhSp.W, _lhSp.H);
@@ -1259,7 +1261,7 @@ function _lhSpDraw(t, L) {
         for (const [a, b] of _lhSp.segs) { const p = _lhSpScr(a.px, a.py), q = _lhSpScr(b.px, b.py); c.moveTo(p.x, p.y); c.lineTo(q.x, q.y); }
         if (L.lineGlow) {   // 第 4 級起：光暈由外而內一層層描（越外越寬越淡），整體慢慢呼吸（一輪約 5.6 秒，跟第 5 級的閃爍各走各的）
             const br = 0.72 + 0.28 * Math.sin(t / 5600 * Math.PI * 2);
-            for (const [wd, al] of [[30, 0.025], [18, 0.045], [10, 0.08], [5, 0.14]]) { c.globalAlpha = al * br; c.lineWidth = wd * zk; c.stroke(); }
+            for (const [wd, al] of [[30, 0.025], [18, 0.045], [10, 0.08], [5, 0.14]]) { c.globalAlpha = al * br * trailK; c.lineWidth = wd * zk; c.stroke(); }
         }
         c.globalAlpha = 0.85; c.lineWidth = 1.5 * Math.min(1.6, Math.max(0.7, zk));
         c.shadowColor = c.strokeStyle; c.shadowBlur = 5 * zk;
@@ -1305,13 +1307,11 @@ function _lhSpDraw(t, L) {
         const g = c.createRadialGradient(p.x, p.y, 0, p.x, p.y, R);
         // 0.98.15.3 Andy：中心太濃不像光暈 → 中心降到 0.3、多幾個 stop 讓衰減更平滑
         g.addColorStop(0, _lhSpRGBA(w.rgb, 0.3 * k)); g.addColorStop(0.3, _lhSpRGBA(w.rgb, 0.16 * k)); g.addColorStop(0.6, _lhSpRGBA(w.rgb, 0.06 * k)); g.addColorStop(1, _lhSpRGBA(w.rgb, 0));
-        c.fillStyle = g; c.globalAlpha = 1; c.fillRect(p.x - R, p.y - R, R * 2, R * 2);
-        // 深淺主題都看得出來：一般疊法描兩次彩色光暈（「疊加發光」在淺色背景上反而變淡），深色主題再用疊加提亮
-        const sb = Math.min(R * 0.6, 38 * Math.max(0.6, Math.min(2, z * m * w.s)));   // 字的發光也不超出光暈範圍
-        // 0.98.15.3 Andy：字的發光描層 3→2 層、透明度降低；疊加提亮 0.5→0.2
-        c.save(); c.shadowColor = w.rgb; c.globalAlpha = 0.6 * k;
-        c.shadowBlur = sb; blit(w, p, m); c.shadowBlur = sb * 0.35; blit(w, p, m);
-        c.shadowBlur = 0; c.globalCompositeOperation = 'lighter'; c.globalAlpha = 0.2 * k; blit(w, p, m); c.restore();
+        c.fillStyle = g; c.globalAlpha = trailK; c.fillRect(p.x - R, p.y - R, R * 2, R * 2);
+        // 0.98.15.6 Andy：字不再描發光層（太亮），改成跟閃爍一樣：字本身疊加提亮兩次、微微放大 6%
+        const mk = m * (1 + 0.06 * k);
+        c.save(); c.globalCompositeOperation = 'lighter';
+        c.globalAlpha = 0.8 * k; blit(w, p, mk); c.globalAlpha = 0.5 * k; blit(w, p, mk); c.restore();
         c.globalAlpha = a;
         };
     const top = [], mags = [];
@@ -1322,10 +1322,8 @@ function _lhSpDraw(t, L) {
         if (!p) continue;
         if ((w.star || w.rising) && L.starGlow && !w.dim) {   // 0.98.09：第 4 級起恆星自帶光暈（接任中的也先亮）；放大、釘住、停住時也畫（先畫，墊在所有字後面）
             const R = (w.cl ? w.cl.r / 2 : w.tw) * _lhSpZv() * (w.kb || 1) * (w.mag || 1);   // 光暈半徑＝自己星系半徑的 1/2，中心濃度 13%
-            const g = c.createRadialGradient(p.x, p.y, 0, p.x, p.y, R);
-            g.addColorStop(0, w.rgbG || (w.rgbG = _lhSpRGBA(w.rgb, 0.13)));
-            g.addColorStop(1, w.rgb0 || (w.rgb0 = _lhSpRGBA(w.rgb, 0)));
-            c.globalAlpha = w.alpha; c.fillStyle = g; c.fillRect(p.x - R, p.y - R, R * 2, R * 2);
+            // 0.98.15.6：每種顏色先畫好一張 128px 的光暈圖，每格只貼上去放大（以前每顆恆星每格算一次幾百 px 的放射漸層，筆電內顯最吃這個，約占第 5 級的 4 成）
+            c.globalAlpha = w.alpha * trailK; c.drawImage(_lhSpGlowImg(w.rgb, 0.13), p.x - R, p.y - R, R * 2, R * 2);
         }
         if (w.comet && !w.dim && L.tail) {   // 流星尾巴：一整條往後漸細、漸淡的光（連續漸層，不分段），長度＝約 0.8 秒走的路（速度 3 倍後縮短）；放大、釘住時也畫（先畫，墊在字後面）
             const z = _lhSpZv(), k = w.v * 0.8 * z, ex = p.x - Math.cos(w.ang) * k, ey = p.y - Math.sin(w.ang) * k;
@@ -1606,6 +1604,21 @@ function _lhSpHoloDraw(c, t, z) {
         c.globalAlpha = fade(tCount); c.fillStyle = _lhSp.cMute; c.font = '12px ' + _lhSp.font; c.fillText(t2, x0 + 10, y0 + 31);
     }
     c.restore();
+}
+
+// 光暈圖快取：顏色＋中心濃度 → 一張 128×128 的放射漸層（貼上去再放大，看起來跟現場算的一樣）
+const _lhSpGlowC = new Map();
+function _lhSpGlowImg(rgb, a) {
+    const key = rgb + '|' + a;
+    let cv = _lhSpGlowC.get(key);
+    if (!cv) {
+        cv = document.createElement('canvas'); cv.width = cv.height = 128;
+        const g = cv.getContext('2d'), gr = g.createRadialGradient(64, 64, 0, 64, 64, 64);
+        gr.addColorStop(0, _lhSpRGBA(rgb, a)); gr.addColorStop(1, _lhSpRGBA(rgb, 0));
+        g.fillStyle = gr; g.fillRect(0, 0, 128, 128);
+        _lhSpGlowC.set(key, cv);
+    }
+    return cv;
 }
 
 function _lhSpSetHover(w) {

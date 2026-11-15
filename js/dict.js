@@ -170,11 +170,15 @@
         }
 
         // 取得字的分級（直接從 charInfo 讀取，永遠是最新狀態）
-        function getCharMark(char, zhuyin) {
+        // tone（1–5，可省略）：同一個注音不同聲調要分開（0.98.15.6 修：「打」ㄉㄚˊ 冷僻、ㄉㄚˇ 常用，
+        // 以前只比對注音，先找到二聲那筆就把三聲也當冷僻）。沒給 tone 時從注音的聲調符號推，推不出來才只看注音
+        function getCharMark(char, zhuyin, tone) {
             const infos = charInfo[char];
             if (!infos || infos.length === 0) return 'normal';
             if (zhuyin) {
-                const match = infos.find(i => i.zhuyin === zhuyin);
+                const z = zhuyin.replace(/[ˊˇˋ˙]/g, ''), mk = (zhuyin.match(/[ˊˇˋ˙]/) || [])[0];
+                const t = tone || (mk ? { 'ˊ': 2, 'ˇ': 3, 'ˋ': 4, '˙': 5 }[mk] : null);
+                const match = (t && infos.find(i => i.zhuyin === z && i.tone === t)) || infos.find(i => i.zhuyin === z);
                 if (match) return match.tier;
             }
             return infos[0].tier;

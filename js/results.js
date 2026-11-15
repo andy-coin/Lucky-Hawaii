@@ -215,7 +215,7 @@
                         r.tier = match.tier;
                     } else {
                         r.tone = 0;
-                        r.tier = getCharMark(r.char, r.zhuyin);
+                        r.tier = getCharMark(r.char, r.zhuyin, r.tone);
                     }
                 } else {
                     r.tone = 0;
@@ -232,7 +232,7 @@
             // 過濾冷僻字
             if (hideRare) {
                 results = results.filter(r => {
-                    const mark = getCharMark(r.char, r.zhuyin);
+                    const mark = getCharMark(r.char, r.zhuyin, r.tone);
                     return mark !== 'rare';
                 });
             }
@@ -318,8 +318,8 @@
                 
                 // 三級排序函數
                 const tierSort = (a, b) => {
-                    const markA = getCharMark(a.char, a.zhuyin);
-                    const markB = getCharMark(b.char, b.zhuyin);
+                    const markA = getCharMark(a.char, a.zhuyin, a.tone);
+                    const markB = getCharMark(b.char, b.zhuyin, b.tone);
                     return (markA === 'common' ? 0 : (markA === 'rare' ? 2 : 1))
                          - (markB === 'common' ? 0 : (markB === 'rare' ? 2 : 1));
                 };
@@ -440,8 +440,8 @@
             } else {
                 // 常用字優先模式：三級排序
                 results.sort((a, b) => {
-                    const markA = getCharMark(a.char, a.zhuyin);
-                    const markB = getCharMark(b.char, b.zhuyin);
+                    const markA = getCharMark(a.char, a.zhuyin, a.tone);
+                    const markB = getCharMark(b.char, b.zhuyin, b.tone);
                     const orderA = markA === 'common' ? 0 : (markA === 'rare' ? 2 : 1);
                     const orderB = markB === 'common' ? 0 : (markB === 'rare' ? 2 : 1);
                     return orderA - orderB;
