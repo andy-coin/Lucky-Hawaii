@@ -1173,17 +1173,15 @@ function _lhSpDraw(t, L) {
             c.globalAlpha = 0.22; c.lineWidth = 4; c.stroke();
             c.globalAlpha = 0.1; c.lineWidth = 9; c.stroke();
         }
-        if (L.lineFlash) {   // 第 5 級：每條線各自偶爾閃一下（1.2 秒，每條每秒約 15% 機率），跟星星閃爍同一種感覺
+        if (L.lineFlash) {   // 第 5 級：所有星座線一起閃（1.2 秒，每秒約 20% 機率；0.98.10 之後從「每條各自閃」改成整體一起）
             const dt = Math.min(0.2, (t - (_lhSp.lineT || t)) / 1000);
             _lhSp.lineT = t;
-            c.lineCap = 'round';
-            for (const sg of _lhSp.segs) {
-                if (sg.tw && t - sg.tw > 1200) sg.tw = 0;
-                if (!sg.tw && Math.random() < dt * 0.15) sg.tw = t;
-                if (!sg.tw) continue;
-                const f = Math.sin((t - sg.tw) / 1200 * Math.PI), p = _lhSpScr(sg[0].px, sg[0].py), q = _lhSpScr(sg[1].px, sg[1].py);
-                c.beginPath(); c.moveTo(p.x, p.y); c.lineTo(q.x, q.y);
-                c.globalAlpha = 0.95 * f; c.lineWidth = 3.5; c.stroke();   // 0.98.10：亮暗落差加大
+            if (_lhSp.lineTw && t - _lhSp.lineTw > 1200) _lhSp.lineTw = 0;
+            if (!_lhSp.lineTw && Math.random() < dt * 0.2) _lhSp.lineTw = t;
+            if (_lhSp.lineTw) {
+                const f = Math.sin((t - _lhSp.lineTw) / 1200 * Math.PI);
+                c.shadowBlur = 0; c.lineCap = 'round';   // 上面那條路徑還在，直接再描三層
+                c.globalAlpha = 0.95 * f; c.lineWidth = 3.5; c.stroke();
                 c.globalAlpha = 0.45 * f; c.lineWidth = 10; c.stroke();
                 c.globalAlpha = 0.18 * f; c.lineWidth = 22; c.stroke();
             }
@@ -1549,12 +1547,12 @@ function _lhSpEvents(el) {
         if (_lhSp.pan && _lhSp.pan.id === e.pointerId) {
             const pn = _lhSp.pan;
             _lhSp.pan = null;
-            // 點空白（沒拖動）：兩下＝全部取消選取；只選了一個詞時點一下就取消。都不跳確認（0.98.09）
+            // 點空白（沒拖動）：一律點兩下才全部取消選取（不管選了幾個），不跳確認
             if (e.type === 'pointerup' && !pn.moved && _lhSp.pins.some(w => w.pinned)) {
                 const now = e.timeStamp, last = _lhSp.blankTap;
                 const dbl = last && now - last.t < 400 && Math.hypot(e.clientX - last.x, e.clientY - last.y) < 24;
                 _lhSp.blankTap = dbl ? null : { t: now, x: e.clientX, y: e.clientY };
-                if (dbl || _lhSp.pins.filter(w => w.pinned).length === 1) _lhSpClearNow();
+                if (dbl) _lhSpClearNow();
             }
         }
     };

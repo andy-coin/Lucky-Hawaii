@@ -1,3 +1,7 @@
+## 0.98.10.4（小修，未升版號）
+- 第 5 級星座線閃爍改成所有線一起閃（每秒約 20% 機率、1.2 秒；js/word-space.js _lhSpDraw「星座線」的 _lhSp.lineTw）。
+- 星雲點空白：一律雙擊才全部取消（拿掉「只選一個時單擊就取消」）；tests/word-space.spec.mjs 跟著改。主畫面字卡區點空白仍是單擊取消。
+
 ## 0.98.10.3（小修，未升版號）
 - 星雲縮放校正：顯示的 100%＝實際倍率 1.5（js/word-space.js LH_SP_Z100；_lhSpApplyView 顯示、% 按鈕回到 1.5）。實際上下限 0.25–3 沒動 → 顯示約 17%–200%。
 - 字卡點空白取消全選：點到字卡之間的縫（.results-grid 本身）不算（js/results.js resultsContainer.onclick）。

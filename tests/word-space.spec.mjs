@@ -90,10 +90,12 @@ test('查整個詞：判斷、押韻比對（同母音／同子音／同讀音�
         const at2 = await page.evaluate(n => _lhSpScreenOf(_lhSp.words.find(x => x.w === n)), w0);
         await page.mouse.click(at2.x, at2.y);
         expect(await page.evaluate(n => { const w = _lhSp.words.find(x => x.w === n); return [w.pinned, w.hot, savedWords.includes(n)]; }, w0)).toEqual([false, false, false]);
-        // 0.98.09：只選一個時點空白一下就取消（不問）；兩個以上要雙擊空白，或面板「取消選取」按兩下（第一下變確認）
+        // 不管選幾個：點空白一下不取消，要雙擊空白（不問）；或面板「取消選取」按兩下（第一下變確認）
         await page.mouse.click(at2.x, at2.y);
         await page.mouse.move(5, 450);
         await page.mouse.click(5, 450);
+        expect(await page.evaluate(() => _lhSp.words.some(w => w.pinned))).toBe(true);
+        await page.mouse.dblclick(5, 450);
         expect(await page.evaluate(n => [_lhSp.words.some(w => w.pinned), savedWords.includes(n)], w0)).toEqual([false, false]);
         const at3 = await page.evaluate(n => _lhSpScreenOf(_lhSp.words.find(x => x.w === n)), w0);
         await page.mouse.click(at3.x, at3.y);
