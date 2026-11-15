@@ -1,3 +1,22 @@
+## 0.98.16（2026-11-16，已 push）
+- 起始縮放：約 40% 的詞在畫面內（`_lhSpFitZoom`，原 25%）。
+- 五級重新分配（js/word-space.js `LH_SP_LV`）：
+  - 1：fadeIn（整張畫布 0.9 秒淡入、原位出現、gap 0）；背景定格。
+  - 2：drag 'fling'＋starStay（放手會滑、拖恆星整團搬）、keptGlow、lineGlow 'still'、swap 'fade'（換批淡出淡入，`_lhSpWhip`）。
+  - 3：orbit 1、twinkle 0.4＋twFlat（只亮不放大）；背景定格（bgfx `_lhFxLv <= 3`）。
+  - 4：拿掉 gather（回分批浮現），zoomTrail 1（擦 30%、0.9 秒）；背景字數 1.4 倍。
+  - 5：gather 獨有、lineFlash 0.4/秒、zoomTrail 2：殘影一直都在（平常每格擦 70%，縮放擦 18%/共 1.5 秒，凝聚最快時擦 25%，`_lhSp.gv`）；背景字數 1.9 倍。
+- 甩動摩擦 2.2→3.2。
+- 恆星光暈 0.13→0.18，抽到閃爍時光暈暫時最多 2 倍。
+- hover 字的提亮降成一層 0.45。
+- 全息框最小 170×52。
+- hover 恆星時那一團不飄、不漫遊、不被推：`hc`＋`cl.tOff`，放開後不跳。
+- 實測（「不」1466 詞，ms/秒）：
+  - 電腦：0 / 20 / 60 / 53.5 / 123.9
+  - 模擬手機：0 / 39.5 / 193.8 / 195.2 / 320.5（45 格）
+  - 網站 artifact 已更新（v6）。
+- 已知：visual.spec「tablet lyrics／ai」截圖失敗，是之前「iPad 面板全寬」改動造成、不是這輪；待 Andy 同意後重錄基準圖。
+- 待決：手機第 5 級固定 30 格？自動降格提案。第 1 級換批目前仍是鏡頭一甩（Andy 沒指定）。
 ## 0.98.15.6（2026-11-16）
 - js/bgfx.js `_lhBgUpdate`：星雲開著（_lhBgFaint）時背景落字定格一張，不跑 RAF；lhBgFxFaint 改呼叫 _lhBgUpdate。
 - js/word-space.js：

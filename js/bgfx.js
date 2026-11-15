@@ -92,10 +92,11 @@ function _lhBgResize() {
     _lhBgDpr = dpr;
     _lhBgCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
     // 字數跟面積走，iPad 約 16 個、桌機約 20 個，上限 24
-    const n = Math.round(Math.max(10, Math.min(24, Math.round(_lhBgW * _lhBgH / 55000))) * (_lhFxLv <= 3 ? 0.6 : 1));
+    // 0.98.16：上限 24 是第 3 級以下的基準，第 4、5 級再乘倍數
+    const n = Math.round(Math.max(10, Math.min(24, Math.round(_lhBgW * _lhBgH / 55000))) * ({ 4: 1.4, 5: 1.9 }[_lhFxLv] || 0.6));   // 0.98.16 Andy：第 4 級密一點、第 5 級再密
     while (_lhBgFlakes.length < n) _lhBgFlakes.push(_lhBgNewFlake(true));
     _lhBgFlakes.length = n;
-    if (_lhBgReduce.matches || _lhFxLv <= 2 || !_lhBgRaf) _lhBgDraw(0);
+    if (_lhBgReduce.matches || _lhFxLv <= 3 || !_lhBgRaf) _lhBgDraw(0);
 }
 
 function _lhBgDraw(dt) {
@@ -162,8 +163,8 @@ function _lhBgUpdate() {
     }
     _lhBgCanvas.style.visibility = _lhBgHidden ? 'hidden' : '';
     if (_lhBgHidden) { _lhBgStop(); return; }
-    // 1、2 級：定格一張；星雲開著時（_lhBgFaint）也定格——它只剩 28% 淡、被星雲蓋住，照跑會多一整張全螢幕畫布每秒 60 格（0.98.15.6，約省 20%）
-    if (_lhBgReduce.matches || document.hidden || _lhFxLv <= 2 || _lhBgFaint) { _lhBgStop(); _lhBgDraw(0); return; }
+    // 1～3 級（0.98.16 起第 3 級也定格）：定格一張；星雲開著時（_lhBgFaint）也定格——它只剩 28% 淡、被星雲蓋住，照跑會多一整張全螢幕畫布每秒 60 格（0.98.15.6，約省 20%）
+    if (_lhBgReduce.matches || document.hidden || _lhFxLv <= 3 || _lhBgFaint) { _lhBgStop(); _lhBgDraw(0); return; }
     if (!_lhBgRaf) _lhBgRaf = requestAnimationFrame(_lhBgFrame);
 }
 
