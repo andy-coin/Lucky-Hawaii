@@ -1200,28 +1200,28 @@ function _lhSpDraw(t, L) {
     const blit = (w, p, m = 1) => { const sw = w.spr.width / w.spr.S * z * m, sh = w.spr.height / w.spr.S * z * m; c.drawImage(w.spr, p.x - sw / 2, p.y - sh / 2, sw, sh); };
     // 星座線
     if (_lhSp.segs.length) {
+        // 0.98.14.3 Andy：光暈跟著縮放變粗變細（不然像雷射筆）；用「這次的 100%」當基準、取平方根，放大縮小都柔一點
+        const zk = Math.min(2.4, Math.max(0.45, Math.sqrt(z / _lhSpZ100())));
         c.save();
-        c.strokeStyle = _lhSp.cLineNow || _lhSp.cLine; c.lineWidth = 1.5; c.lineJoin = 'round'; c.globalAlpha = 0.85;
-        c.shadowColor = c.strokeStyle; c.shadowBlur = 6;
+        c.strokeStyle = _lhSp.cLineNow || _lhSp.cLine; c.lineJoin = 'round'; c.lineCap = 'round';
         c.beginPath();
         for (const [a, b] of _lhSp.segs) { const p = _lhSpScr(a.px, a.py), q = _lhSpScr(b.px, b.py); c.moveTo(p.x, p.y); c.lineTo(q.x, q.y); }
-        c.stroke();
-        if (L.lineGlow) {   // 0.98.09：第 4 級起星座線加光暈（底下再描兩層粗、淡的線，不用 shadowBlur 比較省）
-            c.shadowBlur = 0;
-            c.globalAlpha = 0.22; c.lineWidth = 4; c.stroke();
-            c.globalAlpha = 0.1; c.lineWidth = 9; c.stroke();
+        if (L.lineGlow) {   // 第 4 級起：光暈由外而內一層層描（越外越寬越淡），整體慢慢呼吸（一輪約 5.6 秒，跟第 5 級的閃爍各走各的）
+            const br = 0.72 + 0.28 * Math.sin(t / 5600 * Math.PI * 2);
+            for (const [wd, al] of [[30, 0.025], [18, 0.045], [10, 0.08], [5, 0.14]]) { c.globalAlpha = al * br; c.lineWidth = wd * zk; c.stroke(); }
         }
+        c.globalAlpha = 0.85; c.lineWidth = 1.5 * Math.min(1.6, Math.max(0.7, zk));
+        c.shadowColor = c.strokeStyle; c.shadowBlur = 5 * zk;
+        c.stroke();
+        c.shadowBlur = 0;
         if (L.lineFlash) {   // 第 5 級：所有星座線一起閃（1.2 秒，每秒約 20% 機率；0.98.10 之後從「每條各自閃」改成整體一起）
             const dt = Math.min(0.2, (t - (_lhSp.lineT || t)) / 1000);
             _lhSp.lineT = t;
             if (_lhSp.lineTw && t - _lhSp.lineTw > 1200) _lhSp.lineTw = 0;
             if (!_lhSp.lineTw && Math.random() < dt * 0.2) _lhSp.lineTw = t;
             if (_lhSp.lineTw) {
-                const f = Math.sin((t - _lhSp.lineTw) / 1200 * Math.PI);
-                c.shadowBlur = 0; c.lineCap = 'round';   // 上面那條路徑還在，直接再描三層
-                c.globalAlpha = 0.95 * f; c.lineWidth = 3.5; c.stroke();
-                c.globalAlpha = 0.45 * f; c.lineWidth = 10; c.stroke();
-                c.globalAlpha = 0.18 * f; c.lineWidth = 22; c.stroke();
+                const f = Math.sin((t - _lhSp.lineTw) / 1200 * Math.PI);   // 上面那條路徑還在，直接再描幾層（寬度一樣跟著縮放）
+                for (const [wd, al] of [[24, 0.12], [12, 0.28], [5, 0.5], [2.4, 0.95]]) { c.globalAlpha = al * f; c.lineWidth = wd * zk; c.stroke(); }
             }
         }
         c.restore();
