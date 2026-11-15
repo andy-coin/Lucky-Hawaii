@@ -4,7 +4,7 @@
 - 手機兩指縮放修（待 iPhone 實測；Chromium 模擬本來就正常）：第一指 pointerdown（isPrimary）先清掉殘留的手指紀錄 _lhSp.pts；擋 Safari gesturestart/gesturechange。若 iPhone 仍不行→下一步加 touchstart/touchmove 的備援縮放。
 - 測試：word-space＋layout＋golden 128 全過。
 - 0.98.12 追加（第二次 push）：Info 版本號改讀 LH_APP_VERSION（index.html #aboutVer、js/search-ui.js toggleAbout），不再寫死。
-- 功能導覽（js/tour.js）：lhTourSteps() 依裝置挑步驟——滑鼠且非 sheet＝11 步；平板／手機跳過 mouse:true 的「自己排版面」＝10 步，有 bodyTouch 的換觸控說法（兩指縮放、長按段落名稱、拿掉「停一下浮出說明」）。範例「安打」全改「洋流」；換批滑桿說明改「上方」。tests/tour.spec.mjs 改用 _lhTour.steps、手機期望 10 步。tour＋golden 47 全過。
+- 功能導覽（js/tour.js）：lhTourSteps() 依裝置挑步驟——滑鼠且非 sheet＝11 步；平板／手機跳過 mouse:true 的「自己排版面」＝10 步，有 bodyTouch 的換觸控說法（兩指縮放、長按段落名稱、拿掉「停一下浮出說明」）。範例「安打」全改「洋流」、第一步例子改成跟搜尋框一樣「ㄞ」「ai」「唉」「唉呀」；換批滑桿說明改「上方」。tests/tour.spec.mjs 改用 _lhTour.steps、手機期望 10 步。tour＋golden 47 全過。
 
 ### 以下 0.98.11.1 內容一併進 0.98.12
 - 手機星雲縮放（js/word-space.js）：根本原因＝恆星加成「每 50 詞 +0.25 倍」沒封頂，880 詞星系恆星 11.8 倍、內圈 5 倍，自動縮放縮到底 0.25 還框不住。改成 300 詞封頂（最多 3 倍，starS 那行）。
