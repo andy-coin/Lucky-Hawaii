@@ -1102,7 +1102,10 @@ function _lhSpFrame(t) {
     // 小星系漫遊（第 3 級起，跟流星一樣）：家的位置沿直線走，出了邊界從對面回來
     // 0.98.16 Andy：滑鼠停在恆星上（看全息標籤）時，那一團不飄、不漫遊、不被推，免得自己跑出游標範圍；
     // 停住期間累計 tOff，飄移時間扣掉它 → 放開後從原地接著飄，不會跳一下
-    const hw = _lhSp.holo && _lhSp.holo.w, hc = hw && hw.star && hw.cl;   // 0.98.18.2 Andy：看行星的面板時恆星照常旅行，只有看恆星時整團停
+    // 0.98.18.2 Andy：滑鼠看行星的面板時恆星照常旅行，只有看恆星時整團停；
+    // 0.98.18.4 Andy：觸控時恆星、行星、流星一碰到就定格（連同整團，不然整團還在飄，手指下的字一樣會跑掉）
+    const hw = _lhSp.holo && _lhSp.holo.w, tw0 = _lhSp.drag && _lhSp.drag.touch && !_lhSp.drag.moved && _lhSp.drag.w;
+    const hc = (hw && hw.star && hw.cl) || (tw0 && tw0.cl);
     if (hc && dt) hc.tOff = (hc.tOff || 0) + dt;
     if (L.roam && dt) {   // 0.98.16：第 3 級不漫遊（跟第 4 級拉開差別），第 5 級 1.8 倍速
         const B = _lhSp.bound;
@@ -1138,8 +1141,7 @@ function _lhSpFrame(t) {
     for (const cl of _lhSp.groups) cl.b = L.clBreath ? 1 + (cl.ba || 0.03) * Math.sin(T * TAU / cl.bp + cl.ph[0]) : 1;
     for (const w of _lhSp.words) {
         const still = w.hot || w.pinned || w === hw || (w.comet ? !L.comet : !L.orbit);   // hw：正在看全息標籤的那個（行星也停，0.98.18）   // 停在詞上、釘住、這一級不動的：定格
-        // 0.98.18.2 Andy：觸控按住恆星／行星還沒拖、面板也還沒出來 → 照常動（面板出來才定格）；流星一碰就定格
-        if (w === drag && !(dg.touch && !dg.moved && !dg.held && !w.comet)) { if (w.star && w.free) { w.cl.x = w.fx; w.cl.y = w.fy; } }   // 按著還沒拖動（free 還沒開）不動整團
+        if (w === drag) { if (w.star && w.free) { w.cl.x = w.fx; w.cl.y = w.fy; } }   // 按著還沒拖動（free 還沒開）不動整團
         else if (w.free) {
             if (w.comet || w.star) {   // 流星、恆星甩出去：照速度滑，摩擦慢慢停
                 w.fx += w.fvx * dt; w.fy += w.fvy * dt;
@@ -1403,7 +1405,7 @@ function _lhSpDraw(t, L) {
             // 0.98.15.6：每種顏色先畫好一張 128px 的光暈圖，每格只貼上去放大（以前每顆恆星每格算一次幾百 px 的放射漸層，筆電內顯最吃這個，約占第 5 級的 4 成）
             // 0.98.16 Andy：中心濃度 0.13→0.18；這顆恆星剛好被抽到閃爍時，光暈跟著暫時亮到 2 倍
             const tg = w.twk ? Math.sin(Math.min(1, (t - w.twk) / 1400) * Math.PI) : 0;
-            M.globalAlpha = Math.min(1, w.alpha * (1 + tg)); M.drawImage(_lhSpGlowImg(w.rgb, 0.18), p.x - R, p.y - R, R * 2, R * 2);
+            M.globalAlpha = Math.min(1, w.alpha * (1 + tg)); M.drawImage(_lhSpGlowImg(w.rgb, 0.13),   /* 0.98.18.4 Andy：中心再暗（0.18→0.13） */ p.x - R, p.y - R, R * 2, R * 2);
         }
         if (w.comet && !w.dim && L.tail) {   // 流星尾巴：一整條往後漸細、漸淡的光（連續漸層，不分段），長度＝約 0.8 秒走的路（速度 3 倍後縮短）；放大、釘住時也畫（先畫，墊在字後面）
             const z = _lhSpZv(), k = w.v * 0.8 * z, ex = p.x - Math.cos(w.ang) * k, ey = p.y - Math.sin(w.ang) * k;
