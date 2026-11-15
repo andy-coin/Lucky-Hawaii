@@ -217,8 +217,13 @@ function _lhWsDraw(container, word) {
         const card = e.target.closest('.ws-card');
         if (!card) return;
         if (container.classList.contains('report-mode')) { card.classList.toggle('report-picked'); _lhWs.repSync(); return; }
-        saveWord(card.dataset.char);
+        // 0.98.09：再點一下取消保留（toggle）；外框由 lhWsSyncKept 照保留池畫
+        if (savedWords.includes(card.dataset.char)) removeSavedWord(card.dataset.char); else saveWord(card.dataset.char);
     };
+}
+// 詞卡的選取外框＝這個詞有沒有在保留池（換關鍵詞再換回來也記得）；保留池每次變動都會呼叫（js/panels.js renderSavedWords）
+function lhWsSyncKept() {
+    for (const c of document.querySelectorAll('.ws-card')) c.classList.toggle('kept', savedWords.includes(c.dataset.char));
 }
 
 // 再畫一頁；最後一張還沒畫完就放一個哨兵，捲到它就再補
@@ -227,9 +232,9 @@ function _lhWsMore(grid) {
     const frag = document.createDocumentFragment();
     for (let i = _lhWs.shown; i < end; i++) {
         const e = _lhWs.list[i];
-        const card = _lhWsEl('div', 'char-card ws-card' + (e.custom ? ' ws-custom' : ''));
+        const card = _lhWsEl('div', 'char-card ws-card' + (e.custom ? ' ws-custom' : '') + (savedWords.includes(e.w) ? ' kept' : ''));
         card.dataset.char = e.w;
-        card.title = '點一下保留；按住拖到歌詞';
+        card.title = '點一下保留（再點一下取消）；按住拖到歌詞';
         card.append(_lhWsEl('div', 'char-main', [...e.w].join(' ')),   // 字跟字之間一個半形空格，對齊比較寬的注音
              _lhWsPhonEl(e));
         frag.append(card);

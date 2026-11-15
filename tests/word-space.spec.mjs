@@ -180,3 +180,24 @@ test('星雲顏色加透明度：oklch 等任何格式都換成合法的 rgba（
     expect(await page.evaluate(() => _lhSpRGBA('oklch(0.73 0.12 61)', 0.2))).toMatch(/^rgba\(\d+, \d+, \d+, 0\.2\)$/);
     await context.close();
 });
+
+test('詞卡選取：點了有外框（＝保留）、再點取消、保留區打叉也取消、換關鍵詞再回來還記得', async ({ browser }) => {
+    const { context, page } = await bootPage(browser, {});   // 完整詞庫才有押到的詞卡
+    await page.fill('#searchInput', '安打');
+    const card = page.locator('.ws-card').first();
+    await expect(card).toBeVisible({ timeout: 20000 });
+    const w = await card.getAttribute('data-char');
+    await card.click();
+    await expect(card).toHaveClass(/\bkept\b/);
+    await card.click();
+    await expect(card).not.toHaveClass(/\bkept\b/);
+    expect(await page.evaluate(n => savedWords.includes(n), w)).toBe(false);
+    await card.click();
+    await page.evaluate(n => removeSavedWord(n), w);   // 保留區打叉走的就是 removeSavedWord
+    await expect(card).not.toHaveClass(/\bkept\b/);
+    await card.click();
+    await page.fill('#searchInput', '安');
+    await page.fill('#searchInput', '安打');
+    await expect(page.locator(`.ws-card[data-char="${w}"]`)).toHaveClass(/\bkept\b/);
+    await context.close();
+});

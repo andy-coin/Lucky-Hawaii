@@ -254,6 +254,7 @@
         }
 
         function renderSavedWords() {
+            if (typeof lhWsSyncKept === 'function') lhWsSyncKept();   // 詞卡的選取外框跟著保留池
             const container = document.getElementById('savedWordsContainer');
             const countEl = document.getElementById('savedCount');
             if (!container) return;
