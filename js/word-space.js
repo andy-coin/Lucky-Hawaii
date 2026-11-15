@@ -559,10 +559,14 @@ function _lhSpLayout(list, cfg = {}) {
         cl.f = cl.f.map(f => f * k);
     });
     // 團沿黃金角螺旋往外放（最大的先放在中間），彼此多留一點空間給恆星飄
-    const placed = [];
-    clusters.forEach((cl, i) => {
+    // 0.98.15.1 Andy：最大星系佔一半以上詞數＝超大星系宇宙，照大小順序、最大的在中間；
+    // 否則（星系多、大小較平均）擺放順序打亂（大的仍較常先放）、螺旋起始角和每一步的角度／距離都加隨機，排得有機一點
+    const placed = [], total = clusters.reduce((t, c) => t + c.n, 0), organic = clusters.length > 2 && clusters[0].n < total * 0.5;
+    const order = organic ? clusters.map(c => [c, c.n * (0.4 + R() * 1.2)]).sort((p, q) => q[1] - p[1]).map(p => p[0]) : clusters;
+    const a0 = organic ? R() * TAU : 0;
+    order.forEach((cl, i) => {
         for (let k = 0; i > 0; k++) {
-            const a = k * 2.39996, d = 60 + k * 22;
+            const a = a0 + k * 2.39996 + (organic ? (R() - 0.5) * 0.7 : 0), d = (60 + k * 22) * (organic ? 0.8 + R() * 0.4 : 1);
             cl.x = Math.cos(a) * d; cl.y = Math.sin(a) * d * 0.8;
             if (placed.every(p => Math.hypot(p.x - cl.x, p.y - cl.y) > p.r + cl.r + 90)) break;
         }
