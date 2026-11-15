@@ -9,6 +9,7 @@
 - 星星閃爍：機率 0.015、放大 10%、發光疊兩次。觸控裝置的 .ws-len／.ws-pos 按鈕 min-width 0（44px 最小寬讓三顆擠成直排）。
 - index.html 的 ?v= 改成 0.98.09.2（只破快取，畫面上的版本號 LH_APP_VERSION 不變）。**待辦：最後跑一次全套（Andy 要求最後一起測）。**
 - 點空白（_lhSpEvents end，pan 沒拖動）：只選一個＝單擊就取消；雙擊（400ms、24px 內）＝全部取消，都不問（_lhSpClearNow 也取消保留）；點過詞會重設 _lhSp.blankTap。
+- 恆星照星系大小加成：starS＝sizeOf×(1＋0.5×clamp(log10(n/10),0,1))，只放大不縮小（10 詞以下×1、100 詞以上×1.5）。
 - 小星系漫遊（第 3 級起，L.comet）：3–5 詞 32–54、6–10 詞 12–22（流星 135–270），cl.vx/vy 移動家的位置 hx/hy，出 bound 從對面回來。
 - 旋臂只套在 >25 詞的星系（_lhSpLayout 的 spiral 變數）。
 - 旋臂模式（實驗）：星雲左上「旋臂」鈕切換 _lhSpSpiral（不存檔）；克卜勒 om∝(r0/r)^1.5、每星系 2–5 條臂（cl.arms/arm0/twist/ecc）、一圈只放 55%。

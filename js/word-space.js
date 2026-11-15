@@ -474,8 +474,9 @@ function _lhSpLayout(list, cfg = {}) {
         // 小星系漫遊（0.98.09）：3–5 個詞的微星系、6–10 個詞的小星系像流星一樣走長直線、出邊界從對面回來；流星 > 微星系 > 小星系
         if (g.length <= 10) { const a = R() * TAU, v = g.length <= 5 ? 32 + R() * 22 : 12 + R() * 10; cl.vx = Math.cos(a) * v; cl.vy = Math.sin(a) * v; }
         const spiral = _lhSpSpiral && g.length > 25;   // 旋臂只套在大星系（25 個詞以下看不出臂，維持同心圓）
-        const star = g[0], rings = [[]];
-        let r = _lhSpWidth(star.w, sizeOf(star)) / 2 + LH_SP_RING * 0.9, used = 0;
+        // 恆星照星系大小加成（0.98.09）：10 個詞以下不加，100 個以上多 50%（中間照對數）；常用度和星系規模都看得出來
+        const star = g[0], rings = [[]], starS = sizeOf(star) * (1 + 0.5 * Math.min(1, Math.max(0, Math.log10(g.length / 10))));
+        let r = _lhSpWidth(star.w, starS) / 2 + LH_SP_RING * 0.9, used = 0;
         const radii = [r];
         for (const e of g.slice(1)) {
             const wd = _lhSpWidth(e.w, sizeOf(e)) + 10;
@@ -485,7 +486,7 @@ function _lhSpLayout(list, cfg = {}) {
             used += wd;
         }
         cl.r = r + LH_SP_RING * 1.1;
-        words.push({ e: star, cl, star: true, color, s: sizeOf(star), n: norm(star), r: 0, ecc: 1, tilt: 0, th: 0, om: 0 });
+        words.push({ e: star, cl, star: true, color, s: starS, n: norm(star), r: 0, ecc: 1, tilt: 0, th: 0, om: 0 });
         // 同一圈共用扁度、傾角、速度（才不會越轉越擠在一起），每個詞只再帶一點點偏差
         if (spiral) rings.forEach((ring, k) => {
             // 第 k 圈：輪流分給每條臂；每條臂在這圈的中心角＝起始角＋第幾條×(360°/臂數)－捲曲×ln(半徑比)（往旋轉的反方向拖）
