@@ -807,7 +807,21 @@ function _lhSpShow(cfg) {
     _lhSp.queue = q;
     _lhSp.gap = Math.max(16, Math.min(140, 1400 / Math.max(1, q.length)));
     // 第 1 級（0.98.16 Andy）：不分批綻放，小圖畫好就原位出現，整張畫布 0.9 秒淡入（換批時鏡頭一甩的動畫建得比較晚，會蓋過這個）
-    if (_lhSpCfg().fadeIn) { _lhSp.gap = 0; if (_lhSp.cv.animate && !_lhSpReduce.matches) _lhSp.cv.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 900, easing: 'ease-out' }); }
+    // 0.98.19 Andy：
+    // 第 1 級＝刻意無聊：每份固定間隔（等速），在原位從透明浮現（不綻放、整張畫布不再淡入）
+    // 第 4 級＝設計好的螺旋發牌：一開始慢、越發越快（間隔照份數從長縮到很短），整段約 2 秒
+    _lhSp.qi = 0; _lhSp.gapFn = null;
+    const LV = _lhSpCfg();
+    // 第 1 級：前面幾份都是大字（恆星、內圈），小圖畫很久 → 一開始卡、後面狂噴。改成輪流分配：每份都混一樣多的大字小字，
+    // 每份畫圖的工一樣多 → 出現的速度自然等速；看起來是整片均勻地一份份浮現（刻意無聊）
+    if (LV.fadeIn && q.length > 1) {
+        const all = q.flat(), P = q.length; q.length = 0;
+        for (let i = 0; i < P; i++) q.push([]);
+        all.forEach((w, i) => q[i % P].push(w));
+    }
+    const qn = q.length;
+    if (LV.fadeIn) _lhSp.gap = Math.max(250, Math.min(400, 4000 / Math.max(1, qn)));   // 實測電腦上每份小圖約 0.25–0.35 秒畫完：間隔訂在這附近，頭幾份不會先快後慢
+    if (LV.spiral && qn > 2) { const g0 = Math.max(40, Math.min(320, 2000 / (0.413 * qn))); _lhSp.gapFn = i => g0 * (0.12 + 0.88 * Math.pow(1 - i / qn, 2)); }
     _lhSp.bornAt = 0;
     _lhSp.px = 0; _lhSp.py = 0;
     _lhSp.nav = null;
@@ -1011,7 +1025,7 @@ const LH_SP_LV = {
     // 第 3 級：公轉 0.6 倍、少量閃爍（只亮不放大）；流星走直線；小星系不漫遊
     3: { fps: 30, orbit: 0.6, drag: 'fling', dock: 1, comet: 1, curve: 0, tail: 1, cometGlow: 1, keptBreathe: 0.03, keptGlow: 1, whole: 1, twinkle: 0.4, twFlat: 1 },
     // 第 4 級：分批浮現（螺旋發牌）、縮放殘影、恆星光暈；流星原本的彎度；小星系漫遊
-    4: { fps: 30, orbit: 1, drag: 'fling', dock: 1, comet: 1, curve: 1, roam: 1, tail: 1, cometGlow: 1, keptBreathe: 0.03, keptGlow: 1, jitter: 1, wobble: 1, drift: 1, push: 1, twinkle: 1, starGlow: 1, whole: 1, lineGlow: 1, zoomTrail: 1 },
+    4: { fps: 30, orbit: 1, drag: 'fling', dock: 1, spiral: 1, comet: 1, curve: 1, roam: 1, tail: 1, cometGlow: 1, keptBreathe: 0.03, keptGlow: 1, jitter: 1, wobble: 1, drift: 1, push: 1, twinkle: 1, starGlow: 1, whole: 1, lineGlow: 1, zoomTrail: 1 },
     // 第 5 級：混沌凝聚獨有、常駐殘影、星座線常閃；流星彎度 2.5 倍＋光暈＋固定閃爍；小星系漫遊 1.8 倍速
     5: { fps: 60, orbit: 1, drag: 'fling', dock: 1, comet: 1, curve: 2.5, roam: 1.8, tail: 1, cometGlow: 1, cometHalo: 1, keptBreathe: 0.03, keptGlow: 1, jitter: 1, wobble: 1, drift: 1, push: 1, twinkle: 1, starGlow: 1, clBreath: 1, lineGlow: 1, lineFlash: 0.4, zoomTrail: 2, gather: 1 },
 };
@@ -1044,8 +1058,9 @@ function _lhSpReveal(t) {
         if (performance.now() - t1 > 6) break outer;
         if (!w.spr) w.spr = _lhSpSprite(w, _lhSp.S);
     }
-    if (_lhSp.visible && q[0].every(w => w.spr) && t - _lhSp.bornAt >= _lhSp.gap) {
+    if (_lhSp.visible && q[0].every(w => w.spr) && t - _lhSp.bornAt >= (_lhSp.gapFn ? _lhSp.gapFn(_lhSp.qi || 0) : _lhSp.gap)) {
         const g = q.shift();
+        _lhSp.qi = (_lhSp.qi || 0) + 1;
         for (const w of g) w.born = t;
         _lhSp.bornAt = t + (g.lead || 0);
     }
@@ -1205,7 +1220,7 @@ function _lhSpFrame(t) {
         const b = w.cl && !w.comet ? w.cl.b : 1;
         w.px = w.cl && !w.comet ? w.cl.x + (w.ux - w.cl.x) * b : w.ux;
         w.py = w.cl && !w.comet ? w.cl.y + (w.uy - w.cl.y) * b : w.uy;
-        w.alpha = (L.gather && w.star && w.born ? Math.min(1, (t - w.born) / 1400) : L.fadeIn ? 1 : Math.min(1, k * 1.6)) * vv;   // 凝聚模式的恆星 1.4 秒才完全浮現
+        w.alpha = (L.gather && w.star && w.born ? Math.min(1, (t - w.born) / 1400) : L.fadeIn ? Math.min(1, (t - w.born) / 700) : Math.min(1, k * 1.6)) * vv;   /* 第 1 級：原位 0.7 秒從透明浮現 */   // 凝聚模式的恆星 1.4 秒才完全浮現
         // 保留的詞呼吸（第 1、2 級）：3 秒一輪輕輕放大縮小
         w.kb = L.keptBreathe && w.kept && !w.dim ? 1 + L.keptBreathe * Math.sin(t / 3000 * TAU + w.wob) : 1;
         if (w.kb !== 1) busy = true;   // 保留的詞在呼吸：第 1 級（沒變化就不畫）也要繼續畫
@@ -1300,8 +1315,10 @@ function _lhSpDraw(t, L) {
         const fastN = Math.max(zN, L.zoomTrail === 2 ? pN : 0);
         if (fastN > 0.12) _lhSp.holdT = Math.max(_lhSp.holdT || 0, t + 800 * Math.min(1, fastN * 1.25));
         const hT = _lhSp.holdT || 0;
-        if (t < hT) ERASE_NOW = 0.07; else if (t < hT + 220) ERASE_NOW = Math.max(ERASE_NOW, 0.35);
-        if (_lhSp.zAcc > 0.003 || _lhSp.pAcc > 1 || mv > 0.01 || t < hT + 220) _lhSp.dirty = true;   // 桶子還沒漏完、尾巴還在停／在收：繼續畫
+        // 0.98.19 Andy：停留結束後別一下跳到平常的擦法（第 4 級會一格清光，看起來像斷層）→ 0.4 秒內從 7% 一路順順加到平常值，尾巴漸漸完全透明
+        const FADE = 400;
+        if (t < hT) ERASE_NOW = 0.07; else if (t < hT + FADE) { const u = (t - hT) / FADE; ERASE_NOW = 0.07 + (ERASE_NOW - 0.07) * u * u; }
+        if (_lhSp.zAcc > 0.003 || _lhSp.pAcc > 1 || mv > 0.01 || t < hT + FADE) _lhSp.dirty = true;   // 桶子還沒漏完、尾巴還在停／在收：繼續畫
     }
     if (L.zoomTrail && ERASE_NOW < 1) {
         c.save(); c.globalCompositeOperation = 'destination-out'; c.fillStyle = '#000';   // 一定要不透明的填色：沿用上一格留下的（可能是透明漸層）會什麼都沒擦到

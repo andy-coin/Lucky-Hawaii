@@ -370,3 +370,6 @@ Do not make direct repo edits outside a GSD workflow unless the user explicitly 
 > Profile not yet configured. Run `/gsd-profile-user` to generate your developer profile.
 > This section is managed by `generate-claude-profile` -- do not edit manually.
 <!-- GSD:profile-end -->
+
+## Git worktree
+- 分支工作資料夾一律開在專案裡的 `.worktrees/<名字>`（已在 .gitignore），不要開在 Coding Projects 外層（以前的 `Lucky Hawaii-wt-*` 已於 2026-11-16 收進來）。

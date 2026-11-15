@@ -14,3 +14,6 @@ r2-shots/
 # 系統檔與對照測試的本機截圖（不進版本）
 .DS_Store
 tests/parity.spec.mjs-snapshots/
+
+# git worktree（分支工作資料夾）統一收在這裡，不進版本
+.worktrees/

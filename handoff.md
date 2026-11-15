@@ -1,3 +1,13 @@
+## 0.98.19（2026-11-16，已 push）
+- 第 1 級進宇宙：刻意無聊、等速。
+  - 份數改輪流分配，每份大小字混一樣多、畫圖成本一樣。
+  - 固定間隔 0.25–0.4 秒，每個詞原位 0.7 秒從透明浮現；拿掉整張畫布淡入。
+- 第 4 級：spiral 旗標，間隔照份數由長到短（`_lhSp.gapFn`，g0×(0.12+0.88(1-i/n)²)），整段約 2 秒、越發越快。
+  - 實測「不」：前幾份約 0.6–0.9 秒（大字畫圖），後段 67ms。
+- 殘影收尾：停留結束後 0.4 秒內擦除比例由 7% 以 u² 漸增到平常值，修「最後一下斷層消失」。
+- 版本 0.98.19（safety.js、?v）。
+- worktree：`../Lucky Hawaii-wt-{byok,editor,prefs,theme}` 用 git worktree move 收進 `.worktrees/`（都已合併，只有 .DS_Store 未提交）；.gitignore 加 `.worktrees/`；.claude/CLAUDE.md 加規則。
+
 ## 0.98.18.5（2026-11-16，只升 ?v，已 push）
 - 修：選字多時破音字讀音鈕被擠到折行、凍結列長高（css/base.css「.results-header .polyphonic-chips」）。
   - 讀音鈕、已選的字都不折行、各自左右捲；已選的字最少 5em、讀音鈕最少 7.5em。
