@@ -627,6 +627,7 @@ document.getElementById('lyricsSections').addEventListener('pointerdown', e => {
     const handle = grip || (head && (!e.target.closest('button, input, select, a, .section-count') || (e.pointerType === 'touch' && e.target.closest('.section-type, .section-chevron'))) ? head : null);
     if (!handle || _lhDrag || !e.isPrimary) return;
     if (document.getElementById('lyricsSections').dataset.canvas === 'free') return;   // 自由畫布：⋮⋮ 與標題列是移動卡片（js/canvas.js），不啟動排序
+    if (document.getElementById('lyricsSections').hasAttribute('data-merge')) return;   // 合併模式：一整份文件，不拖段落
     if (e.pointerType === 'mouse' && e.button !== 0) return;
     const secEl = handle.closest('.lyrics-section');
     if (!secEl) return;
@@ -1350,6 +1351,8 @@ function _lhMoveBuild() {
     });
     btn.addEventListener('click', e => _lhMoveOpenSubFromRoot(e.detail === 0));
     _lhMoveSub.addEventListener('click', e => {
+        const tb = e.target.closest && e.target.closest('.move-sel-type');
+        if (tb && _lhMoveSel) { const s = _lhMoveSel; lhMoveSelClose(); lhMergeAssign(s.secId, s.a, s.b, s.text, tb.dataset.type); return; }
         const b = e.target.closest && e.target.closest('.move-sel-to, .move-sel-new');
         if (!b || b.getAttribute('aria-disabled') === 'true' || !_lhMoveSel) return;
         const s = _lhMoveSel;
@@ -1377,6 +1380,18 @@ function _lhMoveBuild() {
 
 // 每次打開子選單重填：段落名稱是使用者輸入，只走 textContent（T-q-02）
 function _lhMoveFillSub() {
+    if (_lhIsMerge()) {   // 合併模式（0.98.21）：選到的那幾行原地變成指定類型的新段落，不搬走
+        const kids = [_lhMk('span', 'section-menu-cap', '指定成段落')];
+        for (const t of LH_SEC_TYPES) {
+            if (t === 'custom') continue;
+            const b = _lhMkBtn('section-menu-btn move-sel-type', LH_SEC_NAMES[t]);
+            b.setAttribute('role', 'menuitem');
+            b.dataset.type = t;
+            kids.push(b);
+        }
+        _lhMoveSub.replaceChildren(...kids);
+        return;
+    }
     const kids = [_lhMk('span', 'section-menu-cap', '移到段落')];
     for (const s of curSong().sections) {
         const cur = s.id === _lhMoveSel.secId;
@@ -1394,6 +1409,7 @@ function _lhMoveFillSub() {
 
 function lhMoveSelOpen(snap, x, y, byKeyboard) {
     _lhMoveBuild();
+    _lhMoveRoot.firstChild.textContent = _lhIsMerge() ? '指定成段落 ▸' : '移到段落 ▸';
     if (typeof lhMapCloseAll === 'function') lhMapCloseAll();   // 同時只開一個浮層
     lhSecCloseMenu();
     closeExportMenu();
@@ -1471,3 +1487,119 @@ document.addEventListener('keydown', e => {
     e.stopPropagation();
     lhMoveSelClose(true);
 }, true);
+
+
+// ===== 合併模式（0.98.21 Andy）：js/canvas.js 決定開關（#lyricsSections[data-merge]），這裡是編輯行為 =====
+const _lhIsMerge = () => document.getElementById('lyricsSections').hasAttribute('data-merge');
+
+// 選取的文字指定成某種段落：擴到整行，原段落在那裡切開——前面留在原段落、選到的變成新段落、後面接成跟原段落同類型的另一段；
+// 字都留在原處（不搬走），只是多了段落標記。一個 lhSecApply 步驟，Cmd+Z 一步還原
+function lhMergeAssign(secId, a, b, text, type) {
+    let midId = null;
+    lhSecApply('assignSec', song => {
+        const i = song.sections.findIndex(s => s.id === secId);
+        if (i < 0) return false;
+        const src = song.sections[i], t = src.text;
+        if (t.slice(a, b) !== text) return false;   // 快照過期就不動
+        const A = t.lastIndexOf('\n', a - 1) + 1;
+        let B = b > a && t[b - 1] === '\n' ? b - 1 : t.indexOf('\n', b);
+        if (B < 0) B = t.length;
+        const before = t.slice(0, A).replace(/\n$/, ''), mid = t.slice(A, B), after = t.slice(B).replace(/^\n/, '');
+        if (!mid.trim()) return false;
+        const aStart = B < t.length ? B + 1 : t.length;
+        const pieceMarks = (from, to) => (src.marks ? lhMarksSlice(src.marks, from, to, 0) : []);
+        const midSec = makeEmptySection(type);
+        midSec.text = mid;
+        const mm = pieceMarks(A, B); if (mm.length) lhSecSetMarks(midSec, mm);
+        const add = [midSec];
+        if (after) {
+            const tail = makeEmptySection(src.type);
+            Object.assign(tail, { custom: src.custom, color: src.color, text: after });
+            const tm = pieceMarks(aStart, t.length); if (tm.length) lhSecSetMarks(tail, tm);
+            add.push(tail);
+        }
+        if (before) {
+            const bm = pieceMarks(0, before.length);
+            src.text = before;
+            if (src.marks) lhSecSetMarks(src, bm);
+            song.sections.splice(i + 1, 0, ...add);
+        } else song.sections.splice(i, 1, ...add);   // 從段落開頭選起：原段落整個換掉
+        midId = midSec.id;
+    }, { dom: 'render' });
+    if (!midId) return false;
+    lhSecFlash(midId);
+    const sec = curSong().sections.find(s => s.id === midId);
+    lhAnnounce('已指定成「' + (sec ? sec.label : '') + '」');
+    return true;
+}
+
+// 段落開頭按刪除鍵：跟上一段接起來（像在文件裡刪掉段落標記）
+function lhMergeJoin(prevId, curId) {
+    let caret = 0;
+    const ok = lhSecApply('joinSec', song => {
+        const i = song.sections.findIndex(s => s.id === curId), p = song.sections[i - 1];
+        if (i < 1 || !p || p.id !== prevId) return false;
+        const cur = song.sections[i];
+        const join = p.text + (p.text && cur.text && !p.text.endsWith('\n') ? '\n' : '');
+        caret = join.length;
+        const carried = cur.marks ? lhMarksSlice(cur.marks, 0, cur.text.length, join.length) : [];
+        p.text = join + cur.text;
+        if (carried.length) lhSecSetMarks(p, _lhMarksNorm([...(p.marks || []), ...carried]));
+        song.sections.splice(i, 1);
+    }, { dom: 'render' });
+    if (!ok) return;
+    const ta = lhSecEl(prevId)?.querySelector('.section-textarea');
+    if (ta) { ta.focus({ preventScroll: true }); ta.setSelectionRange(caret, caret); }
+}
+
+// 合併模式的鍵盤：上下鍵在段落之間接著走；段落開頭的刪除鍵＝接到上一段
+document.getElementById('lyricsSections').addEventListener('keydown', e => {
+    if (!_lhIsMerge() || e.isComposing || e.keyCode === 229 || e.altKey || e.metaKey || e.ctrlKey || e.shiftKey) return;
+    const ta = e.target;
+    if (!ta.classList || !ta.classList.contains('section-textarea')) return;
+    const secEl = ta.closest('.lyrics-section'), a = ta.selectionStart, b = ta.selectionEnd;
+    if (a !== b) return;
+    const sib = d => { let el = secEl; do el = d < 0 ? el.previousElementSibling : el.nextElementSibling; while (el && !el.classList.contains('lyrics-section')); return el; };
+    if (e.key === 'ArrowUp' && !ta.value.slice(0, a).includes('\n')) {
+        const p = sib(-1)?.querySelector('.section-textarea');
+        if (p) { e.preventDefault(); p.focus({ preventScroll: true }); p.setSelectionRange(p.value.length, p.value.length); p.closest('.lyrics-section').scrollIntoView({ block: 'nearest' }); }
+    } else if (e.key === 'ArrowDown' && !ta.value.slice(a).includes('\n')) {
+        const n = sib(1)?.querySelector('.section-textarea');
+        if (n) { e.preventDefault(); n.focus({ preventScroll: true }); n.setSelectionRange(0, 0); n.closest('.lyrics-section').scrollIntoView({ block: 'nearest' }); }
+    } else if (e.key === 'Backspace' && a === 0) {
+        const p = sib(-1);
+        if (p) { e.preventDefault(); lhMergeJoin(p.dataset.id, secEl.dataset.id); }
+    }
+});
+
+// ===== ＋ 貼上文字（0.98.21 Andy）：段落下面的虛線區塊，點一下把剪貼簿的文字貼成新段落（最後一段是空的就貼進那段）；
+// 太長（超過一般段落一眼看得完的量）就展開完整編輯器、切到合併模式
+const LH_PASTE_LONG_LINES = 12;
+async function lhPasteBlock() {
+    const song = curSong();
+    if (!song) return;
+    let text = '';
+    try { text = await navigator.clipboard.readText(); }
+    catch (e) { lhWarn('讀剪貼簿失敗', e); showToast('瀏覽器不讓網頁讀剪貼簿：請點進段落裡，用貼上（⌘V／長按→貼上）', 4000); return; }
+    text = String(text || '').replace(/\r\n?/g, '\n').replace(/^\n+|\n+$/g, '');
+    if (!text.trim()) { showToast('剪貼簿裡沒有文字'); return; }
+    let id = null;
+    lhSecApply('paste', s => {
+        const last = s.sections[s.sections.length - 1];
+        if (last && !last.text.trim()) { last.text = text; id = last.id; return; }
+        const sec = makeEmptySection(lhNextSecType(last ? last.type : 'verse'));
+        sec.text = text;
+        s.sections.push(sec);
+        id = sec.id;
+    }, { dom: 'render' });
+    if (!id) return;
+    lhSecFlash(id);
+    const long = text.split('\n').length > LH_PASTE_LONG_LINES;
+    const reveal = () => { const el = lhSecEl(id); if (el) el.scrollIntoView({ block: 'nearest' }); };
+    if (long && typeof lhEditorOpen === 'function' && typeof lhCanvasSetMode === 'function') {
+        if (!lhEditorIsOpen()) lhEditorOpen();
+        setTimeout(() => { lhCanvasSetMode('merge'); reveal(); }, lhEditorIsOpen() ? 0 : 450);   // 拉寬的動畫約 0.42 秒
+        showToast('貼上的歌詞比較長，已切到合併模式：選取文字按右鍵可以指定段落', 4000);
+    } else reveal();
+}
+document.getElementById('pasteBlock')?.addEventListener('click', lhPasteBlock);

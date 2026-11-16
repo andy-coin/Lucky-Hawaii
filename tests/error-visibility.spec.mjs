@@ -77,9 +77,8 @@ test('背景錯誤：破音字排序檔壞掉會留下記錄', async ({ browser 
     await context.close();
 });
 
-test('背景錯誤：本機字庫覆寫損毀會留下記錄', async ({ browser }) => {
-    const { context, page, errors, warnings } = await bootPage(browser, { storage: { dictOverrides_v076: '{bad' } });
-    expect(hasRecord(warnings, 'dictOverrides_v076 內容損毀')).toBe(true);
+test('背景錯誤：舊的本機字庫覆寫損毀也不影響開機（0.98.21 起不再套用覆寫）', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, { storage: { dictOverrides_v076: '{bad' } });
     await expectSearchWorks(page);
     await expectQuiet(page, errors);
     await context.close();

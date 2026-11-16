@@ -121,7 +121,7 @@ test('整合：舊版使用者的一整天', async ({ browser }) => {
     await expect(pb.locator('#songCurrent')).toHaveText('新歌');
     await expect(pb.locator('.section-textarea').first()).toHaveValue('第一句你');
 
-    // ===== (h) 在 B 刪掉「我的第一首歌」→ 自動備份有一份 → 設定裡「還原這份」按兩下救回來 =====
+    // ===== (h) 在 B 刪掉「我的第一首歌」→ 進垃圾桶 → 設定裡「救回」（0.98.21）=====
     await pb.locator('#leftPanel .side-panel-tab').click();   // 乾淨的瀏覽器，左邊的歌詞面板一開始是收起來的（面板開關不屬於備份內容）
     await pb.locator('#songListToggle').click();
     await pb.locator('.song-pick', { hasText: '我的第一首歌' }).click();
@@ -131,18 +131,12 @@ test('整合：舊版使用者的一整天', async ({ browser }) => {
     await pb.locator('#songDeleteConfirm').click();
     await expect(pb.locator('#songDeleteOverlay')).toBeHidden();
     expect((await readSongs(pb)).map(s => s.id)).toEqual([newId]);
-    const backups = await pb.evaluate(() => lhListBackups());
-    expect(backups.some(r => r.id.startsWith('song-delete-')), '刪除前有自動備份').toBe(true);
+    expect((await pb.evaluate(() => _lhSnapAll('trash'))).map(t => t.title), '刪掉的歌在垃圾桶').toEqual(['我的第一首歌']);
 
     await pb.locator('#settingsTrigger').click();
     await pb.locator('#prefsTab-data').click();   // 分頁式偏好設定（R2）
-    await pb.locator('#autoBackupSection summary').click();
-    const restoreBtn = pb.locator('#autoBackupList li', { hasText: '刪除「我的第一首歌」前的自動備份' }).locator('.backup-restore-btn');
-    await restoreBtn.click();
-    await expect(restoreBtn).toHaveText('再按一次確定還原（會先備份目前資料）');
-    await restoreBtn.click();
-    await expect(pb.locator('#copyToast')).toHaveText('已還原自動備份（還原前的資料已自動備份）');
-    await ready(pb);
+    await pb.locator('#trashList .trash-card', { hasText: '我的第一首歌' }).getByRole('button', { name: '救回「我的第一首歌」' }).click();
+    await expect.poll(async () => (await readSongs(pb)).length).toBe(2);
     const restored = await readSongs(pb);
     expect(restored.map(s => s.title).sort()).toEqual(['我的第一首歌', '新歌'].sort());
     expect(restored.find(s => s.id === 'song-migrated').sections.map(s => s.text), '救回來的歌詞和升級時一樣').toEqual(FIXTURE_TEXTS);

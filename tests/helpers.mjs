@@ -261,14 +261,20 @@ export const STORAGE_SPY = () => {
 };
 
 // 備份全部／匯入備份只在偏好設定「資料與備份」分頁（標題列不再有按鈕）
-export const SETTINGS_BACKUP = '.settings-saveload .save-load-btn >> nth=0';
-export const SETTINGS_IMPORT = '.settings-saveload .save-load-btn >> nth=1';
+export const SETTINGS_BACKUP = '#prefsPanel-data .save-load-btn:has-text("匯出全部專案")';   // 0.98.21 資料分頁改版
+export const SETTINGS_IMPORT = '#prefsPanel-data .data-import';
 export async function openDataTab(page) {
     if (!(await page.locator('#prefsTab-data').isVisible())) await page.locator('#settingsTrigger').click();
     await page.locator('#prefsTab-data').click();
 }
-// 打開設定 → 資料與備份 → 點備份全部，回傳下載物件
+// 整份備份（歌＋專案＋自訂詞彙＋設定）：0.98.21 起資料分頁改成「創作內容」「設定外觀」分開匯出，
+// 整份備份留給存檔失敗橫幅的「備份全部」（js/safety.js lhSaveFailed → exportSession），匯入照樣吃。回傳下載物件
 export async function clickBackup(page) {
+    const [dl] = await Promise.all([page.waitForEvent('download'), page.evaluate(() => exportSession())]);
+    return dl;
+}
+// 資料分頁的「匯出全部專案」（創作內容）
+export async function clickExportContent(page) {
     await openDataTab(page);
     const [dl] = await Promise.all([page.waitForEvent('download'), page.locator(SETTINGS_BACKUP).click()]);
     return dl;

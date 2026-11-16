@@ -1,3 +1,20 @@
+## 0.98.21（2026-11-16，已 push）
+- 多專案：歌有 project 欄（沒有＝proj-default「我的歌詞」）；切換／新增／改名／刪除只在 ☰ 歌曲清單上方 .proj-bar（js/songs.js 專案區、renderProjectBar）；歌詞標題只顯示專案名（#songProj）。手機平板 proj-bar 會折行（css/panels.css .proj-bar）。
+- 快照（js/snapshots.js，IndexedDB lh-snaps：blobs/snaps/trash）：定時（滑桿 關閉/10/15/30/60 分）＋每專案「最新進度」閒置 10 秒；只留 24 小時；歌曲內容雜湊去重。卡片展開看歌詞、單首還原；同專案最多 3 張三欄比對（lhSnapCompare）。
+- 垃圾桶：刪歌／刪專案先放 trash（7 天）。垃圾桶寫不進去（沒有 IndexedDB）→ 退回整份備份 _lhDelFallbackBackup（js/songs.js），兩者都失敗才不刪；提示文字分兩種。
+- 匯出分開：資料分頁「匯出這個專案／匯出全部專案」（創作內容 kind:content）、「匯出設定外觀」（kind:settings）、「從檔案匯入…」。存檔失敗橫幅的「備份全部」仍是整份（exportSession → lhBuildBackup，0.98.21 起也帶 projects、customWords），全部還原時寫回專案清單（js/safety.js lhApplyBackupReplace）。
+- 修：創作內容檔按「全部還原」原本直接 return（js/song-io.js importReplaceAll kind 判斷）；還原後提示「N 首歌與專案」（#lh-restored-c=）。
+- 安全快照（匯入、升級前）改 24 小時、最多 10 份（LH_BACKUP_KEEP_MS/MAX），升級前的也照這規則。
+- 常用／一般／冷僻改篩選鈕（lhTierFilter、js/results.js）；拿掉批量標記、本機字庫覆寫（舊資料留著不讀不刪）；空位改儲存空間條。
+- 貼上區塊 #pasteBlock（js/sections.js lhPasteBlock，事件改在 JS 綁，不用 onclick）；合併模式（canvas.js data-merge、sections.js lhMergeAssign/lhMergeJoin）。
+- 宇宙：色標第二面板可收（.ws-legbtn 邊緣分頁、.ws-legclose）；標題兩行；fx 滑桿中途切換直接收尾 _lhSpFinishFx；殘影 hold 0–1 秒照位移量×速度；凝聚彈簧隨時間變硬（~9 秒到 90%、過衝 ~5.6%、~15.5 秒停）；第 3 級恆星光暈、第 5 級恆星日冕／輻射／扭曲 LH_SP_STARFX（透明度與速度在這裡調）。
+- CSS 守則：px→rem、11px 字→12px、#000/#fff 改 --mix-dark/--mix-light（css/base.css）、wsBreath 搬到 base.css（測試白名單 +1）、拿掉 2 個新 transition；捲動底線變數 --sw/--sx 改 --sxw/--sxp（避開色票的 --sw）。手機平板快照清單不捲中捲、按鈕撐到 --hit。
+- 測試：大量配合新介面更新（songs-delete 改垃圾桶、songs-backup 新增「創作內容與設定外觀分開」測試、storage 24 小時淘汰、golden han-poly-xing 與 3 張截圖重錄）。Mac 的 End 鍵是捲動：lyrics-editor 改用 → 鍵。
+- 暫時的調參齒輪（宇宙縮放鈕左邊 ⚙，js/word-space.js LH_SP_TUNE／LH_SP_TUNE_ROWS／_lhSpTunePanel，css/panels.css .ws-tune）：殘影、光暈閃爍、混沌凝聚、第 5 級恆星日冕／輻射／扭曲都可即時調；「複製數值」→ Andy 貼回來寫死 → LH_SP_TUNE_UI 改 false 藏起來。重新整理會回到預設（沒存 localStorage）。
+- 舊的 3 個壞測試都是測試過時：theme-r2 背景飄字（0.98.16 起第 3 級定格，改用第 4 級測）、wordlist-cache 非預設包（自己開的 context 沒開 __lhPacksOn）、rhyme-map-ui 鏡像對齊（約 1/6 機率拍到收尾中的畫面，改成連拍兩張一樣才比）。全套 1288 過、0 失敗。
+- 待 Andy：用 ⚙ 調好數值按「複製數值」貼給 Claude。
+- 待 Andy 實測：專案切換、快照比對、垃圾桶救回、合併模式、貼上區塊、篩選鈕、第 5 級恆星特效濃淡。
+
 ## 0.98.20（2026-11-16，已 push）
 - 第 5 級混沌凝聚：改用跟「拖恆星沖散」同一套彈簧引力，剛度 1/4、阻尼 1/2（慢一倍、一樣的彈性）；起點仍撒在恆星周圍 2 倍直徑。舊時間內插版見 git 94f3f9d（js/word-space.js 位置迴圈開頭 w.gk）。
 - 大風吹座位（_lhSpSeats，每 0.3 秒）：同一圈散開的行星照角度排序、整組轉最省路的偏移去坐空位，就近歸隊不交叉；省 2 成以上才換。沖散、凝聚都用。

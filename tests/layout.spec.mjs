@@ -489,7 +489,7 @@ test('設定：電腦與平板也有顏色、存讀檔、回報', async ({ brows
             await openSettings(page);
             const dlg = page.locator('#settingsOverlay .settings-dropdown');
             await expect(dlg, name).toBeVisible();
-            for (const [tab, sels] of [['look', ['#sBgColor1', '#sContainerBg', '#sTextColor', '#sHighlightColor']], ['data', ['.settings-saveload .save-load-btn >> nth=0', '.settings-saveload .save-load-btn >> nth=1']], ['help', ['.settings-feedback-btn']]]) {
+            for (const [tab, sels] of [['look', ['#sBgColor1', '#sContainerBg', '#sTextColor', '#sHighlightColor']], ['data', ['#prefsPanel-data .save-load-btn >> nth=0', '#prefsPanel-data .data-import']], ['help', ['.settings-feedback-btn']]]) {
                 await dlg.locator('#prefsTab-' + tab).click();
                 for (const sel of sels) await expect(dlg.locator(sel), `${name} ${sel}`).toBeVisible();
             }
@@ -1648,7 +1648,7 @@ const TOUCH_STATES = [
     }],
     // 偏好設定分頁式（R2）：每個分頁各掃一次
     ...[['外觀', 'look', ['button[role=tab]', 'input[type=color]', 'button.reset-color']], ['查詢與詞庫', 'search', ['button[role=tab]', 'input[type=checkbox]']],
-        ['AI', 'ai', ['input.byok-input', 'button.byok-eye', 'button.save-load-btn', 'a.byok-video']], ['資料與備份', 'data', ['button.save-load-btn', 'button.reset-color']], ['說明與回饋', 'help', ['button.save-load-btn']]].map(([n, tab, must]) => [`設定開著·${n}`, must, async page => {
+        ['AI', 'ai', ['input.byok-input', 'button.byok-eye', 'button.save-load-btn', 'a.byok-video']], ['資料與備份', 'data', ['button.save-load-btn', 'input.snap-range']], ['說明與回饋', 'help', ['button.save-load-btn']]].map(([n, tab, must]) => [`設定開著·${n}`, must, async page => {
         await page.evaluate(t => { toggleSettings(); lhPrefsSelectTab(t); }, tab); await expect(page.locator('#settingsOverlay')).toHaveClass(/show/);
     }]),
     ['回報開著', ['button.feedback-send-btn', 'button.feedback-cancel-btn', 'input#feedbackSubject'], async page => {

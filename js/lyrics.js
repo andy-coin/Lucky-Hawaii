@@ -104,7 +104,7 @@
         function toggleLyricsSection(i) {
             const song = curSong();
             const sec = song && song.sections[i];
-            if (!sec) return;
+            if (!sec || document.getElementById('lyricsSections').hasAttribute('data-merge')) return;   // 合併模式：段落不收合（0.98.21）
             sec.collapsed = !sec.collapsed;
             // 只換 class 與箭頭，不重畫：輸入框留在原地（游標、組字不被打斷）
             const section = document.querySelector(`.lyrics-section[data-index="${i}"]`);
@@ -172,6 +172,7 @@
             const song = curSong();
             if (!container || !song) return;
             _lhComposing = false;   // 輸入框被換掉時不會收到 compositionend／focusout，旗標不能卡在 true
+            const pasteBlock = document.getElementById('pasteBlock');   // 0.98.21：「＋ 貼上文字」放在段落列表最後面，跟著捲
             container.replaceChildren(...song.sections.map((s, i) => {
                 const el = document.createElement('div');
                 el.className = 'lyrics-section' + (s.collapsed ? ' collapsed' : '');
@@ -249,6 +250,7 @@
                 _lhSecFitRO.observe(ta);
                 return el;
             }));
+            if (pasteBlock) container.append(pasteBlock);
             if (typeof lhCanvasApply === 'function') lhCanvasApply();   // 自由畫布：先套排版，鏡像層才量得到最後的寬度（canvas.js 較晚載入）
             if (typeof lhRolesRefresh === 'function') lhRolesRefresh();   // 換歌、別分頁更新：角色顏色變數跟著這首歌
             lhSecCountAll();

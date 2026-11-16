@@ -11,6 +11,10 @@ let _lhCvSwallow = false;    // 拖完那一下的 click 要吞掉（不然會�
 
 const _lhCvBox = () => document.getElementById('lyricsSections');
 const _lhCvIsFree = song => !!(song && song.canvas && song.canvas.mode === 'free');
+// 合併模式（0.98.21 Andy）：所有段落接成一整份文件——底層照樣一段一個輸入框（韻腳地圖、角色、復原照用），只是外框、標題列、間距都拿掉，
+// 每段上面留一行斜體「---Verse I---」；只在完整編輯器裡（窄的歌詞面板照舊是卡片）
+const _lhCvIsMerge = song => !!(song && song.canvas && song.canvas.mode === 'merge');
+const lhCanvasIsMerge = () => lhEditorIsOpen() && _lhCvIsMerge(curSong());
 // 自由排版的條件：編輯器開著、這首歌是自由模式、手機鍵盤沒打開（鍵盤打開時退回整齊直列，D-06）
 const _lhCvFree = () => lhEditorIsOpen() && _lhCvIsFree(curSong()) && !document.documentElement.classList.contains('kb-open');
 const _lhCvPx = v => (Number.isFinite(v) ? v + 'px' : null);
@@ -91,10 +95,14 @@ function lhCanvasApply() {
     const box = _lhCvBox();
     const song = curSong();
     if (!box) return;
-    const snapBtn = document.getElementById('canvasSnapBtn'), freeBtn = document.getElementById('canvasFreeBtn');
-    const isFree = _lhCvIsFree(song);
-    if (snapBtn) snapBtn.setAttribute('aria-pressed', String(!isFree));
+    const snapBtn = document.getElementById('canvasSnapBtn'), freeBtn = document.getElementById('canvasFreeBtn'), mergeBtn = document.getElementById('canvasMergeBtn');
+    const isFree = _lhCvIsFree(song), isMerge = _lhCvIsMerge(song);
+    if (snapBtn) snapBtn.setAttribute('aria-pressed', String(!isFree && !isMerge));
     if (freeBtn) freeBtn.setAttribute('aria-pressed', String(isFree));
+    if (mergeBtn) mergeBtn.setAttribute('aria-pressed', String(isMerge));
+    const merge = lhCanvasIsMerge(), wasMerge = box.hasAttribute('data-merge');
+    box.toggleAttribute('data-merge', merge);
+    if (merge !== wasMerge) for (const ta of box.querySelectorAll('.section-textarea')) lhSecFit(ta);   // 外框、內距變了：高度重新量
     const secs = song ? song.sections : [];
     const byId = new Map(secs.map(s => [s.id, s]));
     if (!_lhCvFree()) {
@@ -111,7 +119,7 @@ function lhCanvasApply() {
         }
         // 自由模式量到的高度是卡片的高度，回到整齊直列要依內容重新量
         if (was) for (const ta of box.querySelectorAll('.section-textarea')) lhSecFit(ta);
-        _lhRowsLayout(box, secs);
+        _lhRowsLayout(box, merge ? [] : secs);   // 合併模式不分列，一段接一段
         return;
     }
     _lhCvWasFree = true;
@@ -140,15 +148,15 @@ function lhCanvasApply() {
 // 切換模式（只動 song.canvas；模式是檢視狀態，不進復原）。沒有 canvas 欄位就算吸附，所以在新歌按「吸附」什麼都不寫
 function lhCanvasSetMode(mode) {
     const song = curSong();
-    if (!song || (mode !== 'free' && mode !== 'snap')) return;
-    if (mode === (_lhCvIsFree(song) ? 'free' : 'snap')) return;
+    if (!song || (mode !== 'free' && mode !== 'snap' && mode !== 'merge')) return;
+    if (mode === ((song.canvas && song.canvas.mode) || 'snap')) return;
     song.canvas = lhCanvasClean({ ...song.canvas, mode });
     markDirty(song.id);
     flushSongs();
     lhCanvasApply();
-    lhAnnounce(mode === 'free' ? '自由排版：拖標題列移動卡片，拉右下角改大小' : '吸附排版：整齊直列，自由排版的位置都留著');
+    lhAnnounce(mode === 'free' ? '自由排版：拖標題列移動卡片，拉右下角改大小' : mode === 'merge' ? '合併：所有歌詞接成一整份；選取文字按右鍵可以指定段落，在段落開頭按刪除鍵會跟上一段接起來' : '吸附排版：整齊直列，自由排版的位置都留著');
 }
-for (const [id, mode] of [['canvasSnapBtn', 'snap'], ['canvasFreeBtn', 'free']]) {
+for (const [id, mode] of [['canvasSnapBtn', 'snap'], ['canvasFreeBtn', 'free'], ['canvasMergeBtn', 'merge']]) {
     const b = document.getElementById(id);
     if (!b) continue;
     b.addEventListener('click', () => lhCanvasSetMode(mode));

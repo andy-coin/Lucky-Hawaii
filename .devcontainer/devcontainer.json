@@ -1,0 +1,45 @@
+{
+  "name": "Lucky Hawaii Dev Container",
+  "build": {
+    "dockerfile": "Dockerfile",
+    "context": "."
+  },
+  "features": {
+    "ghcr.io/devcontainers/features/git:1": {
+      "version": "latest"
+    },
+    "ghcr.io/devcontainers/features/github-cli:1": {
+      "version": "latest"
+    }
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "anthropic.claude-code",
+        "ms-python.python",
+        "ms-python.vscode-pylance",
+        "dbaeumer.vscode-eslint",
+        "bradlc.vscode-tailwindcss"
+      ]
+    }
+  },
+  "forwardPorts": [8080],
+  "portsAttributes": {
+    "8080": {
+      "label": "Local Preview Server",
+      "onAutoForward": "notify"
+    }
+  },
+  "postCreateCommand": "echo '🏝️ Setting up Lucky Hawaii...' && python3 --version && node --version && echo '✅ Setup complete!'",
+  "remoteUser": "vscode",
+  "overrideCommand": false,
+  "mounts": [
+    "source=${localWorkspaceFolder},target=/workspace,type=bind,consistency=cached"
+  ],
+  "runArgs": [
+    "--name", "lucky-hawaii-dev"
+  ],
+  "secrets": {
+    "GEMINI_API_KEY": "Enter your Gemini API key when prompted"
+  }
+}

@@ -726,6 +726,9 @@
             .song-toggle, .export-toggle, .section-add-btn, .editor-tab, .editor-close, .song-new-btn, .song-pick, .song-name-input { min-height: var(--hit); }
             .song-act { width: var(--hit); height: var(--hit); }
             #songDeleteCancel, #songDeleteConfirm, .backup-restore-btn { min-height: var(--hit); }
+            .snap-btn, .snap-open, .snap-song-name { min-height: var(--hit); }   /* 0.98.21 快照、垃圾桶 */
+            .snap-list { gap: var(--sp-2); max-height: none; overflow: visible; }   /* 手機平板不要捲中捲：跟著設定面板一起捲 */
+            .snap-range { min-height: var(--hit); }
             .settings-backups summary { line-height: var(--hit); padding-block: 0; }   /* 單行文字：行高撐成 44，不用 flex（會吃掉展開箭頭） */
             .about-btn { position: relative; }
             .about-btn::after { content: ''; position: absolute; inset: -0.875rem; }

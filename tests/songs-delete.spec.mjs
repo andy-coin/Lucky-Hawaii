@@ -21,9 +21,11 @@ const THREE = [song('song-a', '甲', 1000, { text: '甲的歌詞' }), song('song
 
 const readSongs = page => page.evaluate(() => JSON.parse(localStorage.getItem('lh:songs')));
 const del = (page, id) => page.locator('.song-act.delete[data-song-id="' + id + '"]');
-const BODY = '這首歌的歌詞會一起刪除（刪除前會自動備份，可從「設定」的「自動備份」還原；瀏覽器只保留最近幾份）。';
+const BODY = '這首歌會移到垃圾桶，7 天內可以在「設定 → 資料與備份」救回來。';
+// 0.98.21：刪掉的歌放進垃圾桶（IndexedDB lh-snaps 的 trash，js/snapshots.js）
+const readTrash = page => page.evaluate(() => _lhSnapAll('trash'));
 
-test('刪除歌曲：先備份再刪', async ({ browser }) => {
+test('刪除歌曲：先放進垃圾桶再刪', async ({ browser }) => {
     const { context, page, errors } = await bootPage(browser, { storage: seed(THREE, 'song-b'), device: DESKTOP, wordlist: 'stub' });
     await page.locator('#songListToggle').click();
     await del(page, 'song-b').click();
@@ -36,16 +38,15 @@ test('刪除歌曲：先備份再刪', async ({ browser }) => {
     await page.locator('#songDeleteConfirm').click();
     await expect(page.locator('#songDeleteOverlay')).toBeHidden();
 
-    const backups = await page.evaluate(() => lhListBackups());
-    const b = backups.find(r => r.id.startsWith('song-delete-'));
-    expect(b, '刪除前要有自動備份').toBeTruthy();
-    expect(b.label).toBe('刪除「乙」前的自動備份');
-    expect(JSON.parse(b.data['lh:songs']).map(s => s.id)).toContain('song-b');
+    const trash = await readTrash(page);
+    expect(trash, '刪除前要先放進垃圾桶').toHaveLength(1);
+    expect(trash[0]).toMatchObject({ kind: 'song', title: '乙', projectId: 'proj-default' });
+    expect(trash[0].songs.map(s => s.id)).toEqual(['song-b']);
 
     const after = await readSongs(page);
     expect(after.map(s => s.id).sort()).toEqual(['song-a', 'song-c']);
     expect(await page.evaluate(() => localStorage.getItem('lh:activeSong'))).toBe('song-a');   // 清單由新到舊，乙下面是甲
-    await expect(page.locator('#copyToast')).toHaveText('已刪除「乙」');
+    await expect(page.locator('#copyToast')).toHaveText('已把「乙」移到垃圾桶（7 天內可以救回）');
     await expect(page.locator('#songCurrent')).toHaveText('甲');
     await expect(page.locator('.song-item')).toHaveCount(2);
     expect(errors).toEqual([]);
@@ -60,7 +61,7 @@ const RESTORED_TOAST = '已還原自動備份（還原前的資料已自動備�
 const openBackupList = async page => {
     await page.locator('#settingsTrigger').click();
     await page.locator('#prefsTab-data').click();   // 分頁式偏好設定（R2）
-    await page.locator('#autoBackupSection summary').click();
+    await expect(page.locator('#snapList')).toBeVisible();   // 0.98.21：快照、安全快照、垃圾桶都直接列在「資料與備份」分頁
 };
 
 // 升級前的版本：多一首歌再還原 pre-schema-2，重新載入後要重跑遷移、看到原本的歌詞（不是空白）
@@ -104,7 +105,7 @@ test('刪除歌曲：備援還原也還原資料版本', async ({ browser }) => 
     await context.close();
 });
 
-test('刪除歌曲：自動備份清單', async ({ browser }) => {
+test('刪除歌曲：快照清單與垃圾桶', async ({ browser }) => {
     const { context, page, errors } = await bootPage(browser, { storage: FIXTURE, device: DESKTOP, wordlist: 'stub' });
     await addSecondSong(page);
     await del(page, await page.evaluate(() => activeSongId)).click();
@@ -112,12 +113,16 @@ test('刪除歌曲：自動備份清單', async ({ browser }) => {
     await expect(page.locator('#songDeleteOverlay')).toBeHidden();
 
     await openBackupList(page);
-    const rows = page.locator('#autoBackupList li');
-    await expect(rows).toHaveCount(3);
-    await expect(rows.locator('.backup-label')).toHaveText(['刪除「未命名歌曲 1」前的自動備份', '升級資料格式前的備份（目標版本 2）', '基準備份（這個版本第一次開啟時）']);
-    for (const t of await rows.locator('.backup-time').allTextContents()) expect(t).toMatch(/^\d{4}\/\d{2}\/\d{2} \d{2}:\d{2}$/);
-    await expect(rows.first().locator('.backup-restore-btn')).toHaveText('還原這份');
-    await expect(rows.first().locator('.backup-restore-btn')).toHaveAttribute('aria-label', '還原這份自動備份：刪除「未命名歌曲 1」前的自動備份');
+    // 升級前與基準的安全快照（24 小時內）列在快照清單，只能整份還原
+    const rows = page.locator('#snapList .snap-safety');
+    await expect(rows.locator('.snap-name')).toHaveText(['升級資料格式前的備份（目標版本 2）', '基準備份（這個版本第一次開啟時）']);
+    await expect(rows.first().locator('.backup-restore-btn')).toHaveText('整份還原');
+    await expect(rows.first().locator('.backup-restore-btn')).toHaveAttribute('aria-label', '整份還原這張安全快照（所有專案與設定）');
+    // 刪掉的歌在垃圾桶
+    const tr = page.locator('#trashList .trash-card');
+    await expect(tr).toHaveCount(1);
+    await expect(tr.locator('.snap-name')).toHaveText('未命名歌曲 1');
+    await expect(tr.locator('.snap-meta')).toContainText('還剩 7 天');
     expect(errors).toEqual([]);
     await context.close();
 });
@@ -126,13 +131,14 @@ test('刪除歌曲：沒有備份時的清單', async ({ browser }) => {
     const { context, page, errors } = await bootPage(browser, { storage: FIXTURE, device: DESKTOP, wordlist: 'stub', init: noIdb });
     await page.evaluate(() => localStorage.removeItem('lh:backup:ls'));   // IndexedDB 不可用、備援也是空的
     await openBackupList(page);
-    await expect(page.locator('#autoBackupList li')).toHaveText(['目前沒有自動備份']);
+    await expect(page.locator('#snapList .snap-empty')).toHaveCount(1);
+    await expect(page.locator('#trashList .snap-empty')).toHaveText('垃圾桶是空的');
     await expect(page.locator('.backup-restore-btn')).toHaveCount(0);
     expect(errors).toEqual([]);
     await context.close();
 });
 
-test('刪除歌曲：從自動備份救回刪掉的歌', async ({ browser }) => {
+test('刪除歌曲：從垃圾桶救回刪掉的歌', async ({ browser }) => {
     const { context, page, errors } = await bootPage(browser, { storage: seed(THREE, 'song-b'), device: DESKTOP, wordlist: 'stub' });
     await page.locator('#songListToggle').click();
     await del(page, 'song-b').click();
@@ -141,23 +147,11 @@ test('刪除歌曲：從自動備份救回刪掉的歌', async ({ browser }) => 
     expect((await readSongs(page)).map(s => s.id).sort()).toEqual(['song-a', 'song-c']);
 
     await openBackupList(page);
-    const btn = page.locator('#autoBackupList li', { hasText: '刪除「乙」前的自動備份' }).locator('.backup-restore-btn');
-    await btn.click();
-    await expect(btn).toHaveText(RESTORE_ARMED);
-    expect((await readSongs(page)).map(s => s.id).sort(), '第一下只是確認，資料不動').toEqual(['song-a', 'song-c']);
-    await page.waitForTimeout(4500);
-    await expect(btn).toHaveText('還原這份');   // 4 秒內沒再按就解除
-
-    await btn.click();
-    await expect(btn).toHaveText(RESTORE_ARMED);
-    await btn.click();
-    await expect(page.locator('#copyToast')).toHaveText(RESTORED_TOAST);   // 重新載入後才會出現
-    await page.evaluate(() => Promise.all([window.__hoyunSafetyReady, window.__hoyunSongsReady]));
-    expect((await readSongs(page)).map(s => s.id).sort()).toEqual(['song-a', 'song-b', 'song-c']);
-    expect(await page.evaluate(() => location.hash)).toBe('');
-    const pre = (await page.evaluate(() => lhListBackups())).find(r => r.id.startsWith('pre-restore-'));
-    expect(pre, '還原前先備份目前資料').toBeTruthy();
-    expect(JSON.parse(pre.data['lh:songs']).map(s => s.id).sort()).toEqual(['song-a', 'song-c']);
+    const card = page.locator('#trashList .trash-card', { hasText: '乙' });
+    await card.getByRole('button', { name: '救回「乙」' }).click();
+    await expect.poll(async () => (await readSongs(page)).map(s => s.id).sort()).toEqual(['song-a', 'song-b', 'song-c']);
+    expect((await readSongs(page)).find(s => s.id === 'song-b').sections[0].text).toBe('乙的歌詞');
+    await expect.poll(async () => (await readTrash(page)).length, '救回後從垃圾桶拿掉').toBe(0);
     expect(errors).toEqual([]);
     await context.close();
 });
@@ -173,8 +167,8 @@ test('刪除歌曲：備份名稱原樣顯示', async ({ browser }) => {
     await page.locator('#songDeleteConfirm').click();
     await expect(page.locator('#songDeleteOverlay')).toBeHidden();
     await openBackupList(page);
-    await expect(page.locator('#autoBackupList .backup-label').first()).toHaveText('刪除「' + markup + '」前的自動備份');
-    await expect(page.locator('#autoBackupList b')).toHaveCount(0);
+    await expect(page.locator('#trashList .snap-name').first()).toHaveText(markup);
+    await expect(page.locator('#trashList b')).toHaveCount(0);
     expect(errors).toEqual([]);
     await context.close();
 });
@@ -190,6 +184,11 @@ const mkBackup = songArr => ({
 });
 const importBuf = (page, obj) => page.setInputFiles('#importFileInput', { name: 'backup.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(obj)) });
 // 讓 lhBackup 先等測試放行（window.__release()）才真的存
+const holdTrash = page => page.evaluate(() => {
+    const real = window.lhTrashPut;
+    window.__gate = new Promise(r => { window.__release = r; });
+    window.lhTrashPut = async (...a) => { await window.__gate; return real(...a); };
+});
 const holdBackup = page => page.evaluate(() => {
     const real = window.lhBackup;
     window.__gate = new Promise(r => { window.__release = r; });
@@ -206,7 +205,7 @@ test('刪除歌曲：最後一首', async ({ browser }) => {
     await expect(one.page.locator('#songDeleteLast')).toHaveText('這是最後一首，刪除後會自動建立一首空白的新歌。');
     await one.page.locator('#songDeleteConfirm').click();
     await expect(one.page.locator('#songDeleteOverlay')).toBeHidden();
-    await expect(one.page.locator('#copyToast')).toHaveText('已刪除「唯一的歌」，並建立一首空白的新歌');
+    await expect(one.page.locator('#copyToast')).toHaveText('已把「唯一的歌」移到垃圾桶，並建立一首空白的新歌');
     const left = await readSongs(one.page);
     expect(left).toHaveLength(1);
     expect(left[0].id).not.toBe('song-only');
@@ -231,15 +230,16 @@ test('刪除歌曲：最後一首', async ({ browser }) => {
     await two.context.close();
 });
 
-test('刪除歌曲：備份失敗就不刪', async ({ browser }) => {
+test('刪除歌曲：垃圾桶與備份都失敗就不刪', async ({ browser }) => {
     const { context, page, errors } = await bootPage(browser, { storage: seed(THREE, 'song-b'), device: DESKTOP, wordlist: 'stub' });
     await page.locator('#songListToggle').click();
     await del(page, 'song-b').click();
     const status = page.locator('#songDeleteStatus');
+    await page.evaluate(() => { window.lhTrashPut = async () => false; });   // 垃圾桶放不進去 → 退回整份備份；整份備份也失敗才不刪
     for (const broken of [() => { window.lhBackup = async () => { throw new Error('備份爆了'); }; }, () => { window.lhBackup = async () => ({ ok: false, where: null, existed: false }); }]) {
         await page.evaluate(broken);
         await page.locator('#songDeleteConfirm').click();
-        await expect(status).toHaveText('刪除沒有完成，這首歌還在。自動備份存不下來（瀏覽器的儲存空間可能已滿），請先按「備份全部」存成檔案。');
+        await expect(status).toHaveText('刪除沒有完成，這首歌還在。垃圾桶存不下來（瀏覽器的儲存空間可能已滿），請先到「設定 → 資料與備份」按「匯出全部專案」存成檔案。');
         await expect(page.locator('#songDeleteOverlay')).toBeVisible();
         await expect(page.locator('#songDeleteConfirm')).toBeEnabled();
         await expect(page.locator('#songDeleteConfirm')).toHaveText('刪除這首歌');
@@ -255,7 +255,7 @@ test('刪除歌曲：刪除中', async ({ browser }) => {
     const { context, page, errors } = await bootPage(browser, { storage: seed(THREE, 'song-b'), device: DESKTOP, wordlist: 'stub' });
     await page.locator('#songListToggle').click();
     await del(page, 'song-b').click();
-    await holdBackup(page);
+    await holdTrash(page);
     await page.locator('#songDeleteConfirm').click();
     await expect(page.locator('#songDeleteConfirm')).toHaveText('刪除中…');
     await expect(page.locator('#songDeleteConfirm')).toBeDisabled();
@@ -266,7 +266,7 @@ test('刪除歌曲：刪除中', async ({ browser }) => {
     expect((await readSongs(page)).map(s => s.id).sort(), '備份還沒完成，歌不能動').toEqual(['song-a', 'song-b', 'song-c']);
     await page.evaluate(() => window.__release());
     await expect(page.locator('#songDeleteOverlay')).toBeHidden();
-    await expect(page.locator('#copyToast')).toHaveText('已刪除「乙」');
+    await expect(page.locator('#copyToast')).toHaveText('已把「乙」移到垃圾桶（7 天內可以救回）');
     expect((await readSongs(page)).map(s => s.id).sort()).toEqual(['song-a', 'song-c']);
     expect(errors).toEqual([]);
     await context.close();
@@ -410,11 +410,10 @@ test('刪除歌曲：觸控目標', async ({ browser }) => {
 
         await page.evaluate(() => toggleSettings());   // 手機上歌詞面板蓋住標題列，直接呼叫開啟函式
         await page.locator('#prefsTab-data').click();   // 分頁式偏好設定（R2）
-        await page.locator('#autoBackupSection summary').click();
         await expect(page.locator('.backup-restore-btn').first()).toBeVisible();
         r = await auditTouchTargets(page, { mustSee: ['.backup-restore-btn'] });
-        expect(r.missing, name + ' 還原這份沒量到').toEqual([]);
-        expect(r.failures.filter(f => /backup-restore-btn/.test(f.selector)), name + ' 還原這份不到 44×44').toEqual([]);
+        expect(r.missing, name + ' 整份還原沒量到').toEqual([]);
+        expect(r.failures.filter(f => /backup-restore-btn/.test(f.selector)), name + ' 整份還原不到 44×44').toEqual([]);
         expect(errors).toEqual([]);
         await context.close();
     }
@@ -463,13 +462,13 @@ test('刪除歌曲：沒有 IndexedDB 時，升級前的備份不會被刪歌的
 });
 
 // ==================== 審查修正（IN-10）：IndexedDB 偶爾寫入失敗、改存 localStorage 的備份也要列出來 ====================
-test('刪除歌曲：IndexedDB 寫入失敗改存 localStorage 的備份，仍列在自動備份清單並可還原', async ({ browser }) => {
+test('刪除歌曲：IndexedDB 寫入失敗改存 localStorage 的備份，仍列在快照清單並可還原', async ({ browser }) => {
     const { context, page, errors } = await bootPage(browser, {
         storage: seed(THREE, 'song-b'), device: DESKTOP, wordlist: 'stub',
         init: () => {
             const put = IDBObjectStore.prototype.put;
             IDBObjectStore.prototype.put = function (...a) {
-                if (this.name === 'backups' && window.__failPut) throw new DOMException('quota', 'QuotaExceededError');
+                if ((this.name === 'backups' || this.name === 'trash') && window.__failPut) throw new DOMException('quota', 'QuotaExceededError');
                 return put.apply(this, a);
             };
         },
@@ -482,7 +481,7 @@ test('刪除歌曲：IndexedDB 寫入失敗改存 localStorage 的備份，仍�
     await page.evaluate(() => { window.__failPut = false; });
     expect((await readSongs(page)).map(s => s.id).sort()).toEqual(['song-a', 'song-c']);
     await openBackupList(page);
-    const row = page.locator('#autoBackupList li', { hasText: '刪除「乙」前的自動備份' });
+    const row = page.locator('#snapList .snap-safety', { hasText: '刪除「乙」前的自動備份' });
     await expect(row).toHaveCount(1);
     expect(await page.evaluate(() => lhRestoreFromBackup(JSON.parse(localStorage.getItem('lh:backup:ls2')).id))).toBe(true);
     expect((await readSongs(page)).map(s => s.id).sort()).toEqual(['song-a', 'song-b', 'song-c']);

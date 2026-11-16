@@ -33,6 +33,7 @@ function makeEmptySong(title) {
     return {
         id: lhNewId('song-'),
         title,
+        project: activeProjectId,
         sections: lhSecFinalize([makeEmptySection('verse')]),
         hashtags: [],
         context: '',
@@ -46,11 +47,151 @@ function curSong() {
     return songs.find(s => s.id === activeSongId) || null;
 }
 
+// ==================== 專案（0.98.21） ====================
+// 每首歌帶 project；沒有＝預設專案（舊資料不用遷移，舊版程式讀到多的欄位也照樣能用）。
+// 清單、分頁、新歌、「未命名歌曲 N」編號、自訂詞彙都只看目前專案；切換、新增、改名、刪除只在 ☰ 歌曲清單上面那一列
+const projOf = s => (s && typeof s.project === 'string' && LH_ID_RE.test(s.project) ? s.project : LH_PROJ_DEFAULT);
+function projSongs(pid = activeProjectId) { return songs.filter(s => projOf(s) === pid); }
+function lhProjName(pid = activeProjectId) { const p = lhProjects.find(x => x.id === pid); return p ? p.name : '我的歌詞'; }
+const LH_PROJ_NAME_MAX = 40;
+
+function _loadProjects() {
+    const seen = new Set();
+    lhProjects = (lhGetJSON('lh:projects', [], Array.isArray) || [])
+        .filter(p => p && typeof p.id === 'string' && LH_ID_RE.test(p.id) && typeof p.name === 'string' && !seen.has(p.id) && seen.add(p.id))
+        .map(p => ({ id: p.id, name: Array.from(p.name.trim()).slice(0, LH_PROJ_NAME_MAX).join('') || '未命名專案',
+            createdAt: Number.isFinite(p.createdAt) ? p.createdAt : 0, last: typeof p.last === 'string' ? p.last : null }));
+    // 歌曲用到、清單卻沒有的專案（舊資料＝預設專案；別的分頁剛加的）補進來，歌不會因此看不見
+    for (const s of songs) {
+        const id = projOf(s);
+        if (!lhProjects.some(p => p.id === id)) lhProjects.push({ id, name: id === LH_PROJ_DEFAULT ? '我的歌詞' : '未命名專案', createdAt: 0, last: null });
+    }
+    if (!lhProjects.length) lhProjects.push({ id: LH_PROJ_DEFAULT, name: '我的歌詞', createdAt: 0, last: null });
+    const want = lhGet('lh:activeProject');
+    if (lhProjects.some(p => p.id === want)) activeProjectId = want;
+    else if (!lhProjects.some(p => p.id === activeProjectId)) activeProjectId = lhProjects[0].id;
+}
+function _saveProjects() {
+    if (songsMode !== 'v2') return true;   // 舊版單首模式不寫新鍵
+    const p = lhProjects.find(x => x.id === activeProjectId);
+    if (p && activeSongId) p.last = activeSongId;
+    return lhSet('lh:projects', JSON.stringify(lhProjects)) && lhSet('lh:activeProject', activeProjectId);
+}
+// 專案裡至少一首歌（新專案、整個專案的歌都刪光時）
+function _ensureProjectSong() {
+    if (projSongs().length) return null;
+    const s = makeEmptySong('未命名歌曲 1');
+    songs.push(s);
+    _dirty.add(s.id);
+    return s;
+}
+// 目前這首歌一定要在目前專案裡：不在就換成這個專案上次開的那首，沒有就最新的
+function _pickProjectSong() {
+    const list = projSongs();
+    if (list.some(s => s.id === activeSongId)) return;
+    const p = lhProjects.find(x => x.id === activeProjectId);
+    activeSongId = (p && list.some(s => s.id === p.last)) ? p.last : list.reduce((a, b) => (b.createdAt > a.createdAt ? b : a)).id;
+}
+
+function renderProjectBar() {
+    const sel = document.getElementById('projSelect');
+    if (sel) {
+        sel.replaceChildren(...lhProjects.slice().sort((a, b) => a.createdAt - b.createdAt).map(p => {
+            const o = document.createElement('option');
+            o.value = p.id;
+            o.textContent = p.name + '（' + projSongs(p.id).length + '）';
+            o.selected = p.id === activeProjectId;
+            return o;
+        }));
+    }
+    const del = document.getElementById('projDeleteBtn');
+    if (del) del.disabled = lhProjects.length <= 1;
+    const name = document.getElementById('songProj');
+    if (name) { name.textContent = lhProjName(); name.title = '專案：' + lhProjName() + '（在 ☰ 歌曲裡切換）'; }
+}
+
+function switchProject(pid) {
+    if (pid === activeProjectId || !lhProjects.some(p => p.id === pid) || !requireSongsReady()) return;
+    flushSongs();
+    _saveProjects();   // 記住舊專案開到哪首
+    activeProjectId = pid;
+    _ensureProjectSong();
+    _pickProjectSong();
+    flushSongs();
+    _saveProjects();
+    lhSet('lh:activeSong', activeSongId);
+    _refreshSongUI();
+    if (typeof lhCwSongChanged === 'function') lhCwSongChanged(true);   // 自訂詞彙換成這個專案的
+    showToast('已切換到專案「' + cutName(lhProjName(), 16) + '」', 2000);
+}
+
+async function createProject() {
+    if (songsMode !== 'v2' || !requireSongsReady()) return;
+    const name = await lhAsk({ title: '新增專案', body: '每個專案有自己的歌曲和自訂詞彙（例如一齣音樂劇、一張專輯）', input: { placeholder: '專案名稱', max: LH_PROJ_NAME_MAX },
+        buttons: [{ label: '建立', value: true, kind: 'primary' }, { label: '取消', value: null }] });
+    if (!name) return;
+    const p = { id: lhNewId('proj-'), name, createdAt: Date.now(), last: null };
+    lhProjects.push(p);
+    switchProject(p.id);
+}
+
+async function renameProject() {
+    const p = lhProjects.find(x => x.id === activeProjectId);
+    if (!p) return;
+    const name = await lhAsk({ title: '重新命名專案', input: { value: p.name, max: LH_PROJ_NAME_MAX },
+        buttons: [{ label: '儲存', value: true, kind: 'primary' }, { label: '取消', value: null }] });
+    if (!name || name === p.name) return;
+    p.name = name;
+    _saveProjects();
+    renderProjectBar();
+}
+
+// 刪除專案：整個專案（歌＋這個專案的自訂詞彙）先放進垃圾桶（7 天內可救回，js/snapshots.js），放成功才刪
+// 垃圾桶放不進去（沒有 IndexedDB、空間滿）時的退路：整份資料備份一份（lhBackup 會改存 localStorage），救得回來才准刪
+async function _lhDelFallbackBackup(label, pre) {
+    try { const r = await lhBackup('song-delete-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6), label, pre || lhSnapshot()); return !!(r && r.ok); }
+    catch (e) { lhWarn('刪除前的備份失敗', e); return false; }
+}
+
+async function deleteProject() {
+    if (lhProjects.length <= 1 || !requireSongsReady()) return;
+    const p = lhProjects.find(x => x.id === activeProjectId);
+    const list = projSongs();
+    const ok = await lhAsk({ title: '刪除專案「' + cutName(p.name, 16) + '」？', body: '裡面 ' + list.length + ' 首歌和這個專案的自訂詞彙會一起移到垃圾桶，7 天內可以在「設定 → 資料與備份」救回來。',
+        buttons: [{ label: '移到垃圾桶', value: true, kind: 'danger' }, { label: '取消', value: null }] });
+    if (!ok) return;
+    flushSongs();
+    const cw = typeof lhCustomWords !== 'undefined' ? lhCustomWords.filter(x => (x.p || LH_PROJ_DEFAULT) === p.id) : [];
+    let put = typeof lhTrashPut === 'function' ? await lhTrashPut({ kind: 'project', title: p.name, project: { ...p }, songs: list, customWords: cw }) : false;
+    if (!put) put = await _lhDelFallbackBackup('刪除專案「' + p.name + '」前的自動備份');   // 沒有 IndexedDB：退回整份備份（會改存 localStorage）
+    if (!put) { showToast('刪除沒有完成：垃圾桶存不下來（瀏覽器的儲存空間可能已滿），專案還在。', 5000); return; }
+    const ids = new Set(list.map(s => s.id));
+    songs = songs.filter(s => !ids.has(s.id));
+    ids.forEach(id => { _dirty.delete(id); _deleted.add(id); });
+    if (cw.length) { lhCustomWords = lhCustomWords.filter(x => !cw.includes(x)); if (typeof _lhCwSave === 'function') _lhCwSave(); }
+    lhProjects = lhProjects.filter(x => x.id !== p.id);
+    activeProjectId = lhProjects[0].id;
+    _ensureProjectSong();
+    _pickProjectSong();
+    flushSongs();
+    _saveProjects();
+    lhSet('lh:activeSong', activeSongId);
+    _refreshSongUI();
+    if (typeof lhCwSongChanged === 'function') lhCwSongChanged(true);
+    showToast('已把專案「' + cutName(p.name, 16) + '」移到垃圾桶', 3000);
+}
+
+document.getElementById('projSelect')?.addEventListener('change', e => switchProject(e.target.value));
+document.getElementById('projNewBtn')?.addEventListener('click', createProject);
+document.getElementById('projRenameBtn')?.addEventListener('click', renameProject);
+document.getElementById('projDeleteBtn')?.addEventListener('click', deleteProject);
+
 function markDirty(id) {
     const song = songs.find(s => s.id === id);
     if (!song) return;
     song.updatedAt = Date.now();
     _dirty.add(id);
+    if (typeof lhSnapNote === 'function') lhSnapNote(projOf(song));   // 快照：記下這個專案改過（js/snapshots.js）
 }
 
 function scheduleSave() {
@@ -154,7 +295,7 @@ function requireSongsReady(opts) {
     if (songsReady) return true;
     if (songsFailed) {
         if (opts && opts.allowFailed) return true;
-        showToast('歌詞載入失敗，請重新整理頁面，或到「設定」的「自動備份」還原', 4000);
+        showToast('歌詞載入失敗，請重新整理頁面，或到「設定 → 資料與備份」用快照還原', 4000);
         return false;
     }
     showToast('歌曲還在載入，請稍候再試', 2400);
@@ -188,7 +329,7 @@ function _salvageSongs(raw) {
 function _keepCorruptSongs(salvagedCount) {
     lhBackup('corrupt-songs-latest', '歌曲資料損毀時的原始內容', lhSnapshot()).then(r => {
         showToast('歌曲資料讀不出來，' + (salvagedCount ? '已救回 ' + salvagedCount + ' 首能用的歌' : '先建立了一首新歌')
-            + (r && r.ok ? '。原本的內容已另存成自動備份，可以在「設定」的「自動備份」裡找回。' : '。原本的內容只留在瀏覽器裡，請先不要清除網站資料。'), 10000);
+            + (r && r.ok ? '。原本的內容已另存成自動備份，可以在「設定 → 資料與備份」的快照清單裡整份還原（保留 24 小時）。' : '。原本的內容只留在瀏覽器裡，請先不要清除網站資料。'), 10000);
     }, e => lhWarn('保留損毀歌曲資料的備份失敗', e));
 }
 
@@ -213,10 +354,12 @@ function initSongs() {
         }
         songs.forEach(s => { if (_normalizeSong(s)) _dirty.add(s.id); });
     }
+    _loadProjects();
+    _ensureProjectSong();
     const saved = lhGet('lh:activeSong');
-    activeSongId = songs.some(s => s.id === saved)
-        ? saved
-        : songs.reduce((a, b) => (b.createdAt > a.createdAt ? b : a)).id;
+    activeSongId = projSongs().some(s => s.id === saved) ? saved : null;
+    _pickProjectSong();
+    if (songsMode === 'v2' && lhGet('lh:projects') === null) _saveProjects();   // 第一次：把預設專案寫進去
     _refreshSongUI();
     if (_dirty.size) flushSongs();
     songsReady = true;
@@ -245,7 +388,7 @@ function isEditingField() {
 
 // 側邊清單的順序：新的在前；建立時間相同就依 id，順序才固定
 function sortedSongs() {
-    return songs.slice().sort((a, b) => (b.createdAt - a.createdAt) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+    return projSongs().sort((a, b) => (b.createdAt - a.createdAt) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
 }
 
 // 歌名在提示裡最多 16 個字（用字元而不是 UTF-16 單位，不會把一個字切半）
@@ -278,10 +421,12 @@ function _applyExternalSongs() {
         songs = merged;
         songs.forEach(s => { if (_normalizeSong(s)) _dirty.add(s.id); });
     }
+    _loadProjects();   // 別的分頁可能新增了專案（歌帶著新的 project）
+    _ensureProjectSong();
     let deleted = false;
-    if (!songs.some(s => s.id === activeSongId)) {
+    if (!projSongs().some(s => s.id === activeSongId)) {
         deleted = true;
-        const alive = new Set(songs.map(s => s.id));
+        const alive = new Set(projSongs().map(s => s.id));
         // 舊順序裡先往後找、找不到再往前找，都沒有就取清單第一首
         const after = oldOrder.slice(oldPos + 1);
         const before = oldOrder.slice(0, Math.max(oldPos, 0)).reverse();
@@ -291,7 +436,7 @@ function _applyExternalSongs() {
     const stillDirty = _dirty.size > 0 && !flushSongs();   // 失敗時橫幅 lhSet 已經跳了
     _refreshSongUI();
     if (!flushed || stillDirty) {
-        showToast('其他分頁更新了歌詞，但這個分頁的修改還沒有存下來（儲存空間可能已滿），修改仍保留在畫面上。請先按「備份全部」。', 8000);
+        showToast('其他分頁更新了歌詞，但這個分頁的修改還沒有存下來（儲存空間可能已滿），修改仍保留在畫面上。請先到「設定 → 資料與備份」匯出全部專案。', 8000);
         return;
     }
     showToast(deleted
@@ -300,6 +445,13 @@ function _applyExternalSongs() {
 }
 
 window.addEventListener('storage', e => {
+    if (songsMode === 'v2' && songsReady && e.key === 'lh:projects') {   // 別的分頁改了專案名稱、新增或刪除專案：清單跟著更新（每個分頁各自停在自己的專案）
+        const keep = activeProjectId;
+        _loadProjects();
+        if (lhProjects.some(p => p.id === keep)) activeProjectId = keep;
+        renderProjectBar();
+        return;
+    }
     if (songsMode !== 'v2' || activeSongId === null || (e.key !== 'lh:songs' && e.key !== null)) return;
     if (isEditingField()) _pendingExternal = true;
     else _applyExternalSongs();
@@ -390,6 +542,7 @@ function renderSongList() {
 
 // 換歌、開機、別分頁更新後：編輯器、標題列、清單一起依目前這首歌重畫
 function _refreshSongUI() {
+    renderProjectBar();
     renderActiveSong();
     renderSongHeader();
     renderSongList();
@@ -443,7 +596,7 @@ function switchSong(id) {
     if (changed) {
         flushSongs();
         activeSongId = id;
-        if (songsMode === 'v2') lhSet('lh:activeSong', id);
+        if (songsMode === 'v2') { lhSet('lh:activeSong', id); _saveProjects(); }
         // 清單原地換標記、不重畫：按鈕還是同一顆，連續點兩下（雙擊改名）才點得到同一個目標
         renderActiveSong();
         renderSongHeader();
@@ -470,7 +623,7 @@ function switchSong(id) {
 // 下一個沒用過的編號：現有「未命名歌曲 N」最大的 N 加 1（空缺不回頭補）
 function nextUntitledNumber() {
     let max = 0;
-    songs.forEach(s => {
+    projSongs().forEach(s => {
         const m = /^未命名歌曲 (\d+)$/.exec(s.title);
         if (m) max = Math.max(max, Number(m[1]));
     });
@@ -616,7 +769,7 @@ function openDeleteSong(id, opener) {
     _delEl('songDeleteTitle').textContent = '刪除「' + cutName(song.title, 24) + '」？';
     _delEl('songDeleteFull').hidden = !long;
     _delEl('songDeleteFull').textContent = long ? song.title : '';
-    _delEl('songDeleteLast').hidden = songs.length !== 1;
+    _delEl('songDeleteLast').hidden = projSongs().length !== 1;
     _delEl('songDeleteStatus').textContent = '';
     const ok = _delEl('songDeleteConfirm');
     ok.textContent = '刪除這首歌';
@@ -662,20 +815,22 @@ async function confirmDeleteSong() {
         _delEl('songDeleteCancel').disabled = false;
         _del.busy = false;
     };
-    // 備份沒存成功就絕不刪（T-08-25）；id 帶亂數尾巴，同一毫秒的兩次刪除也不會因為「同 id 不重寫」而少備份一次
+    // 0.98.21：先放進垃圾桶（7 天內可救回，js/snapshots.js），放成功才刪（T-08-25 同樣的原則）
     let backedUp = false;
     let pre = null;
+    let inTrash = false;
     let flushedOk = true;
     try {
         flushedOk = flushSongs();
         if (flushedOk) {
-            pre = lhSnapshot();
-            const r = await lhBackup('song-delete-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6), '刪除「' + song.title + '」前的自動備份', pre);
-            backedUp = !!(r && r.ok);
+            pre = lhSnapshot();   // 寫入失敗時退回用
+            backedUp = await lhTrashPut({ kind: 'song', title: song.title, songs: [song], projectId: projOf(song), projName: lhProjName(projOf(song)) });
+            inTrash = backedUp;
+            if (!backedUp) backedUp = await _lhDelFallbackBackup('刪除「' + song.title + '」前的自動備份', pre);   // 垃圾桶（IndexedDB）不能用：退回 0.98.20 的整份備份
         }
-    } catch (e) { lhWarn('刪除前的自動備份失敗', e); }
+    } catch (e) { lhWarn('刪除前放進垃圾桶失敗', e); }
     if (!backedUp) {
-        fail((flushedOk ? '自動備份存不下來' : '剛剛的修改還沒存下來') + '（瀏覽器的儲存空間可能已滿），請先按「備份全部」存成檔案。');
+        fail((flushedOk ? '垃圾桶存不下來' : '剛剛的修改還沒存下來') + '（瀏覽器的儲存空間可能已滿），請先到「設定 → 資料與備份」按「匯出全部專案」存成檔案。');
         return;
     }
 
@@ -691,7 +846,7 @@ async function confirmDeleteSong() {
     _dirty.delete(id);
     _deleted.add(id);
     let created = null;
-    if (songs.length === 0) {   // 清單永遠不會是 0 首
+    if (projSongs().length === 0) {   // 專案的清單永遠不會是 0 首
         created = makeEmptySong('未命名歌曲 ' + nextUntitledNumber());
         songs.push(created);
         _dirty.add(created.id);
@@ -712,8 +867,8 @@ async function confirmDeleteSong() {
     _del.busy = false;
     _hideDeleteDialog();
     showToast(created
-        ? '已刪除「' + cutName(song.title, 16) + '」，並建立一首空白的新歌'
-        : '已刪除「' + cutName(song.title, 16) + '」', created ? 4000 : 2400);
+        ? '已把「' + cutName(song.title, 16) + '」' + (inTrash ? '移到垃圾桶' : '刪除（刪除前已整份備份）') + '，並建立一首空白的新歌'
+        : '已把「' + cutName(song.title, 16) + '」' + (inTrash ? '移到垃圾桶（7 天內可以救回）' : '刪除（刪除前已整份備份，24 小時內可以在「設定 → 資料與備份」還原）'), created ? 4000 : 2400);
 }
 
 // Esc＝先不刪除（組字中的 Esc 是取消組字；刪除進行中不能關）；Tab 只在兩顆按鈕之間打轉

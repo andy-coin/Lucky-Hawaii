@@ -19,13 +19,13 @@ required = ["GEMINI_API_KEY", "GROQ_API_KEY", "USER_REPORT_KEY"]
 # 一定要填既有的 id，留空會被當成新建一個空的（回報資料會看不到）
 [[kv_namespaces]]
 binding = "USER_FEEDBACK_KV"
-id = "REPLACE_WITH_USER_FEEDBACK_KV_ID"
+id = "b5a54d1504174cbb877b83316c54c7c1"
 
 # 健康檢查專用，不和回報混用，後台列表才不會出現這些資料（D-12）
 # 建立並取得 id：npx wrangler kv namespace create AI_STATE_KV
 [[kv_namespaces]]
 binding = "AI_STATE_KV"
-id = "REPLACE_WITH_AI_STATE_KV_ID"
+id = "ff372666bc504e28b3784b83202f7499"
 
 # 每個 IP 每分鐘的請求上限（D-19）；免費方案若部署時拒絕這段，整段刪掉即可，程式偵測不到就不限流
 [[ratelimits]]

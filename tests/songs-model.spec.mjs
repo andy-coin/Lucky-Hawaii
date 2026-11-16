@@ -420,7 +420,7 @@ test('載入失敗：不停在載入中，說明資料沒有被更動', async ({
     expect(await page.evaluate(() => JSON.parse(localStorage.getItem('lh:songs'))[0].sections[0].text), '儲存的歌詞沒被動').toBe('我的歌詞');
     await page.evaluate(() => { exportSession(); });
     // 載入失敗和「還在載入」要分開講（WR-12）
-    await expect(page.locator('#copyToast')).toHaveText('歌詞載入失敗，請重新整理頁面，或到「設定」的「自動備份」還原');
+    await expect(page.locator('#copyToast')).toHaveText('歌詞載入失敗，請重新整理頁面，或到「設定 → 資料與備份」用快照還原');
     await context.close();
 });
 

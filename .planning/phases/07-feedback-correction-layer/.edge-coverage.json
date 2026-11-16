@@ -1,0 +1,104 @@
+{
+ "items": [
+  {
+   "requirement_id": "FB-01",
+   "category": "empty",
+   "status": "resolved",
+   "verification": "explicit",
+   "resolution": "With 0 cards selected, the 🚩 回報 batch button is aria-disabled; pressing it shows the toast 「先點一下要回報的字，再按回報」 and sends no request; with exactly 1 card selected the dialog lists that one word.",
+   "reason": null,
+   "probe": "What is the result for empty, single-element, or null input?"
+  },
+  {
+   "requirement_id": "FB-01",
+   "category": "encoding",
+   "status": "resolved",
+   "verification": "explicit",
+   "resolution": "Word identity for dedupe and grouping is the exact trimmed string (no normalization beyond trim); the optional note limit (500) is counted in Unicode code points (Array.from(str).length), so a 500-character Chinese note is accepted and 501 is rejected/truncated by maxlength.",
+   "reason": null,
+   "probe": "Whose definition of length/equality applies — bytes, code points, grapheme clusters, or normalized form?"
+  },
+  {
+   "requirement_id": "FB-02",
+   "category": "boundary",
+   "status": "resolved",
+   "verification": "explicit",
+   "resolution": "The ×n count pill is shown only when a group has n ≥ 2 reports; groups with more than 20 originals get the 20rem scroll cap; the >500 layer notice appears when the layer holds 501+ entries and not at exactly 500.",
+   "reason": null,
+   "probe": "What happens exactly at each min/max/threshold — and one step either side?"
+  },
+  {
+   "requirement_id": "FB-02",
+   "category": "adjacency",
+   "status": "resolved",
+   "verification": "explicit",
+   "resolution": "Grouping key is (report type, word) — or (char, reading) for char reports — compared as exact strings; the same word reported for two different reasons yields two separate rows; feedback/ai-word-suggest items are never merged (UI-SPEC D-11).",
+   "reason": null,
+   "probe": "When two things are exactly equal or just touch, do they merge, collide, or separate?"
+  },
+  {
+   "requirement_id": "FB-02",
+   "category": "empty",
+   "status": "resolved",
+   "verification": "explicit",
+   "resolution": "No reports → the admin shows the empty-state copy from UI-SPEC §8; a filter matching nothing → the empty-filter copy; select-all on an empty filter selects 0 rows and the batch buttons stay disabled.",
+   "reason": null,
+   "probe": "What is the result for empty, single-element, or null input?"
+  },
+  {
+   "requirement_id": "FB-02",
+   "category": "ordering",
+   "status": "resolved",
+   "verification": "explicit",
+   "resolution": "Group rows are ordered by their latest report time, newest first; ties broken by word string ascending (stable); originals inside a group are newest first.",
+   "reason": null,
+   "probe": "When elements compare equal, is output order specified and stable?"
+  },
+  {
+   "requirement_id": "FB-02",
+   "category": "precision",
+   "status": "resolved",
+   "verification": "explicit",
+   "resolution": "Report times are shown in the browser local time to the minute (YYYY-MM-DD HH:mm); counts are exact integers from the grouped records (no rounding).",
+   "reason": null,
+   "probe": "Where can precision loss, overflow, or rounding/tie-breaking occur — and what is the exact contract (e.g. half-up vs half-to-even, ceil/floor/truncate)?"
+  },
+  {
+   "requirement_id": "FB-03",
+   "category": "concurrency",
+   "status": "resolved",
+   "verification": "explicit",
+   "resolution": "Applying is idempotent per source report: applying the same agreed report twice (double click, two tabs, retry after timeout) leaves exactly one layer entry; the apply button is disabled while its request is in flight; concurrent admin writes are last-writer-wins on the single KV document, documented as acceptable because the admin is a single user.",
+   "reason": null,
+   "probe": "If interrupted or run in parallel, what is guaranteed?"
+  },
+  {
+   "requirement_id": "FB-04",
+   "category": "unclassified",
+   "status": "resolved",
+   "verification": "explicit",
+   "resolution": "Reverting an id that is not (or no longer) in the layer returns a not-found result, leaves the layer unchanged, and the admin shows a plain-language message; a successful revert removes exactly that entry and returns its source reports to 已核准未套用.",
+   "reason": null,
+   "probe": "unclassified — review manually"
+  },
+  {
+   "requirement_id": "FB-05",
+   "category": "concurrency",
+   "status": "resolved",
+   "verification": "explicit",
+   "resolution": "If the write-back run is interrupted at any step (after commit, after push, during live polling), re-running it neither duplicates entries in data/*-overrides.json nor loses any layer entry; it clears only the ids it wrote and confirmed live, so corrections applied while it ran stay in the layer; two simultaneous runs are not supported and the script documents this.",
+   "reason": null,
+   "probe": "If interrupted or run in parallel, what is guaranteed?"
+  }
+ ],
+ "coverage": {
+  "applicable": 10,
+  "resolved": 0,
+  "unresolved": 10,
+  "unclassified": 1,
+  "byVerification": {
+   "explicit": 0,
+   "backstop": 0
+  }
+ }
+}

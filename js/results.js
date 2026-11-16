@@ -237,6 +237,9 @@
                 });
             }
 
+            // 0.98.21：常用／一般／冷僻篩選（js/cards.js lhTierFilter；都沒按＝全部）
+            if (lhTierShow.size) results = results.filter(r => lhTierShow.has(getCharMark(r.char, r.zhuyin, r.tone)));
+
             // 過濾破音字（勾選時或關閉讀音時，每字只保留第一個匹配）
             if (filterDup || !showPinyin) {
                 const seen = new Set();

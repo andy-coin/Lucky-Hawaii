@@ -6,7 +6,11 @@
         // 歌曲模型（歌詞、#標籤、情境都在這裡）：安全層開機（備份＋遷移）之後才由 initSongs 填入（A3），這裡只放空殼
         let songs = [];
         let activeSongId = null;
-        let songsMode = 'v2';   // 'legacy'＝遷移沒跑成，沿用 v0.96 的單首歌詞存法
+        let songsMode = 'v2';
+        // 專案（0.98.21）：每首歌帶 project（缺＝預設專案「我的歌詞」）；清單、分頁、新歌、自訂詞彙都只看目前專案（js/songs.js 專案區）
+        const LH_PROJ_DEFAULT = 'proj-default';
+        let lhProjects = [];            // [{ id, name, createdAt, last }]：last＝這個專案上次開的歌
+        let activeProjectId = LH_PROJ_DEFAULT;   // 'legacy'＝遷移沒跑成，沿用 v0.96 的單首歌詞存法
 let songsFailed = false; // initSongs 丟了例外：和「還沒載好」分開記，還原類的動作只需要儲存空間，這時候要能用（WR-12）
 let songsReady = false; // initSongs 跑完才是 true；之前 songs 是空的，匯出、匯入、新增歌曲都不能動（WR-09）
         // 形狀不對的存檔（例如 'null'、'{}'）跟損毀的 JSON 一樣處理：用預設值開機、原始內容不動

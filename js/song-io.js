@@ -221,21 +221,59 @@ function exportSession() {
     showToast('已匯出備份檔（' + data.songs.length + ' 首歌）', 2400);
 }
 
+// 0.98.21 Andy：「創作內容」跟「設定外觀」分開匯出、分開匯入
+const _stamp = () => { const d = new Date(); return d.getFullYear() + _pad2(d.getMonth() + 1) + _pad2(d.getDate()) + '-' + _pad2(d.getHours()) + _pad2(d.getMinutes()); };
+// 創作內容：歌（段落、角色、排版、讀音…）、專案、這些專案的自訂詞彙、保留池。all＝全部專案，否則只有目前專案
+function exportContent(all) {
+    if (!requireSongsReady()) return;
+    flushSongs();
+    const pids = new Set(all ? lhProjects.map(p => p.id) : [activeProjectId]);
+    const data = {
+        format: LH_BACKUP_FORMAT, version: LH_BACKUP_VERSION, kind: 'content', exportedAt: new Date().toISOString(),
+        projects: lhProjects.filter(p => pids.has(p.id)).map(p => ({ id: p.id, name: p.name, createdAt: p.createdAt })),
+        songs: songs.filter(s => pids.has(projOf(s))).map(s => ({ ...s, project: projOf(s) })),
+        activeSong: activeSongId,
+        savedWords,
+        customWords: (typeof lhCustomWords !== 'undefined' ? lhCustomWords : []).filter(x => pids.has(x.p))
+    };
+    downloadText('LuckyHawaii-創作內容-' + (all ? '全部專案' : safeFileName(lhProjName())) + '-' + _stamp() + '.json', JSON.stringify(data, null, 2), 'application/json');
+    showToast('已匯出創作內容（' + data.projects.length + ' 個專案、' + data.songs.length + ' 首歌）', 2600);
+}
+// 設定外觀：主題、顏色、查詢、韻腳地圖、AI 偏好、快照間隔（金鑰不會被走訪到，F11）
+function exportSettings() {
+    const snap = lhSnapshot(), settings = {};
+    for (const key of _lhBackupSettingKeys()) if (typeof snap[key] === 'string') settings[key] = snap[key];
+    const data = { format: LH_BACKUP_FORMAT, version: LH_BACKUP_VERSION, kind: 'settings', exportedAt: new Date().toISOString(), settings };
+    downloadText('LuckyHawaii-設定外觀-' + _stamp() + '.json', JSON.stringify(data, null, 2), 'application/json');
+    showToast('已匯出設定外觀', 2400);
+}
+// 匯入設定外觀：只動設定鍵（檔案裡有的寫入），歌詞一個字都不碰；套用要重新載入
+async function importSettings(parsed) {
+    const n = Object.keys(parsed.settings).length;
+    if (!n) { showImportError('format'); return; }
+    const ok = await lhAsk({ title: '套用這份設定外觀？', body: '會換掉目前的主題、顏色與偏好（' + n + ' 項），歌詞與專案不會被動到。套用後會重新載入頁面。',
+        buttons: [{ label: '套用', value: true, kind: 'primary' }, { label: '取消', value: null }] });
+    if (!ok) return;
+    flushSongs();
+    for (const [k, v] of Object.entries(parsed.settings)) lhSet(k, v);
+    location.reload();
+}
+
 // 匯入視窗的狀態：parsed 是整理過的檔案內容；opener 是開啟前的焦點；busy 是 全部還原 進行中
 const _imp = { parsed: null, opener: null, busy: false };
 const _impEl = id => document.getElementById(id);
 const _importOpen = () => !!_impEl('importOverlay') && _impEl('importOverlay').classList.contains('show');
 
 const IMPORT_ERRORS = {
-    notjson: '這個檔案不是有效的備份檔（內容讀不出來）。請選擇用「備份全部」存出來的 .json 檔。',
-    format: '這不是好韻器的備份檔。請選擇用「備份全部」存出來的 .json 檔。',
+    notjson: '這個檔案不是有效的備份檔（內容讀不出來）。請選擇好韻器「匯出」存出來的 .json 檔。',
+    format: '這不是好韻器的備份檔。請選擇好韻器「匯出」存出來的 .json 檔。',
     version: v => '這份備份是比較新的版本做的（版本 ' + v + '），目前的好韻器還讀不了。請先重新整理頁面更新，再試一次。',
     nosongs: '這份備份裡沒有任何歌曲，沒有東西可以匯入。',
     toolarge: '檔案太大了（超過 ' + (LH_BACKUP_MAX_BYTES / 1024 / 1024) + ' MB），不像是備份檔。請確認選對檔案。',
     read: '讀取失敗：這個檔案打不開，請再試一次。',
     write: '還原沒有完成：瀏覽器的儲存空間可能已滿，已經回到匯入前的狀態。',
     backup: '還原沒有開始：自動備份存不下來（瀏覽器的儲存空間可能已滿）。',
-    rollback: '還原沒有完成，而且退回匯入前的狀態也沒有成功，現在儲存的資料可能有一部分是新的。請先按「備份全部」把畫面上的歌存成檔案，並且不要清除網站資料；匯入前的備份還留在瀏覽器裡。',
+    rollback: '還原沒有完成，而且退回匯入前的狀態也沒有成功，現在儲存的資料可能有一部分是新的。請先到「設定 → 資料與備份」匯出全部專案，並且不要清除網站資料；匯入前的備份還留在瀏覽器裡。',
 };
 const IMPORT_TRUNCATED = '。注意：有內容超過上限，匯入時會被截短';
 const IMPORT_UNCHANGED = '目前的歌詞與設定都沒有被改動。';
@@ -296,7 +334,9 @@ function openImportDialog(parsed) {
         _impEl('importSummary').textContent = '這是舊版的存檔：有 ' + parsed.sectionCount + ' 段歌詞，會加進成新的一首歌' + (parsed.truncated ? IMPORT_TRUNCATED : '');
         _impEl('importMeta').textContent = '';
     } else {
-        _impEl('importSummary').textContent = '這份備份有 ' + parsed.songs.length + ' 首歌與你的設定' + (parsed.truncated ? IMPORT_TRUNCATED : '');
+        _impEl('importSummary').textContent = (parsed.kind === 'content'
+            ? '這份創作內容有 ' + parsed.projects.length + ' 個專案、' + parsed.songs.length + ' 首歌' + (parsed.customWords.length ? '、' + parsed.customWords.length + ' 個自訂詞' : '')
+            : '這份備份有 ' + parsed.songs.length + ' 首歌與你的設定') + (parsed.truncated ? IMPORT_TRUNCATED : '');
         const when = ymdhm(parsed.exportedAt);
         _impEl('importMeta').textContent = when ? '備份時間：' + when : '';
         const mk = text => {
@@ -308,7 +348,9 @@ function openImportDialog(parsed) {
         const shown = parsed.songs.slice(0, 5).map(s => mk(s.title));
         if (parsed.songs.length > 5) shown.push(mk('+' + (parsed.songs.length - 5)));
         chips.replaceChildren(...shown);
-        _impEl('importReplaceHint').textContent = '目前的 ' + songs.length + ' 首歌與設定會被換成備份檔的內容；換之前會先自動備份目前資料';
+        _impEl('importReplaceHint').textContent = parsed.kind === 'content'
+            ? '目前全部 ' + lhProjects.length + ' 個專案、' + songs.length + ' 首歌與自訂詞彙會被換成檔案的內容（設定外觀不動）；換之前會先自動備份目前資料'
+            : '目前的 ' + songs.length + ' 首歌與設定會被換成備份檔的內容；換之前會先自動備份目前資料';
     }
     _showImportOverlay();
     _setImportView(parsed.kind === 'v1' ? 'v1' : 'summary');
@@ -329,7 +371,8 @@ function importSession(ev) {
     };
     reader.onload = () => {
         const r = lhParseBackup(String(reader.result));
-        if (r.ok) openImportDialog(r);
+        if (r.ok && r.kind === 'settings') importSettings(r);
+        else if (r.ok) openImportDialog(r);
         else showImportError(r.error, r);
     };
     reader.readAsText(file);
@@ -358,9 +401,18 @@ function importAddSongs() {
     flushSongs();
     const incoming = p.kind === 'v1' ? [p.song] : p.songs;
     const takenIds = new Set(songs.map(x => x.id));
-    const titles = new Set(songs.map(x => x.title));
+    // 0.98.21：檔案裡的專案——本機有同一個專案（同 id）就加進去，沒有就照檔案新建；沒帶專案的歌（舊檔）放進目前專案
+    const projMap = new Map();
+    for (const fp of p.projects || []) {
+        if (!lhProjects.some(x => x.id === fp.id)) lhProjects.push({ id: fp.id, name: fp.name, createdAt: Date.now(), last: null });
+        projMap.set(fp.id, fp.id);
+    }
+    const pidOf = src => projMap.get(src.project) || activeProjectId;
+    const titlesOf = new Map();
     const added = incoming.map(src => {
-        const song = { ...src, title: _importTitle(src.title, titles) };
+        const pid = pidOf(src);
+        if (!titlesOf.has(pid)) titlesOf.set(pid, new Set(projSongs(pid).map(x => x.title)));
+        const song = { ...src, project: pid, title: _importTitle(src.title, titlesOf.get(pid)) };
         while (takenIds.has(song.id)) song.id = lhNewId('song-');
         takenIds.add(song.id);
         songs.push(song);
@@ -374,8 +426,16 @@ function importAddSongs() {
         lhSet('haiku_savedwords', JSON.stringify(savedWords));
         renderSavedWords();
     }
+    if (Array.isArray(p.customWords) && p.customWords.length && typeof _lhCwClean === 'function') {   // 自訂詞彙：照專案放，重複的略過
+        const have = new Set(lhCustomWords.map(x => x.w + '|' + x.s + '|' + x.p));
+        const add = _lhCwClean(p.customWords.map(x => ({ ...x, p: projMap.get(x.p) || activeProjectId, s: x.s === 'g' || takenIds.has(x.s) ? x.s : 'g' })))
+            .filter(x => !have.has(x.w + '|' + x.s + '|' + x.p));
+        if (add.length) { lhCustomWords = add.concat(lhCustomWords).slice(0, LH_CW_MAX); _lhCwSave(); }
+    }
     if (p.kind === 'v1') activeSongId = added[0].id;
+    _saveProjects();
     flushSongs();   // 失敗時橫幅已經跳了，歌還在記憶體裡，下次存檔會再試
+    if (typeof lhCwSongChanged === 'function') lhCwSongChanged(true);
     _refreshSongUI();
     closeImportDialog();
     showToast(p.kind === 'v1' ? '已把舊版存檔加成新的一首歌「' + cutName(added[0].title, 16) + '」' : '已加入 ' + added.length + ' 首歌', 4000);
@@ -383,13 +443,13 @@ function importAddSongs() {
 
 async function importReplaceAll() {
     const p = _imp.parsed;
-    if (!p || p.kind !== 'v2' || _imp.busy || !_importOpen() || !requireSongsReady({ allowFailed: true })) return;
+    if (!p || (p.kind !== 'v2' && p.kind !== 'content') || _imp.busy || !_importOpen() || !requireSongsReady({ allowFailed: true })) return;
     _imp.busy = true;
     flushSongs();
     setSavesFrozen(true);   // 從這裡到重新載入完成，這個分頁不再寫歌曲（WR-01）
     _setImportView('working');
     let r;
-    try { r = await lhApplyBackupReplace(p); }
+    try { r = p.kind === 'content' ? await lhApplyContentReplace(p) : await lhApplyBackupReplace(p); }
     catch (e) { lhWarn('全部還原失敗', e); r = { ok: false, stage: 'write' }; }
     if (!r.ok) {
         // 退回失敗時閂維持上著：儲存空間新舊混在一起，再寫只會越弄越亂；畫面上的歌還在記憶體裡，「備份全部」從記憶體組檔
@@ -401,7 +461,7 @@ async function importReplaceAll() {
         showImportError(r.stage === 'backup' || r.stage === 'rollback' ? r.stage : 'write');
         return;
     }
-    history.replaceState(null, '', location.pathname + location.search + '#lh-restored=' + p.songs.length);
+    history.replaceState(null, '', location.pathname + location.search + (p.kind === 'content' ? '#lh-restored-c=' : '#lh-restored=') + p.songs.length);
     location.reload();   // 主題、顏色、詞庫包、輸入模式都靠開機流程重讀儲存，重新載入最單純
 }
 
@@ -412,9 +472,10 @@ document.addEventListener('DOMContentLoaded', () => {
         history.replaceState(null, '', location.pathname + location.search);
         return;
     }
-    const m = /^#lh-restored=(\d{1,4})$/.exec(location.hash);
+    const m = /^#lh-restored(-c)?=(\d{1,4})$/.exec(location.hash);
     if (!m) return;
-    showToast('已還原 ' + Number(m[1]) + ' 首歌與設定（還原前的資料已自動備份）', 4000);
+    // -c：創作內容檔（設定外觀沒動，0.98.21）
+    showToast('已還原 ' + Number(m[2]) + ' 首歌' + (m[1] ? '與專案' : '與設定') + '（還原前的資料已自動備份）', 4000);
     history.replaceState(null, '', location.pathname + location.search);
 });
 
@@ -450,8 +511,6 @@ document.addEventListener('keydown', e => {
 // ==================== 自動備份清單（設定 → 自動備份，F1） ====================
 // 刪除歌曲、全部還原、資料格式升級之前，安全層都會存一份自動備份；這裡列出來，讓「可從備份還原」是真的。
 // 備份名稱含使用者打的歌名，一律用 textContent 放進畫面（T-08-28）
-const BACKUP_ARM_MS = 4000;   // 第一下按完，多久內沒再按就解除
-const BACKUP_ARMED_TEXT = '再按一次確定還原（會先備份目前資料）';
 let _backupBusy = false;
 
 const _backupWhen = ms => {
@@ -459,39 +518,7 @@ const _backupWhen = ms => {
     return Number.isNaN(t.getTime()) ? '' : t.getFullYear() + '/' + _pad2(t.getMonth() + 1) + '/' + _pad2(t.getDate()) + ' ' + _pad2(t.getHours()) + ':' + _pad2(t.getMinutes());
 };
 
-async function renderAutoBackups() {
-    const ul = document.getElementById('autoBackupList');
-    if (!ul) return;
-    let list = [];
-    try { list = (await lhListBackups()).filter(r => r && typeof r.id === 'string').reverse(); }   // 新的在上面
-    catch (e) { lhWarn('讀取自動備份清單失敗', e); }
-    if (list.length === 0) {
-        const li = document.createElement('li');
-        li.className = 'backup-empty';
-        li.textContent = '目前沒有自動備份';
-        ul.replaceChildren(li);
-        return;
-    }
-    ul.replaceChildren(...list.map(r => {
-        const label = typeof r.label === 'string' && r.label ? r.label : r.id;
-        const li = document.createElement('li');
-        li.className = 'backup-item';
-        const when = document.createElement('span');
-        when.className = 'backup-time';
-        when.textContent = _backupWhen(r.createdAt);
-        const name = document.createElement('span');
-        name.className = 'backup-label';
-        name.textContent = label;
-        const btn = document.createElement('button');
-        btn.type = 'button';
-        btn.className = 'backup-restore-btn';
-        btn.dataset.backupId = r.id;
-        btn.textContent = '還原這份';
-        btn.setAttribute('aria-label', '還原這份自動備份：' + label);
-        li.append(when, name, btn);
-        return li;
-    }));
-}
+// 0.98.21：舊的「自動備份」清單改由 js/snapshots.js lhDataRender 畫（安全快照在快照清單裡，整份還原仍走下面的 restoreAutoBackup）
 
 // 還原前先把目前資料備份（不成功就不動）；成功後重新載入，主題、顏色、歌曲都靠開機流程重讀儲存
 async function restoreAutoBackup(id) {
@@ -516,7 +543,7 @@ async function restoreAutoBackup(id) {
             else {
                 keepFrozen = true;
                 setSavesFrozen(true, true);
-                showToast('還原沒有完成，而且退回原狀也沒有成功，儲存的資料可能有一部分是新的。請先按「備份全部」存成檔案，並且不要清除網站資料。', 8000);
+                showToast('還原沒有完成，而且退回原狀也沒有成功，儲存的資料可能有一部分是新的。請先到「設定 → 資料與備份」匯出全部專案，並且不要清除網站資料。', 8000);
             }
             return;
         }
@@ -525,31 +552,10 @@ async function restoreAutoBackup(id) {
         location.reload();
     } catch (e) {
         lhWarn('還原自動備份失敗', e);
-        showToast('還原沒有完成，請先按「備份全部」存成檔案。', 4000);
+        showToast('還原沒有完成，請先到「設定 → 資料與備份」匯出全部專案。', 4000);
     } finally {
         _backupBusy = false;
         if (!keepFrozen) { setSavesFrozen(false); flushSongs(); }
     }
 }
 
-// 兩下確認：第一下把按鈕變成「再按一次確定還原」，4 秒內沒再按就解除；一次只武裝一顆
-// 掛在清單本身而不是 document：設定視窗會 stopPropagation，點擊到不了 document
-document.getElementById('autoBackupList').addEventListener('click', e => {
-    const btn = e.target.closest && e.target.closest('#autoBackupList .backup-restore-btn');
-    if (!btn) return;
-    if (btn.dataset.armed === '1') {
-        clearTimeout(btn._armTimer);
-        restoreAutoBackup(btn.dataset.backupId);
-        return;
-    }
-    document.querySelectorAll('#autoBackupList .backup-restore-btn[data-armed="1"]').forEach(_disarmBackupBtn);
-    btn.dataset.armed = '1';
-    btn.textContent = BACKUP_ARMED_TEXT;
-    btn._armTimer = setTimeout(() => _disarmBackupBtn(btn), BACKUP_ARM_MS);
-});
-
-function _disarmBackupBtn(btn) {
-    clearTimeout(btn._armTimer);
-    delete btn.dataset.armed;
-    btn.textContent = '還原這份';
-}

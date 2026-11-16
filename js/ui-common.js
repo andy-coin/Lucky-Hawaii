@@ -201,13 +201,23 @@
 // lhAsk({ title, body, buttons: [{ label, value, kind }] }) → Promise<value>；kind：'danger'｜'primary'｜省略（一般）。
 // Esc、點遮罩、關閉＝回傳 null（取消）。同時只有一個；焦點先落在「取消」按鈕（沒有就第一顆），避免手滑確認。
 let _lhAskResolve = null;
-function lhAsk({ title, body, buttons }) {
+function lhAsk({ title, body, buttons, input }) {
     if (_lhAskResolve) _lhAskResolve(null);
     const ov = document.getElementById('lhAskOverlay'), box = document.getElementById('lhAskActions');
     document.getElementById('lhAskTitle').textContent = title;
     const bodyEl = document.getElementById('lhAskBody');
     bodyEl.textContent = body || '';
     bodyEl.hidden = !body;
+    // 0.98.21：可選的文字輸入（專案取名）。按 value 為 true 的按鈕＝回傳輸入的文字（去頭尾空白）；Enter 等同按它
+    document.getElementById('lhAskInput')?.remove();
+    let inp = null;
+    if (input) {
+        inp = document.createElement('input');
+        inp.type = 'text'; inp.id = 'lhAskInput'; inp.className = 'lh-ask-input';
+        inp.value = input.value || ''; inp.placeholder = input.placeholder || ''; inp.maxLength = input.max || 40;
+        inp.setAttribute('aria-label', title);
+        bodyEl.after(inp);
+    }
     const back = document.activeElement;
     return new Promise(resolve => {
         const done = v => {
@@ -216,13 +226,14 @@ function lhAsk({ title, body, buttons }) {
             ov.removeEventListener('click', onOv);
             document.removeEventListener('keydown', onKey, true);
             if (back && back.isConnected && back.focus) back.focus({ preventScroll: true });
-            resolve(v);
+            resolve(inp && v === true ? inp.value.trim() : v);
         };
         const onOv = e => { if (e.target === ov) done(null); };
         const onKey = e => {
             if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); done(null); }
+            else if (e.key === 'Enter' && inp && e.target === inp && !e.isComposing) { e.preventDefault(); done(true); }
             else if (e.key === 'Tab') {
-                const f = [...box.querySelectorAll('button')], k = f.indexOf(document.activeElement);
+                const f = [...(inp ? [inp] : []), ...box.querySelectorAll('button')], k = f.indexOf(document.activeElement);
                 e.preventDefault();
                 f[(k + (e.shiftKey ? -1 : 1) + f.length) % f.length].focus();
             }
@@ -240,6 +251,7 @@ function lhAsk({ title, body, buttons }) {
         ov.addEventListener('click', onOv);
         document.addEventListener('keydown', onKey, true);
         ov.classList.add('show');
-        (box.querySelector('.feedback-cancel-btn') || box.querySelector('button')).focus();
+        if (inp) { inp.focus(); inp.select(); }
+        else (box.querySelector('.feedback-cancel-btn') || box.querySelector('button')).focus();
     });
 }

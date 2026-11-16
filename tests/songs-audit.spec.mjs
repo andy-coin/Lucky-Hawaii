@@ -79,7 +79,7 @@ test('檢查：長歌名', async ({ browser }) => {
         expect(sc.sw, name + ' 視窗開著橫向不捲動').toBeLessThanOrEqual(sc.iw);
         await page.locator('#songDeleteConfirm').click();
         await expect(page.locator('#songDeleteOverlay')).toBeHidden();
-        await expect(page.locator('#copyToast')).toHaveText('已刪除「' + chars(title, 16) + '…」');
+        await expect(page.locator('#copyToast')).toHaveText('已把「' + chars(title, 16) + '…」移到垃圾桶（7 天內可以救回）');
         const fin = await noPageScroll(page);
         expect(fin.sw, name + ' 橫向不捲動').toBeLessThanOrEqual(fin.iw);
         expect(fin.sh, name + ' 直向不捲動').toBeLessThanOrEqual(fin.ih);
@@ -220,12 +220,11 @@ test('檢查：觸控目標', async ({ browser }) => {
         await audit(['#songDeleteCancel', '#songDeleteConfirm'], '刪除視窗');
         await page.locator('#songDeleteCancel').click();
 
-        // 設定裡的自動備份
+        // 設定裡的安全快照（0.98.21：直接列在資料與備份分頁）
         await page.evaluate(() => toggleSettings());   // 手機上歌詞面板蓋住標題列，直接呼叫開啟函式
         await page.locator('#prefsTab-data').click();   // 分頁式偏好設定（R2）
-        await page.locator('#autoBackupSection summary').click();
         await expect(page.locator('.backup-restore-btn').first()).toBeVisible();
-        await audit(['.backup-restore-btn'], '自動備份');
+        await audit(['.backup-restore-btn'], '安全快照');
         expect(errors).toEqual([]);
         await context.close();
     }
@@ -412,8 +411,8 @@ test('檢查：無障礙名稱', async ({ browser }) => {
     await expectNamed('.song-act.delete[data-song-id="song-a"]', '刪除「甲」');
     await expectNamed('.song-act.rename[data-song-id="song-b"]', '重新命名「乙」');
     await expectNamed('.song-act.delete[data-song-id="song-b"]', '刪除「乙」');
-    await expectNamed(SETTINGS_BACKUP, '把所有歌曲與設定存成一個備份檔');
-    await expectNamed(SETTINGS_IMPORT, '從備份檔還原歌曲與設定');
+    await expectNamed(SETTINGS_BACKUP, '把全部專案的歌、自訂詞彙與保留池存成檔案');
+    await expectNamed(SETTINGS_IMPORT, '從匯出的檔案加入或還原（創作內容或設定外觀）');
     await expectNamed('#songDeleteCancel', '先不刪除，關閉視窗');
     await expectNamed('#importCancelBtn', '先不匯入，關閉視窗');
 
@@ -431,7 +430,7 @@ test('檢查：無障礙名稱', async ({ browser }) => {
 
     // 用無障礙名稱真的找得到（不只是屬性存在）；備份鈕在設定「資料與備份」分頁
     await openDataTab(page);
-    for (const n of ['開關歌曲清單', '匯出這首歌', '在這首歌新增一個段落', '新增一首歌曲', '把所有歌曲與設定存成一個備份檔', '從備份檔還原歌曲與設定']) {
+    for (const n of ['開關歌曲清單', '匯出這首歌', '在這首歌新增一個段落', '新增一首歌曲', '把全部專案的歌、自訂詞彙與保留池存成檔案', '從匯出的檔案加入或還原（創作內容或設定外觀）']) {
         expect(await page.getByRole('button', { name: n }).count(), n).toBeGreaterThanOrEqual(1);
     }
     expect(errors).toEqual([]);

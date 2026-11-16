@@ -394,7 +394,7 @@ test('版本：非預設詞庫包改版時只換該包、缺段保留舊版', as
     const context = await browser.newContext(CONTEXT_OPTS);
     await routeExternal(context, { aiReply: '' });
     await stubSlangEmpty(context);
-    await context.addInitScript(() => localStorage.setItem('lh:lexiconPack', 'alpha'));
+    await context.addInitScript(() => { window.__lhPacksOn = true; localStorage.setItem('lh:lexiconPack', 'alpha'); });   // 0.98.13 起沒開 __lhPacksOn 一律用預設包（自己開的 context 沒走 helpers）
     await stubManifest(context, { schema: 1, default: 'v096', packs: [v096Entry, packEntry('alpha', 'Alpha', { entries: 3 })] });
     await stubPack(context, 'alpha', alpha);
     await context.route(/\/data\/wordlist-overrides\.json$/, r => r.fulfill({ status: 200, contentType: 'application/json', body: '{}' }));

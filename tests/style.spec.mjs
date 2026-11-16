@@ -312,5 +312,5 @@ test('視覺：Phase 7 沒有新的動畫', () => {
     }, 0);
     const now = CSS_FILES.reduce((n, f) => n + count(readFileSync(f, 'utf8')), 0);
     expect(before, '前置：起點有讀到 @keyframes').toBeGreaterThan(0);
-    expect(now, '本階段不能新增 @keyframes').toBe(before);
+    expect(now, '本階段不能新增 @keyframes').toBe(before + 1);   // +1：宇宙第 1 級整片呼吸 wsBreath（0.98.19 Andy 指定，放在 css/base.css）
 });
