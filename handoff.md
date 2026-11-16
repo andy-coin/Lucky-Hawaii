@@ -1,3 +1,6 @@
+## 0.98.22.6（2026-11-16，已 push）
+- Andy 調好的宇宙數值寫成預設（js/word-space.js LH_SP_TUNE／LH_SP_STARFX）；齒輪仍開著
+
 ## 0.98.22.5（2026-11-16，已 push）
 - 日冕：保留各自伸縮，再加平滑 sine 波（corona.waveAmp／waveFreq／waveSpeed；波長照日冕半徑、根部不擺、24 段）
 - 客製顏色「強調色」去掉括號（避免換行）

@@ -245,8 +245,8 @@ test('詞宇宙：調參齒輪（暫時）', async ({ browser }) => {
     expect(JSON.parse(await page.evaluate(() => localStorage.getItem('lh:spTune'))).gather.damp).toBe(0.8);   // 調過的值記在瀏覽器
     await page.locator('.ws-tune-btn', { hasText: '還原預設' }).click();
     expect(await page.evaluate(() => localStorage.getItem('lh:spTune'))).toBeNull();
-    expect(await page.evaluate(() => [LH_SP_TUNE.gather.damp, LH_SP_STARFX.rays.n])).toEqual([0.5, 11]);
-    await expect(row.locator('output')).toHaveText('0.5');
+    expect(await page.evaluate(() => [LH_SP_TUNE.gather.damp, LH_SP_STARFX.rays.n])).toEqual([0.6, 11]);
+    await expect(row.locator('output')).toHaveText('0.6');
     await page.waitForTimeout(300);   // 畫幾格，確定新參數不會讓畫布出錯
     expect(errors).toEqual([]);
     await context.close();
