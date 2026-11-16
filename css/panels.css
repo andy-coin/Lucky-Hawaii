@@ -3025,7 +3025,7 @@ body.ws-open .ws-space { opacity: 1; }
 /* 換批的左右三角形（多重宇宙才有）：畫面左右邊界的正中間 */
 /* 0.98.22 Andy：直接一顆大三角形（沒有底座）；0.98.22.1 顏色用自訂顏色裡叫「邊框」的那個（--highlight-border，city 是粉紅） */
 .ws-nav { position: absolute; z-index: 4; top: 50%; translate: 0 -50%; width: 4.5rem; height: 6rem; min-width: 0; padding: 0;
-    border: none; background: none; box-shadow: none; color: var(--highlight-border); opacity: 0.9; }
+    border: none; background: none; box-shadow: none; color: var(--highlight-border); opacity: 0.8; }   /* 0.98.22.8 Andy：淡一點 */
 .ws-nav[hidden] { display: none; }
 /* 0.98.22.7 Andy：一點點立體——底下一層壓暗的厚邊＋柔影，按下去沉一點、厚邊變薄 */
 .ws-nav .ic { width: 4.5rem; height: 6rem; filter: drop-shadow(0 3px 0 color-mix(in srgb, var(--highlight-border) 55%, var(--mix-dark))) drop-shadow(0 6px 6px var(--shadow)); }

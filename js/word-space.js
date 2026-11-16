@@ -1453,11 +1453,16 @@ function _lhSpDraw(t, L) {
             if (k0) P.splice(0, k0);
             if (P.length < 2) { if (!P.length) w.trl = null; continue; }
             live = true;
-            const a = P[0], b = P[P.length - 1], sm = v => v * v * (3 - 2 * v), m = P[P.length >> 1];
-            const va = sm(Math.max(0, vis(a.t, a.h))), vm = sm(Math.max(0, vis(m.t, m.h))), vb = sm(Math.max(0, vis(b.t, b.h)));
+            // 0.98.22.8：整條的濃度取這條上「最快那段」的速度（舊版取頭端：手一減速頭端變慢，整條跟著一起變淡＝看起來同時消失）；
+            // 沿線 5 個位置各自照掃描算亮度（尾端固定 0），尾巴縮短、越靠尾越淡
+            const a = P[0], b = P[P.length - 1], sm = v => v * v * (3 - 2 * v);
+            let kx = 0, L = 0; const cum = [0];
+            for (let i = 1; i < P.length; i++) { L += P[i].br ? 0 : Math.hypot(P[i].x - P[i - 1].x, P[i].y - P[i - 1].y); cum.push(L); }
+            for (const q of P) if (q.k > kx) kx = q.k;
             const g = M.createLinearGradient(a.x, a.y, b.x, b.y);
-            g.addColorStop(0, _lhSpRGBA(w.rgb, 0)); g.addColorStop(0.5, _lhSpRGBA(w.rgb, (va + vm) / 2)); g.addColorStop(1, _lhSpRGBA(w.rgb, vb));
-            M.globalAlpha = w.alpha * 0.16 * TT.alpha * b.k; M.strokeStyle = g; M.lineWidth = b.lw;
+            g.addColorStop(0, _lhSpRGBA(w.rgb, 0));
+            for (const f of [0.25, 0.5, 0.75, 1]) { const i = Math.round(f * (P.length - 1)), q = P[i]; g.addColorStop(L > 0 ? Math.max(0.01, cum[i] / L) : f, _lhSpRGBA(w.rgb, sm(Math.max(0, vis(q.t, q.h))))); }
+            M.globalAlpha = w.alpha * 0.16 * TT.alpha * kx; M.strokeStyle = g; M.lineWidth = b.lw;
             M.beginPath(); M.moveTo(a.x, a.y);
             for (let i = 1; i < P.length; i++) { if (P[i].br) M.moveTo(P[i].x, P[i].y); else M.lineTo(P[i].x, P[i].y); }
             M.stroke();
@@ -1571,13 +1576,13 @@ function _lhSpDraw(t, L) {
                 g.drawImage(w.spr, p.x - sw / 2, p.y - sh / 2, sw, sh);
                 // 0.98.18.3 Andy：上一格到這一格之間用光帶連起來；0.98.22.7 改成記點（上面殘影段現場畫），每 4px 記一點、最多 60 點
                 if (mv1 > 2) {
-                    const P = w.trl || (w.trl = []), q = P[P.length - 1], k = _lhSp.trW || 0, h = _lhSp.trHold || 0, lw = Math.max(1.5, 16 * w.s * z * 0.45);
+                    const P = w.trl || (w.trl = []), q = P[P.length - 1], k = _lhSp.trW || 0, h = Math.max(_lhSp.trHold || 0, q ? q.h : 0), lw = Math.max(1.5, 16 * w.s * z * 0.45);
                     const far = mv1 >= 600;   // 一格跳太遠（換位置、瞬移）：斷開，不連一條長線
                     if (!q || Math.hypot(q.x - x0, q.y - y0) > 1 || far) P.push({ x: far ? p.x : x0, y: far ? p.y : y0, t, h, k, lw, br: true });
                     const q2 = P[P.length - 1];
-                    if (Math.hypot(q2.x - p.x, q2.y - p.y) >= 4) P.push({ x: p.x, y: p.y, t, h, k, lw });
+                    if (Math.hypot(q2.x - p.x, q2.y - p.y) >= 6) P.push({ x: p.x, y: p.y, t, h, k, lw });
                     else Object.assign(q2, { t, h: Math.max(q2.h, h), k: Math.max(q2.k, k) });
-                    if (P.length > 60) P.splice(0, P.length - 60);
+                    if (P.length > 40) P.splice(0, P.length - 40);   // ponytail: 每詞最多 40 點（幾百個詞同時動也撐得住）
                 }
             }
         }
