@@ -1,3 +1,7 @@
+## 0.98.22.2（2026-11-16，已 push）
+- 日冕大小、光芒長度、恆星光暈大小改成「自己星系半徑的比例」（js/word-space.js _lhSpStarFx 的 Rg；glow.starSize 新滑桿，預設 0.5＝原本的 1/2）
+- 光芒起點、粗細、熱浪幅度仍以字寬為單位
+
 ## 0.98.22.1（2026-11-16，已 push）
 - 殘影：凝聚／沖散速度只算 trail.gather（預設 0.25）倍進殘影；尾巴收的柔邊 trail.edge 進滑桿；fade 改名「從尾巴收完」（js/word-space.js 殘影段）
 - 日冕改成每條細絲一道往外走的波，現場畫（starfx.corona.n／amp／freq／speed），不再用預先畫好的圖

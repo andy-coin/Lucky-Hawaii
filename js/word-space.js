@@ -1554,7 +1554,7 @@ function _lhSpDraw(t, L) {
             }
         }
         if ((w.star || w.rising) && L.starGlow && !w.dim) {   // 0.98.09：第 4 級起恆星自帶光暈（接任中的也先亮）；放大、釘住、停住時也畫（先畫，墊在所有字後面）
-            const R = (w.cl ? w.cl.r / 2 : w.tw) * _lhSpZv() * (w.kb || 1) * (w.mag || 1);   // 光暈半徑＝自己星系半徑的 1/2，中心濃度 13%
+            const R = (w.cl ? w.cl.r * LH_SP_TUNE.glow.starSize : w.tw) * _lhSpZv() * (w.kb || 1) * (w.mag || 1);   // 光暈半徑＝自己星系半徑的 1/2，中心濃度 13%
             // 0.98.15.6：每種顏色先畫好一張 128px 的光暈圖，每格只貼上去放大（以前每顆恆星每格算一次幾百 px 的放射漸層，筆電內顯最吃這個，約占第 5 級的 4 成）
             // 0.98.16 Andy：中心濃度 0.13→0.18；這顆恆星剛好被抽到閃爍時，光暈跟著暫時亮到 2 倍
             const GL = LH_SP_TUNE.glow, tg = w.twk ? Math.sin(Math.min(1, (t - w.twk) / GL.twLen) * Math.PI) : 0;   // 數字在 LH_SP_TUNE.glow
@@ -1880,8 +1880,8 @@ function _lhSpHoloDraw(c, t, z) {
 // ===== 第 5 級恆星特效（0.98.21 Andy）：日冕、輻射、扭曲——整體偏慢、偏淡、不搶焦點 =====
 // 微調只改這張表：a＝透明度，size／len＝大小（恆星字寬的倍數），spin＝每秒轉幾圈，breath／pulse＝亮暗一輪幾秒，speed＝波動每秒幾輪
 const LH_SP_STARFX = {
-    corona: { a: 0.12, size: 2, spin: 0.008, breath: 7.5, n: 70, amp: 0.05, freq: 2, speed: 0.25 }, // 日冕：細細的放射絲，每條是一道往外走的波（0.98.22.1）：amp＝震幅（日冕半徑倍）、freq＝一條絲上幾個波、speed＝每秒走幾個波
-    rays:   { n: 11, a: 0.05, len: 3.2, width: 0.11, spin: 0.008, pulse: 3 }, // 輻射：幾道細長光芒，各自慢慢明滅（彼此錯開）
+    corona: { a: 0.12, size: 0.5, spin: 0.008, breath: 7.5, n: 70, amp: 0.05, freq: 2, speed: 0.25 }, // 日冕：細細的放射絲，每條是一道往外走的波（0.98.22.1）：amp＝震幅（日冕半徑倍）、freq＝一條絲上幾個波、speed＝每秒走幾個波
+    rays:   { n: 11, a: 0.05, len: 0.6, width: 0.11, spin: 0.008, pulse: 3 }, // 輻射：幾道細長光芒，各自慢慢明滅（彼此錯開）
     heat:   { a: 0.12, amp: 0.02, speed: 0.3 },                             // 熱浪：字本身很輕的晃動（0.98.22 從「扭曲」獨立出來；扭曲光環刪掉）
 };
 // ===== 0.98.21 Andy 暫時的調參面板（宇宙右上 ⚙）：殘影、光暈閃爍、混沌凝聚、第 5 級恆星特效的數字都在這裡 =====
@@ -1889,7 +1889,7 @@ const LH_SP_STARFX = {
 const LH_SP_TUNE_UI = true;
 const LH_SP_TUNE = {
     trail:  { hold: 1000, fade: 800, alpha: 0.5, slice: 80, min: 0.45, edge: 0.3, gather: 0.25 },   // edge＝尾巴收的柔邊、gather＝凝聚／沖散速度算進殘影的比例（0.98.22.1）   // 0.98.22 Andy 調好的值
-    glow:   { star: 3, twBoost: 1.5, twRate: 1.8, twLen: 1400, lineBreath: 5.6, lineDepth: 0.28, flashRate: 1, flashLen: 300, flash: 0.2, comet: 0.05, cometFlick: 140 },
+    glow:   { star: 3, starSize: 0.5, twBoost: 1.5, twRate: 1.8, twLen: 1400, lineBreath: 5.6, lineDepth: 0.28, flashRate: 1, flashLen: 300, flash: 0.2, comet: 0.05, cometFlick: 140 },
     gather: { k: 0.18, stiff: 12, ramp: 12, damp: 0.5, spread: 0.7, scatter: 2.3 },
     starfx: LH_SP_STARFX,
 };
@@ -1898,15 +1898,15 @@ const LH_SP_TUNE_DEF = JSON.parse(JSON.stringify(LH_SP_TUNE));
 const LH_SP_TUNE_ROWS = [
     ['殘影', [['trail.hold', '最長停留（毫秒）', 0, 2000, 50], ['trail.fade', '從尾巴收完（毫秒）', 50, 2000, 25], ['trail.edge', '尾巴收的柔邊（越大越糊）', 0.05, 1.5, 0.05], ['trail.alpha', '濃度', 0, 1, 0.05],
         ['trail.min', '門檻（多快才開始停）', 0, 0.9, 0.01], ['trail.gather', '凝聚／沖散殘影加成', 0, 1, 0.05], ['trail.slice', '切片間隔（毫秒，越小越密）', 40, 300, 10]]],
-    ['光暈閃爍', [['glow.star', '恆星光暈亮度（倍）', 0, 3, 0.05], ['glow.twRate', '星星閃爍頻率（倍）', 0, 4, 0.1], ['glow.twBoost', '閃爍時光暈加亮（倍）', 0, 3, 0.1],
+    ['光暈閃爍', [['glow.star', '恆星光暈亮度（倍）', 0, 3, 0.05], ['glow.starSize', '恆星光暈大小（星系半徑×）', 0.05, 1.5, 0.01], ['glow.twRate', '星星閃爍頻率（倍）', 0, 4, 0.1], ['glow.twBoost', '閃爍時光暈加亮（倍）', 0, 3, 0.1],
         ['glow.twLen', '一次閃爍多久（毫秒）', 300, 4000, 50], ['glow.lineBreath', '星座線呼吸一輪（秒）', 1, 15, 0.2], ['glow.lineDepth', '星座線呼吸深淺', 0, 0.6, 0.02],
         ['glow.flashRate', '星座線閃光頻率（倍）', 0, 4, 0.1], ['glow.flashLen', '星座線閃光長度（毫秒）', 300, 4000, 50], ['glow.flash', '星座線閃光亮度（倍）', 0, 2, 0.05],
         ['glow.comet', '流星光暈濃度', 0, 1, 0.05], ['glow.cometFlick', '流星閃爍速度（越大越慢）', 60, 1200, 20]]],
     ['混沌凝聚', [['gather.k', '一開始的拉力', 0.005, 0.2, 0.005], ['gather.stiff', '越拉越緊的程度', 0, 20, 0.5], ['gather.ramp', '變緊的時間尺度（秒）', 2, 30, 0.5],
         ['gather.damp', '阻尼（越小擺盪越多次）', 0.2, 2, 0.05], ['gather.spread', '每顆拉力差異', 0, 1, 0.05], ['gather.scatter', '起點散開（星系半徑倍）', 0.5, 4, 0.1]]],
-    ['恆星日冕', [['starfx.corona.a', '透明度', 0, 1, 0.01], ['starfx.corona.size', '大小', 0.5, 4, 0.05], ['starfx.corona.spin', '轉速（圈／秒）', 0, 0.1, 0.002], ['starfx.corona.breath', '亮暗一輪（秒）', 1, 30, 0.5],
+    ['恆星日冕', [['starfx.corona.a', '透明度', 0, 1, 0.01], ['starfx.corona.size', '大小（星系半徑×，0.5＝50%）', 0.05, 1.5, 0.01], ['starfx.corona.spin', '轉速（圈／秒）', 0, 0.1, 0.002], ['starfx.corona.breath', '亮暗一輪（秒）', 1, 30, 0.5],
         ['starfx.corona.n', '細絲數', 0, 200, 5], ['starfx.corona.amp', '波的震幅', 0, 0.3, 0.005], ['starfx.corona.freq', '波的頻率（一條幾個波）', 0, 8, 0.1], ['starfx.corona.speed', '波往外走的速度（波／秒）', 0, 3, 0.05]]],
-    ['恆星輻射', [['starfx.rays.n', '光芒數', 0, 16, 1], ['starfx.rays.a', '透明度', 0, 1, 0.01], ['starfx.rays.len', '長度', 0.5, 8, 0.1], ['starfx.rays.width', '粗細', 0.02, 0.5, 0.01],
+    ['恆星輻射', [['starfx.rays.n', '光芒數', 0, 16, 1], ['starfx.rays.a', '透明度', 0, 1, 0.01], ['starfx.rays.len', '長度（星系半徑×）', 0.05, 1.5, 0.01], ['starfx.rays.width', '粗細', 0.02, 0.5, 0.01],
         ['starfx.rays.spin', '轉速（圈／秒）', 0, 0.1, 0.002], ['starfx.rays.pulse', '明滅一輪（秒）', 1, 30, 0.5]]],
     ['恆星熱浪', [['starfx.heat.a', '透明度', 0, 1, 0.01], ['starfx.heat.amp', '晃動幅度', 0, 0.1, 0.002], ['starfx.heat.speed', '晃動速度（輪／秒）', 0, 2, 0.02]]],
 ];
@@ -1985,13 +1985,14 @@ function _lhSpFxImg(kind, rgb) {
 }
 function _lhSpStarFx(c, w, p, t, z) {
     const F = LH_SP_STARFX, s = t / 1000, ph = w.wob || 0, TAU = Math.PI * 2, m = (w.kb || 1) * (w.mag || 1);
-    const Rt = Math.max(8, (w.tw || 40) * z * m * 0.5);   // 以恆星字寬的一半為單位
+    const Rt = Math.max(8, (w.tw || 40) * z * m * 0.5);   // 字寬的一半：光芒從字邊出發、光芒粗細、熱浪幅度用這個
+    const Rg = Math.max(Rt, (w.cl ? w.cl.r : w.tw || 40) * z * m);   // 0.98.22.2 Andy：日冕大小、光芒長度＝自己星系半徑的比例
     c.save();
     c.globalCompositeOperation = 'lighter';
     c.translate(p.x, p.y);
     // 日冕
     // 0.98.22.1 Andy：日冕每條細絲是一道往外走的波（根部固定、越外擺越大）；長短、角度每條固定不變，整圈用一道放射漸層越外越淡
-    { const C = F.corona, cr = Rt * C.size, br = 0.75 + 0.25 * Math.sin(TAU * s / C.breath + ph), n = C.n | 0;
+    { const C = F.corona, cr = Rg * C.size, br = 0.75 + 0.25 * Math.sin(TAU * s / C.breath + ph), n = C.n | 0;
       const h = (i, k) => { const x = Math.sin(i * 12.9898 + k * 78.233 + ph * 7) * 43758.5453; return x - Math.floor(x); };
       if (n > 0) {
           const gr = c.createRadialGradient(0, 0, cr * 0.27, 0, 0, cr);
@@ -2014,7 +2015,7 @@ function _lhSpStarFx(c, w, p, t, z) {
     { const img = _lhSpFxImg('ray', w.rgb), n = F.rays.n;
       for (let i = 0; i < n; i++) {
           const k = (i * 0.618 + ph) % 1, pu = 0.5 + 0.5 * Math.sin(TAU * s / (F.rays.pulse * (0.8 + 0.4 * k)) + i * 1.7 + ph);
-          const len = Rt * F.rays.len * (0.75 + 0.35 * pu), wd = Rt * F.rays.width * 2;
+          const len = Rg * F.rays.len * (0.75 + 0.35 * pu), wd = Rt * F.rays.width * 2;
           c.save(); c.rotate(ph * 5 + i * TAU / n + TAU * s * F.rays.spin * (i % 2 ? 1 : -1));
           c.globalAlpha = w.alpha * F.rays.a * pu * pu;
           c.drawImage(img, Rt * 0.55, -wd / 2, len, wd); c.restore();
