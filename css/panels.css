@@ -42,11 +42,11 @@
                 padding-left: max(var(--page-pad), env(safe-area-inset-left), calc(var(--tab-w) + 0.25rem));
                 padding-right: max(var(--page-pad), env(safe-area-inset-right), calc(var(--tab-w) + 0.25rem));
             }
-            body.lp-open { padding-left: calc(var(--lp-w, var(--panel-w)) + var(--song-w, 0px) + var(--page-pad)); }
+            body.lp-open { padding-left: calc(var(--lp-w, var(--panel-w)) + var(--song-w, 0px) + var(--pane-gap)); }
             /* 歌曲清單推開欄（≥ 1024）：左面板多寬一欄，歌詞區寬度不變，主畫面照樣置中（D-02）；不做 transition，和上面一樣避免每一幀重排 */
             .left-panel { width: calc(var(--lp-w, var(--panel-w)) + var(--song-w, 0px)); }
             .right-panel { width: var(--rp-w, var(--panel-w)); }
-            body.rp-open { padding-right: calc(var(--rp-w, var(--panel-w)) + var(--page-pad)); }
+            body.rp-open { padding-right: calc(var(--rp-w, var(--panel-w)) + var(--pane-gap)); }
         }
 
         @media (min-width: 1024px) {
@@ -2699,7 +2699,7 @@ html:not(.kb-open) #lyricsSections[data-canvas="free"] .lyrics-section-header { 
         position: fixed;
         top: var(--pad-t);
         height: calc(var(--app-h) - var(--pad-t) - var(--page-pad));
-        width: var(--page-pad);
+        width: var(--pane-gap);
         z-index: 805;
         touch-action: none;
         cursor: col-resize;
@@ -2929,7 +2929,6 @@ body.ws-open .ws-space { opacity: 1; }
    只有游標停住／釘住的那個詞，右上角浮出真的隱藏鈕（.ws-acts，跟著詞移動） */
 .ws-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
 /* 第 1 級整片呼吸（0.98.15.5）：交給顯示卡縮放整張畫布，6 秒一輪 ±1.2%，畫布本身不用重畫 */
-@keyframes wsBreath { 0%, 100% { transform: scale(1); } 25% { transform: scale(1.012); } 75% { transform: scale(0.988); } }
 @media (prefers-reduced-motion: no-preference) { .ws-space.ws-breathe .ws-canvas { animation: wsBreath 6s ease-in-out infinite; } }
 .ws-space.on-word { cursor: pointer; }
 .ws-acts { position: absolute; left: 0; top: 0; z-index: 4; pointer-events: none; }
@@ -2953,8 +2952,12 @@ body.ws-open .ws-space { opacity: 1; }
     box-shadow: 0 2px 10px var(--shadow); cursor: default;
 }
 .ws-title { font-family: var(--font-serif); font-size: 1rem; font-weight: 700; color: var(--text-primary); }
-.ws-head { display: flex; align-items: flex-start; gap: var(--sp-1); }
-.ws-head .ws-title { flex: 1; min-width: 0; }
+.ws-head { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; column-gap: var(--sp-1); }
+.ws-head .ws-title { display: contents; }
+.ws-title-main { grid-row: 1; grid-column: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ws-title-sub { grid-row: 2; grid-column: 1 / -1; font-family: var(--font-body, inherit); font-size: 0.75rem; font-weight: 400; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ws-head .ws-fold { grid-row: 1; }
+.ws-panel.min .ws-title-sub { display: none; }
 .ws-fold { flex: none; min-width: 1.75rem; min-height: 1.75rem; padding: 0; border-color: transparent; background: transparent; color: var(--text-secondary); }
 .ws-fold .ic { width: 1rem; height: 1rem; transition: transform 0.2s; }
 .ws-panel.min .ws-fold .ic { transform: rotate(180deg); }
@@ -2997,10 +3000,10 @@ body.ws-open .ws-space { opacity: 1; }
 /* 0.98.20：右上改成一欄——縮放列＋底下的特效等級滑桿 */
 .ws-tr { position: absolute; z-index: 5; top: calc(env(safe-area-inset-top, 0px) + 0.75rem); right: 0.75rem; display: flex; flex-direction: column; align-items: stretch; gap: var(--sp-1); }
 .ws-tr .ws-zoom { position: static; }
-.ws-fx { display: flex; align-items: center; gap: var(--sp-2); min-height: 2rem; padding: 0 var(--sp-2); font-size: 0.75rem; color: var(--text-secondary); cursor: default;
+.ws-fx { width: 0; min-width: 100%; box-sizing: border-box; display: flex; align-items: center; gap: var(--sp-2); min-height: 2rem; padding: 0 var(--sp-2); font-size: 0.75rem; color: var(--text-secondary); cursor: default;
     background: color-mix(in srgb, var(--card-bg) 88%, transparent); border: 1px solid var(--border); border-radius: var(--radius-s); }
 .ws-fx[hidden] { display: none; }
-.ws-fx-cap { flex: none; white-space: nowrap; min-width: 4.5em; }
+.ws-fx-cap { flex: none; white-space: nowrap; }
 .ws-fx-range { flex: 1; min-width: 0; accent-color: var(--highlight-border); }
 /* 色標第二層面板（貼在左面板右邊，left 由 js/word-space.js _lhSpNavPlace 設） */
 .ws-legpanel {
@@ -3010,21 +3013,31 @@ body.ws-open .ws-space { opacity: 1; }
     box-shadow: 0 2px 10px var(--shadow); cursor: default;
 }
 .ws-legpanel[hidden] { display: none; }
-.ws-legbtn { flex: none; min-width: 1.25rem; min-height: 1.75rem; padding: 0; border-color: transparent; background: transparent; color: var(--text-secondary); }
+/* 0.98.21：貼在左面板右邊緣的小分頁（left／top 由 _lhSpNavPlace 設） */
+.ws-legbtn { position: absolute; z-index: 6; width: 1.375rem; min-width: 0; height: 3.5rem; min-height: 0; padding: 0;
+    border: 1px solid var(--border); border-left: 0; border-radius: 0 var(--radius-s) var(--radius-s) 0;
+    background: color-mix(in srgb, var(--card-bg) 92%, transparent); color: var(--highlight-border); box-shadow: 2px 2px 8px var(--shadow); }
 .ws-legbtn[hidden] { display: none; }
+.ws-legclose { width: 100%; margin-top: var(--sp-2); min-height: 1.75rem; font-size: 0.75rem; color: var(--text-secondary); }
 .ws-legbtn .ic, .ws-nav .ic { fill: currentColor; stroke: none; }
 .ws-legbtn .ic { width: 0.875rem; height: 0.875rem; transition: transform 0.2s; }
 .ws-legbtn[aria-expanded="true"] .ic { transform: rotate(180deg); }
-.ws-panel.min .ws-legbtn { display: none; }
 @media (hover: hover) and (pointer: fine) { .ws-legbtn:hover { color: var(--text-primary); border-color: var(--border); } }
 /* 換批的左右三角形（多重宇宙才有）：畫面左右邊界的正中間 */
-.ws-nav { position: absolute; z-index: 4; top: 50%; translate: 0 -50%; width: 2.5rem; height: 4rem; min-width: 0; padding: 0;
-    border-color: transparent; background: transparent; color: var(--text-secondary); opacity: 0.6; transition: opacity 0.2s, color 0.2s; }
+/* 0.98.21 Andy：像街機按鈕——大顆圓鈕、主題強調色的立體漸層、底下一圈厚邊，按下去會沉 */
+.ws-nav { --nav-c: var(--highlight-border); position: absolute; z-index: 4; top: 50%; translate: 0 -50%; width: 4.5rem; height: 4.5rem; min-width: 0; padding: 0;
+    border: 2px solid color-mix(in srgb, var(--nav-c) 55%, var(--mix-dark)); border-radius: 50%; color: var(--card-bg);
+    background: radial-gradient(circle at 35% 30%, color-mix(in srgb, var(--nav-c) 55%, var(--mix-light)) 0%, var(--nav-c) 55%, color-mix(in srgb, var(--nav-c) 70%, var(--mix-dark)) 100%);
+    box-shadow: 0 6px 0 color-mix(in srgb, var(--nav-c) 45%, var(--mix-dark)), 0 10px 18px var(--shadow), inset 0 2px 3px color-mix(in srgb, var(--mix-light) 45%, transparent);
+    opacity: 0.82; }
 .ws-nav[hidden] { display: none; }
-.ws-nav .ic { width: 1.5rem; height: 1.5rem; filter: drop-shadow(0 0 4px var(--shadow)); }
-.ws-prev { left: 12px; }
-.ws-next { right: 12px; }
-@media (hover: hover) and (pointer: fine) { .ws-nav:hover { opacity: 1; color: var(--text-primary); } }
+.ws-nav .ic { width: 1.75rem; height: 1.75rem; filter: drop-shadow(0 1px 1px color-mix(in srgb, var(--mix-dark) 35%, transparent)); }
+.ws-nav:active { transform: translateY(5px); box-shadow: 0 1px 0 color-mix(in srgb, var(--nav-c) 45%, var(--mix-dark)), 0 3px 8px var(--shadow), inset 0 2px 3px color-mix(in srgb, var(--mix-light) 35%, transparent); }
+.ws-prev { left: 0.75rem; }
+.ws-next { right: 0.75rem; }
+.ws-prev .ic { translate: -2px 0; } .ws-next .ic { translate: 2px 0; }
+@media (hover: hover) and (pointer: fine) { .ws-nav:hover { opacity: 1; } }
+@media (max-width: 600px) { .ws-nav { width: 3.25rem; height: 3.25rem; } .ws-nav .ic { width: 1.25rem; height: 1.25rem; } }
 @media (max-width: 600px) { .ws-panel { max-width: calc(100% - 1.5rem); } }   /* 0.98.14：展開也貼齊上緣，跟收合鈕同一個位置（面板 10rem 寬，碰不到右上的縮放列） */
 @media (pointer: coarse) { .ws-hud-btn, .ws-leg { min-height: var(--hit); min-width: var(--hit); } }
 /* 三塊面板往左、上、右收走（只在打開／收合的動畫期間加 transition，不動面板平常的收合動畫） */
@@ -3179,3 +3192,108 @@ html[data-lm] .section-body.has-cols .section-textarea { padding-left: 0.75rem; 
 #mapSettingsSection .section-menu-block > .section-menu-cap:first-child { margin-inline-start: calc(-1 * var(--pf-in)); }
 .prefs-show { gap: var(--sp-2); }
 .ws-warp { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 1; }   /* 第 5 級換批的星光線（js/word-space.js _lhSpWarp） */
+
+/* ==================== 0.98.21 專案、資料與備份、快照比對 ==================== */
+.song-proj { flex: 0 1 auto; min-width: 0; max-width: 35%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-family: var(--font-body, inherit); font-size: 0.75rem; font-weight: 400; color: var(--text-secondary); }
+.song-proj:not(:empty)::after { content: '›'; margin-inline-start: 0.375rem; opacity: 0.6; }
+.proj-bar { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-1); padding: var(--sp-2) var(--sp-2) 0; }
+.proj-select { flex: 1 1 8rem; min-width: 0; min-height: var(--hit, 2rem); padding: 0 var(--sp-2); border: 1px solid var(--border); border-radius: var(--radius-s); background: var(--card-bg); color: var(--text-primary); font: inherit; font-weight: 700; }
+.proj-act { flex: none; }
+.proj-act[disabled] { opacity: 0.35; cursor: not-allowed; }
+.lh-ask-input { width: 100%; box-sizing: border-box; min-height: 2.25rem; margin: 0 0 var(--sp-3); padding: 0 var(--sp-2); border: 1px solid var(--border); border-radius: var(--radius-s); background: var(--card-bg); color: var(--text-primary); font: inherit; }
+.data-note { padding: var(--sp-2) var(--sp-3); border: 1px solid var(--accent-line, var(--border)); border-radius: var(--radius-s); background: var(--accent-soft, transparent); font-size: 0.8125rem; line-height: 1.6; }
+.data-note p { margin: 0.25rem 0 0; color: var(--text-secondary); }
+.data-note strong { color: var(--text-primary); }
+.data-sec { margin-top: var(--sp-3); display: flex; flex-direction: column; gap: var(--sp-2); }
+.data-sec h4 { margin: 0; font-size: 0.9375rem; }
+.data-hint { margin: 0; font-size: 0.75rem; line-height: 1.6; color: var(--text-secondary); }
+.data-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); }
+.data-row-cap { min-width: 4.5em; font-weight: 700; font-size: 0.875rem; }
+.data-import { align-self: flex-start; }
+.snap-cfg { display: flex; align-items: center; gap: var(--sp-2); font-size: 0.875rem; }
+.snap-range { flex: 1; min-width: 0; accent-color: var(--highlight-border); }
+.snap-cap { min-width: 5.5em; text-align: end; color: var(--text-secondary); }
+.snap-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--sp-1); max-height: 22rem; overflow-y: auto; }
+.snap-card { border: 1px solid var(--border); border-radius: var(--radius-s); background: var(--card-bg); }
+.snap-head { display: flex; align-items: center; gap: var(--sp-2); padding: 0.25rem var(--sp-2); min-height: 2.25rem; }
+.snap-open, .snap-song-name { flex: 1; min-width: 0; display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 var(--sp-2); padding: 0.25rem 0; border: 0; background: none; color: var(--text-primary); font: inherit; text-align: start; cursor: pointer; }
+.snap-kind { flex: none; padding: 0 0.375rem; border-radius: 10rem; font-size: 0.75rem; background: var(--fill-soft, var(--accent-soft)); color: var(--text-secondary); }
+.snap-name { font-weight: 700; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.snap-meta, .snap-when { font-size: 0.75rem; color: var(--text-secondary); }
+.snap-when { margin-inline-start: auto; }
+.snap-btn { flex: none; min-height: 1.75rem; padding: 0 0.625rem; border: 1px solid var(--border); border-radius: var(--radius-s); background: var(--card-bg); color: var(--text-primary); font: inherit; font-size: 0.75rem; cursor: pointer; }
+.snap-btn[disabled] { opacity: 0.45; cursor: not-allowed; }
+.snap-btn.danger { color: var(--danger-line); }
+.snap-btn[data-armed="1"] { border-color: var(--danger-line); color: var(--danger-line); }
+.snap-body { padding: 0 var(--sp-2) var(--sp-2); display: flex; flex-direction: column; align-items: flex-start; gap: var(--sp-2); }
+.snap-body[hidden] { display: none; }
+.snap-songs { list-style: none; margin: 0; padding: 0; width: 100%; display: flex; flex-direction: column; gap: 2px; }
+.snap-song { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); border-top: 1px dashed var(--border); }
+.snap-lyrics { flex-basis: 100%; margin: 0 0 var(--sp-2); padding: var(--sp-2); max-height: 16rem; overflow: auto; white-space: pre-wrap; font: inherit; font-size: 0.8125rem; line-height: 1.7; background: var(--fill-soft, transparent); border-radius: var(--radius-s); }
+.snap-lyrics[hidden] { display: none; }
+.snap-empty { padding: var(--sp-2); font-size: 0.8125rem; color: var(--text-secondary); }
+@media (pointer: coarse) { .snap-btn { min-height: var(--hit); } }
+/* 三欄比對：全螢幕，上面是每張快照的歌曲順序，下面是選到那首歌的逐行比對 */
+.snap-cmp { position: fixed; inset: 0; z-index: 2000; display: flex; flex-direction: column; gap: var(--sp-2); padding: calc(env(safe-area-inset-top, 0px) + var(--sp-3)) var(--sp-3) var(--sp-3);
+    background: var(--container-bg, var(--card-bg)); color: var(--text-primary); overflow: auto; }
+.snap-cmp-top { display: flex; align-items: center; gap: var(--sp-2); }
+.snap-cmp-top h3 { flex: 1; margin: 0; font-size: 1rem; }
+.snap-cmp-grid { display: grid; grid-template-columns: repeat(var(--n), minmax(14rem, 1fr)); gap: var(--sp-2); overflow-x: auto; }
+.snap-cmp-col { min-width: 0; padding: var(--sp-2); border: 1px solid var(--border); border-radius: var(--radius-s); background: var(--card-bg); }
+.snap-cmp-h { font-weight: 700; font-size: 0.875rem; margin-bottom: 0.25rem; }
+.snap-cmp-order { margin: var(--sp-1) 0 0; padding-inline-start: 1.5em; display: flex; flex-direction: column; gap: 2px; max-height: 12rem; overflow-y: auto; }
+.snap-cmp-song { width: 100%; display: flex; justify-content: space-between; gap: var(--sp-2); padding: 0.125rem 0.375rem; border: 1px solid transparent; border-radius: var(--radius-s); background: none; color: inherit; font: inherit; font-size: 0.8125rem; text-align: start; cursor: pointer; }
+.snap-cmp-song[aria-pressed="true"] { border-color: var(--highlight-border); }
+.snap-cmp-song.add { background: color-mix(in srgb, var(--accent-2) 22%, transparent); }
+.snap-cmp-song.chg { background: color-mix(in srgb, var(--accent-3) 22%, transparent); }
+.snap-cmp-gone { font-size: 0.8125rem; color: var(--text-secondary); text-decoration: line-through; }
+.snap-hint { margin: 0; font-size: 0.75rem; color: var(--text-secondary); }
+.snap-cmp-lyr .snap-cmp-col { font-size: 0.875rem; line-height: 1.75; }
+.snap-ln { white-space: pre-wrap; padding: 0 0.25rem; border-radius: 2px; }
+.snap-ln.sec { font-style: italic; color: var(--text-secondary); font-size: 0.8125rem; }
+.snap-ln.add { background: color-mix(in srgb, var(--accent-2) 24%, transparent); }
+.snap-ln.del { background: color-mix(in srgb, var(--danger-line) 20%, transparent); text-decoration: line-through; text-decoration-color: var(--danger-line); }
+.snap-cmp-none { color: var(--text-secondary); font-size: 0.8125rem; }
+.use-bar { height: 0.375rem; border-radius: 3px; background: var(--fill-soft, color-mix(in srgb, var(--text-primary) 10%, transparent)); overflow: hidden; }
+.use-bar span { display: block; height: 100%; width: 0; background: var(--highlight-border); }
+.use-bar span.warn { background: var(--danger-line); }
+/* 0.98.21：常用／一般／冷僻改成篩選鈕，按下去是開著的狀態 */
+.tier-filter[aria-pressed="true"] { border-color: var(--highlight-border); color: var(--highlight-border); box-shadow: inset 0 -2px 0 var(--highlight-border); }
+/* ===== 0.98.21 合併模式（js/canvas.js 設 #lyricsSections[data-merge]）：外框、標題列、間距拿掉，接成一整份文件；每段上面一行斜體 ---Verse I--- ===== */
+#canvasFreeBtn { border-radius: 0; }
+#canvasMergeBtn { border-radius: 0 0.5rem 0.5rem 0; margin-left: -1px; }
+#lyricsSections[data-merge] { gap: 0; background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--radius-m); padding-block: var(--sp-2); }
+#lyricsSections[data-merge] .lyrics-section { flex: 0 0 auto; min-height: 0; border: 0; border-radius: 0; overflow: visible; background: none; box-shadow: none; }
+#lyricsSections[data-merge] .lyrics-section.collapsed .section-body { display: block; }
+#lyricsSections[data-merge] .lyrics-section-header { min-height: 0; padding: var(--sp-2) 0.75rem 0; background: none; border: 0; cursor: default; }
+#lyricsSections[data-merge] .lyrics-section:first-child .lyrics-section-header { padding-top: 0; }
+#lyricsSections[data-merge] .lyrics-section-header > :not(.section-type) { display: none; }
+#lyricsSections[data-merge] .section-type { padding: 0; min-height: 0; border: 0; background: none; font-style: italic; font-weight: 400; font-size: 0.8125rem; color: var(--text-secondary); }
+#lyricsSections[data-merge] .section-type::before { content: '---'; }
+#lyricsSections[data-merge] .section-type::after { content: '---'; }
+#lyricsSections[data-merge] .section-textarea, #lyricsSections[data-merge] .rhyme-mirror { padding-block: 0 0.25rem; background: transparent; }
+#lyricsSections[data-merge] .lyrics-section[data-color] { box-shadow: inset 3px 0 0 var(--sec-color); }
+/* ＋ 貼上文字：段落列表最後面的虛線區塊，高度跟預設段落一樣；自由畫布不放（卡片是絕對定位） */
+.paste-block { flex: 0 0 auto; min-height: 9rem; display: flex; align-items: center; justify-content: center; border: 2px dashed var(--border); border-radius: var(--radius-m);
+    background: transparent; color: var(--text-secondary); font: inherit; font-size: 0.9375rem; cursor: pointer; }
+@media (hover: hover) and (pointer: fine) { .paste-block:hover { border-color: var(--highlight-border); color: var(--highlight-border); } }
+#lyricsSections[data-canvas="free"] .paste-block { display: none; }
+#lyricsSections[data-merge] .paste-block { min-height: 4rem; margin: var(--sp-2) 0.75rem 0; }
+
+/* 0.98.21 Andy 暫時的宇宙調參面板（⚙，js/word-space.js LH_SP_TUNE；調好寫死後 LH_SP_TUNE_UI 關掉就不會出現） */
+.ws-gear { min-width: 2rem; padding: 0; font-size: 1.125rem; line-height: 1; }
+.ws-gear[aria-expanded="true"] { border-color: var(--highlight-border); color: var(--highlight-border); }
+.ws-tune {
+    position: absolute; z-index: 6; top: calc(env(safe-area-inset-top, 0px) + 5.5rem); right: 0.75rem;
+    width: 19rem; max-width: calc(100% - 1.5rem); max-height: calc(100% - 6.5rem); overflow-y: auto; padding: var(--sp-2) var(--sp-3);
+    display: flex; flex-direction: column; gap: 0.25rem; font-size: 0.75rem; color: var(--text-secondary);
+    background: color-mix(in srgb, var(--card-bg) 94%, transparent); border: 1px solid var(--border); border-radius: var(--radius-m);
+    box-shadow: 0 2px 10px var(--shadow); cursor: default;
+}
+.ws-tune[hidden] { display: none; }
+.ws-tune-h { margin: var(--sp-2) 0 0; font-size: 0.8125rem; color: var(--text-primary); }
+.ws-tune-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: var(--sp-2); align-items: center; }
+.ws-tune-v { font-variant-numeric: tabular-nums; color: var(--highlight-border); }
+.ws-tune-range { grid-column: 1 / -1; width: 100%; margin: 0; accent-color: var(--highlight-border); }
+.ws-tune-acts { position: sticky; bottom: calc(-1 * var(--sp-2)); display: flex; gap: var(--sp-2); padding: var(--sp-2) 0; background: var(--card-bg); }
+.ws-tune-btn { flex: 1; min-height: 2rem; border: 1px solid var(--border); border-radius: var(--radius-s); background: var(--card-bg); color: var(--text-primary); font: inherit; cursor: pointer; }

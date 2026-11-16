@@ -1,0 +1,1680 @@
+
+> ps
+
+> ps
+
+> s
+output audio device set to "Discrete 4 SC USB"
+
+
+
+> restart
+要重新啟動哪個項目？
+  0) Cancel
+  1) Antelope
+  2) Mouse
+  3) Bluetooth
+  4) USB
+  5) Window Server
+  6) Computer
+要重新啟動哪個項目？
+  0) Cancel
+  1) Antelope
+  2) Mouse
+  3) Bluetooth
+  4) USB
+  5) Window Server
+  6) Computer
+選擇項目（↑/↓ 移動，Enter 確認，0 或 Esc 取消）：
+Password:
+重置：047d:8018  Kensington Expert Wireless TB
+
+> d
+
+> LYX
+
+> p
+
+> LYX
+
+> LYX
+
+> LYX
+
+> cd "/Users/Shared/Coding Projects/Lucky Hawaii"\n
+
+ /Users/S/Co/Lucky Hawaii | gsd/v0.96-stabilize >212 !6
+>
+> npx wrangler login
+
+
+ ⛅️ wrangler 4.147.0 (update available 4.157.0)
+───────────────────────────────────────────────
+Attempting to login via OAuth...
+Opening a link in your default browser: https://dash.cloudflare.com/oauth2/auth?response_type=code&client_id=54d11594Opening a link in your default browser: hthtOpenA%2F%2Flocalhost%3A8976%2Foauth%2Fcallback&scope=k2.read%20k2.write%20account%3Aread%20user%3Aread%20workers%3Awrite%20workers_kv%3Awrite%20workers_routes%3Awrite%20workers_scripts%3Awrite%20workers_tail%3Aread%20d1%3Awrite%20pages%3Awrite%20zone%3Aread%20ssl_certs%3Awrite%20ai%3Awrite%20ai-search%3Awrite%20ai-search%3Arun%20agent-memory%3Awrite%20queues%3Awrite%20pipelines%3Awrite%20secrets_store%3Awrite%20artifacts%3Awrite%20flagship%3Awrite%20containers%3Awrite%20cloudchamber%3Awrite%20connectivity%3Aadmin%20email_routing%3Awrite%20email_sending%3Awrite%20browser%3Awrite%20challenge-widgets.write%20offline_access&state=~5CUIhRDDPMr8RFQBsiT.YJbubdJmY_w&code_challenge=TaRJy9z45DvNxPsDADcm7BjVzfoRhUqN1_2DaT0IXXs&code_challenge_method=S256
+Successfully logged in.
+> npx wrangler kv namespace list
+
+[
+  {
+    "id": "b5a54d1504174cbb877b83316c54c7c1",
+    "title": "Lucky_Hawaii",
+    "supports_url_encoding": true
+  }
+]
+> npx wrangler kv namespace create AI_STATE_KV
+
+
+ ⛅️ wrangler 4.147.0 (update available 4.157.0)
+───────────────────────────────────────────────
+Resource location: remote
+
+🌀 Creating namespace with title "AI_STATE_KV"
+✨ Success!
+To access your new KV Namespace in your Worker, add the following snippet to your configuration file:
+{
+  "kv_namespaces": [
+    {
+      "binding": "AI_STATE_KV",
+      "id": "ff372666bc504e28b3784b83202f7499"
+    }
+  ]
+}
+> ps
+> npx wrangler secret put GEMINI_API_KEY --config worker/wrangler.toml
+
+
+ ⛅️ wrangler 4.147.0 (update available 4.157.0)
+───────────────────────────────────────────────
+✔ Enter a secret value: … *****************************************************
+🌀 Creating the secret for the Worker "lucky-hawaii"
+
+✘ [ERROR] Secret edit failed. You attempted to modify a secret, but the latest version of your Worker isn't currently deployed.
+
+  This limitation exists to prevent accidental deployment when using Worker
+  versions and secrets together.
+  To resolve this, you have two options:
+  (1) use the `wrangler versions secret put` instead, which allows you to update
+  secrets without deploying; or
+  (2) deploy the latest version first, then modify secrets.
+  Alternatively, you can use the Cloudflare dashboard to modify secrets and deploy
+  the version.
+
+
+🪵  Logs were written to "/Users/Will/Library/Preferences/.wrangler/logs/wrangler-2026-11-03_18-02-54_872.log"
+> npm test
+
+zsh: correct 'test' to 'tests' [nyae]? n
+
+> test
+> playwright test
+
+
+Running 1067 tests using 16 workers
+
+  ✓     1 …pec.mjs:138:1 › 後台：駁回 — 列內每一筆都記為 dismissed，可以還原 (1.7s)
+  ✓     2 …核准 — 太冷僻→隱藏、不該出現→移除、讀音錯誤略過；結果行與取消選取 (1.7s)
+  ✓     3 …合成一列，原因不同分開，feedback 不合併；展開看三筆原文（新到舊） (1.7s)
+        4 …：全選 — 只選目前篩選結果；取消一列變半選；空篩選選到 0 列、批次列不出現
+  ✓     5 …鑰標頭 — 每個打到 Worker 的請求都帶 X-Admin-Key，網址上沒有 key= (1.7s)
+  ✓     6 …審／已核准未套用／已上線／已駁回五顆，帶數量；顯示已封存疊在上面 (1.8s)
+  ✓     7 …台：整列核准 — 按一下核准，列內三筆都寫入同一個決定（hide_word） (1.7s)
+  ✓     8 …pec.mjs:261:1 › 後台：全部略過 — 選到的列都要手動輸入，一筆都不送 (1.7s)
+  ✓     9 …，再依最新時間新到舊，同時間依主題字串排；混合狀態顯示各狀態筆數 (1.2s)
+  ✓    10 … › 後台：批次駁回 — 每一筆都記為 dismissed，結果「已駁回 {a} 列」 (1.7s)
+  ✓    11 …台：統計 — 共 N 組（M 筆）· 待審 · 已核准未套用 · 已上線 · 已封存 (1.2s)
+  ✓    12 …1 › 後台：部分失敗 — 只有失敗那一列留著選取並顯示這一列沒有存成功 (1.7s)
+  ✓    13 …撐壞標題列、超過 20 筆原文有捲動上限、截斷時提示只載入最新 800 筆 (1.7s)
+  ✓    14 …台：處理中 — 批次送出時受影響的列顯示處理中…、按鈕停用、選取鎖住 (1.8s)
+       15 …35:1 › 後台：空白與錯誤 — 沒有回報／篩選沒有／金鑰不對／讀取失敗／載入中
+  ✓    16 … 後台：XSS — 使用者字串一律當文字，沒有 img／svg 元素、沒有對話框 (2.0s)
+  ✓    17 …1 › 後台：靜態掃描 — 沒有用範本字串拼出來的 on* 屬性、網址不帶金鑰 (8ms)
+  ✓    18 …規則只用 0.75／0.875／1.125／1.5rem 與 400／700，膠囊內距 4px 8px (26ms)
+       19 …90 寬不橫向捲動，標題列換行、時間在標題下面，新控制項 ≥ 44px，批次列貼底
+  ✓    20 …js:572:1 › 後台：顏色 — 新變數在亮暗兩個主題都有，文字對比 ≥ 4.5 (610ms)
+  ✓    21 …只有 kvKey 和 rev），三筆二心合成一條，列變已上線，線上公開讀得到 (1.3s)
+  ✓    22 …回二心，來源回報改回待審（不會被下一次套用放回去），線上不再隱藏 (1.5s)
+  ✓    23 …／封存／刪除全部停用；只有 status 沒有 decided_by 的核准當作待審 (884ms)
+  ✓    24 …時，不管它現在的狀態是什麼都算「已上線」，要有撤回鈕、不能被駁回 (824ms)
+  ✓    25 …／伺服器回應 503 各有白話原因，狀態不變，套用重新可按，再按就成功 (1.4s)
+  ✓    26 …正層在別處變動過，套用顯示請重新載入，不寫入；重新載入後可以套用 (1.2s)
+  ✓    27 …列顯示處理中…、選取鎖住；成功後同樣的 kvKey 再送一次不會多出條目 (1.3s)
+  ✓    28 …› 後台：套用部分略過 — Worker 不收的那筆仍留在等待套用，訊息說明 (970ms)
+  ✓    29 …過 500 筆 — 剛好 500 筆沒有提示，501 筆出現琥珀色提示且套用仍可按 (1.3s)
+  ✓    30 …示讀取失敗與重試，套用停用；重試成功後恢復；沒有回報時套用列仍在 (2.2s)
+  ✓    31 …單裡的列顯示已寫入資料檔、歸已上線篩選、沒有撤回，也不算等待套用 (724ms)
+  ✓    32 …的維持已寫入，沒寫進去的回待審，全選核准與套用都不會把前者再套用 (1.2s)
+  ✓     4 …— 只選目前篩選結果；取消一列變半選；空篩選選到 0 列、批次列不出現 (1.9s)
+  ✓    33 …n.spec.mjs:882:1 › 後台：備註 — 核准的備註是已處理，不算等待套用 (701ms)
+  ✓    34 …撤回已不在 — 修正已不在線上時說明原因，頁面維持原樣直到重新載入 (859ms)
+  ✓    35 …下拉選單看得到修正層：被隱藏的讀音不再出現，連鎖修正後的讀音出現 (1.6s)
+  ✓    36 …注入風險，路徑也不存在，由 tools/corrections/writeback.py 取代） (455ms)
+  ✓    37 …90 寬最長的失敗行與超過 500 筆提示在套用列內換行，不蓋到套用按鈕 (649ms)
+  ✓    38 …功／失敗／警告行在亮暗兩個主題對比 ≥ 4.5，且用文字標明不只靠顏色 (661ms)
+       39 …sts/ai-client.spec.mjs:11:1 › 舊模型：舊設定的使用者按 AI 建議拿得到結果
+  ✓    40 …s/ai-client.spec.mjs:69:1 › 保留：有效的手動選擇保留並送給 Worker (1.4s)
+       41 …-client.spec.mjs:86:1 › 保留：模型清單連不上時顯示自動、不清掉原本的選擇
+       42 tests/ai-client.spec.mjs:97:1 › 保留：大小寫或空白不同的舊值當成未知
+       43 …sts/ai-client.spec.mjs:107:1 › 保留：沒存過模型、或清單是空的 → 只有自動
+       44 tests/ai-client.spec.mjs:119:1 › 保留：同一份舊資料開兩次結果相同
+       45 tests/ai-client.spec.mjs:128:1 › 選單：跟著 /models 變
+       46 tests/ai-client.spec.mjs:142:1 › 選單：標籤只當文字
+       47 tests/ai-client.spec.mjs:153:1 › 選單：使用者改選才寫入
+  ✓    48 …話：補充詞路徑 — 每個供應商都 503 時 AI 區顯示 Worker 的白話原因 (1.0s)
+       49 …:210:1 › 白話：情境產生器 — 失敗時用提示訊息顯示 Worker 的原因，按鈕恢復
+  ✓    50 … › 白話：網路 — /ai 連不上時顯示「連不上 AI 服務」，頁面不留轉圈 (941ms)
+  ✓    19 …橫向捲動，標題列換行、時間在標題下面，新控制項 ≥ 44px，批次列貼底 (2.1s)
+       51 ….mjs:238:1 › 白話：語言 — 各種怪回應顯示的字都是白話繁中，沒有英文錯誤字
+       52 …i-fill.spec.mjs:11:1 › 填滿：候選 ≥ 24 時 AI 只回 3 個，畫面仍剛好 24 張
+  ✓    53 …ill.spec.mjs:47:1 › fillToTarget：數量剛好、無重複、全在候選池內 (144ms)
+[好韻器] 模型 gemini-3.5-flash-lite 回 503 UPSTREAM-SECRET
+[好韻器] 模型 gemini-3.8-flash 回 503 UPSTREAM-SECRET
+[好韻器] 模型 gemini-3.7-flash 回 503 UPSTREAM-SECRET
+[好韻器] 模型 openai/gpt-oss-120b 回 503 UPSTREAM-SECRET
+  ✓    54 …-fill.spec.mjs:74:1 › fillToTarget：同分維持原順序、AI 亂回也補滿 (40ms)
+  ✓    55 tests/ai-fill.spec.mjs:94:1 › parseAiWords：分隔與長度 (43ms)
+       56 …l.spec.mjs:104:1 › AI 失敗仍填滿：候選 ≥ 24 時 AI 503 仍給 24 張並附原因
+  ✓    57 …WordRhyme：心押字尾（開心、傷心對「心」通過，非韻腳與查無字不過） (21ms)
+  ✓    58 …› validateWordRhyme：心押字首（首字韻部相同，沿用候選篩選；OD-2） (20ms)
+  ✓    59 …1 › validateWordRhyme：純聲母ㄅ押字尾看末字聲母、押字首看首字聲母 (24ms)
+  ✓    60 …8:1 › validateWordRhyme：篩選對照（同字／同聲調／排除借韻／字數） (25ms)
+  ✓    61 …ts/ai-fill.spec.mjs:188:1 › validateWordRhyme：破音字任一讀音通過 (33ms)
+  ✓    62 …194:1 › validateWordRhyme：多字（押母音／押子音）、萬用字、查無字 (20ms)
+  ✓    39 …client.spec.mjs:11:1 › 舊模型：舊設定的使用者按 AI 建議拿得到結果 (1.7s)
+       63 ….spec.mjs:209:1 › 鏡射：validateWordRhyme 與詞庫篩選同一套規則（真詞庫）
+  ✓    64 …mjs:266:1 › generatedWordOk：只收字典內的字、押字尾規則與選字模式 (18ms)
+  ✓    65 …/ai-fill.spec.mjs:204:1 › validateWordRhyme：沒有搜尋韻腳一律不過 (30ms)
+       66 …fill.spec.mjs:307:1 › 造詞一輪：候選不足只造一次、不合格丟掉、不足不追加
+  ✓    67 … › buildGenPrompt：押字首看韻部、純聲母、字數、同聲調、選字、多字 (33ms)
+       68 tests/ai-fill.spec.mjs:419:1 › 邊界：候選剛好 24 不造詞、23 才造詞
+       69 tests/ai-fill.spec.mjs:440:1 › 連按：候選池再大，送給 AI 的清單也有上限
+  ✓    41 ….spec.mjs:86:1 › 保留：模型清單連不上時顯示自動、不清掉原本的選擇 (1.8s)
+  ✓    42 …ts/ai-client.spec.mjs:97:1 › 保留：大小寫或空白不同的舊值當成未知 (1.7s)
+       70 …:561:1 › 舊回覆作廢：挑詞（候選 ≥ 24）等 AI 期間換搜尋／篩選／字數／重置
+  ✓    71 …c.mjs:478:1 › 用完與重置：池子用完顯示已推薦所有…，重置後又能拿到 (1.1s)
+  ✓    46 tests/ai-client.spec.mjs:142:1 › 選單：標籤只當文字 (1.7s)
+  ✓    15 …後台：空白與錯誤 — 沒有回報／篩選沒有／金鑰不對／讀取失敗／載入中 (4.8s)
+  ✓    72 …› 舊回覆作廢：造詞（候選 < 24）等 AI 期間換搜尋／篩選／字數／重置 (1.5s)
+  ✓    73 … 字卡：詞含 " < > ' \ 也不會跳出屬性或字串，點下去保留的就是原詞 (829ms)
+  ✓    47 tests/ai-client.spec.mjs:153:1 › 選單：使用者改選才寫入 (1.6s)
+  ✓    74 …流程中途丟例外：顯示白話提示、留記錄、按鈕解鎖、沒有未處理的錯誤 (1.9s)
+  ✓    49 …› 白話：情境產生器 — 失敗時用提示訊息顯示 Worker 的原因，按鈕恢復 (1.7s)
+  ✓    75 tests/core-node.spec.mjs:8:1 › core：純 Node 載入音韻表 (20ms)
+  ✓    76 tests/core-node.spec.mjs:18:1 › core：純 Node 注音／拼音工具 (20ms)
+  ✓    77 tests/core-node.spec.mjs:31:1 › core：純 Node 查韻 (745ms)
+  ✓    78 …e-node.spec.mjs:49:1 › core：Node 與瀏覽器的 searchRhyme 結果一致 (2.0s)
+  ✓    79 tests/core-node.spec.mjs:73:1 › core：純 Node 詞庫篩選 (24ms)
+  ✓    80 …套用「移除詞」後重新整理，網站詞庫就沒有那個詞（只抓一次修正層） (625ms)
+  ✓    81 …ns-site.spec.mjs:47:1 › 修正層：沒有套用任何修正時，詞庫完整保留 (627ms)
+  ✓    52 …spec.mjs:11:1 › 填滿：候選 ≥ 24 時 AI 只回 3 個，畫面仍剛好 24 張 (2.0s)
+       82 …:57:1 › 修正層：抓不到、慢過 3 秒、形狀不對 → 只留一則警告，詞庫照常載入
+  ✓    45 tests/ai-client.spec.mjs:128:1 › 選單：跟著 /models 變 (3.2s)
+  ✓    43 …client.spec.mjs:107:1 › 保留：沒存過模型、或清單是空的 → 只有自動 (3.2s)
+       83 ….mjs:77:1 › 修正層：字庫隱藏讀音後，查韻看不到那張字卡（對照頁仍看得到）
+  ✓    44 tests/ai-client.spec.mjs:119:1 › 保留：同一份舊資料開兩次結果相同 (3.2s)
+  ✓    84 tests/corrections-site.spec.mjs:87:1 › 修正層：字庫修正與新增讀音 (1.7s)
+       85 …119:1 › 修正層：Worker 失敗（503／形狀不對）時網站照常可用，只留一則警告
+       86 …:127:1 › 修正層：逾時（Worker 一直不回）不卡頁面，3 秒後放棄並留一則警告
+  ✓    56 …mjs:104:1 › AI 失敗仍填滿：候選 ≥ 24 時 AI 503 仍給 24 張並附原因 (2.2s)
+  ✓    87 …：順序——data 修正檔先套、修正層後套（先移除、再加回，只有一筆） (658ms)
+  ✓    88 …1 › 修正層：離線（Worker 請求被中斷）時網站照常可用，只留一則警告 (1.4s)
+  ✓    89 …3:1 › 修正層：換詞庫包——被移除的詞在每個包都消失，且不再抓第二次 (643ms)
+  ✓    51 …8:1 › 白話：語言 — 各種怪回應顯示的字都是白話繁中，沒有英文錯誤字 (3.3s)
+  ✓    90 …：只抓一次，且 loadCorrections 不繞過瀏覽器快取（沒有 no-cache） (703ms)
+       91 …22:1 › 寫回腳本：Python 單元測試全過（離線、不需金鑰、不留 __pycache__）
+  ✓    68 tests/ai-fill.spec.mjs:419:1 › 邊界：候選剛好 24 不造詞、23 才造詞 (2.3s)
+  ✓    92 …7:1 › 寫回腳本：端到端（真 Worker＋push＋等線上生效＋只清這一批） (1.6s)
+  ✓    93 …ror-visibility.spec.mjs:26:1 › 背景錯誤：字庫修正檔壞掉會留下記錄 (1.3s)
+  ✓    94 …rror-visibility.spec.mjs:36:1 › 背景錯誤：詞庫分段壞掉會留下記錄 (887ms)
+  ✓    95 …ror-visibility.spec.mjs:46:1 › 背景錯誤：詞庫版本檔壞掉會留下記錄 (1.1s)
+  ✓    70 …› 舊回覆作廢：挑詞（候選 ≥ 24）等 AI 期間換搜尋／篩選／字數／重置 (2.8s)
+  ✓    96 …ror-visibility.spec.mjs:56:1 › 背景錯誤：詞庫修正檔壞掉會留下記錄 (1.4s)
+  ✓    97 …r-visibility.spec.mjs:66:1 › 背景錯誤：破音字排序檔壞掉會留下記錄 (1.3s)
+  ✓    66 …ec.mjs:307:1 › 造詞一輪：候選不足只造一次、不合格丟掉、不足不追加 (3.4s)
+  ✓    98 …r-visibility.spec.mjs:80:1 › 背景錯誤：本機字庫覆寫損毀會留下記錄 (1.4s)
+  ✓    99 …visibility.spec.mjs:88:1 › 背景錯誤：IndexedDB 無法使用會留下記錄 (1.2s)
+  ✓   100 …/error-visibility.spec.mjs:113:1 › 使用者操作：回報送不出去會提示 (1.3s)
+  ✓   101 …123:1 › 使用者操作：回報送不出去時視窗與輸入的文字都保留（WR-05） (1.4s)
+連按：最長 prompt 3788 字，候選池 9784 個
+  ✓    69 …ai-fill.spec.mjs:440:1 › 連按：候選池再大，送給 AI 的清單也有上限 (3.6s)
+  ✓   102 …or-visibility.spec.mjs:141:1 › 使用者操作：回報送出成功仍顯示感謝 (1.3s)
+端到端：三次執行共 1309 ms，詞庫檔輪詢 4 次
+  ✓   103 tests/golden.spec.mjs:98:5 › zy-rhyme-an (1.8s)
+  ✓   104 tests/golden.spec.mjs:98:5 › zy-rhyme-ing (1.8s)
+  ✓   105 tests/golden.spec.mjs:98:5 › zy-rhyme-uo (1.7s)
+  ✓   106 tests/golden.spec.mjs:98:5 › zy-init-b (1.7s)
+  ✓   107 tests/golden.spec.mjs:98:5 › zy-init-zh (1.8s)
+  ✓   108 tests/golden.spec.mjs:98:5 › zy-syl-ba (1.8s)
+  ✓   109 tests/golden.spec.mjs:98:5 › zy-tone2-lai (1.4s)
+  ✓    83 …:1 › 修正層：字庫隱藏讀音後，查韻看不到那張字卡（對照頁仍看得到） (3.0s)
+  ✓   110 tests/golden.spec.mjs:98:5 › zy-tone3-hao (1.6s)
+  ✓   111 tests/golden.spec.mjs:98:5 › zy-tone4-ai (1.6s)
+  ✓    85 … 修正層：Worker 失敗（503／形狀不對）時網站照常可用，只留一則警告 (3.1s)
+  ✓   112 tests/golden.spec.mjs:98:5 › zy-tone5-ma (1.5s)
+  ✓   113 tests/golden.spec.mjs:98:5 › py-an (1.6s)
+  ✓   114 tests/golden.spec.mjs:98:5 › py-ing (1.7s)
+  ✓   115 tests/golden.spec.mjs:98:5 › py-uo (1.6s)
+  ✓   116 tests/golden.spec.mjs:98:5 › py-init-b (1.6s)
+  ✓   117 tests/golden.spec.mjs:98:5 › py-bi (1.5s)
+  ✓    86 …› 修正層：逾時（Worker 一直不回）不卡頁面，3 秒後放棄並留一則警告 (4.1s)
+  ✓   118 tests/golden.spec.mjs:98:5 › py-zh (1.6s)
+  ✓   119 tests/golden.spec.mjs:98:5 › py-ai2 (1.6s)
+  ✓   120 tests/golden.spec.mjs:98:5 › han-ai (1.8s)
+  ✓   121 tests/golden.spec.mjs:98:5 › han-an (1.9s)
+  ✓   122 tests/golden.spec.mjs:98:5 › han-poly-chang (1.9s)
+  ✓   123 tests/golden.spec.mjs:98:5 › han-poly-xing (1.9s)
+  ✓   124 tests/golden.spec.mjs:98:5 › han-poly-le (1.8s)
+  ✓   125 tests/golden.spec.mjs:98:5 › han-poly-liao (1.7s)
+  ✓   126 tests/golden.spec.mjs:98:5 › han-yu (1.7s)
+  ✓    82 … 修正層：抓不到、慢過 3 秒、形狀不對 → 只留一則警告，詞庫照常載入 (5.1s)
+  ✓   127 tests/golden.spec.mjs:98:5 › han-o (1.8s)
+  ✓   128 tests/golden.spec.mjs:98:5 › word-anda (2.0s)
+  ✓   129 tests/golden.spec.mjs:98:5 › word-aiqing (2.0s)
+  ✓   130 tests/golden.spec.mjs:98:5 › multi-py (2.1s)
+  ✓   131 tests/golden.spec.mjs:98:5 › multi-zy (2.1s)
+  ✓   132 tests/golden.spec.mjs:98:5 › multi-mixed (1.8s)
+  ✓   133 tests/golden.spec.mjs:98:5 › multi-zy-init (1.8s)
+  ✓   134 tests/golden.spec.mjs:98:5 › multi-wild (2.0s)
+  ✓   135 tests/golden.spec.mjs:98:5 › garbage-zzz (1.5s)
+  ✓   136 tests/golden.spec.mjs:98:5 › empty (1.4s)
+  ✓   137 tests/golden.spec.mjs:98:5 › whitespace (1.5s)
+  ✓   138 tests/golden.spec.mjs:98:5 › opt-le-showrare (1.8s)
+  ✓   139 tests/golden.spec.mjs:98:5 › opt-le-dedupe (1.6s)
+  ✓   140 tests/golden.spec.mjs:98:5 › opt-ai-nopinyin (1.6s)
+  ✓   141 tests/golden.spec.mjs:98:5 › im-zhuyin-an (1.5s)
+  ✓   142 tests/golden.spec.mjs:98:5 › im-pinyin-zy-an (1.4s)
+  ✓   143 tests/golden.spec.mjs:98:5 › chip-le-2 (1.8s)
+  ✓   144 tests/golden.spec.mjs:157:1 › golden 檔案清單與案例一致 (1ms)
+  ✓   145 …:5 › 縮放：➕ 一次 → 105%，根字級 16.8px，存進 lh:uiScale（桌機） (1.4s)
+  ✓   146 …:5 › 縮放：➕ 一次 → 105%，根字級 16.8px，存進 lh:uiScale（手機） (1.5s)
+      147 tests/layout.spec.mjs:43:1 › 縮放：重開沿用、壞值回 100、超出範圍夾回
+  ✓   148 tests/layout.spec.mjs:64:1 › 縮放：重新整理後在第一次繪製前就套用 (1.2s)
+  ✓   149 tests/layout.spec.mjs:87:1 › 縮放：程式碼與樣式表沒有任何 zoom (2.2s)
+  ✓   150 …/layout.spec.mjs:114:1 › 縮放：50% 與 150% 停用按鈕、再按也不超出 (4.9s)
+  ✓   151 …mjs:177:1 › 縮放：尺寸一律用 rem（px 只留 ≤4px 細線與 max() 下限） (8ms)
+  ✓   152 …spec.mjs:193:1 › 縮放：整個介面一起放大（側邊面板、分頁列、提示） (2.2s)
+      153 tests/layout.spec.mjs:213:1 › 版面：整頁不捲動（5 種視窗 × 閒置／搜尋後）
+  ✓   154 tests/layout.spec.mjs:231:1 › 版面：橫拿手機搜尋後看得到第一張字卡 (1.7s)
+  ✓   155 ….mjs:246:1 › 版面：橫拿手機的主題、縮放、批次標記按鈕還在且點得到 (2.9s)
+  ✓   156 …› 版面：橫拿手機 844×390 結果區看得到完整一列字卡，控制鈕也點得到 (2.6s)
+  ✓   157 …› 版面：橫拿手機 667×375 結果區看得到完整一列字卡，控制鈕也點得到 (2.6s)
+  ✓   158 …› 版面：橫拿手機 740×360 結果區看得到完整一列字卡，控制鈕也點得到 (2.5s)
+  ✓   159 …› 版面：橫拿手機 568×320 結果區看得到完整一列字卡，控制鈕也點得到 (2.4s)
+  ✓   160 tests/layout.spec.mjs:306:1 › 輸入：viewport 設定保留縮放手勢 (1.1s)
+      161 …yout.spec.mjs:339:5 › 縮放：50／100／150 都不吃邊（phone，閒置／搜尋後）
+      162 …out.spec.mjs:339:5 › 縮放：50／100／150 都不吃邊（tablet，閒置／搜尋後）
+      163 …ut.spec.mjs:339:5 › 縮放：50／100／150 都不吃邊（desktop，閒置／搜尋後）
+  ✓   164 …1 › 縮放：手機 150% 工具列不重疊、控制鈕都點得到、點百分比回 100% (2.8s)
+  ✓   165 tests/layout.spec.mjs:406:1 › 版面：標題區高度 (2.4s)
+  ✓   166 tests/layout.spec.mjs:417:1 › 版面：轉向時主題按鈕與提示字跟著換 (1.6s)
+  ✓   167 …ts/layout.spec.mjs:443:1 › 設定：電腦與平板也有顏色、存讀檔、回報 (4.1s)
+  ✓   168 tests/layout.spec.mjs:457:1 › 設定：矮螢幕上對話框不超出、可以捲 (1.2s)
+  ✓   169 tests/layout.spec.mjs:488:1 › 設定：重設顏色與旁邊按鈕至少隔 1rem (2.7s)
+  ✓   170 …/layout.spec.mjs:510:1 › 設定：文字色與底色相同時仍按得到重設顏色 (2.8s)
+  ✓   171 …js:545:1 › 面板：桌機展開不蓋住主畫面（1440、1280；左、右、兩邊） (9.3s)
+  ✓   172 …layout.spec.mjs:568:1 › 面板：窄桌機時收合分頁不碰到主畫面（920） (1.3s)
+  ✓   173 …ec.mjs:587:1 › 面板：放不下兩個面板時開第二個會收起第一個（1000） (4.1s)
+  ✓   174 …sts/layout.spec.mjs:620:1 › 面板：收起的面板內容不能被 Tab 鍵選到 (1.8s)
+  ✓   175 ….spec.mjs:681:1 › 面板：轉向不必重新整理（1180→820→390→820→1180） (1.6s)
+  ✓   176 ….mjs:703:1 › 面板：開著底部面板時轉成寬螢幕，遮罩不會殘留擋住畫面 (1.4s)
+  ✓   177 tests/layout.spec.mjs:718:1 › 面板：900／901、440／441 剛好換版 (1.4s)
+  ✓   178 tests/layout.spec.mjs:742:1 › 輸入：觸控裝置開頁不會自動跳出鍵盤 (4.3s)
+  ✓   179 tests/layout.spec.mjs:760:1 › 面板：程式不再用 innerWidth 判斷版型 (8ms)
+  ✓   180 ….spec.mjs:790:5 › 底部面板：三個分頁開關、把手、背景、Esc（手機） (9.2s)
+      181 …/layout.spec.mjs:790:5 › 底部面板：三個分頁開關、把手、背景、Esc（平板）
+  ✓   182 … 底部面板：輸入法組字中按 Esc 不收面板、對話框開著時 Esc 不收面板 (2.3s)
+  ✓   183 …sts/layout.spec.mjs:870:1 › 底部面板：桌機按 Esc 不會收起側邊面板 (1.7s)
+  ✓   184 tests/layout.spec.mjs:882:1 › 底部面板：收起時 inert、Tab 選不到 (3.1s)
+  ✓   185 tests/layout.spec.mjs:925:1 › 底部面板：尺寸與置中 (8.3s)
+  ✓   186 tests/layout.spec.mjs:950:1 › 版面：圖層順序 (2.7s)
+  ✓   187 tests/layout.spec.mjs:993:1 › 縮放：手機 150% 分頁標籤放得下 (2.3s)
+  ✓   153 …yout.spec.mjs:213:1 › 版面：整頁不捲動（5 種視窗 × 閒置／搜尋後） (8.5s)
+  ✓   188 tests/layout.spec.mjs:1035:1 › 底部面板：六段歌詞可捲動、每段夠高 (1.7s)
+  ✓   189 …c.mjs:1063:5 › 底部面板：重要按鈕都在面板與畫面內、點得到（手機） (2.6s)
+  ✓   190 …c.mjs:1063:5 › 底部面板：重要按鈕都在面板與畫面內、點得到（平板） (2.6s)
+      191 …c.mjs:1089:5 › 底部面板：各捲動區不會左右捲（3 視窗 × 50/100/150）— 手機
+      192 …c.mjs:1089:5 › 底部面板：各捲動區不會左右捲（3 視窗 × 50/100/150）— 平板
+      193 …c.mjs:1089:5 › 底部面板：各捲動區不會左右捲（3 視窗 × 50/100/150）— 桌機
+  ✓   194 …2:1 › 底部面板：AI 產生中按鈕停用、提示在捲動區內、按鈕固定在底部 (3.4s)
+  ✓   195 …mjs:1165:1 › 底部面板：釘在底部的「提供詞語建議」整條都在詞卡上面 (3.6s)
+  ✓   196 …out.spec.mjs:1200:1 › 底部面板：單一 AI 詞卡不撐滿、保留數 0 隱藏 (2.9s)
+  ✓   197 …yout.spec.mjs:1223:1 › 底部面板：長段落名、長標籤、長模型名不撐破 (4.8s)
+  ✓   147 …/layout.spec.mjs:43:1 › 縮放：重開沿用、壞值回 100、超出範圍夾回 (14.3s)
+  ✓   198 …ts/layout.spec.mjs:1266:1 › 底部面板：AI 失敗訊息可以捲到按鈕上方 (1.7s)
+  ✓   199 … 流程：五種視窗用真的點擊走完查韻→選字→歌詞→AI 建議→保留（phone） (3.1s)
+  ✓   162 ….mjs:339:5 › 縮放：50／100／150 都不吃邊（tablet，閒置／搜尋後） (13.4s)
+  ✓   200 …流程：五種視窗用真的點擊走完查韻→選字→歌詞→AI 建議→保留（tablet） (3.2s)
+  ✓   161 …c.mjs:339:5 › 縮放：50／100／150 都不吃邊（phone，閒置／搜尋後） (13.7s)
+  ✓   201 …程：五種視窗用真的點擊走完查韻→選字→歌詞→AI 建議→保留（desktop） (2.6s)
+  ✓   202 …種視窗用真的點擊走完查韻→選字→歌詞→AI 建議→保留（phoneLandscape） (3.2s)
+  ✓   203 …視窗用真的點擊走完查韻→選字→歌詞→AI 建議→保留（tabletLandscape） (2.7s)
+  ✓   204 …yout.spec.mjs:1336:1 › 鍵盤：歌詞輸入時鍵盤不擋、面板撐滿可見高度 (1.9s)
+  ✓   205 tests/layout.spec.mjs:1367:1 › 鍵盤：差 149 不算、150 才算鍵盤 (1.2s)
+  ✓   181 ….spec.mjs:790:5 › 底部面板：三個分頁開關、把手、背景、Esc（平板） (9.2s)
+  ✓   206 tests/layout.spec.mjs:1388:1 › 鍵盤：放大中不算鍵盤 (1.2s)
+  ✓   207 …out.spec.mjs:1405:1 › 鍵盤：電腦視窗被拉矮（滑鼠、≥ 901）不算鍵盤 (1.1s)
+  ✓   208 tests/layout.spec.mjs:1416:1 › 鍵盤：沒有聚焦輸入框時不算鍵盤 (1.0s)
+  ✓   163 …mjs:339:5 › 縮放：50／100／150 都不吃邊（desktop，閒置／搜尋後） (14.8s)
+  ✓   209 …s/layout.spec.mjs:1432:1 › 鍵盤：搜尋時太矮先藏標題區、字卡看得到 (1.7s)
+  ✓   210 …c.mjs:1455:1 › 鍵盤：寫歌詞時情境區自動收起、回報視窗輸入框看得到 (2.9s)
+      211 …spec.mjs:1507:1 › 輸入：手機平板所有輸入框字級 ≥ 16px（3 縮放 × 6 狀態）
+  ✓   212 …out.spec.mjs:1540:1 › 輸入：16px 剛好通過、900 套用、901 桌機不變 (1.1s)
+  ✓   213 tests/layout.spec.mjs:1559:1 › 輸入：20 個中文字的查詢不換行不撐破 (4.3s)
+  ✓   214 tests/layout.spec.mjs:1604:1 › 輸入：5000 字歌詞會自動換行 (3.6s)
+      215 …sts/layout.spec.mjs:1694:1 › 觸控：手機平板每個按鈕至少 44px（7 種畫面）
+      216 tests/layout.spec.mjs:1719:1 › 觸控：相鄰按鈕的點擊範圍重疊不超過 4px
+  ✓   217 …mjs:1741:1 › 觸控：橫放平板 1180×820 的韻腳選單每個控制項 ≥ 44×44 (1.6s)
+  ✓   218 …54:1 › 觸控：橫放平板與觸控電腦（寬度超過 900）回報、存檔鈕也夠大 (2.3s)
+  ✓   219 tests/layout.spec.mjs:1768:1 › 觸控：桌機滑鼠維持原本大小 (1.0s)
+  ✓   220 tests/layout.spec.mjs:1780:1 › 觸控：手機搜尋後結果區至少 420px (1.5s)
+  ✓   221 …mjs:1792:1 › 觸控：還沒搜尋時 AI 面板按鈕夠大、按建議會提示先搜尋 (1.6s)
+  ✓   222 tests/layout.spec.mjs:1821:1 › 刪除：不跳確認、按復原救回 (1.7s)
+  ✓   191 …089:5 › 底部面板：各捲動區不會左右捲（3 視窗 × 50/100/150）— 手機 (9.4s)
+  ✓   223 tests/layout.spec.mjs:1850:1 › 刪除：段落名稱只當純文字顯示 (1.7s)
+      224 tests/layout.spec.mjs:1894:1 › 選單：放大 150% 時右鍵／長按選單不跑出畫面
+  ✓   225 …d.spec.mjs:37:1 › 詞庫工具：Python 單元測試全過（離線、不需金鑰） (3.9s)
+  ✓   193 …089:5 › 底部面板：各捲動區不會左右捲（3 視窗 × 50/100/150）— 桌機 (9.0s)
+      226 tests/lexicon-build.spec.mjs:51:1 › 詞庫工具：已提交的詞庫包通過離線驗證
+  ✓   192 …089:5 › 底部面板：各捲動區不會左右捲（3 視窗 × 50/100/150）— 平板 (9.3s)
+  ✓   227 …s:41:1 › 詞庫包：沒選過的人照舊用 v0.96（網址、快取鍵、詞數不變） (1.8s)
+  ✓   228 …75:1 › 詞庫包：存了 chewing 就載入新酷音詞庫，AI 建議只出這包的詞 (1.5s)
+  ✓   229 …ec.mjs:112:1 › 詞庫包：存的值不認得或格式不對時用預設，存的值不改 (2.2s)
+  ✓   230 …/lexicon-packs.spec.mjs:130:1 › 詞庫包：清單讀不到時照舊用 v0.96 (512ms)
+  ✓   231 tests/lexicon-packs.spec.mjs:146:1 › 詞庫包：選的包會進備份 (902ms)
+  ✓   232 …:1 › 詞庫包：偏好設定列出每個包的名稱、詞數與說明，目前用的已勾選 (1.7s)
+  ✓   233 …:1 › 詞庫包：偏好設定列出四個詞庫包（真正的清單），v0.96 預設勾選 (1.6s)
+  ✓   234 …cks.spec.mjs:235:1 › 詞庫包：選唯音台灣詞庫（精簡版）就載入它的詞 (2.0s)
+  ✓   235 …cks.spec.mjs:257:1 › 詞庫包：真的清單裡有小麥注音詞庫，選了就載入 (2.0s)
+  ✓   236 …會載入、清掉舊 AI 建議、重跑目前搜尋，下一次 AI 建議只用新包的詞 (1.5s)
+  ✓   237 …con-packs.spec.mjs:321:1 › 詞庫包：還在下載時又換包，只留最後選的 (2.3s)
+  ✓   238 …ec.mjs:347:1 › 詞庫包：新包載入失敗時提示、退回原本的包並維持勾選 (1.7s)
+  ✓   239 …icon-packs.spec.mjs:375:1 › 詞庫包：換包後韻腳地圖用新包的詞讀音 (473ms)
+  ✓   240 ….spec.mjs:387:1 › 詞庫包：換包失敗退回原包時，韻腳地圖也重畫一次 (544ms)
+  ✓   241 …、最後那包載入失敗時，退回真正載好的原包（不是載到一半的中間包） (1.9s)
+  ✓   242 …exicon-packs.spec.mjs:446:1 › 詞庫包：快取最多留目前的包加上一個 (557ms)
+  ✓   243 …-packs.spec.mjs:501:1 › 詞庫包：v0.96 換版只刪數字鍵，別的包留著 (659ms)
+  ✓   244 …登記簿的舊快取（v0.96 升級前就存好的）算最舊的一包，會被正常清掉 (575ms)
+  ✓   245 …s:565:1 › 詞庫包：修正檔加回的詞不重複、刪除與改音在別的包也生效 (539ms)
+  ✓   246 …con-packs.spec.mjs:616:1 › 詞庫包：刪除清單的詞放進修正檔就會回來 (1.0s)
+  ✓   247 …exicon-packs.spec.mjs:648:1 › 詞庫包：關於視窗顯示目前詞庫的來源 (991ms)
+  ✓   248 …is-ui.spec.mjs:33:1 › 常駐：打開逐行標記，每行右邊出現字數與斷句 (884ms)
+  ✓   249 …js:123:1 › 對照：打開對照差異，同類型第一段的同一行字數不同就標 ≠ (2.4s)
+  ✓   250 …-ui.spec.mjs:186:1 › 對照：改了段落類型，對照段落換人，≠ 跟著更新 (1.2s)
+  ✓   251 tests/line-analysis-ui.spec.mjs:210:1 › 偏好設定：內容與順序 (1.3s)
+  ✓   252 tests/line-analysis-ui.spec.mjs:250:1 › 偏好設定：兩邊同步 (2.1s)
+  ✓   253 tests/line-analysis-ui.spec.mjs:284:1 › 偏好設定：別的分頁改了設定 (1.7s)
+  ✓   254 tests/line-analysis-ui.spec.mjs:300:1 › 偏好設定：四個細項都關 (1.5s)
+  ✓   226 …exicon-build.spec.mjs:51:1 › 詞庫工具：已提交的詞庫包通過離線驗證 (4.7s)
+  ✓   255 …ysis-ui.spec.mjs:323:1 › 偏好設定：每次從齒輪打開都收著，Esc 關掉 (1.3s)
+  ✓   256 …line-analysis-ui.spec.mjs:349:1 › 常駐：行尾韻腳字母跟著寬韻嚴格 (577ms)
+  ✓   257 …ui.spec.mjs:365:1 › 詞庫載入：先只有字數與明確斷點，載好後補上 ≈ (583ms)
+  ✓   258 … 顯示方式：切到句尾後，標記貼在最後一個字後面，游標選取捲動都不動 (1.3s)
+  ✓   259 …analysis-ui.spec.mjs:498:1 › 顯示方式：字級與濃淡馬上生效、不重畫 (2.3s)
+      260 …ne-analysis-ui.spec.mjs:679:1 › 換行不變：標記開關前後每個字的位置都一樣
+      261 …ne-analysis-ui.spec.mjs:737:1 › 最後視覺列：換行的行標記在最後一個視覺列
+  ✓   262 …:785:1 › 最後視覺列：手機放大 150% 欄位不超過 36%，結構太長時裁切 (3.7s)
+  ✓   224 …yout.spec.mjs:1894:1 › 選單：放大 150% 時右鍵／長按選單不跑出畫面 (5.9s)
+  ✓   263 …ine-analysis-ui.spec.mjs:836:1 › 組字：標記開著時組字中鏡像零變動 (1.2s)
+  ✓   264 …:860:1 › 組字：句尾打字標記先藏、換行或句中修改整層藏，重畫後恢復 (5.2s)
+  ✓   265 …912:1 › 韻族顏色：改一個韻族的顏色，色塊馬上變、存起來、日夜共用 (965ms)
+  ✓   266 tests/line-analysis-ui.spec.mjs:977:1 › 韻族顏色：恢復預設要按兩次 (5.4s)
+  ✓   267 tests/line-analysis-ui.spec.mjs:1026:1 › 韻族顏色：對比提醒 (1.3s)
+  ✓   268 …sts/line-analysis-ui.spec.mjs:1068:1 › 韻族顏色：別的分頁改了顏色 (1.7s)
+  ✓   269 tests/line-analysis-ui.spec.mjs:1086:1 › 韻族顏色：壞色碼被丟掉 (763ms)
+  ✓   270 …ts/line-analysis-ui.spec.mjs:1105:1 › 韻族顏色：手機上的原生色票 (706ms)
+  ✓   271 …ine-analysis-ui.spec.mjs:1139:1 › 預覽：和真的歌詞畫出來一模一樣 (636ms)
+  ✓   272 tests/line-analysis-ui.spec.mjs:1166:1 › 預覽：每個開關都看得到 (1.6s)
+  ✓   273 …sts/line-analysis-ui.spec.mjs:1224:1 › 預覽：高的螢幕上固定在上面 (1.0s)
+  ✓   274 …pec.mjs:1275:1 › 分析面板：選幾行按分析，逐行列出字數、結構與對照 (1.6s)
+  ✓   275 …e-analysis-ui.spec.mjs:1335:1 › 分析面板：零、一、多、超過八十行 (658ms)
+  ✓   276 tests/line-analysis-ui.spec.mjs:1369:1 › 分析面板：段落太長 (1.6s)
+  ✓   277 …lysis-ui.spec.mjs:1395:1 › 分析面板：名稱與結構很長，文字只當文字 (1.5s)
+  ✓    91 …回腳本：Python 單元測試全過（離線、不需金鑰、不留 __pycache__） (35.5s)
+  ✓   278 tests/line-analysis-ui.spec.mjs:1430:1 › 分析面板：詞庫載入中 (2.4s)
+  ✓   279 …s-ui.spec.mjs:1462:1 › 分析面板：手機上長選取只出現一次，只有分析 (2.9s)
+      280 tests/line-analysis-ui.spec.mjs:1513:1 › 分析面板：收起來的各種情況
+  ✓   281 tests/line-analysis-ui.spec.mjs:1573:1 › 分析面板：鍵盤與焦點 (3.2s)
+  ✓   282 tests/line-analysis-ui.spec.mjs:1632:1 › 分析面板：只算一個浮層 (1.6s)
+  ✓   283 tests/line-analysis-ui.spec.mjs:1677:1 › 分析面板：觸控保留選取 (2.2s)
+  ✓   284 …ne-analysis-ui.spec.mjs:1704:1 › 分析面板：貼底與鍵盤打開時看得到 (1.9s)
+  ✓   285 …:1792:1 › hover：偏好設定有「反白停留自動分析」開關與說明，預設關 (1.4s)
+  ✓   286 …c.mjs:1812:1 › hover：滑鼠反白停 1.5 秒自動打開句構面板，不搶焦點 (1.2s)
+  ✓   287 tests/line-analysis-ui.spec.mjs:1834:1 › hover：會取消的動作 (3.5s)
+      288 …nalysis-ui.spec.mjs:1883:1 › hover：觸控、鍵盤選取或沒打開都不會自動出現
+  ✓   289 tests/line-analysis-ui.spec.mjs:1929:1 › hover：不在移動時量版面 (1.6s)
+      290 tests/line-audit.spec.mjs:57:1 › 檢查：三種裝置的觸控大小（句構分析）
+      291 tests/line-audit.spec.mjs:109:1 › 檢查：偏好設定在小螢幕都摸得到
+  ✓   292 tests/line-audit.spec.mjs:148:1 › 檢查：鍵盤打開時色票看得到 (1.2s)
+      293 tests/line-audit.spec.mjs:184:1 › 檢查：切版型時收起來（句構分析）
+      294 …sts/line-audit.spec.mjs:247:1 › 檢查：另一個分頁改了設定或歌（句構分析）
+  ✓   295 tests/line-audit.spec.mjs:323:1 › 檢查：列印與匯出沒有句構標記 (3.1s)
+      296 tests/line-audit.spec.mjs:393:1 › 檢查：惡意文字只當文字（句構分析）
+  ✓   297 tests/line-audit.spec.mjs:459:1 › 檢查：句構分析新程式沒有拼 HTML (39ms)
+  ✓   298 …spec.mjs:491:1 › 檢查：setProperty 只在固定的地方、新樣式沒有動畫 (19ms)
+  ✓   299 tests/line-audit.spec.mjs:518:1 › 檢查：舊歌與舊資料（句構分析） (2.3s)
+      300 tests/line-audit.spec.mjs:576:1 › 檢查：顏色以外的線索（句構分析）
+  ✓   301 tests/line-core.spec.mjs:38:1 › 斷句：固定範例 (22ms)
+  ✓   302 tests/line-core.spec.mjs:54:1 › 斷句：只有猜的那段加 ≈ (24ms)
+  ✓   303 tests/line-core.spec.mjs:95:1 › 斷句：加總等於字數 (25ms)
+  ✓   304 tests/line-core.spec.mjs:107:1 › 斷句：四字以內不猜 (2ms)
+  ✓   305 tests/line-core.spec.mjs:119:1 › 斷句：詞庫還沒載好 (1ms)
+  ✓   306 tests/line-core.spec.mjs:129:1 › 斷句：逐行與行號 (1ms)
+  ✓   307 tests/line-core.spec.mjs:138:1 › 對照：同類型第一段 (3ms)
+      308 tests/line-journey.spec.mjs:51:1 › 整合：句構分析一次走完
+  ✓   309 tests/line-core.spec.mjs:156:1 › 斷句：兩百行在 20ms 內 (50ms)
+  -   310 tests/parity.spec.mjs:92:9 › parity：phone idle
+  -   311 tests/parity.spec.mjs:92:9 › parity：phone results
+  -   312 tests/parity.spec.mjs:92:9 › parity：phone results-dark
+  -   313 tests/parity.spec.mjs:92:9 › parity：phone lyrics
+  -   314 tests/parity.spec.mjs:92:9 › parity：phone ai
+  -   315 tests/parity.spec.mjs:92:9 › parity：phone settings
+  -   316 tests/parity.spec.mjs:92:9 › parity：phone custom
+  -   317 tests/parity.spec.mjs:92:9 › parity：tablet idle
+  -   318 tests/parity.spec.mjs:92:9 › parity：tablet results
+  -   319 tests/parity.spec.mjs:92:9 › parity：tablet results-dark
+  -   320 tests/parity.spec.mjs:92:9 › parity：tablet lyrics
+  -   321 tests/parity.spec.mjs:92:9 › parity：tablet ai
+  -   322 tests/parity.spec.mjs:92:9 › parity：tablet settings
+  -   323 tests/parity.spec.mjs:92:9 › parity：tablet custom
+  -   324 tests/parity.spec.mjs:92:9 › parity：desktop idle
+  -   325 tests/parity.spec.mjs:92:9 › parity：desktop results
+  -   326 tests/parity.spec.mjs:92:9 › parity：desktop results-dark
+  -   327 tests/parity.spec.mjs:92:9 › parity：desktop lyrics
+  ✓   288 …-ui.spec.mjs:1883:1 › hover：觸控、鍵盤選取或沒打開都不會自動出現 (4.5s)
+  -   328 tests/parity.spec.mjs:92:9 › parity：desktop settings
+  -   329 tests/parity.spec.mjs:92:9 › parity：desktop ai
+  -   330 tests/parity.spec.mjs:92:9 › parity：desktop custom
+  -   331 …字，最大查詢） 無超過 150ms 的長任務、總阻塞 ≤ 300ms、第一張字卡 ≤ 400ms
+  -   332 …den 最大查詢） 無超過 150ms 的長任務、總阻塞 ≤ 300ms、第一張字卡 ≤ 400ms
+  ✓   333 …78:5 › 分批 › 分批：狀態 first → more → done，空白與無結果是 idle (1.6s)
+  -   334 …速：6× bpm-off ㄅ ㄆ ㄇ（不隱藏冷僻字，最大查詢） 無超過 250ms 的長任務
+  -   335 … › 降速：6× golden-max ㄢ ㄧㄥ（golden 最大查詢） 無超過 250ms 的長任務
+  -   336 tests/perf.spec.mjs:156:5 › 降速 › 降速：最大查詢 6× 比改版前快至少 3 倍
+  -   337 …spec.mjs:166:5 › 降速 › 降速：重新量測並寫入改版前基準（LH_PERF=record）
+  ✓   338 …r.spec.mjs:139:5 › 分批 › 分批：剛好 48 張一次畫完、49 張要多一格 (1.2s)
+  ✓   296 …ts/line-audit.spec.mjs:393:1 › 檢查：惡意文字只當文字（句構分析） (2.8s)
+  ✓   339 tests/render.spec.mjs:191:5 › 分批 › 分批：載入中提示與讀屏文字 (1.4s)
+  ✓   300 tests/line-audit.spec.mjs:576:1 › 檢查：顏色以外的線索（句構分析） (1.9s)
+  ✓   340 …der.spec.mjs:234:5 › 分批 › 分批：每次畫完只發一次 lh:render-done (2.4s)
+  ✓   280 …sts/line-analysis-ui.spec.mjs:1513:1 › 分析面板：收起來的各種情況 (7.7s)
+  ✓   341 tests/render.spec.mjs:269:5 › 分批 › 分批：單一結果直接 done (1.1s)
+  ✓   342 …s/render.spec.mjs:295:5 › 分批 › 分批：載入中也能點選，畫完仍保留 (1.6s)
+      343 tests/render.spec.mjs:341:5 › 分批 › 分批：換搜尋不會混入舊字卡
+  ✓   344 …mjs:395:5 › 分批 › 分批：同一查詢重畫保持捲動位置、新查詢回到頂端 (3.0s)
+  ✓   291 tests/line-audit.spec.mjs:109:1 › 檢查：偏好設定在小螢幕都摸得到 (5.7s)
+  ✓   345 tests/render.spec.mjs:435:5 › 分批 › 分批：背景分頁一次畫完 (1.4s)
+  ✓   346 ….spec.mjs:478:5 › 分批 › 分批：高亮顏色不受前一次渲染殘留狀態影響 (1.4s)
+  ✓   347 …pec.mjs:504:5 › 分批 › 分批：畫到一半丟例外也會收尾，不卡在載入中 (1.2s)
+  ✓   348 tests/report-entry.spec.mjs:32:1 › 回報入口：工具列 (1.3s)
+  ✓   290 …s/line-audit.spec.mjs:57:1 › 檢查：三種裝置的觸控大小（句構分析） (7.2s)
+  ✓   349 tests/report-entry.spec.mjs:58:1 › 回報入口：步驟數 (1.3s)
+  ✓   350 tests/report-entry.spec.mjs:78:1 › 回報入口：手機工具列 (1.4s)
+  ✓   351 tests/report-entry.spec.mjs:107:1 › 回報入口：多選上限 (1.9s)
+  ✓   352 tests/report-entry.spec.mjs:129:1 › 回報入口：單一項目 (1.4s)
+  ✓   294 …e-audit.spec.mjs:247:1 › 檢查：另一個分頁改了設定或歌（句構分析） (7.8s)
+  ✓   353 tests/report-entry.spec.mjs:150:1 › 回報入口：防重複 (2.7s)
+  ✓   293 tests/line-audit.spec.mjs:184:1 › 檢查：切版型時收起來（句構分析） (8.1s)
+  ✓   354 tests/report-entry.spec.mjs:190:1 › 回報入口：部分失敗 (1.6s)
+  ✓   355 tests/report-entry.spec.mjs:215:1 › 回報入口：限流 (1.3s)
+  ✓   356 tests/report-entry.spec.mjs:233:1 › 回報入口：失敗 (1.3s)
+  ✓   357 tests/report-entry.spec.mjs:254:1 › 回報入口：說明欄字數 (1.8s)
+  ✓   358 tests/report-entry.spec.mjs:282:1 › 回報入口：鍵盤 (1.4s)
+  ✓   359 tests/report-entry.spec.mjs:319:1 › 回報入口：遮罩 (1.3s)
+  ✓   360 tests/report-entry.spec.mjs:336:1 › 回報入口：改名意見 (598ms)
+  ✓   308 tests/line-journey.spec.mjs:51:1 › 整合：句構分析一次走完 (5.9s)
+  ✓   361 tests/report-entry.spec.mjs:343:1 › 回報入口：只送必要欄位 (1.3s)
+  ✓   362 tests/report-entry.spec.mjs:362:1 › 回報入口：字詞當文字顯示 (579ms)
+  ✓   363 …eport-entry.spec.mjs:381:9 › 回報入口：版面（手機 390×844，100%） (2.5s)
+  ✓   364 …eport-entry.spec.mjs:381:9 › 回報入口：版面（手機 390×844，150%） (6.7s)
+  ✓   365 …port-entry.spec.mjs:381:9 › 回報入口：版面（平板 820×1180，100%） (2.6s)
+  ✓   366 …port-entry.spec.mjs:381:9 › 回報入口：版面（平板 820×1180，150%） (6.7s)
+  ✓   367 …port-entry.spec.mjs:381:9 › 回報入口：版面（桌機 1440×900，100%） (1.9s)
+  ✓   368 …port-entry.spec.mjs:381:9 › 回報入口：版面（桌機 1440×900，150%） (5.9s)
+  ✓   369 …ry.spec.mjs:381:9 › 回報入口：版面（觸控平板橫放 1180×820，100%） (2.5s)
+  ✓   370 …ry.spec.mjs:381:9 › 回報入口：版面（觸控平板橫放 1180×820，150%） (6.7s)
+  ✓   371 tests/report-entry.spec.mjs:422:1 › 回報入口：手機四欄 (2.6s)
+  ✓   343 tests/render.spec.mjs:341:5 › 分批 › 分批：換搜尋不會混入舊字卡 (5.9s)
+      372 tests/report-entry.spec.mjs:443:5 › 回報入口：輸入框字級（手機）
+      373 tests/report-entry.spec.mjs:443:5 › 回報入口：輸入框字級（觸控平板橫放）
+  ✓   374 tests/report-entry.spec.mjs:461:1 › 回報入口：鍵盤（後盾） (1.5s)
+      375 tests/report-entry.spec.mjs:478:1 › 回報入口：長文字（後盾）
+  ✓   376 tests/report-entry.spec.mjs:504:1 › 回報入口：主題 (3.6s)
+  ✓   377 tests/report-entry.spec.mjs:534:1 › 回報入口：切換斷點 (1.7s)
+  ✓   378 tests/report-entry.spec.mjs:575:1 › 回報入口：AI 回報模式 (1.9s)
+  ✓   215 …ut.spec.mjs:1694:1 › 觸控：手機平板每個按鈕至少 44px（7 種畫面） (27.7s)
+  ✓   216 …/layout.spec.mjs:1719:1 › 觸控：相鄰按鈕的點擊範圍重疊不超過 4px (27.5s)
+  ✓   379 …回報模式多出「建議收錄／建議修改」（手機沒有右鍵也能建議，WR-06） (2.0s)
+  ✓   380 …窗沒有「建議收錄／建議修改」（只有 AI 回報模式選到 AI 造詞才有） (1.2s)
+  ✓   381 tests/report-entry.spec.mjs:706:1 › 回報入口：AI 列隱藏 (1.2s)
+  ✓   382 …sts/report-entry.spec.mjs:728:5 › 回報入口：AI 列觸控（手機 390） (1.5s)
+      383 …s/report-entry.spec.mjs:728:5 › 回報入口：AI 列觸控（觸控平板橫放 1180）
+      384 tests/report-entry.spec.mjs:761:1 › 回報入口：長按
+  ✓   385 tests/report-entry.spec.mjs:784:1 › 回報入口：右鍵 (1.3s)
+      386 tests/rhyme-audit.spec.mjs:87:1 › 檢查：三種裝置的觸控大小（韻腳地圖）
+      387 …ts/rhyme-audit.spec.mjs:128:1 › 檢查：選單、統計、浮動列在小螢幕都看得到
+      388 tests/rhyme-audit.spec.mjs:181:1 › 檢查：切版型時收起來
+      389 tests/rhyme-audit.spec.mjs:221:1 › 檢查：另一個分頁改了歌或設定
+      390 tests/rhyme-audit.spec.mjs:268:1 › 檢查：惡意文字只當文字（韻腳地圖）
+  ✓   391 tests/rhyme-audit.spec.mjs:355:1 › 檢查：韻腳地圖新程式沒有拼 HTML (48ms)
+      392 tests/rhyme-audit.spec.mjs:371:1 › 檢查：列印與匯出沒有韻腳標記
+      393 tests/rhyme-audit.spec.mjs:418:1 › 檢查：舊歌與舊資料
+鏡射通過率
+心 押字尾 寬: 正向 1999/2000；反向 validate 通過 17564、篩選沒給 759（4.3%）
+心 押字尾 嚴: 正向 1998/2000；反向 validate 通過 5449、篩選沒給 83（1.5%）
+心 押字首: 正向 2000/2000；反向 validate 通過 18119、篩選沒給 466（2.6%）
+安 押字尾 寬: 正向 1995/2000；反向 validate 通過 14776、篩選沒給 604（4.1%）
+安 押字尾 嚴: 正向 1995/2000；反向 validate 通過 9872、篩選沒給 575（5.8%）
+安 押字首: 正向 2000/2000；反向 validate 通過 18371、篩選沒給 873（4.8%）
+愛 押字尾 寬: 正向 1994/2000；反向 validate 通過 11860、篩選沒給 1992（16.8%）
+愛 押字尾 嚴: 正向 1993/2000；反向 validate 通過 9770、篩選沒給 802（8.2%）
+愛 押字首: 正向 1998/2000；反向 validate 通過 12801、篩選沒給 2887（22.6%）
+衣 押字尾 寬: 正向 1997/2000；反向 validate 通過 24040、篩選沒給 3760（15.6%）
+衣 押字尾 嚴: 正向 1997/2000；反向 validate 通過 24040、篩選沒給 3760（15.6%）
+衣 押字首: 正向 2000/2000；反向 validate 通過 19539、篩選沒給 1020（5.2%）
+月 押字尾 寬: 正向 1999/2000；反向 validate 通過 19735、篩選沒給 2235（11.3%）
+月 押字尾 嚴: 正向 1997/2000；反向 validate 通過 4002、篩選沒給 1193（29.8%）
+月 押字首: 正向 1996/2000；反向 validate 通過 19809、篩選沒給 1437（7.3%）
+行 押字尾 寬: 正向 2000/2000；反向 validate 通過 15823、篩選沒給 528（3.3%）
+行 押字尾 嚴: 正向 1999/2000；反向 validate 通過 8097、篩選沒給 517（6.4%）
+行 押字首: 正向 2000/2000；反向 validate 通過 14576、篩選沒給 406（2.8%）
+ㄅ 押字尾 寬: 正向 1995/2000；反向 validate 通過 9375、篩選沒給 260（2.8%）
+ㄅ 押字尾 嚴: 正向 1995/2000；反向 validate 通過 9375、篩選沒給 260（2.8%）
+ㄅ 押字首: 正向 2000/2000；反向 validate 通過 14531、篩選沒給 499（3.4%）
+心 押字尾 同字: 正向 788/788；反向 validate 通過 788、篩選沒給 0（0.0%）
+心 押字首 同字: 正向 525/525；反向 validate 通過 525、篩選沒給 0（0.0%）
+心 押字尾 同聲調: 正向 1999/2000；反向 validate 通過 5587、篩選沒給 264（4.7%）
+心 押字首 同聲調: 正向 1999/2000；反向 validate 通過 7444、篩選沒給 454（6.1%）
+心 押字尾 限 2 字: 正向 1997/2000；反向 validate 通過 9332、篩選沒給 229（2.5%）
+心 押字首 限 2 字: 正向 1998/2000；反向 validate 通過 9515、篩選沒給 305（3.2%）
+心 押字尾 限 4 字+: 正向 2000/2000；反向 validate 通過 4580、篩選沒給 204（4.5%）
+心 押字首 限 4 字+: 正向 2000/2000；反向 validate 通過 4956、篩選沒給 74（1.5%）
+愛心 押母音: 正向 324/324；反向 validate 通過 418、篩選沒給 94（22.5%）
+心衣 押子音: 正向 419/421；反向 validate 通過 484、篩選沒給 65（13.4%）
+心衣 押母音: 正向 777/781；反向 validate 通過 863、篩選沒給 86（10.0%）
+  ✓    63 …s:209:1 › 鏡射：validateWordRhyme 與詞庫篩選同一套規則（真詞庫） (59.4s)
+      394 tests/rhyme-audit.spec.mjs:472:1 › 檢查：顏色以外的線索
+  ✓   383 …t-entry.spec.mjs:728:5 › 回報入口：AI 列觸控（觸控平板橫放 1180） (3.0s)
+  ✓   392 tests/rhyme-audit.spec.mjs:371:1 › 檢查：列印與匯出沒有韻腳標記 (1.2s)
+  ✓   395 tests/rhyme-core.spec.mjs:29:1 › 判定：寬韻看家族、嚴格看韻母全等 (3ms)
+  ✓   396 tests/rhyme-core.spec.mjs:51:1 › 判定：預設值與色票 (16ms)
+  ✓   397 tests/rhyme-core.spec.mjs:42:1 › 判定：分組鍵與顏色編號 (5ms)
+  ✓   398 …2:1 › 句尾：語助詞跳過（連續幾個也跳），整行都是語助詞用最後一個字 (7ms)
+  ✓   399 tests/rhyme-core.spec.mjs:65:1 › 句尾：標點、空白、emoji 先去掉 (6ms)
+  ✓   400 …ec.mjs:81:1 › 句尾：查不到的字沒有目標（英文、數字、符號、空字串） (6ms)
+  ✓   401 …s/rhyme-core.spec.mjs:90:1 › 句尾：以目標字結尾的連續漢字最多 4 個 (6ms)
+  ✓   402 …hyme-core.spec.mjs:97:1 › 讀音：手動、詞庫詞、字典第一讀音的優先序 (3ms)
+  ✓   375 tests/report-entry.spec.mjs:478:1 › 回報入口：長文字（後盾） (6.3s)
+  ✓   403 tests/rhyme-core.spec.mjs:126:1 › 字母：AABB 與 ABAB（寬韻、嚴格） (3ms)
+  ✓   404 tests/rhyme-core.spec.mjs:134:1 › 字母：同家族不同韻母 (3ms)
+  ✓   405 tests/rhyme-core.spec.mjs:142:1 › 字母：語助詞、英文行與空行 (6ms)
+  ✓   406 …s/rhyme-core.spec.mjs:152:1 › 字母：空韻同群（寬韻）、嚴格各自不同 (2ms)
+  ✓   407 tests/rhyme-core.spec.mjs:158:1 › 字母：多音字依詞庫與手動讀音變動 (2ms)
+  ✓   408 …core.spec.mjs:168:1 › 字母：零、一、多（空、孤句、重複、換行格式） (4ms)
+  ✓   409 …-core.spec.mjs:186:1 › 字母：超過 26 種韻接小寫，不出現 undefined (21ms)
+  ✓   410 …s/rhyme-core.spec.mjs:116:1 › 讀音：手動值不是該字的合法讀音就忽略 (4ms)
+  ✓   411 tests/rhyme-core.spec.mjs:206:1 › 效能：兩百行分析 (6ms)
+  ✓   412 tests/rhyme-core.spec.mjs:247:1 › 對比：濃淡三段 (181ms)
+  ✓   413 tests/rhyme-core.spec.mjs:231:1 › 對比：色票格式與文字對比 (162ms)
+  ✓   414 tests/rhyme-core.spec.mjs:277:1 › 對比：句中底線 (5ms)
+  ✓   415 …s/rhyme-core.spec.mjs:293:1 › 句中：最多三個、由左到右、不含句尾字 (2ms)
+  ✓   416 tests/rhyme-core.spec.mjs:307:1 › 句中：關著時每一列都沒有標記 (1ms)
+  ✓   417 …e-core.spec.mjs:313:1 › 句中：標點、空行、沒有句尾字的行都沒有標記 (1ms)
+  ✓   418 …e-core.spec.mjs:323:1 › 句中：忽略語助詞開著時語助詞不算，關掉就算 (1ms)
+  ✓   419 tests/rhyme-core.spec.mjs:330:1 › 句中：嚴格要韻母全等，寬韻看家族 (2ms)
+  ✓   420 …s/rhyme-core.spec.mjs:338:1 › 句中：寬韻與嚴格的 F-ABAB 孤句與顏色 (1ms)
+  ✓   421 …e-core.spec.mjs:348:1 › 句中：語助詞開關決定句尾字（愛你到天亮啊） (0ms)
+  ✓   422 tests/rhyme-core.spec.mjs:354:1 › 設定：整理成固定的鍵 (2ms)
+  ✓   423 tests/rhyme-core.spec.mjs:368:1 › 設定：新鍵逐鍵退回預設 (7ms)
+  ✓   424 tests/rhyme-core.spec.mjs:388:1 › 設定：顏色只收十六個鍵與小寫色碼 (5ms)
+  ✓   425 tests/rhyme-core.spec.mjs:402:1 › 設定：最小序列化不改舊字串 (6ms)
+  ✓   426 tests/rhyme-core.spec.mjs:428:1 › 讀音：清洗——合法的原樣留下 (3ms)
+  ✓   427 tests/rhyme-core.spec.mjs:432:1 › 讀音：清洗——壞的鍵與值整個丟掉 (3ms)
+  ✓   428 ….spec.mjs:444:1 › 讀音：清洗——混合時只留合法的，回傳全新的普通物件 (1ms)
+  ✓   429 tests/rhyme-core.spec.mjs:449:1 › 讀音：清洗——一首歌最多 2000 筆 (9ms)
+  ✓   430 tests/rhyme-core.spec.mjs:463:1 › 統計：寬韻 AABB 四句都押韻 (1ms)
+  ✓   431 …yme-core.spec.mjs:471:1 › 統計：嚴格 ABAB 四個韻母都不同，每個一次 (1ms)
+  ✓   432 tests/rhyme-core.spec.mjs:484:1 › 統計：空韻 (1ms)
+  ✓   433 tests/rhyme-core.spec.mjs:493:1 › 統計：沒有任何文字 (1ms)
+  ✓   434 tests/rhyme-core.spec.mjs:479:1 › 統計：英文行算一句、空行不算 (2ms)
+  ✓   435 …e.spec.mjs:499:1 › 統計：超過 52 種韻母字母用 * 且不出現 undefined (1ms)
+  ✓   436 tests/rhyme-core.spec.mjs:507:1 › 對比：提醒用的混色與對比 (3ms)
+      437 tests/rhyme-journey.spec.mjs:56:1 › 整合：韻腳地圖一次走完
+  -   438 …-map-perf.spec.mjs:16:1 › 效能：一百五十行連續打字沒有超過 50ms 的長任務
+  -   439 …ec.mjs:50:1 › 效能：一百五十行全部標記開著連續打字沒有超過 50ms 的長任務
+  ✓   440 tests/rhyme-map-perf.spec.mjs:87:1 › 效能：兩百行分析在 20ms 內 (543ms)
+  ✓   441 tests/rhyme-map-ui.spec.mjs:26:1 › 上色：句尾字依韻部上色 (1.0s)
+  ✓   384 tests/report-entry.spec.mjs:761:1 › 回報入口：長按 (3.0s)
+  ✓   442 tests/rhyme-map-ui.spec.mjs:59:1 › 上色：打字後只重畫那一段 (954ms)
+[perf] lhRhymeAnalyze 200 行中位數 0.80ms（門檻 20ms）
+  ✓   443 tests/rhyme-map-ui.spec.mjs:74:1 › 上色：語助詞、標點、英文、空行 (571ms)
+  ✓   390 …s/rhyme-audit.spec.mjs:268:1 › 檢查：惡意文字只當文字（韻腳地圖） (3.0s)
+  ✓   444 tests/rhyme-map-ui.spec.mjs:86:1 › 上色：一句的段落是孤句 (553ms)
+  ✓   445 tests/rhyme-map-ui.spec.mjs:96:1 › 上色：字典與詞庫載好前不上色 (885ms)
+  ✓   446 …hyme-map-ui.spec.mjs:127:1 › 組字：組字中鏡像零變動，確認後才重畫 (1.5s)
+  ✓   447 …ec.mjs:156:1 › 組字：句尾打字時色塊留著，換行或句中修改時先藏起來 (1.3s)
+  ✓   448 tests/rhyme-map-ui.spec.mjs:179:1 › 快取：打一個字再刪掉不重畫 (1.1s)
+  ✓   394 tests/rhyme-audit.spec.mjs:472:1 › 檢查：顏色以外的線索 (2.2s)
+  ✓   449 tests/rhyme-map-ui.spec.mjs:199:1 › 快取：只重畫打字的那一段 (1.5s)
+  ✓   393 tests/rhyme-audit.spec.mjs:418:1 › 檢查：舊歌與舊資料 (3.2s)
+  ✓   450 tests/rhyme-map-ui.spec.mjs:279:1 › 鏡像對齊：與文字框逐像素相同 (2.5s)
+      451 tests/rhyme-map-ui.spec.mjs:324:1 › 樣式一致：鏡像與文字框的計算樣式相同
+      452 tests/rhyme-map-ui.spec.mjs:348:1 › 鏡像對齊：長句換行的句尾仍在原字上
+  ✓   211 …:1507:1 › 輸入：手機平板所有輸入框字級 ≥ 16px（3 縮放 × 6 狀態） (35.7s)
+  ✓   453 …i.spec.mjs:372:1 › 鏡像對齊：英文長串、拉高度、縮放、收合展開之後 (3.6s)
+  ✓   454 …sts/rhyme-map-ui.spec.mjs:396:1 › 對比：日夜主題切換不必重新整理 (572ms)
+  ✓   455 tests/rhyme-map-ui.spec.mjs:419:1 › 上色：客製顏色也有色塊 (585ms)
+  ✓   456 …ts/rhyme-map-ui.spec.mjs:431:1 › 上色：字典載不到時不上色也不報錯 (1.0s)
+  ✓   457 …hyme-map-ui.spec.mjs:450:1 › 開關：句尾上色關掉後重新整理還是關的 (1.7s)
+  ✓   458 tests/rhyme-map-ui.spec.mjs:493:1 › 開關：預設只開句尾上色 (985ms)
+  ✓   386 …/rhyme-audit.spec.mjs:87:1 › 檢查：三種裝置的觸控大小（韻腳地圖） (6.6s)
+  ✓   459 tests/rhyme-map-ui.spec.mjs:520:1 › 開關：嚴格與寬韻 (1.6s)
+  ✓   460 tests/rhyme-map-ui.spec.mjs:557:1 › 開關：忽略句尾語助詞 (1.0s)
+  ✓   387 …e-audit.spec.mjs:128:1 › 檢查：選單、統計、浮動列在小螢幕都看得到 (6.7s)
+  ✓   461 tests/rhyme-map-ui.spec.mjs:606:1 › 開關：色票對照 (1.2s)
+  ✓   462 …ts/rhyme-map-ui.spec.mjs:574:1 › 句中：預設關、打開後最多三個底線 (1.3s)
+  ✓   463 tests/rhyme-map-ui.spec.mjs:637:1 › 備份：韻腳設定跟著備份走 (2.5s)
+  ✓   464 tests/rhyme-map-ui.spec.mjs:666:1 › 備份：壞掉的韻腳設定 (606ms)
+  ✓   388 tests/rhyme-audit.spec.mjs:181:1 › 檢查：切版型時收起來 (7.3s)
+  ✓   465 tests/rhyme-map-ui.spec.mjs:687:1 › 開關：儲存裡的值壞掉時用預設 (2.3s)
+  ✓   466 tests/rhyme-map-ui.spec.mjs:703:1 › 開關：別的分頁改了設定 (1.8s)
+  ✓   467 tests/rhyme-map-ui.spec.mjs:718:1 › 開關：詞庫載入中的提示 (1.1s)
+  ✓   468 tests/rhyme-map-ui.spec.mjs:740:1 › 開關：鍵盤開選單的焦點 (1.0s)
+  ✓   469 tests/rhyme-map-ui.spec.mjs:789:1 › 浮動列：反白後出現、按查韻就查 (1.6s)
+  ✓   470 tests/rhyme-map-ui.spec.mjs:817:1 › 浮動列：只點一下不會出現 (1.6s)
+  ✓   471 …yme-map-ui.spec.mjs:834:1 › AI 建議：先查韻再出 AI 詞卡、送整首歌 (1.7s)
+  ✓   389 tests/rhyme-audit.spec.mjs:221:1 › 檢查：另一個分頁改了歌或設定 (8.4s)
+      472 tests/rhyme-map-ui.spec.mjs:863:1 › 浮動列：手機查韻與 AI 建議切分頁
+  ✓   437 tests/rhyme-journey.spec.mjs:56:1 › 整合：韻腳地圖一次走完 (6.2s)
+      473 …sts/rhyme-map-ui.spec.mjs:900:1 › 浮動列：這些情況不出現，或只剩「分析」
+  ✓   372 tests/report-entry.spec.mjs:443:5 › 回報入口：輸入框字級（手機） (13.9s)
+      474 tests/rhyme-map-ui.spec.mjs:947:1 › 浮動列：這些情況收起來
+  ✓   475 tests/rhyme-map-ui.spec.mjs:996:1 › 浮動列：按鈕不會吃掉選取 (1.5s)
+  ✓   476 tests/rhyme-map-ui.spec.mjs:1015:1 › 浮動列：鍵盤操作 (2.3s)
+  ✓   477 …ui.spec.mjs:1062:1 › 浮動列：在選取下方，放不下就貼在可見範圍底部 (2.3s)
+  ✓   478 …s/rhyme-map-ui.spec.mjs:1093:1 › 浮動列：鍵盤打開時仍在可見範圍內 (1.9s)
+  ✓   373 …port-entry.spec.mjs:443:5 › 回報入口：輸入框字級（觸控平板橫放） (13.9s)
+  ✓   479 …p-ui.spec.mjs:1115:1 › 浮動列：手機長按選字，連續改選取只出現一次 (3.1s)
+      480 tests/rhyme-map-ui.spec.mjs:1148:1 › 浮動列：觸控按鈕夠大
+  ✓   481 …rhyme-map-ui.spec.mjs:1166:1 › 浮動列：超長段落不量版面、直接貼底 (1.4s)
+  ✓   482 tests/rhyme-map-ui.spec.mjs:1205:1 › 讀音：破音字句尾可以指定讀音 (1.6s)
+  ✓   483 tests/rhyme-map-ui.spec.mjs:1241:1 › 讀音：自動改回字典讀音 (2.2s)
+      484 …/rhyme-map-ui.spec.mjs:1265:1 › 讀音：不是句尾或不是破音字就沒有指定讀音
+      485 …me-map-ui.spec.mjs:1290:1 › 讀音：觸控時指定讀音按鈕與每個晶片至少 44×44
+  ✓   261 …sis-ui.spec.mjs:737:1 › 最後視覺列：換行的行標記在最後一個視覺列 (33.7s)
+  ✓   486 …:1 › 讀音：鍵盤打開時焦點先到目前的讀音，Enter 選定後焦點回輸入框 (1.2s)
+  ✓   487 tests/rhyme-map-ui.spec.mjs:1343:1 › 讀音：改了句尾就自動失效 (926ms)
+  ✓   488 …sts/rhyme-map-ui.spec.mjs:1364:1 › 讀音：舊歌沒有讀音時開機不寫入 (1.3s)
+  ✓   489 tests/rhyme-map-ui.spec.mjs:1381:1 › 讀音：別的分頁指定的讀音 (1.5s)
+  ✓   490 tests/rhyme-map-ui.spec.mjs:1395:1 › 備份：手動讀音跟著備份走 (1.3s)
+  ✓   491 …me-map-ui.spec.mjs:1418:1 › 備份：不合法的讀音被丟掉，歌照常匯入 (602ms)
+  ✓   492 …sts/rhyme-map-ui.spec.mjs:1444:1 › 備份：每首歌最多留 2000 筆讀音 (2.4s)
+  ✓   493 tests/rhyme-map-ui.spec.mjs:1468:1 › 標題字母：打開後顯示 AABB (1.7s)
+  ✓   494 …sts/rhyme-map-ui.spec.mjs:1518:1 › 標題字母：點字母條不會收合段落 (1.1s)
+  ✓   495 tests/rhyme-map-ui.spec.mjs:1550:1 › 統計：內容 (1.2s)
+  ✓   452 …/rhyme-map-ui.spec.mjs:348:1 › 鏡像對齊：長句換行的句尾仍在原字上 (7.9s)
+  ✓   496 tests/rhyme-map-ui.spec.mjs:1599:1 › 統計：點一列就查那句的句尾 (1.2s)
+  ✓   497 …rhyme-map-ui.spec.mjs:1631:1 › 統計：手機點一列查韻會切到查韻分頁 (1.2s)
+  ✓   498 tests/rhyme-map-ui.spec.mjs:1647:1 › 統計：沒有可分析的句尾 (1.0s)
+  ✓   499 tests/rhyme-map-ui.spec.mjs:1673:1 › 統計：關閉與焦點 (1.3s)
+  ✓   500 tests/rhyme-map-ui.spec.mjs:1732:1 › 統計：縮放時不重建清單 (1.1s)
+  ✓   472 …ts/rhyme-map-ui.spec.mjs:863:1 › 浮動列：手機查韻與 AI 建議切分頁 (5.0s)
+  ✓   501 tests/rhyme-map-ui.spec.mjs:1766:1 › 統計：重畫時只建一次 (1.1s)
+  ✓   502 tests/rhyme-map-ui.spec.mjs:1794:1 › 統計：名稱太長時截斷 (1.1s)
+      503 tests/rhyme-map-ui.spec.mjs:1818:1 › 標題字母：各尺寸都放得下
+  ✓   504 tests/rhyme-map-ui.spec.mjs:1867:1 › 標題字母：零、一、多句 (1.2s)
+      505 tests/rhyme-map-ui.spec.mjs:1933:1 › 標題字母：觸控大小與可見範圍
+  ✓   506 tests/rhyme-map-ui.spec.mjs:1978:1 › 開關：從選單打開逐行標記 (1.1s)
+  ✓   507 tests/rhyme-map-ui.spec.mjs:1999:1 › 備份：句構設定跟著備份走 (656ms)
+  ✓   480 tests/rhyme-map-ui.spec.mjs:1148:1 › 浮動列：觸控按鈕夠大 (5.0s)
+  ✓   508 tests/rhyme-map-ui.spec.mjs:2014:1 › 備份：壞掉的句構設定 (621ms)
+  ✓   509 tests/rhyme-map-ui.spec.mjs:2030:1 › 開關：舊版設定開機不改寫 (1.1s)
+      510 tests/rhyme-map-ui.spec.mjs:2044:1 › 讀音：儲存裡壞掉的讀音
+  ✓   511 tests/rhyme-parity.spec.mjs:35:1 › 共用：九千八百組字對三邊一致 (722ms)
+  ✓   484 …map-ui.spec.mjs:1265:1 › 讀音：不是句尾或不是破音字就沒有指定讀音 (4.5s)
+  ✓   512 …e-parity.spec.mjs:84:1 › 共用：字卡查韻只多出 ㄣ／ㄥ 這個已知例外 (1.1s)
+  ✓   513 tests/rhyme-parity.spec.mjs:106:1 › 共用：空的韻母請求永遠沒有候選 (18ms)
+  ✓   514 …-failure.spec.mjs:20:1 › localStorage: 寫入被拒時顯示存檔失敗橫幅 (1.4s)
+  ✓   515 …e-failure.spec.mjs:44:1 › localStorage: 60 秒內只顯示一次、不堆疊 (1.3s)
+  ✓   516 …ve-failure.spec.mjs:65:1 › localStorage: 橫幅淺色與深色都看得清楚 (1.2s)
+  ✓   517 …ve-failure.spec.mjs:89:1 › localStorage: 未登記的鍵會留下錯誤記錄 (1.2s)
+  ✓   518 …pec.mjs:97:1 › localStorage: 使用者操作存檔失敗時不再出現程式錯誤 (1.2s)
+      519 …ec.mjs:116:5 › localStorage: 橫幅排在主畫面最上方、不擋任何按鈕（phone）
+      520 …c.mjs:116:5 › localStorage: 橫幅排在主畫面最上方、不擋任何按鈕（tablet）
+  ✓   474 tests/rhyme-map-ui.spec.mjs:947:1 › 浮動列：這些情況收起來 (7.1s)
+      521 ….mjs:116:5 › localStorage: 橫幅排在主畫面最上方、不擋任何按鈕（desktop）
+  ✓   522 ….mjs:147:1 › localStorage: 太早失敗時先固定顯示，載入後移進主畫面 (1.5s)
+  ✓   473 …me-map-ui.spec.mjs:900:1 › 浮動列：這些情況不出現，或只剩「分析」 (7.5s)
+  ✓   523 …DB: 備份寫入失敗時出現橫幅、改存一份在 localStorage、仍可正常使用 (1.6s)
+  ✓   524 …mjs:170:1 › IndexedDB: 詞庫快取寫入失敗只跳提示、不出存檔失敗橫幅 (1.5s)
+  ✓   525 …s:220:1 › IndexedDB: 備份兩處都存不進去時出現橫幅且不標記資料版本 (1.4s)
+  ✓   485 …ui.spec.mjs:1290:1 › 讀音：觸控時指定讀音按鈕與每個晶片至少 44×44 (5.3s)
+  ✓   526 …s/scan.spec.mjs:49:1 › registry: 程式碼用到的每個儲存鍵都在清單內 (1.5s)
+  ✓   527 ….mjs:58:1 › registry: js/safety.js 以外不可直接存取 localStorage (172ms)
+  ✓   528 tests/scan.spec.mjs:62:1 › registry: 後台金鑰被排除且不在清單內 (1.3s)
+  ✓   529 tests/scan.spec.mjs:97:1 › catch: 掃描器抓得到四種吞錯寫法 (12ms)
+  ✓   530 tests/scan.spec.mjs:73:1 › registry: 掃描器自我檢查 (9ms)
+  ✓   531 …sts/scan.spec.mjs:109:1 › catch: 有呼叫或重新丟出的 catch 不算吞錯 (2ms)
+  ✓   532 tests/scan.spec.mjs:118:1 › catch: 沒有違規時回報為空 (2ms)
+  ✓   533 …s/scan.spec.mjs:122:1 › catch: 多個違規全部列出並依檔名與行號排序 (12ms)
+  ✓   534 tests/scan.spec.mjs:128:1 › catch: 程式碼裡沒有吞錯的 catch (118ms)
+      535 tests/sections-audit.spec.mjs:61:1 › 檢查：十二段的編號與捲動
+      536 tests/sections-audit.spec.mjs:130:1 › 檢查：切版型時中止
+  ✓   451 …yme-map-ui.spec.mjs:324:1 › 樣式一致：鏡像與文字框的計算樣式相同 (12.7s)
+      537 tests/sections-audit.spec.mjs:156:1 › 檢查：收起歌詞面板時中止
+      538 tests/sections-audit.spec.mjs:185:1 › 檢查：另一個分頁改了這首歌
+      539 tests/sections-audit.spec.mjs:240:1 › 檢查：三種裝置的觸控大小
+      540 tests/sections-audit.spec.mjs:269:1 › 檢查：標題列在各尺寸都放得下
+  ✓   541 tests/sections-audit.spec.mjs:310:1 › 檢查：惡意文字只當文字 (1.5s)
+  ✓   542 tests/sections-audit.spec.mjs:382:1 › 檢查：新程式沒有拼 HTML (62ms)
+  ✓   543 tests/sections-audit.spec.mjs:397:1 › 檢查：沒有新增動畫 (59ms)
+  ✓   544 …tions-audit.spec.mjs:415:1 › 檢查：重新整理後一模一樣、匯出照名稱 (2.2s)
+  ✓   545 …ts/sections-audit.spec.mjs:475:1 › 檢查：存檔失敗時畫面與模型一致 (1.2s)
+  ✓   519 …116:5 › localStorage: 橫幅排在主畫面最上方、不擋任何按鈕（phone） (2.8s)
+  ✓   546 tests/sections-core.spec.mjs:13:1 › 名稱：推斷表 (41ms)
+  ✓   547 tests/sections-core.spec.mjs:32:1 › 名稱：欄位整理丟掉壞值 (14ms)
+  ✓   548 tests/sections-core.spec.mjs:62:1 › 名稱：羅馬數字 (3ms)
+  ✓   549 tests/sections-core.spec.mjs:67:1 › 名稱：編號 (6ms)
+  ✓   550 tests/sections-core.spec.mjs:81:1 › 名稱：整理兩次結果相同 (3ms)
+  ✓   551 tests/sections-core.spec.mjs:97:1 › 名稱：下一段類型 (3ms)
+  ✓   552 tests/sections-core.spec.mjs:105:1 › 名稱：常數 (2ms)
+  ✓   553 tests/sections-core.spec.mjs:112:1 › 字數：規則表 (10ms)
+  ✓   510 tests/rhyme-map-ui.spec.mjs:2044:1 › 讀音：儲存裡壞掉的讀音 (3.7s)
+  ✓   554 tests/sections-core.spec.mjs:123:1 › 字數：一百萬字不卡 (77ms)
+  ✓   555 tests/sections-drag.spec.mjs:31:1 › 排序：滑鼠拖把手 (1.4s)
+  ✓   556 tests/sections-drag.spec.mjs:54:1 › 排序：手指拖把手 (1.8s)
+  ✓   520 …16:5 › localStorage: 橫幅排在主畫面最上方、不擋任何按鈕（tablet） (2.7s)
+  ✓   557 …ts/sections-drag.spec.mjs:70:1 › 排序：手指不會讓列表在指頭下捲動 (1.8s)
+  ✓   521 …6:5 › localStorage: 橫幅排在主畫面最上方、不擋任何按鈕（desktop） (2.8s)
+  ✓   558 tests/sections-drag.spec.mjs:99:1 › 排序：Esc 取消 (1.8s)
+  ✓   559 …ions-drag.spec.mjs:120:1 › 排序：Esc 只取消拖曳，不收起底部 sheet (1.8s)
+  ✓   535 tests/sections-audit.spec.mjs:61:1 › 檢查：十二段的編號與捲動 (2.5s)
+  ✓   560 tests/sections-drag.spec.mjs:140:1 › 排序：放回原位不算 (1.9s)
+  ✓   561 tests/sections-drag.spec.mjs:156:1 › 排序：內容與捲動不變 (1.4s)
+      562 tests/sections-drag.spec.mjs:204:1 › 排序：靠邊自動捲
+      563 tests/sections-drag.spec.mjs:208:1 › 排序：減少動態仍會自動捲
+  ✓   564 tests/sections-drag.spec.mjs:212:1 › 排序：拖到最上與最下 (1.9s)
+  ✓   565 tests/sections-drag.spec.mjs:250:1 › 排序：重畫或切版型會中止 (2.1s)
+  ✓   566 tests/sections-drag.spec.mjs:282:1 › 排序：選字與按名稱不會誤拖 (1.5s)
+  ✓   567 tests/sections-drag.spec.mjs:307:1 › 排序：鍵盤移動 (1.3s)
+  ✓   568 tests/sections-drag.spec.mjs:334:1 › 排序：鍵盤一步一個復原 (1.4s)
+  ✓   569 tests/sections-drag.spec.mjs:360:1 › 高度：拖拉桿改高度 (2.0s)
+  ✓   505 tests/rhyme-map-ui.spec.mjs:1933:1 › 標題字母：觸控大小與可見範圍 (7.7s)
+  ✓   570 tests/sections-drag.spec.mjs:390:1 › 高度：雙擊回自動 (1.5s)
+  ✓   571 tests/sections-drag.spec.mjs:408:1 › 高度：連點兩下回自動 (1.9s)
+  ✓   572 tests/sections-drag.spec.mjs:425:1 › 高度：連點兩下太慢不算 (2.2s)
+  ✓   539 tests/sections-audit.spec.mjs:240:1 › 檢查：三種裝置的觸控大小 (4.4s)
+  ✓   573 tests/sections-drag.spec.mjs:439:1 › 高度：鍵盤 (1.3s)
+  ✓   574 tests/sections-drag.spec.mjs:466:1 › 高度：上下限 (1.6s)
+  ✓   575 tests/sections-drag.spec.mjs:480:1 › 高度：收合時看不到 (1.4s)
+  ✓   576 tests/sections-drag.spec.mjs:495:1 › 高度：縮放跟著變 (2.8s)
+  ✓   577 tests/sections-drag.spec.mjs:509:1 › 高度：手指拉 (1.7s)
+  ✓   578 tests/sections-drag.spec.mjs:524:1 › 高度：拖曳中被中止 (1.6s)
+  ✓   579 tests/sections-journey.spec.mjs:23:1 › 整合：段落模組一次走完 (2.7s)
+  ✓   580 tests/sections-ui.spec.mjs:19:1 › 名稱：舊歌顯示結構化名稱 (1.3s)
+  ✓   538 tests/sections-audit.spec.mjs:185:1 › 檢查：另一個分頁改了這首歌 (6.3s)
+  ✓   581 tests/sections-ui.spec.mjs:34:1 › 名稱：新歌第一段是 Verse (1.2s)
+  ✓   582 tests/sections-ui.spec.mjs:44:1 › 名稱：新增段落猜下一段 (1.3s)
+  ✓   583 tests/sections-ui.spec.mjs:58:1 › 名稱：讀取不寫回 (1.7s)
+  ✓   584 tests/sections-ui.spec.mjs:75:1 › 循環：點一下換下一種類型 (2.2s)
+  ✓   585 tests/sections-ui.spec.mjs:108:1 › 循環：原地更新 (1.3s)
+  ✓   586 tests/sections-ui.spec.mjs:148:1 › 循環：新增段落的焦點 (3.1s)
+      587 tests/sections-ui.spec.mjs:176:1 › 循環：標題列不擠不疊
+  ✓   588 tests/sections-ui.spec.mjs:218:1 › 循環：名稱只當純文字 (1.6s)
+  ✓   589 tests/sections-ui.spec.mjs:236:1 › 字數：打字即時更新 (1.6s)
+  ✓   590 tests/sections-ui.spec.mjs:276:1 › 字數：組字中不變、確認後才變 (1.9s)
+  ✓   562 tests/sections-drag.spec.mjs:204:1 › 排序：靠邊自動捲 (5.5s)
+  ✓   591 tests/sections-ui.spec.mjs:303:1 › 字數：排序收合換類型不影響總數 (1.7s)
+  ✓   563 tests/sections-drag.spec.mjs:208:1 › 排序：減少動態仍會自動捲 (5.4s)
+  ✓   592 tests/sections-ui.spec.mjs:320:1 › 字數：全部是空段落顯示共 0 字 (1.3s)
+  ✓   593 tests/sections-ui.spec.mjs:329:1 › 字數：150% 長名稱與大字數不擠 (3.7s)
+  ✓   594 tests/sections-ui.spec.mjs:395:1 › 刪除：新動作讓復原鈕消失 (2.0s)
+  ✓   595 tests/sections-ui.spec.mjs:366:1 › 刪除：直接刪、按復原救回 (1.6s)
+  ✓   536 tests/sections-audit.spec.mjs:130:1 › 檢查：切版型時中止 (9.5s)
+  ✓   596 tests/sections-ui.spec.mjs:441:1 › 刪除：換歌後按復原不動 (1.5s)
+  ✓   597 tests/sections-ui.spec.mjs:459:1 › 刪除：最後一段不能刪 (1.5s)
+  ✓   598 tests/sections-ui.spec.mjs:476:1 › 刪除：第一段也能刪 (1.4s)
+  ✓   599 tests/sections-ui.spec.mjs:487:1 › 刪除：一段兩段多段的名稱 (1.3s)
+  ✓   600 tests/sections-ui.spec.mjs:498:1 › 刪除：焦點 (3.3s)
+  ✓   601 tests/sections-ui.spec.mjs:523:1 › 刪除：名稱太長 (1.4s)
+  ✓   602 tests/sections-ui.spec.mjs:537:1 › 刪除：五秒後仍可復原 (1.5s)
+  ✓   503 tests/rhyme-map-ui.spec.mjs:1818:1 › 標題字母：各尺寸都放得下 (13.4s)
+  ✓   537 tests/sections-audit.spec.mjs:156:1 › 檢查：收起歌詞面板時中止 (10.2s)
+  ✓   603 tests/sections-ui.spec.mjs:558:1 › 顏色：右鍵選色 (1.8s)
+  ✓   604 tests/sections-ui.spec.mjs:599:1 › 設定：長按開啟不循環 (3.3s)
+  ✓   605 tests/sections-ui.spec.mjs:632:1 › 設定：鍵盤開啟 (3.1s)
+  ✓   606 tests/sections-ui.spec.mjs:655:1 › 顏色：自訂色預覽與確定 (2.0s)
+  ✓   607 tests/sections-ui.spec.mjs:686:1 › 顏色：無顏色 (1.6s)
+  ✓   608 tests/sections-ui.spec.mjs:709:1 › 設定：直接選類型 (1.6s)
+  ✓   609 tests/sections-ui.spec.mjs:750:1 › 設定：自訂名稱 (3.6s)
+  ✓   610 tests/sections-ui.spec.mjs:812:1 › 設定：上移下移 (1.6s)
+  ✓   611 tests/sections-ui.spec.mjs:842:1 › 設定：關閉方式 (1.9s)
+  ✓   612 tests/sections-ui.spec.mjs:878:1 › 設定：第一次提示 (1.6s)
+      613 tests/sections-ui.spec.mjs:910:1 › 顏色：三種主題對比
+      614 tests/sections-ui.spec.mjs:958:1 › 設定：選單不出界
+      615 tests/sections-ui.spec.mjs:997:1 › 設定：觸控點擊範圍與輸入框 16px
+  ✓   616 tests/sections-ui.spec.mjs:1021:1 › 設定：鍵盤出現時看得到 (2.0s)
+  ✓   617 tests/sections-ui.spec.mjs:1042:1 › 設定：名稱只當純文字 (1.8s)
+      618 ….mjs:154:1 › smoke：每個 inline handler 在乾淨環境各點一次，沒有 JS 錯誤
+  ✓   619 …:164:1 › smoke 負向對照：壞掉的 handler 與未知外部主機都會被抓到 (773ms)
+      620 …s/smoke.spec.mjs:228:1 › smoke 覆蓋率：原始碼裡的每個 handler 都有被觸發
+  ✓   621 …e.spec.mjs:249:1 › import 舊版存檔：按「加入成新歌曲」後渲染歌詞 (823ms)
+  ✓   622 ….mjs:276:1 › import 壞掉的檔案：顯示無法匯入的說明，不丟 JS 錯誤 (697ms)
+  ✓   623 tests/songs-audit.spec.mjs:33:1 › 檢查：長歌名 (3.5s)
+  ✓   624 tests/songs-audit.spec.mjs:92:1 › 檢查：怪字元原樣顯示 (1.3s)
+  ✓   625 …songs-audit.spec.mjs:161:1 › 檢查：怪字元——新程式碼不用 innerHTML (16ms)
+  ✓   540 …sts/sections-audit.spec.mjs:269:1 › 檢查：標題列在各尺寸都放得下 (13.1s)
+  ✓   626 tests/songs-audit.spec.mjs:234:1 › 檢查：焦點 (1.2s)
+      627 tests/songs-audit.spec.mjs:184:1 › 檢查：觸控目標
+  ✓   628 tests/songs-audit.spec.mjs:284:1 › 檢查：不只靠顏色 (1.1s)
+      629 tests/songs-audit.spec.mjs:332:1 › 檢查：三種主題對比
+  ✓   630 …gs-audit.spec.mjs:374:1 › 檢查：沒有新的顏色常數（Phase 8 的規則） (5ms)
+  ✓   631 tests/songs-audit.spec.mjs:393:1 › 檢查：無障礙名稱 (1.3s)
+      632 tests/songs-backup.spec.mjs:46:1 › 備份：乾淨瀏覽器完整還原
+  ✓   633 tests/songs-backup.spec.mjs:81:1 › 備份：檔案格式 (1.6s)
+  ✓   634 tests/songs-backup.spec.mjs:129:1 › 備份：只加入歌曲 (886ms)
+  ✓   635 tests/songs-backup.spec.mjs:162:1 › 備份：加入的歌照建立時間排 (866ms)
+      636 tests/songs-backup.spec.mjs:175:1 › 備份：全部還原時目前這首
+  ✓   637 …gs-backup.spec.mjs:190:1 › 備份：全部還原會清掉備份檔裡沒有的設定 (1.1s)
+  ✓   638 tests/songs-backup.spec.mjs:213:1 › 備份：舊版存檔加成新歌 (1.2s)
+      639 tests/songs-backup.spec.mjs:245:1 › 備份：按鈕名稱
+  ✓   640 tests/songs-backup.spec.mjs:280:5 › 備份：壞檔：不是 JSON (759ms)
+段落顏色對比 最低 淺色 #000000 = 8.30
+段落顏色對比 最低 深色 #ffffff = 4.69
+段落顏色對比 最低 自訂配色 #000000 = 11.29
+  ✓   613 tests/sections-ui.spec.mjs:910:1 › 顏色：三種主題對比 (4.9s)
+  ✓   641 tests/songs-backup.spec.mjs:280:5 › 備份：壞檔：空檔案 (837ms)
+  ✓   642 tests/songs-backup.spec.mjs:280:5 › 備份：壞檔：格式不對 (777ms)
+      643 tests/songs-backup.spec.mjs:280:5 › 備份：壞檔：版本太新
+      644 tests/songs-backup.spec.mjs:280:5 › 備份：壞檔：沒有任何歌曲
+      645 tests/songs-backup.spec.mjs:280:5 › 備份：壞檔：檔案太大
+主題對比實測
+淺色 文字/卡片 #2d3748 / #f7fafc = 11.44
+淺色 文字/容器 #2d3748 / #eee3ce = 9.43
+淺色 刪除鈕文字/底 #fff / #c53030 = 5.47
+淺色 實際刪除鈕 rgb(255, 255, 255) / rgb(197, 48, 48) = 5.47
+淺色 危險線/容器 #9b2c2c / #eee3ce = 5.92
+淺色 危險線/卡片 #9b2c2c / #f7fafc = 7.18
+深色 文字/卡片 #d2c8b7 / #2d3748 = 7.24
+深色 文字/容器 #d2c8b7 / #111c31 = 10.28
+深色 刪除鈕文字/底 #fff / #c53030 = 5.47
+深色 實際刪除鈕 rgb(255, 255, 255) / rgb(197, 48, 48) = 5.47
+深色 危險線/容器 #fc8181 / #111c31 = 6.96
+深色 危險線/卡片 #fc8181 / #2d3748 = 4.91
+自訂配色 文字/卡片 #1a202c / #f7fafc = 15.57
+自訂配色 文字/容器 #1a202c / #fffaf0 = 15.68
+自訂配色 刪除鈕文字/底 #fff / #c53030 = 5.47
+自訂配色 實際刪除鈕 rgb(255, 255, 255) / rgb(197, 48, 48) = 5.47
+  ✓   629 tests/songs-audit.spec.mjs:332:1 › 檢查：三種主題對比 (3.3s)
+  ✓   632 tests/songs-backup.spec.mjs:46:1 › 備份：乾淨瀏覽器完整還原 (2.7s)
+  ✓   646 tests/songs-backup.spec.mjs:302:1 › 備份：讀取失敗 (772ms)
+  ✓   647 tests/songs-backup.spec.mjs:332:1 › 備份：被動過手腳的檔案 (2.0s)
+  ✓   639 tests/songs-backup.spec.mjs:245:1 › 備份：按鈕名稱 (1.4s)
+  ✓   648 tests/songs-backup.spec.mjs:381:1 › 備份：寫到一半失敗會退回 (2.0s)
+  ✓   649 tests/songs-backup.spec.mjs:403:1 › 備份：備份存不下就不動 (877ms)
+  ✓   650 tests/songs-backup.spec.mjs:424:1 › 備份：還原中按鈕停用 (1.1s)
+smoke：共 98 種 handler 簽章
+  ✓   651 tests/songs-backup.spec.mjs:446:1 › 備份：歌名標籤太多與太長 (946ms)
+  ✓   620 ….spec.mjs:228:1 › smoke 覆蓋率：原始碼裡的每個 handler 都有被觸發 (5.0s)
+  ✓   643 tests/songs-backup.spec.mjs:280:5 › 備份：壞檔：版本太新 (1.1s)
+  ✓   652 tests/songs-backup.spec.mjs:496:1 › 備份：視窗焦點與鍵盤 (1.2s)
+  ✓   653 tests/songs-backup.spec.mjs:480:1 › 備份：一首歌的摘要 (838ms)
+  ✓   644 tests/songs-backup.spec.mjs:280:5 › 備份：壞檔：沒有任何歌曲 (1.1s)
+  ✓   654 …ts/songs-backup.spec.mjs:539:1 › 備份：字庫覆寫只收格式正確的項目 (1.2s)
+  ✓   655 …songs-backup.spec.mjs:552:1 › 字庫覆寫：存檔裡有壞項目時照常開機 (745ms)
+  ✓   636 tests/songs-backup.spec.mjs:175:1 › 備份：全部還原時目前這首 (3.4s)
+  ✓   656 …up.spec.mjs:563:1 › 字庫覆寫：字庫資料有非字串的值時索引照常建立 (767ms)
+  ✓   657 ….mjs:573:1 › 還原：閂上之後打字、計時器、失焦都不寫歌曲，放開才存 (1.4s)
+  ✓   658 …gs-backup.spec.mjs:588:1 › 還原失敗後放開閂：還原期間打的字會補存 (1.6s)
+  ✓   659 …ec.mjs:608:1 › 備份：編輯器能存的內容不會被截短，真的超過才先提醒 (1.9s)
+  ✓   645 tests/songs-backup.spec.mjs:280:5 › 備份：壞檔：檔案太大 (2.0s)
+  ✓   660 …：全部還原寫到一半失敗、連退回也失敗時，如實說資料可能是新舊混合 (1.8s)
+  ✓   661 …backup.spec.mjs:673:1 › 備份：還原自動備份寫到一半失敗會退回原狀 (904ms)
+  ✓   662 …-backup.spec.mjs:690:1 › 備份：還原自動備份連退回也失敗時，如實說 (1.7s)
+  ✓   663 …3:1 › 備份：還原自動備份時資料版本旗標寫不進去，算失敗並退回原狀 (765ms)
+  ✓   664 tests/songs-backup.spec.mjs:720:1 › 備份：段落新欄位往返 (3.0s)
+  ✓   665 tests/songs-backup.spec.mjs:756:1 › 備份：段落壞欄位丟掉、段落照收 (1.1s)
+  ✓   666 tests/songs-backup.spec.mjs:798:1 › 備份：段落舊版存檔推斷類型 (913ms)
+  ✓   667 …osstab.spec.mjs:12:1 › 多分頁：另一頁改了歌詞，這頁重新載入並提示 (2.3s)
+  ✓   627 tests/songs-audit.spec.mjs:184:1 › 檢查：觸控目標 (6.2s)
+  ✓   668 tests/songs-crosstab.spec.mjs:45:1 › 多分頁：各改不同的歌都留著 (2.1s)
+  ✓   669 tests/songs-crosstab.spec.mjs:67:1 › 多分頁：同一首以最後存的為準 (2.1s)
+  ✓   670 …songs-crosstab.spec.mjs:82:1 › 多分頁：別頁刪掉這首就換到旁邊那首 (1.7s)
+  ✓   671 …/songs-crosstab.spec.mjs:103:1 › 多分頁：全部被刪掉時補一首空白歌 (1.8s)
+  ✓   672 tests/songs-crosstab.spec.mjs:114:1 › 多分頁：無關的鍵不會重新載入 (2.4s)
+  ✓   673 …/songs-crosstab.spec.mjs:131:1 › 多分頁：讀不出來的資料不影響畫面 (3.0s)
+  ✓   674 …/songs-crosstab.spec.mjs:148:1 › 多分頁：兩個分頁同時升級只有一首 (2.1s)
+  ✓   675 …ts/songs-crosstab.spec.mjs:161:1 › 多分頁：選單名稱框編輯中不重畫 (2.2s)
+  ✓   676 tests/songs-delete.spec.mjs:26:1 › 刪除歌曲：先備份再刪 (1.2s)
+  ✓   677 …sts/songs-delete.spec.mjs:87:1 › 刪除歌曲：還原會一起還原資料版本 (1.2s)
+  ✓   678 …sts/songs-delete.spec.mjs:96:1 › 刪除歌曲：備援還原也還原資料版本 (1.5s)
+  ✓   679 tests/songs-delete.spec.mjs:106:1 › 刪除歌曲：自動備份清單 (1.4s)
+  ✓   680 tests/songs-delete.spec.mjs:124:1 › 刪除歌曲：沒有備份時的清單 (1.7s)
+      681 tests/songs-delete.spec.mjs:134:1 › 刪除歌曲：從自動備份救回刪掉的歌
+  ✓   682 tests/songs-delete.spec.mjs:164:1 › 刪除歌曲：備份名稱原樣顯示 (1.3s)
+  ✓   683 tests/songs-delete.spec.mjs:198:1 › 刪除歌曲：最後一首 (2.3s)
+  ✓   587 tests/sections-ui.spec.mjs:176:1 › 循環：標題列不擠不疊 (14.7s)
+  ✓   684 tests/songs-delete.spec.mjs:233:1 › 刪除歌曲：備份失敗就不刪 (1.4s)
+  ✓   685 tests/songs-delete.spec.mjs:253:1 › 刪除歌曲：刪除中 (1.2s)
+  ✓   686 tests/songs-delete.spec.mjs:274:1 › 刪除歌曲：鍵盤與焦點 (1.2s)
+  ✓   687 tests/songs-delete.spec.mjs:312:1 › 刪除歌曲：取消不動資料 (775ms)
+  ✓   688 tests/songs-delete.spec.mjs:326:1 › 刪除歌曲：手機鍵盤 (2.0s)
+  ✓   689 tests/songs-delete.spec.mjs:357:1 › 刪除歌曲：放大 150% 按鈕不擠 (2.0s)
+      690 tests/songs-delete.spec.mjs:391:1 › 刪除歌曲：觸控目標
+  ✓   691 …1 › 刪除歌曲：沒有 IndexedDB 時，升級前的備份不會被刪歌的備份蓋掉 (1.7s)
+  ✓   692 tests/songs-delete.spec.mjs:421:1 › 刪除歌曲：還原中按鈕停用 (1.3s)
+  ✓   614 tests/sections-ui.spec.mjs:958:1 › 設定：選單不出界 (11.7s)
+  ✓   693 …edDB 寫入失敗改存 localStorage 的備份，仍列在自動備份清單並可還原 (1.3s)
+  ✓   694 tests/songs-export.spec.mjs:36:1 › 匯出：下載 TXT (1.4s)
+  ✓   695 tests/songs-export.spec.mjs:54:1 › 匯出：Markdown (1.3s)
+  ✓   696 …ts/songs-export.spec.mjs:65:1 › 匯出：Markdown 跳脫會變成標記的行 (1.3s)
+  ✓   697 tests/songs-export.spec.mjs:75:1 › 匯出：複製整首 (1.5s)
+  ✓   698 tests/songs-export.spec.mjs:91:1 › 匯出：剪貼簿退回舊方法 (1.6s)
+  ✓   699 tests/songs-export.spec.mjs:114:1 › 匯出：空白歌不匯出 (2.6s)
+  ✓   700 tests/songs-export.spec.mjs:144:1 › 匯出：PDF 列印頁 (1.4s)
+  ✓   701 tests/songs-export.spec.mjs:188:1 › 匯出：平常列印不受影響 (1.3s)
+  ✓   702 tests/songs-export.spec.mjs:198:1 › 匯出：深色主題也印黑字白底 (1.6s)
+  ✓   703 tests/songs-export.spec.mjs:216:1 › 匯出：不連網路，也只匯出這首歌 (1.8s)
+  ✓   704 tests/songs-export.spec.mjs:245:1 › 匯出：歌名有標記也只當文字 (1.5s)
+  ✓   705 tests/songs-export.spec.mjs:268:1 › 匯出：選單鍵盤 (1.6s)
+  ✓   706 …ongs-export.spec.mjs:309:1 › 匯出：選單開著時開對話框會先關掉選單 (1.4s)
+  ✓   707 tests/songs-export.spec.mjs:320:1 › 匯出：標題列在手機放大也放得下 (2.2s)
+      708 tests/songs-export.spec.mjs:350:1 › 匯出：觸控目標
+  ✓   709 tests/songs-export.spec.mjs:367:1 › 匯出：長歌列印 (3.0s)
+  ✓   710 …/songs-export.spec.mjs:387:1 › 匯出：下面沒位置時選單翻到按鈕上方 (1.2s)
+  ✓   711 …pec.mjs:19:1 › 組字：組字中不存檔，確認後 400 毫秒內存進 lh:songs (1.7s)
+  ✓   712 tests/songs-ime.spec.mjs:40:1 › 組字：一般打字 300 毫秒後才存一次 (2.0s)
+  ✓   713 …s/songs-ime.spec.mjs:63:1 › 組字：#標籤 視窗組字中按 Enter 不送出 (1.2s)
+  ✓   714 tests/songs-ime.spec.mjs:90:1 › 組字：不重畫也不跳游標 (2.4s)
+  ✓   715 tests/songs-ime.spec.mjs:127:1 › 組字：關分頁不掉字 (1.6s)
+  ✓   716 tests/songs-ime.spec.mjs:146:1 › 組字：切到背景立刻存 (1.2s)
+  ✓   717 …js:164:1 › 組字：先打一般字、馬上開始組字，計時器不在組字中途存檔 (1.9s)
+  ✓   718 …s-ime.spec.mjs:186:1 › 組字：組字到一半切到背景仍然存檔（不掉字） (1.3s)
+  ✓   719 …ts/songs-ime.spec.mjs:202:1 › 組字：自訂名稱組字中按 Enter 不送出 (1.5s)
+      720 tests/songs-journey.spec.mjs:23:1 › 整合：舊版使用者的一整天
+  ✓   721 tests/songs-migrate.spec.mjs:14:1 › 遷移：一字不少 (1.2s)
+  ✓   722 tests/songs-migrate.spec.mjs:46:1 › 遷移：重開三次只有一首 (2.4s)
+  ✓   690 tests/songs-delete.spec.mjs:391:1 › 刪除歌曲：觸控目標 (4.9s)
+  ✓   723 tests/songs-migrate.spec.mjs:63:1 › 遷移：中斷後重開 (1.2s)
+  ✓   681 …ts/songs-delete.spec.mjs:134:1 › 刪除歌曲：從自動備份救回刪掉的歌 (6.3s)
+  ✓   724 tests/songs-migrate.spec.mjs:77:1 › 遷移：兩個分頁同時升級 (910ms)
+  ✓   725 tests/songs-migrate.spec.mjs:99:1 › 遷移：沒有舊歌詞 (3.0s)
+  ✓   726 tests/songs-migrate.spec.mjs:113:1 › 遷移：舊歌詞損毀 (1.2s)
+  ✓   727 tests/songs-migrate.spec.mjs:128:1 › 遷移：寫入失敗會退回 (1.3s)
+  ✓   615 …sts/sections-ui.spec.mjs:997:1 › 設定：觸控點擊範圍與輸入框 16px (16.6s)
+  ✓   728 tests/songs-migrate.spec.mjs:149:1 › 遷移：備份存不下就不升級 (1.5s)
+  ✓   729 tests/songs-migrate.spec.mjs:160:1 › 遷移：只有升級的那一頁知道 (1.9s)
+  ✓   730 tests/songs-model.spec.mjs:20:1 › 資料為準：升級後顯示我的第一首歌 (1.6s)
+  ✓   731 tests/songs-model.spec.mjs:36:1 › 資料為準：原樣顯示 (1.6s)
+  ✓   732 tests/songs-model.spec.mjs:75:1 › 資料為準：用段落 id 對應 (2.1s)
+  ✓   733 tests/songs-model.spec.mjs:56:1 › 資料為準：畫面被改動不會寫回 (1.6s)
+  ✓   734 tests/songs-model.spec.mjs:103:1 › 資料為準：預設段落名稱 (1.3s)
+  ✓   735 …sts/songs-model.spec.mjs:112:1 › 資料為準：標籤與情境跟著這首歌存 (1.9s)
+  ✓   736 …songs-model.spec.mjs:128:1 › 資料為準：歌詞清空不會清掉標籤與情境 (1.7s)
+  ✓   737 tests/songs-model.spec.mjs:138:1 › 資料為準：舊鍵不再寫入 (1.8s)
+  ✓   738 …ngs-model.spec.mjs:158:1 › 資料為準：備份被擋住時維持舊版單首模式 (1.8s)
+  ✓   739 tests/songs-model.spec.mjs:178:5 › 資料為準：lh:songs 損毀 (1.5s)
+  ✓   740 tests/songs-model.spec.mjs:178:5 › 資料為準：lh:songs 空陣列 (1.3s)
+  ✓   741 tests/songs-model.spec.mjs:193:1 › 資料為準：主控台不出現歌詞 (1.3s)
+  ✓   742 tests/songs-model.spec.mjs:234:1 › 資料為準：標籤原樣顯示 (1.4s)
+  ✓   743 tests/songs-model.spec.mjs:211:1 › 資料為準：保留池的字原樣顯示 (1.3s)
+  ✓   744 …sts/songs-model.spec.mjs:250:1 › 資料為準：情境結果寫回原本那首歌 (1.4s)
+  ✓   708 tests/songs-export.spec.mjs:350:1 › 匯出：觸控目標 (5.6s)
+  ✓   745 …› 情境生成：等待期間整份歌曲被換成新物件，結果仍寫進存檔（WR-05） (1.5s)
+  ✓   746 …c.mjs:311:1 › 情境生成：等待期間這首歌被刪掉，不假裝成功（WR-05） (1.5s)
+  ✓   747 ….spec.mjs:327:1 › 情境生成：換歌後不使用上一首歌選取的字（WR-06） (1.4s)
+  ✓   748 …步：自己的存檔失敗時，別頁的更新不會吃掉這頁還沒存的修改（WR-08） (1.4s)
+  ✓   749 …js:385:1 › 載入前：匯出、新增歌曲、匯入都被擋住，不會存出空的備份 (1.6s)
+  ✓   750 …model.spec.mjs:404:1 › 載入失敗：不停在載入中，說明資料沒有被更動 (1.7s)
+  ✓   751 …載入失敗後：「全部還原」仍可使用，還原完整個頁面恢復正常（WR-12） (2.2s)
+  ✓   752 …-model.spec.mjs:449:1 › 載入失敗後：自動備份還原仍可使用（WR-12） (2.1s)
+  ✓   753 …歌曲資料：能用的歌撿回來，原文另存成釘住的備份並提示一次（WR-10） (1.4s)
+  ✓   754 …› 損毀的歌曲資料：完全讀不出來時建立新歌，原文仍在備份裡（WR-10） (1.4s)
+  ✓   755 …490:1 › 凍結期間收到的外部更新不會被丟掉，放開後仍會套用（IN-07） (1.4s)
+  ✓   756 …› 損毀的歌曲資料：固定 id 只留最新一份，內容相同不重複寫（IN-08） (1.4s)
+  ✓   260 …ysis-ui.spec.mjs:679:1 › 換行不變：標記開關前後每個字的位置都一樣 (1.2m)
+  ✓   757 …IndexedDB 時原文有自己的槽，刪歌備份和升級前備份都擠不掉（IN-08） (1.2s)
+  ✓   758 tests/songs-ui.spec.mjs:10:1 › 歌曲清單：打開、新增、切換 (1.8s)
+  ✓   759 tests/songs-ui.spec.mjs:49:1 › 歌曲清單：升級提示只出現一次 (2.1s)
+      760 tests/songs-ui.spec.mjs:84:1 › 歌曲清單：改名
+  ✓   761 tests/songs-ui.spec.mjs:112:1 › 歌曲清單：改名的邊界 (1.9s)
+  ✓   762 tests/songs-ui.spec.mjs:153:1 › 歌曲清單：改別首的名字 (2.8s)
+  ✓   720 tests/songs-journey.spec.mjs:23:1 › 整合：舊版使用者的一整天 (5.1s)
+      763 tests/songs-ui.spec.mjs:166:1 › 歌曲清單：新歌直接改名
+      764 tests/songs-ui.spec.mjs:199:1 › 歌曲清單：編號與同名
+  ✓   765 tests/songs-ui.spec.mjs:225:1 › 歌曲清單：排序穩定 (1.7s)
+  ✓   766 tests/songs-ui.spec.mjs:241:1 › 歌曲清單：鍵盤 (1.5s)
+  ✓   767 tests/songs-ui.spec.mjs:270:1 › 歌曲清單：每首歌各自的標籤與情境 (1.8s)
+  ✓   768 tests/songs-ui.spec.mjs:288:1 › 歌曲清單：AI 讀目前這首 (2.0s)
+  ✓   769 tests/songs-ui.spec.mjs:314:1 › 歌曲清單：推開欄 (2.2s)
+      770 tests/songs-ui.spec.mjs:340:1 › 歌曲清單：覆蓋層不記狀態
+      771 tests/songs-ui.spec.mjs:374:1 › 歌曲清單：跨寬度切換
+      772 tests/songs-ui.spec.mjs:401:1 › 歌曲清單：兩邊面板都開
+  ✓   773 tests/songs-ui.spec.mjs:417:1 › 歌曲清單：三十首歌 (1.6s)
+  ✓   774 tests/songs-ui.spec.mjs:438:1 › 歌曲清單：減少動態 (1.4s)
+      775 tests/songs-ui.spec.mjs:448:1 › 歌曲清單：觸控目標
+      776 tests/songs-ui.spec.mjs:468:1 › 歌曲清單：改名不會被放大
+      777 tests/songs-ui.spec.mjs:485:1 › 歌曲清單：標題列放得下
+  ✓   778 tests/songs-ui.spec.mjs:511:1 › 歌曲清單：舊版單首模式 (1.4s)
+      779 tests/songs-ui.spec.mjs:525:1 › 歌曲清單：收起面板就關掉清單
+  ✓   780 …/split-tags.spec.mjs:27:1 › split：本機 js/css/data 都帶同一個 ?v= (1ms)
+  ✓   781 …/split-tags.spec.mjs:33:1 › split：js/、css/ 每個檔剛好被引用一次 (15ms)
+  ✓   782 …spec.mjs:44:1 › split：data/ 兩支 script 都在、且先於所有 js/ 載入 (3ms)
+  ✓   783 …s:51:1 › split：safety.js 最先、layout.js 緊接其後、其餘照原本順序 (1ms)
+  ✓   784 …ts/split-tags.spec.mjs:61:1 › split：拆檔完成，index.html 只剩骨架 (1ms)
+  ✓   785 …it-tags.spec.mjs:70:1 › split：本機 script（含 data/）一律同步載入 (8ms)
+  ✓   786 …/split-tags.spec.mjs:76:1 › split：檔案編碼 UTF-8 無 BOM、只用 LF (19ms)
+  ✓   787 …字型由 head 連結載入（preconnect＋400/700），base.css 不再 import (4ms)
+  ✓   788 …tags.spec.mjs:107:1 › split：樣式表都在 <head>、排在所有 script 前 (2ms)
+  ✓   789 tests/split-tags.spec.mjs:117:1 › split：樣式表沒有相對路徑 url() (1ms)
+  ✓   790 …:132:1 › split：被註解掉的 script／link 標籤不算有載入（負向對照） (1ms)
+  ✓   791 …js:10:1 › corrupt: 存檔內容損毀時照常開啟、查韻正常、原始內容不動 (1.2s)
+  ✓   792 …pt: haiku_lyrics=null（形狀不對）照常開啟、查韻正常、原始內容不動 (1.2s)
+  ✓   793 …rupt: haiku_lyrics={}（形狀不對）照常開啟、查韻正常、原始內容不動 (1.3s)
+  ✓   794 …rupt: haiku_lyrics=[]（形狀不對）照常開啟、查韻正常、原始內容不動 (1.3s)
+  ✓   795 …t: haiku_savedwords=5（形狀不對）照常開啟、查韻正常、原始內容不動 (1.6s)
+  ✓   796 …pt: haiku_hashtags={}（形狀不對）照常開啟、查韻正常、原始內容不動 (1.7s)
+      797 …s:48:1 › corrupt: 損毀後繼續編輯，原始內容仍另存可救回（歌詞與字庫覆寫）
+  ✓   760 tests/songs-ui.spec.mjs:84:1 › 歌曲清單：改名 (4.1s)
+  ✓   763 tests/songs-ui.spec.mjs:166:1 › 歌曲清單：新歌直接改名 (4.0s)
+  ✓   798 tests/storage.spec.mjs:79:1 › IndexedDB: v1 升級 v2 保留詞庫快取 (1.6s)
+      799 tests/storage.spec.mjs:112:1 › IndexedDB: 舊分頁擋住升級時仍能開啟並查韻
+  ✓   800 …e.spec.mjs:137:1 › backup: 第一次開啟建立基準備份，只含清單內的鍵 (1.5s)
+  ✓   764 tests/songs-ui.spec.mjs:199:1 › 歌曲清單：編號與同名 (4.3s)
+  ✓   801 …s/storage.spec.mjs:153:1 › backup: 舊版資料開啟後每個鍵值完全不變 (1.3s)
+  ✓   802 tests/storage.spec.mjs:161:1 › backup: 基準備份之後不會被覆寫 (1.7s)
+  ✓   771 tests/songs-ui.spec.mjs:374:1 › 歌曲清單：跨寬度切換 (3.5s)
+  ✓   803 …mjs:177:1 › backup: 同一毫秒建立的備份不互相覆蓋，只保留最新 3 份 (1.4s)
+  ✓   804 …age.spec.mjs:197:1 › backup: 全新瀏覽器開啟沒有錯誤並設定資料版本 (1.3s)
+  ✓   805 …07:1 › backup: IndexedDB 無法使用時改存 localStorage 單份並留記錄 (1.3s)
+      806 …s:226:1 › backup: localStorage 備援不含金鑰、太大就不存並跳橫幅（WR-04）
+  ✓   807 …mjs:244:1 › restore: 從 localStorage 備援還原時不會刪掉目前的金鑰 (1.3s)
+  ✓   808 …ts/storage.spec.mjs:259:1 › migrate: 依版本順序執行、每步最多一次 (1.3s)
+  ✓   809 …ts/storage.spec.mjs:277:1 › migrate: 重跑三次結果相同、不多存備份 (1.3s)
+  ✓   779 tests/songs-ui.spec.mjs:525:1 › 歌曲清單：收起面板就關掉清單 (3.4s)
+  ✓   810 tests/storage.spec.mjs:295:1 › migrate: 中途失敗自動還原成升級前 (1.3s)
+  ✓   772 tests/songs-ui.spec.mjs:401:1 › 歌曲清單：兩邊面板都開 (5.1s)
+  ✓   811 …js:323:1 › migrate: 備份等待期間的編輯不會被失敗還原蓋掉（WR-03） (1.4s)
+  ✓   812 …40:1 › migrate: 失敗後還原也失敗時，提示如實說還原沒做完（WR-02） (1.4s)
+  ✓   813 tests/storage.spec.mjs:365:1 › migrate: 遷移步驟不可寫入未登記的鍵 (1.2s)
+      814 tests/storage.spec.mjs:379:1 › migrate: 備份存不進去時不執行遷移
+  ✓   815 tests/storage.spec.mjs:408:1 › restore: 只還原清單內的鍵與字串值 (1.6s)
+  ✓   770 tests/songs-ui.spec.mjs:340:1 › 歌曲清單：覆蓋層不記狀態 (6.6s)
+  ✓   776 tests/songs-ui.spec.mjs:468:1 › 歌曲清單：改名不會被放大 (5.2s)
+  ✓   816 …restore: 還原 IndexedDB 自動備份不會蓋掉或刪掉現在的金鑰（IN-02） (1.5s)
+  ✓   817 …rage.spec.mjs:449:1 › restore: 不是物件的備份內容不會動到任何資料 (1.5s)
+      818 tests/storage.spec.mjs:461:1 › restore: v0.96 舊資料完整備份並可完整還原
+  ✓   797 …› corrupt: 損毀後繼續編輯，原始內容仍另存可救回（歌詞與字庫覆寫） (3.2s)
+  ✓   819 …torage.spec.mjs:483:1 › corrupt: 損毀的原始內容完整保存在基準備份 (1.4s)
+  ✓   820 tests/storage.spec.mjs:509:1 › backup: 兩個分頁同時開啟 (992ms)
+  ✓   821 tests/storage.spec.mjs:526:1 › migrate: 兩個分頁同時遷移 (962ms)
+  ✓   822 tests/style.spec.mjs:19:1 › 視覺：只用 400／700 兩種字重 (33ms)
+  ✓   775 tests/songs-ui.spec.mjs:448:1 › 歌曲清單：觸控目標 (5.7s)
+  ✓   823 ….spec.mjs:46:1 › 視覺：掃描器自檢（會抓到 500 字重與 0.7rem 字級） (1ms)
+  ✓   824 tests/style.spec.mjs:31:1 › 視覺：最小字級 0.75rem (43ms)
+      825 tests/style.spec.mjs:78:1 › 視覺：晝夜預設主題文字對比 ≥ 4.5
+      826 tests/style.spec.mjs:99:1 › 視覺：沒存顏色時用預設底色
+      827 tests/style.spec.mjs:109:1 › 視覺：主題優先順序（存的 > 系統 > 淺色）
+  ✓   828 tests/style.spec.mjs:145:1 › 視覺：hover 只給滑鼠 (45ms)
+      829 tests/style.spec.mjs:158:1 › 視覺：Tab 鍵有清楚焦點框
+  ✓   830 tests/style.spec.mjs:199:1 › 視覺：沒有新的顏色常數 (95ms)
+      831 tests/style.spec.mjs:238:1 › 視覺：系統要求減少動態時不播動畫
+  ✓   777 tests/songs-ui.spec.mjs:485:1 › 歌曲清單：標題列放得下 (6.2s)
+  ✓   832 …yle.spec.mjs:264:1 › 視覺：字卡動畫只動位置與陰影、保留區提示一致 (1.2s)
+  ✓   833 tests/style.spec.mjs:280:1 › 視覺：行動色只在變數定義裡 (4ms)
+  ✓   834 tests/style.spec.mjs:297:1 › 視覺：Phase 7 沒有新的動畫 (51ms)
+fatal: path 'css/print.css' exists on disk, but not in '952d24f'
+      835 tests/undo.spec.mjs:18:1 › 復原：打字後按按鈕與快捷鍵
+      836 tests/undo.spec.mjs:52:1 › 復原：段落操作
+  ✓   837 tests/undo.spec.mjs:77:1 › 復原：連打合併 (1.5s)
+  ✓   814 tests/storage.spec.mjs:379:1 › migrate: 備份存不進去時不執行遷移 (1.7s)
+  ✓   838 tests/undo.spec.mjs:104:1 › 復原：組字一個詞一步 (1.2s)
+      839 tests/undo.spec.mjs:131:1 › 復原：只換一格
+  ✓   840 tests/undo.spec.mjs:169:1 › 復原：不動高度與收合 (1.4s)
+  ✓   806 … › backup: localStorage 備援不含金鑰、太大就不存並跳橫幅（WR-04） (3.0s)
+  ✓   841 tests/undo.spec.mjs:187:1 › 復原：一百步上限 (1.2s)
+  ✓   818 …torage.spec.mjs:461:1 › restore: v0.96 舊資料完整備份並可完整還原 (2.1s)
+  ✓   842 tests/undo.spec.mjs:201:1 › 復原：其他欄位用原生復原 (1.3s)
+對比實測
+淺色 textPrimary(#2d3748) / containerBg(#eee3ce) = 9.43
+淺色 textPrimary(#2d3748) / cardBg(#f7fafc) = 11.44
+淺色 textSecondary(#5a6577) / containerBg(#eee3ce) = 4.64
+淺色 textSecondary(#5a6577) / cardBg(#f7fafc) = 5.62
+深色 textPrimary(#d2c8b7) / containerBg(#111c31) = 10.28
+深色 textPrimary(#d2c8b7) / cardBg(#2d3748) = 7.24
+深色 textSecondary(#a0aec0) / containerBg(#111c31) = 7.54
+深色 textSecondary(#a0aec0) / cardBg(#2d3748) = 5.32
+  ✓   825 tests/style.spec.mjs:78:1 › 視覺：晝夜預設主題文字對比 ≥ 4.5 (1.8s)
+  ✓   826 tests/style.spec.mjs:99:1 › 視覺：沒存顏色時用預設底色 (1.7s)
+  ✓   843 tests/undo.spec.mjs:223:1 › 復原：選單復原也攔 (1.3s)
+  ✓   844 tests/undo.spec.mjs:237:1 › 復原：每首歌各自一條 (1.4s)
+  ✓   845 tests/undo.spec.mjs:259:1 › 復原：別的分頁改了就清空 (1.8s)
+  ✓   846 tests/undo.spec.mjs:282:1 › 復原：罕用字游標 (1.6s)
+  ✓   847 tests/undo.spec.mjs:303:1 › 復原：重新整理就清空 (2.5s)
+  ✓   848 tests/undo.spec.mjs:324:1 › 復原：變灰不丟焦點 (1.4s)
+  ✓   831 tests/style.spec.mjs:238:1 › 視覺：系統要求減少動態時不播動畫 (1.9s)
+  ✓   849 tests/undo.spec.mjs:341:1 › 復原：按鈕不搶走輸入框焦點 (1.4s)
+  ✓   850 tests/undo.spec.mjs:355:1 › 復原：讀屏提示 (1.4s)
+  ✓   835 tests/undo.spec.mjs:18:1 › 復原：打字後按按鈕與快捷鍵 (1.8s)
+  ✓   851 tests/undo.spec.mjs:370:1 › 復原：按鈕說明 (1.3s)
+  ✓   836 tests/undo.spec.mjs:52:1 › 復原：段落操作 (1.6s)
+  ✓   852 tests/undo.spec.mjs:387:1 › 復原：組字中按按鈕不動輸入框 (1.3s)
+  ✓   853 tests/undo.spec.mjs:408:1 › 復原：段落設定選單的名稱框不被攔 (1.5s)
+  ✓   854 …ts/undo.spec.mjs:429:1 › 復原：刪除段落後復原帶回最新的高度與收合 (1.5s)
+  ✓   855 tests/visual.spec.mjs:59:9 › 截圖：phone results (1.7s)
+  ✓   839 tests/undo.spec.mjs:131:1 › 復原：只換一格 (2.2s)
+  ✓   856 tests/visual.spec.mjs:59:9 › 截圖：phone results-dark (1.7s)
+  ✓   857 tests/visual.spec.mjs:59:9 › 截圖：phone lyrics (1.9s)
+  ✓   858 tests/visual.spec.mjs:59:9 › 截圖：phone ai (1.9s)
+  ✓   859 tests/visual.spec.mjs:59:9 › 截圖：phone custom (1.9s)
+  ✓   860 tests/visual.spec.mjs:59:9 › 截圖：tablet results (1.9s)
+  ✓   861 tests/visual.spec.mjs:59:9 › 截圖：tablet results-dark (1.9s)
+  ✓   862 tests/visual.spec.mjs:59:9 › 截圖：tablet lyrics (1.8s)
+  ✓   863 tests/visual.spec.mjs:59:9 › 截圖：tablet ai (1.9s)
+  ✓   864 tests/visual.spec.mjs:59:9 › 截圖：tablet custom (2.0s)
+  ✓   865 tests/visual.spec.mjs:59:9 › 截圖：desktop results (2.0s)
+  ✓   827 …s/style.spec.mjs:109:1 › 視覺：主題優先順序（存的 > 系統 > 淺色） (4.6s)
+  ✓   866 tests/visual.spec.mjs:59:9 › 截圖：desktop results-dark (2.1s)
+  ✓   867 tests/visual.spec.mjs:59:9 › 截圖：desktop lyrics (1.9s)
+  ✓   868 tests/visual.spec.mjs:59:9 › 截圖：desktop ai (2.0s)
+  ✓   869 tests/visual.spec.mjs:59:9 › 截圖：desktop custom (1.9s)
+  ✓   829 tests/style.spec.mjs:158:1 › 視覺：Tab 鍵有清楚焦點框 (5.1s)
+  ✓   870 …/visual.spec.mjs:78:5 › 截圖：只有一個字的群組不會被撐滿（phone） (2.1s)
+  ✓   871 …visual.spec.mjs:78:5 › 截圖：只有一個字的群組不會被撐滿（tablet） (1.9s)
+  ✓   872 …isual.spec.mjs:78:5 › 截圖：只有一個字的群組不會被撐滿（desktop） (1.9s)
+  ✓   873 tests/visual.spec.mjs:104:1 › 截圖：手機 150% 長拼音不超出字卡 (3.1s)
+  ✓   874 tests/word-drag.spec.mjs:42:1 › 拖詞：滑鼠拖進指定位置 (1.7s)
+  ✓   875 tests/word-drag.spec.mjs:58:1 › 拖詞：點擊不插入 (1.3s)
+  ✓   876 tests/word-drag.spec.mjs:83:1 › 拖詞：手指長按後拖 (2.2s)
+  ✓   877 tests/word-drag.spec.mjs:99:1 › 拖詞：先滑動就是捲動 (1.9s)
+  ✓   878 tests/word-drag.spec.mjs:117:1 › 拖詞：長按不跳回報選單 (2.8s)
+  ✓   879 tests/word-drag.spec.mjs:145:1 › 拖詞：字卡也能拖 (1.5s)
+  ✓   880 tests/word-drag.spec.mjs:163:1 › 拖詞：不從徽章或回報模式開始 (1.6s)
+  ✓   881 tests/word-drag.spec.mjs:186:1 › 拖詞：放在歌詞外就取消 (2.0s)
+  ✓   882 tests/word-drag.spec.mjs:208:1 › 拖詞：Esc 取消 (1.7s)
+  ✓   883 tests/word-drag.spec.mjs:227:1 › 拖詞：同一個詞拖兩次 (2.0s)
+  ✓   884 tests/word-drag.spec.mjs:245:1 › 拖詞：組字中放開不插入 (1.7s)
+  ✓   799 …orage.spec.mjs:112:1 › IndexedDB: 舊分頁擋住升級時仍能開啟並查韻 (10.7s)
+  ✓   885 tests/word-drag.spec.mjs:265:1 › 拖詞：中斷就收 (1.7s)
+  ✓   886 tests/word-drag.spec.mjs:282:1 › 拖詞：歌詞面板收著 (1.6s)
+  ✓   887 tests/word-drag.spec.mjs:297:1 › 拖詞：特殊字元原樣插入 (1.6s)
+      888 tests/word-drag.spec.mjs:332:1 › 拖詞：手機自動切到歌詞
+  ✓   889 tests/word-drag.spec.mjs:362:1 › 拖詞：手機中斷會回到原分頁 (2.1s)
+  ✓   890 tests/word-drag.spec.mjs:377:1 › 拖詞：大螢幕不切分頁 (1.9s)
+      891 tests/word-drag.spec.mjs:397:1 › 拖詞：停在收合段落會展開
+      892 tests/word-drag.spec.mjs:456:1 › 拖詞：游標索引對得上
+      893 tests/word-drag.spec.mjs:471:1 › 拖詞：長句換行游標
+  ✓   894 tests/word-drag.spec.mjs:483:1 › 拖詞：超長段落 (1.9s)
+  ✓   895 tests/word-drag.spec.mjs:504:1 › 拖詞：不切開罕用字 (1.8s)
+  ✓   896 tests/word-drag.spec.mjs:549:1 › 拖詞：讀屏提示 (1.7s)
+      897 tests/word-drag.spec.mjs:529:1 › 拖詞：靠邊自動捲
+      898 …che.spec.mjs:25:1 › 慢速：詞庫還沒載完就按 AI 建議，會等詞庫、不誤觸造詞
+  ✓   899 …-cache.spec.mjs:46:1 › 慢速：等詞庫期間換了搜尋，那次按鈕動作作廢 (1.5s)
+      900 …he.spec.mjs:71:1 › 版本：改版時整套換新、缺一段就保留舊的整套、網址帶 v=
+  ✓   901 ….mjs:193:1 › 非 200：詞庫分段回 500 會留下記錄、AI 不會用殘缺詞庫 (1.3s)
+      902 …pec.mjs:217:1 › 修正檔格式壞掉：詞庫照樣載入（原樣、不套修正），只留記錄
+      903 …:5 › 快取寫入失敗（throw）：舊版整套完好、記憶體照用新詞庫、下次載入補好
+      904 …:5 › 快取寫入失敗（abort）：舊版整套完好、記憶體照用新詞庫、下次載入補好
+      905 …wordlist-cache.spec.mjs:322:1 › 版本：兩個分頁同時換版不會看到混合的詞庫
+      906 …st-cache.spec.mjs:386:1 › 版本：非預設詞庫包改版時只換該包、缺段保留舊版
+  ✓   907 …feedback 正確來源 → 200 {ok:true}，存入欄位加 ISO ts，key 格式不變 (7ms)
+  ✓   908 …min：/feedback 其他來源 → 403 Forbidden 且不寫入；缺 Origin 也一樣 (3ms)
+  ✓   909 …eedback 非 POST → 405 Method Not Allowed（先判斷方法，再判斷來源） (2ms)
+  ✓   910 …:51:1 › admin：/feedback 內容不是 JSON → 500 {error}（沿用舊格式） (1ms)
+  ✓   911 …29 {error}，不寫 KV；key 帶 fb: 前綴；沒有限流器或限流器壞掉就放行 (4ms)
+  ✓   912 …/feedback 超過 8 KB 回 413 {error}，不寫 KV；剛好 8192 位元組放行 (3ms)
+  ✓   913 …/reports.json 依 ts 新到舊，附 kvKey，壞掉的值丟掉，CORS 標頭照舊 (2ms)
+  ✓   914 …eports.json 鍵很多時用 cursor 一頁一頁列完，全部回傳，不加截斷標頭 (2ms)
+  ✓   915 … 筆 → 只讀最新 800 筆（依鍵名的時間前綴），回 X-Reports-Truncated (14ms)
+  ✓   916 …spec.mjs:149:1 › admin：/reports.json 金鑰錯或沒給 → 403 Forbidden (3ms)
+  ✓   917 …eports/decision agreed 帶 action → 寫入 status、decided_at、action (2ms)
+  ✓   918 …› admin：/reports/decision agreed 沒帶 action → 舊的 action 被移除 (2ms)
+  ✓   919 …admin：/reports/decision pending → 清掉 status、decided_at、action (2ms)
+  ✓   920 …in：/reports/decision 缺 kvKey 或 status → 400；找不到 kvKey → 404 (4ms)
+  ✓   921 …orts/decision 金鑰先於方法檢查（錯金鑰 → 403，對金鑰但 GET → 405） (2ms)
+  ✓   922 …rts/delete 刪掉指定的一筆；缺 kvKey → 400；錯金鑰 → 403；GET → 405 (4ms)
+  ✓   923 …-admin.spec.mjs:232:1 › admin：/reports 舊的 HTML 視圖 → 410 Moved (1ms)
+  ✓   924 …:1 › admin：回報路徑不影響 AI 路徑（/models 照常、未知路徑仍 404） (1ms)
+  ✓   925 …-Key header（不帶網址金鑰）→ 200 陣列；錯的 header → 403 Forbidden (2ms)
+  ✓   926 …reports/decision 與 /reports/delete 用 header 的結果和網址金鑰相同 (3ms)
+  ✓   927 …用 header → 沒有紀錄 404；網址金鑰不再收（WR-04）；錯 header → 403 (2ms)
+  ✓   928 …沒設金鑰（空字串）時，空 header、空網址金鑰在每個後台路徑都被拒絕 (2ms)
+  ✓   929 … 403 仍是純文字 Forbidden，但帶 CORS 標頭（跨來源的後台才讀得到） (7ms)
+  ✓   930 …TIONS /corrections/apply → 204，允許 X-Admin-Key，結果快取 7200 秒 (1ms)
+  ✓   931 ….spec.mjs:29:1 › 逾時：第一個模型卡住，換下一個回答並回報 timeout (65ms)
+  ✓   932 ….mjs:40:1 › 429：換下一個，帶 retry-after 的模型下一次請求不再被打 (8ms)
+  ✓   933 …Gemini 在錯誤內容裡寫的 retryDelay 也當冷卻時間（不在回應裡出現） (5ms)
+[好韻器] 模型 gemini-3.5-flash-lite 回 429 quota
+[好韻器] 模型 gemini-3.5-flash-lite 回 429 {"error":{"details":[{"retryDelay":"12s"}]}}
+  ✓   934 …ec.mjs:63:1 › 分類：404 換下一個，並把該模型當失效、下一次請求跳過 (3ms)
+[好韻器] 模型 gemini-3.5-flash-lite 回 404
+  ✓   935 …spec.mjs:85:1 › 分類：413 換下一個，但不冷卻、下一次請求還會再試它 (2ms)
+  ✓   936 tests/worker-ai.spec.mjs:73:1 › 分類：500 與 408 都換下一個 (3ms)
+[好韻器] 模型 gemini-3.5-flash-lite 回 413
+[好韻器] 模型 gemini-3.5-flash-lite 回 500
+[好韻器] 模型 gemini-3.5-flash-lite 回 408
+  ✓   937 …分類：Gemini 回 401 整家冷卻，改打 Groq，下一次請求完全不打 Gemini (3ms)
+  ✓   938 …405 每個模型都這樣回才算 BAD_REQUEST（試滿 4 個，不洩漏上游內文） (9ms)
+  ✓   939 …個模型回 400 只讓它休息，鏈繼續走；下一次請求跳過它、其他模型照常 (3ms)
+[好韻器] 模型 gemini-3.5-flash-lite 回 401
+[好韻器] 模型 gemini-3.5-flash-lite 回 400 UPSTREAM-SECRET-TEXT
+[好韻器] 模型 gemini-3.8-flash 回 400 UPSTREAM-SECRET-TEXT
+[好韻器] 模型 gemini-3.7-flash 回 400 UPSTREAM-SECRET-TEXT
+[好韻器] 模型 openai/gpt-oss-120b 回 400 UPSTREAM-SECRET-TEXT
+[好韻器] 模型 gemini-3.5-flash-lite 回 400 model decommissioned
+[好韻器] 模型 gemini-3.5-flash-lite 回 430 UPSTREAM-SECRET-TEXT
+[好韻器] 模型 gemini-3.8-flash 回 430 UPSTREAM-SECRET-TEXT
+[好韻器] 模型 gemini-3.7-flash 回 430 UPSTREAM-SECRET-TEXT
+[好韻器] 模型 openai/gpt-oss-120b 回 430 UPSTREAM-SECRET-TEXT
+[好韻器] 模型 gemini-3.5-flash-lite 回 499 UPSTREAM-SECRET-TEXT
+[好韻器] 模型 gemini-3.8-flash 回 499 UPSTREAM-SECRET-TEXT
+[好韻器] 模型 gemini-3.7-flash 回 499 UPSTREAM-SECRET-TEXT
+[好韻器] 模型 openai/gpt-oss-120b 回 499 UPSTREAM-SECRET-TEXT
+  ✓   940 …說金鑰無效，整家 Gemini 休息，改打 Groq，下一次請求完全不打 Gemini (2ms)
+[好韻器] 模型 gemini-3.5-flash-lite 回 405 UPSTREAM-SECRET-TEXT
+[好韻器] 模型 gemini-3.8-flash 回 405 UPSTREAM-SECRET-TEXT
+[好韻器] 模型 gemini-3.7-flash 回 405 UPSTREAM-SECRET-TEXT
+[好韻器] 模型 openai/gpt-oss-120b 回 405 UPSTREAM-SECRET-TEXT
+  ✓   941 …› CR-02：400 混著 503 不算請求錯誤，回 ALL_BUSY 而不是 BAD_REQUEST (2ms)
+[好韻器] 模型 gemini-3.5-flash-lite 回 400 {"error":{"status":"INVALID_ARGUMENT","message":"API key not valid. Please pass a valid API key."}}
+[好韻器] 模型 gemini-3.5-flash-lite 回 400
+  ✓   942 …/408 重試而 430 不重試、499 不重試而 500 重試、404 失效而 405 停止 (1ms)
+[好韻器] 模型 gemini-3.8-flash 回 503
+[好韻器] 模型 gemini-3.7-flash 回 400
+[好韻器] 模型 openai/gpt-oss-120b 回 503
+  ✓   943 …失敗：回 503 ALL_BUSY、白話訊息、最多 4 次嘗試，不帶上游原文與金鑰 (3ms)
+[好韻器] 模型 gemini-3.5-flash-lite 回 503 UPSTREAM-SECRET-TEXT ***
+[好韻器] 模型 gemini-3.8-flash 回 503 UPSTREAM-SECRET-TEXT ***
+[好韻器] 模型 gemini-3.7-flash 回 503 UPSTREAM-SECRET-TEXT ***
+[好韻器] 模型 openai/gpt-oss-120b 回 503 UPSTREAM-SECRET-TEXT ***
+  ✓   944 …/worker-ai.spec.mjs:184:1 › 全部失敗：每個都回空字串時代碼是 EMPTY (1ms)
+  ✓   945 …s:194:1 › 全部失敗：所有模型都在冷卻時，仍然打冷卻最早結束的那一個 (2ms)
+[好韻器] 模型 gemini-3.5-flash-lite 回 503
+[好韻器] 模型 gemini-3.8-flash 回 503
+[好韻器] 模型 gemini-3.7-flash 回 503
+[好韻器] 模型 openai/gpt-oss-120b 回 503
+[好韻器] 模型 qwen/qwen3.8-27b 回 503
+[好韻器] 模型 openai/gpt-oss-20b 回 503
+[好韻器] 模型 gemini-3.5-flash-lite 回 503
+  ✓   946 …i.spec.mjs:209:1 › 預算：每次都卡住時，超過總預算就不再開新的嘗試 (63ms)
+      947 …ec.mjs:221:1 › WR-01：單次嘗試被壓在剩餘預算內，整條鏈不會超過總預算太多
+      948 …R-01：讀本文時逾時算 timeout，不是空回覆（最後是 ALL_BUSY 而不是 EMPTY）
+  ✓   893 tests/word-drag.spec.mjs:471:1 › 拖詞：長句換行游標 (2.4s)
+  ✓   949 …› WR-05：沒收尾的 <think> 當空回覆，換下一個模型；有收尾的照舊剝掉 (4ms)
+  ✓   950 ….spec.mjs:257:1 › WR-05：每個模型都只吐沒收尾的 <think> 時回 EMPTY (1ms)
+  ✓   951 …thinkingLevel LOW 只給 3.8/3.7、不送 thinkingBudget、輸出上限 2048 (4ms)
+[好韻器] 模型 gemini-3.5-flash-lite 回 503
+[好韻器] 模型 gemini-3.8-flash 回 503
+[好韻器] 模型 gemini-3.7-flash 回 503
+[好韻器] 模型 openai/gpt-oss-120b 回 503
+  ✓   952 …on_tokens ≤ 1024、gpt-oss 帶 reasoning_effort low、沒有 max_tokens (4ms)
+[好韻器] 模型 openai/gpt-oss-20b 回 503
+[好韻器] 模型 gemini-3.5-flash-lite 回 503
+[好韻器] 模型 gemini-3.8-flash 回 503
+[好韻器] 模型 gemini-3.7-flash 回 503
+[好韻器] 模型 qwen/qwen3.8-27b 回 503
+  ✓   953 …ni 回 400 提到 thinking 時，同一個模型去掉 thinkingConfig 重試一次 (2ms)
+      953 …：Gemini 回 400 提到 thinking 時，同一個模型去掉 thinkingConfig 重試一次
+[好韻器] 模型 gemini-3.8-flash 回 400 {"error":{"message":"Thinking level not supported"}}
+  ✓   954 …：thinking 重試只做一次，第二次仍 400 就放棄這個模型（不再第三次） (3ms)
+[好韻器] 模型 gemini-3.8-flash 回 400 thinking again
+[好韻器] 模型 gemini-3.8-flash 回 400 thinking again
+[好韻器] 模型 gemini-3.5-flash-lite 回 400 thinking again
+[好韻器] 模型 gemini-3.7-flash 回 400 thinking again
+  ✓   955 …i.spec.mjs:327:1 › 順序：auto 依登記順序，Gemini 三個之後才是 Groq (2ms)
+[好韻器] 模型 gemini-3.5-flash-lite 回 503
+[好韻器] 模型 gemini-3.8-flash 回 503
+[好韻器] 模型 gemini-3.7-flash 回 503
+  ✓   956 …r-ai.spec.mjs:335:1 › 順序：名單內的偏好模型排第一，其餘照登記順序 (1ms)
+[好韻器] 模型 openai/gpt-oss-120b 回 503
+[好韻器] 模型 openai/gpt-oss-20b 回 503
+[好韻器] 模型 gemini-3.5-flash-lite 回 503
+[好韻器] 模型 gemini-3.8-flash 回 503
+[好韻器] 模型 gemini-3.7-flash 回 503
+  ✓   957 …i.spec.mjs:343:1 › 順序：提示太長時預先跳過 Groq，只剩 Gemini 三個 (3ms)
+  ✓   958 …個請求同時進來而第一個模型卡住，兩個都由第二個模型回答並回報逾時 (64ms)
+[好韻器] 模型 gemini-3.5-flash-lite 回 503
+[好韻器] 模型 gemini-3.8-flash 回 503
+[好韻器] 模型 gemini-3.7-flash 回 503
+  ✓   898 …c.mjs:25:1 › 慢速：詞庫還沒載完就按 AI 建議，會等詞庫、不誤觸造詞 (1.9s)
+  ✓   959 …er-ai.spec.mjs:377:1 › 舊版：_provider gemini 收到 candidates 格式 (2ms)
+  ✓   960 …ker-ai.spec.mjs:386:1 › 舊版：_provider groq 收到 choices 與 usage (4ms)
+  ✓   961 …ovider github 也由換手鏈回答，回 choices 格式（沒有 usage 就不放） (1ms)
+  ✓   962 …› 舊版：已下架的模型 id 當自動，第一個上游呼叫就是登記的第一個模型 (5ms)
+  ✓   963 …ker-ai.spec.mjs:416:1 › 舊版：名單內的模型 id 仍當偏好，排在最前面 (2ms)
+  ✓   964 …版：全部上游失敗回 503 與 {error:{message}} 白話訊息，不帶上游原文 (2ms)
+[好韻器] 模型 gemini-3.5-flash-lite 回 503 UPSTREAM-SECRET-TEXT
+[好韻器] 模型 gemini-3.8-flash 回 503 UPSTREAM-SECRET-TEXT
+[好韻器] 模型 gemini-3.7-flash 回 503 UPSTREAM-SECRET-TEXT
+[好韻器] 模型 openai/gpt-oss-120b 回 503 UPSTREAM-SECRET-TEXT
+  ✓   965 …/worker-ai.spec.mjs:435:1 › 舊版：來源不對回 403，而且完全不打上游 (2ms)
+  ✓   966 …45:1 › 舊版：body 壞掉或 messages 不是陣列回 400，不讓換手鏈出例外 (4ms)
+  ✓   892 tests/word-drag.spec.mjs:456:1 › 拖詞：游標索引對得上 (2.7s)
+  ✓   967 …ai.spec.mjs:495:1 › 白名單：auto、沒寫 model、名單內每個 id 都放行 (6ms)
+  ✓   968 …› 白名單：舊版根路徑的未知模型當 auto 照常回答（老頁面自己好起來） (1ms)
+  ✓   969 …好 65,536 位元組放行（有無 Content-Length 都一樣），65,537 回 413 (4ms)
+  ✓   970 …0:1 › 白名單：不在名單的模型回 400 MODEL_NOT_ALLOWED，完全不打上游 (4ms)
+  ✓   971 …串流、謊報 100 的 Content-Length、宣告 999999 都回 413，零上游呼叫 (3ms)
+  ✓   972 …字元數，21,846 個「音」（65,538 位元組，字元數低於 24,000）回 413 (2ms)
+  ✓   973 ….mjs:552:1 › 上限：超過上限就停止讀取串流（不會把 70 KB 全部讀完） (2ms)
+  ✓   974 ….spec.mjs:580:1 › 上限：prompt 剛好 24,000 字放行，24,001 字回 413 (3ms)
+  ✓   975 …c.mjs:593:1 › 上限：舊版 messages 剛好 8 則放行，9 則與 0 則回 400 (2ms)
+  ✓   976 …1 › 上限：不是 JSON 或 prompt 缺、空、不是字串都回 400 BAD_REQUEST (4ms)
+      977 …：舊版 messages 內容合計超過 24,000 字回 413；非字串內容或未知角色回 400
+      978 …token：maxTokens 99999 → Gemini 2048、Groq 1024；50 維持 50；沒給用 2048
+      979 …re 5 → 1、-1 → 0、字串 → 0.95；舊版 max_tokens 與 temperature 同樣被夾住
+[好韻器] 模型 gemini-3.5-flash-lite 回 503
+[好韻器] 模型 gemini-3.5-flash-lite 回 503
+[好韻器] 模型 gemini-3.8-flash 回 503
+[好韻器] 模型 gemini-3.7-flash 回 503
+[好韻器] 模型 openai/gpt-oss-120b 回 503
+[好韻器] 模型 qwen/qwen3.8-27b 回 503
+[好韻器] 模型 openai/gpt-oss-20b 回 503
+[好韻器] 模型 gemini-3.8-flash 回 503
+[好韻器] 模型 gemini-3.7-flash 回 503
+[好韻器] 模型 openai/gpt-oss-120b 回 503
+[好韻器] 模型 gemini-3.5-flash-lite 回 503
+[好韻器] 模型 gemini-3.8-flash 回 503
+[好韻器] 模型 gemini-3.7-flash 回 503
+[好韻器] 模型 openai/gpt-oss-120b 回 503
+[好韻器] 模型 gemini-3.5-flash-lite 回 503
+[好韻器] 模型 gemini-3.8-flash 回 503
+[好韻器] 模型 gemini-3.7-flash 回 503
+[好韻器] 模型 openai/gpt-oss-120b 回 503
+[好韻器] 模型 gemini-3.5-flash-lite 回 503
+[好韻器] 模型 gemini-3.8-flash 回 503
+[好韻器] 模型 gemini-3.7-flash 回 503
+[好韻器] 模型 openai/gpt-oss-120b 回 503
+[好韻器] 模型 gemini-3.5-flash-lite 回 503
+[好韻器] 模型 gemini-3.8-flash 回 503
+[好韻器] 模型 gemini-3.7-flash 回 503
+[好韻器] 模型 openai/gpt-oss-120b 回 503
+  ✓   977 … messages 內容合計超過 24,000 字回 413；非字串內容或未知角色回 400 (4ms)
+[好韻器] 模型 gemini-3.5-flash-lite 回 503
+[好韻器] 模型 gemini-3.8-flash 回 503
+[好韻器] 模型 gemini-3.7-flash 回 503
+[好韻器] 模型 openai/gpt-oss-120b 回 503
+[好韻器] 模型 gemini-3.5-flash-lite 回 503
+[好韻器] 模型 gemini-3.8-flash 回 503
+[好韻器] 模型 gemini-3.7-flash 回 503
+  ✓   980 …、沒帶 Origin、長得像的網址都回 403，三條路徑都一樣，完全不打上游 (14ms)
+[好韻器] 模型 openai/gpt-oss-120b 回 503
+[好韻器] 模型 gemini-3.5-flash-lite 回 503
+[好韻器] 模型 gemini-3.8-flash 回 503
+[好韻器] 模型 gemini-3.7-flash 回 503
+[好韻器] 模型 openai/gpt-oss-120b 回 503
+  ✓   979 … 1、-1 → 0、字串 → 0.95；舊版 max_tokens 與 temperature 同樣被夾住 (4ms)
+  ✓   981 …mjs:704:1 › 來源：正式網站放行並回聲在 Access-Control-Allow-Origin (3ms)
+[好韻器] 模型 gemini-3.5-flash-lite 回 503
+[好韻器] 模型 gemini-3.8-flash 回 503
+[好韻器] 模型 gemini-3.7-flash 回 503
+[好韻器] 模型 openai/gpt-oss-120b 回 503
+[好韻器] 模型 gemini-3.5-flash-lite 回 503
+[好韻器] 模型 gemini-3.8-flash 回 503
+[好韻器] 模型 gemini-3.7-flash 回 503
+[好韻器] 模型 openai/gpt-oss-120b 回 503
+[好韻器] 模型 gemini-3.5-flash-lite 回 503
+[好韻器] 模型 gemini-3.8-flash 回 503
+[好韻器] 模型 gemini-3.7-flash 回 503
+[好韻器] 模型 openai/gpt-oss-120b 回 503
+  ✓   982 … 127.0.0.1 沒開開關一律 403，開了 ALLOW_LOCAL_ORIGIN 才放行並回聲 (12ms)
+  ✓   978 …maxTokens 99999 → Gemini 2048、Groq 1024；50 維持 50；沒給用 2048 (12ms)
+  ✓   983 …來源：開關打開時，長得像 localhost 的網址與非 http(s) 協定仍回 403 (9ms)
+  ✓   984 …ER 回 success:false 時 /ai 與根路徑回 429 RATE_LIMITED，零上游呼叫 (3ms)
+[好韻器] Origin 無法解析 Invalid URL
+[好韻器] Origin 無法解析 Invalid URL
+[好韻器] Origin 無法解析 Invalid URL
+[好韻器] Origin 無法解析 Invalid URL
+[好韻器] Origin 無法解析 Invalid URL
+[好韻器] Origin 無法解析 Invalid URL
+  ✓   985 …ey 是 CF-Connecting-IP，沒有這個標頭用 unknown；限流在讀 body 之前 (3ms)
+  ✓   986 … :: 縮寫與大小寫）、IPv4 完整位址、IPv4 映射還原、沒標頭是 unknown (2ms)
+  ✓   987 …流壞掉）回 500 JSON 帶 CORS，不洩漏內部細節，新舊格式都讀得到訊息 (5ms)
+  ✓   988 … AI_LIMITER 綁定照常服務；限流器丟例外也放行並記一行 console.error (4ms)
+  ✓   989 …ts/worker-ai.spec.mjs:823:1 › 限流：/models 與回報路徑不受限流影響 (1ms)
+  ✓   891 tests/word-drag.spec.mjs:397:1 › 拖詞：停在收合段落會展開 (2.9s)
+  ✓   948 …本文時逾時算 timeout，不是空回覆（最後是 ALL_BUSY 而不是 EMPTY） (247ms)
+  ✓   990 …/429 的內文與金鑰不出現在 /ai 與舊版回應，也不出現在 console.error (9ms)
+  ✓   991 tests/worker-config.spec.mjs:13:1 › config：wrangler.toml 形狀 (5ms)
+      992 …worker-config.spec.mjs:53:1 › config：dry-run 部署離線可跑、重跑結果相同
+  ✓   993 …：被拒絕的請求（白名單、過大、來源、限流）回應也不帶金鑰或上游資訊 (8ms)
+      994 tests/worker-config.spec.mjs:38:1 › config：金鑰不在 git
+      995 tests/worker-config.spec.mjs:73:1 › config：KV id 沒填不准部署
+  ✓   996 … Worker：套用「移除詞」→ 200，AI_STATE_KV 恰好寫一次，報告 KV 不動 (7ms)
+  ✓   997 …開讀取只回修正內容，帶 Cache-Control／Vary，KV 讀取走 cacheTtl 30 (7ms)
+  ✓   947 …21:1 › WR-01：單次嘗試被壓在剩餘預算內，整條鏈不會超過總預算太多 (302ms)
+  ✓   998 … Worker：還沒套用過 → 公開讀取回空 view；其他來源 403；非 GET 405 (3ms)
+  ✓   999 …:88:1 › 修正層 Worker：還沒核准的回報 → skipped not_agreed，不寫入 (2ms)
+  ✓  1000 …報合併成一筆；重複套用、字串有標記、請求格式錯誤、rev 不符各有處理 (7ms)
+  ✓   903 …取寫入失敗（throw）：舊版整套完好、記憶體照用新詞庫、下次載入補好 (1.3s)
+  ✓  1001 …s:74:1 › 修正層 Worker：套用沒帶金鑰 → 403 JSON（帶 CORS），不寫入 (3ms)
+  ✓  1002 …› 修正層 Worker：寫入失敗 → 503 KV_BUSY；文件損毀 → 500 且不被蓋掉 (3ms)
+  ✓  1003 …:1 › 修正層 Worker：FakeKV failPut 讓下一次 put 丟錯一次，然後復原 (2ms)
+  ✓  1004 …/worker-corrections.spec.mjs:152:1 › 修正層 Worker：空金鑰一律拒絕 (2ms)
+  ✓  1005 …Worker：FakeKV list 分頁（cursor、limit、pageSize、list_complete） (2ms)
+  ✓  1006 …正層 Worker：FakeKV staleOnce 讓下一次 get 讀到舊值，之後讀到新值 (1ms)
+  ✓  1007 …r-corrections.spec.mjs:145:1 › 修正層 Worker：預檢允許 X-Admin-Key (2ms)
+  ✓   904 …取寫入失敗（abort）：舊版整套完好、記憶體照用新詞庫、下次載入補好 (1.3s)
+  ✓  1008 …orrections.spec.mjs:206:1 › 修正層 Worker：共用向量——base 不被改動 (0ms)
+  ✓  1009 …spec.mjs:213:1 › 修正層 Worker：共用向量——不合格的值一律被驗證擋下 (4ms)
+  ✓  1010 …准動作一次套用，10 筆進修正層、備註略過，公開 view 是資料檔的形狀 (8ms)
+  ✓  1011 …正層 Worker：共用向量——每個 case 重播結果完全相等，再重播一次不變 (45ms)
+  ✓  1012 …2:1 › 修正層 Worker：動作對照——只認 action，不看回報上的 word 欄位 (1ms)
+  ✓  1013 … 修正層 Worker：重按——同一份核准回報套用兩次只留一筆，第二次不寫入 (3ms)
+  ✓  1014 …1 › 修正層 Worker：409——版本號不對就不改；讀到過期的舊文件也擋得住 (3ms)
+  ✓  1015 …——沒有原讀音的修正變成新增；手動新增詞可沒有注音；不合格的值被略過 (3ms)
+  ✓  1016 …—KV 太忙時回白話訊息，儲存的文件原封不動（套用、撤回、清空都一樣） (3ms)
+  ✓  1017 …修正層 Worker：撤回——依 id 移除那一筆，written 不動，view 不再有它 (4ms)
+  ✓  1018 … 修正層 Worker：撤回——同一個詞後來的修正撤掉後，先前的修正重新生效 (3ms)
+  ✓  1019 …不在、或全部不在（404，不寫入）、格式不對（400）、版本不符（409） (11ms)
+  ✓  1020 …s.spec.mjs:398:1 › 修正層 Worker：清空——written 最多留最新 5000 筆 (7ms)
+  ✓  1021 ….mjs:408:1 › 修正層 Worker：清空之後，同一份回報套用會被當成已寫入 (2ms)
+  ✓  1022 …:1 › 修正層 Worker：後台讀取——要金鑰；回整份文件加 view；POST 不行 (5ms)
+  ✓  1023 …kvKey 進 written（不重複），找不到的列在 missing，全找不到就不寫入 (9ms)
+  ✓  1024 …c.mjs:453:1 › 修正層 Worker：上限——修正層滿 2000 筆就不再套用新的 (16ms)
+  ✓  1025 …正層 Worker：只有已核准的回報進得了修正層（用戶端送的內容不算數） (2ms)
+  ✓  1026 … Worker：損毀——每一條路徑都回 500 LAYER_CORRUPT，儲存的值不被蓋掉 (7ms)
+  ✓  1027 … status:agreed 已經在 KV 裡，沒有後台寫的 decided_by 也不會被套用 (1ms)
+  ✓  1028 …駁回就拿掉；/feedback 仍保留字串欄位（ai-word-suggest 的 action） (6ms)
+  ✓  1029 …線的回報不能改成別的狀態、不能刪除（409），要先撤回；撤回之後可以 (6ms)
+  ✓  1030 …陌生人 POST /feedback 偽造 status:agreed＋action，不會被套用到線上 (6ms)
+  ✓  1031 … WR-02：撤回時改回待審失敗，撤回照樣生效，回應告訴後台哪幾筆沒改成 (2ms)
+  ✓  1032 … /health* 不收網址金鑰；舊的 /reports* 還收；錯長度的金鑰也是 403 (4ms)
+  ✓  1033 … adm: 限流額度（對的金鑰不吃）；被限流回 429；沒有限流器就只回 403 (3ms)
+  ✓  1034 tests/worker-health.spec.mjs:25:1 › 淘汰：常數是 183 天與至少 2 個 (0ms)
+  ✓  1035 …的真實名單、全部健康，六個都留著（gpt-oss 雖舊但沒有更新的同家族） (1ms)
+  ✓  1036 … › WR-02：撤回之後，來源回報改回待審，下一次套用不會把它又放回線上 (4ms)
+  ✓  1037 tests/worker-health.spec.mjs:34:1 › 淘汰：探測失敗的模型被拿掉 (1ms)
+  ✓  1038 …er-health.spec.mjs:40:1 › 淘汰：太舊且同家族有更新又健康的，被拿掉 (1ms)
+  ✓  1039 …ec.mjs:45:1 › 淘汰：太舊但同家族沒有更新的，留著（gpt-oss 這一對） (1ms)
+  ✓  1040 …ealth.spec.mjs:50:1 › 淘汰：更新的健康模型在別的家族，不會擠掉舊的 (0ms)
+  ✓  1041 … › 淘汰：邊界——剛好 183 天還算新，多 1 毫秒就算舊（以 UTC 毫秒計） (1ms)
+  ✓  1042 …spec.mjs:63:1 › 淘汰：至少留兩個，不夠就依登記順序補回健康但太舊的 (1ms)
+  ✓  1043 …ealth.spec.mjs:68:1 › 淘汰：全部探測失敗，回完整名單（依登記順序） (1ms)
+  ✓  1044 …s:74:1 › 淘汰：只有一個健康時湊到兩個，優先補沒被標成失效（404）的 (0ms)
+  ✓  1045 …lth.spec.mjs:82:1 › 淘汰：結果的到達順序不影響輸出，永遠是登記順序 (0ms)
+  ✓  1046 ….mjs:88:1 › 淘汰：Gemini 回報 LEGACY／DEPRECATED／RETIRED 當作太舊 (1ms)
+  ✓  1047 …康：一次檢查只寫一次 KV，內容是 { v, checkedAt, results, active } (5ms)
+     1048 …R-04：暫時性失敗（429/5xx/逾時/網路/空回覆）先重試一次；重試成功就算健康
+  ✓  1049 …用的今天沿用；昨天就是暫時性失敗的才掉出名單；404 不重試也不沿用 (11ms)
+  ✓  1050 ….mjs:189:1 › 健康：Gemini 回 LEGACY 與 retirementTime 會記在結果裡 (2ms)
+  ✓  1051 …hinkingLevel 被 400 退回時，探測去掉思考設定再試一次，不誤判為失效 (4ms)
+     1052 ….spec.mjs:119:1 › 健康：探測失敗的原因記成 timeout／network／http／empty
+  ✓  1052 …s:119:1 › 健康：探測失敗的原因記成 timeout／network／http／empty (124ms)
+  ✓  1054 …js:228:1 › 健康：同樣的上游回答跑兩次，結果與名單相同，各寫一次 KV (3ms)
+     1055 … 72 小時、壞掉、缺 active 的紀錄一律忽略並用完整名單，五分鐘內不重讀 KV
+  ✓  1055 …時、壞掉、缺 active 的紀錄一律忽略並用完整名單，五分鐘內不重讀 KV (4ms)
+  ✓  1056 …s/worker-health.spec.mjs:269:1 › 健康：讀快取——五分鐘後才會再讀 KV (1ms)
+     1057 …ntil 跑健康檢查，KV 裡出現 health 紀錄（controller.cron 為空字串也一樣）
+  ✓  1057 …健康檢查，KV 裡出現 health 紀錄（controller.cron 為空字串也一樣） (2ms)
+on 1 (line 1 column 2)
+[好韻器] 讀取健康檢查紀錄失敗，改用完整模型名單 Cannot read properties of undefined (reading 'get')
+  ✓  1058 …排程之後 model auto 的換手鏈從不打已被淘汰的模型，即使前面的都失敗 (3ms)
+  ✓  1059 …偏好的模型雖在白名單但已被淘汰，請求照收、由啟用的模型回答、不打它 (4ms)
+  ✓   995 tests/worker-config.spec.mjs:73:1 › config：KV id 沒填不准部署 (320ms)
+[好韻器] 模型 gemini-3.5-flash-lite 回 500
+[好韻器] 模型 gemini-3.7-flash 回 500
+[好韻器] 模型 openai/gpt-oss-120b 回 500
+[好韻器] 模型 qwen/qwen3.8-27b 回 500
+  ✓  1060 …康紀錄時，/models 列出全部六個，checkedAt 是 null，鏈也用完整名單 (2ms)
+  ✓   900 ….mjs:71:1 › 版本：改版時整套換新、缺一段就保留舊的整套、網址帶 v= (2.2s)
+  ✓  1061 …發現 gemini-3.8-flash 失效後，/models 只列其餘 5 個並有 checkedAt (7ms)
+  ✓  1062 …js:386:1 › 清單：後台——沒有 USER_REPORT_KEY 設定時，空金鑰也進不去 (1ms)
+  ✓  1063 …:1 › 清單：後台——/health.json 有金鑰回存起來的紀錄，沒有紀錄回 404 (2ms)
+  ✓  1064 …剩 Groq 啟用、提示又很長時，鏈改用完整名單裡吃得下的模型，不丟例外 (2ms)
+  ✓  1065 …單：後台——POST /health/run 立刻探測六個模型並回新紀錄；GET 是 405 (3ms)
+  ✓   905 …-cache.spec.mjs:322:1 › 版本：兩個分頁同時換版不會看到混合的詞庫 (860ms)
+  ✓  1066 …health/run 沒有金鑰、錯的金鑰、空金鑰都回 403 Forbidden 且不打上游 (8ms)
+  ✓  1067 …台——/health* 不收網址上的 ?key=，只認 X-Admin-Key header（WR-04） (1ms)
+  ✓  1048 …時性失敗（429/5xx/逾時/網路/空回覆）先重試一次；重試成功就算健康 (65ms)
+  ✓   994 tests/worker-config.spec.mjs:38:1 › config：金鑰不在 git (1.0s)
+  ✓   897 tests/word-drag.spec.mjs:529:1 › 拖詞：靠邊自動捲 (3.3s)
+  ✓   906 …e.spec.mjs:386:1 › 版本：非預設詞庫包改版時只換該包、缺段保留舊版 (1.6s)
+  ✓   902 …:217:1 › 修正檔格式壞掉：詞庫照樣載入（原樣、不套修正），只留記錄 (2.9s)
+  ✓   992 …config.spec.mjs:53:1 › config：dry-run 部署離線可跑、重跑結果相同 (2.4s)
+  ✓   618 …4:1 › smoke：每個 inline handler 在乾淨環境各點一次，沒有 JS 錯誤 (1.3m)
+
+  29 skipped
+  1038 passed (2.8m)
+> npm run worker:check
+
+
+> worker:check
+> wrangler deploy --dry-run --outdir worker/.wrangler/dryrun --config worker/wrangler.toml
+
+
+ ⛅️ wrangler 4.147.0 (update available 4.157.0)
+───────────────────────────────────────────────
+Total Upload: 50.22 KiB / gzip: 13.78 KiB
+Your Worker has access to the following bindings:
+Binding                                                      Resource
+env.USER_FEEDBACK_KV (b5a54d1504174cbb877b83316c54c7c1)      KV Namespace
+env.AI_STATE_KV (ff372666bc504e28b3784b83202f7499)           KV Namespace
+env.AI_LIMITER (20 requests/60s)                             Rate Limit
+
+--dry-run: exiting now.
+> npm run worker:smoke
+
+> worker:smoke
+> node worker/test/dev-smoke.mjs
+
+✓ wrangler dev 已啟動（workerd + 本機 KV）
+✓ POST /ai 回答了
+✓ GET /models 列出 6 個模型、尚無檢查時間
+✓ 舊版 POST / 以 Gemini 格式回答
+✓ POST /feedback 已儲存
+✓ GET /reports.json 讀得到剛存的回報
+✓ (5a) OPTIONS /corrections/apply 預檢允許 X-Admin-Key
+✓ (5b) POST /feedback 存了「不該出現」的詞回報
+✓ (5b) 用 X-Admin-Key 標頭（網址沒有 key）讀得到那筆回報
+✓ (5b) POST /reports/decision 用標頭金鑰核准
+✓ (5c) 沒有金鑰讀 /corrections/admin.json 得到 403
+✓ (5c) 有金鑰讀 /corrections/admin.json：修正層還是空的、rev 0
+✓ (5c) POST /corrections/apply 套用成功、rev 變 1
+✓ (5d) GET /corrections.json 200 且 Cache-Control 含 max-age=60
+✓ (5d) 公開版有被移除的詞、沒有回報的 kvKey
+✓ (5d) 陌生來源讀 /corrections.json 得到 403
+✓ (5e) POST /corrections/revoke 撤回成功
+✓ (5e) 撤回後公開版不再有那個詞
+✓ 本機排程觸發完成（outcome ok）
+✓ 排程寫入了健康文件（6 個啟用模型）
+✓ POST /health/run 反映壞掉的模型
+✓ GET /models 不再列出壞掉的模型
+✓ 陌生來源打 /ai 得到 403
+✓ 沒有金鑰讀 /health.json 得到 403
+全部通過
+> npm run worker:deploy
+
+
+> worker:deploy
+> node worker/check-ids.mjs && wrangler deploy --config worker/wrangler.toml
+
+
+ ⛅️ wrangler 4.147.0 (update available 4.157.0)
+───────────────────────────────────────────────
+▲ [WARNING] The local configuration being used (generated from your local configuration file) differs from the remote configuration of your Worker set via the Cloudflare Dashboard:
+
+   {
+  -  compatibility_date: "2026-05-07"
+  +  compatibility_date: "2026-10-01"
+  -  preview_urls: false
+  +  preview_urls: true
+     kv_namespaces: [
+       ...
+  +    {
+  +      binding: "AI_STATE_KV"
+  +      id: "ff372666bc504e28b3784b83202f7499"
+  +    }
+     ]
+   }
+
+
+  Uploading the Worker will override the remote configuration with your local one.
+
+
+✔ Would you like to continue? … yes
+Total Upload: 50.22 KiB / gzip: 13.78 KiB
+Worker Startup Time: 2 ms
+Your Worker has access to the following bindings:
+Binding                                                      Resource
+env.USER_FEEDBACK_KV (b5a54d1504174cbb877b83316c54c7c1)      KV Namespace
+env.AI_STATE_KV (ff372666bc504e28b3784b83202f7499)           KV Namespace
+env.AI_LIMITER (20 requests/60s)                             Rate Limit
+
+Uploaded lucky-hawaii (3.04 sec)
+▲ [WARNING] Because your 'workers.dev' route is enabled and your 'preview_urls' setting is not in your Wrangler file, Preview URLs will be enabled for this deployment by default.
+
+  To override this setting, you can disable Preview URLs by explicitly setting 'preview_urls =
+  false' in your Wrangler file.
+
+
+Deployed lucky-hawaii triggers (1.32 sec)
+  https://lucky-hawaii.is3000dollar.workers.dev
+  schedule: 17 19 * * *
+Current Version ID: 8bcdf66b-e35f-4205-9189-4379872a0076
+> read -rs LH_ADMIN_KEY; export LH_ADMIN_KEY
+
+> read -rs LH_ADMIN_KEY; export LH_ADMIN_KEY
+
+> read -rs LH_ADMIN_KEY; export LH_ADMIN_KEY
+
+> read -rs LH_ADMIN_KEY; export LH_ADMIN_KEY
+
+> read -rs LH_ADMIN_KEY; export LH_ADMIN_KEY
+
+> npx wrangler secret put USER_REPORT_KEY --config worker/wrangler.toml
+
+
+ ⛅️ wrangler 4.147.0 (update available 4.157.0)
+───────────────────────────────────────────────
+✔ Enter a secret value: … ***********************
+🌀 Creating the secret for the Worker "lucky-hawaii"
+
+✘ [ERROR] Secret edit failed. You attempted to modify a secret, but the latest version of your Worker isn't currently deployed.
+
+  This limitation exists to prevent accidental deployment when using Worker versions and
+  secrets together.
+  To resolve this, you have two options:
+  (1) use the `wrangler versions secret put` instead, which allows you to update secrets
+  without deploying; or
+  (2) deploy the latest version first, then modify secrets.
+  Alternatively, you can use the Cloudflare dashboard to modify secrets and deploy the version.
+
+
+🪵  Logs were written to "/Users/Will/Library/Preferences/.wrangler/logs/wrangler-2026-11-03_18-19-03_740.log"
+> npx wrangler secret put USER_REPORT_KEY --config worker/wrangler.toml
+
+
+ ⛅️ wrangler 4.147.0 (update available 4.157.0)
+───────────────────────────────────────────────
+✔ Enter a secret value: … ***********************
+🌀 Creating the secret for the Worker "lucky-hawaii"
+✨ Success! Uploaded secret USER_REPORT_KEY
+> read -rs LH_ADMIN_KEY; export LH_ADMIN_KEY
+> read -rs LH_ADMIN_KEY; export LH_ADMIN_KEY
+curl -X POST -H "X-Admin-Key: $LH_ADMIN_KEY" "https://lucky-hawaii.is3000dollar.workers.dev/health/run"
+Forbidden%
+
+ /Users/S/Co/Lucky Hawaii | gsd/v0.96-stabilize >212 !7 ?2                           ok | 22scd "/Users/Shared/Coding Projects/Lucky Hawaii"
+npx wrangler secret put USER_REPORT_KEY --config worker/wrangler.toml
+
+test1234

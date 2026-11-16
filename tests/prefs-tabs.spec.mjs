@@ -25,18 +25,18 @@ test('分頁：結構、無障礙屬性、每個設定都在某個分頁裡', as
     }));
     expect(rel).toEqual([['tabpanel', true, 'true', false, 0], ...Array(5).fill(['tabpanel', true, 'false', true, -1])]);
     // 原本的設定都還在（id 不變），各在自己的分頁
-    const where = await page.evaluate(() => Object.fromEntries(['sBgColor1', 'sContainerBg', 'sTextColor', 'sHighlightColor', 'showPinyin', 'highlightSearch', 'hideRare', 'filterDuplicate', 'lexiconPackList', 'byokProvider', 'byokKey', 'aiTune', 'autoBackupSection', 'mapSettingsSection', 'importFileInput']
+    const where = await page.evaluate(() => Object.fromEntries(['sBgColor1', 'sContainerBg', 'sTextColor', 'sHighlightColor', 'showPinyin', 'highlightSearch', 'hideRare', 'filterDuplicate', 'lexiconPackList', 'byokProvider', 'byokKey', 'aiTune', 'snapList', 'mapSettingsSection', 'importFileInput']
         .map(id => [id, document.getElementById(id)?.closest('[role=tabpanel]')?.id ?? null])));
     expect(where).toEqual({
         sBgColor1: 'prefsPanel-look', sContainerBg: 'prefsPanel-look', sTextColor: 'prefsPanel-look', sHighlightColor: 'prefsPanel-look',
         showPinyin: 'prefsPanel-search', highlightSearch: 'prefsPanel-search', hideRare: 'prefsPanel-search', filterDuplicate: 'prefsPanel-search', lexiconPackList: 'prefsPanel-search', byokProvider: 'prefsPanel-ai', byokKey: 'prefsPanel-ai', aiTune: 'prefsPanel-ai',
-        autoBackupSection: 'prefsPanel-data', mapSettingsSection: 'mapSettingsSection', importFileInput: null,
+        snapList: 'prefsPanel-data', mapSettingsSection: 'mapSettingsSection', importFileInput: null,
     });
     const btnTab = async text => page.locator('.settings-dropdown button', { hasText: text }).first().evaluate(b => b.closest('[role=tabpanel]').id);
     expect(await btnTab('重設顏色!')).toBe('prefsPanel-look');
-    expect(await btnTab('備份全部')).toBe('prefsPanel-data');
-    expect(await btnTab('匯入備份')).toBe('prefsPanel-data');
-    expect(await btnTab('清除字庫 local 覆寫')).toBe('prefsPanel-data');
+    expect(await btnTab('匯出全部專案')).toBe('prefsPanel-data');
+    expect(await btnTab('從檔案匯入')).toBe('prefsPanel-data');
+    expect(await btnTab('匯出設定外觀')).toBe('prefsPanel-data');   // 0.98.21：「清除字庫 local 覆寫」拿掉，位置給儲存空間
     expect(await btnTab('重看功能導覽')).toBe('prefsPanel-help');
     expect(await btnTab('意見回饋')).toBe('prefsPanel-help');
     // 點分頁切換

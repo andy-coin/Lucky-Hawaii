@@ -76,7 +76,7 @@ test('編輯器：電腦單擊歌詞不展開、雙擊展開，游標留在同�
     expect(await FULL(page)).toBe(true);
     const st = await page.evaluate(() => document.activeElement.closest('.lyrics-section')?.dataset.id);
     expect(st).toBe('sb');
-    await page.keyboard.press('End');
+    await page.keyboard.press('ArrowRight');   // 雙擊選了字：右鍵收到選取尾端（Mac 的 End 是捲動，列表能捲時游標不動——0.98.21 加了「＋ 貼上文字」後就能捲了）
     await page.keyboard.type('X');
     await expect.poll(async () => (await activeSongRaw(page)).sections[1].text).toBe('七八九X');
     await page.locator('#undoBtn').click();

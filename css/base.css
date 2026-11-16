@@ -38,6 +38,8 @@
             --accent-soft: color-mix(in srgb, var(--highlight-border) 11%, transparent);
             --accent-line: color-mix(in srgb, var(--highlight-border) 45%, var(--border));
             --accent-strong: color-mix(in srgb, var(--highlight-border) 82%, #000);
+            --mix-dark: #000;   /* 只給 color-mix 調暗／遮罩用（0.98.21 ws-nav、sx 捲動淡出） */
+            --mix-light: #fff;
             --fill-soft: color-mix(in srgb, var(--text-primary) 5%, transparent);
             --font-ui: 'Noto Sans TC', 'PingFang TC', 'Microsoft JhengHei', sans-serif;
             --font-serif: 'Noto Serif TC', 'Songti TC', 'PMingLiU', serif;
@@ -49,6 +51,7 @@
             /* 版面外殼（Phase 5 B-1）：頁面高度＝實際可見高度，扣掉安全區與底部分頁列 */
             --app-h: 100dvh;
             --page-pad: 20px;
+            --pane-gap: var(--page-pad);   /* 面板跟主畫面之間的縫（0.98.21：平板窄一半，見下面） */
             --tabbar-h: max(3.5rem, 48px);
             /* 底部分頁列下面的安全區只留四成（iPhone 的 home 條 34px → 約 14px），分頁按鈕往下貼，面板多出空間（Andy 2026-11-13） */
             --tab-safe: calc(env(safe-area-inset-bottom) * 0.4);
@@ -887,6 +890,8 @@
             color: var(--text-secondary);
             animation: lhPulse 1.6s ease-in-out infinite;
         }
+        /* 宇宙第 1 級整片呼吸（css/panels.css .ws-…；0.98.19 Andy 指定，測試白名單 +1） */
+        @keyframes wsBreath { 0%, 100% { transform: scale(1); } 25% { transform: scale(1.012); } 75% { transform: scale(0.988); } }
         @keyframes lhPulse {
             0%, 100% { opacity: var(--pulse-lo, 0.55); }
             50% { opacity: var(--pulse-hi, 1); }
@@ -1197,9 +1202,9 @@
 }
 .sel-board:empty { display: none; }
 /* 0.98.20 Andy：左右捲的條（已選的字、讀音鈕、AI 選字模式條）哪一邊還有東西就淡出，提示可以滑（js/cards.js lhScrollCue） */
-.sx-r { -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 2.5em), transparent); mask-image: linear-gradient(to right, #000 calc(100% - 2.5em), transparent); }
-.sx-l { -webkit-mask-image: linear-gradient(to left, #000 calc(100% - 2.5em), transparent); mask-image: linear-gradient(to left, #000 calc(100% - 2.5em), transparent); }
-.sx-l.sx-r { -webkit-mask-image: linear-gradient(to right, transparent, #000 2.5em, #000 calc(100% - 2.5em), transparent); mask-image: linear-gradient(to right, transparent, #000 2.5em, #000 calc(100% - 2.5em), transparent); }
+.sx-r { -webkit-mask-image: linear-gradient(to right, var(--mix-dark) calc(100% - 2.5em), transparent); mask-image: linear-gradient(to right, var(--mix-dark) calc(100% - 2.5em), transparent); }
+.sx-l { -webkit-mask-image: linear-gradient(to left, var(--mix-dark) calc(100% - 2.5em), transparent); mask-image: linear-gradient(to left, var(--mix-dark) calc(100% - 2.5em), transparent); }
+.sx-l.sx-r { -webkit-mask-image: linear-gradient(to right, transparent, var(--mix-dark) 2.5em, var(--mix-dark) calc(100% - 2.5em), transparent); mask-image: linear-gradient(to right, transparent, var(--mix-dark) 2.5em, var(--mix-dark) calc(100% - 2.5em), transparent); }
 .results-header.has-sel { margin-bottom: 0; padding-bottom: 1.25rem; }   /* 0.98.10：凍結區包含下面那段留白，字卡捲上去不會貼著數量列被切齊 */
 .results-header.has-sel { position: sticky; top: 0; z-index: 5; background-color: var(--container-bg); background-image: var(--tex-panel); background-attachment: fixed; }
 .results-header.has-sel::before { content: ''; position: absolute; left: 0; right: 0; bottom: 100%; height: 2rem; background: inherit; }   /* 往上多蓋一截同樣的底：捲動區的上內距裡不會露出字卡 */
@@ -1231,3 +1236,13 @@ html :is(.m-zoomOut-button, .m-zoomIn-button, .zoom-reset, .theme-toggle, .help-
 
 /* 標題「韻腳查詢器」：頭尾的「韻」「器」低調地帶一點強調色與微光，和中間三個字分開（Andy 0.98.04） */
 .header h1 .h1-cap { color: color-mix(in srgb, var(--text-primary) 90%, var(--highlight-border)); }   /* 0.98.05：再低調，只帶 10% 強調色、不發光 */
+/* 0.98.21 Andy：放不下時底下一條很淡的捲動軸（軌道＋目前看得到的那段），跟兩側淡出一起提示可以滑（js/cards.js lhScrollCue 設 --sw／--sx） */
+.sx-l, .sx-r {
+    background-image: linear-gradient(color-mix(in srgb, var(--text-primary) 32%, transparent), color-mix(in srgb, var(--text-primary) 32%, transparent)),
+                      linear-gradient(color-mix(in srgb, var(--text-primary) 10%, transparent), color-mix(in srgb, var(--text-primary) 10%, transparent));
+    background-repeat: no-repeat;
+    background-size: var(--sxw, 30%) 2px, 100% 1px;
+    background-position: var(--sxp, 0%) 100%, 0 100%;
+}
+/* 0.98.21 Andy：平板三直排，面板之間的交界縫窄 50%（20px → 10px） */
+@media (pointer: coarse) and (min-width: 901px) { :root { --pane-gap: 10px; } }

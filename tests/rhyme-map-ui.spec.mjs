@@ -296,11 +296,19 @@ test('鏡像對齊：與文字框逐像素相同', async () => {
         st.textContent = col('.section-textarea', m === 'ta' ? taOn : off) + col('.rhyme-mirror', m === 'ta' ? off : taOn)
             + '.section-textarea { caret-color: transparent !important } .rm-hl { background: none !important; box-shadow: none !important; text-decoration: none !important; opacity: 1 !important }';
     }, mode);
+    // 等畫面穩定：連拍到兩張一樣才算（開機後還有東西在收尾時，第一組偶爾會拍到一半，約 1/6 機率誤判）
     const shoot = async mode => {
         await setMode(mode);
         await frames(page);
-        const box = await page.locator('.section-textarea').first().boundingBox();
-        return page.screenshot({ clip: box });
+        let prev = null;
+        for (let i = 0; i < 8; i++) {
+            const box = await page.locator('.section-textarea').first().boundingBox();
+            const img = await page.screenshot({ clip: box });
+            if (prev && prev.equals(img)) return img;
+            prev = img;
+            await frames(page);
+        }
+        return prev;
     };
     const scrollTo = async frac => {
         await page.evaluate(f => { const ta = document.querySelector('.section-textarea'); ta.scrollTop = Math.round((ta.scrollHeight - ta.clientHeight) * f); }, frac);

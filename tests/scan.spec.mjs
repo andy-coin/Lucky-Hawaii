@@ -9,6 +9,7 @@ const DYNAMIC_KEY_FUNCS = {
     handleColorChange: '鍵值由呼叫端傳入四個顏色鍵之一，執行時由 lhAssertKnownKey 檢查',
     lhHasCustomColors: '鍵值來自 js/theme.js 固定的 LH_OLD_DEFAULTS（四個顏色鍵），執行時由 lhAssertKnownKey 檢查',
     loadColors: '鍵值來自 js/theme.js 固定的 LH_COLOR_VARS（四個顏色鍵），執行時由 lhAssertKnownKey 檢查',
+    importSettings: '鍵值來自 lhParseBackup 篩過的設定檔（只留 LH_KEYS 裡的設定鍵），執行時由 lhAssertKnownKey 檢查',
 };
 
 const sortHits = hits => hits.sort((a, b) => a.file.localeCompare(b.file) || a.line - b.line);
@@ -70,8 +71,8 @@ test('registry: 後台金鑰被排除且不在清單內', async ({ browser }) =>
     expect(reg.LH_EXCLUDED_KEYS).toEqual(expect.arrayContaining(['haoYunQi_admin_key', 'haoYunQi_admin_theme']));
     const keys = reg.LH_KEYS.map(k => k.key);
     for (const k of reg.LH_EXCLUDED_KEYS) expect(keys).not.toContain(k);
-    expect(keys).toHaveLength(31);   // 0.98.06 AI 用量 lh:aiTune、本機模型 lh:aiLocal；0.98.05 自訂詞彙加入 lh:customWords   // 三直排查詢區收合加入 resultsPanelCollapsed；平板三直排拉寬加入 lh:panelW；R2 主題加入 lh:bgFx，寬螢幕版面加入 lh:dock，底部面板高度加入 lh:sheetH
-    expect(new Set(keys).size).toBe(31);
+    expect(keys).toHaveLength(34);   // 0.98.21 專案 lh:projects、lh:activeProject，快照 lh:snapCfg   // 0.98.06 AI 用量 lh:aiTune、本機模型 lh:aiLocal；0.98.05 自訂詞彙加入 lh:customWords   // 三直排查詢區收合加入 resultsPanelCollapsed；平板三直排拉寬加入 lh:panelW；R2 主題加入 lh:bgFx，寬螢幕版面加入 lh:dock，底部面板高度加入 lh:sheetH
+    expect(new Set(keys).size).toBe(34);
 });
 
 test('registry: 掃描器自我檢查', () => {

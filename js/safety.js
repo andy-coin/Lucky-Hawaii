@@ -37,7 +37,10 @@ const LH_KEYS = [
     { key: 'lh:sheetH', group: 'ui' },
     { key: 'lh:customWords', group: 'data' },
     { key: 'lh:aiTune', group: 'setting' },
-    { key: 'lh:aiLocal', group: 'setting' }
+    { key: 'lh:aiLocal', group: 'setting' },
+    { key: 'lh:projects', group: 'data' },        // 0.98.21 專案清單
+    { key: 'lh:activeProject', group: 'data' },
+    { key: 'lh:snapCfg', group: 'setting' }        // 0.98.21 快照間隔（分鐘，0＝關閉）
 ];
 // secret 旗標讓之後的匯出（Phase 8）可以排除金鑰
 const LH_KEY_PREFIXES = [{ prefix: 'apiKey_', group: 'setting', secret: true }];
@@ -232,8 +235,9 @@ function lhIdbOpen() {
 
 // ===== 備份 =====
 // 備份記錄格式 { id, seq, label, createdAt, appVersion, schema, data }，之後的遷移與還原都讀這個形狀（D-11、D-12）
-const LH_APP_VERSION = '0.98.20';
-const LH_BACKUP_KEEP = 3;
+const LH_APP_VERSION = '0.98.21';
+const LH_BACKUP_KEEP = 3;   // 0.98.21 起只有舊版程式在用；安全快照改成下面的 24 小時規則
+const LH_BACKUP_KEEP_MS = 24 * 3600e3, LH_BACKUP_KEEP_MAX = 10;
 // 基準備份與升級前的安全副本釘住，淘汰永遠不碰（F1）：刪歌、匯入產生的自動備份再多，也擠不掉升級前那份
 // corrupt-songs-*：lh:songs 損毀時保留的原始內容（WR-10），蓋掉損毀的存檔之前唯一的一份，同樣不能被輪替擠掉
 const _lhIsCorruptBackup = id => typeof id === 'string' && id.startsWith('corrupt-songs-');
@@ -337,8 +341,10 @@ function lhBackup(id, label, snap) {
                     // 依「寫入順序」編號與淘汰，不用 createdAt（同一毫秒會平手）
                     const rec = _lhBuildRecord(id, recs.reduce((m, r) => Math.max(m, r.seq || 0), 0) + 1, label, snap);
                     store.put(rec);
-                    recs.concat(rec).filter(r => !_lhPinnedBackup(r.id)).sort((a, b) => b.seq - a.seq).slice(LH_BACKUP_KEEP)
-                        .forEach(r => store.delete(r.id));
+                    // 0.98.21 Andy：匯入、升級前的安全快照照 24 小時規則（超過一天就刪；最多 10 份）；損毀歌曲的原文仍然釘住不刪
+                    const now = Date.now();
+                    recs.concat(rec).filter(r => !_lhIsCorruptBackup(r.id) && r.id !== id).sort((a, b) => b.seq - a.seq)
+                        .filter((r, i) => i >= LH_BACKUP_KEEP_MAX - 1 || now - (r.createdAt || 0) >= LH_BACKUP_KEEP_MS).forEach(r => store.delete(r.id));
                 } catch (e) { fail(e); try { tx.abort(); } catch (e2) { lhWarn('備份交易中止失敗', e2); } }
             };
             tx.oncomplete = () => { if (settled) return; settled = true; resolve({ ok: true, where: 'idb', existed }); };
@@ -514,7 +520,7 @@ async function lhRestoreFromBackup(id) {
 // ===== 備份檔 v2（Phase 8，EDIT-09）=====
 // 備份檔可能是別人給的、被改過的：先整理乾淨（lhParseBackup）才顯示、才寫入；動態鍵的迴圈都集中在這個檔案
 const LH_BACKUP_FORMAT = 'lucky-hawaii-backup';
-const LH_BACKUP_VERSION = 2;
+const LH_BACKUP_VERSION = 3;   // 3＝0.98.21：kind 'content'／'settings' 分開的檔案、專案、自訂詞彙（舊版程式讀到 3 會說「比較新的版本」，不會誤當整份備份）
 const LH_BACKUP_MAX_BYTES = 5 * 1024 * 1024;
 // 上限要比編輯器實際能存的還寬：編輯器自己沒有段數、標籤長度、情境長度的限制，備份檔本身又有 5 MB 的總量限制（WR-02）。
 // 歌名是例外，編輯器本來就限 60 字。真的超過時 stats.truncated 會讓匯入視窗明講，不會默默截短
@@ -656,7 +662,8 @@ function lhNormalizeSong(raw, takenIds, stats) {
         ...(structs ? { structs } : {}),
         ...(canvas ? { canvas } : {}),
         ...(LH_SEC_COLOR_RE.test(raw.color || '') ? { color: raw.color } : {}),
-        roles: raw.roles
+        roles: raw.roles,
+        ...(typeof raw.project === 'string' && LH_ID_RE.test(raw.project) ? { project: raw.project } : {})   // 0.98.21 專案
     };
     // 角色與逐字標記（同樣在匯入時才呼叫 sections-core.js）：沒有有效角色就整個拿掉
     return lhSongRolesFix(out);
@@ -677,6 +684,8 @@ function lhParseBackup(text) {
     if (has('format')) {
         if (d.format !== LH_BACKUP_FORMAT || !Number.isInteger(d.version) || d.version < 1) return { ok: false, error: 'format' };
         if (d.version > LH_BACKUP_VERSION) return { ok: false, error: 'version', version: d.version };
+        const pickSettings = () => { const out = {}; for (const key of _lhBackupSettingKeys()) { const v = _lhSettingFrom(d.settings, key); if (v !== undefined) out[key] = v; } return out; };
+        if (d.kind === 'settings') return { ok: true, kind: 'settings', settings: pickSettings(), exportedAt: typeof d.exportedAt === 'string' ? d.exportedAt : '' };
         const taken = new Set();
         const stats = { truncated: false };
         if (Array.isArray(d.songs) && d.songs.length > LH_IMPORT_CAPS.songs) stats.truncated = true;
@@ -688,8 +697,14 @@ function lhParseBackup(text) {
             const v = _lhSettingFrom(d.settings, key);
             if (v !== undefined) settings[key] = v;
         }
+        // 0.98.21：專案清單（id 合法、名稱是字串）；自訂詞彙先照收，匯入時由 js/custom-words.js _lhCwClean 整理
+        const pseen = new Set();
+        const projects = (Array.isArray(d.projects) ? d.projects : []).filter(x => x && typeof x.id === 'string' && LH_ID_RE.test(x.id) && typeof x.name === 'string' && !pseen.has(x.id) && pseen.add(x.id))
+            .slice(0, 200).map(x => ({ id: x.id, name: Array.from(x.name.trim()).slice(0, 40).join('') || '匯入的專案' }));
+        for (const s of songs) if (s.project && !pseen.has(s.project)) { pseen.add(s.project); projects.push({ id: s.project, name: '匯入的專案' }); }
         return {
-            ok: true, kind: 'v2', songs,
+            ok: true, kind: d.kind === 'content' ? 'content' : 'v2', songs, projects,
+            customWords: Array.isArray(d.customWords) ? d.customWords.slice(0, 2000) : [],
             activeSong: typeof d.activeSong === 'string' && songs.some(s => s.id === d.activeSong) ? d.activeSong : null,
             savedWords: _lhNormalizeWords(d.savedWords, stats),
             settings,
@@ -724,8 +739,43 @@ function lhBuildBackup(songsArr, activeId, words) {
         songs: songsArr,
         activeSong: activeId,
         savedWords: words,
-        settings
+        settings,
+        // 0.98.21：緊急用的「備份全部」（存檔失敗橫幅）是整份：連專案與自訂詞彙一起帶走
+        projects: typeof lhProjects !== 'undefined' ? lhProjects.map(p => ({ id: p.id, name: p.name, createdAt: p.createdAt })) : [],
+        customWords: typeof lhCustomWords !== 'undefined' ? lhCustomWords : []
     };
+}
+
+// 0.98.21：localStorage 大約用了多少位元組（字元數 × 2，只是估算；設定 → 資料與備份的「儲存空間」）
+function lhLocalBytes() {
+    let n = 0;
+    try { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); n += (k.length + (localStorage.getItem(k) || '').length) * 2; } }
+    catch (e) { lhWarn('計算儲存空間失敗', e); }
+    return n;
+}
+
+// 0.98.21：取代「創作內容」（歌、專案、自訂詞彙、保留池），設定外觀不動。先自動備份，任何一項寫不進去就退回原狀
+async function lhApplyContentReplace(parsed) {
+    const pre = lhSnapshot();
+    const prevSchema = lhGet('lh:schema');
+    const b = await lhBackup('import-content-' + Date.now(), '匯入創作內容前的自動備份', pre);
+    if (!b.ok) return { ok: false, stage: 'backup' };
+    const projects = parsed.projects.length ? parsed.projects : [{ id: 'proj-default', name: '我的歌詞' }];
+    const pid0 = projects[0].id;
+    const list = parsed.songs.map(s => ({ ...s, project: s.project || pid0 }));
+    const active = list.find(s => s.id === parsed.activeSong) || list[0];
+    const cw = typeof _lhCwClean === 'function' ? _lhCwClean(parsed.customWords) : [];
+    let ok = lhSet('lh:songs', JSON.stringify(list))
+        && lhSet('lh:projects', JSON.stringify(projects.map(p => ({ ...p, createdAt: 0, last: null }))))
+        && lhSet('lh:activeProject', active.project)
+        && lhSet('lh:activeSong', active.id)
+        && lhSet('haiku_savedwords', JSON.stringify(parsed.savedWords))
+        && lhSet('lh:customWords', JSON.stringify(cw));
+    if (ok && lhGet('lh:schema') !== '2') {
+        try { localStorage.setItem('lh:schema', '2'); } catch (e) { lhWarn('寫入 lh:schema 失敗', e); ok = false; }
+    }
+    if (!ok) return lhRollback(pre, prevSchema) ? { ok: false, stage: 'write' } : { ok: false, stage: 'rollback' };
+    return { ok: true };
 }
 
 // 全部還原：先把目前資料自動備份，備份存不下來就一個字都不寫；寫到一半有任何一項失敗就退回匯入前的快照。
@@ -747,6 +797,10 @@ async function lhApplyBackupReplace(parsed) {
     const active = parsed.songs.find(s => s.id === parsed.activeSong) || parsed.songs.reduce((a, c) => (c.createdAt > a.createdAt ? c : a));
     put('lh:activeSong', active.id);
     put('haiku_savedwords', JSON.stringify(parsed.savedWords));
+    // 0.98.21：整份備份帶著專案就照檔案；舊檔沒有專案＝全部回到預設專案（清單清掉，開機時依歌曲補回）。自訂詞彙只在檔案有帶時才換
+    if (parsed.projects && parsed.projects.length) put('lh:projects', JSON.stringify(parsed.projects.map(p => ({ id: p.id, name: p.name, createdAt: Number.isFinite(p.createdAt) ? p.createdAt : 0, last: null }))));
+    else if (ok) { lhRemove('lh:projects'); lhRemove('lh:activeProject'); }
+    if (parsed.customWords && parsed.customWords.length && typeof _lhCwClean === 'function') put('lh:customWords', JSON.stringify(_lhCwClean(parsed.customWords)));
     // 設定以備份檔為準：檔案裡有的寫入，沒有的清掉，還原後才和來源一樣
     for (const key of _lhBackupSettingKeys()) {
         if (Object.prototype.hasOwnProperty.call(parsed.settings, key)) put(key, parsed.settings[key]);

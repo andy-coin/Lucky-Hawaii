@@ -58,7 +58,7 @@
             }
             if (_lhPrefsTab === 'map' && typeof lhMapPrefsBuild === 'function') lhMapPrefsBuild();   // 韻腳設定第一次看到才建
             if (_lhPrefsTab === 'ai' && typeof byokRenderPrefs === 'function') byokRenderPrefs();
-            if (_lhPrefsTab === 'data' && document.getElementById('autoBackupSection').open) renderAutoBackups();
+            if (_lhPrefsTab === 'data' && typeof lhDataRender === 'function') lhDataRender();   // 快照、垃圾桶（js/snapshots.js）
             _lhPrefsBgFxSync();
             document.getElementById(tab.getAttribute('aria-controls')).scrollTop = 0;
             tab.scrollIntoView({ block: 'nearest', inline: 'nearest' });   // 手機上分頁列橫向捲動：選到的分頁要看得到

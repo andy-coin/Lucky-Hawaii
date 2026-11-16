@@ -14,14 +14,14 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700&family=Noto+Serif+TC:wght@400;700&family=JetBrains+Mono:wght@400&display=swap">
-    <link rel="stylesheet" href="css/base.css?v=0.98.20">
-    <link rel="stylesheet" href="css/panels.css?v=0.98.20">
-    <link rel="stylesheet" href="css/responsive.css?v=0.98.20">
-    <link rel="stylesheet" href="css/print.css?v=0.98.20" media="print">
-    <script src="data/rhyme-dict.js?v=0.98.20"></script>
-    <script src="data/polyphonic-order.js?v=0.98.20"></script>
-    <script src="js/safety.js?v=0.98.20"></script>
-    <script src="js/layout.js?v=0.98.20"></script>
+    <link rel="stylesheet" href="css/base.css?v=0.98.21">
+    <link rel="stylesheet" href="css/panels.css?v=0.98.21">
+    <link rel="stylesheet" href="css/responsive.css?v=0.98.21">
+    <link rel="stylesheet" href="css/print.css?v=0.98.21" media="print">
+    <script src="data/rhyme-dict.js?v=0.98.21"></script>
+    <script src="data/polyphonic-order.js?v=0.98.21"></script>
+    <script src="js/safety.js?v=0.98.21"></script>
+    <script src="js/layout.js?v=0.98.21"></script>
 </head>
 <body>
 
@@ -110,13 +110,13 @@
                 </div>
                 <div class="batch-panel inline q-word ws-rep" id="wsRepSlot"></div>
                 <div class="batch-panel inline q-char" id="batchPanel">
-                    <button class="batch-btn btn-common" onclick="batchMark('common')" title="標記為常用">
+                    <button type="button" class="batch-btn btn-common tier-filter" data-tier="common" aria-pressed="false" onclick="lhTierFilter('common')" title="只看常用字（可以多選；都不按＝全部）">
                         <span class="batch-icon"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5l2.6 5.3 5.9.9-4.2 4.1 1 5.8-5.3-2.8-5.3 2.8 1-5.8-4.2-4.1 5.9-.9z"/></svg></span><span>常用</span>
                     </button>
-                    <button class="batch-btn btn-normal" onclick="batchMark('normal')" title="標記為一般">
+                    <button type="button" class="batch-btn btn-normal tier-filter" data-tier="normal" aria-pressed="false" onclick="lhTierFilter('normal')" title="只看一般字（可以多選；都不按＝全部）">
                         <span class="batch-icon"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="7.5"/></svg></span><span>一般</span>
                     </button>
-                    <button class="batch-btn btn-rare" onclick="batchMark('rare')" title="標記為冷僻">
+                    <button type="button" class="batch-btn btn-rare tier-filter" data-tier="rare" aria-pressed="false" onclick="lhTierFilter('rare')" title="只看冷僻字（可以多選；都不按＝全部）">
                         <span class="batch-icon"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 7.5h17v3h-17zM5 10.5v9h14v-9M10 14h4"/></svg></span><span>冷僻</span>
                     </button>
                     <button class="batch-btn btn-report" onclick="openReportDialog()" title="回報選取的字或詞" aria-label="回報選取的字或詞" aria-disabled="true">
@@ -226,16 +226,22 @@
                     <!-- 自訂詞彙（js/custom-words.js） -->
                     <div class="settings-pack-section cw-section" id="customWordsSection">
                         <div class="settings-pack-title">自訂詞彙 <span class="cw-count" id="cwCount"></span></div>
-                        <div class="cw-hint">專有名詞（角色、招式、品牌、店名、調酒…）會跟詞庫一起出現在詞卡裡；讀音自動猜，可以在清單裡改</div>
+                        <div class="cw-hint">專有名詞（角色、招式、品牌、店名、調酒…）會跟詞庫一起出現在詞卡裡；讀音自動猜，可以在清單裡改。每個專案各有一份</div>
                         <div class="cw-add">
                             <input type="text" id="cwWord" class="cw-input" placeholder="輸入詞（2–6 個中文字）" aria-label="新增自訂詞" maxlength="6">
-                            <select id="cwScope" class="cw-select" aria-label="這個詞用在哪裡"><option value="g">全域</option><option value="song">只在這首歌</option></select>
+                            <select id="cwScope" class="cw-select" aria-label="這個詞用在哪裡"><option value="g">整個專案</option><option value="song">只在這首歌</option></select>
                             <button type="button" id="cwAddBtn" class="cw-btn">新增</button>
                         </div>
                         <div class="cw-tools">
                             <label class="checkbox-label"><input type="checkbox" id="cwAll"><span>全選</span></label>
                             <button type="button" id="cwDelSel" class="cw-btn">刪除選取</button>
                             <button type="button" id="cwReset" class="cw-btn danger">重設全部</button>
+                        </div>
+                        <!-- 0.98.21：這個專案的自訂詞彙單獨匯出／匯入（js/custom-words.js） -->
+                        <div class="cw-tools cw-io">
+                            <button type="button" id="cwExport" class="cw-btn">匯出這個專案的自訂詞</button>
+                            <button type="button" id="cwImport" class="cw-btn">匯入自訂詞</button>
+                            <input type="file" id="cwImportFile" accept="application/json,.json" hidden>
                         </div>
                         <ul class="cw-list" id="cwList"></ul>
                     </div>
@@ -268,12 +274,41 @@
                     </div>
                 </div>
                 <div class="prefs-panel" role="tabpanel" id="prefsPanel-data" aria-labelledby="prefsTab-data" tabindex="0" hidden>
-                    <div class="settings-saveload" style="gap:0.5rem;margin-top:0.25rem;">
-                        <button class="save-load-btn" style="flex:1;text-align:center" onclick="exportSession();closeSettingsOverlay({target:document.getElementById('settingsOverlay')})" title="把所有歌曲與設定存成一個備份檔" aria-label="把所有歌曲與設定存成一個備份檔">備份全部</button>
-                        <button class="save-load-btn" style="flex:1;text-align:center" onclick="document.getElementById('importFileInput').click();closeSettingsOverlay({target:document.getElementById('settingsOverlay')})" title="從備份檔還原歌曲與設定" aria-label="從備份檔還原歌曲與設定">匯入備份</button>
+                    <!-- 0.98.21 資料與備份：存在哪裡、快照、垃圾桶、匯出成檔案（js/snapshots.js、js/song-io.js） -->
+                    <div class="data-note">
+                        <strong>你的歌詞存在哪裡？</strong>
+                        <p>每次打字都會自動存進<strong>這台裝置的這個瀏覽器</strong>，關掉再開會接著寫。但下面這些情況資料會不見：清除瀏覽紀錄時勾了「Cookie 與網站資料」、用無痕模式、iPad 空間不足時 Safari 自動清理；換裝置或換瀏覽器也不會跟過去。</p>
+                        <p>要長期保存或換裝置，請用最下面的「匯出成檔案」，存到雲端硬碟。</p>
                     </div>
-                    <details class="settings-backups" id="autoBackupSection"><summary onclick="renderAutoBackups()">自動備份</summary><p class="settings-backups-hint">刪除歌曲、匯入備份與升級之前都會自動備份；可以在這裡還原。刪除與匯入的備份只保留最近幾份，升級前的備份會一直留著</p><ul id="autoBackupList" role="list"></ul></details>
-                    <button class="reset-color" onclick="clearDictOverrides()" title="清除瀏覽器中暫存的字庫修改（不影響檔案）">清除字庫 local 覆寫</button>
+                    <section class="data-sec" aria-labelledby="snapTitle">
+                        <h4 id="snapTitle">快照：回到今天稍早的版本</h4>
+                        <label class="snap-cfg"><span>定時快照</span><input type="range" id="snapCfgRange" class="snap-range" min="0" max="4" step="1" value="2" aria-label="定時快照的間隔"><span id="snapCfgCap" class="snap-cap">每 15 分鐘</span></label>
+                        <p class="data-hint">這段時間有改動才拍。另外每次改完、閒置 10 秒，會更新一張「最新進度」。只保留 24 小時內的快照，一樣存在這個瀏覽器裡。滑到最左邊＝關閉（兩種都不拍）。點一張快照可以看每首歌、只還原其中一首；勾同一個專案的 2–3 張可以並排比對。</p>
+                        <button type="button" class="snap-btn" id="snapCompareBtn" disabled>比對選取的快照（0/3）</button>
+                        <ul id="snapList" class="snap-list" role="list"></ul>
+                    </section>
+                    <section class="data-sec" aria-labelledby="trashTitle">
+                        <h4 id="trashTitle">垃圾桶（刪掉的歌與專案，保留 7 天）</h4>
+                        <ul id="trashList" class="snap-list" role="list"></ul>
+                    </section>
+                    <section class="data-sec" aria-labelledby="fileTitle">
+                        <h4 id="fileTitle">匯出成檔案（換裝置、長期保存）</h4>
+                        <div class="data-row"><span class="data-row-cap">創作內容</span>
+                            <button type="button" class="save-load-btn" title="把目前專案的歌與自訂詞彙存成檔案" aria-label="把目前專案的歌與自訂詞彙存成檔案" onclick="exportContent(false)">匯出這個專案</button>
+                            <button type="button" class="save-load-btn" title="把全部專案的歌、自訂詞彙與保留池存成檔案" aria-label="把全部專案的歌、自訂詞彙與保留池存成檔案" onclick="exportContent(true)">匯出全部專案</button></div>
+                        <p class="data-hint">歌曲、段落、角色、排版、專案、自訂詞彙、保留池。</p>
+                        <div class="data-row"><span class="data-row-cap">設定外觀</span>
+                            <button type="button" class="save-load-btn" title="把主題、顏色與偏好存成檔案" aria-label="把主題、顏色與偏好存成檔案" onclick="exportSettings()">匯出設定外觀</button></div>
+                        <p class="data-hint">主題、顏色、查詢與韻腳地圖偏好、AI 偏好、快照間隔（不含 API 金鑰）。</p>
+                        <button type="button" class="save-load-btn data-import" title="從匯出的檔案加入或還原（創作內容或設定外觀）" aria-label="從匯出的檔案加入或還原（創作內容或設定外觀）" onclick="document.getElementById('importFileInput').click();closeSettingsOverlay({target:document.getElementById('settingsOverlay')})">從檔案匯入…</button>
+                        <p class="data-hint">選「創作內容」或「設定外觀」的檔案都可以，會先問你要怎麼匯入；舊版的「備份全部」檔案也能用。</p>
+                    </section>
+                    <!-- 0.98.21：原本「清除字庫 local 覆寫」的位置改成儲存空間用量（js/snapshots.js lhDataRender） -->
+                    <section class="data-sec" aria-labelledby="useTitle">
+                        <h4 id="useTitle">儲存空間</h4>
+                        <div class="use-bar" aria-hidden="true"><span id="useBarLs"></span></div>
+                        <p class="data-hint" id="useText">計算中…</p>
+                    </section>
                 </div>
                 <div class="prefs-panel" role="tabpanel" id="prefsPanel-help" aria-labelledby="prefsTab-help" tabindex="0" hidden>
                     <button type="button" class="save-load-btn tour-replay-btn" style="width:100%;text-align:center;" onclick="lhTourStart()">重看功能導覽</button>
@@ -382,7 +417,7 @@
         <div class="feedback-modal song-dialog" role="alertdialog" aria-modal="true" aria-labelledby="songDeleteTitle" aria-describedby="songDeleteBody" onclick="event.stopPropagation()">
             <h3 id="songDeleteTitle"></h3>
             <p class="song-delete-full" id="songDeleteFull" hidden></p>
-            <p class="song-delete-body" id="songDeleteBody">這首歌的歌詞會一起刪除（刪除前會自動備份，可從「設定」的「自動備份」還原；瀏覽器只保留最近幾份）。</p>
+            <p class="song-delete-body" id="songDeleteBody">這首歌會移到垃圾桶，7 天內可以在「設定 → 資料與備份」救回來。</p>
             <p class="song-delete-last" id="songDeleteLast" hidden>這是最後一首，刪除後會自動建立一首空白的新歌。</p>
             <p class="song-delete-status" id="songDeleteStatus" role="status" aria-live="polite"></p>
             <div class="feedback-modal-actions">
@@ -402,15 +437,15 @@
     </div>
 
     <div class="m-batch-panel q-char" id="m-batchPanel">
-        <button class="m-batch-btn btn-common" onclick="batchMark('common')">
+        <button type="button" class="m-batch-btn btn-common tier-filter" data-tier="common" aria-pressed="false" onclick="lhTierFilter('common')">
             <span class="batch-icon"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5l2.6 5.3 5.9.9-4.2 4.1 1 5.8-5.3-2.8-5.3 2.8 1-5.8-4.2-4.1 5.9-.9z"/></svg></span>
             <span>常用</span>
         </button>
-        <button class="m-batch-btn btn-normal" onclick="batchMark('normal')">
+        <button type="button" class="m-batch-btn btn-normal tier-filter" data-tier="normal" aria-pressed="false" onclick="lhTierFilter('normal')">
             <span class="batch-icon"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="7.5"/></svg></span>
             <span>一般</span>
         </button>
-        <button class="m-batch-btn btn-rare" onclick="batchMark('rare')">
+        <button type="button" class="m-batch-btn btn-rare tier-filter" data-tier="rare" aria-pressed="false" onclick="lhTierFilter('rare')">
             <span class="batch-icon"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 7.5h17v3h-17zM5 10.5v9h14v-9M10 14h4"/></svg></span>
             <span>冷僻</span>
         </button>
@@ -430,7 +465,7 @@
         <div class="side-panel-body">
             <div class="side-panel-title lyrics-head">
                 <button type="button" id="songListToggle" class="song-toggle" onclick="toggleSongList()" aria-expanded="false" aria-controls="songList" aria-label="開關歌曲清單" title="開關歌曲清單">☰ 歌曲</button>
-                <span id="songCurrent" class="song-current"></span>
+                <span class="song-proj" id="songProj"></span><span id="songCurrent" class="song-current"></span>
                 <button type="button" class="panel-fold-btn" onclick="toggleLeftPanel()" aria-label="收合歌詞區" data-tip="收合歌詞區（收到左邊）">◀</button>
                 <button type="button" id="exportToggle" class="export-toggle" onclick="toggleExportMenu(event)" aria-haspopup="menu" aria-expanded="false" aria-label="匯出這首歌" title="匯出這首歌"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15V4M7 9l5-5 5 5M5 20h14"/></svg><span class="btn-label">匯出</span></button>
                 <button type="button" id="editorOpenBtn" class="export-toggle editor-open-btn" onclick="lhEditorToggle()" aria-label="展開完整歌詞編輯器" title="展開完整歌詞編輯器（也可以雙擊歌詞）"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 4h6v6M20 4l-7 7M10 20H4v-6M4 20l7-7"/></svg><span class="btn-label">展開</span></button>
@@ -439,6 +474,13 @@
             <div class="editor-tabs lp-tabs" id="lpTabs" role="group" aria-label="切換歌曲"></div>
             <div class="lyrics-layout">
                 <aside id="songList" class="song-list" aria-label="歌曲清單" hidden inert>
+                    <!-- 專案（0.98.21）：只在這裡切換、新增、改名、刪除；歌詞面板標題只顯示名稱（js/songs.js renderProjectBar） -->
+                    <div class="proj-bar" role="group" aria-label="專案">
+                        <select id="projSelect" class="proj-select" aria-label="切換專案"></select>
+                        <button type="button" class="song-act proj-act" id="projNewBtn" aria-label="新增專案" title="新增專案">＋</button>
+                        <button type="button" class="song-act proj-act" id="projRenameBtn" aria-label="重新命名這個專案" title="重新命名這個專案">✎</button>
+                        <button type="button" class="song-act proj-act" id="projDeleteBtn" aria-label="刪除這個專案" title="刪除這個專案（歌會進垃圾桶，保留 7 天）">🗑</button>
+                    </div>
                     <div class="song-list-head">
                         <span id="songListCaption" class="song-list-caption">歌曲（1）</span>
                         <button type="button" class="panel-add-btn song-new-btn" onclick="createSong()" aria-label="新增一首歌曲" title="新增一首歌曲">＋ 新增歌曲</button>
@@ -447,7 +489,7 @@
                     <p id="songListHint" class="song-list-hint">按「＋ 新增歌曲」可以再寫一首</p>
                 </aside>
                 <div class="lyrics-main">
-                    <div class="lyrics-tools"><div class="undo-group" role="group" aria-label="復原與重做"><button type="button" id="undoBtn" class="undo-btn" aria-label="復原上一步" aria-disabled="true"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg></button><button type="button" id="redoBtn" class="undo-btn" aria-label="重做上一步" aria-disabled="true"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="m15 14 5-5-5-5"/><path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13"/></svg></button></div><button type="button" id="rhymeMenuBtn" title="韻腳地圖：把押韻的句尾上色，一眼看出誰跟誰押" class="rhyme-menu-btn" aria-haspopup="dialog" aria-expanded="false" aria-label="韻腳地圖設定">韻腳 ▾</button><button type="button" id="roleMenuBtn" title="角色：替對唱、音樂劇的字標上不同顏色" class="rhyme-menu-btn role-menu-btn" aria-haspopup="dialog" aria-expanded="false" aria-controls="roleMenu" aria-label="角色設定（對唱、音樂劇）">角色 ▾</button><span id="songTotal" class="lyrics-total">共 0 字</span><div id="canvasTools" class="canvas-tools" role="group" aria-label="排版模式（只在完整編輯器）"><span class="canvas-zoom" role="group" aria-label="畫布縮放"><button type="button" id="canvasZoomOut" class="rhyme-menu-btn canvas-btn" aria-label="縮小畫布" title="縮小（Ctrl／⌘＋滾輪、雙指捏合）">−</button><button type="button" id="canvasZoomReset" class="rhyme-menu-btn canvas-btn" aria-label="畫布縮放回 100%" title="回到 100%">100%</button><button type="button" id="canvasZoomIn" class="rhyme-menu-btn canvas-btn" aria-label="放大畫布" title="放大（Ctrl／⌘＋滾輪、雙指捏合）">＋</button></span><button type="button" id="canvasSnapBtn" class="rhyme-menu-btn canvas-btn" aria-pressed="true" title="整齊直列（預設）">吸附</button><button type="button" id="canvasFreeBtn" class="rhyme-menu-btn canvas-btn" aria-pressed="false" title="自由畫布：拖 ⋮⋮ 或標題列空白處移動卡片，拉右下角改大小">自由</button></div></div>
+                    <div class="lyrics-tools"><div class="undo-group" role="group" aria-label="復原與重做"><button type="button" id="undoBtn" class="undo-btn" aria-label="復原上一步" aria-disabled="true"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg></button><button type="button" id="redoBtn" class="undo-btn" aria-label="重做上一步" aria-disabled="true"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="m15 14 5-5-5-5"/><path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13"/></svg></button></div><button type="button" id="rhymeMenuBtn" title="韻腳地圖：把押韻的句尾上色，一眼看出誰跟誰押" class="rhyme-menu-btn" aria-haspopup="dialog" aria-expanded="false" aria-label="韻腳地圖設定">韻腳 ▾</button><button type="button" id="roleMenuBtn" title="角色：替對唱、音樂劇的字標上不同顏色" class="rhyme-menu-btn role-menu-btn" aria-haspopup="dialog" aria-expanded="false" aria-controls="roleMenu" aria-label="角色設定（對唱、音樂劇）">角色 ▾</button><span id="songTotal" class="lyrics-total">共 0 字</span><div id="canvasTools" class="canvas-tools" role="group" aria-label="排版模式（只在完整編輯器）"><span class="canvas-zoom" role="group" aria-label="畫布縮放"><button type="button" id="canvasZoomOut" class="rhyme-menu-btn canvas-btn" aria-label="縮小畫布" title="縮小（Ctrl／⌘＋滾輪、雙指捏合）">−</button><button type="button" id="canvasZoomReset" class="rhyme-menu-btn canvas-btn" aria-label="畫布縮放回 100%" title="回到 100%">100%</button><button type="button" id="canvasZoomIn" class="rhyme-menu-btn canvas-btn" aria-label="放大畫布" title="放大（Ctrl／⌘＋滾輪、雙指捏合）">＋</button></span><button type="button" id="canvasSnapBtn" class="rhyme-menu-btn canvas-btn" aria-pressed="true" title="整齊直列（預設）">吸附</button><button type="button" id="canvasFreeBtn" class="rhyme-menu-btn canvas-btn" aria-pressed="false" title="自由畫布：拖 ⋮⋮ 或標題列空白處移動卡片，拉右下角改大小">自由</button><button type="button" id="canvasMergeBtn" class="rhyme-menu-btn canvas-btn" aria-pressed="false" title="合併：所有歌詞接成一整份，像在文件上一覽；選取文字右鍵可以指定段落">合併</button></div></div>
                     <!-- 標籤 ＆ 情境放在歌詞上面（Andy 1-d）：先定方向，再往下寫歌詞；兩者都會送給 AI 參考。工具列（↶ ↷、韻腳、字數）留在最上面，韻腳選單往下展開才有空間 -->
                     <div class="context-section" id="contextSection">
                         <div class="context-section-header" onclick="if (!event.target.closest('.hashtag-chip')) toggleContextSection()">
@@ -470,6 +512,8 @@
                     </div>
                     <button type="button" class="panel-add-btn section-add-btn" onclick="addLyricsSection()" aria-label="在這首歌新增一個段落" title="在這首歌新增一個段落"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span class="btn-label">新增段落</span></button>
                     <div class="lyrics-area" id="lyricsSections">載入歌詞中…</div>
+                    <!-- 0.98.21：點一下把剪貼簿的文字貼成一個新段落；太長就展開完整編輯器進合併模式（js/sections.js lhPasteBlock） -->
+                    <button type="button" class="paste-block" id="pasteBlock" aria-label="貼上剪貼簿的文字成為新段落">＋ 貼上文字</button>
                 </div>
             </div>
         </div>
@@ -550,41 +594,42 @@
 
     <div id="printSheet" aria-hidden="true"></div>
 
-    <script src="js/phonetic-tables.js?v=0.98.20"></script>
-    <script src="js/dict.js?v=0.98.20"></script>
-    <script src="js/search.js?v=0.98.20"></script>
-    <script src="js/state.js?v=0.98.20"></script>
-    <script src="js/sections-core.js?v=0.98.20"></script>
-    <script src="js/songs.js?v=0.98.20"></script>
-    <script src="js/undo.js?v=0.98.20"></script>
-    <script src="js/polyphonic.js?v=0.98.20"></script>
-    <script src="js/rhyme-core.js?v=0.98.20"></script>
-    <script src="js/line-core.js?v=0.98.20"></script>
-    <script src="js/cards.js?v=0.98.20"></script>
-    <script src="js/lyrics.js?v=0.98.20"></script>
-    <script src="js/sections.js?v=0.98.20"></script>
-    <script src="js/song-io.js?v=0.98.20"></script>
-    <script src="js/wordlist.js?v=0.98.20"></script>
-    <script src="js/panels.js?v=0.98.20"></script>
-<script src="js/dock.js?v=0.98.20"></script>
-    <script src="js/rhyme-display.js?v=0.98.20"></script>
-    <script src="js/ai-client.js?v=0.98.20"></script>
-    <script src="js/candidates.js?v=0.98.20"></script>
-    <script src="js/ai-generate.js?v=0.98.20"></script>
-    <script src="js/ui-common.js?v=0.98.20"></script>
-    <script src="js/custom-words.js?v=0.98.20"></script>
-    <script src="js/word-space.js?v=0.98.20"></script>
-    <script src="js/results.js?v=0.98.20"></script>
-    <script src="js/search-ui.js?v=0.98.20"></script>
-    <script src="js/theme.js?v=0.98.20"></script>
-    <script src="js/init.js?v=0.98.20"></script>
-    <script src="js/report.js?v=0.98.20"></script>
-    <script src="js/ai-word-events.js?v=0.98.20"></script>
-    <script src="js/word-drag.js?v=0.98.20"></script>
-    <script src="js/rhyme-map.js?v=0.98.20"></script>
-    <script src="js/roles.js?v=0.98.20"></script>
-    <script src="js/canvas.js?v=0.98.20"></script>
-    <script src="js/tour.js?v=0.98.20"></script>
-    <script src="js/bgfx.js?v=0.98.20"></script>
+    <script src="js/phonetic-tables.js?v=0.98.21"></script>
+    <script src="js/dict.js?v=0.98.21"></script>
+    <script src="js/search.js?v=0.98.21"></script>
+    <script src="js/state.js?v=0.98.21"></script>
+    <script src="js/sections-core.js?v=0.98.21"></script>
+    <script src="js/songs.js?v=0.98.21"></script>
+    <script src="js/undo.js?v=0.98.21"></script>
+    <script src="js/polyphonic.js?v=0.98.21"></script>
+    <script src="js/rhyme-core.js?v=0.98.21"></script>
+    <script src="js/line-core.js?v=0.98.21"></script>
+    <script src="js/cards.js?v=0.98.21"></script>
+    <script src="js/lyrics.js?v=0.98.21"></script>
+    <script src="js/sections.js?v=0.98.21"></script>
+    <script src="js/song-io.js?v=0.98.21"></script>
+    <script src="js/wordlist.js?v=0.98.21"></script>
+    <script src="js/panels.js?v=0.98.21"></script>
+<script src="js/dock.js?v=0.98.21"></script>
+    <script src="js/rhyme-display.js?v=0.98.21"></script>
+    <script src="js/ai-client.js?v=0.98.21"></script>
+    <script src="js/candidates.js?v=0.98.21"></script>
+    <script src="js/ai-generate.js?v=0.98.21"></script>
+    <script src="js/ui-common.js?v=0.98.21"></script>
+    <script src="js/custom-words.js?v=0.98.21"></script>
+    <script src="js/snapshots.js?v=0.98.21"></script>
+    <script src="js/word-space.js?v=0.98.21"></script>
+    <script src="js/results.js?v=0.98.21"></script>
+    <script src="js/search-ui.js?v=0.98.21"></script>
+    <script src="js/theme.js?v=0.98.21"></script>
+    <script src="js/init.js?v=0.98.21"></script>
+    <script src="js/report.js?v=0.98.21"></script>
+    <script src="js/ai-word-events.js?v=0.98.21"></script>
+    <script src="js/word-drag.js?v=0.98.21"></script>
+    <script src="js/rhyme-map.js?v=0.98.21"></script>
+    <script src="js/roles.js?v=0.98.21"></script>
+    <script src="js/canvas.js?v=0.98.21"></script>
+    <script src="js/tour.js?v=0.98.21"></script>
+    <script src="js/bgfx.js?v=0.98.21"></script>
 </body>
 </html>

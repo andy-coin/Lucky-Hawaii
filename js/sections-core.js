@@ -330,7 +330,7 @@ function lhSecPosClean(raw) {
 // 縮放與平移在 Part B（0.96.33）加進這裡；存進歌裡的 canvas 永遠必須是這支函式的輸出
 function lhCanvasClean(raw) {
     if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
-    return { mode: raw.mode === 'free' ? 'free' : 'snap' };
+    return { mode: raw.mode === 'free' || raw.mode === 'merge' ? raw.mode : 'snap' };   // merge＝合併模式（0.98.21）
 }
 
 // 沒有位置的卡片預設高度：標題列＋行數（至少 3 行），封頂

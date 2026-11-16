@@ -1,0 +1,1900 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <!-- phone -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="好韻器">
+    <link rel="apple-touch-icon" href="icon.png">
+    <!-- computer -->
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>好韻器 | Good Rhyming </title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
+        
+        :root {
+            --bg-gradient-1: #667eea;
+            --bg-gradient-2: #764ba2;
+            --container-bg: #ffffff;
+            --text-primary: #2d3748;
+            --text-secondary: #718096;
+            --border: #e2e8f0;
+            --card-bg: #f7fafc;
+            --highlight-border: #ed8936;
+            --shadow: rgba(0, 0, 0, 0.1);
+            --header-gradient-1: #e89e61;
+            --header-gradient-2: #764ba2;
+            --custom-text-color: none;
+        }
+        
+        [data-theme="dark"] {
+            --bg-gradient-1: #1a202c;
+            --bg-gradient-2: #2d3748;
+            --container-bg: #1a202c;
+            --text-primary: #e2e8f0;
+            --text-secondary: #a0aec0;
+            --border: #4a5568;
+            --card-bg: #2d3748;
+            --header-gradient-1: #2d3748;
+            --header-gradient-2: #4a5568;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+            background: linear-gradient(135deg, var(--bg-gradient-1) 0%, var(--bg-gradient-2) 100%);
+            min-height: 100vh;
+            padding: 20px;
+            color: var(--text-primary);
+            transition: background 0.3s ease;
+        }
+        
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: var(--container-bg);
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+            animation: slideIn 0.5s ease-out;
+            transition: all 0.3s ease;
+        }
+        
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .header {
+            background: linear-gradient(135deg, var(--header-gradient-1) 0%, var(--header-gradient-2) 100%);
+            color: white;
+            padding: 40px 30px;
+            text-align: center;
+            position: relative;
+        }
+        
+        .header h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 10px;
+            letter-spacing: -0.5px;
+        }
+        
+        .header p {
+            font-size: 1rem;
+            opacity: 0.9;
+            font-weight: 300;
+        }
+        
+        /* 顏色自定義面板 */
+        .color-panel {
+            position: absolute;
+            top: 15px;
+            left: 15px;
+            background: rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(10px);
+            border-radius: 12px;
+            padding: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        
+        .color-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.75rem;
+            color: white;
+        }
+        
+        .color-item label {
+            min-width: 60px;
+            font-weight: 500;
+        }
+        
+        .color-item input[type="color"] {
+            width: 30px;
+            height: 24px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        
+        /* 控制面板 */
+        .controls {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        
+        .theme-toggle, .zoom-control {
+            background: rgba(255, 255, 255, 0.2);
+            backdrop-filter: blur(10px);
+            border: none;
+            color: white;
+            padding: 8px 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: all 0.3s ease;
+        }
+        
+        .theme-toggle:hover, .zoom-control:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+        
+        .zoom-control {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 15px;
+        }
+        
+        .zoom-control input[type="range"] {
+            width: 80px;
+            cursor: pointer;
+        }
+        
+        .search-section {
+            padding: 30px;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        .search-box {
+            position: relative;
+            margin-bottom: 20px;
+        }
+        
+
+        .search-input {
+            width: 100%;
+            padding: 18px 24px;
+            font-size: 1.2rem;
+            border: 3px solid var(--border);
+            border-radius: 12px;
+            outline: none;
+            transition: all 0.3s ease;
+            font-family: 'Noto Sans TC', sans-serif;
+            background: var(--container-bg);
+            color: var(--text-primary);
+        }
+        
+        .search-input:focus {
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+        
+        .search-hint {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            margin-top: 8px;
+            font-weight: 300;
+        }
+        
+        .options {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        
+        .checkbox-label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+            user-select: none;
+            font-size: 0.95rem;
+            color: var(--text-secondary);
+        }
+        
+        .checkbox-label input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+        }
+        
+        /* 按鈕組 */
+        .button-group {
+            display: flex;
+            gap: 8px;
+            background: var(--card-bg);
+            padding: 4px;
+            border-radius: 10px;
+            border: 1px solid var(--border);
+        }
+        
+        .mode-button {
+            padding: 8px 16px;
+            border: none;
+            background: transparent;
+            color: var(--text-secondary);
+            cursor: pointer;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            font-family: 'Noto Sans TC', sans-serif;
+            transition: all 0.2s ease;
+            font-weight: 500;
+        }
+        
+        .mode-button.active {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        
+        .mode-button:hover:not(.active) {
+            background: var(--border);
+        }
+        
+        .results-section {
+            padding: 30px;
+            min-height: 300px;
+        }
+        
+        .results-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        
+        .results-count {
+            font-size: 1.1rem;
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+        
+        /* 分組標題 */
+        .group-section {
+            margin-bottom: 30px;
+        }
+        
+        .group-title {
+            font-size: 1.3rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 15px;
+            padding: 8px 12px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 8px;
+            display: inline-block;
+        }
+        
+        .results-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+            gap: 12px;
+            animation: fadeIn 0.4s ease-out;
+        }
+        
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+            to {
+                opacity: 1;
+            }
+        }
+        
+        .char-card {
+            background: var(--card-bg);
+            border: 2px solid var(--border);
+            border-radius: 8px;
+            padding: 12px;
+            text-align: center;
+            transition: all 0.2s ease;
+            cursor: pointer;
+            user-select: none;
+            position: relative;
+            -webkit-tap-highlight-color: transparent;
+            touch-action: manipulation;
+        }
+        
+        .char-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px var(--shadow);
+            border-color: #667eea;
+        }
+        
+        .char-card.selected {
+            border-color: var(--highlight-border);
+            border-width: 3px;
+            background: linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%);
+        }
+        
+        .char-main {
+            font-size: 2rem;
+            font-weight: 500;
+            margin-bottom: 4px;
+        }
+
+        /* 自定義文字顏色：始終優先，不被深色模式覆蓋 */
+        .char-main.custom-color {
+            color: var(--custom-text-color) !important;
+        }
+        
+        .char-pinyin {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            font-family: 'JetBrains Mono', monospace;
+        }
+        
+        /* 常用/冷僻標記 - 可點擊區域 */
+        .mark-badge {
+            display: inline-block;
+            font-size: 0.65rem;
+            padding: 2px 6px;
+            border-radius: 4px;
+            margin-top: 4px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            user-select: none;
+            min-width: 32px;
+            min-height: 18px;
+            line-height: 14px;
+        }
+
+        .mark-badge:hover {
+            transform: scale(1.1);
+            filter: brightness(1.1);
+        }
+        
+        .mark-badge.common {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+        }
+
+        .mark-badge.normal {
+            background: var(--border);
+            color: var(--text-secondary);
+        }
+        
+        .mark-badge.rare {
+            background: linear-gradient(135deg, #667eea 0%, #4299e1 100%);
+            color: white;
+        }
+        
+        /* 搜尋內容高亮樣式 - 多顏色 */
+        .search-highlight-1 { color: #ed8936; font-weight: 700; }
+        .search-highlight-2 { color: #48bb78; font-weight: 700; }
+        .search-highlight-3 { color: #4299e1; font-weight: 700; }
+        .search-highlight-4 { color: #9f7aea; font-weight: 700; }
+        .search-highlight-5 { color: #ed64a6; font-weight: 700; }
+        
+        /* 最近點擊區域 */
+        .recent-clicks-section {
+            padding: 20px 30px;
+            background: var(--card-bg);
+            border-top: 1px solid var(--border);
+        }
+        
+        .recent-clicks-title {
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 12px;
+        }
+        
+        .recent-clicks-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            min-height: 40px;
+        }
+        
+        .recent-char {
+            background: var(--container-bg);
+            border: 1px solid var(--border);
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 1.2rem;
+            color: var(--text-primary);
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        
+        .recent-char:hover {
+            background: #667eea;
+            color: white;
+            transform: scale(1.05);
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--text-secondary);
+        }
+        
+        .empty-state svg {
+            width: 80px;
+            height: 80px;
+            margin-bottom: 20px;
+            opacity: 0.3;
+        }
+        
+        .empty-state h3 {
+            font-size: 1.2rem;
+            margin-bottom: 8px;
+            color: var(--text-primary);
+        }
+        
+        .empty-state p {
+            font-size: 0.95rem;
+        }
+        
+        .footer {
+            padding: 20px 30px;
+            background: var(--card-bg);
+            text-align: center;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+        }
+        
+        @media (max-width: 640px) {
+            .header {
+                padding: 20px 15px 30px;
+            }
+            
+            .header h1 {
+                font-size: 1.8rem;
+            }
+            
+            .search-section {
+                padding: 20px 15px;
+            }
+            
+            .search-input {
+                font-size: 16px; /* 防止 iOS 自動縮放 */
+                padding: 14px 18px;
+                -webkit-appearance: none;
+                appearance: none;
+                border-radius: 12px;
+            }
+            
+            .results-section {
+                padding: 15px;
+            }
+            
+            .results-grid {
+                grid-template-columns: repeat(auto-fill, minmax(65px, 1fr));
+                gap: 8px;
+            }
+            
+            .char-card {
+                padding: 8px 4px;
+            }
+            
+            .char-main {
+                font-size: 1.5rem;
+            }
+            
+            .char-pinyin {
+                font-size: 0.7rem;
+            }
+            
+            .mark-badge {
+                font-size: 0.6rem;
+                padding: 1px 4px;
+                min-width: 28px;
+            }
+            
+            .color-panel {
+                position: static;
+                flex-direction: row;
+                flex-wrap: wrap;
+                margin-bottom: 15px;
+                justify-content: center;
+            }
+            
+            .controls {
+                position: static;
+                justify-content: center;
+                margin-top: 15px;
+                flex-wrap: wrap;
+            }
+            
+            .options {
+                gap: 10px;
+            }
+            
+            .button-group {
+                width: 100%;
+                justify-content: center;
+            }
+            
+            .recent-clicks-section {
+                padding: 15px;
+            }
+            
+            .checkbox-label {
+                font-size: 0.85rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+    <div class="container" id="mainContainer">
+        <div class="header">
+            <!-- 顏色自定義面板 -->
+            <div class="color-panel">
+                <div class="color-item">
+                    <label>背景</label>
+                    <input type="color" id="bgColor1" value="#667eea">
+                </div>
+                <div class="color-item">
+                    <label>底色</label>
+                    <input type="color" id="containerBg" value="#ffffff">
+                </div>
+                <div class="color-item">
+                    <label>文字</label>
+                    <input type="color" id="textColor" value="#2d3748">
+                </div>
+                <div class="color-item">
+                    <label>邊框</label>
+                    <input type="color" id="highlightColor" value="#ed8936">
+                </div>
+            </div>
+            
+            <!-- 控制面板 -->
+            <div class="controls">
+                <button class="theme-toggle" id="themeToggle"> ☀️ 淺色模式 </button>
+                <div class="zoom-control">
+                    <span>🔍</span>
+                    <input type="range" id="zoomSlider" min="50" max="150" value="100" step="5">
+                    <span id="zoomValue">100%</span>
+                </div>
+            </div>
+            
+            <h1>韻腳查詢器 📝</h1>
+            <p>寫歌詞...不簡單...乾巴爹...早點睡...</p>
+        </div>
+        
+        <div class="search-section">
+            <div class="search-box">
+                <input 
+                    type="text" 
+                    id="searchInput" 
+                    class="search-input" 
+                    placeholder="輸入注音或拼音，例如：ㄢ 或 an"
+                    autocomplete="off"
+                    autocorrect="off"
+                    autocapitalize="off"
+                    spellcheck="false"
+                    inputmode="text"
+                    enterkeyhint="search"
+                >
+                <div class="search-hint">
+                    💡 支援注音（ㄅㄆㄇ）或拼音（ban、pan）輸入，也可輸入子音（如 ㄈ）查找所有符合該子音開頭的字
+                </div>
+            </div>
+            
+            <div class="options">
+                <label class="checkbox-label">
+                    <input type="checkbox" id="showPinyin" checked>
+                    <span>顯示拼音</span>
+                </label>
+                
+                <label class="checkbox-label">
+                    <input type="checkbox" id="highlightSearch" checked>
+                    <span>標記搜尋</span>
+                </label>
+                
+                <div class="button-group">
+                    <button class="mode-button active" data-mode="common">常用字優先</button>
+                    <button class="mode-button" data-mode="initial">同子音並列</button>
+                </div>
+            </div>
+        </div>
+        
+        <div class="results-section">
+            <div id="resultsContainer">
+                <div class="empty-state">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                    </svg>
+                    <h3>開始搜尋韻腳</h3>
+                    <p>在上方輸入注音或拼音來尋找押韻的字</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="recent-clicks-section">
+            <div class="recent-clicks-title">最近點擊</div>
+            <div class="recent-clicks-container" id="recentClicks">
+                <span style="color: var(--text-secondary); font-size: 0.9rem;">點擊上方的字來記錄</span>
+            </div>
+        </div>
+        
+        <div class="footer">
+            創作者專屬工具 · 可離線使用 · 告知作者後可分享 ( 因為還在開發中 >_< )　　　2026.02 beta v0.7.4
+        </div>
+    </div>
+
+    <script>
+        // 注音轉拼音對照表
+        const bopomofoToPinyin = {
+            'ㄅ': 'b', 'ㄆ': 'p', 'ㄇ': 'm', 'ㄈ': 'f',
+            'ㄉ': 'd', 'ㄊ': 't', 'ㄋ': 'n', 'ㄌ': 'l',
+            'ㄍ': 'g', 'ㄎ': 'k', 'ㄏ': 'h',
+            'ㄐ': 'j', 'ㄑ': 'q', 'ㄒ': 'x',
+            'ㄓ': 'zh', 'ㄔ': 'ch', 'ㄕ': 'sh', 'ㄖ': 'r',
+            'ㄗ': 'z', 'ㄘ': 'c', 'ㄙ': 's',
+            'ㄚ': 'a', 'ㄛ': 'o', 'ㄜ': 'e', 'ㄝ': 'e',
+            'ㄞ': 'ai', 'ㄟ': 'ei', 'ㄠ': 'ao', 'ㄡ': 'ou',
+            'ㄢ': 'an', 'ㄣ': 'en', 'ㄤ': 'ang', 'ㄥ': 'eng', 'ㄦ': 'er',
+            'ㄧ': 'i', 'ㄨ': 'u', 'ㄩ': 'v',
+            'ㄧㄚ': 'ia', 'ㄧㄛ': 'io', 'ㄧㄝ': 'ie', 'ㄧㄞ': 'iai', 'ㄧㄠ': 'iao', 'ㄧㄡ': 'iou',
+            'ㄧㄢ': 'ian', 'ㄧㄣ': 'in', 'ㄧㄤ': 'iang', 'ㄧㄥ': 'ing',
+            'ㄨㄚ': 'ua', 'ㄨㄛ': 'uo', 'ㄨㄞ': 'uai', 'ㄨㄟ': 'uei', 'ㄨㄢ': 'uan', 'ㄨㄣ': 'uen',
+            'ㄨㄤ': 'uang', 'ㄨㄥ': 'ueng',
+            'ㄩㄝ': 've', 'ㄩㄢ': 'van', 'ㄩㄣ': 'vn', 'ㄩㄥ': 'iong'
+        };
+
+        // 原始字庫中的常用字（僅作為預設參考）
+        const defaultCommonChars = new Set([
+            '的', '一', '是', '不', '了', '在', '人', '有', '我', '他', '這', '個', '們', '中', '來', '上',
+            '大', '為', '和', '國', '地', '到', '以', '說', '時', '要', '就', '出', '會', '可', '也', '你',
+            '對', '生', '能', '而', '子', '那', '得', '於', '著', '下', '自', '之', '年', '過', '發', '後',
+            '作', '裡', '用', '道', '行', '所', '然', '家', '種', '事', '成', '方', '多', '經', '麼', '去',
+            '法', '學', '如', '都', '同', '現', '當', '沒', '動', '面', '起', '看', '定', '天', '分', '還',
+            '進', '好', '小', '部', '其', '些', '主', '樣', '理', '心', '她', '本', '前', '開', '但', '因',
+            '只', '從', '想', '實', '日', '軍', '者', '意', '無', '力', '它', '與', '長', '把', '機', '十',
+            '民', '第', '公', '此', '已', '工', '使', '情', '明', '性', '知', '全', '三', '又', '關', '點',
+            '正', '業', '外', '將', '兩', '見', '由', '才', '很', '回', '重', '產', '手', '表', '間', '斯',
+            '美', '內', '合', '活', '代', '員', '論', '高', '問', '並', '最', '光', '何', '新', '帶', '望',
+            '先', '物', '打', '己', '應', '次', '加', '相', '老', '反', '文', '思', '利', '話', '北', '二',
+            '等', '體', '制', '己', '真', '原', '許', '部', '教', '身', '特', '告', '東', '海', '通', '受',
+            '聽', '世', '位', '水', '今', '女', '名', '馬', '任', '王', '量', '指', '取', '流', '變', '條',
+            '色', '結', '口', '題', '走', '義', '至', '難', '電', '書', '神', '品', '更', '或', '者', '白',
+            '死', '風', '給', '直', '平', '華', '具', '示', '權', '即', '斷', '證', '狀', '養', '類', '據',
+            '班', '判', '罐', '轉', '串', '算', '碳', '亂', '飯', '欄', '潘', '但', '難', '展', '山', '站',
+            '三', '單', '辦', '滿', '灘', '幹', '彈', '丹', '蘭', '湍', '貪', '攤', '喃', '男', '監', '參'
+        ]);
+
+        // 使用者自訂標記系統（獨立於字庫）
+        // 'common' = 常用, null/undefined = 一般, 'rare' = 冷僻
+        let userMarks = {};
+        
+        // 從 localStorage 載入使用者標記
+        function loadUserMarks() {
+            try {
+                const saved = localStorage.getItem('userMarks');
+                if (saved) {
+                    userMarks = JSON.parse(saved);
+                } else {
+                    // 首次使用：將預設常用字標記為 common
+                    defaultCommonChars.forEach(ch => {
+                        userMarks[ch] = 'common';
+                    });
+                    saveUserMarks();
+                }
+            } catch(e) {
+                userMarks = {};
+            }
+        }
+        
+        function saveUserMarks() {
+            try {
+                localStorage.setItem('userMarks', JSON.stringify(userMarks));
+            } catch(e) {}
+        }
+        
+        // 取得字的標記狀態
+        function getCharMark(char) {
+            return userMarks[char] || null; // null = 一般
+        }
+        
+        // 切換標記：常用 → 一般 → 冷僻 → 常用
+        function cycleCharMark(char) {
+            const current = getCharMark(char);
+            if (current === null || current === undefined) {
+                userMarks[char] = 'common'; // → 常用
+            } else if (current === 'common') {
+                userMarks[char] = 'rare'; // → 冷僻
+            } else {
+                delete userMarks[char]; // → 一般
+            }
+            saveUserMarks();
+        }
+
+        // 完整的漢字拼音數據庫
+        const chineseDict = {
+            '安': ['an'], '班': ['ban'], '般': ['ban'], '搬': ['ban'], '斑': ['ban'], '頒': ['ban'], '瘢': ['ban'],
+            '板': ['ban'], '版': ['ban'], '辦': ['ban'], '半': ['ban'], '伴': ['ban'], '扮': ['ban'], '拌': ['ban'],
+            '絆': ['ban'], '瓣': ['ban'], '幫': ['bang'], '邦': ['bang'], '綁': ['bang'], '榜': ['bang'], '磅': ['bang'],
+            '膀': ['bang'], '棒': ['bang'], '謗': ['bang'], '傍': ['bang'], '蚌': ['bang'], '包': ['bao'], '胞': ['bao'],
+            '苞': ['bao'], '褒': ['bao'], '雹': ['bao'], '薄': ['bao', 'bo'], '保': ['bao'], '寶': ['bao'], '飽': ['bao'],
+            '抱': ['bao'], '報': ['bao'], '暴': ['bao'], '爆': ['bao'], '曝': ['bao'], '杯': ['bei'], '卑': ['bei'],
+            '悲': ['bei'], '碑': ['bei'], '北': ['bei'], '貝': ['bei'], '備': ['bei'], '背': ['bei'], '倍': ['bei'],
+            '被': ['bei'], '輩': ['bei'], '奔': ['ben'], '本': ['ben'], '笨': ['ben'], '崩': ['beng'], '繃': ['beng'],
+            '甭': ['beng'], '逼': ['bi'], '鼻': ['bi'], '比': ['bi'], '彼': ['bi'], '筆': ['bi'], '鄙': ['bi'],
+            '必': ['bi'], '畢': ['bi'], '閉': ['bi'], '庇': ['bi'], '幣': ['bi'], '弊': ['bi'], '壁': ['bi'],
+            '避': ['bi'], '臂': ['bi'], '邊': ['bian'], '編': ['bian'], '鞭': ['bian'], '扁': ['bian'], '貶': ['bian'],
+            '便': ['bian', 'pian'], '變': ['bian'], '遍': ['bian'], '辨': ['bian'], '辯': ['bian'], '辮': ['bian'],
+            '標': ['biao'], '彪': ['biao'], '膘': ['biao'], '表': ['biao'], '鱉': ['bie'], '別': ['bie'], '賓': ['bin'],
+            '濱': ['bin'], '斌': ['bin'], '檳': ['bin'], '殯': ['bin'], '鬢': ['bin'], '冰': ['bing'], '兵': ['bing'],
+            '丙': ['bing'], '柄': ['bing'], '餅': ['bing'], '病': ['bing'], '並': ['bing'], '波': ['bo'], '玻': ['bo'],
+            '剝': ['bo'], '播': ['bo'], '撥': ['bo'], '博': ['bo'], '搏': ['bo'], '伯': ['bo'], '泊': ['bo'],
+            '薄': ['bo', 'bao'], '脖': ['bo'], '駁': ['bo'], '補': ['bu'], '捕': ['bu'], '哺': ['bu'], '不': ['bu'],
+            '布': ['bu'], '步': ['bu'], '部': ['bu'], '怖': ['bu'], '擦': ['ca'], '猜': ['cai'], '才': ['cai'],
+            '材': ['cai'], '財': ['cai'], '裁': ['cai'], '採': ['cai'], '彩': ['cai'], '菜': ['cai'], '蔡': ['cai'],
+            '餐': ['can'], '參': ['can', 'shen'], '蠶': ['can'], '殘': ['can'], '慚': ['can'], '慘': ['can'], '燦': ['can'],
+            '蒼': ['cang'], '艙': ['cang'], '倉': ['cang'], '藏': ['cang', 'zang'], '操': ['cao'], '糙': ['cao'], '曹': ['cao'],
+            '草': ['cao'], '冊': ['ce'], '測': ['ce'], '側': ['ce'], '策': ['ce'], '層': ['ceng'], '曾': ['ceng', 'zeng'],
+            '插': ['cha'], '叉': ['cha'], '茶': ['cha'], '查': ['cha'], '察': ['cha'], '差': ['cha', 'chai', 'ci'],
+            '拆': ['chai'], '柴': ['chai'], '豺': ['chai'], '搽': ['cha'], '嗆': ['qiang'], '產': ['chan'], '闡': ['chan'],
+            '顫': ['chan'], '昌': ['chang'], '娼': ['chang'], '猖': ['chang'], '場': ['chang'], '嘗': ['chang'], '常': ['chang'],
+            '長': ['chang', 'zhang'], '償': ['chang'], '腸': ['chang'], '廠': ['chang'], '敞': ['chang'], '暢': ['chang'],
+            '唱': ['chang'], '倡': ['chang'], '超': ['chao'], '抄': ['chao'], '鈔': ['chao'], '朝': ['chao', 'zhao'],
+            '嘲': ['chao'], '潮': ['chao'], '巢': ['chao'], '吵': ['chao'], '炒': ['chao'], '車': ['che', 'ju'],
+            '扯': ['che'], '撤': ['che'], '掣': ['che'], '徹': ['che'], '澈': ['che'], '郴': ['chen'], '臣': ['chen'],
+            '辰': ['chen'], '塵': ['chen'], '晨': ['chen'], '忱': ['chen'], '沉': ['chen'], '陳': ['chen'], '趁': ['chen'],
+            '襯': ['chen'], '撐': ['cheng'], '稱': ['cheng', 'chen'], '城': ['cheng'], '橙': ['cheng'], '成': ['cheng'],
+            '呈': ['cheng'], '乘': ['cheng'], '程': ['cheng'], '懲': ['cheng'], '澄': ['cheng'], '誠': ['cheng'],
+            '承': ['cheng'], '逞': ['cheng'], '騁': ['cheng'], '秤': ['cheng'], '吃': ['chi'], '痴': ['chi'],
+            '持': ['chi'], '匙': ['chi'], '池': ['chi'], '遲': ['chi'], '弛': ['chi'], '馳': ['chi'], '恥': ['chi'],
+            '齒': ['chi'], '侈': ['chi'], '尺': ['chi'], '赤': ['chi'], '翅': ['chi'], '斥': ['chi'], '熾': ['chi'],
+            '充': ['chong'], '沖': ['chong'], '衝': ['chong'], '崇': ['chong'], '蟲': ['chong'], '寵': ['chong'], '抽': ['chou'],
+            '酬': ['chou'], '愁': ['chou'], '仇': ['chou'], '綢': ['chou'], '瞅': ['chou'], '醜': ['chou'], '臭': ['chou'],
+            '初': ['chu'], '出': ['chu'], '櫥': ['chu'], '除': ['chu'], '楚': ['chu'], '礎': ['chu'], '儲': ['chu'],
+            '矗': ['chu'], '搐': ['chu'], '觸': ['chu'], '處': ['chu'], '畜': ['chu', 'xu'], '川': ['chuan'], '穿': ['chuan'],
+            '傳': ['chuan', 'zhuan'], '船': ['chuan'], '喘': ['chuan'], '串': ['chuan'], '瘡': ['chuang'], '窗': ['chuang'],
+            '床': ['chuang'], '闖': ['chuang'], '創': ['chuang'], '吹': ['chui'], '炊': ['chui'], '捶': ['chui'],
+            '錘': ['chui'], '垂': ['chui'], '春': ['chun'], '椿': ['chun'], '純': ['chun'], '唇': ['chun'], '醇': ['chun'],
+            '蠢': ['chun'], '戳': ['chuo'], '綽': ['chuo'], '疵': ['ci'], '茨': ['ci'], '慈': ['ci'], '瓷': ['ci'],
+            '詞': ['ci'], '此': ['ci'], '刺': ['ci'], '賜': ['ci'], '次': ['ci'], '聰': ['cong'], '蔥': ['cong'],
+            '囪': ['cong'], '從': ['cong'], '叢': ['cong'], '湊': ['cou'], '粗': ['cu'], '醋': ['cu'], '簇': ['cu'],
+            '促': ['cu'], '躥': ['cuan'], '篡': ['cuan'], '竄': ['cuan'], '催': ['cui'], '崔': ['cui'], '摧': ['cui'],
+            '脆': ['cui'], '粹': ['cui'], '淬': ['cui'], '翠': ['cui'], '村': ['cun'], '存': ['cun'], '寸': ['cun'],
+            '磋': ['cuo'], '搓': ['cuo'], '措': ['cuo'], '挫': ['cuo'], '錯': ['cuo'], '達': ['da'], '答': ['da'],
+            '瘩': ['da'], '打': ['da'], '大': ['da'], '呆': ['dai'], '歹': ['dai'], '傣': ['dai'], '戴': ['dai'],
+            '帶': ['dai'], '殆': ['dai'], '代': ['dai'], '貸': ['dai'], '袋': ['dai'], '待': ['dai'], '逮': ['dai'],
+            '怠': ['dai'], '耽': ['dan'], '擔': ['dan'], '丹': ['dan'], '單': ['dan'], '鄲': ['dan'], '撣': ['dan'],
+            '膽': ['dan'], '旦': ['dan'], '氮': ['dan'], '但': ['dan'], '憚': ['dan'], '淡': ['dan'], '誕': ['dan'],
+            '彈': ['dan', 'tan'], '蛋': ['dan'], '當': ['dang', 'dang'], '擋': ['dang'], '黨': ['dang'], '蕩': ['dang'],
+            '檔': ['dang'], '刀': ['dao'], '搗': ['dao'], '蹈': ['dao'], '倒': ['dao'], '島': ['dao'], '禱': ['dao'],
+            '導': ['dao'], '到': ['dao'], '稻': ['dao'], '悼': ['dao'], '道': ['dao'], '盜': ['dao'], '德': ['de'],
+            '得': ['de', 'dei'], '的': ['de', 'di'], '蹬': ['deng'], '燈': ['deng'], '登': ['deng'], '等': ['deng'],
+            '瞪': ['deng'], '凳': ['deng'], '鄧': ['deng'], '堤': ['di'], '低': ['di'], '滴': ['di'], '迪': ['di'],
+            '敵': ['di'], '笛': ['di'], '狄': ['di'], '滌': ['di'], '翟': ['di'], '嫡': ['di'], '抵': ['di'],
+            '底': ['di'], '地': ['di'], '蒂': ['di'], '弟': ['di'], '遞': ['di'], '帝': ['di'], '第': ['di'],
+            '締': ['di'], '顛': ['dian'], '滇': ['dian'], '碘': ['dian'], '點': ['dian'], '典': ['dian'], '靛': ['dian'],
+            '墊': ['dian'], '電': ['dian'], '佃': ['dian'], '甸': ['dian'], '店': ['dian'], '惦': ['dian'], '奠': ['dian'],
+            '澱': ['dian'], '殿': ['dian'], '雕': ['diao'], '凋': ['diao'], '刁': ['diao'], '掉': ['diao'], '吊': ['diao'],
+            '釣': ['diao'], '調': ['diao', 'tiao'], '跌': ['die'], '爹': ['die'], '碟': ['die'], '蝶': ['die'],
+            '迭': ['die'], '諜': ['die'], '疊': ['die'], '丁': ['ding'], '盯': ['ding'], '叮': ['ding'], '釘': ['ding'],
+            '頂': ['ding'], '鼎': ['ding'], '錠': ['ding'], '定': ['ding'], '訂': ['ding'], '丟': ['diu'], '東': ['dong'],
+            '冬': ['dong'], '董': ['dong'], '懂': ['dong'], '動': ['dong'], '棟': ['dong'], '侗': ['dong'], '恫': ['dong'],
+            '凍': ['dong'], '洞': ['dong'], '兜': ['dou'], '抖': ['dou'], '斗': ['dou'], '陡': ['dou'], '豆': ['dou'],
+            '逗': ['dou'], '痘': ['dou'], '都': ['dou', 'du'], '督': ['du'], '毒': ['du'], '犢': ['du'], '獨': ['du'],
+            '讀': ['du'], '堵': ['du'], '睹': ['du'], '賭': ['du'], '杜': ['du'], '鍍': ['du'], '肚': ['du'],
+            '度': ['du'], '渡': ['du'], '妒': ['du'], '端': ['duan'], '短': ['duan'], '段': ['duan'], '斷': ['duan'],
+            '緞': ['duan'], '堆': ['dui'], '兌': ['dui'], '隊': ['dui'], '對': ['dui'], '墩': ['dun'], '吨': ['dun'],
+            '蹲': ['dun'], '敦': ['dun'], '頓': ['dun'], '囤': ['dun'], '鈍': ['dun'], '盾': ['dun'], '遁': ['dun'],
+            '掇': ['duo'], '哆': ['duo'], '多': ['duo'], '奪': ['duo'], '垛': ['duo'], '躲': ['duo'], '朵': ['duo'],
+            '跺': ['duo'], '舵': ['duo'], '剁': ['duo'], '惰': ['duo'], '墮': ['duo'], '蛾': ['e'], '峨': ['e'],
+            '鵝': ['e'], '俄': ['e'], '額': ['e'], '訛': ['e'], '娥': ['e'], '惡': ['e'], '厄': ['e'], '扼': ['e'],
+            '遏': ['e'], '鄂': ['e'], '餓': ['e'], '恩': ['en'], '而': ['er'], '兒': ['er'], '耳': ['er'],
+            '爾': ['er'], '餌': ['er'], '洱': ['er'], '二': ['er'], '貳': ['er'], '發': ['fa'], '罰': ['fa'],
+            '筏': ['fa'], '伐': ['fa'], '乏': ['fa'], '閥': ['fa'], '法': ['fa'], '琺': ['fa'], '藩': ['fan'],
+            '帆': ['fan'], '番': ['fan'], '翻': ['fan'], '樊': ['fan'], '礬': ['fan'], '釩': ['fan'], '繁': ['fan'],
+            '凡': ['fan'], '煩': ['fan'], '反': ['fan'], '返': ['fan'], '範': ['fan'], '販': ['fan'], '犯': ['fan'],
+            '飯': ['fan'], '泛': ['fan'], '坊': ['fang'], '芳': ['fang'], '方': ['fang'], '肪': ['fang'], '房': ['fang'],
+            '防': ['fang'], '妨': ['fang'], '仿': ['fang'], '訪': ['fang'], '紡': ['fang'], '放': ['fang'], '菲': ['fei'],
+            '非': ['fei'], '啡': ['fei'], '飛': ['fei'], '肥': ['fei'], '匪': ['fei'], '誹': ['fei'], '吠': ['fei'],
+            '肺': ['fei'], '廢': ['fei'], '沸': ['fei'], '費': ['fei'], '芬': ['fen'], '酚': ['fen'], '吩': ['fen'],
+            '氛': ['fen'], '分': ['fen'], '紛': ['fen'], '墳': ['fen'], '焚': ['fen'], '汾': ['fen'], '粉': ['fen'],
+            '奮': ['fen'], '份': ['fen'], '忿': ['fen'], '憤': ['fen'], '糞': ['fen'], '豐': ['feng'], '封': ['feng'],
+            '楓': ['feng'], '蜂': ['feng'], '峰': ['feng'], '鋒': ['feng'], '風': ['feng'], '瘋': ['feng'], '烽': ['feng'],
+            '逢': ['feng'], '馮': ['feng'], '縫': ['feng'], '諷': ['feng'], '奉': ['feng'], '鳳': ['feng'], '佛': ['fo'],
+            '否': ['fou'], '夫': ['fu'], '敷': ['fu'], '膚': ['fu'], '孵': ['fu'], '扶': ['fu'], '拂': ['fu'],
+            '輻': ['fu'], '幅': ['fu'], '氟': ['fu'], '符': ['fu'], '伏': ['fu'], '俘': ['fu'], '服': ['fu'],
+            '浮': ['fu'], '涪': ['fu'], '福': ['fu'], '撫': ['fu'], '輔': ['fu'], '俯': ['fu'], '釜': ['fu'],
+            '斧': ['fu'], '脯': ['fu'], '腑': ['fu'], '府': ['fu'], '腐': ['fu'], '赴': ['fu'], '副': ['fu'],
+            '覆': ['fu'], '賦': ['fu'], '復': ['fu'], '傅': ['fu'], '付': ['fu'], '阜': ['fu'], '父': ['fu'],
+            '腹': ['fu'], '負': ['fu'], '富': ['fu'], '訃': ['fu'], '附': ['fu'], '婦': ['fu'], '縛': ['fu'],
+            '咐': ['fu'], '噶': ['ga'], '嘎': ['ga'], '該': ['gai'], '改': ['gai'], '概': ['gai'], '鈣': ['gai'],
+            '蓋': ['gai'], '溉': ['gai'], '幹': ['gan'], '甘': ['gan'], '杆': ['gan'], '柑': ['gan'], '竿': ['gan'],
+            '肝': ['gan'], '趕': ['gan'], '感': ['gan'], '稈': ['gan'], '敢': ['gan'], '贛': ['gan'], '岡': ['gang'],
+            '剛': ['gang'], '鋼': ['gang'], '缸': ['gang'], '肛': ['gang'], '綱': ['gang'], '崗': ['gang'], '港': ['gang'],
+            '杠': ['gang'], '槓': ['gang'], '高': ['gao'], '膏': ['gao'], '羔': ['gao'], '糕': ['gao'], '搞': ['gao'],
+            '鎬': ['gao'], '稿': ['gao'], '告': ['gao'], '戈': ['ge'], '哥': ['ge'], '歌': ['ge'], '擱': ['ge'],
+            '戈': ['ge'], '鴿': ['ge'], '割': ['ge'], '革': ['ge'], '葛': ['ge'], '格': ['ge'], '蛤': ['ge'],
+            '閣': ['ge'], '隔': ['ge'], '鉻': ['ge'], '個': ['ge'], '各': ['ge'], '給': ['gei'], '根': ['gen'],
+            '跟': ['gen'], '耕': ['geng'], '更': ['geng'], '庚': ['geng'], '羹': ['geng'], '埂': ['geng'], '耿': ['geng'],
+            '梗': ['geng'], '工': ['gong'], '攻': ['gong'], '功': ['gong'], '恭': ['gong'], '龔': ['gong'], '供': ['gong'],
+            '躬': ['gong'], '公': ['gong'], '宮': ['gong'], '弓': ['gong'], '鞏': ['gong'], '汞': ['gong'], '拱': ['gong'],
+            '貢': ['gong'], '共': ['gong'], '鉤': ['gou'], '勾': ['gou'], '溝': ['gou'], '苟': ['gou'], '狗': ['gou'],
+            '垢': ['gou'], '構': ['gou'], '購': ['gou'], '夠': ['gou'], '辜': ['gu'], '菇': ['gu'], '咕': ['gu'],
+            '箍': ['gu'], '估': ['gu'], '沽': ['gu'], '孤': ['gu'], '姑': ['gu'], '鼓': ['gu'], '古': ['gu'],
+            '蠱': ['gu'], '骨': ['gu'], '谷': ['gu'], '股': ['gu'], '故': ['gu'], '顧': ['gu'], '固': ['gu'],
+            '雇': ['gu'], '刮': ['gua'], '瓜': ['gua'], '剮': ['gua'], '寡': ['gua'], '掛': ['gua'], '褂': ['gua'],
+            '卦': ['gua'], '乖': ['guai'], '拐': ['guai'], '怪': ['guai'], '棺': ['guan'], '關': ['guan'], '官': ['guan'],
+            '冠': ['guan'], '觀': ['guan'], '管': ['guan'], '館': ['guan'], '罐': ['guan'], '慣': ['guan'], '灌': ['guan'],
+            '貫': ['guan'], '光': ['guang'], '廣': ['guang'], '逛': ['guang'], '瑰': ['gui'], '規': ['gui'], '圭': ['gui'],
+            '硅': ['gui'], '歸': ['gui'], '龜': ['gui'], '閨': ['gui'], '軌': ['gui'], '鬼': ['gui'], '詭': ['gui'],
+            '癸': ['gui'], '桂': ['gui'], '櫃': ['gui'], '跪': ['gui'], '貴': ['gui'], '劊': ['gui'], '輥': ['gun'],
+            '袞': ['gun'], '棍': ['gun'], '鍋': ['guo'], '郭': ['guo'], '國': ['guo'], '果': ['guo'], '裹': ['guo'],
+            '過': ['guo'], '哈': ['ha'], '骸': ['hai'], '孩': ['hai'], '海': ['hai'], '氦': ['hai'], '亥': ['hai'],
+            '害': ['hai'], '駭': ['hai'], '酣': ['han'], '憨': ['han'], '邯': ['han'], '韓': ['han'], '含': ['han'],
+            '涵': ['han'], '寒': ['han'], '函': ['han'], '喊': ['han'], '罕': ['han'], '翰': ['han'], '撼': ['han'],
+            '捍': ['han'], '旱': ['han'], '憾': ['han'], '悍': ['han'], '焊': ['han'], '汗': ['han'], '漢': ['han'],
+            '夯': ['hang'], '杭': ['hang'], '航': ['hang'], '壕': ['hao'], '嚎': ['hao'], '豪': ['hao'], '毫': ['hao'],
+            '郝': ['hao'], '好': ['hao'], '耗': ['hao'], '號': ['hao'], '浩': ['hao'], '呵': ['he'], '喝': ['he'],
+            '荷': ['he'], '菏': ['he'], '核': ['he'], '禾': ['he'], '和': ['he'], '何': ['he'], '合': ['he'],
+            '盒': ['he'], '貉': ['he'], '閡': ['he'], '河': ['he'], '涸': ['he'], '赫': ['he'], '褐': ['he'],
+            '鶴': ['he'], '賀': ['he'], '嘿': ['hei'], '黑': ['hei'], '痕': ['hen'], '很': ['hen'], '狠': ['hen'],
+            '恨': ['hen'], '哼': ['heng'], '亨': ['heng'], '橫': ['heng'], '衡': ['heng'], '恆': ['heng'], '轟': ['hong'],
+            '哄': ['hong'], '烘': ['hong'], '虹': ['hong'], '鴻': ['hong'], '洪': ['hong'], '宏': ['hong'], '弘': ['hong'],
+            '紅': ['hong'], '喉': ['hou'], '侯': ['hou'], '猴': ['hou'], '吼': ['hou'], '厚': ['hou'], '候': ['hou'],
+            '後': ['hou'], '呼': ['hu'], '乎': ['hu'], '忽': ['hu'], '瑚': ['hu'], '壺': ['hu'], '葫': ['hu'],
+            '胡': ['hu'], '蝴': ['hu'], '狐': ['hu'], '糊': ['hu'], '湖': ['hu'], '弧': ['hu'], '虎': ['hu'],
+            '唬': ['hu'], '護': ['hu'], '互': ['hu'], '滬': ['hu'], '戶': ['hu'], '花': ['hua'], '嘩': ['hua'],
+            '華': ['hua'], '猾': ['hua'], '滑': ['hua'], '畫': ['hua'], '劃': ['hua'], '化': ['hua'], '話': ['hua'],
+            '槐': ['huai'], '徊': ['huai'], '懷': ['huai'], '淮': ['huai'], '壞': ['huai'], '歡': ['huan'], '環': ['huan'],
+            '桓': ['huan'], '還': ['huan'], '緩': ['huan'], '換': ['huan'], '患': ['huan'], '喚': ['huan'], '瘓': ['huan'],
+            '豢': ['huan'], '煥': ['huan'], '渙': ['huan'], '宦': ['huan'], '幻': ['huan'], '荒': ['huang'], '慌': ['huang'],
+            '黃': ['huang'], '磺': ['huang'], '蝗': ['huang'], '簧': ['huang'], '皇': ['huang'], '凰': ['huang'], '惶': ['huang'],
+            '煌': ['huang'], '晃': ['huang'], '幌': ['huang'], '恍': ['huang'], '謊': ['huang'], '灰': ['hui'], '揮': ['hui'],
+            '輝': ['hui'], '徽': ['hui'], '恢': ['hui'], '蛔': ['hui'], '回': ['hui'], '毀': ['hui'], '悔': ['hui'],
+            '慧': ['hui'], '卉': ['hui'], '惠': ['hui'], '晦': ['hui'], '賄': ['hui'], '穢': ['hui'], '會': ['hui'],
+            '燴': ['hui'], '匯': ['hui'], '諱': ['hui'], '誨': ['hui'], '繪': ['hui'], '葷': ['hun'], '昏': ['hun'],
+            '婚': ['hun'], '魂': ['hun'], '渾': ['hun'], '混': ['hun'], '豁': ['huo'], '活': ['huo'], '伙': ['huo'],
+            '火': ['huo'], '獲': ['huo'], '或': ['huo'], '惑': ['huo'], '霍': ['huo'], '貨': ['huo'], '禍': ['huo'],
+            '擊': ['ji'], '圾': ['ji'], '基': ['ji'], '機': ['ji'], '畸': ['ji'], '稽': ['ji'], '積': ['ji'],
+            '箕': ['ji'], '肌': ['ji'], '飢': ['ji'], '跡': ['ji'], '激': ['ji'], '譏': ['ji'], '雞': ['ji'],
+            '姬': ['ji'], '績': ['ji'], '緝': ['ji'], '吉': ['ji'], '極': ['ji'], '棘': ['ji'], '輯': ['ji'],
+            '籍': ['ji'], '集': ['ji'], '及': ['ji'], '急': ['ji'], '疾': ['ji'], '汲': ['ji'], '即': ['ji'],
+            '嫉': ['ji'], '級': ['ji'], '擠': ['ji'], '幾': ['ji'], '脊': ['ji'], '己': ['ji'], '薊': ['ji'],
+            '技': ['ji'], '冀': ['ji'], '季': ['ji'], '伎': ['ji'], '祭': ['ji'], '劑': ['ji'], '悸': ['ji'],
+            '濟': ['ji'], '寄': ['ji'], '寂': ['ji'], '計': ['ji'], '記': ['ji'], '既': ['ji'], '忌': ['ji'],
+            '際': ['ji'], '繼': ['ji'], '紀': ['ji'], '嘉': ['jia'], '枷': ['jia'], '夾': ['jia'], '佳': ['jia'],
+            '家': ['jia'], '加': ['jia'], '莢': ['jia'], '頰': ['jia'], '賈': ['jia'], '甲': ['jia'], '鉀': ['jia'],
+            '假': ['jia'], '稼': ['jia'], '價': ['jia'], '架': ['jia'], '駕': ['jia'], '嫁': ['jia'], '殲': ['jian'],
+            '監': ['jian'], '堅': ['jian'], '尖': ['jian'], '箋': ['jian'], '間': ['jian'], '煎': ['jian'], '兼': ['jian'],
+            '肩': ['jian'], '艱': ['jian'], '奸': ['jian'], '緘': ['jian'], '繭': ['jian'], '檢': ['jian'], '柬': ['jian'],
+            '鹼': ['jian'], '揀': ['jian'], '撿': ['jian'], '簡': ['jian'], '儉': ['jian'], '剪': ['jian'],
+            '減': ['jian'], '薦': ['jian'], '澗': ['jian'], '鑑': ['jian'], '踐': ['jian'], '賤': ['jian'], '見': ['jian'],
+            '鍵': ['jian'], '箭': ['jian'], '件': ['jian'], '健': ['jian'], '艦': ['jian'], '劍': ['jian'], '餞': ['jian'],
+            '漸': ['jian'], '濺': ['jian'], '建': ['jian'], '僵': ['jiang'], '姜': ['jiang'], '將': ['jiang'],
+            '漿': ['jiang'], '江': ['jiang'], '疆': ['jiang'], '蔣': ['jiang'], '槳': ['jiang'], '獎': ['jiang'], '講': ['jiang'],
+            '匠': ['jiang'], '醬': ['jiang'], '降': ['jiang'], '蕉': ['jiao'], '椒': ['jiao'], '礁': ['jiao'], '焦': ['jiao'],
+            '膠': ['jiao'], '交': ['jiao'], '郊': ['jiao'], '澆': ['jiao'], '驕': ['jiao'], '嬌': ['jiao'], '嚼': ['jiao'],
+            '攪': ['jiao'], '鉸': ['jiao'], '矯': ['jiao'], '僥': ['jiao'], '腳': ['jiao'], '狡': ['jiao'], '角': ['jiao'],
+            '餃': ['jiao'], '繳': ['jiao'], '絞': ['jiao'], '剿': ['jiao'], '教': ['jiao'], '酵': ['jiao'], '轎': ['jiao'],
+            '較': ['jiao'], '叫': ['jiao'], '窖': ['jiao'], '揭': ['jie'], '接': ['jie'], '皆': ['jie'], '秸': ['jie'],
+            '街': ['jie'], '階': ['jie'], '截': ['jie'], '劫': ['jie'], '節': ['jie'], '桔': ['jie'], '傑': ['jie'],
+            '捷': ['jie'], '睫': ['jie'], '竭': ['jie'], '潔': ['jie'], '結': ['jie'], '解': ['jie'], '姐': ['jie'],
+            '戒': ['jie'], '藉': ['jie'], '芥': ['jie'], '界': ['jie'], '借': ['jie'], '介': ['jie'], '疥': ['jie'],
+            '誡': ['jie'], '屆': ['jie'], '巾': ['jin'], '筋': ['jin'], '斤': ['jin'], '金': ['jin'], '今': ['jin'],
+            '津': ['jin'], '襟': ['jin'], '緊': ['jin'], '錦': ['jin'], '僅': ['jin'], '謹': ['jin'], '進': ['jin'],
+            '靳': ['jin'], '晉': ['jin'], '禁': ['jin'], '近': ['jin'], '燼': ['jin'], '浸': ['jin'], '盡': ['jin'],
+            '勁': ['jin'], '荊': ['jing'], '兢': ['jing'], '莖': ['jing'], '京': ['jing'], '驚': ['jing'], '精': ['jing'],
+            '粳': ['jing'], '經': ['jing'], '井': ['jing'], '警': ['jing'], '景': ['jing'], '頸': ['jing'], '靜': ['jing'],
+            '境': ['jing'], '敬': ['jing'], '鏡': ['jing'], '徑': ['jing'], '痙': ['jing'], '靖': ['jing'], '竟': ['jing'],
+            '競': ['jing'], '淨': ['jing'], '炯': ['jiong'], '窘': ['jiong'], '揪': ['jiu'], '究': ['jiu'], '糾': ['jiu'],
+            '玖': ['jiu'], '韭': ['jiu'], '久': ['jiu'], '灸': ['jiu'], '九': ['jiu'], '酒': ['jiu'], '廄': ['jiu'],
+            '救': ['jiu'], '舊': ['jiu'], '臼': ['jiu'], '舅': ['jiu'], '咎': ['jiu'], '就': ['jiu'], '疚': ['jiu'],
+            '鞠': ['ju'], '拘': ['ju'], '狙': ['ju'], '疽': ['ju'], '居': ['ju'], '駒': ['ju'], '菊': ['ju'],
+            '局': ['ju'], '咀': ['ju'], '矩': ['ju'], '舉': ['ju'], '沮': ['ju'], '聚': ['ju'], '拒': ['ju'],
+            '據': ['ju'], '巨': ['ju'], '具': ['ju'], '距': ['ju'], '踞': ['ju'], '鋸': ['ju'], '俱': ['ju'],
+            '句': ['ju'], '懼': ['ju'], '炬': ['ju'], '劇': ['ju'], '捐': ['juan'], '鵑': ['juan'], '娟': ['juan'],
+            '倦': ['juan'], '眷': ['juan'], '卷': ['juan'], '絹': ['juan'], '撅': ['jue'], '攫': ['jue'], '抉': ['jue'],
+            '掘': ['jue'], '倔': ['jue'], '爵': ['jue'], '覺': ['jue'], '決': ['jue'], '訣': ['jue'], '絕': ['jue'],
+            '厥': ['jue'], '劂': ['jue'], '譎': ['jue'], '軍': ['jun'], '君': ['jun'], '峻': ['jun'], '俊': ['jun'],
+            '竣': ['jun'], '浚': ['jun'], '郡': ['jun'], '駿': ['jun'], '喀': ['ka'], '咖': ['ka'], '卡': ['ka'],
+            '咯': ['ka'], '開': ['kai'], '揩': ['kai'], '楷': ['kai'], '凱': ['kai'], '慨': ['kai'], '刊': ['kan'],
+            '堪': ['kan'], '勘': ['kan'], '坎': ['kan'], '砍': ['kan'], '看': ['kan'], '康': ['kang'], '慷': ['kang'],
+            '糠': ['kang'], '扛': ['kang'], '抗': ['kang'], '亢': ['kang'], '炕': ['kang'], '考': ['kao'], '拷': ['kao'],
+            '烤': ['kao'], '靠': ['kao'], '坷': ['ke'], '苛': ['ke'], '柯': ['ke'], '棵': ['ke'], '磕': ['ke'],
+            '顆': ['ke'], '科': ['ke'], '殼': ['ke'], '咳': ['ke'], '可': ['ke'], '渴': ['ke'], '克': ['ke'],
+            '刻': ['ke'], '客': ['ke'], '課': ['ke'], '肯': ['ken'], '啃': ['ken'], '墾': ['ken'], '懇': ['ken'],
+            '坑': ['keng'], '吭': ['keng'], '空': ['kong'], '恐': ['kong'], '孔': ['kong'], '控': ['kong'], '摳': ['kou'],
+            '口': ['kou'], '扣': ['kou'], '寇': ['kou'], '枯': ['ku'], '哭': ['ku'], '窟': ['ku'], '苦': ['ku'],
+            '酷': ['ku'], '庫': ['ku'], '褲': ['ku'], '夸': ['kua'], '垮': ['kua'], '挎': ['kua'], '跨': ['kua'],
+            '胯': ['kua'], '塊': ['kuai'], '筷': ['kuai'], '儈': ['kuai'], '快': ['kuai'], '寬': ['kuan'], '款': ['kuan'],
+            '匡': ['kuang'], '筐': ['kuang'], '狂': ['kuang'], '框': ['kuang'], '礦': ['kuang'], '眶': ['kuang'], '曠': ['kuang'],
+            '況': ['kuang'], '虧': ['kui'], '盔': ['kui'], '窺': ['kui'], '葵': ['kui'], '奎': ['kui'], '魁': ['kui'],
+            '傀': ['kui'], '饋': ['kui'], '愧': ['kui'], '潰': ['kui'], '坤': ['kun'], '昆': ['kun'], '捆': ['kun'],
+            '困': ['kun'], '括': ['kuo'], '擴': ['kuo'], '廓': ['kuo'], '闊': ['kuo'], '垃': ['la'], '拉': ['la'],
+            '喇': ['la'], '蠟': ['la'], '臘': ['la'], '辣': ['la'], '啦': ['la'], '萊': ['lai'], '來': ['lai'],
+            '賴': ['lai'], '藍': ['lan'], '婪': ['lan'], '欄': ['lan'], '攔': ['lan'], '籃': ['lan'], '闌': ['lan'],
+            '蘭': ['lan'], '瀾': ['lan'], '讕': ['lan'], '攬': ['lan'], '覽': ['lan'], '懶': ['lan'], '纜': ['lan'],
+            '爛': ['lan'], '濫': ['lan'], '琅': ['lang'], '榔': ['lang'], '狼': ['lang'], '廊': ['lang'], '郎': ['lang'],
+            '朗': ['lang'], '浪': ['lang'], '撈': ['lao'], '勞': ['lao'], '牢': ['lao'], '老': ['lao'], '佬': ['lao'],
+            '姥': ['lao'], '酪': ['lao'], '烙': ['lao'], '澇': ['lao'], '勒': ['lei'], '樂': ['le', 'yue'], '雷': ['lei'],
+            '鐳': ['lei'], '蕾': ['lei'], '磊': ['lei'], '累': ['lei'], '儡': ['lei'], '壘': ['lei'], '擂': ['lei'],
+            '肋': ['lei'], '類': ['lei'], '淚': ['lei'], '棱': ['leng'], '楞': ['leng'], '冷': ['leng'], '厘': ['li'],
+            '梨': ['li'], '犁': ['li'], '黎': ['li'], '籬': ['li'], '貍': ['li'], '離': ['li'], '漓': ['li'],
+            '理': ['li'], '李': ['li'], '里': ['li'], '鯉': ['li'], '禮': ['li'], '麗': ['li'], '厲': ['li'],
+            '勵': ['li'], '礫': ['li'], '歷': ['li'], '利': ['li'], '傈': ['li'], '例': ['li'], '俐': ['li'],
+            '痢': ['li'], '立': ['li'], '粒': ['li'], '瀝': ['li'], '隸': ['li'], '力': ['li'], '璃': ['li'],
+            '哩': ['li'], '倆': ['liang'], '聯': ['lian'], '蓮': ['lian'], '連': ['lian'], '鐮': ['lian'], '憐': ['lian'],
+            '漣': ['lian'], '帘': ['lian'], '斂': ['lian'], '臉': ['lian'], '鏈': ['lian'], '戀': ['lian'], '煉': ['lian'],
+            '練': ['lian'], '糧': ['liang'], '涼': ['liang'], '梁': ['liang'], '粱': ['liang'], '良': ['liang'], '兩': ['liang'],
+            '輛': ['liang'], '量': ['liang'], '晾': ['liang'], '亮': ['liang'], '諒': ['liang'], '撩': ['liao'], '聊': ['liao'],
+            '僚': ['liao'], '療': ['liao'], '燎': ['liao'], '寥': ['liao'], '遼': ['liao'], '潦': ['liao'], '了': ['liao'],
+            '撂': ['liao'], '鐐': ['liao'], '廖': ['liao'], '料': ['liao'], '列': ['lie'], '裂': ['lie'], '烈': ['lie'],
+            '劣': ['lie'], '獵': ['lie'], '琳': ['lin'], '林': ['lin'], '磷': ['lin'], '霖': ['lin'], '臨': ['lin'],
+            '鄰': ['lin'], '鱗': ['lin'], '淋': ['lin'], '凜': ['lin'], '賃': ['lin'], '吝': ['lin'], '拎': ['lin'],
+            '玲': ['ling'], '菱': ['ling'], '零': ['ling'], '齡': ['ling'], '鈴': ['ling'], '伶': ['ling'], '羚': ['ling'],
+            '淩': ['ling'], '靈': ['ling'], '陵': ['ling'], '嶺': ['ling'], '領': ['ling'], '另': ['ling'], '令': ['ling'],
+            '溜': ['liu'], '琉': ['liu'], '榴': ['liu'], '硫': ['liu'], '餾': ['liu'], '留': ['liu'], '劉': ['liu'],
+            '瘤': ['liu'], '流': ['liu'], '柳': ['liu'], '六': ['liu'], '龍': ['long'], '聾': ['long'], '嚨': ['long'],
+            '籠': ['long'], '窿': ['long'], '隆': ['long'], '壟': ['long'], '攏': ['long'], '弄': ['long'], '隴': ['long'],
+            '樓': ['lou'], '婁': ['lou'], '摟': ['lou'], '簍': ['lou'], '漏': ['lou'], '陋': ['lou'], '蘆': ['lu'],
+            '盧': ['lu'], '顱': ['lu'], '廬': ['lu'], '爐': ['lu'], '擄': ['lu'], '鹵': ['lu'], '虜': ['lu'],
+            '魯': ['lu'], '麓': ['lu'], '碌': ['lu'], '露': ['lu'], '路': ['lu'], '賂': ['lu'], '鹿': ['lu'],
+            '潞': ['lu'], '祿': ['lu'], '錄': ['lu'], '陸': ['lu'], '戮': ['lu'], '驢': ['lv'], '呂': ['lv'],
+            '鋁': ['lv'], '侶': ['lv'], '旅': ['lv'], '履': ['lv'], '屢': ['lv'], '縷': ['lv'], '慮': ['lv'],
+            '氯': ['lv'], '律': ['lv'], '率': ['lv'], '濾': ['lv'], '綠': ['lv'], '巒': ['luan'], '攣': ['luan'],
+            '孿': ['luan'], '灤': ['luan'], '卵': ['luan'], '亂': ['luan'], '掠': ['lve'], '略': ['lve'], '掄': ['lun'],
+            '輪': ['lun'], '倫': ['lun'], '崙': ['lun'], '淪': ['lun'], '綸': ['lun'], '論': ['lun'], '蘿': ['luo'],
+            '螺': ['luo'], '羅': ['luo'], '邏': ['luo'], '鑼': ['luo'], '籮': ['luo'], '騾': ['luo'], '裸': ['luo'],
+            '落': ['luo'], '洛': ['luo'], '駱': ['luo'], '絡': ['luo'], '媽': ['ma'], '麻': ['ma'], '瑪': ['ma'],
+            '碼': ['ma'], '螞': ['ma'], '馬': ['ma'], '罵': ['ma'], '嘛': ['ma'], '嗎': ['ma'], '埋': ['mai'],
+            '買': ['mai'], '麥': ['mai'], '賣': ['mai'], '邁': ['mai'], '脈': ['mai'], '瞞': ['man'], '饅': ['man'],
+            '蠻': ['man'], '滿': ['man'], '蔓': ['man'], '曼': ['man'], '慢': ['man'], '漫': ['man'], '謾': ['man'],
+            '芒': ['mang'], '茫': ['mang'], '盲': ['mang'], '氓': ['mang'], '忙': ['mang'], '莽': ['mang'], '貓': ['mao'],
+            '茅': ['mao'], '錨': ['mao'], '毛': ['mao'], '矛': ['mao'], '鉚': ['mao'], '卯': ['mao'], '茂': ['mao'],
+            '冒': ['mao'], '帽': ['mao'], '貌': ['mao'], '貿': ['mao'], '麼': ['me'], '玫': ['mei'], '枚': ['mei'],
+            '梅': ['mei'], '酶': ['mei'], '黴': ['mei'], '煤': ['mei'], '沒': ['mei'], '眉': ['mei'], '媒': ['mei'],
+            '鎂': ['mei'], '每': ['mei'], '美': ['mei'], '昧': ['mei'], '寐': ['mei'], '妹': ['mei'], '媚': ['mei'],
+            '門': ['men'], '悶': ['men'], '們': ['men'], '萌': ['meng'], '蒙': ['meng'], '檬': ['meng'], '盟': ['meng'],
+            '錳': ['meng'], '猛': ['meng'], '夢': ['meng'], '孟': ['meng'], '眯': ['mi'], '醚': ['mi'], '靡': ['mi'],
+            '糜': ['mi'], '迷': ['mi'], '謎': ['mi'], '彌': ['mi'], '米': ['mi'], '秘': ['mi'], '覓': ['mi'],
+            '泌': ['mi'], '蜜': ['mi'], '密': ['mi'], '冪': ['mi'], '棉': ['mian'], '眠': ['mian'], '綿': ['mian'],
+            '冕': ['mian'], '免': ['mian'], '勉': ['mian'], '娩': ['mian'], '緬': ['mian'], '面': ['mian'], '苗': ['miao'],
+            '描': ['miao'], '瞄': ['miao'], '藐': ['miao'], '秒': ['miao'], '渺': ['miao'], '廟': ['miao'], '妙': ['miao'],
+            '蔑': ['mie'], '滅': ['mie'], '民': ['min'], '抿': ['min'], '皿': ['min'], '敏': ['min'], '憫': ['min'],
+            '閩': ['min'], '明': ['ming'], '螟': ['ming'], '鳴': ['ming'], '銘': ['ming'], '名': ['ming'], '命': ['ming'],
+            '謬': ['miu'], '摸': ['mo'], '摹': ['mo'], '蘑': ['mo'], '模': ['mo'], '膜': ['mo'], '磨': ['mo'],
+            '摩': ['mo'], '魔': ['mo'], '抹': ['mo'], '末': ['mo'], '莫': ['mo'], '墨': ['mo'], '默': ['mo'],
+            '沫': ['mo'], '漠': ['mo'], '寞': ['mo'], '陌': ['mo'], '謀': ['mou'], '牟': ['mou'], '某': ['mou'],
+            '拇': ['mu'], '牡': ['mu'], '畝': ['mu'], '姆': ['mu'], '母': ['mu'], '墓': ['mu'], '暮': ['mu'],
+            '幕': ['mu'], '募': ['mu'], '慕': ['mu'], '木': ['mu'], '目': ['mu'], '睦': ['mu'], '牧': ['mu'],
+            '穆': ['mu'], '拿': ['na'], '哪': ['na'], '呐': ['na'], '鈉': ['na'], '那': ['na'], '娜': ['na'],
+            '納': ['na'], '氖': ['nai'], '乃': ['nai'], '奶': ['nai'], '耐': ['nai'], '奈': ['nai'], '南': ['nan'],
+            '男': ['nan'], '難': ['nan'], '囊': ['nang'], '撓': ['nao'], '腦': ['nao'], '惱': ['nao'], '鬧': ['nao'],
+            '淖': ['nao'], '呢': ['ne'], '餒': ['nei'], '內': ['nei'], '嫩': ['nen'], '能': ['neng'], '妮': ['ni'],
+            '霓': ['ni'], '倪': ['ni'], '泥': ['ni'], '尼': ['ni'], '擬': ['ni'], '你': ['ni'], '匿': ['ni'],
+            '膩': ['ni'], '逆': ['ni'], '溺': ['ni'], '蔫': ['nian'], '拈': ['nian'], '年': ['nian'], '碾': ['nian'],
+            '攆': ['nian'], '捻': ['nian'], '念': ['nian'], '娘': ['niang'], '釀': ['niang'], '鳥': ['niao'], '尿': ['niao'],
+            '捏': ['nie'], '聶': ['nie'], '孽': ['nie'], '囁': ['nie'], '您': ['nin'], '檸': ['ning'], '凝': ['ning'],
+            '寧': ['ning'], '擰': ['ning'], '濘': ['ning'], '牛': ['niu'], '扭': ['niu'], '鈕': ['niu'], '紐': ['niu'],
+            '膿': ['nong'], '濃': ['nong'], '農': ['nong'], '弄': ['nong'], '奴': ['nu'], '努': ['nu'], '怒': ['nu'],
+            '女': ['nv'], '暖': ['nuan'], '虐': ['nve'], '瘧': ['nve'], '挪': ['nuo'], '懦': ['nuo'], '糯': ['nuo'],
+            '諾': ['nuo'], '哦': ['o'], '歐': ['ou'], '鷗': ['ou'], '毆': ['ou'], '藕': ['ou'], '嘔': ['ou'],
+            '偶': ['ou'], '漚': ['ou'], '啪': ['pa'], '趴': ['pa'], '爬': ['pa'], '帕': ['pa'], '怕': ['pa'],
+            '琶': ['pa'], '拍': ['pai'], '排': ['pai'], '牌': ['pai'], '徘': ['pai'], '湃': ['pai'], '派': ['pai'],
+            '攀': ['pan'], '潘': ['pan'], '盤': ['pan'], '磐': ['pan'], '盼': ['pan'], '畔': ['pan'], '判': ['pan'],
+            '叛': ['pan'], '乓': ['pang'], '龐': ['pang'], '旁': ['pang'], '耪': ['pang'], '胖': ['pang'], '拋': ['pao'],
+            '咆': ['pao'], '刨': ['pao'], '炮': ['pao'], '袍': ['pao'], '跑': ['pao'], '泡': ['pao'], '呸': ['pei'],
+            '胚': ['pei'], '培': ['pei'], '裴': ['pei'], '賠': ['pei'], '陪': ['pei'], '配': ['pei'], '佩': ['pei'],
+            '沛': ['pei'], '噴': ['pen'], '盆': ['pen'], '砰': ['peng'], '抨': ['peng'], '烹': ['peng'], '澎': ['peng'],
+            '彭': ['peng'], '蓬': ['peng'], '棚': ['peng'], '硼': ['peng'], '篷': ['peng'], '膨': ['peng'], '朋': ['peng'],
+            '鵬': ['peng'], '捧': ['peng'], '碰': ['peng'], '坯': ['pi'], '砒': ['pi'], '霹': ['pi'], '批': ['pi'],
+            '披': ['pi'], '劈': ['pi'], '琵': ['pi'], '毗': ['pi'], '啤': ['pi'], '脾': ['pi'], '疲': ['pi'],
+            '皮': ['pi'], '匹': ['pi'], '痞': ['pi'], '僻': ['pi'], '屁': ['pi'], '譬': ['pi'], '篇': ['pian'],
+            '偏': ['pian'], '片': ['pian'], '騙': ['pian'], '飄': ['piao'], '漂': ['piao'], '瓢': ['piao'], '票': ['piao'],
+            '撇': ['pie'], '瞥': ['pie'], '拼': ['pin'], '頻': ['pin'], '貧': ['pin'], '品': ['pin'], '聘': ['pin'],
+            '乒': ['ping'], '坪': ['ping'], '蘋': ['ping'], '萍': ['ping'], '平': ['ping'], '憑': ['ping'], '瓶': ['ping'],
+            '評': ['ping'], '屏': ['ping'], '坡': ['po'], '潑': ['po'], '頗': ['po'], '婆': ['po'], '破': ['po'],
+            '魄': ['po'], '迫': ['po'], '粕': ['po'], '剖': ['pou'], '撲': ['pu'], '鋪': ['pu'], '僕': ['pu'],
+            '莆': ['pu'], '葡': ['pu'], '菩': ['pu'], '蒲': ['pu'], '埔': ['pu'], '樸': ['pu'], '圃': ['pu'],
+            '普': ['pu'], '浦': ['pu'], '譜': ['pu'], '曝': ['pu'], '瀑': ['pu'], '期': ['qi'], '欺': ['qi'],
+            '棲': ['qi'], '戚': ['qi'], '妻': ['qi'], '七': ['qi'], '淒': ['qi'], '漆': ['qi'], '柒': ['qi'],
+            '沏': ['qi'], '其': ['qi'], '棋': ['qi'], '奇': ['qi'], '歧': ['qi'], '畦': ['qi'], '崎': ['qi'],
+            '臍': ['qi'], '齊': ['qi'], '旗': ['qi'], '祈': ['qi'], '祁': ['qi'], '騎': ['qi'], '起': ['qi'],
+            '豈': ['qi'], '乞': ['qi'], '企': ['qi'], '啟': ['qi'], '契': ['qi'], '砌': ['qi'], '器': ['qi'],
+            '氣': ['qi'], '迄': ['qi'], '棄': ['qi'], '汽': ['qi'], '泣': ['qi'], '訖': ['qi'], '掐': ['qia'],
+            '恰': ['qia'], '洽': ['qia'], '牽': ['qian'], '扦': ['qian'], '釺': ['qian'], '鉛': ['qian'], '千': ['qian'],
+            '遷': ['qian'], '簽': ['qian'], '仟': ['qian'], '謙': ['qian'], '乾': ['qian'], '黔': ['qian'], '錢': ['qian'],
+            '鉗': ['qian'], '前': ['qian'], '潛': ['qian'], '遣': ['qian'], '淺': ['qian'], '譴': ['qian'], '塹': ['qian'],
+            '嵌': ['qian'], '欠': ['qian'], '歉': ['qian'], '槍': ['qiang'], '嗆': ['qiang'], '腔': ['qiang'], '羌': ['qiang'],
+            '牆': ['qiang'], '薔': ['qiang'], '強': ['qiang'], '搶': ['qiang'], '橇': ['qiao'], '鍬': ['qiao'], '敲': ['qiao'],
+            '悄': ['qiao'], '橋': ['qiao'], '瞧': ['qiao'], '喬': ['qiao'], '僑': ['qiao'], '巧': ['qiao'], '鞘': ['qiao'],
+            '撬': ['qiao'], '翹': ['qiao'], '峭': ['qiao'], '俏': ['qiao'], '竅': ['qiao'], '切': ['qie'], '茄': ['qie'],
+            '且': ['qie'], '怯': ['qie'], '竊': ['qie'], '欽': ['qin'], '侵': ['qin'], '親': ['qin'], '秦': ['qin'],
+            '琴': ['qin'], '勤': ['qin'], '芹': ['qin'], '擒': ['qin'], '禽': ['qin'], '寢': ['qin'], '沁': ['qin'],
+            '青': ['qing'], '輕': ['qing'], '氫': ['qing'], '傾': ['qing'], '卿': ['qing'], '清': ['qing'], '擎': ['qing'],
+            '晴': ['qing'], '氰': ['qing'], '情': ['qing'], '頃': ['qing'], '請': ['qing'], '慶': ['qing'], '瓊': ['qiong'],
+            '窮': ['qiong'], '秋': ['qiu'], '丘': ['qiu'], '邱': ['qiu'], '球': ['qiu'], '求': ['qiu'], '囚': ['qiu'],
+            '酋': ['qiu'], '泅': ['qiu'], '趨': ['qu'], '區': ['qu'], '蛆': ['qu'], '曲': ['qu'], '軀': ['qu'],
+            '屈': ['qu'], '驅': ['qu'], '渠': ['qu'], '取': ['qu'], '娶': ['qu'], '齲': ['qu'], '趣': ['qu'],
+            '去': ['qu'], '圈': ['quan'], '顴': ['quan'], '權': ['quan'], '醛': ['quan'], '泉': ['quan'], '全': ['quan'],
+            '痊': ['quan'], '拳': ['quan'], '犬': ['quan'], '券': ['quan'], '勸': ['quan'], '缺': ['que'], '炔': ['que'],
+            '瘸': ['que'], '卻': ['que'], '鵲': ['que'], '榷': ['que'], '確': ['que'], '雀': ['que'], '裙': ['qun'],
+            '群': ['qun'], '然': ['ran'], '燃': ['ran'], '冉': ['ran'], '染': ['ran'], '瓤': ['rang'], '壤': ['rang'],
+            '攘': ['rang'], '嚷': ['rang'], '讓': ['rang'], '饒': ['rao'], '擾': ['rao'], '繞': ['rao'], '惹': ['re'],
+            '熱': ['re'], '壬': ['ren'], '仁': ['ren'], '人': ['ren'], '忍': ['ren'], '韌': ['ren'], '任': ['ren'],
+            '認': ['ren'], '刃': ['ren'], '妊': ['ren'], '紉': ['ren'], '扔': ['reng'], '仍': ['reng'], '日': ['ri'],
+            '戎': ['rong'], '茸': ['rong'], '蓉': ['rong'], '榮': ['rong'], '融': ['rong'], '熔': ['rong'], '溶': ['rong'],
+            '容': ['rong'], '絨': ['rong'], '冗': ['rong'], '揉': ['rou'], '柔': ['rou'], '肉': ['rou'], '茹': ['ru'],
+            '蠕': ['ru'], '儒': ['ru'], '孺': ['ru'], '如': ['ru'], '辱': ['ru'], '乳': ['ru'], '汝': ['ru'],
+            '入': ['ru'], '褥': ['ru'], '軟': ['ruan'], '阮': ['ruan'], '蕊': ['rui'], '瑞': ['rui'], '銳': ['rui'],
+            '閏': ['run'], '潤': ['run'], '若': ['ruo'], '弱': ['ruo'], '撒': ['sa'], '灑': ['sa'], '薩': ['sa'],
+            '腮': ['sai'], '鰓': ['sai'], '塞': ['sai'], '賽': ['sai'], '三': ['san'], '叁': ['san'], '傘': ['san'],
+            '散': ['san'], '桑': ['sang'], '嗓': ['sang'], '喪': ['sang'], '搔': ['sao'], '騷': ['sao'], '掃': ['sao'],
+            '嫂': ['sao'], '瑟': ['se'], '色': ['se'], '澀': ['se'], '森': ['sen'], '僧': ['seng'], '莎': ['sha'],
+            '砂': ['sha'], '殺': ['sha'], '剎': ['sha'], '沙': ['sha'], '紗': ['sha'], '傻': ['sha'], '啥': ['sha'],
+            '煞': ['sha'], '篩': ['shai'], '曬': ['shai'], '珊': ['shan'], '苫': ['shan'], '杉': ['shan'], '山': ['shan'],
+            '刪': ['shan'], '煽': ['shan'], '衫': ['shan'], '閃': ['shan'], '陝': ['shan'], '擅': ['shan'], '贍': ['shan'],
+            '膳': ['shan'], '善': ['shan'], '汕': ['shan'], '扇': ['shan'], '繕': ['shan'], '墒': ['shang'], '傷': ['shang'],
+            '商': ['shang'], '賞': ['shang'], '晌': ['shang'], '上': ['shang'], '尚': ['shang'], '裳': ['shang'], '梢': ['shao'],
+            '捎': ['shao'], '稍': ['shao'], '燒': ['shao'], '芍': ['shao'], '勺': ['shao'], '韶': ['shao'], '少': ['shao'],
+            '哨': ['shao'], '邵': ['shao'], '紹': ['shao'], '奢': ['she'], '賒': ['she'], '蛇': ['she'], '舌': ['she'],
+            '舍': ['she'], '赦': ['she'], '攝': ['she'], '射': ['she'], '懾': ['she'], '涉': ['she'], '社': ['she'],
+            '設': ['she'], '砷': ['shen'], '申': ['shen'], '呻': ['shen'], '伸': ['shen'], '身': ['shen'], '深': ['shen'],
+            '娠': ['shen'], '紳': ['shen'], '神': ['shen'], '沈': ['shen'], '審': ['shen'], '嬸': ['shen'], '甚': ['shen'],
+            '腎': ['shen'], '慎': ['shen'], '滲': ['shen'], '聲': ['sheng'], '生': ['sheng'], '甥': ['sheng'], '牲': ['sheng'],
+            '升': ['sheng'], '繩': ['sheng'], '省': ['sheng'], '盛': ['sheng'], '剩': ['sheng'], '勝': ['sheng'], '聖': ['sheng'],
+            '師': ['shi'], '失': ['shi'], '獅': ['shi'], '施': ['shi'], '濕': ['shi'], '詩': ['shi'], '屍': ['shi'],
+            '虱': ['shi'], '十': ['shi'], '石': ['shi'], '拾': ['shi'], '時': ['shi'], '什': ['shi'], '食': ['shi'],
+            '蝕': ['shi'], '實': ['shi'], '識': ['shi'], '史': ['shi'], '矢': ['shi'], '使': ['shi'], '屎': ['shi'],
+            '駛': ['shi'], '始': ['shi'], '式': ['shi'], '示': ['shi'], '士': ['shi'], '世': ['shi'], '柿': ['shi'],
+            '事': ['shi'], '拭': ['shi'], '誓': ['shi'], '逝': ['shi'], '勢': ['shi'], '是': ['shi'], '嗜': ['shi'],
+            '噬': ['shi'], '適': ['shi'], '仕': ['shi'], '侍': ['shi'], '釋': ['shi'], '飾': ['shi'], '氏': ['shi'],
+            '市': ['shi'], '恃': ['shi'], '室': ['shi'], '視': ['shi'], '試': ['shi'], '收': ['shou'], '手': ['shou'],
+            '首': ['shou'], '守': ['shou'], '壽': ['shou'], '授': ['shou'], '售': ['shou'], '受': ['shou'], '瘦': ['shou'],
+            '獸': ['shou'], '蔬': ['shu'], '樞': ['shu'], '梳': ['shu'], '殊': ['shu'], '抒': ['shu'], '輸': ['shu'],
+            '叔': ['shu'], '舒': ['shu'], '淑': ['shu'], '疏': ['shu'], '書': ['shu'], '贖': ['shu'], '孰': ['shu'],
+            '熟': ['shu'], '薯': ['shu'], '暑': ['shu'], '曙': ['shu'], '署': ['shu'], '蜀': ['shu'], '黍': ['shu'],
+            '鼠': ['shu'], '屬': ['shu'], '術': ['shu'], '述': ['shu'], '樹': ['shu'], '束': ['shu'], '戍': ['shu'],
+            '豎': ['shu'], '墅': ['shu'], '庶': ['shu'], '數': ['shu'], '漱': ['shu'], '恕': ['shu'], '刷': ['shua'],
+            '耍': ['shua'], '摔': ['shuai'], '衰': ['shuai'], '甩': ['shuai'], '帥': ['shuai'], '栓': ['shuan'], '拴': ['shuan'],
+            '閂': ['shuan'], '雙': ['shuang'], '爽': ['shuang'], '誰': ['shui'], '水': ['shui'], '睡': ['shui'], '稅': ['shui'],
+            '吮': ['shun'], '瞬': ['shun'], '順': ['shun'], '舜': ['shun'], '說': ['shuo'], '碩': ['shuo'], '朔': ['shuo'],
+            '爍': ['shuo'], '斯': ['si'], '撕': ['si'], '嘶': ['si'], '思': ['si'], '私': ['si'], '司': ['si'],
+            '絲': ['si'], '死': ['si'], '肆': ['si'], '寺': ['si'], '嗣': ['si'], '四': ['si'], '伺': ['si'],
+            '似': ['si'], '飼': ['si'], '巳': ['si'], '松': ['song'], '聳': ['song'], '慫': ['song'], '頌': ['song'],
+            '送': ['song'], '宋': ['song'], '訟': ['song'], '誦': ['song'], '搜': ['sou'], '艘': ['sou'], '擻': ['sou'],
+            '嗽': ['sou'], '蘇': ['su'], '酥': ['su'], '俗': ['su'], '素': ['su'], '速': ['su'], '粟': ['su'],
+            '僳': ['su'], '塑': ['su'], '溯': ['su'], '宿': ['su'], '訴': ['su'], '肅': ['su'], '酸': ['suan'],
+            '蒜': ['suan'], '算': ['suan'], '雖': ['sui'], '隋': ['sui'], '隨': ['sui'], '綏': ['sui'], '髓': ['sui'],
+            '碎': ['sui'], '歲': ['sui'], '穗': ['sui'], '遂': ['sui'], '隧': ['sui'], '祟': ['sui'], '孫': ['sun'],
+            '損': ['sun'], '筍': ['sun'], '蓑': ['suo'], '梭': ['suo'], '唆': ['suo'], '縮': ['suo'], '瑣': ['suo'],
+            '索': ['suo'], '鎖': ['suo'], '所': ['suo'], '塌': ['ta'], '他': ['ta'], '它': ['ta'], '她': ['ta'],
+            '塔': ['ta'], '獺': ['ta'], '撻': ['ta'], '蹋': ['ta'], '踏': ['ta'], '胎': ['tai'], '苔': ['tai'],
+            '抬': ['tai'], '台': ['tai'], '泰': ['tai'], '酞': ['tai'], '太': ['tai'], '態': ['tai'], '汰': ['tai'],
+            '坍': ['tan'], '攤': ['tan'], '貪': ['tan'], '癱': ['tan'], '灘': ['tan'], '壇': ['tan'], '檀': ['tan'],
+            '痰': ['tan'], '潭': ['tan'], '譚': ['tan'], '談': ['tan'], '坦': ['tan'], '毯': ['tan'], '袒': ['tan'],
+            '碳': ['tan'], '探': ['tan'], '嘆': ['tan'], '炭': ['tan'], '湯': ['tang'], '塘': ['tang'], '搪': ['tang'],
+            '堂': ['tang'], '棠': ['tang'], '膛': ['tang'], '唐': ['tang'], '糖': ['tang'], '倘': ['tang'], '躺': ['tang'],
+            '淌': ['tang'], '趟': ['tang'], '燙': ['tang'], '掏': ['tao'], '濤': ['tao'], '滔': ['tao'], '絛': ['tao'],
+            '萄': ['tao'], '桃': ['tao'], '逃': ['tao'], '淘': ['tao'], '陶': ['tao'], '討': ['tao'], '套': ['tao'],
+            '特': ['te'], '藤': ['teng'], '騰': ['teng'], '疼': ['teng'], '謄': ['teng'], '梯': ['ti'], '剔': ['ti'],
+            '踢': ['ti'], '銻': ['ti'], '提': ['ti'], '題': ['ti'], '蹄': ['ti'], '啼': ['ti'], '體': ['ti'],
+            '替': ['ti'], '嚏': ['ti'], '惕': ['ti'], '涕': ['ti'], '剃': ['ti'], '屜': ['ti'], '天': ['tian'],
+            '添': ['tian'], '填': ['tian'], '田': ['tian'], '甜': ['tian'], '恬': ['tian'], '舔': ['tian'], '腆': ['tian'],
+            '挑': ['tiao'], '條': ['tiao'], '迢': ['tiao'], '眺': ['tiao'], '跳': ['tiao'], '貼': ['tie'], '鐵': ['tie'],
+            '帖': ['tie'], '廳': ['ting'], '聽': ['ting'], '烴': ['ting'], '汀': ['ting'], '廷': ['ting'], '停': ['ting'],
+            '亭': ['ting'], '庭': ['ting'], '挺': ['ting'], '艇': ['ting'], '通': ['tong'], '桐': ['tong'], '酮': ['tong'],
+            '瞳': ['tong'], '同': ['tong'], '銅': ['tong'], '彤': ['tong'], '童': ['tong'], '桶': ['tong'], '捅': ['tong'],
+            '筒': ['tong'], '統': ['tong'], '痛': ['tong'], '偷': ['tou'], '投': ['tou'], '頭': ['tou'], '透': ['tou'],
+            '凸': ['tu'], '禿': ['tu'], '突': ['tu'], '圖': ['tu'], '徒': ['tu'], '途': ['tu'], '塗': ['tu'],
+            '屠': ['tu'], '土': ['tu'], '吐': ['tu'], '兔': ['tu'], '湍': ['tuan'], '團': ['tuan'], '推': ['tui'],
+            '頹': ['tui'], '腿': ['tui'], '蛻': ['tui'], '褪': ['tui'], '退': ['tui'], '吞': ['tun'], '屯': ['tun'],
+            '臀': ['tun'], '拖': ['tuo'], '托': ['tuo'], '脫': ['tuo'], '鴕': ['tuo'], '陀': ['tuo'], '馱': ['tuo'],
+            '駝': ['tuo'], '橢': ['tuo'], '妥': ['tuo'], '拓': ['tuo'], '唾': ['tuo'], '挖': ['wa'], '哇': ['wa'],
+            '蛙': ['wa'], '窪': ['wa'], '娃': ['wa'], '瓦': ['wa'], '襪': ['wa'], '歪': ['wai'], '外': ['wai'],
+            '豌': ['wan'], '彎': ['wan'], '灣': ['wan'], '玩': ['wan'], '頑': ['wan'], '丸': ['wan'], '烷': ['wan'],
+            '完': ['wan'], '碗': ['wan'], '挽': ['wan'], '晚': ['wan'], '皖': ['wan'], '惋': ['wan'], '宛': ['wan'],
+            '婉': ['wan'], '萬': ['wan'], '腕': ['wan'], '汪': ['wang'], '王': ['wang'], '亡': ['wang'], '枉': ['wang'],
+            '網': ['wang'], '往': ['wang'], '旺': ['wang'], '望': ['wang'], '忘': ['wang'], '妄': ['wang'], '威': ['wei'],
+            '巍': ['wei'], '微': ['wei'], '危': ['wei'], '韋': ['wei'], '違': ['wei'], '桅': ['wei'], '圍': ['wei'],
+            '唯': ['wei'], '惟': ['wei'], '為': ['wei'], '濰': ['wei'], '維': ['wei'], '葦': ['wei'], '萎': ['wei'],
+            '委': ['wei'], '偉': ['wei'], '偽': ['wei'], '尾': ['wei'], '緯': ['wei'], '未': ['wei'], '蔚': ['wei'],
+            '味': ['wei'], '畏': ['wei'], '胃': ['wei'], '餵': ['wei'], '魏': ['wei'], '位': ['wei'], '渭': ['wei'],
+            '謂': ['wei'], '尉': ['wei'], '慰': ['wei'], '衛': ['wei'], '瘟': ['wen'], '溫': ['wen'], '蚊': ['wen'],
+            '文': ['wen'], '聞': ['wen'], '紋': ['wen'], '吻': ['wen'], '穩': ['wen'], '紊': ['wen'], '問': ['wen'],
+            '嗡': ['weng'], '翁': ['weng'], '甕': ['weng'], '撾': ['wo'], '蝸': ['wo'], '渦': ['wo'], '窩': ['wo'],
+            '我': ['wo'], '斡': ['wo'], '臥': ['wo'], '握': ['wo'], '沃': ['wo'], '巫': ['wu'], '嗚': ['wu'],
+            '鎢': ['wu'], '烏': ['wu'], '污': ['wu'], '誣': ['wu'], '屋': ['wu'], '無': ['wu'], '蕪': ['wu'],
+            '五': ['wu'], '午': ['wu'], '舞': ['wu'], '伍': ['wu'], '侮': ['wu'], '塢': ['wu'], '戊': ['wu'],
+            '霧': ['wu'], '晤': ['wu'], '物': ['wu'], '勿': ['wu'], '務': ['wu'], '悟': ['wu'], '誤': ['wu'],
+            '昔': ['xi'], '熙': ['xi'], '析': ['xi'], '西': ['xi'], '硒': ['xi'], '矽': ['xi'], '晰': ['xi'],
+            '嘻': ['xi'], '吸': ['xi'], '錫': ['xi'], '犧': ['xi'], '稀': ['xi'], '息': ['xi'], '希': ['xi'],
+            '悉': ['xi'], '膝': ['xi'], '夕': ['xi'], '惜': ['xi'], '熄': ['xi'], '烯': ['xi'], '溪': ['xi'],
+            '汐': ['xi'], '犀': ['xi'], '檄': ['xi'], '襲': ['xi'], '席': ['xi'], '習': ['xi'], '媳': ['xi'],
+            '喜': ['xi'], '銑': ['xi'], '洗': ['xi'], '系': ['xi'], '隙': ['xi'], '戲': ['xi'], '細': ['xi'],
+            '瞎': ['xia'], '蝦': ['xia'], '匣': ['xia'], '霞': ['xia'], '轄': ['xia'], '暇': ['xia'], '峽': ['xia'],
+            '俠': ['xia'], '狹': ['xia'], '下': ['xia'], '廈': ['xia'], '夏': ['xia'], '嚇': ['xia'], '掀': ['xian'],
+            '鍁': ['xian'], '先': ['xian'], '仙': ['xian'], '鮮': ['xian'], '纖': ['xian'], '鹹': ['xian'], '賢': ['xian'],
+            '銜': ['xian'], '舷': ['xian'], '閒': ['xian'], '涎': ['xian'], '弦': ['xian'], '嫌': ['xian'], '顯': ['xian'],
+            '險': ['xian'], '現': ['xian'], '獻': ['xian'], '縣': ['xian'], '腺': ['xian'], '餡': ['xian'], '羨': ['xian'],
+            '憲': ['xian'], '陷': ['xian'], '限': ['xian'], '線': ['xian'], '相': ['xiang'], '廂': ['xiang'], '鑲': ['xiang'],
+            '香': ['xiang'], '箱': ['xiang'], '襄': ['xiang'], '湘': ['xiang'], '鄉': ['xiang'], '翔': ['xiang'], '祥': ['xiang'],
+            '詳': ['xiang'], '想': ['xiang'], '響': ['xiang'], '享': ['xiang'], '項': ['xiang'], '巷': ['xiang'], '橡': ['xiang'],
+            '像': ['xiang'], '向': ['xiang'], '象': ['xiang'], '蕭': ['xiao'], '硝': ['xiao'], '霄': ['xiao'], '削': ['xiao'],
+            '哮': ['xiao'], '囂': ['xiao'], '銷': ['xiao'], '消': ['xiao'], '宵': ['xiao'], '淆': ['xiao'], '曉': ['xiao'],
+            '小': ['xiao'], '孝': ['xiao'], '校': ['xiao'], '肖': ['xiao'], '嘯': ['xiao'], '笑': ['xiao'], '效': ['xiao'],
+            '楔': ['xie'], '些': ['xie'], '歇': ['xie'], '蠍': ['xie'], '鞋': ['xie'], '協': ['xie'], '挾': ['xie'],
+            '攜': ['xie'], '邪': ['xie'], '斜': ['xie'], '脅': ['xie'], '諧': ['xie'], '寫': ['xie'], '械': ['xie'],
+            '卸': ['xie'], '蟹': ['xie'], '懈': ['xie'], '泄': ['xie'], '瀉': ['xie'], '謝': ['xie'], '屑': ['xie'],
+            '薪': ['xin'], '芯': ['xin'], '鋅': ['xin'], '欣': ['xin'], '辛': ['xin'], '新': ['xin'], '忻': ['xin'],
+            '心': ['xin'], '信': ['xin'], '釁': ['xin'], '星': ['xing'], '腥': ['xing'], '猩': ['xing'], '惺': ['xing'],
+            '興': ['xing'], '刑': ['xing'], '型': ['xing'], '形': ['xing'], '邢': ['xing'], '行': ['xing'], '醒': ['xing'],
+            '幸': ['xing'], '杏': ['xing'], '性': ['xing'], '姓': ['xing'], '兄': ['xiong'], '凶': ['xiong'], '胸': ['xiong'],
+            '匈': ['xiong'], '洶': ['xiong'], '雄': ['xiong'], '熊': ['xiong'], '休': ['xiu'], '修': ['xiu'], '羞': ['xiu'],
+            '朽': ['xiu'], '嗅': ['xiu'], '銹': ['xiu'], '秀': ['xiu'], '袖': ['xiu'], '繡': ['xiu'], '墟': ['xu'],
+            '戌': ['xu'], '需': ['xu'], '虛': ['xu'], '噓': ['xu'], '須': ['xu'], '徐': ['xu'], '許': ['xu'],
+            '蓄': ['xu'], '酗': ['xu'], '敘': ['xu'], '旭': ['xu'], '序': ['xu'], '畜': ['xu'], '恤': ['xu'],
+            '絮': ['xu'], '婿': ['xu'], '緒': ['xu'], '續': ['xu'], '軒': ['xuan'], '喧': ['xuan'], '宣': ['xuan'],
+            '懸': ['xuan'], '旋': ['xuan'], '玄': ['xuan'], '選': ['xuan'], '癬': ['xuan'], '眩': ['xuan'], '絢': ['xuan'],
+            '靴': ['xue'], '薛': ['xue'], '學': ['xue'], '穴': ['xue'], '雪': ['xue'], '血': ['xue'], '勳': ['xun'],
+            '熏': ['xun'], '循': ['xun'], '旬': ['xun'], '詢': ['xun'], '尋': ['xun'], '馴': ['xun'], '巡': ['xun'],
+            '殉': ['xun'], '汛': ['xun'], '訓': ['xun'], '訊': ['xun'], '遜': ['xun'], '迅': ['xun'], '壓': ['ya'],
+            '押': ['ya'], '鴉': ['ya'], '鴨': ['ya'], '呀': ['ya'], '丫': ['ya'], '芽': ['ya'], '牙': ['ya'],
+            '蚜': ['ya'], '崖': ['ya'], '衙': ['ya'], '涯': ['ya'], '雅': ['ya'], '啞': ['ya'], '亞': ['ya'],
+            '訝': ['ya'], '焉': ['yan'], '咽': ['yan'], '閹': ['yan'], '煙': ['yan'], '淹': ['yan'], '鹽': ['yan'],
+            '嚴': ['yan'], '研': ['yan'], '蜒': ['yan'], '岩': ['yan'], '延': ['yan'], '言': ['yan'], '顏': ['yan'],
+            '閻': ['yan'], '炎': ['yan'], '沿': ['yan'], '奄': ['yan'], '掩': ['yan'], '眼': ['yan'], '衍': ['yan'],
+            '演': ['yan'], '艷': ['yan'], '堰': ['yan'], '燕': ['yan'], '厭': ['yan'], '硯': ['yan'], '雁': ['yan'],
+            '唁': ['yan'], '彥': ['yan'], '焰': ['yan'], '宴': ['yan'], '諺': ['yan'], '驗': ['yan'], '殃': ['yang'],
+            '央': ['yang'], '鴦': ['yang'], '秧': ['yang'], '楊': ['yang'], '揚': ['yang'], '佯': ['yang'], '瘍': ['yang'],
+            '羊': ['yang'], '洋': ['yang'], '陽': ['yang'], '氧': ['yang'], '仰': ['yang'], '癢': ['yang'], '養': ['yang'],
+            '樣': ['yang'], '漾': ['yang'], '邀': ['yao'], '腰': ['yao'], '妖': ['yao'], '瑤': ['yao'], '搖': ['yao'],
+            '堯': ['yao'], '遙': ['yao'], '窯': ['yao'], '謠': ['yao'], '姚': ['yao'], '咬': ['yao'], '舀': ['yao'],
+            '藥': ['yao'], '要': ['yao'], '耀': ['yao'], '椰': ['ye'], '噎': ['ye'], '耶': ['ye'], '爺': ['ye'],
+            '野': ['ye'], '冶': ['ye'], '也': ['ye'], '頁': ['ye'], '掖': ['ye'], '業': ['ye'], '葉': ['ye'],
+            '曳': ['ye'], '腋': ['ye'], '夜': ['ye'], '液': ['ye'], '一': ['yi'], '壹': ['yi'], '醫': ['yi'],
+            '揖': ['yi'], '銥': ['yi'], '依': ['yi'], '伊': ['yi'], '衣': ['yi'], '頤': ['yi'], '夷': ['yi'],
+            '遺': ['yi'], '移': ['yi'], '儀': ['yi'], '胰': ['yi'], '疑': ['yi'], '沂': ['yi'], '宜': ['yi'],
+            '姨': ['yi'], '彝': ['yi'], '椅': ['yi'], '蟻': ['yi'], '倚': ['yi'], '已': ['yi'], '乙': ['yi'],
+            '矣': ['yi'], '以': ['yi'], '藝': ['yi'], '抑': ['yi'], '易': ['yi'], '邑': ['yi'], '屹': ['yi'],
+            '億': ['yi'], '役': ['yi'], '臆': ['yi'], '逸': ['yi'], '肄': ['yi'], '疫': ['yi'], '亦': ['yi'],
+            '裔': ['yi'], '意': ['yi'], '毅': ['yi'], '憶': ['yi'], '義': ['yi'], '益': ['yi'], '溢': ['yi'],
+            '詣': ['yi'], '議': ['yi'], '誼': ['yi'], '譯': ['yi'], '異': ['yi'], '翼': ['yi'], '翌': ['yi'],
+            '繹': ['yi'], '茵': ['yin'], '蔭': ['yin'], '因': ['yin'], '殷': ['yin'], '音': ['yin'], '陰': ['yin'],
+            '姻': ['yin'], '吟': ['yin'], '銀': ['yin'], '淫': ['yin'], '寅': ['yin'], '飲': ['yin'], '尹': ['yin'],
+            '引': ['yin'], '隱': ['yin'], '印': ['yin'], '英': ['ying'], '櫻': ['ying'], '嬰': ['ying'], '鷹': ['ying'],
+            '應': ['ying'], '纓': ['ying'], '瑩': ['ying'], '螢': ['ying'], '營': ['ying'], '熒': ['ying'], '蠅': ['ying'],
+            '迎': ['ying'], '贏': ['ying'], '盈': ['ying'], '影': ['ying'], '穎': ['ying'], '硬': ['ying'], '映': ['ying'],
+            '喲': ['yo'], '擁': ['yong'], '傭': ['yong'], '臃': ['yong'], '癰': ['yong'], '庸': ['yong'], '慵': ['yong'],
+            '墉': ['yong'], '鏞': ['yong'], '湧': ['yong'], '永': ['yong'], '恿': ['yong'], '勇': ['yong'], '用': ['yong'],
+            '幽': ['you'], '優': ['you'], '悠': ['you'], '憂': ['you'], '尤': ['you'], '由': ['you'], '郵': ['you'],
+            '鈾': ['you'], '猶': ['you'], '油': ['you'], '游': ['you'], '酉': ['you'], '有': ['you'], '友': ['you'],
+            '右': ['you'], '佑': ['you'], '釉': ['you'], '誘': ['you'], '又': ['you'], '幼': ['you'], '迂': ['yu'],
+            '淤': ['yu'], '於': ['yu'], '盂': ['yu'], '榆': ['yu'], '虞': ['yu'], '愚': ['yu'], '輿': ['yu'],
+            '余': ['yu'], '俞': ['yu'], '逾': ['yu'], '魚': ['yu'], '愉': ['yu'], '渝': ['yu'], '漁': ['yu'],
+            '隅': ['yu'], '予': ['yu'], '娛': ['yu'], '雨': ['yu'], '與': ['yu'], '嶼': ['yu'], '禹': ['yu'],
+            '宇': ['yu'], '語': ['yu'], '羽': ['yu'], '玉': ['yu'], '域': ['yu'], '芋': ['yu'], '郁': ['yu'],
+            '籲': ['yu'], '遇': ['yu'], '喻': ['yu'], '峪': ['yu'], '御': ['yu'], '愈': ['yu'], '欲': ['yu'],
+            '獄': ['yu'], '育': ['yu'], '譽': ['yu'], '浴': ['yu'], '寓': ['yu'], '裕': ['yu'], '預': ['yu'],
+            '豫': ['yu'], '馭': ['yu'], '鴛': ['yuan'], '淵': ['yuan'], '冤': ['yuan'], '元': ['yuan'], '垣': ['yuan'],
+            '袁': ['yuan'], '原': ['yuan'], '援': ['yuan'], '轅': ['yuan'], '園': ['yuan'], '員': ['yuan'], '圓': ['yuan'],
+            '猿': ['yuan'], '源': ['yuan'], '緣': ['yuan'], '遠': ['yuan'], '苑': ['yuan'], '願': ['yuan'], '怨': ['yuan'],
+            '院': ['yuan'], '曰': ['yue'], '約': ['yue'], '越': ['yue'], '躍': ['yue'], '鑰': ['yue'], '岳': ['yue'],
+            '粵': ['yue'], '月': ['yue'], '悅': ['yue'], '閱': ['yue'], '耘': ['yun'], '雲': ['yun'], '鄖': ['yun'],
+            '勻': ['yun'], '隕': ['yun'], '允': ['yun'], '運': ['yun'], '蘊': ['yun'], '醞': ['yun'], '暈': ['yun'],
+            '韻': ['yun'], '孕': ['yun'], '匝': ['za'], '雜': ['za'], '栽': ['zai'], '哉': ['zai'], '災': ['zai'],
+            '宰': ['zai'], '載': ['zai'], '再': ['zai'], '在': ['zai'], '咱': ['zan'], '攢': ['zan'], '暫': ['zan'],
+            '贊': ['zan'], '贓': ['zang'], '髒': ['zang'], '葬': ['zang'], '遭': ['zao'], '糟': ['zao'], '鑿': ['zao'],
+            '藻': ['zao'], '棗': ['zao'], '早': ['zao'], '澡': ['zao'], '蚤': ['zao'], '躁': ['zao'], '噪': ['zao'],
+            '造': ['zao'], '皂': ['zao'], '灶': ['zao'], '燥': ['zao'], '責': ['ze'], '擇': ['ze'], '則': ['ze'],
+            '澤': ['ze'], '賊': ['zei'], '怎': ['zen'], '增': ['zeng'], '憎': ['zeng'], '曾': ['zeng'], '贈': ['zeng'],
+            '紮': ['zha'], '喳': ['zha'], '渣': ['zha'], '札': ['zha'], '軋': ['zha'], '鍘': ['zha'], '閘': ['zha'],
+            '眨': ['zha'], '柵': ['zha'], '榨': ['zha'], '咋': ['zha'], '乍': ['zha'], '炸': ['zha'], '詐': ['zha'],
+            '摘': ['zhai'], '齋': ['zhai'], '宅': ['zhai'], '窄': ['zhai'], '債': ['zhai'], '寨': ['zhai'], '瞻': ['zhan'],
+            '氈': ['zhan'], '詹': ['zhan'], '粘': ['zhan'], '沾': ['zhan'], '盞': ['zhan'], '斬': ['zhan'], '輾': ['zhan'],
+            '嶄': ['zhan'], '展': ['zhan'], '蘸': ['zhan'], '棧': ['zhan'], '占': ['zhan'], '戰': ['zhan'], '站': ['zhan'],
+            '湛': ['zhan'], '綻': ['zhan'], '樟': ['zhang'], '章': ['zhang'], '彰': ['zhang'], '漳': ['zhang'], '張': ['zhang'],
+            '掌': ['zhang'], '漲': ['zhang'], '杖': ['zhang'], '丈': ['zhang'], '帳': ['zhang'], '賬': ['zhang'], '仗': ['zhang'],
+            '脹': ['zhang'], '瘴': ['zhang'], '障': ['zhang'], '招': ['zhao'], '昭': ['zhao'], '找': ['zhao'], '沼': ['zhao'],
+            '趙': ['zhao'], '照': ['zhao'], '罩': ['zhao'], '兆': ['zhao'], '肇': ['zhao'], '召': ['zhao'], '遮': ['zhe'],
+            '折': ['zhe'], '哲': ['zhe'], '蟄': ['zhe'], '轍': ['zhe'], '者': ['zhe'], '鍺': ['zhe'], '蔗': ['zhe'],
+            '這': ['zhe'], '浙': ['zhe'], '珍': ['zhen'], '斟': ['zhen'], '真': ['zhen'], '甄': ['zhen'], '砧': ['zhen'],
+            '臻': ['zhen'], '貞': ['zhen'], '針': ['zhen'], '偵': ['zhen'], '枕': ['zhen'], '疹': ['zhen'], '診': ['zhen'],
+            '震': ['zhen'], '振': ['zhen'], '鎮': ['zhen'], '陣': ['zhen'], '蒸': ['zheng'], '掙': ['zheng'], '睜': ['zheng'],
+            '征': ['zheng'], '猙': ['zheng'], '爭': ['zheng'], '怔': ['zheng'], '整': ['zheng'], '拯': ['zheng'], '正': ['zheng'],
+            '政': ['zheng'], '幀': ['zheng'], '症': ['zheng'], '鄭': ['zheng'], '證': ['zheng'], '芝': ['zhi'], '枝': ['zhi'],
+            '支': ['zhi'], '吱': ['zhi'], '蜘': ['zhi'], '知': ['zhi'], '肢': ['zhi'], '脂': ['zhi'], '汁': ['zhi'],
+            '之': ['zhi'], '織': ['zhi'], '職': ['zhi'], '直': ['zhi'], '植': ['zhi'], '殖': ['zhi'], '執': ['zhi'],
+            '值': ['zhi'], '侄': ['zhi'], '址': ['zhi'], '指': ['zhi'], '止': ['zhi'], '趾': ['zhi'], '只': ['zhi'],
+            '旨': ['zhi'], '紙': ['zhi'], '志': ['zhi'], '摯': ['zhi'], '擲': ['zhi'], '至': ['zhi'], '致': ['zhi'],
+            '置': ['zhi'], '幟': ['zhi'], '智': ['zhi'], '秩': ['zhi'], '稚': ['zhi'], '質': ['zhi'], '炙': ['zhi'],
+            '痔': ['zhi'], '滯': ['zhi'], '治': ['zhi'], '窒': ['zhi'], '中': ['zhong'], '盅': ['zhong'], '忠': ['zhong'],
+            '鍾': ['zhong'], '衷': ['zhong'], '終': ['zhong'], '種': ['zhong'], '腫': ['zhong'], '重': ['zhong'], '仲': ['zhong'],
+            '眾': ['zhong'], '舟': ['zhou'], '周': ['zhou'], '州': ['zhou'], '洲': ['zhou'], '謅': ['zhou'], '粥': ['zhou'],
+            '軸': ['zhou'], '肘': ['zhou'], '帚': ['zhou'], '咒': ['zhou'], '皺': ['zhou'], '宙': ['zhou'], '晝': ['zhou'],
+            '驟': ['zhou'], '珠': ['zhu'], '株': ['zhu'], '蛛': ['zhu'], '朱': ['zhu'], '豬': ['zhu'], '諸': ['zhu'],
+            '誅': ['zhu'], '逐': ['zhu'], '竹': ['zhu'], '燭': ['zhu'], '煮': ['zhu'], '拄': ['zhu'], '矚': ['zhu'],
+            '囑': ['zhu'], '主': ['zhu'], '著': ['zhu'], '柱': ['zhu'], '助': ['zhu'], '蛀': ['zhu'], '貯': ['zhu'],
+            '鑄': ['zhu'], '筑': ['zhu'], '住': ['zhu'], '注': ['zhu'], '祝': ['zhu'], '駐': ['zhu'], '抓': ['zhua'],
+            '爪': ['zhua'], '拽': ['zhuai'], '專': ['zhuan'], '磚': ['zhuan'], '轉': ['zhuan'], '撰': ['zhuan'], '賺': ['zhuan'],
+            '篆': ['zhuan'], '樁': ['zhuang'], '莊': ['zhuang'], '裝': ['zhuang'], '妝': ['zhuang'], '撞': ['zhuang'], '壯': ['zhuang'],
+            '狀': ['zhuang'], '追': ['zhui'], '錐': ['zhui'], '墜': ['zhui'], '綴': ['zhui'], '諄': ['zhun'], '准': ['zhun'],
+            '捉': ['zhuo'], '拙': ['zhuo'], '卓': ['zhuo'], '桌': ['zhuo'], '琢': ['zhuo'], '茁': ['zhuo'], '酌': ['zhuo'],
+            '啄': ['zhuo'], '著': ['zhuo'], '灼': ['zhuo'], '濁': ['zhuo'], '茲': ['zi'], '咨': ['zi'], '資': ['zi'],
+            '姿': ['zi'], '滋': ['zi'], '淄': ['zi'], '孜': ['zi'], '紫': ['zi'], '仔': ['zi'], '籽': ['zi'],
+            '滓': ['zi'], '子': ['zi'], '自': ['zi'], '漬': ['zi'], '字': ['zi'], '鬃': ['zong'], '棕': ['zong'],
+            '蹤': ['zong'], '宗': ['zong'], '綜': ['zong'], '總': ['zong'], '縱': ['zong'], '鄒': ['zou'], '走': ['zou'],
+            '奏': ['zou'], '揍': ['zou'], '租': ['zu'], '足': ['zu'], '卒': ['zu'], '族': ['zu'], '祖': ['zu'],
+            '詛': ['zu'], '阻': ['zu'], '組': ['zu'], '鑽': ['zuan'], '纂': ['zuan'], '嘴': ['zui'], '醉': ['zui'],
+            '最': ['zui'], '罪': ['zui'], '尊': ['zun'], '遵': ['zun'], '昨': ['zuo'], '左': ['zuo'], '佐': ['zuo'],
+            '柞': ['zuo'], '做': ['zuo'], '作': ['zuo'], '坐': ['zuo'], '座': ['zuo']
+        };
+
+        // 聲母列表
+        const initials = ['b', 'p', 'm', 'f', 'd', 't', 'n', 'l', 'g', 'k', 'h', 
+                        'j', 'q', 'x', 'zh', 'ch', 'sh', 'r', 'z', 'c', 's'];
+
+        // 提取韻母
+        function getRhyme(pinyin) {
+            pinyin = pinyin.toLowerCase().replace(/[0-9]/g, '');
+            for (let initial of initials.sort((a, b) => b.length - a.length)) {
+                if (pinyin.startsWith(initial)) {
+                    return pinyin.substring(initial.length) || pinyin;
+                }
+            }
+            return pinyin;
+        }
+
+        // 提取聲母
+        function getInitial(pinyin) {
+            pinyin = pinyin.toLowerCase().replace(/[0-9]/g, '');
+            for (let initial of initials.sort((a, b) => b.length - a.length)) {
+                if (pinyin.startsWith(initial)) {
+                    return initial;
+                }
+            }
+            return '';
+        }
+
+        // 注音轉拼音
+        function bopomofoToPinyinFunc(input) {
+            let result = '';
+            let i = 0;
+            while (i < input.length) {
+                let twoChar = input.substring(i, i + 2);
+                if (bopomofoToPinyin[twoChar]) {
+                    result = bopomofoToPinyin[twoChar];
+                    break;
+                }
+                let oneChar = input[i];
+                if (bopomofoToPinyin[oneChar]) {
+                    result += bopomofoToPinyin[oneChar];
+                }
+                i++;
+            }
+            return result;
+        }
+
+        // 拼音轉注音（聲母）
+        function pinyinToBopomofoInitial(pinyin) {
+            const initialMap = {
+                'b': 'ㄅ', 'p': 'ㄆ', 'm': 'ㄇ', 'f': 'ㄈ',
+                'd': 'ㄉ', 't': 'ㄊ', 'n': 'ㄋ', 'l': 'ㄌ',
+                'g': 'ㄍ', 'k': 'ㄎ', 'h': 'ㄏ',
+                'j': 'ㄐ', 'q': 'ㄑ', 'x': 'ㄒ',
+                'zh': 'ㄓ', 'ch': 'ㄔ', 'sh': 'ㄕ', 'r': 'ㄖ',
+                'z': 'ㄗ', 'c': 'ㄘ', 's': 'ㄙ'
+            };
+            const initial = getInitial(pinyin);
+            return initialMap[initial] || initial;
+        }
+        
+        function pinyinToBopomofoRhyme(rhyme) {
+            const rhymeMap = {
+                'a': 'ㄚ', 'o': 'ㄛ', 'e': 'ㄜ',
+                'ai': 'ㄞ', 'ei': 'ㄟ', 'ao': 'ㄠ', 'ou': 'ㄡ',
+                'an': 'ㄢ', 'en': 'ㄣ', 'ang': 'ㄤ', 'eng': 'ㄥ', 'er': 'ㄦ',
+                'i': 'ㄧ', 'u': 'ㄨ', 'v': 'ㄩ',
+                'ia': 'ㄧㄚ', 'ie': 'ㄧㄝ', 'iao': 'ㄧㄠ', 'iou': 'ㄧㄡ', 'iu': 'ㄧㄡ',
+                'ian': 'ㄧㄢ', 'in': 'ㄧㄣ', 'iang': 'ㄧㄤ', 'ing': 'ㄧㄥ',
+                'ua': 'ㄨㄚ', 'uo': 'ㄨㄛ', 'uai': 'ㄨㄞ', 'uei': 'ㄨㄟ', 'ui': 'ㄨㄟ',
+                'uan': 'ㄨㄢ', 'uen': 'ㄨㄣ', 'un': 'ㄨㄣ', 'uang': 'ㄨㄤ', 'ueng': 'ㄨㄥ',
+                've': 'ㄩㄝ', 'van': 'ㄩㄢ', 'vn': 'ㄩㄣ', 'iong': 'ㄩㄥ'
+            };
+            return rhymeMap[rhyme] || rhyme;
+        }
+
+        // 主搜尋邏輯
+        function searchRhyme(input) {
+            if (!input) {
+                searchedTerms = [];
+                return [];
+            }
+            
+            input = input.trim();
+            lastSearchInput = input;
+            
+            const isBopomofo = /[ㄅ-ㄩ]/.test(input);
+            lastSearchType = isBopomofo ? 'bopomofo' : 'pinyin';
+            
+            const queries = input.split(/\s+/);
+            const allResults = [];
+            const seenChars = new Set();
+            searchedTerms = [];
+            
+            queries.forEach((query, queryIndex) => {
+                const queryIsBopomofo = /[ㄅ-ㄩ]/.test(query);
+                let targetInput = queryIsBopomofo ? bopomofoToPinyinFunc(query) : query.toLowerCase();
+                
+                const isSingleInitial = initials.includes(targetInput) && targetInput.length <= 2;
+                
+                // 記錄搜尋詞（用於高亮）
+                searchedTerms.push({
+                    original: query,
+                    pinyin: targetInput,
+                    isInitial: isSingleInitial,
+                    index: queryIndex
+                });
+                
+                if (isSingleInitial) {
+                    for (let char in chineseDict) {
+                        if (seenChars.has(char)) continue;
+                        const pinyinList = chineseDict[char];
+                        for (let pinyin of pinyinList) {
+                            const initial = getInitial(pinyin);
+                            if (initial === targetInput) {
+                                const rhyme = getRhyme(pinyin);
+                                allResults.push({
+                                    char: char,
+                                    pinyin: pinyin,
+                                    rhyme: rhyme,
+                                    initial: initial,
+                                    rhymeIndex: queryIndex
+                                });
+                                seenChars.add(char);
+                                break;
+                            }
+                        }
+                    }
+                } else {
+                    let targetRhyme = targetInput;
+                    const hasInitial = initials.some(i => targetRhyme.startsWith(i));
+                    if (hasInitial || targetRhyme.startsWith('zh') || targetRhyme.startsWith('ch') || targetRhyme.startsWith('sh')) {
+                        targetRhyme = getRhyme(targetRhyme);
+                    }
+                    
+                    for (let char in chineseDict) {
+                        if (seenChars.has(char)) continue;
+                        const pinyinList = chineseDict[char];
+                        for (let pinyin of pinyinList) {
+                            const rhyme = getRhyme(pinyin);
+                            if (rhyme.endsWith(targetRhyme)) {
+                                const initial = getInitial(pinyin);
+                                allResults.push({
+                                    char: char,
+                                    pinyin: pinyin,
+                                    rhyme: rhyme,
+                                    initial: initial,
+                                    rhymeIndex: queryIndex
+                                });
+                                seenChars.add(char);
+                                break;
+                            }
+                        }
+                    }
+                }
+            });
+            
+            return allResults;
+        }
+
+        // 全局狀態
+        let currentMode = 'common';
+        let selectedChars = new Set();
+        let recentClicks = [];
+        let lastSearchInput = '';
+        let lastSearchType = 'pinyin';
+        let searchedTerms = [];
+        let hasCustomTextColor = false;
+
+        // 創建字卡
+        function createCharCard(item, showPinyin) {
+            const isSelected = selectedChars.has(item.char) ? 'selected' : '';
+            const highlightSearch = document.getElementById('highlightSearch').checked;
+            const mark = getCharMark(item.char);
+            const customColorClass = hasCustomTextColor ? 'custom-color' : '';
+            
+            let displayText = '';
+            
+            if (showPinyin) {
+                if (currentMode === 'initial' && lastSearchType === 'bopomofo') {
+                    // 注音模式
+                    const bopomofoInitial = pinyinToBopomofoInitial(item.pinyin);
+                    const bopomofoRhyme = pinyinToBopomofoRhyme(item.rhyme);
+                    
+                    if (highlightSearch) {
+                        const searchTerm = searchedTerms[item.rhymeIndex] || searchedTerms[0];
+                        if (searchTerm && searchTerm.isInitial) {
+                            // 搜尋聲母 → 高亮聲母
+                            const colorClass = `search-highlight-${(item.rhymeIndex % 5) + 1}`;
+                            displayText = `<span class="${colorClass}">${bopomofoInitial}</span>${bopomofoRhyme}`;
+                        } else {
+                            // 搜尋韻母 → 高亮韻母
+                            const colorClass = `search-highlight-${(item.rhymeIndex % 5) + 1}`;
+                            displayText = `${bopomofoInitial}<span class="${colorClass}">${bopomofoRhyme}</span>`;
+                        }
+                    } else {
+                        displayText = bopomofoInitial + bopomofoRhyme;
+                    }
+                } else {
+                    // 拼音模式
+                    if (highlightSearch) {
+                        const initial = item.initial || '';
+                        const rhyme = item.rhyme;
+                        const searchTerm = searchedTerms[item.rhymeIndex] || searchedTerms[0];
+                        const colorClass = `search-highlight-${(item.rhymeIndex % 5) + 1}`;
+                        
+                        if (searchTerm && searchTerm.isInitial) {
+                            // 搜尋聲母 → 高亮聲母
+                            displayText = `<span class="${colorClass}">${initial}</span>${rhyme}`;
+                        } else {
+                            // 搜尋韻母 → 高亮韻母
+                            displayText = `${initial}<span class="${colorClass}">${rhyme}</span>`;
+                        }
+                    } else {
+                        displayText = item.pinyin;
+                    }
+                }
+            }
+            
+            // 標記徽章
+            let badgeHTML = '';
+            if (mark === 'common') {
+                badgeHTML = `<span class="mark-badge common" data-char="${item.char}" onclick="handleBadgeClick(event, '${item.char}')">常用</span>`;
+            } else if (mark === 'rare') {
+                badgeHTML = `<span class="mark-badge rare" data-char="${item.char}" onclick="handleBadgeClick(event, '${item.char}')">冷僻</span>`;
+            } else {
+                badgeHTML = `<span class="mark-badge normal" data-char="${item.char}" onclick="handleBadgeClick(event, '${item.char}')">一般</span>`;
+            }
+            
+            return `
+                <div class="char-card ${isSelected}" data-char="${item.char}">
+                    <div class="char-main ${customColorClass}">${item.char}</div>
+                    ${showPinyin ? `<div class="char-pinyin">${displayText}</div>` : ''}
+                    ${badgeHTML}
+                </div>
+            `;
+        }
+
+        // 延遲重排系統
+        let reorderTimer = null;
+        const REORDER_DELAY = 3000; // 5秒
+
+        // 處理徽章點擊（阻止冒泡，不觸發選取）
+        function handleBadgeClick(event, char) {
+            event.stopPropagation();
+            event.preventDefault();
+            cycleCharMark(char);
+            
+            // 就地更新徽章外觀（不重排）
+            const badge = event.target;
+            const newMark = getCharMark(char);
+            
+            if (newMark === 'common') {
+                badge.className = 'mark-badge common';
+                badge.textContent = '常用';
+            } else if (newMark === 'rare') {
+                badge.className = 'mark-badge rare';
+                badge.textContent = '冷僻';
+            } else {
+                badge.className = 'mark-badge normal';
+                badge.textContent = '一般';
+            }
+            
+            // 重置/延長 5 秒計時器（共用同一個計時器 = 同區間內累積）
+            if (reorderTimer) {
+                clearTimeout(reorderTimer);
+            }
+            reorderTimer = setTimeout(() => {
+                reorderTimer = null;
+                // 時間到：完整重新渲染（含排序）
+                const currentInput = document.getElementById('searchInput').value;
+                if (currentInput) {
+                    const results = searchRhyme(currentInput);
+                    // 加入淡入動畫
+                    const container = document.getElementById('resultsContainer');
+                    container.style.opacity = '0.001';
+                    container.style.transition = 'opacity 0.3s ease';
+                    setTimeout(() => {
+                        displayResults(results);
+                        container.style.opacity = '1';
+                    }, 500);
+                }
+            }, REORDER_DELAY);
+        }
+
+        // 切換選中狀態
+        function toggleSelection(char, cardElement) {
+            if (selectedChars.has(char)) {
+                selectedChars.delete(char);
+                cardElement.classList.remove('selected');
+            } else {
+                selectedChars.add(char);
+                cardElement.classList.add('selected');
+                addToRecentClicks(char);
+            }
+        }
+
+        // 添加到最近點擊
+        function addToRecentClicks(char) {
+            recentClicks = recentClicks.filter(c => c !== char);
+            recentClicks.unshift(char);
+            if (recentClicks.length > 20) {
+                recentClicks.pop();
+            }
+            updateRecentClicksDisplay();
+        }
+
+        // 更新最近點擊顯示
+        function updateRecentClicksDisplay() {
+            const container = document.getElementById('recentClicks');
+            if (recentClicks.length === 0) {
+                container.innerHTML = '<span style="color: var(--text-secondary); font-size: 0.9rem;">點擊上方的字來記錄</span>';
+                return;
+            }
+            container.innerHTML = recentClicks.map(char => 
+                `<span class="recent-char">${char}</span>`
+            ).join('');
+        }
+
+        // 顯示結果
+        function displayResults(results) {
+            const container = document.getElementById('resultsContainer');
+            const showPinyin = document.getElementById('showPinyin').checked;
+            
+            if (results.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <line x1="12" y1="8" x2="12" y2="12"></line>
+                            <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                        </svg>
+                        <h3>沒有找到結果</h3>
+                        <p>試試其他韻腳，例如：an、ing、ong</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            const header = `
+                <div class="results-header">
+                    <div class="results-count">找到 ${results.length} 個字</div>
+                </div>
+            `;
+            
+            let content = '';
+            
+            if (currentMode === 'initial') {
+                // 同子音並列模式
+                const grouped = {};
+                results.forEach(item => {
+                    const initial = item.initial || '無聲母';
+                    if (!grouped[initial]) grouped[initial] = [];
+                    grouped[initial].push(item);
+                });
+                
+                const sortedKeys = Object.keys(grouped).sort((a, b) => {
+                    if (a === '無聲母') return 1;
+                    if (b === '無聲母') return -1;
+                    return initials.indexOf(a) - initials.indexOf(b);
+                });
+                
+                // 判斷搜尋輸入是否包含注音
+                const inputHasBopomofo = /[ㄅ-ㄩ]/.test(lastSearchInput);
+                const inputHasPinyin = /[a-zA-Z]/.test(lastSearchInput);
+                // 如果同時有注音和拼音，或只有注音 → 顯示注音
+                const showBopomofoTitle = inputHasBopomofo;
+                
+                sortedKeys.forEach(initial => {
+                    let displayTitle = initial;
+                    if (initial !== '無聲母' && showBopomofoTitle) {
+                        displayTitle = pinyinToBopomofoInitial(initial + 'a'); // 加'a'讓getInitial能解析
+                        // 直接用映射
+                        const titleMap = {
+                            'b': 'ㄅ', 'p': 'ㄆ', 'm': 'ㄇ', 'f': 'ㄈ',
+                            'd': 'ㄉ', 't': 'ㄊ', 'n': 'ㄋ', 'l': 'ㄌ',
+                            'g': 'ㄍ', 'k': 'ㄎ', 'h': 'ㄏ',
+                            'j': 'ㄐ', 'q': 'ㄑ', 'x': 'ㄒ',
+                            'zh': 'ㄓ', 'ch': 'ㄔ', 'sh': 'ㄕ', 'r': 'ㄖ',
+                            'z': 'ㄗ', 'c': 'ㄘ', 's': 'ㄙ'
+                        };
+                        displayTitle = titleMap[initial] || initial;
+                    } else if (initial === '無聲母' && showBopomofoTitle) {
+                        displayTitle = '無聲母';
+                    }
+                    
+                    // 每組內也按三級排序
+                    grouped[initial].sort((a, b) => {
+                        const markA = getCharMark(a.char);
+                        const markB = getCharMark(b.char);
+                        const orderA = markA === 'common' ? 0 : (markA === 'rare' ? 2 : 1);
+                        const orderB = markB === 'common' ? 0 : (markB === 'rare' ? 2 : 1);
+                        return orderA - orderB;
+                    });
+                    
+                    content += `
+                        <div class="group-section">
+                            <div class="group-title">[${displayTitle}]</div>
+                            <div class="results-grid">
+                                ${grouped[initial].map(item => createCharCard(item, showPinyin)).join('')}
+                            </div>
+                        </div>
+                    `;
+                });
+            } else {
+                // 常用字優先模式：三級排序
+                results.sort((a, b) => {
+                    const markA = getCharMark(a.char);
+                    const markB = getCharMark(b.char);
+                    const orderA = markA === 'common' ? 0 : (markA === 'rare' ? 2 : 1);
+                    const orderB = markB === 'common' ? 0 : (markB === 'rare' ? 2 : 1);
+                    return orderA - orderB;
+                });
+                
+                content = `<div class="results-grid">
+                    ${results.map(item => createCharCard(item, showPinyin)).join('')}
+                </div>`;
+            }
+            
+            container.innerHTML = header + content;
+            
+            // 點擊事件（使用事件委派，支援觸控）
+            const resultsContainer = document.getElementById('resultsContainer');
+            resultsContainer.onclick = function(e) {
+                // 如果點擊的是徽章，不處理（由 onclick 直接處理）
+                if (e.target.classList.contains('mark-badge')) return;
+                
+                // 找到最近的 .char-card
+                const card = e.target.closest('.char-card');
+                if (card) {
+                    const char = card.dataset.char;
+                    toggleSelection(char, card);
+                }
+            };
+        }
+
+        // 事件監聽器
+        const searchInputEl = document.getElementById('searchInput');
+        
+        // 標準 input 事件
+        searchInputEl.addEventListener('input', (e) => {
+            // 如果正在輸入法組字中（如注音輸入法），跳過
+            if (e.isComposing) return;
+            const results = searchRhyme(e.target.value);
+            displayResults(results);
+        });
+        
+        // 輸入法組字完成事件（支援手機注音/拼音輸入法）
+        searchInputEl.addEventListener('compositionend', (e) => {
+            const results = searchRhyme(e.target.value);
+            displayResults(results);
+        });
+        
+        // 確保手機上點擊搜尋框能正確取得焦點
+        searchInputEl.addEventListener('touchend', (e) => {
+            setTimeout(() => e.target.focus(), 10);
+        });
+
+        document.getElementById('showPinyin').addEventListener('change', () => {
+            const currentInput = document.getElementById('searchInput').value;
+            if (currentInput) {
+                const results = searchRhyme(currentInput);
+                displayResults(results);
+            }
+        });
+        
+        document.getElementById('highlightSearch').addEventListener('change', () => {
+            const currentInput = document.getElementById('searchInput').value;
+            if (currentInput) {
+                const results = searchRhyme(currentInput);
+                displayResults(results);
+            }
+        });
+
+        // 按鈕組切換
+        document.querySelectorAll('.mode-button').forEach(button => {
+            button.addEventListener('click', function() {
+                document.querySelectorAll('.mode-button').forEach(b => b.classList.remove('active'));
+                this.classList.add('active');
+                currentMode = this.dataset.mode;
+                const currentInput = document.getElementById('searchInput').value;
+                if (currentInput) {
+                    const results = searchRhyme(currentInput);
+                    displayResults(results);
+                }
+            });
+        });
+
+        // Dark mode 切換
+        const themeToggle = document.getElementById('themeToggle');
+        let isDark = false;
+        
+        // 顏色反轉工具函數
+        function invertColor(hex) {
+            hex = hex.replace('#', '');
+            const r = 255 - parseInt(hex.substring(0, 2), 16);
+            const g = 255 - parseInt(hex.substring(2, 4), 16);
+            const b = 255 - parseInt(hex.substring(4, 6), 16);
+            return '#' + [r, g, b].map(c => c.toString(16).padStart(2, '0')).join('');
+        }
+        
+        themeToggle.addEventListener('click', () => {
+            isDark = !isDark;
+            document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
+            themeToggle.textContent = isDark ? '🌙 深色模式' : '☀️ 淺色模式' ;
+            
+            // 重新載入顏色（含反轉邏輯）
+            loadColors();
+            
+            // 重新渲染結果以套用顏色
+            const currentInput = document.getElementById('searchInput').value;
+            if (currentInput) {
+                const results = searchRhyme(currentInput);
+                displayResults(results);
+            }
+        });
+
+        // 縮放功能（使用 CSS zoom 而非 transform，修復手機輸入問題）
+        const zoomSlider = document.getElementById('zoomSlider');
+        const zoomValue = document.getElementById('zoomValue');
+        const mainContainer = document.getElementById('mainContainer');
+
+        zoomSlider.addEventListener('input', (e) => {
+            zoomValue.textContent = e.target.value + '%';
+        });
+        
+        zoomSlider.addEventListener('change', (e) => {
+            const value = parseInt(e.target.value);
+            const scale = value / 100;
+            
+            // 使用 CSS zoom（不影響 input focus）
+            // 檢查視窗寬度限制
+            const containerWidth = mainContainer.offsetWidth;
+            const viewportWidth = window.innerWidth - 40;
+            const scaledWidth = containerWidth * scale;
+            
+            if (scaledWidth > viewportWidth && scale > 1) {
+                const maxScale = viewportWidth / containerWidth;
+                const maxValue = Math.floor(maxScale * 100 / 5) * 5;
+                zoomSlider.value = maxValue;
+                zoomValue.textContent = maxValue + '%';
+                mainContainer.style.zoom = maxValue / 100;
+                mainContainer.style.transform = 'none';
+            } else {
+                mainContainer.style.zoom = scale;
+                mainContainer.style.transform = 'none';
+            }
+        });
+
+        // 顏色自定義
+        function loadColors() {
+            // 從 localStorage 讀取原始（淺色模式）顏色
+            const rawColors = {
+                bgColor1: localStorage.getItem('bgColor1') || '#667eea',
+                containerBg: localStorage.getItem('containerBg') || '#ffffff',
+                textColor: localStorage.getItem('textColor') || '#2d3748',
+                highlightColor: localStorage.getItem('highlightColor') || '#ed8936'
+            };
+            
+            // 深色模式：背景以外的顏色反轉
+            let displayColors;
+            if (isDark) {
+                displayColors = {
+                    bgColor1: rawColors.bgColor1, // 背景不反轉
+                    containerBg: invertColor(rawColors.containerBg),
+                    textColor: invertColor(rawColors.textColor),
+                    highlightColor: invertColor(rawColors.highlightColor)
+                };
+            } else {
+                displayColors = { ...rawColors };
+            }
+            
+            // 更新色票 UI 顯示當前實際使用的顏色
+            document.getElementById('bgColor1').value = rawColors.bgColor1; // 背景永遠顯示原色
+            document.getElementById('containerBg').value = displayColors.containerBg;
+            document.getElementById('textColor').value = displayColors.textColor;
+            document.getElementById('highlightColor').value = displayColors.highlightColor;
+            
+            applyColors(displayColors, rawColors.textColor);
+        }
+
+        function applyColors(colors, rawTextColor) {
+            // 背景不受深色模式影響（深色模式有自己的背景）
+            if (!isDark) {
+                document.documentElement.style.setProperty('--bg-gradient-1', colors.bgColor1);
+                document.documentElement.style.setProperty('--bg-gradient-2', colors.bgColor1);
+            }
+            document.documentElement.style.setProperty('--container-bg', colors.containerBg);
+            document.documentElement.style.setProperty('--highlight-border', colors.highlightColor);
+            
+            // 文字顏色
+            const defaultTextColor = '#2d3748';
+            const originalTextColor = rawTextColor || colors.textColor;
+            if (originalTextColor !== defaultTextColor || isDark) {
+                hasCustomTextColor = true;
+                document.documentElement.style.setProperty('--custom-text-color', colors.textColor);
+                document.documentElement.style.setProperty('--text-primary', colors.textColor);
+            } else {
+                hasCustomTextColor = false;
+                document.documentElement.style.setProperty('--text-primary', colors.textColor);
+            }
+        }
+
+        document.getElementById('bgColor1').addEventListener('change', (e) => {
+            // 背景不反轉，直接儲存
+            localStorage.setItem('bgColor1', e.target.value);
+            loadColors();
+        });
+
+        document.getElementById('containerBg').addEventListener('change', (e) => {
+            // 深色模式下使用者選的是反轉後的顏色，需反轉回原色再儲存
+            const rawValue = isDark ? invertColor(e.target.value) : e.target.value;
+            localStorage.setItem('containerBg', rawValue);
+            loadColors();
+        });
+
+        document.getElementById('textColor').addEventListener('change', (e) => {
+            const rawValue = isDark ? invertColor(e.target.value) : e.target.value;
+            localStorage.setItem('textColor', rawValue);
+            loadColors();
+            // 重新渲染以套用 custom-color class
+            const currentInput = document.getElementById('searchInput').value;
+            if (currentInput) {
+                const results = searchRhyme(currentInput);
+                displayResults(results);
+            }
+        });
+
+        document.getElementById('highlightColor').addEventListener('change', (e) => {
+            const rawValue = isDark ? invertColor(e.target.value) : e.target.value;
+            localStorage.setItem('highlightColor', rawValue);
+            loadColors();
+        });
+
+        // 初始化
+        loadUserMarks();
+        loadColors();
+        // 只在桌面自動 focus（避免手機打開就彈出鍵盤）
+        if (window.innerWidth > 640) {
+            document.getElementById('searchInput').focus();
+        }
+    </script>
+</body>
+</html>

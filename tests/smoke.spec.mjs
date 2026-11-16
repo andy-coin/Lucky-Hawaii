@@ -281,7 +281,7 @@ test('import 壞掉的檔案：顯示無法匯入的說明，不丟 JS 錯誤', 
     try {
         await importFile(page, 'not json');
         await expect(page.locator('#importTitle')).toHaveText('這個檔案無法匯入');
-        await expect(page.locator('#importError')).toHaveText('這個檔案不是有效的備份檔（內容讀不出來）。請選擇用「備份全部」存出來的 .json 檔。目前的歌詞與設定都沒有被改動。');
+        await expect(page.locator('#importError')).toHaveText('這個檔案不是有效的備份檔（內容讀不出來）。請選擇好韻器「匯出」存出來的 .json 檔。目前的歌詞與設定都沒有被改動。');
         expect(errors).toEqual([]);
         expect(offOrigin).toEqual([]);
     } finally {

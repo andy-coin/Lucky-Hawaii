@@ -40,39 +40,6 @@
             console.log(`[buildIndex] ${Object.keys(chineseDict).length} 字, ${Object.keys(rhymeDict).length} 組`);
         }
 
-        let dictOverrides = {}; // 記錄被使用者修改過的 rhymeDict key
-
-        function loadDictOverrides() {
-            // 走 lhGetJSON：損毀或形狀不對時會留記錄、另存原始內容，不然下次存檔就把它蓋掉了
-            const saved = lhGetJSON('dictOverrides_v076', null, v => v && typeof v === 'object' && !Array.isArray(v));
-            if (!saved) return;
-            // 存檔可能被手動改過或來自舊的備份：壞項目跳過並另存原文，絕不讓開機中止（CR-01）
-            const { clean, dropped } = lhCleanDictOverrides(saved);
-            if (dropped > 0) {
-                lhWarn('dictOverrides_v076 有 ' + dropped + ' 筆格式不合的項目，已略過（原始內容另存）');
-                _lhStashCorrupt('dictOverrides_v076', lhGet('dictOverrides_v076'));
-            }
-            dictOverrides = { ...clean };
-            for (const [key, val] of Object.entries(dictOverrides)) {
-                rhymeDict[key] = val;
-            }
-        }
-
-        function saveDictOverrides() {
-            // lhSet 不會丟例外，寫入失敗時由它自己顯示存檔失敗橫幅，所以不需要再包 try/catch
-            lhSet('dictOverrides_v076', JSON.stringify(dictOverrides));
-        }
-
-        function clearDictOverrides() {
-            const n = Object.keys(dictOverrides || {}).length;
-            const stored = lhGet('dictOverrides_v076');
-            if (!n && !stored) { alert('目前沒有 local 字庫覆寫'); return; }
-            if (!confirm(`將清除瀏覽器暫存的 ${n} 筆字庫覆寫，並重新載入頁面以套用乾淨的資料檔。確定？`)) return;
-            lhRemove('dictOverrides_v076');
-            dictOverrides = {};
-            location.reload();
-        }
-
         // ── 後台匯出的字庫 overrides（data/rhyme-dict-overrides.json）──
         // 由 admin/exportChanges() 產出的 .py 跑完後寫入；累積追加。
         // 套用時機：boot 完跑 buildIndex() 後，async fetch → 套用 → 再 buildIndex() 一次
@@ -184,46 +151,5 @@
             return infos[0].tier;
         }
 
-        // 在 rhymeDict 中移動字的分級位置
-        function moveCharTier(char, dictKey, newTier) {
-            const entry = rhymeDict[dictKey];
-            if (!entry) return;
-
-            const parts = entry.split('｜');
-            while (parts.length < 3) parts.push('—');
-
-            // 從所有區域移除該字
-            for (let i = 0; i < parts.length; i++) {
-                const chars = [...parts[i]].filter(c => c !== '—' && c !== '-' && c.trim());
-                const idx = chars.indexOf(char);
-                if (idx !== -1) {
-                    chars.splice(idx, 1);
-                    parts[i] = chars.length > 0 ? chars.join('') : '—';
-                }
-            }
-
-            // 加入目標區域
-            const tierIdx = { common: 0, normal: 1, rare: 2 }[newTier];
-            if (parts[tierIdx] === '—' || parts[tierIdx] === '-') {
-                parts[tierIdx] = char;
-            } else {
-                parts[tierIdx] += char;
-            }
-
-            // 更新 rhymeDict
-            rhymeDict[dictKey] = parts.join('｜');
-            dictOverrides[dictKey] = rhymeDict[dictKey];
-            saveDictOverrides();
-
-            // 更新 charInfo（就地修改，不需 rebuild）
-            const baseZhuyin = dictKey.slice(0, -1);
-            const tone = parseInt(dictKey.slice(-1));
-            const infos = charInfo[char];
-            if (infos) {
-                const match = infos.find(i => i.zhuyin === baseZhuyin && i.tone === tone);
-                if (match) match.tier = newTier;
-            }
-        }
-
-        // （0.98.10 拿掉 cycleCharMark：徽章不能點了，改屬性只走 batchMark）
+        // （0.98.21 拿掉使用者改分級：batchMark、moveCharTier、本機覆寫，見 git 0.98.20）
 

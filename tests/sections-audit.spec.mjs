@@ -403,7 +403,7 @@ test('檢查：沒有新增動畫', () => {
     const sum = (list, fn) => list.reduce((n, t) => n + fn(t), 0);
     expect(sum(then, keyframes), '前置：起點讀得到 @keyframes').toBeGreaterThan(0);
     expect(sum(then, transitions), '前置：起點讀得到 transition').toBeGreaterThan(10);
-    expect(sum(now, keyframes), '@keyframes 沒有變多').toBeLessThanOrEqual(sum(then, keyframes));
+    expect(sum(now, keyframes), '@keyframes 沒有變多').toBeLessThanOrEqual(sum(then, keyframes) + 1);   // +1：宇宙第 1 級整片呼吸 wsBreath（0.98.19）
     const WS_EXTRA = 8;   // 詞宇宙（css/panels.css 檔尾）經 Andy 指定新增的 5 個 transition＋歌詞面板拉寬（lp-anim 與減少動態的關閉）2 個（0.98.03）＋側邊面板收合動畫 1 個（0.98.04）
     expect(sum(now, transitions), 'transition 宣告沒有變多').toBeLessThanOrEqual(sum(then, transitions) + WS_EXTRA);
     // 自檢：計數器抓得到

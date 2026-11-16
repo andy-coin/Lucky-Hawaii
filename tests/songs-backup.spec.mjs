@@ -1,14 +1,14 @@
 // 備份與還原（EDIT-09）：備份全部、匯入備份、只加入歌曲、全部還原、壞檔
 import { test, expect } from '@playwright/test';
 import { readFileSync } from 'node:fs';
-import { bootPage, clickBackup, openDataTab, SETTINGS_IMPORT } from './helpers.mjs';
+import { bootPage, clickBackup, clickExportContent, openDataTab, SETTINGS_IMPORT } from './helpers.mjs';
 import { DEVICES, hitMin } from './layout-lib.mjs';
 
 const FIXTURE = JSON.parse(readFileSync(new URL('./fixtures/v096-localStorage.json', import.meta.url), 'utf8'));
 const DESKTOP = { viewport: { width: 1440, height: 900 }, deviceScaleFactor: 1 };
 
 const SETTING_KEYS = ['haoYunQi_inputMode', 'selectedModel', 'hoyun_theme_mode', 'bgColor1', 'containerBg', 'textColor', 'highlightColor', 'lh:lexiconPack'];
-const BACKUP_TOP_KEYS = ['activeSong', 'exportedAt', 'format', 'savedWords', 'settings', 'songs', 'version'];
+const BACKUP_TOP_KEYS = ['activeSong', 'customWords', 'exportedAt', 'format', 'projects', 'savedWords', 'settings', 'songs', 'version'];   // 0.98.21 整份備份多帶專案與自訂詞彙
 
 // 讀整個 localStorage（只讀，給斷言用）
 const dumpLS = page => page.evaluate(() => {
@@ -85,7 +85,8 @@ test('備份：檔案格式', async ({ browser }) => {
     const data = JSON.parse(raw);
     expect(Object.keys(data).sort()).toEqual(BACKUP_TOP_KEYS);
     expect(data.format).toBe('lucky-hawaii-backup');
-    expect(data.version).toBe(2);
+    expect(data.version).toBe(3);
+    expect(data.projects).toEqual([expect.objectContaining({ id: 'proj-default', name: '我的歌詞' })]);
     expect(Number.isNaN(Date.parse(data.exportedAt))).toBe(false);
     expect(data.songs).toHaveLength(2);
     expect(data.songs.map(s => s.id)).toContain(data.activeSong);
@@ -247,12 +248,14 @@ test('備份：按鈕名稱', async ({ browser }) => {
     await expect(page.locator('.save-load-controls')).toHaveCount(0);
     await expect(page.locator('.header .save-load-btn')).toHaveCount(0);
     await openDataTab(page);
-    const inSettings = page.locator('.settings-saveload .save-load-btn');
-    await expect(inSettings.nth(0)).toHaveText('備份全部');
-    await expect(inSettings.nth(1)).toHaveText('匯入備份');
-    for (const [i, name] of [[0, '把所有歌曲與設定存成一個備份檔'], [1, '從備份檔還原歌曲與設定']]) {
-        await expect(inSettings.nth(i)).toHaveAttribute('title', name);
-        await expect(inSettings.nth(i)).toHaveAttribute('aria-label', name);
+    // 0.98.21：創作內容（這個專案／全部專案）、設定外觀分開匯出；匯入只有一顆，看檔案是哪一種
+    const btns = page.locator('#prefsPanel-data .save-load-btn');
+    const want = [['匯出這個專案', '把目前專案的歌與自訂詞彙存成檔案'], ['匯出全部專案', '把全部專案的歌、自訂詞彙與保留池存成檔案'],
+        ['匯出設定外觀', '把主題、顏色與偏好存成檔案'], ['從檔案匯入…', '從匯出的檔案加入或還原（創作內容或設定外觀）']];
+    await expect(btns).toHaveText(want.map(w => w[0]));
+    for (const [i, [, name]] of want.entries()) {
+        await expect(btns.nth(i)).toHaveAttribute('title', name);
+        await expect(btns.nth(i)).toHaveAttribute('aria-label', name);
     }
     await context.close();
 });
@@ -261,10 +264,10 @@ test('備份：按鈕名稱', async ({ browser }) => {
 const UNCHANGED = '目前的歌詞與設定都沒有被改動。';
 const ERR_TITLE = '這個檔案無法匯入';
 const BAD_FILES = [
-    ['不是 JSON', 'not json', '這個檔案不是有效的備份檔（內容讀不出來）。請選擇用「備份全部」存出來的 .json 檔。'],
-    ['空檔案', '', '這個檔案不是有效的備份檔（內容讀不出來）。請選擇用「備份全部」存出來的 .json 檔。'],
-    ['格式不對', '{"a":1}', '這不是好韻器的備份檔。請選擇用「備份全部」存出來的 .json 檔。'],
-    ['版本太新', { ...mkBackup([mkSong('z', 'Z')]), version: 3 }, '這份備份是比較新的版本做的（版本 3），目前的好韻器還讀不了。請先重新整理頁面更新，再試一次。'],
+    ['不是 JSON', 'not json', '這個檔案不是有效的備份檔（內容讀不出來）。請選擇好韻器「匯出」存出來的 .json 檔。'],
+    ['空檔案', '', '這個檔案不是有效的備份檔（內容讀不出來）。請選擇好韻器「匯出」存出來的 .json 檔。'],
+    ['格式不對', '{"a":1}', '這不是好韻器的備份檔。請選擇好韻器「匯出」存出來的 .json 檔。'],
+    ['版本太新', { ...mkBackup([mkSong('z', 'Z')]), version: 4 }, '這份備份是比較新的版本做的（版本 4），目前的好韻器還讀不了。請先重新整理頁面更新，再試一次。'],
     ['沒有任何歌曲', mkBackup([]), '這份備份裡沒有任何歌曲，沒有東西可以匯入。'],
     ['檔案太大', 'x'.repeat(6 * 1024 * 1024), '檔案太大了（超過 5 MB），不像是備份檔。請確認選對檔案。'],
 ];
@@ -554,10 +557,9 @@ test('字庫覆寫：存檔裡有壞項目時照常開機', async ({ browser }) 
     // 不經過匯入：直接把壞值放進 localStorage（手動改過、舊版殘留），開機不能中止
     const { context, page, errors, warnings } = await bootPage(browser, { storage: { ...MINE_STORAGE(), dictOverrides_v076: BAD_DICT }, device: DESKTOP, wordlist: 'stub' });
     expect(errors).toEqual([]);
-    expect(warnings.some(w => w.includes('dictOverrides_v076 有 5 筆格式不合的項目'))).toBe(true);
-    // 開機有跑完：歌詞畫出來、好的那筆覆寫進了字庫、原型沒被換掉
+    // 0.98.21 起不再套用覆寫：開機有跑完、字庫原型沒被換掉，舊資料留著不刪
     await expect(page.locator('#songCurrent')).toHaveText('甲');
-    expect(await page.evaluate(() => ({ good: rhymeDict['ㄅㄧㄣ4'], proto: Object.getPrototypeOf(rhymeDict) === Object.prototype, keys: Object.keys(dictOverrides) }))).toEqual({ good: '殯｜鬢｜儐', proto: true, keys: ['ㄅㄧㄣ4'] });
+    expect(await page.evaluate(() => ({ proto: Object.getPrototypeOf(rhymeDict) === Object.prototype, kept: localStorage.getItem('dictOverrides_v076') !== null }))).toEqual({ proto: true, kept: true });
     await context.close();
 });
 
@@ -664,7 +666,7 @@ test('備份：全部還原寫到一半失敗、連退回也失敗時，如實�
     await expect(page.locator('#importTitle')).toHaveText(ERR_TITLE);
     const text = await page.locator('#importError').textContent();
     expect(text).toContain('退回匯入前的狀態也沒有成功');
-    expect(text).toContain('備份全部');
+    expect(text).toContain('匯出全部專案');
     expect(text, '資料可能被動到，不能說都沒有被改動').not.toContain(UNCHANGED);
     expect(text).not.toContain('已經回到匯入前的狀態');
     await expectFrozenBanner(page);
@@ -695,7 +697,7 @@ test('備份：還原自動備份連退回也失敗時，如實說', async ({ br
     await page.evaluate(() => restoreAutoBackup('baseline'));
     const toast = page.locator('#copyToast');
     await expect(toast).toContainText('退回原狀也沒有成功');
-    await expect(toast).toContainText('備份全部');
+    await expect(toast).toContainText('匯出全部專案');
     await expectFrozenBanner(page);
     await context.close();
 });
@@ -808,4 +810,56 @@ test('備份：段落舊版存檔推斷類型', async ({ browser }) => {
     expect(await page.locator('#lyricsSections .section-type').evaluateAll(els => els.map(e => e.textContent))).toEqual(['Verse', 'Chorus']);
     expect(errors).toEqual([]);
     await context.close();
+});
+
+// ==================== 0.98.21：創作內容、設定外觀分開匯出與匯入 ====================
+test('匯出：創作內容與設定外觀分開，各自還原', async ({ browser }) => {
+    const sb = { ...mkSong('b', '乙'), project: 'proj-b' };
+    const A = await bootPage(browser, {
+        storage: seed([mkSong('a', '甲'), sb], {
+            'lh:projects': JSON.stringify([{ id: 'proj-default', name: '我的歌詞' }, { id: 'proj-b', name: '專輯B' }]),
+            'lh:customWords': JSON.stringify([{ w: '浪花', z: 'ㄌㄤˋ ㄏㄨㄚ', s: 'g', p: 'proj-b' }]),
+            hoyun_theme_mode: 'dark',
+        }), device: DESKTOP, wordlist: 'stub',
+    });
+    const cdl = await clickExportContent(A.page);
+    expect(cdl.suggestedFilename()).toMatch(/^LuckyHawaii-創作內容-全部專案-\d{8}-\d{4}\.json$/);
+    await expect(A.page.locator('#copyToast')).toHaveText('已匯出創作內容（2 個專案、2 首歌）');
+    const cfile = test.info().outputPath('content.json');
+    await cdl.saveAs(cfile);
+    const content = JSON.parse(readFileSync(cfile, 'utf8'));
+    expect(content).toMatchObject({ kind: 'content', version: 3 });
+    expect(content.settings, '創作內容不帶設定').toBeUndefined();
+    expect(content.projects.map(p => p.name)).toEqual(['我的歌詞', '專輯B']);
+    expect(content.customWords.map(x => x.w)).toEqual(['浪花']);
+    const [sdl] = await Promise.all([A.page.waitForEvent('download'), A.page.locator('#prefsPanel-data .save-load-btn', { hasText: '匯出設定外觀' }).click()]);
+    const sfile = test.info().outputPath('settings.json');
+    await sdl.saveAs(sfile);
+    const settings = JSON.parse(readFileSync(sfile, 'utf8'));
+    expect(settings).toMatchObject({ kind: 'settings', settings: { hoyun_theme_mode: 'dark' } });
+    expect(settings.songs, '設定外觀不帶歌').toBeUndefined();
+    await A.context.close();
+
+    // 乾淨瀏覽器：創作內容全部還原 → 兩個專案、兩首歌、自訂詞彙都在，主題沒被動
+    const B = await bootPage(browser, { storage: {}, device: DESKTOP, wordlist: 'stub' });
+    await B.page.setInputFiles('#importFileInput', cfile);
+    await B.page.getByRole('button', { name: '全部還原（取代目前資料）' }).click();
+    await expect(B.page.locator('#copyToast')).toHaveText('已還原 2 首歌與專案（還原前的資料已自動備份）');
+    await B.page.evaluate(() => Promise.all([window.__hoyunSafetyReady, window.__hoyunSongsReady]));
+    let ls = await dumpLS(B.page);
+    expect(JSON.parse(ls['lh:projects']).map(p => p.name)).toEqual(['我的歌詞', '專輯B']);
+    expect(JSON.parse(ls['lh:songs']).map(s => [s.id, s.project || 'proj-default']).sort()).toEqual([['a', 'proj-default'], ['b', 'proj-b']]);
+    expect(JSON.parse(ls['lh:customWords']).map(x => [x.w, x.p])).toEqual([['浪花', 'proj-b']]);
+    expect(ls.hoyun_theme_mode, '設定外觀不動').toBeUndefined();
+    // 再匯入設定外觀：問一次、套用後重新載入，歌不變
+    const songsBefore = ls['lh:songs'];
+    await B.page.setInputFiles('#importFileInput', sfile);
+    await expect(B.page.locator('#lhAskOverlay')).toBeVisible();
+    await Promise.all([B.page.waitForEvent('load'), B.page.locator('#lhAskActions button', { hasText: '套用' }).click()]);
+    await B.page.evaluate(() => Promise.all([window.__hoyunSafetyReady, window.__hoyunSongsReady]));
+    ls = await dumpLS(B.page);
+    expect(ls.hoyun_theme_mode).toBe('dark');
+    expect(ls['lh:songs']).toBe(songsBefore);
+    expect(B.errors).toEqual([]);
+    await B.context.close();
 });

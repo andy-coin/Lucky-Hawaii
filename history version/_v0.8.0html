@@ -1,0 +1,3811 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <!-- phone -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="好韻到">
+    <link rel="apple-touch-icon" href="icon.png">
+    <!-- computer -->
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>好韻到 | Lucky Hawaii </title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
+        
+        :root {
+            --bg-gradient-1: #667eea;
+            --bg-gradient-2: #764ba2;
+            --container-bg: #ffffff;
+            --text-primary: #2d3748;
+            --text-secondary: #718096;
+            --border: #e2e8f0;
+            --card-bg: #f7fafc;
+            --highlight-border: #ed8936;
+            --shadow: rgba(0, 0, 0, 0.1);
+            --header-gradient-1: #e89e61;
+            --header-gradient-2: #764ba2;
+            --custom-text-color: none;
+        }
+        
+        [data-theme="dark"] {
+            --bg-gradient-1: #1a202c;
+            --bg-gradient-2: #2d3748;
+            --container-bg: #1a202c;
+            --text-primary: #e2e8f0;
+            --text-secondary: #a0aec0;
+            --border: #4a5568;
+            --card-bg: #2d3748;
+            --header-gradient-1: #2d3748;
+            --header-gradient-2: #4a5568;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+            background: linear-gradient(135deg, var(--bg-gradient-1) 0%, var(--bg-gradient-2) 100%);
+            min-height: 100vh;
+            padding: 20px;
+            color: var(--text-primary);
+            transition: background 0.3s ease;
+        }
+        
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: var(--container-bg);
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+            height: calc(100vh - 40px);
+            display: flex;
+            flex-direction: column;
+            animation: slideIn 0.5s ease-out;
+            transition: background 0.3s ease, box-shadow 0.3s ease;
+        }
+        
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .header {
+            background: linear-gradient(135deg, var(--header-gradient-1) 0%, var(--header-gradient-2) 100%);
+            color: white;
+            padding: 40px 30px;
+            text-align: center;
+            position: relative;
+            flex-shrink: 0;
+        }
+        
+        .header h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 10px;
+            letter-spacing: -0.5px;
+        }
+        
+        .header p {
+            font-size: 1rem;
+            opacity: 0.9;
+            font-weight: 300;
+        }
+        
+        /* 顏色自定義面板 */
+        .color-panel {
+            position: absolute;
+            top: 15px;
+            left: 15px;
+            background: rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(10px);
+            border-radius: 12px;
+            padding: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        
+        .color-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.75rem;
+            color: white;
+        }
+        
+        .color-item label {
+            min-width: 60px;
+            font-weight: 500;
+        }
+        
+        .color-item input[type="color"] {
+            width: 30px;
+            height: 24px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        
+        /* 控制面板 */
+        .controls {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        
+        .theme-toggle, .zoom-control {
+            background: rgba(255, 255, 255, 0.2);
+            backdrop-filter: blur(10px);
+            border: none;
+            color: white;
+            padding: 8px 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: all 0.3s ease;
+        }
+        
+        .theme-toggle:hover, .zoom-control:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+        
+        .zoom-control {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 15px;
+        }
+        
+        .zoom-control input[type="range"] {
+            width: 80px;
+            cursor: pointer;
+        }
+        
+        .search-section {
+            padding: 20px 30px;
+            background: var(--container-bg);
+            flex-shrink: 0;
+        }
+        
+        .search-box {
+            position: relative;
+            margin-bottom: 20px;
+        }
+        
+
+        .search-input {
+            width: 100%;
+            padding: 18px 24px;
+            font-size: 1.2rem;
+            border: 3px solid var(--border);
+            border-radius: 12px;
+            outline: none;
+            transition: all 0.3s ease;
+            font-family: 'Noto Sans TC', sans-serif;
+            background: var(--container-bg);
+            color: var(--text-primary);
+        }
+        
+        .search-input:focus {
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+        
+        .search-hint {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            margin-top: 8px;
+            font-weight: 300;
+        }
+        
+        .options {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        
+        .checkbox-label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+            user-select: none;
+            font-size: 0.95rem;
+            color: var(--text-secondary);
+        }
+        
+        .checkbox-label input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+        }
+        
+        /* 按鈕組 */
+        .button-group {
+            display: flex;
+            gap: 8px;
+            background: var(--card-bg);
+            padding: 4px;
+            border-radius: 10px;
+            border: 1px solid var(--border);
+        }
+        
+        .mode-button {
+            padding: 8px 16px;
+            border: none;
+            background: transparent;
+            color: var(--text-secondary);
+            cursor: pointer;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            font-family: 'Noto Sans TC', sans-serif;
+            transition: all 0.2s ease;
+            font-weight: 500;
+        }
+        
+        .mode-button.active {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        
+        .mode-button:hover:not(.active) {
+            background: var(--border);
+        }
+        
+        /* 偏好設定面板 */
+        .settings-trigger {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 14px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            background: var(--card-bg);
+            color: var(--text-secondary);
+            cursor: pointer;
+            font-size: 0.9rem;
+            font-family: 'Noto Sans TC', sans-serif;
+            transition: all 0.2s ease;
+            user-select: none;
+            position: relative;
+        }
+
+        .settings-trigger:hover {
+            background: var(--border);
+        }
+
+        .settings-trigger .gear-icon {
+            font-size: 1rem;
+            transition: transform 0.3s ease;
+        }
+
+        .settings-trigger.open .gear-icon {
+            transform: rotate(90deg);
+        }
+
+        .settings-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.3);
+            backdrop-filter: blur(4px);
+            -webkit-backdrop-filter: blur(4px);
+            z-index: 999;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .settings-overlay.show {
+            display: flex;
+        }
+
+        .settings-dropdown {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 24px 28px;
+            box-shadow: 0 12px 40px rgba(0,0,0,0.2);
+            min-width: 220px;
+            max-width: 320px;
+        }
+
+        .settings-dropdown.show {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .settings-dropdown-title {
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 4px;
+            text-align: center;
+        }
+
+        /* 桌面：隱藏設定面板內的顏色區塊（已在 header 顯示） */
+        .settings-color-section {
+            display: none;
+        }
+
+        .results-section {
+            padding: 30px;
+            min-height: 300px;
+            flex: 1;
+            overflow-y: auto;
+            overflow-x: hidden;
+            border-top: 5px solid var(--border);
+            scrollbar-width: thin;
+        }
+
+        .results-section::-webkit-scrollbar { width: 6px; }
+        .results-section::-webkit-scrollbar-track { background: transparent; }
+        .results-section::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.2); border-radius: 3px; }
+        
+        .results-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        
+        .results-count {
+            font-size: 1.1rem;
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+        
+        /* 分組標題 */
+        .group-section {
+            margin-bottom: 30px;
+        }
+        
+        .group-title {
+            font-size: 1.3rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 15px;
+            padding: 8px 12px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 8px;
+            display: inline-block;
+        }
+
+        .group-title.rhyme-group {
+            background: var(--card-bg);
+            border: 2px solid var(--border);
+        }
+
+        .group-title.rhyme-group span[class^="search-highlight"] {
+            font-weight: 700;
+        }
+        
+        .results-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+            gap: 12px;
+            animation: fadeIn 0.4s ease-out;
+        }
+        
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+            to {
+                opacity: 1;
+            }
+        }
+        
+        .char-card {
+            background: var(--card-bg);
+            border: 2px solid var(--border);
+            border-radius: 8px;
+            padding: 12px;
+            text-align: center;
+            transition: all 0.2s ease;
+            cursor: pointer;
+            user-select: none;
+            position: relative;
+            -webkit-tap-highlight-color: transparent;
+            touch-action: manipulation;
+        }
+        
+        .char-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px var(--shadow);
+            border-color: #667eea;
+        }
+        
+        .char-card.selected {
+            border-color: var(--highlight-border);
+            border-width: 3px;
+            background: linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%);
+        }
+        
+        .char-main {
+            font-size: 2rem;
+            font-weight: 500;
+            margin-bottom: 4px;
+        }
+
+        /* 自定義文字顏色：始終優先，不被深色模式覆蓋 */
+        .char-main.custom-color {
+            color: var(--custom-text-color) !important;
+        }
+        
+        .char-pinyin {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            font-family: 'JetBrains Mono', monospace;
+            text-align: center;
+        }
+
+        .tone-mark {
+            display: inline-block;
+            width: 0;
+            overflow: visible;
+            text-align: left;
+            vertical-align: top;
+            font-size: 0.9em;
+        }
+        
+        /* 常用/冷僻標記 - 可點擊區域 */
+        .mark-badge {
+            display: inline-block;
+            font-size: 0.65rem;
+            padding: 2px 6px;
+            border-radius: 4px;
+            margin-top: 4px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            user-select: none;
+            min-width: 32px;
+            min-height: 18px;
+            line-height: 14px;
+        }
+
+        .mark-badge:hover {
+            transform: scale(1.1);
+            filter: brightness(1.1);
+        }
+        
+        .mark-badge.common {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+        }
+
+        .mark-badge.normal {
+            background: var(--border);
+            color: var(--text-secondary);
+        }
+        
+        .mark-badge.rare {
+            background: linear-gradient(135deg, #667eea 0%, #4299e1 100%);
+            color: white;
+        }
+        
+        /* 搜尋內容高亮樣式 - 多顏色 */
+        .search-highlight-1 { color: #ed8936; font-weight: 700; }
+        .search-highlight-2 { color: #48bb78; font-weight: 700; }
+        .search-highlight-3 { color: #4299e1; font-weight: 700; }
+        .search-highlight-4 { color: #9f7aea; font-weight: 700; }
+        .search-highlight-5 { color: #ed64a6; font-weight: 700; }
+        
+        /* 最近點擊浮動面板 */
+        .recent-panel {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            z-index: 1000;
+            background: var(--card-bg);
+            border-top: 2px solid var(--border);
+            box-shadow: 0 -4px 20px rgba(0,0,0,0.12);
+            transition: transform 0.3s ease;
+            max-height: 105vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .recent-panel.collapsed {
+            transform: translateY(calc(100% - 38px));
+        }
+
+        .recent-panel-header {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 8px 20px;
+            cursor: pointer;
+            user-select: none;
+            flex-shrink: 0;
+            min-height: 38px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .recent-panel-header:hover {
+            background: var(--container-bg);
+        }
+
+        .recent-panel-title {
+            font-size: 0.95rem;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .recent-panel-toggle {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            transition: transform 0.3s ease;
+        }
+
+        .recent-panel.collapsed .recent-panel-toggle {
+            transform: rotate(180deg);
+        }
+
+        .recent-panel-body {
+            padding: 10px 20px 14px;
+            overflow-y: auto;
+            flex: 1;
+            min-height: 80px;
+        }
+
+        .recent-clicks-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            min-height: 32px;
+        }
+
+        .recent-char {
+            background: var(--container-bg);
+            border: 1px solid var(--border);
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 1.2rem;
+            color: var(--text-primary);
+        }
+
+        .recent-char.custom-color {
+            color: var(--custom-text-color) !important;
+        }
+
+        .recent-char:hover {
+            background: #667eea;
+            color: white;
+            transform: scale(1.05);
+        }
+
+        /* 給主內容留出底部空間避免被面板遮擋 */
+        .results-section {
+            padding-bottom: 100px;
+        }
+        
+        /* 批量標記浮動面板 */
+        .batch-panel {
+            position: fixed;
+            right: 16px;
+            top: 50%;
+            transform: translateY(-50%);
+            z-index: 900;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            transition: opacity 0.3s ease;
+        }
+
+        .batch-btn {
+            width: 96px;
+            height: 96px;
+            border: 2px solid var(--border);
+            border-radius: 10px;
+            background: var(--card-bg);
+            cursor: pointer;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+            font-family: 'Noto Sans TC', sans-serif;
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            transition: all 0.2s ease;
+            box-shadow: 0 2px 8px var(--shadow);
+        }
+
+        .batch-btn:hover {
+            transform: scale(1.05);
+            border-color: #667eea;
+        }
+
+        .batch-btn .batch-icon {
+            font-size: 1.5rem;
+        }
+
+        .batch-btn.btn-common { border-left: 4px solid #f5576c; }
+        .batch-btn.btn-rare { border-left: 4px solid #4299e1; }
+        .batch-btn.btn-clear { border-left: 4px solid #a0aec0; }
+
+        .batch-count {
+            text-align: center;
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            padding: 2px 0;
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--text-secondary);
+        }
+        
+        .empty-state svg {
+            width: 80px;
+            height: 80px;
+            margin-bottom: 20px;
+            opacity: 0.3;
+        }
+        
+        .empty-state h3 {
+            font-size: 1.2rem;
+            margin-bottom: 8px;
+            color: var(--text-primary);
+        }
+        
+        .empty-state p {
+            font-size: 0.95rem;
+        }
+        
+        .footer {
+            padding: 20px 30px;
+            background: var(--card-bg);
+            text-align: center;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            flex-shrink: 0;
+            position: relative;
+        }
+
+        .about-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            border: 1.5px solid var(--text-secondary);
+            color: var(--text-secondary);
+            font-size: 0.75rem;
+            font-weight: 700;
+            font-style: italic;
+            font-family: Georgia, serif;
+            cursor: pointer;
+            margin-left: 8px;
+            vertical-align: middle;
+            transition: all 0.2s ease;
+        }
+
+        .about-btn:hover {
+            border-color: #667eea;
+            color: #667eea;
+            background: rgba(102, 126, 234, 0.1);
+        }
+
+        .about-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.3);
+            backdrop-filter: blur(4px);
+            -webkit-backdrop-filter: blur(4px);
+            z-index: 999;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .about-overlay.show { display: flex; }
+
+        .about-content {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 30px 34px;
+            box-shadow: 0 12px 40px rgba(0,0,0,0.2);
+            max-width: 400px;
+            width: 90%;
+            text-align: center;
+        }
+
+        .about-content h3 {
+            margin-bottom: 12px;
+            font-size: 1.2rem;
+        }
+
+        .about-content p {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            line-height: 1.6;
+            margin-bottom: 8px;
+        }
+        
+        @media (max-width: 640px) {
+            .header {
+                padding: 20px 15px 30px;
+            }
+            
+            .header h1 {
+                font-size: 1.8rem;
+            }
+            
+            .search-section {
+                padding: 20px 15px;
+            }
+            
+            .search-input {
+                font-size: 16px; /* 防止 iOS 自動縮放 */
+                padding: 14px 18px;
+                -webkit-appearance: none;
+                appearance: none;
+                border-radius: 12px;
+            }
+            
+            .results-section {
+                padding: 15px;
+            }
+            
+            .results-grid {
+                grid-template-columns: repeat(auto-fill, minmax(65px, 1fr));
+                gap: 8px;
+            }
+            
+            .char-card {
+                padding: 8px 4px;
+            }
+            
+            .char-main {
+                font-size: 1.5rem;
+            }
+            
+            .char-pinyin {
+                font-size: 0.7rem;
+            }
+            
+            .mark-badge {
+                font-size: 0.6rem;
+                padding: 1px 4px;
+                min-width: 28px;
+            }
+            
+            .color-panel {
+                position: static;
+                flex-direction: row;
+                flex-wrap: wrap;
+                margin-bottom: 15px;
+                justify-content: center;
+            }
+            
+            .controls {
+                position: static;
+                justify-content: center;
+                margin-top: 15px;
+                flex-wrap: wrap;
+            }
+            
+            .options {
+                gap: 10px;
+            }
+            
+            .button-group {
+                width: 100%;
+                justify-content: center;
+            }
+
+            .options {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .settings-trigger {
+                align-self: flex-end;
+            }
+            
+            /* mobile screen */
+            .recent-panel-body {
+                padding: 8px 20px 10px;
+            }
+            .recent-panel-header {
+                padding: 6px 12px;
+            }
+            
+            .batch-panel {
+                right: 8px;
+            }
+
+            .batch-btn {
+                width: 60px;
+                height: 60px;
+                font-size: 0.65rem;
+            }
+
+            .batch-btn .batch-icon {
+                font-size: 1.1rem;
+            }
+
+            .checkbox-label {
+                font-size: 0.85rem;
+            }
+
+            /* 手機：隱藏 header 顏色面板，顯示設定面板內的顏色 */
+            .color-panel {
+                display: none !important;
+            }
+            
+            .settings-color-section {
+                display: block !important;
+            }
+
+            /* 手機：batch 移到 header 區域 */
+            .batch-panel {
+                position: static;
+                transform: none;
+                flex-direction: row;
+                justify-content: center;
+                padding: 10px 15px;
+                background: var(--container-bg);
+                border-bottom: 1px solid var(--border);
+            }
+
+            .batch-btn {
+                width: auto;
+                height: auto;
+                padding: 8px 14px;
+                flex-direction: row;
+                gap: 6px;
+            }
+
+            .batch-btn .batch-icon {
+                font-size: 1rem;
+            }
+
+            .batch-count {
+                padding: 4px 0;
+            }
+
+            .mobile-batch-area {
+                display: block;
+            }
+
+        }
+
+    </style>
+</head>
+<body>
+
+    <div class="container" id="mainContainer">
+        <div class="header">
+            <!-- 顏色自定義面板 -->
+            <div class="color-panel">
+                <div class="color-item">
+                    <label>背景</label>
+                    <input type="color" id="bgColor1" value="#667eea">
+                </div>
+                <div class="color-item">
+                    <label>底色</label>
+                    <input type="color" id="containerBg" value="#ffffff">
+                </div>
+                <div class="color-item">
+                    <label>文字</label>
+                    <input type="color" id="textColor" value="#2d3748">
+                </div>
+                <div class="color-item">
+                    <label>邊框</label>
+                    <input type="color" id="highlightColor" value="#ed8936">
+                </div>
+            </div>
+            
+            <!-- 控制面板 -->
+            <div class="controls">
+                <button class="theme-toggle" id="themeToggle"> ☀️ 淺色模式 </button>
+                <div class="zoom-control">
+                    <span>🔍</span>
+                    <input type="range" id="zoomSlider" min="50" max="150" value="100" step="5">
+                    <span id="zoomValue">100%</span>
+                </div>
+            </div>
+            
+            <h1>韻腳查詢器 📝</h1>
+            <p>寫歌詞...不簡單...甘巴爹...早點睡...</p>
+        </div>
+        
+        <div class="search-section">
+            <div class="search-box">
+                <input 
+                    type="text" 
+                    id="searchInput" 
+                    class="search-input" 
+                    placeholder="輸入注音或拼音，例如：ㄢ 或 an"
+                    autocomplete="off"
+                    autocorrect="off"
+                    autocapitalize="off"
+                    spellcheck="false"
+                    inputmode="text"
+                    enterkeyhint="search"
+                >
+                <div class="search-hint">
+                    💡 支援注音（ㄅㄆㄇ）或拼音（ban、pan）輸入，也可輸入子音（如 ㄈ）查找所有符合該子音開頭的字
+                </div>
+            </div>
+            
+            <div class="mobile-batch-area" id="mobileBatchArea"></div>
+
+            <div class="options" style="justify-content: space-between;">
+                <div class="button-group">
+                    <button class="mode-button active" data-mode="common">常用字優先</button>
+                    <button class="mode-button" data-mode="initial">同聲韻並列</button>
+                    <button class="mode-button" data-mode="tone">同聲調並列</button>
+                </div>
+
+                <div class="settings-trigger" id="settingsTrigger" onclick="toggleSettings()">
+                    <span class="gear-icon">⚙</span>
+                    <span>偏好設定</span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="results-section">
+            <div id="resultsContainer">
+                <div class="empty-state">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                    </svg>
+                    <h3>開始搜尋</h3>
+                    <p>在上方輸入注音或拼音來尋找押韻的字</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="footer">
+            創作者專屬工具 · 告知作者後可分享 ( 因為還在開發中 >_< )　　　2026.02 beta v0.8 _by Lyx
+            <span class="about-btn" onclick="toggleAbout()">i</span>
+        </div>
+
+        <div class="about-overlay" id="aboutOverlay" onclick="closeAbout(event)">
+            <div class="about-content" onclick="event.stopPropagation()">
+                <h3>好韻到｜Lucky Hawaii</h3>
+                <p>版本 v0.8 beta</p>
+                <p>有鑑於目前網路上的韻腳查詢工具幾乎都是以「詞」為架構，並且容易混雜著大量的冷僻詞彙，因此特別開發針對「常用字」為索引系統的工具。</p>
+                <p>子音與母音皆可搜尋、支援漢語拼音系統。</p>
+                <p>2026.02 Lyx</p>
+            </div>
+        </div>
+        
+        <div class="settings-overlay" id="settingsOverlay" onclick="closeSettingsOverlay(event)">
+            <div class="settings-dropdown show" onclick="event.stopPropagation()">
+                <div class="settings-dropdown-title">⚙ 偏好設定</div>
+                <label class="checkbox-label">
+                    <input type="checkbox" id="showPinyin" checked>
+                    <span>顯示讀音</span>
+                </label>
+                <label class="checkbox-label">
+                    <input type="checkbox" id="highlightSearch" checked>
+                    <span>標記搜尋</span>
+                </label>
+                <label class="checkbox-label">
+                    <input type="checkbox" id="hideRare" checked>
+                    <span>隱藏冷僻字</span>
+                </label>
+                <label class="checkbox-label">
+                    <input type="checkbox" id="filterDuplicate">
+                    <span>過濾破音字</span>
+                </label>
+                <div class="settings-color-section" id="settingsColorSection">
+                    <div style="font-size:0.85rem; color:var(--text-secondary); margin-top:8px; margin-bottom:4px;">客製顏色</div>
+                    <div style="display:flex; flex-wrap:wrap; gap:10px;">
+                        <div class="color-item"><label>背景</label><input type="color" id="bgColor1" value="#667eea"></div>
+                        <div class="color-item"><label>底色</label><input type="color" id="containerBg" value="#ffffff"></div>
+                        <div class="color-item"><label>文字</label><input type="color" id="textColor" value="#2d3748"></div>
+                        <div class="color-item"><label>邊框</label><input type="color" id="highlightColor" value="#ed8936"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    
+    </div>
+
+    <div class="batch-panel" id="batchPanel">
+        <div class="batch-count" id="batchCount"></div>
+        <button class="batch-btn btn-common" onclick="batchMark('common')">
+            <span class="batch-icon">⭐</span>
+            <span>標記為<br>常用</span>
+        </button>
+        <button class="batch-btn btn-rare" onclick="batchMark('rare')">
+            <span class="batch-icon">📦</span>
+            <span>標記為<br>冷僻</span>
+        </button>
+        <button class="batch-btn btn-clear" onclick="batchMark('clear')">
+            <span class="batch-icon">↩</span>
+            <span>取消<br>標記</span>
+        </button>
+    </div>
+
+    <div class="recent-panel" id="recentPanel">
+        <div class="recent-panel-header" onclick="toggleRecentPanel()">
+            <span class="recent-panel-title">最近點擊</span>
+            <span class="recent-panel-toggle">▼</span>
+        </div>
+        <div class="recent-panel-body">
+            <div class="recent-clicks-container" id="recentClicks">
+                <span style="color: var(--text-secondary); font-size: 0.9rem;">點擊上方的字來記錄</span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ==================== 注音優先架構 v1.0 ====================
+        
+        // 注音聲母表（21個聲母）
+        const zhuyinInitials = ['ㄅ','ㄆ','ㄇ','ㄈ','ㄉ','ㄊ','ㄋ','ㄌ','ㄍ','ㄎ','ㄏ',
+                               'ㄐ','ㄑ','ㄒ','ㄓ','ㄔ','ㄕ','ㄖ','ㄗ','ㄘ','ㄙ'];
+        const zhuyinInitialSet = new Set(zhuyinInitials);
+        
+        // 拼音聲母表（用於辨識拼音輸入）
+        const pinyinInitials = ['zh','ch','sh','b','p','m','f','d','t','n','l','g','k','h',
+                               'j','q','x','r','z','c','s'];
+        
+        // ===== 完整注音↔拼音查找表（404組一對一映射）=====
+        const fullZhuyinToPinyin = {
+            'ㄅㄧ':'bi','ㄅㄧㄝ':'bie','ㄅㄧㄠ':'biao','ㄅㄧㄢ':'bian','ㄅㄧㄣ':'bin','ㄅㄧㄥ':'bing',
+            'ㄅㄨ':'bu','ㄅㄚ':'ba','ㄅㄛ':'bo','ㄅㄞ':'bai','ㄅㄟ':'bei','ㄅㄠ':'bao',
+            'ㄅㄢ':'ban','ㄅㄣ':'ben','ㄅㄤ':'bang','ㄅㄥ':'beng',
+            'ㄆㄧ':'pi','ㄆㄧㄝ':'pie','ㄆㄧㄠ':'piao','ㄆㄧㄢ':'pian','ㄆㄧㄣ':'pin','ㄆㄧㄥ':'ping',
+            'ㄆㄨ':'pu','ㄆㄚ':'pa','ㄆㄛ':'po','ㄆㄞ':'pai','ㄆㄟ':'pei','ㄆㄠ':'pao',
+            'ㄆㄡ':'pou','ㄆㄢ':'pan','ㄆㄣ':'pen','ㄆㄤ':'pang','ㄆㄥ':'peng',
+            'ㄇㄧ':'mi','ㄇㄧㄝ':'mie','ㄇㄧㄠ':'miao','ㄇㄧㄡ':'miu','ㄇㄧㄢ':'mian','ㄇㄧㄣ':'min','ㄇㄧㄥ':'ming',
+            'ㄇㄨ':'mu','ㄇㄚ':'ma','ㄇㄛ':'mo','ㄇㄜ':'me','ㄇㄞ':'mai','ㄇㄟ':'mei','ㄇㄠ':'mao',
+            'ㄇㄡ':'mou','ㄇㄢ':'man','ㄇㄣ':'men','ㄇㄤ':'mang','ㄇㄥ':'meng',
+            'ㄈㄨ':'fu','ㄈㄚ':'fa','ㄈㄛ':'fo','ㄈㄟ':'fei','ㄈㄡ':'fou','ㄈㄢ':'fan','ㄈㄣ':'fen','ㄈㄤ':'fang','ㄈㄥ':'feng',
+            'ㄉㄧ':'di','ㄉㄧㄝ':'die','ㄉㄧㄠ':'diao','ㄉㄧㄡ':'diu','ㄉㄧㄢ':'dian','ㄉㄧㄥ':'ding',
+            'ㄉㄨ':'du','ㄉㄨㄛ':'duo','ㄉㄨㄟ':'dui','ㄉㄨㄢ':'duan','ㄉㄨㄣ':'dun','ㄉㄨㄥ':'dong',
+            'ㄉㄚ':'da','ㄉㄜ':'de','ㄉㄞ':'dai','ㄉㄟ':'dei','ㄉㄠ':'dao','ㄉㄡ':'dou','ㄉㄢ':'dan','ㄉㄤ':'dang','ㄉㄥ':'deng',
+            'ㄊㄧ':'ti','ㄊㄧㄝ':'tie','ㄊㄧㄠ':'tiao','ㄊㄧㄢ':'tian','ㄊㄧㄥ':'ting',
+            'ㄊㄨ':'tu','ㄊㄨㄛ':'tuo','ㄊㄨㄟ':'tui','ㄊㄨㄢ':'tuan','ㄊㄨㄣ':'tun','ㄊㄨㄥ':'tong',
+            'ㄊㄚ':'ta','ㄊㄜ':'te','ㄊㄞ':'tai','ㄊㄠ':'tao','ㄊㄡ':'tou','ㄊㄢ':'tan','ㄊㄤ':'tang','ㄊㄥ':'teng',
+            'ㄋㄧ':'ni','ㄋㄧㄝ':'nie','ㄋㄧㄠ':'niao','ㄋㄧㄡ':'niu','ㄋㄧㄢ':'nian','ㄋㄧㄣ':'nin','ㄋㄧㄤ':'niang','ㄋㄧㄥ':'ning',
+            'ㄋㄨ':'nu','ㄋㄨㄛ':'nuo','ㄋㄨㄢ':'nuan','ㄋㄨㄥ':'nong',
+            'ㄋㄩ':'nu','ㄋㄩㄝ':'nue',
+            'ㄋㄚ':'na','ㄋㄜ':'ne','ㄋㄞ':'nai','ㄋㄟ':'nei','ㄋㄠ':'nao','ㄋㄡ':'nou','ㄋㄢ':'nan','ㄋㄣ':'nen','ㄋㄤ':'nang','ㄋㄥ':'neng',
+            'ㄌㄧ':'li','ㄌㄧㄚ':'lia','ㄌㄧㄝ':'lie','ㄌㄧㄠ':'liao','ㄌㄧㄡ':'liu','ㄌㄧㄢ':'lian','ㄌㄧㄣ':'lin','ㄌㄧㄤ':'liang','ㄌㄧㄥ':'ling',
+            'ㄌㄨ':'lu','ㄌㄨㄛ':'luo','ㄌㄨㄢ':'luan','ㄌㄨㄣ':'lun','ㄌㄨㄥ':'long',
+            'ㄌㄩ':'lu','ㄌㄩㄝ':'lue','ㄌㄩㄢ':'luan',
+            'ㄌㄚ':'la','ㄌㄜ':'le','ㄌㄞ':'lai','ㄌㄟ':'lei','ㄌㄠ':'lao','ㄌㄡ':'lou','ㄌㄢ':'lan','ㄌㄤ':'lang','ㄌㄥ':'leng',
+            'ㄍㄨ':'gu','ㄍㄨㄚ':'gua','ㄍㄨㄛ':'guo','ㄍㄨㄞ':'guai','ㄍㄨㄟ':'gui','ㄍㄨㄢ':'guan','ㄍㄨㄣ':'gun','ㄍㄨㄤ':'guang','ㄍㄨㄥ':'gong',
+            'ㄍㄚ':'ga','ㄍㄜ':'ge','ㄍㄞ':'gai','ㄍㄟ':'gei','ㄍㄠ':'gao','ㄍㄡ':'gou','ㄍㄢ':'gan','ㄍㄣ':'gen','ㄍㄤ':'gang','ㄍㄥ':'geng',
+            'ㄎㄨ':'ku','ㄎㄨㄚ':'kua','ㄎㄨㄛ':'kuo','ㄎㄨㄞ':'kuai','ㄎㄨㄟ':'kui','ㄎㄨㄢ':'kuan','ㄎㄨㄣ':'kun','ㄎㄨㄤ':'kuang','ㄎㄨㄥ':'kong',
+            'ㄎㄚ':'ka','ㄎㄜ':'ke','ㄎㄞ':'kai','ㄎㄠ':'kao','ㄎㄡ':'kou','ㄎㄢ':'kan','ㄎㄣ':'ken','ㄎㄤ':'kang','ㄎㄥ':'keng',
+            'ㄏㄨ':'hu','ㄏㄨㄚ':'hua','ㄏㄨㄛ':'huo','ㄏㄨㄞ':'huai','ㄏㄨㄟ':'hui','ㄏㄨㄢ':'huan','ㄏㄨㄣ':'hun','ㄏㄨㄤ':'huang','ㄏㄨㄥ':'hong',
+            'ㄏㄚ':'ha','ㄏㄜ':'he','ㄏㄞ':'hai','ㄏㄟ':'hei','ㄏㄠ':'hao','ㄏㄡ':'hou','ㄏㄢ':'han','ㄏㄣ':'hen','ㄏㄤ':'hang','ㄏㄥ':'heng',
+            'ㄐㄧ':'ji','ㄐㄧㄚ':'jia','ㄐㄧㄝ':'jie','ㄐㄧㄠ':'jiao','ㄐㄧㄡ':'jiu','ㄐㄧㄢ':'jian','ㄐㄧㄣ':'jin','ㄐㄧㄤ':'jiang','ㄐㄧㄥ':'jing',
+            'ㄐㄩ':'ju','ㄐㄩㄝ':'jue','ㄐㄩㄢ':'juan','ㄐㄩㄣ':'jun','ㄐㄩㄥ':'jiong',
+            'ㄑㄧ':'qi','ㄑㄧㄚ':'qia','ㄑㄧㄝ':'qie','ㄑㄧㄠ':'qiao','ㄑㄧㄡ':'qiu','ㄑㄧㄢ':'qian','ㄑㄧㄣ':'qin','ㄑㄧㄤ':'qiang','ㄑㄧㄥ':'qing',
+            'ㄑㄩ':'qu','ㄑㄩㄝ':'que','ㄑㄩㄢ':'quan','ㄑㄩㄣ':'qun','ㄑㄩㄥ':'qiong',
+            'ㄒㄧ':'xi','ㄒㄧㄚ':'xia','ㄒㄧㄝ':'xie','ㄒㄧㄠ':'xiao','ㄒㄧㄡ':'xiu','ㄒㄧㄢ':'xian','ㄒㄧㄣ':'xin','ㄒㄧㄤ':'xiang','ㄒㄧㄥ':'xing',
+            'ㄒㄩ':'xu','ㄒㄩㄝ':'xue','ㄒㄩㄢ':'xuan','ㄒㄩㄣ':'xun','ㄒㄩㄥ':'xiong',
+            'ㄓ':'zhi','ㄓㄨ':'zhu','ㄓㄨㄚ':'zhua','ㄓㄨㄛ':'zhuo','ㄓㄨㄞ':'zhuai','ㄓㄨㄟ':'zhui','ㄓㄨㄢ':'zhuan','ㄓㄨㄣ':'zhun','ㄓㄨㄤ':'zhuang','ㄓㄨㄥ':'zhong',
+            'ㄓㄚ':'zha','ㄓㄜ':'zhe','ㄓㄞ':'zhai','ㄓㄟ':'zhei','ㄓㄠ':'zhao','ㄓㄡ':'zhou','ㄓㄢ':'zhan','ㄓㄣ':'zhen','ㄓㄤ':'zhang','ㄓㄥ':'zheng',
+            'ㄔ':'chi','ㄔㄨ':'chu','ㄔㄨㄛ':'chuo','ㄔㄨㄞ':'chuai','ㄔㄨㄟ':'chui','ㄔㄨㄢ':'chuan','ㄔㄨㄣ':'chun','ㄔㄨㄤ':'chuang','ㄔㄨㄥ':'chong',
+            'ㄔㄚ':'cha','ㄔㄜ':'che','ㄔㄞ':'chai','ㄔㄠ':'chao','ㄔㄡ':'chou','ㄔㄢ':'chan','ㄔㄣ':'chen','ㄔㄤ':'chang','ㄔㄥ':'cheng',
+            'ㄕ':'shi','ㄕㄨ':'shu','ㄕㄨㄚ':'shua','ㄕㄨㄛ':'shuo','ㄕㄨㄞ':'shuai','ㄕㄨㄟ':'shui','ㄕㄨㄢ':'shuan','ㄕㄨㄣ':'shun','ㄕㄨㄤ':'shuang',
+            'ㄕㄚ':'sha','ㄕㄜ':'she','ㄕㄞ':'shai','ㄕㄟ':'shei','ㄕㄠ':'shao','ㄕㄡ':'shou','ㄕㄢ':'shan','ㄕㄣ':'shen','ㄕㄤ':'shang','ㄕㄥ':'sheng',
+            'ㄖ':'ri','ㄖㄨ':'ru','ㄖㄨㄛ':'ruo','ㄖㄨㄟ':'rui','ㄖㄨㄢ':'ruan','ㄖㄨㄣ':'run','ㄖㄨㄥ':'rong',
+            'ㄖㄜ':'re','ㄖㄠ':'rao','ㄖㄡ':'rou','ㄖㄢ':'ran','ㄖㄣ':'ren','ㄖㄤ':'rang','ㄖㄥ':'reng',
+            'ㄗ':'zi','ㄗㄨ':'zu','ㄗㄨㄛ':'zuo','ㄗㄨㄟ':'zui','ㄗㄨㄢ':'zuan','ㄗㄨㄣ':'zun','ㄗㄨㄥ':'zong',
+            'ㄗㄚ':'za','ㄗㄜ':'ze','ㄗㄞ':'zai','ㄗㄟ':'zei','ㄗㄠ':'zao','ㄗㄡ':'zou','ㄗㄢ':'zan','ㄗㄣ':'zen','ㄗㄤ':'zang','ㄗㄥ':'zeng',
+            'ㄘ':'ci','ㄘㄨ':'cu','ㄘㄨㄛ':'cuo','ㄘㄨㄟ':'cui','ㄘㄨㄢ':'cuan','ㄘㄨㄣ':'cun','ㄘㄨㄥ':'cong',
+            'ㄘㄚ':'ca','ㄘㄜ':'ce','ㄘㄞ':'cai','ㄘㄠ':'cao','ㄘㄡ':'cou','ㄘㄢ':'can','ㄘㄣ':'cen','ㄘㄤ':'cang','ㄘㄥ':'ceng',
+            'ㄙ':'si','ㄙㄨ':'su','ㄙㄨㄛ':'suo','ㄙㄨㄟ':'sui','ㄙㄨㄢ':'suan','ㄙㄨㄣ':'sun','ㄙㄨㄥ':'song',
+            'ㄙㄚ':'sa','ㄙㄜ':'se','ㄙㄞ':'sai','ㄙㄠ':'sao','ㄙㄡ':'sou','ㄙㄢ':'san','ㄙㄣ':'sen','ㄙㄤ':'sang','ㄙㄥ':'seng',
+            'ㄧ':'yi','ㄧㄚ':'ya','ㄧㄛ':'yo','ㄧㄝ':'ye','ㄧㄞ':'yai','ㄧㄠ':'yao','ㄧㄡ':'you',
+            'ㄧㄢ':'yan','ㄧㄣ':'yin','ㄧㄤ':'yang','ㄧㄥ':'ying',
+            'ㄨ':'wu','ㄨㄚ':'wa','ㄨㄛ':'wo','ㄨㄞ':'wai','ㄨㄟ':'wei','ㄨㄢ':'wan','ㄨㄣ':'wen','ㄨㄤ':'wang','ㄨㄥ':'weng',
+            'ㄩ':'yu','ㄩㄝ':'yue','ㄩㄢ':'yuan','ㄩㄣ':'yun','ㄩㄥ':'yong',
+            'ㄚ':'a','ㄜ':'e','ㄞ':'ai','ㄠ':'ao','ㄡ':'ou','ㄢ':'an','ㄣ':'en','ㄤ':'ang','ㄥ':'eng','ㄦ':'er'
+        };
+
+        // 反向表：拼音 → 注音陣列（處理一對多，如 nu→[ㄋㄨ,ㄋㄩ]）
+        const fullPinyinToZhuyin = {};
+        for (const [zy, py] of Object.entries(fullZhuyinToPinyin)) {
+            if (!fullPinyinToZhuyin[py]) fullPinyinToZhuyin[py] = [];
+            if (!fullPinyinToZhuyin[py].includes(zy)) fullPinyinToZhuyin[py].push(zy);
+        }
+
+        // 拼音聲母 → 注音聲母（保留，用於聲母偵測）
+        const pinyinInitialToZhuyin = {
+            'b': 'ㄅ', 'p': 'ㄆ', 'm': 'ㄇ', 'f': 'ㄈ',
+            'd': 'ㄉ', 't': 'ㄊ', 'n': 'ㄋ', 'l': 'ㄌ',
+            'g': 'ㄍ', 'k': 'ㄎ', 'h': 'ㄏ',
+            'j': 'ㄐ', 'q': 'ㄑ', 'x': 'ㄒ',
+            'zh': 'ㄓ', 'ch': 'ㄔ', 'sh': 'ㄕ', 'r': 'ㄖ',
+            'z': 'ㄗ', 'c': 'ㄘ', 's': 'ㄙ'
+        };
+
+        // ==================== 借韻表（附件一 §II）====================
+        // 搜尋左側韻母時，同時匹配右側所有韻母（單向展開）
+        // 每個韻母獨立成一個顏色群組，在同聲韻並列時分色顯示
+        const BORROW_MAP = {
+            'ㄧ':   ['ㄧ'],
+            'ㄨ':   ['ㄨ'],
+            'ㄩ':   ['ㄩ'],
+            'ㄚ':   ['ㄚ', 'ㄧㄚ', 'ㄨㄚ'],
+            'ㄛ':   ['ㄛ', 'ㄡ', 'ㄧㄛ', 'ㄧㄡ', 'ㄨㄛ'],
+            'ㄜ':   ['ㄜ', 'ㄦ'],
+            'ㄝ':   ['ㄝ', 'ㄟ', 'ㄧㄝ', 'ㄩㄝ', 'ㄨㄟ'],
+            'ㄞ':   ['ㄞ', 'ㄧㄞ', 'ㄨㄞ'],
+            'ㄟ':   ['ㄟ', 'ㄝ', 'ㄨㄟ', 'ㄧㄝ', 'ㄩㄝ'],
+            'ㄠ':   ['ㄠ', 'ㄧㄠ'],
+            'ㄡ':   ['ㄡ', 'ㄛ', 'ㄧㄛ', 'ㄧㄡ', 'ㄨㄛ'],
+            'ㄢ':   ['ㄢ', 'ㄨㄢ'],
+            'ㄣ':   ['ㄣ', 'ㄨㄣ', 'ㄥ'],
+            'ㄤ':   ['ㄤ', 'ㄧㄤ', 'ㄨㄤ'],
+            'ㄥ':   ['ㄥ', 'ㄣ'],
+            'ㄦ':   ['ㄦ', 'ㄜ'],
+            'ㄩㄢ': ['ㄩㄢ', 'ㄧㄢ'],
+            'ㄧㄢ': ['ㄧㄢ', 'ㄩㄢ'],
+            'ㄧㄣ': ['ㄧㄣ', 'ㄧㄥ', 'ㄩㄣ'],
+            'ㄧㄥ': ['ㄧㄥ', 'ㄧㄣ', 'ㄩㄣ'],
+            'ㄨㄥ': ['ㄨㄥ', 'ㄩㄥ'],
+            'ㄩㄥ': ['ㄩㄥ', 'ㄨㄥ'],
+        };
+
+        // 韻母家族（子音搜尋 + 同聲韻並列時，同一家族共用顏色）
+        const RHYME_FAMILIES = [
+            { id: 0,  label: 'ㄧ',    rhymes: new Set(['ㄧ']) },
+            { id: 1,  label: 'ㄨ',    rhymes: new Set(['ㄨ']) },
+            { id: 2,  label: 'ㄩ',    rhymes: new Set(['ㄩ']) },
+            { id: 3,  label: 'ㄚ',    rhymes: new Set(['ㄚ', 'ㄧㄚ', 'ㄨㄚ']) },
+            { id: 4,  label: 'ㄛ',    rhymes: new Set(['ㄛ', 'ㄡ', 'ㄧㄛ', 'ㄧㄡ', 'ㄨㄛ']) },
+            { id: 5,  label: 'ㄜ',    rhymes: new Set(['ㄜ', 'ㄦ']) },
+            { id: 6,  label: 'ㄝ',    rhymes: new Set(['ㄝ', 'ㄟ', 'ㄧㄝ', 'ㄩㄝ', 'ㄨㄟ']) },
+            { id: 7,  label: 'ㄞ',    rhymes: new Set(['ㄞ', 'ㄧㄞ', 'ㄨㄞ']) },
+            { id: 8,  label: 'ㄠ',    rhymes: new Set(['ㄠ', 'ㄧㄠ']) },
+            { id: 9,  label: 'ㄢ',    rhymes: new Set(['ㄢ', 'ㄨㄢ']) },
+            { id: 10, label: 'ㄧㄢ',  rhymes: new Set(['ㄧㄢ', 'ㄩㄢ']) },
+            { id: 11, label: 'ㄣ',    rhymes: new Set(['ㄣ', 'ㄨㄣ']) },
+            { id: 12, label: 'ㄥ',    rhymes: new Set(['ㄥ']) },
+            { id: 13, label: 'ㄧㄣ',  rhymes: new Set(['ㄧㄣ', 'ㄧㄥ', 'ㄩㄣ']) },
+            { id: 14, label: 'ㄤ',    rhymes: new Set(['ㄤ', 'ㄧㄤ', 'ㄨㄤ']) },
+            { id: 15, label: 'ㄨㄥ',  rhymes: new Set(['ㄨㄥ', 'ㄩㄥ']) },
+        ];
+        // 快速查表：韻母 → 家族 id
+        const RHYME_TO_FAMILY = {};
+        RHYME_FAMILIES.forEach(f => f.rhymes.forEach(r => RHYME_TO_FAMILY[r] = f.id));
+
+        // 拼音韻母 → 注音韻母對照（附件一 §I）
+        // 翻譯後走注音搜尋流程（含借韻展開）
+        const PINYIN_RHYME_MAP = {
+            'i': 'ㄧ', 'y': 'ㄧ',
+            'u': 'ㄨ', 'w': 'ㄨ',
+            'v': 'ㄩ',
+            'a': 'ㄚ', 'o': 'ㄛ', 'e': 'ㄜ',
+            'ai': 'ㄞ', 'ei': 'ㄟ',  'ㄝ': 'ê',
+            'ao': 'ㄠ', 'ou': 'ㄡ',
+            'an': 'ㄢ', 'en': 'ㄣ', 'ang': 'ㄤ', 'eng': 'ㄥ',
+            'er': 'ㄦ', 'ong': 'ㄨㄥ',
+            'ia': 'ㄧㄚ', 'ie': 'ㄧㄝ', 'iao': 'ㄧㄠ', 'iu': 'ㄧㄡ',
+            'ian': 'ㄧㄢ', 'in': 'ㄧㄣ', 'iang': 'ㄧㄤ', 'ing': 'ㄧㄥ',
+            'ua': 'ㄨㄚ', 'uai': 'ㄨㄞ', 'ui': 'ㄨㄟ',
+            'uang': 'ㄨㄤ', 'ue': 'ㄩㄝ', 'iong': 'ㄩㄥ',
+        };
+
+        // 注音聲母 → 拼音聲母（用於同聲韻並列子音標籤）
+        const zhuyinInitialToPinyin = {};
+        for (const [py, zy] of Object.entries(pinyinInitialToZhuyin)) {
+            zhuyinInitialToPinyin[zy] = py;
+        }
+
+        // 注音韻母 → 拼音韻母標籤（用於同聲韻並列分組標題）
+        // 顯示的是韻母部分（不含聲母），所以 ㄧㄚ→ia 而非 ya
+        const rhymeToPinyinLabel = {};
+        for (const [py, zy] of Object.entries(PINYIN_RHYME_MAP)) {
+            rhymeToPinyinLabel[zy] = py;
+        }
+        // 補充 PINYIN_RHYME_MAP 中未涵蓋的韻母 + 修正重複映射
+        Object.assign(rhymeToPinyinLabel, {
+            'ㄧ': 'i', 'ㄨ': 'u', 'ㄩ': 'ü',  // 覆蓋 y/w/v
+            'ㄧㄛ': 'io', 'ㄧㄞ': 'yai',
+            'ㄨㄛ': 'uo', 'ㄨㄢ': 'uan', 'ㄨㄣ': 'un',
+            'ㄩㄢ': 'üan', 'ㄩㄣ': 'ün',
+            'ㄛ': 'o', 'ㄝ': 'ê', 'ㄟ': 'ei',
+        });
+
+        // 拼音特殊搜尋（附件一 §III：一對多，需分韻母組上色）
+        // 只保留 ng, uan, un（ang/eng/ong 走 PINYIN_RHYME_MAP + 借韻即可）
+        const PINYIN_SPECIAL = {
+            'ng': [
+                { label: 'ang', rhymes: ['ㄤ', 'ㄧㄤ', 'ㄨㄤ'] },
+                { label: 'ong', rhymes: ['ㄨㄥ', 'ㄩㄥ'] },
+                { label: 'ing', rhymes: ['ㄧㄥ', 'ㄧㄣ', 'ㄩㄣ'] },
+                { label: 'eng', rhymes: ['ㄥ', 'ㄣ'] },
+            ],
+            'uan': [
+                { label: 'uan', rhymes: ['ㄨㄢ'] },
+                { label: 'üan', rhymes: ['ㄩㄢ', 'ㄧㄢ'] },
+            ],
+            'un': [
+                { label: 'un', rhymes: ['ㄨㄣ'] },
+                { label: 'ün', rhymes: ['ㄩㄣ'] },
+            ],
+        };
+
+        // ==================== 韻書字庫（v0.7.6 格式）====================
+        // 格式：'注音+聲調數字': '常用字｜一般字｜冷僻字'
+        // 聲調：1=一聲 2=二聲 3=三聲 4=四聲 5=輕聲
+        // 從缺用 — 表示，例如 '—｜雹薄｜窇瓝'
+        const rhymeDict = {
+            'ㄅㄧ1':'逼嗶｜屄｜-',
+            'ㄅㄧ2':'鼻｜-｜-',
+            'ㄅㄧ3':'比筆彼｜鄙｜-',
+            'ㄅㄧ4':'必畢閉｜壁避臂幣碧敝壁璧幣弊婢斃俾蔽庇愎辟陛埤弼裨｜-',
+            'ㄅㄧㄝ1':'憋｜鱉｜-',
+            'ㄅㄧㄝ2':'別｜蹩｜-',
+            'ㄅㄧㄝ3':'癟｜-｜-',
+            'ㄅㄧㄝ4':'彆｜-｜-',
+            'ㄅㄧㄠ1':'標飆｜鑣彪｜-',
+            'ㄅㄧㄠ3':'表錶｜婊裱｜-',
+            'ㄅㄧㄠ4':'-｜鰾｜-',
+            'ㄅㄧㄢ1':'邊編｜鞭蝙｜-',
+            'ㄅㄧㄢ3':'扁貶｜匾｜-',
+            'ㄅㄧㄢ4':'便變遍｜辨辯辮弁｜-',
+            'ㄅㄧㄣ1':'繽彬｜賓濱檳｜-',
+            'ㄅㄧㄣ4':'-｜殯鬢｜-',
+            'ㄅㄧㄥ1':'兵冰｜-｜-',
+            'ㄅㄧㄥ3':'餅丙柄｜秉稟｜-',
+            'ㄅㄧㄥ4':'並病｜併并｜-',
+            'ㄅㄨ1':'-｜-｜-',
+            'ㄅㄨ2':'不｜-｜-',
+            'ㄅㄨ3':'補捕｜埔哺卜｜-',
+            'ㄅㄨ4':'不部步｜布怖佈簿｜-',
+            'ㄅㄚ1':'八巴吧｜疤芭捌笆叭扒｜-',
+            'ㄅㄚ2':'拔跋｜鈸｜-',
+            'ㄅㄚ3':'把｜靶｜-',
+            'ㄅㄚ4':'爸｜罷霸壩耙｜-',
+            'ㄅㄚ5':'吧爸｜琶杷｜-',
+            'ㄅㄛ1':'波｜玻撥剝播｜-',
+            'ㄅㄛ2':'博伯脖｜柏泊勃薄帛駁箔舶｜-',
+            'ㄅㄛ3':'跛｜簸｜-',
+            'ㄅㄛ4':'播薄｜擘簸｜-',
+            'ㄅㄛ5':'-｜蔔｜-',
+            'ㄅㄞ1':'掰｜-｜-',
+            'ㄅㄞ2':'白｜-｜-',
+            'ㄅㄞ3':'百｜擺佰襬｜-',
+            'ㄅㄞ4':'敗拜｜-｜-',
+            'ㄅㄟ1':'杯悲背卑碑｜揹裨｜-',
+            'ㄅㄟ1':'杯悲背｜卑揹裨｜-',
+            'ㄅㄟ3':'北｜-｜-',
+            'ㄅㄟ4':'被備背｜貝輩倍焙臂狽憊悖｜-',
+            'ㄅㄟ5':'唄｜-｜-',
+            'ㄅㄠ1':'包胞｜苞褒｜-',
+            'ㄅㄠ2':'-｜雹薄｜-',
+            'ㄅㄠ3':'保寶飽堡｜褓葆｜-',
+            'ㄅㄠ4':'報抱爆｜刨暴豹鮑｜-',
+            'ㄅㄠ5':'寶｜-｜-',
+            'ㄅㄢ1':'班搬斑｜般頒扳｜-',
+            'ㄅㄢ3':'板版｜闆阪｜-',
+            'ㄅㄢ4':'半辦伴｜扮拌絆｜-',
+            'ㄅㄣ1':'奔｜-｜-',
+            'ㄅㄣ3':'本｜畚｜-',
+            'ㄅㄣ4':'笨｜坌｜-',
+            'ㄅㄤ1':'幫｜傍邦｜-',
+            'ㄅㄤ3':'綁｜榜｜-',
+            'ㄅㄤ4':'棒｜磅謗蚌｜-',
+            'ㄅㄥ1':'崩｜繃｜-',
+            'ㄅㄥ2':'甭｜-｜-',
+            'ㄅㄥ3':'-｜-｜-',
+            'ㄅㄥ4':'蹦｜迸｜-',
+            'ㄆㄧ1':'批披匹劈｜霹丕砒坯｜-',
+            'ㄆㄧ2':'皮｜疲脾琵｜-',
+            'ㄆㄧ3':'痞｜匹否｜-',
+            'ㄆㄧ4':'屁｜譬闢僻辟癖｜-',
+            'ㄆㄧㄝ1':'瞥｜撇｜-',
+            'ㄆㄧㄝ3':'撇｜-｜-',
+            'ㄆㄧㄠ1':'飄｜漂｜-',
+            'ㄆㄧㄠ2':'瓢｜嫖｜-',
+            'ㄆㄧㄠ3':'瞟｜漂縹｜-',
+            'ㄆㄧㄠ4':'票｜剽｜-',
+            'ㄆㄧㄢ1':'偏篇扁｜翩｜-',
+            'ㄆㄧㄢ2':'便｜胼｜-',
+            'ㄆㄧㄢ4':'片｜騙遍｜-',
+            'ㄆㄧㄣ1':'拼｜姘｜-',
+            'ㄆㄧㄣ2':'貧頻｜瀕顰嬪｜-',
+            'ㄆㄧㄣ3':'品｜-｜-',
+            'ㄆㄧㄣ4':'聘｜牝｜-',
+            'ㄆㄧㄥ1':'乒｜娉｜-',
+            'ㄆㄧㄥ2':'平瓶評｜憑萍屏坪枰｜-',
+            'ㄆㄧㄥ3':'-｜-｜-',
+            'ㄆㄧㄥ4':'-｜聘｜-',
+            'ㄆㄨ1':'撲鋪｜仆噗扑｜-',
+            'ㄆㄨ2':'普蒲｜葡樸菩璞匍｜-',
+            'ㄆㄨ3':'普｜譜圃｜-',
+            'ㄆㄨ4':'瀑｜暴曝｜-',
+            'ㄆㄚ1':'趴｜葩啪｜-',
+            'ㄆㄚ2':'爬｜扒琶｜-',
+            'ㄆㄚ4':'怕｜帕｜-',
+            'ㄆㄛ1':'波坡｜潑陂｜-',
+            'ㄆㄛ2':'婆｜-｜-',
+            'ㄆㄛ3':'頗｜剖叵｜-',
+            'ㄆㄛ4':'破迫珀｜魄泊朴｜-',
+            'ㄆㄛ5':'婆｜-｜-',
+            'ㄆㄞ1':'拍｜啪｜-',
+            'ㄆㄞ2':'排牌｜徘俳｜-',
+            'ㄆㄞ3':'-｜-｜-',
+            'ㄆㄞ4':'派｜湃｜-',
+            'ㄆㄟ1':'胚｜呸｜-',
+            'ㄆㄟ2':'陪培賠｜裴｜-',
+            'ㄆㄟ3':'-｜-｜-',
+            'ㄆㄟ4':'配佩沛｜珮霈｜-',
+            'ㄆㄠ1':'拋｜-｜-',
+            'ㄆㄠ2':'袍咆｜庖｜-',
+            'ㄆㄠ3':'跑｜-｜-',
+            'ㄆㄠ4':'泡炮｜砲皰｜-',
+            'ㄆㄡ1':'剖｜-｜-',
+            'ㄆㄡ2':'-｜抔｜-',
+            'ㄆㄡ3':'-｜剖｜-',
+            'ㄆㄢ1':'潘攀｜-｜-',
+            'ㄆㄢ2':'盤磐蹣｜般胖槃蟠｜-',
+            'ㄆㄢ3':'-｜-｜-',
+            'ㄆㄢ4':'判盼｜叛畔｜-',
+            'ㄆㄣ1':'噴｜-｜-',
+            'ㄆㄣ2':'盆｜-｜-',
+            'ㄆㄣ3':'-｜-｜-',
+            'ㄆㄤ1':'磅｜乓滂｜-',
+            'ㄆㄤ2':'旁龐｜膀螃徬｜-',
+            'ㄆㄤ3':'-｜-｜-',
+            'ㄆㄤ4':'胖｜-｜-',
+            'ㄆㄥ1':'砰烹｜抨怦｜-',
+            'ㄆㄥ2':'朋彭棚｜澎蓬膨硼篷鵬｜-',
+            'ㄆㄥ3':'捧｜-｜-',
+            'ㄆㄥ4':'碰｜-｜-',
+            'ㄇㄧ1':'咪｜瞇｜-',
+            'ㄇㄧ2':'迷謎｜彌瀰靡麋｜-',
+            'ㄇㄧ3':'米｜弭眯｜-',
+            'ㄇㄧ4':'密蜜秘｜覓泌謐冪｜-',
+            'ㄇㄧㄝ1':'咩｜-｜-',
+            'ㄇㄧㄝ4':'滅蔑｜衊篾｜-',
+            'ㄇㄧㄠ1':'喵｜-｜-',
+            'ㄇㄧㄠ2':'苗描｜瞄｜-',
+            'ㄇㄧㄠ3':'秒｜渺藐杳邈｜-',
+            'ㄇㄧㄠ4':'妙廟｜繆｜-',
+            'ㄇㄧㄡ1':'-｜-｜-',
+            'ㄇㄧㄡ4':'謬｜繆｜-',
+            'ㄇㄧㄢ2':'棉綿眠｜-｜-',
+            'ㄇㄧㄢ3':'免勉｜冕緬娩｜-',
+            'ㄇㄧㄢ4':'面｜麵｜-',
+            'ㄇㄧㄣ2':'民｜岷｜-',
+            'ㄇㄧㄣ3':'抿敏憫｜閔閩泯皿｜-',
+            'ㄇㄧㄥ2':'明名｜鳴銘冥瞑茗酩｜-',
+            'ㄇㄧㄥ3':'-｜-｜-',
+            'ㄇㄧㄥ4':'命｜-｜-',
+            'ㄇㄨ2':'模｜-｜-',
+            'ㄇㄨ3':'母姆牡｜畝拇｜-',
+            'ㄇㄨ4':'木目牧｜幕慕募墓睦暮沐｜-',
+            'ㄇㄚ1':'媽嗎｜嬤｜-',
+            'ㄇㄚ2':'麻嘛｜麼｜-',
+            'ㄇㄚ3':'馬碼｜螞瑪｜-',
+            'ㄇㄚ4':'罵｜-｜-',
+            'ㄇㄚ5':'嘛｜嗎｜-',
+            'ㄇㄛ1':'摸｜-｜-',
+            'ㄇㄛ2':'模磨魔｜摩膜｜-',
+            'ㄇㄛ3':'抹｜-｜-',
+            'ㄇㄛ4':'沒末默｜莫漠脈墨寞陌沫茉歿磨｜-',
+            'ㄇㄛ5':'麼｜-｜-',
+            'ㄇㄜ5':'麼｜-｜-',
+            'ㄇㄞ2':'埋｜-｜-',
+            'ㄇㄞ3':'買｜-｜-',
+            'ㄇㄞ4':'賣麥｜邁脈｜-',
+            'ㄇㄟ2':'沒眉莓梅｜媒楣玫煤黴酶｜-',
+            'ㄇㄟ3':'美每｜鎂｜-',
+            'ㄇㄟ4':'妹媚｜寐昧魅｜-',
+            'ㄇㄟ5':'妹｜-｜-',
+            'ㄇㄠ1':'貓｜-｜-',
+            'ㄇㄠ2':'毛茅｜矛錨髦｜-',
+            'ㄇㄠ3':'卯｜昴｜-',
+            'ㄇㄠ4':'帽冒貌｜貿茂瑁｜-',
+            'ㄇㄡ2':'謀｜眸牟｜-',
+            'ㄇㄡ3':'某｜冇｜-',
+            'ㄇㄢ2':'蠻饅瞞｜漫謾｜-',
+            'ㄇㄢ3':'滿｜蟎｜-',
+            'ㄇㄢ4':'慢漫曼｜蔓幔嫚｜-',
+            'ㄇㄣ1':'悶｜燜｜-',
+            'ㄇㄣ2':'門們｜-｜-',
+            'ㄇㄣ3':'-｜暪｜-',
+            'ㄇㄣ4':'悶｜燜｜-',
+            'ㄇㄣ5':'們｜-｜-',
+            'ㄇㄤ2':'忙茫盲｜芒氓｜-',
+            'ㄇㄤ3':'-｜莽蟒｜-',
+            'ㄇㄥ2':'蒙盟萌｜矇朦濛｜-',
+            'ㄇㄥ3':'猛｜蜢｜-',
+            'ㄇㄥ4':'夢孟｜-｜-',
+            'ㄈㄧㄠ4':'-｜-｜-',
+            'ㄈㄨ1':'夫｜膚敷孵伕麩｜-',
+            'ㄈㄨ2':'服福扶｜浮符伏佛幅俘拂弗袱輻蝠匐蜉｜-',
+            'ㄈㄨ3':'府腐撫｜輔甫斧俯釜｜-',
+            'ㄈㄨ4':'父負婦｜付附富復副傅複腹咐赴賦駙｜-',
+            'ㄈㄚ1':'發｜伐｜-',
+            'ㄈㄚ2':'乏伐罰閥｜筏法｜-',
+            'ㄈㄚ3':'法｜髮｜-',
+            'ㄈㄚ4':'法｜-｜-',
+            'ㄈㄛ2':'佛｜-｜-',
+            'ㄈㄟ1':'非飛菲｜扉啡妃緋霏｜-',
+            'ㄈㄟ2':'肥｜-｜-',
+            'ㄈㄟ3':'匪翡斐｜誹悱菲｜-',
+            'ㄈㄟ4':'廢費肺｜沸吠怫｜-',
+            'ㄈㄡ2':'-｜-｜-',
+            'ㄈㄡ3':'否｜-｜-',
+            'ㄈㄢ1':'翻番｜蕃幡｜-',
+            'ㄈㄢ2':'凡煩繁｜帆樊｜-',
+            'ㄈㄢ3':'反返｜-｜-',
+            'ㄈㄢ4':'犯飯販｜范泛梵｜-',
+            'ㄈㄣ1':'分紛芬｜氛｜-',
+            'ㄈㄣ2':'墳焚｜-｜-',
+            'ㄈㄣ3':'粉｜-｜-',
+            'ㄈㄣ4':'份憤奮｜忿糞｜-',
+            'ㄈㄤ1':'方芳｜坊枋｜-',
+            'ㄈㄤ2':'房防｜妨肪｜-',
+            'ㄈㄤ3':'訪仿｜彷紡｜-',
+            'ㄈㄤ4':'放｜-｜-',
+            'ㄈㄥ1':'風封瘋｜蜂豐峰鋒烽楓｜-',
+            'ㄈㄥ2':'縫｜逢馮｜-',
+            'ㄈㄥ3':'-｜-｜-',
+            'ㄈㄥ4':'奉鳳俸｜縫｜-',
+            'ㄉㄧ1':'低滴｜-｜-',
+            'ㄉㄧ2':'敵迪笛｜嫡嘀｜-',
+            'ㄉㄧ3':'底｜抵邸牴砥｜-',
+            'ㄉㄧ4':'地第弟｜帝遞蒂締｜-',
+            'ㄉㄧ5':'地｜弟｜-',
+            'ㄉㄧㄚ1':'嗲｜-｜-',
+            'ㄉㄧㄝ1':'爹｜-｜-',
+            'ㄉㄧㄝ2':'跌蝶碟｜諜疊迭牒喋｜-',
+            'ㄉㄧㄠ1':'雕刁｜凋貂鵰碉彫叼｜-',
+            'ㄉㄧㄠ3':'屌｜-｜-',
+            'ㄉㄧㄠ4':'掉調吊｜釣弔｜-',
+            'ㄉㄧㄡ1':'丟｜-｜-',
+            'ㄉㄧㄢ1':'顛癲｜巔｜-',
+            'ㄉㄧㄢ3':'點典｜碘｜-',
+            'ㄉㄧㄢ4':'電店｜殿甸奠墊澱惦靛｜-',
+            'ㄉㄧㄥ1':'丁叮盯｜釘酊｜-',
+            'ㄉㄧㄥ3':'頂鼎｜酊｜-',
+            'ㄉㄧㄥ4':'定訂釘｜錠碇｜-',
+            'ㄉㄨ1':'都督｜嘟｜-',
+            'ㄉㄨ2':'讀獨毒｜牘瀆犢｜-',
+            'ㄉㄨ3':'賭堵睹｜篤｜-',
+            'ㄉㄨ4':'度渡｜肚妒杜｜-',
+            'ㄉㄨㄛ1':'多｜朵｜-',
+            'ㄉㄨㄛ2':'奪｜多｜-',
+            'ㄉㄨㄛ3':'躲｜朵垛｜-',
+            'ㄉㄨㄛ4':'舵剁咄｜墮踱跺惰馱｜-',
+            'ㄉㄨㄟ1':'堆｜-｜-',
+            'ㄉㄨㄟ4':'對隊兌｜懟｜-',
+            'ㄉㄨㄢ1':'端｜-｜-',
+            'ㄉㄨㄢ3':'短｜-｜-',
+            'ㄉㄨㄢ4':'段斷緞｜鍛｜-',
+            'ㄉㄨㄣ1':'蹲敦｜墩惇｜-',
+            'ㄉㄨㄣ3':'盹｜躉｜-',
+            'ㄉㄨㄣ4':'頓鈍盾｜遁噸燉囤｜-',
+            'ㄉㄨㄥ1':'東冬｜咚｜-',
+            'ㄉㄨㄥ3':'懂董｜-｜-',
+            'ㄉㄨㄥ4':'動洞凍｜棟恫胴｜-',
+            'ㄉㄚ1':'搭｜答｜-',
+            'ㄉㄚ2':'達答｜韃｜-',
+            'ㄉㄚ3':'打｜-｜-',
+            'ㄉㄚ4':'大｜-｜-',
+            'ㄉㄜ2':'得德｜-｜-',
+            'ㄉㄜ5':'的得地｜-｜-',
+            'ㄉㄞ1':'呆｜待｜-',
+            'ㄉㄞ3':'歹｜逮｜-',
+            'ㄉㄞ4':'代帶待袋戴｜怠殆黛貸迨玳岱｜-',
+            'ㄉㄟ3':'得｜-｜-',
+            'ㄉㄠ1':'刀｜叨｜-',
+            'ㄉㄠ2':'-｜捯｜-',
+            'ㄉㄠ3':'倒島導｜禱搗擣捯｜-',
+            'ㄉㄠ4':'到道導｜稻盜蹈悼｜-',
+            'ㄉㄡ1':'都兜｜-｜-',
+            'ㄉㄡ3':'斗抖｜陡蚪｜-',
+            'ㄉㄡ4':'鬥豆逗｜痘竇荳｜-',
+            'ㄉㄢ1':'單擔｜丹耽鄲眈｜-',
+            'ㄉㄢ3':'膽｜-｜-',
+            'ㄉㄢ4':'但旦淡蛋｜石誕擔彈憚氮啖澹｜-',
+            'ㄉㄤ1':'當噹｜鐺｜-',
+            'ㄉㄤ3':'黨擋｜檔｜-',
+            'ㄉㄤ4':'當擋盪｜蕩宕｜-',
+            'ㄉㄥ1':'登燈｜-｜-',
+            'ㄉㄥ3':'等｜-｜-',
+            'ㄉㄥ4':'瞪｜蹬凳鄧｜-',
+            'ㄊㄧ1':'梯踢｜剔｜-',
+            'ㄊㄧ2':'題提｜啼堤蹄醍鵜｜-',
+            'ㄊㄧ3':'體｜体｜-',
+            'ㄊㄧ4':'替｜涕惕屜剃｜-',
+            'ㄊㄧㄝ1':'貼｜帖｜-',
+            'ㄊㄧㄝ3':'鐵｜帖｜-',
+            'ㄊㄧㄝ4':'帖｜餮｜-',
+            'ㄊㄧㄠ1':'挑｜-｜-',
+            'ㄊㄧㄠ2':'條調｜-｜-',
+            'ㄊㄧㄠ3':'挑｜窕｜-',
+            'ㄊㄧㄠ4':'跳眺｜-｜-',
+            'ㄊㄧㄢ1':'天｜添｜-',
+            'ㄊㄧㄢ2':'田甜｜填恬｜-',
+            'ㄊㄧㄢ3':'舔｜忝殄腆靦｜-',
+            'ㄊㄧㄢ4':'-｜-｜-',
+            'ㄊㄧㄥ1':'聽｜廳汀｜-',
+            'ㄊㄧㄥ2':'停庭亭｜廷蜓霆婷｜-',
+            'ㄊㄧㄥ3':'挺艇｜町梃｜-',
+            'ㄊㄧㄥ4':'聽｜-｜-',
+            'ㄊㄨ1':'禿｜-｜-',
+            'ㄊㄨ2':'圖途突塗｜徒屠凸荼涂｜-',
+            'ㄊㄨ3':'土｜吐｜-',
+            'ㄊㄨ4':'兔｜吐｜-',
+            'ㄊㄨㄛ1':'脫拖托｜託｜-',
+            'ㄊㄨㄛ2':'駝陀｜坨跎沱馱鴕｜-',
+            'ㄊㄨㄛ3':'妥｜橢｜-',
+            'ㄊㄨㄛ4':'拓唾｜柝｜-',
+            'ㄊㄨㄟ1':'推｜-｜-',
+            'ㄊㄨㄟ2':'頹｜-｜-',
+            'ㄊㄨㄟ3':'腿｜-｜-',
+            'ㄊㄨㄟ4':'退｜蛻｜-',
+            'ㄊㄨㄢ1':'湍｜-｜-',
+            'ㄊㄨㄢ2':'團｜-｜-',
+            'ㄊㄨㄢ4':'-｜彖｜-',
+            'ㄊㄨㄣ1':'吞｜暾｜-',
+            'ㄊㄨㄣ2':'屯囤｜豚飩臀｜-',
+            'ㄊㄨㄣ3':'-｜-｜-',
+            'ㄊㄨㄣ4':'褪｜-｜-',
+            'ㄊㄨㄥ1':'通｜恫｜-',
+            'ㄊㄨㄥ2':'同童瞳｜銅桐潼彤佟僮｜-',
+            'ㄊㄨㄥ3':'統筒桶｜捅｜-',
+            'ㄊㄨㄥ4':'痛｜慟｜-',
+            'ㄊㄚ1':'它他她牠｜祂塌｜-',
+            'ㄊㄚ3':'塔｜榙｜-',
+            'ㄊㄚ4':'踏榻蹋｜拓塌獺沓｜-',
+            'ㄊㄚ5':'遢｜-｜-',
+            'ㄊㄜ4':'特｜-｜-',
+            'ㄊㄞ1':'胎｜苔｜-',
+            'ㄊㄞ2':'台臺抬｜颱苔邰跆檯｜-',
+            'ㄊㄞ4':'太態泰｜汰鈦｜-',
+            'ㄊㄞ5':'太｜-｜-',
+            'ㄊㄠ1':'掏｜濤滔饕韜｜-',
+            'ㄊㄠ2':'逃桃｜陶萄｜-',
+            'ㄊㄠ3':'討｜-｜-',
+            'ㄊㄠ4':'套｜-｜-',
+            'ㄊㄡ1':'偷｜媮｜-',
+            'ㄊㄡ2':'頭投｜-｜-',
+            'ㄊㄡ3':'-｜-｜-',
+            'ㄊㄡ4':'透｜-｜-',
+            'ㄊㄡ5':'頭｜-｜-',
+            'ㄊㄢ1':'貪攤｜灘癱坍｜-',
+            'ㄊㄢ2':'談彈痰｜潭譚檀壇曇罈｜-',
+            'ㄊㄢ3':'坦｜毯袒忐｜-',
+            'ㄊㄢ4':'探嘆｜碳炭｜-',
+            'ㄊㄤ1':'湯｜-｜-',
+            'ㄊㄤ2':'堂糖唐｜膛螳棠醣塘｜-',
+            'ㄊㄤ3':'倘躺｜淌｜-',
+            'ㄊㄤ4':'趟燙｜-｜-',
+            'ㄊㄥ2':'疼騰｜藤籐謄｜-',
+            'ㄋㄧ2':'泥尼妮｜倪霓｜-',
+            'ㄋㄧ3':'你妳擬｜-｜-',
+            'ㄋㄧ4':'逆溺匿膩｜泥｜-',
+            'ㄋㄧㄝ1':'捏｜-｜-',
+            'ㄋㄧㄝ2':'-｜-｜-',
+            'ㄋㄧㄝ4':'孽｜涅躡鎳臬聶鑷囁囓｜-',
+            'ㄋㄧㄠ3':'鳥｜裊｜-',
+            'ㄋㄧㄠ4':'尿｜-｜-',
+            'ㄋㄧㄡ1':'妞｜-｜-',
+            'ㄋㄧㄡ2':'牛｜-｜-',
+            'ㄋㄧㄡ3':'紐扭鈕｜忸狃炄｜-',
+            'ㄋㄧㄡ4':'拗｜-｜-',
+            'ㄋㄧㄢ2':'年黏粘｜-｜-',
+            'ㄋㄧㄢ3':'捻撚攆｜拈碾輾｜-',
+            'ㄋㄧㄢ4':'念唸｜廿｜-',
+            'ㄋㄧㄣ2':'您｜-｜-',
+            'ㄋㄧㄣ3':'-｜-｜-',
+            'ㄋㄧㄤ2':'娘｜孃｜-',
+            'ㄋㄧㄤ4':'釀｜-｜-',
+            'ㄋㄧㄤ5':'娘｜-｜-',
+            'ㄋㄧㄥ2':'寧凝｜嚀檸獰｜-',
+            'ㄋㄧㄥ3':'-｜擰｜-',
+            'ㄋㄧㄥ4':'濘｜佞｜-',
+            'ㄋㄨ2':'奴｜駑｜-',
+            'ㄋㄨ3':'努｜弩｜-',
+            'ㄋㄨ4':'怒｜-｜-',
+            'ㄋㄨㄛ2':'挪｜娜哪｜-',
+            'ㄋㄨㄛ3':'-｜-｜-',
+            'ㄋㄨㄛ4':'諾｜懦糯｜-',
+            'ㄋㄨㄢ3':'暖｜-｜-',
+            'ㄋㄨㄥ2':'農濃｜膿儂｜-',
+            'ㄋㄨㄥ4':'弄｜-｜-',
+            'ㄋㄩ3':'女｜-｜-',
+            'ㄋㄩ4':'忸｜-｜-',
+            'ㄋㄩㄝ4':'虐｜謔瘧｜-',
+            'ㄋㄚ1':'那｜-｜-',
+            'ㄋㄚ2':'拿｜-｜-',
+            'ㄋㄚ3':'那哪｜-｜-',
+            'ㄋㄚ4':'那納吶｜訥鈉捺娜｜-',
+            'ㄋㄚ5':'哪｜-｜-',
+            'ㄋㄜ1':'呢｜-｜-',
+            'ㄋㄜ4':'訥｜-｜-',
+            'ㄋㄜ5':'呢｜-｜-',
+            'ㄋㄞ2':'-｜-｜-',
+            'ㄋㄞ3':'乃奶｜氖迺｜-',
+            'ㄋㄞ4':'耐奈｜-｜-',
+            'ㄋㄞ5':'奶｜-｜-',
+            'ㄋㄟ3':'餒｜哪那｜-',
+            'ㄋㄟ4':'內｜那｜-',
+            'ㄋㄠ1':'孬｜-｜-',
+            'ㄋㄠ2':'撓｜-｜-',
+            'ㄋㄠ3':'腦惱｜瑙｜-',
+            'ㄋㄠ4':'鬧｜淖｜-',
+            'ㄋㄡ2':'-｜-｜-',
+            'ㄋㄡ4':'耨｜-｜-',
+            'ㄋㄢ1':'囝｜囡｜-',
+            'ㄋㄢ2':'南男難｜喃楠莮｜-',
+            'ㄋㄢ3':'赧｜-｜-',
+            'ㄋㄢ4':'難｜婻｜-',
+            'ㄋㄣ4':'嫩｜-｜-',
+            'ㄋㄤ1':'囔｜-｜-',
+            'ㄋㄤ2':'囊｜-｜-',
+            'ㄋㄤ3':'-｜-｜-',
+            'ㄋㄤ4':'-｜-｜-',
+            'ㄋㄥ2':'能｜-｜-',
+            'ㄋㄥ4':'-｜-｜-',
+            'ㄌㄧ1':'哩｜-｜-',
+            'ㄌㄧ2':'離黎籬｜璃梨釐犛罹貍犁狸｜-',
+            'ㄌㄧ3':'里裡理禮｜李裏浬蠡鱧鋰鯉娌俚｜-',
+            'ㄌㄧ4':'力立利麗例歷｜壢曆莉厲勵礪粒蒞靂瀝儷隸礫吏荔栗慄俐痢笠戾唳癘｜-',
+            'ㄌㄧ5':'哩｜-｜-',
+            'ㄌㄧㄚ3':'倆｜-｜-',
+            'ㄌㄧㄝ1':'咧｜-｜-',
+            'ㄌㄧㄝ3':'咧｜-｜-',
+            'ㄌㄧㄝ4':'列烈劣裂獵｜捩冽鬣｜-',
+            'ㄌㄧㄠ1':'撩｜-｜-',
+            'ㄌㄧㄠ2':'聊療撩｜寮遼寥僚燎潦嘹｜-',
+            'ㄌㄧㄠ3':'了瞭｜蓼｜-',
+            'ㄌㄧㄠ4':'料瞭燎｜廖撂｜-',
+            'ㄌㄧㄡ1':'溜｜-｜-',
+            'ㄌㄧㄡ2':'劉流留遛｜硫琉榴瀏瘤｜-',
+            'ㄌㄧㄡ3':'柳｜-｜-',
+            'ㄌㄧㄡ4':'六陸溜｜餾｜-',
+            'ㄌㄧㄢ2':'連聯憐廉｜蓮漣簾｜-',
+            'ㄌㄧㄢ3':'臉｜-｜-',
+            'ㄌㄧㄢ4':'練鍊戀｜煉鏈殮斂瀲｜-',
+            'ㄌㄧㄣ2':'林臨鄰｜淋鱗麟霖磷琳遴粼｜-',
+            'ㄌㄧㄣ3':'凜懍｜-｜-',
+            'ㄌㄧㄣ4':'吝｜-｜-',
+            'ㄌㄧㄤ2':'良梁量涼｜糧樑椋｜-',
+            'ㄌㄧㄤ3':'兩倆｜魎｜-',
+            'ㄌㄧㄤ4':'量亮諒輛｜晾涼｜-',
+            'ㄌㄧㄥ1':'拎｜-｜-',
+            'ㄌㄧㄥ2':'零玲靈鈴齡｜陵凌菱聆羚苓伶綾淩囹翎鴒｜-',
+            'ㄌㄧㄥ3':'領嶺｜彾｜-',
+            'ㄌㄧㄥ4':'令另｜-｜-',
+            'ㄌㄨ1':'嚕｜擼｜-',
+            'ㄌㄨ2':'盧蘆廬｜爐顱鱸｜-',
+            'ㄌㄨ3':'魯虜擄｜擼滷鹵｜-',
+            'ㄌㄨ4':'路陸錄｜鹿露賂祿碌氯麓鷺戮轆蓼漉｜-',
+            'ㄌㄨ5':'碌｜-｜-',
+            'ㄌㄨㄛ1':'囉｜-｜-',
+            'ㄌㄨㄛ2':'羅蘿｜鑼籮騾螺｜-',
+            'ㄌㄨㄛ3':'裸｜-｜-',
+            'ㄌㄨㄛ4':'落駱｜洛絡烙酪｜-',
+            'ㄌㄨㄢ2':'巒鑾孿｜臠鸞｜-',
+            'ㄌㄨㄢ3':'卵｜-｜-',
+            'ㄌㄨㄢ4':'亂｜-｜-',
+            'ㄌㄨㄣ1':'掄｜-｜-',
+            'ㄌㄨㄣ2':'論輪｜淪倫崙侖掄｜-',
+            'ㄌㄨㄣ3':'-｜-｜-',
+            'ㄌㄨㄣ4':'論｜-｜-',
+            'ㄌㄨㄥ2':'龍｜隆籠嚨聾瓏朧窿｜-',
+            'ㄌㄨㄥ3':'-｜攏壟｜-',
+            'ㄌㄨㄥ4':'-｜-｜-',
+            'ㄌㄩ2':'-｜驢｜-',
+            'ㄌㄩ3':'呂旅｜屢履侶鋁縷褸婁｜-',
+            'ㄌㄩ4':'律綠率慮｜濾氯｜-',
+            'ㄌㄩㄝ4':'略掠｜撂｜-',
+            'ㄌㄩㄢ2':'攣｜孿｜-',
+            'ㄌㄩㄢ3':'-｜-',
+            'ㄌㄩㄢ3':'孌｜-｜-',
+            'ㄌㄚ1':'拉啦｜-｜-',
+            'ㄌㄚ2':'-｜剌邋｜-',
+            'ㄌㄚ3':'喇｜-｜-',
+            'ㄌㄚ4':'落辣｜臘蠟鑞剌｜-',
+            'ㄌㄚ5':'啦｜-｜-',
+            'ㄌㄜ4':'樂勒｜肋｜-',
+            'ㄌㄜ5':'了｜-｜-',
+            'ㄌㄞ2':'來｜萊｜-',
+            'ㄌㄞ4':'賴｜癩睞｜-',
+            'ㄌㄟ1':'勒｜-｜-',
+            'ㄌㄟ2':'雷｜擂鐳｜-',
+            'ㄌㄟ3':'壘｜儡磊蕾｜-',
+            'ㄌㄟ4':'累淚｜類擂｜-',
+            'ㄌㄠ1':'撈｜-｜-',
+            'ㄌㄠ2':'勞牢｜癆｜-',
+            'ㄌㄠ3':'老｜姥佬｜-',
+            'ㄌㄠ4':'勞落｜絡烙酪｜-',
+            'ㄌㄠ5':'姥｜-｜-',
+            'ㄌㄡ1':'摟｜-｜-',
+            'ㄌㄡ2':'樓｜嘍｜-',
+            'ㄌㄡ3':'簍｜摟｜-',
+            'ㄌㄡ4':'漏露｜陋｜-',
+            'ㄌㄡ5':'-｜簍｜-',
+            'ㄌㄢ2':'籃藍｜蘭欄攔瀾襤婪嵐｜-',
+            'ㄌㄢ3':'懶｜覽攬欖纜｜-',
+            'ㄌㄢ4':'爛｜濫纜｜-',
+            'ㄌㄤ1':'-｜啷｜-',
+            'ㄌㄤ2':'狼｜郎廊螂瑯榔｜-',
+            'ㄌㄤ3':'朗｜-｜-',
+            'ㄌㄤ4':'浪｜-｜-',
+            'ㄌㄥ2':'-｜稜崚棱｜-',
+            'ㄌㄥ3':'冷｜-｜-',
+            'ㄌㄥ4':'愣｜楞｜-',
+            'ㄍㄨ1':'姑孤估｜辜咕菇呱箍｜-',
+            'ㄍㄨ2':'骨｜-｜-',
+            'ㄍㄨ3':'古鼓谷｜股骨穀凸蠱汩｜-',
+            'ㄍㄨ4':'故顧告｜固雇僱｜-',
+            'ㄍㄨㄚ1':'瓜刮呱｜括蝸颳聒｜-',
+            'ㄍㄨㄚ3':'寡｜剮｜-',
+            'ㄍㄨㄚ4':'掛｜卦褂｜-',
+            'ㄍㄨㄛ1':'郭鍋｜蟈｜-',
+            'ㄍㄨㄛ2':'國｜幗摑｜-',
+            'ㄍㄨㄛ3':'果｜裹粿｜-',
+            'ㄍㄨㄛ4':'過｜-｜-',
+            'ㄍㄨㄞ1':'乖｜-｜-',
+            'ㄍㄨㄞ3':'拐｜-｜-',
+            'ㄍㄨㄞ4':'怪｜-｜-',
+            'ㄍㄨㄟ1':'歸｜規龜瑰閨圭珪皈硅｜-',
+            'ㄍㄨㄟ3':'鬼軌｜詭癸晷｜-',
+            'ㄍㄨㄟ4':'貴跪｜桂櫃｜-',
+            'ㄍㄨㄢ1':'官關觀｜冠棺｜-',
+            'ㄍㄨㄢ3':'管館｜莞琯筦脘｜-',
+            'ㄍㄨㄢ4':'慣貫灌｜罐冠｜-',
+            'ㄍㄨㄣ3':'滾｜-｜-',
+            'ㄍㄨㄣ4':'棍｜-｜-',
+            'ㄍㄨㄤ1':'光｜胱｜-',
+            'ㄍㄨㄤ3':'廣｜-｜-',
+            'ㄍㄨㄤ4':'逛｜-｜-',
+            'ㄍㄨㄥ1':'工公功供攻｜宮恭躬弓紅龔蚣｜-',
+            'ㄍㄨㄥ3':'拱｜鞏汞｜-',
+            'ㄍㄨㄥ4':'共｜供貢｜-',
+            'ㄍㄨㄥ5':'公｜-｜-',
+            'ㄍㄚ1':'-｜嘎｜-',
+            'ㄍㄚ2':'噶｜軋｜-',
+            'ㄍㄚ4':'尬｜-｜-',
+            'ㄍㄜ1':'哥歌鴿｜擱戈胳｜-',
+            'ㄍㄜ2':'格革隔｜閣葛骼咯膈嗝閤｜-',
+            'ㄍㄜ3':'-｜葛｜-',
+            'ㄍㄜ4':'個各｜箇｜-',
+            'ㄍㄜ5':'個｜-｜-',
+            'ㄍㄞ1':'該｜-｜-',
+            'ㄍㄞ3':'改｜-｜-',
+            'ㄍㄞ4':'概蓋鈣｜溉｜-',
+            'ㄍㄟ3':'給｜-｜-',
+            'ㄍㄠ1':'高｜糕膏羔｜-',
+            'ㄍㄠ3':'搞｜稿鎬｜-',
+            'ㄍㄠ4':'告｜-｜-',
+            'ㄍㄡ1':'溝勾鉤｜-｜-',
+            'ㄍㄡ3':'狗｜茍苟枸｜-',
+            'ㄍㄡ4':'夠購構｜垢詬媾遘｜-',
+            'ㄍㄢ1':'乾甘肝｜干竿柑｜-',
+            'ㄍㄢ3':'敢感趕｜桿｜-',
+            'ㄍㄢ4':'幹｜淦｜-',
+            'ㄍㄣ1':'跟｜根｜-',
+            'ㄍㄣ2':'-｜哏｜-',
+            'ㄍㄣ4':'-｜亙艮｜-',
+            'ㄍㄤ1':'剛鋼肛｜缸崗岡扛杠｜-',
+            'ㄍㄤ3':'港｜崗｜-',
+            'ㄍㄤ4':'槓｜-｜-',
+            'ㄍㄥ1':'更｜耕羹庚｜-',
+            'ㄍㄥ3':'梗耿哽｜埂｜-',
+            'ㄍㄥ4':'更｜-｜-',
+            'ㄎㄨ1':'哭｜枯窟骷｜-',
+            'ㄎㄨ3':'苦｜-｜-',
+            'ㄎㄨ4':'褲酷庫｜-｜-',
+            'ㄎㄨㄚ1':'誇｜夸｜-',
+            'ㄎㄨㄚ3':'垮｜-｜-',
+            'ㄎㄨㄚ4':'跨｜胯｜-',
+            'ㄎㄨㄛ3':'-｜-｜-',
+            'ㄎㄨㄛ4':'擴闊｜括｜-',
+            'ㄎㄨㄞ1':'-｜-｜-',
+            'ㄎㄨㄞ3':'-｜-｜-',
+            'ㄎㄨㄞ4':'快塊筷｜會檜劊｜-',
+            'ㄎㄨㄟ1':'虧｜窺盔｜-',
+            'ㄎㄨㄟ2':'魁葵｜睽奎逵｜-',
+            'ㄎㄨㄟ3':'-｜傀｜-',
+            'ㄎㄨㄟ4':'愧潰｜匱饋｜-',
+            'ㄎㄨㄢ1':'寬｜-｜-',
+            'ㄎㄨㄢ3':'款｜-｜-',
+            'ㄎㄨㄣ1':'-｜坤昆崑｜-',
+            'ㄎㄨㄣ3':'捆｜綑｜-',
+            'ㄎㄨㄣ4':'困｜睏｜-',
+            'ㄎㄨㄤ1':'框｜匡筐誆｜-',
+            'ㄎㄨㄤ2':'狂｜誑｜-',
+            'ㄎㄨㄤ3':'-｜-｜-',
+            'ㄎㄨㄤ4':'況礦｜曠眶｜-',
+            'ㄎㄨㄥ1':'空｜-｜-',
+            'ㄎㄨㄥ3':'孔｜恐｜-',
+            'ㄎㄨㄥ4':'控｜空｜-',
+            'ㄎㄚ1':'咖｜喀咔｜-',
+            'ㄎㄚ3':'卡｜咔｜-',
+            'ㄎㄚ4':'-｜喀｜-',
+            'ㄎㄜ1':'科刻顆｜棵磕苛蚵｜-',
+            'ㄎㄜ2':'咳｜殼｜-',
+            'ㄎㄜ3':'可渴｜｜-',
+            'ㄎㄜ4':'客克課｜刻剋嗑可喀｜-',
+            'ㄎㄞ1':'開｜揩｜-',
+            'ㄎㄞ3':'凱｜慨楷鎧｜-',
+            'ㄎㄞ4':'慨｜愾｜-',
+            'ㄎㄠ1':'-｜尻｜-',
+            'ㄎㄠ3':'考烤｜拷｜-',
+            'ㄎㄠ4':'靠｜犒｜-',
+            'ㄎㄡ1':'-｜摳｜-',           
+            'ㄎㄡ3':'口｜-｜-',
+            'ㄎㄡ4':'扣｜寇叩｜-',
+            'ㄎㄢ1':'堪｜刊勘｜-',
+            'ㄎㄢ3':'砍｜坎侃檻崁｜-',
+            'ㄎㄢ4':'看｜瞰｜-',
+            'ㄎㄣ3':'肯｜啃懇｜-',
+            'ㄎㄣ4':'-｜-｜-',
+            'ㄎㄤ1':'康｜慷糠｜-',
+            'ㄎㄤ2':'扛｜-｜-',
+            'ㄎㄤ3':'-｜慷｜-',
+            'ㄎㄤ4':'抗｜亢伉｜-',
+            'ㄎㄥ1':'坑｜吭｜-',
+            'ㄎㄥ3':'-｜-｜-',
+            'ㄏㄨ1':'忽呼乎｜惚｜-',
+            'ㄏㄨ2':'胡湖｜壺蝴糊狐弧葫鬍｜-',
+            'ㄏㄨ3':'唬虎｜琥滸｜-',
+            'ㄏㄨ4':'護戶互｜滬｜-',
+            'ㄏㄨㄚ1':'花｜嘩｜-',
+            'ㄏㄨㄚ2':'滑划｜華嘩樺劃｜-',
+            'ㄏㄨㄚ4':'話化畫｜劃樺｜-',
+            'ㄏㄨㄛ1':'-｜豁｜-',
+            'ㄏㄨㄛ2':'活｜-｜-',
+            'ㄏㄨㄛ3':'火｜伙夥｜-',
+            'ㄏㄨㄛ4':'貨或｜惑穫獲禍霍豁壑｜-',
+            'ㄏㄨㄞ2':'懷｜踝徊槐｜-',
+            'ㄏㄨㄞ4':'壞｜-｜-',
+            'ㄏㄨㄟ1':'灰揮輝｜恢詼暉麾徽｜-',
+            'ㄏㄨㄟ2':'回｜迴蛔茴｜-',
+            'ㄏㄨㄟ3':'會悔｜虫誨毀燬賄｜-',
+            'ㄏㄨㄟ4':'會惠｜匯繪慧彙穢誨賄晦彗諱卉蕙燴喙薈｜-',
+            'ㄏㄨㄢ1':'歡｜鴅｜-',
+            'ㄏㄨㄢ2':'還環｜桓圜鬟鍰寰｜-',
+            'ㄏㄨㄢ3':'緩｜-｜-',
+            'ㄏㄨㄢ4':'換喚｜宦患幻煥奐瘓｜-',
+            'ㄏㄨㄣ1':'婚昏｜葷｜-',
+            'ㄏㄨㄣ2':'魂渾餛｜混｜-',
+            'ㄏㄨㄣ3':'混｜-｜-',
+            'ㄏㄨㄣ4':'混｜渾｜-',
+            'ㄏㄨㄤ1':'荒慌｜肓｜-',
+            'ㄏㄨㄤ2':'皇黃｜徨惶簧璜磺蝗凰｜-',
+            'ㄏㄨㄤ3':'恍謊｜幌｜-',
+            'ㄏㄨㄤ4':'晃｜-｜-',
+            'ㄏㄨㄥ1':'轟哄｜烘｜-',
+            'ㄏㄨㄥ2':'紅｜洪宏鴻虹弘訌｜-',
+            'ㄏㄨㄥ3':'哄｜-｜-',
+            'ㄏㄨㄥ4':'-｜-｜-',
+            'ㄏㄚ1':'哈｜-｜-',
+            'ㄏㄚ2':'蛤｜-｜-',
+            'ㄏㄚ3':'哈｜-｜-',
+            'ㄏㄜ1':'喝呵｜-｜-',
+            'ㄏㄜ2':'何合和｜河荷核盒禾｜-',
+            'ㄏㄜ4':'-｜賀鶴喝荷嚇赫｜-',
+            'ㄏㄞ1':'嗨｜-｜-',
+            'ㄏㄞ2':'還孩｜骸｜-',
+            'ㄏㄞ3':'海｜-｜-',
+            'ㄏㄞ4':'害｜亥駭嗨｜-',
+            'ㄏㄟ1':'黑嘿｜-｜-',
+            'ㄏㄠ1':'-｜蒿｜-',
+            'ㄏㄠ2':'嚎｜毫豪貉｜-',
+            'ㄏㄠ3':'好｜郝｜-',
+            'ㄏㄠ4':'號好｜耗浩涸｜-',
+            'ㄏㄡ1':'-｜-｜-',
+            'ㄏㄡ2':'喉｜猴侯｜-',
+            'ㄏㄡ3':'吼｜-｜-',
+            'ㄏㄡ4':'後候厚｜后逅｜-',
+            'ㄏㄢ1':'憨｜酣鼾｜-',
+            'ㄏㄢ2':'寒含函｜涵韓汗邯｜-',
+            'ㄏㄢ3':'喊｜罕｜-',
+            'ㄏㄢ4':'和汗｜漢旱焊憾翰撼悍頷｜-',
+            'ㄏㄣ2':'痕｜-｜-',
+            'ㄏㄣ3':'很｜狠｜-',
+            'ㄏㄣ4':'恨｜-｜-',
+            'ㄏㄤ1':'-｜夯｜-',
+            'ㄏㄤ2':'行航｜杭｜-',
+            'ㄏㄤ3':'-｜-｜-',
+            'ㄏㄤ4':'行｜-｜-',
+            'ㄏㄥ1':'哼｜亨｜-',
+            'ㄏㄥ2':'橫｜恆衡恒｜-',
+            'ㄏㄥ4':'-｜橫｜-',
+            'ㄐㄧ1':'機基雞激跡飢｜蹟饑几机乩屐積績姬肌稽奇畸碁箕譏羈幾畿嘰｜-',
+            'ㄐㄧ2':'及即急吉級極集疾｜擊籍寂輯脊唧嫉棘藉瘠岌笈汲吃｜-',
+            'ㄐㄧ3':'幾給己｜擠脊戟濟几麂｜-',
+            'ㄐㄧ4':'計記季寄技｜祭忌騎妓悸既紀際繼濟劑繫暨冀鯽稷躋驥覬伎｜-',
+            'ㄐㄧㄚ1':'家加佳｜嘉傢迦枷茄袈痂珈｜-',
+            'ㄐㄧㄚ2':'夾挾頰｜莢｜-',
+            'ㄐㄧㄚ3':'假甲｜賈鉀岬胛｜-',
+            'ㄐㄧㄚ4':'價假架｜駕嫁稼｜-',
+            'ㄐㄧㄝ1':'街接皆｜階揭｜-',
+            'ㄐㄧㄝ2':'節潔捷｜傑睫竭劫截結杰桀詰桔孑羯櫛拮｜-',
+            'ㄐㄧㄝ3':'姐解姊｜-｜-',
+            'ㄐㄧㄝ4':'界借介解｜戒藉屆疥芥誡｜-',
+            'ㄐㄧㄠ1':'教交焦｜膠驕嬌郊跤澆蛟蕉礁椒茭鮫｜-',
+            'ㄐㄧㄠ2':'-｜嚼｜-',
+            'ㄐㄧㄠ3':'腳角餃｜繳攪矯絞較狡剿佼僥皎筊｜-',
+            'ㄐㄧㄠ4':'教叫校｜較覺轎窖醮｜-',
+            'ㄐㄧㄡ1':'糾揪啾｜鳩｜-',
+            'ㄐㄧㄡ3':'九久酒｜玖灸韭糾｜-',
+            'ㄐㄧㄡ4':'就救舊｜究舅臼疚咎柩廄｜-',
+            'ㄐㄧㄡ5':'-｜舅｜-',
+            'ㄐㄧㄢ1':'間堅肩｜監尖兼煎艱奸姦緘漸箋殲｜-',
+            'ㄐㄧㄢ3':'簡剪減｜撿檢揀繭儉鹼柬｜-',
+            'ㄐㄧㄢ4':'賤見建件健漸間｜鍵箭劍鑑艦鑒踐諫毽薦餞腱濺僭｜-',
+            'ㄐㄧㄣ1':'今金巾｜禁津斤筋襟矜衿｜-',
+            'ㄐㄧㄣ3':'緊僅錦｜謹儘瑾｜-',
+            'ㄐㄧㄣ4':'進近盡｜禁晉儘勁浸覲｜-',
+            'ㄐㄧㄤ1':'僵將江｜漿姜疆殭韁薑｜-',
+            'ㄐㄧㄤ3':'講獎｜蔣槳｜-',
+            'ㄐㄧㄤ4':'降匠醬｜強將｜-',
+            'ㄐㄧㄥ1':'經精京莖驚睛｜晶菁更兢鯨｜-',
+            'ㄐㄧㄥ3':'景警井｜頸阱儆｜-',
+            'ㄐㄧㄥ4':'敬靜淨竟鏡境｜競逕徑勁靚靖｜-',
+            'ㄐㄩ1':'居拘駒｜狙車据｜-',
+            'ㄐㄩ2':'局｜菊橘侷掬｜-',
+            'ㄐㄩ3':'舉咀｜矩莒沮｜-',
+            'ㄐㄩ4':'據句具距鋸懼巨｜聚拒鉅炬颶｜-',
+            'ㄐㄩㄝ1':'-｜噘｜-',
+            'ㄐㄩㄝ2':'決覺絕｜爵掘蕨崛嚼訣角厥孓獗｜-',
+            'ㄐㄩㄝ3':'-｜-｜-',
+            'ㄐㄩㄝ4':'-｜倔｜-',
+            'ㄐㄩㄢ1':'捐圈｜娟鵑涓｜-',
+            'ㄐㄩㄢ3':'捲卷｜-｜-',
+            'ㄐㄩㄢ4':'倦卷絹｜眷圈雋｜-',
+            'ㄐㄩㄣ1':'君均｜軍鈞｜-',
+            'ㄐㄩㄣ3':'-｜-｜-',
+            'ㄐㄩㄣ4':'俊菌｜峻駿郡竣｜-',
+            'ㄐㄩㄥ1':'-｜-｜-',
+            'ㄐㄩㄥ3':'-｜窘迥囧炯｜-',
+            'ㄑㄧ1':'七妻欺｜戚漆棲悽淒｜-',
+            'ㄑㄧ2':'其期奇｜齊旗騎祈棋祺崎琪麒臍歧鰭耆祇｜-',
+            'ㄑㄧ3':'起啟豈｜乞綺杞｜-',
+            'ㄑㄧ4':'氣器汽｜企棄契砌泣迄憩緝訖｜-',
+            'ㄑㄧㄚ1':'掐｜-｜-',
+            'ㄑㄧㄚ3':'卡｜-｜-',
+            'ㄑㄧㄚ4':'恰洽｜-｜-',
+            'ㄑㄧㄝ1':'切｜-｜-',
+            'ㄑㄧㄝ2':'-｜茄伽｜-',
+            'ㄑㄧㄝ3':'且｜-｜-',
+            'ㄑㄧㄝ4':'切竊妾｜怯｜-',
+            'ㄑㄧㄠ1':'敲｜鍬橇｜-',
+            'ㄑㄧㄠ2':'橋瞧喬｜僑翹憔樵譙蕎｜-',
+            'ㄑㄧㄠ3':'巧｜悄｜-',
+            'ㄑㄧㄠ4':'翹俏峭｜竅鞘誚撬蹺｜-',
+            'ㄑㄧㄡ1':'秋邱丘｜蚯鞦鰍楸｜-',
+            'ㄑㄧㄡ2':'求球囚｜仇酋裘｜-',
+            'ㄑㄧㄡ3':'糗｜-｜-',
+            'ㄑㄧㄢ1':'千牽簽｜遷謙鉛籤韆嵌｜-',
+            'ㄑㄧㄢ2':'前錢乾｜潛鉗虔｜-',
+            'ㄑㄧㄢ3':'淺｜遣譴繾｜-',
+            'ㄑㄧㄢ4':'欠歉倩｜塹芡｜-',
+            'ㄑㄧㄣ1':'親｜侵欽｜-',
+            'ㄑㄧㄣ2':'勤琴｜禽擒芹秦｜-',
+            'ㄑㄧㄣ3':'寢｜-｜-',
+            'ㄑㄧㄣ4':'沁｜-｜-',
+            'ㄑㄧㄤ1':'槍腔羌｜鏘｜-',
+            'ㄑㄧㄤ2':'強牆｜薔戕｜-',
+            'ㄑㄧㄤ3':'搶｜強襁｜-',
+            'ㄑㄧㄤ4':'嗆｜-｜-',
+            'ㄑㄧㄥ1':'清青輕｜傾卿氫蜻鯖｜-',
+            'ㄑㄧㄥ2':'情晴｜擎｜-',
+            'ㄑㄧㄥ3':'請｜頃｜-',
+            'ㄑㄧㄥ4':'慶｜罄｜-',
+            'ㄑㄩ1':'去區屈｜曲蛆驅趨軀｜-',
+            'ㄑㄩ2':'-｜渠麴｜-',
+            'ㄑㄩ3':'取｜曲娶｜-',
+            'ㄑㄩ4':'去趣｜覷｜-',
+            'ㄑㄩㄝ1':'缺｜-｜-',
+            'ㄑㄩㄝ2':'瘸｜-｜-',
+            'ㄑㄩㄝ4':'卻確怯｜雀鵲｜-',
+            'ㄑㄩㄢ1':'圈｜-｜-',
+            'ㄑㄩㄢ2':'全權泉｜詮拳顴蜷痊筌荃｜-',
+            'ㄑㄩㄢ3':'犬｜圈｜-',
+            'ㄑㄩㄢ4':'勸券｜-｜-',
+            'ㄑㄩㄣ1':'-｜-｜-',
+            'ㄑㄩㄣ2':'群｜裙｜-',
+            'ㄑㄩㄥ1':'-｜-｜-',
+            'ㄑㄩㄥ2':'窮｜瓊穹｜-',
+            'ㄒㄧ1':'西希攜吸嘻膝｜犧稀蟋熙禧兮犀晰溪析悉｜-',
+            'ㄒㄧ2':'息習惜席｜媳昔錫襲熄｜-',
+            'ㄒㄧ3':'喜洗｜徙璽囍屣｜-',
+            'ㄒㄧ4':'細戲係｜系繫夕汐隙｜-',
+            'ㄒㄧㄚ1':'瞎蝦｜-｜-',
+            'ㄒㄧㄚ2':'狹俠｜暇峽轄霞挾匣遐瑕｜-',
+            'ㄒㄧㄚ4':'下夏嚇｜廈｜-',
+            'ㄒㄧㄝ1':'些歇｜蠍蝎｜-',
+            'ㄒㄧㄝ2':'協鞋斜｜脅諧邪攜偕｜-',
+            'ㄒㄧㄝ3':'寫血｜-｜-',
+            'ㄒㄧㄝ4':'謝解卸｜械洩屑瀉懈泄蟹屜褻榭｜-',
+            'ㄒㄧㄠ1':'消宵銷｜蕭瀟逍囂簫削硝霄哮驍梟｜-',
+            'ㄒㄧㄠ2':'-｜學洨｜-',
+            'ㄒㄧㄠ3':'小｜曉｜-',
+            'ㄒㄧㄠ4':'笑校效｜孝酵嘯肖｜-',
+            'ㄒㄧㄡ1':'修休｜羞咻｜-',
+            'ㄒㄧㄡ3':'-｜宿朽｜-',
+            'ㄒㄧㄡ4':'秀袖｜繡鏽嗅宿銹｜-',
+            'ㄒㄧㄢ1':'先仙掀｜鮮纖姍｜-',
+            'ㄒㄧㄢ2':'閒嫌鹹｜賢咸弦銜絃嫻嫺涎舷閑｜-',
+            'ㄒㄧㄢ3':'險顯｜鮮癬蘚銑｜-',
+            'ㄒㄧㄢ4':'現線限｜縣憲獻羨陷腺餡｜-',
+            'ㄒㄧㄣ1':'心新欣｜辛薪馨芯鋅莘｜-',
+            'ㄒㄧㄣ2':'尋｜-｜-',
+            'ㄒㄧㄣ3':'-｜-｜-',
+            'ㄒㄧㄣ4':'信｜-｜-',
+            'ㄒㄧㄤ1':'鄉相香｜箱湘襄廂鑲｜-',
+            'ㄒㄧㄤ2':'詳祥｜降翔｜-',
+            'ㄒㄧㄤ3':'想響享｜餉饗｜-',
+            'ㄒㄧㄤ4':'向相像｜巷項象橡嚮｜-',
+            'ㄒㄧㄥ1':'星興｜猩腥馨｜-',
+            'ㄒㄧㄥ2':'行形型｜刑｜-',
+            'ㄒㄧㄥ3':'省醒｜擤｜-',
+            'ㄒㄧㄥ4':'行性姓｜興幸杏倖悻｜-',
+            'ㄒㄩ1':'需須虛｜鬚噓墟｜-',
+            'ㄒㄩ2':'徐｜-｜-',
+            'ㄒㄩ3':'許｜栩煦｜-',
+            'ㄒㄩ4':'序續敘｜蓄緒絮旭恤婿畜｜-',
+            'ㄒㄩㄝ1':'靴｜薛噱｜-',
+            'ㄒㄩㄝ2':'學｜-｜-',
+            'ㄒㄩㄝ3':'雪｜鱈｜-',
+            'ㄒㄩㄝ4':'血雪｜穴削屑｜-',
+            'ㄒㄩㄢ1':'-｜宣軒喧瑄｜-',
+            'ㄒㄩㄢ2':'旋｜玄懸漩璇｜-',
+            'ㄒㄩㄢ3':'選｜-｜-',
+            'ㄒㄩㄢ4':'炫｜眩渲絢漩旋楦鉉｜-',
+            'ㄒㄩㄣ1':'勳熏｜薰燻醺｜-',
+            'ㄒㄩㄣ2':'尋｜巡詢循旬馴洵荀｜-',
+            'ㄒㄩㄣ4':'訊訓迅｜遜殉馴蕈｜-',
+            'ㄒㄩㄥ1':'兄胸凶｜兇匈洶｜-',
+            'ㄒㄩㄥ2':'熊｜雄｜-',
+            'ㄒㄩㄥ4':'-｜-｜-',
+            'ㄓ1':'之知只｜隻織支枝汁吱芝脂肢蜘梔｜-',
+            'ㄓ2':'直職質｜值植執殖擲姪蟄｜-',
+            'ㄓ3':'只指紙｜止旨址祇趾祉咫酯｜-',
+            'ㄓ4':'至制治志製置智｜致秩誌稚質峙緻幟滯摯窒炙痔雉痣｜-',
+            'ㄓㄨ1':'豬｜珠諸朱株蛛茱誅｜-',
+            'ㄓㄨ2':'竹築逐｜燭軸竺｜-',
+            'ㄓㄨ3':'主屬煮｜囑矚著｜-',
+            'ㄓㄨ4':'住著助｜注祝駐註柱蛀鑄炷｜-',
+            'ㄓㄨㄚ1':'抓｜撾｜-',
+            'ㄓㄨㄚ3':'爪｜｜-',
+            'ㄓㄨㄛ1':'捉桌｜-｜-',
+            'ㄓㄨㄛ2':'濁茁｜卓酌拙灼著啄鐲｜-',
+            'ㄓㄨㄞ1':'拽｜｜-',
+            'ㄓㄨㄞ3':'跩｜｜-',
+            'ㄓㄨㄞ4':'拽｜｜-',
+            'ㄓㄨㄟ1':'追｜錐椎｜-',
+            'ㄓㄨㄟ3':'-｜-｜-',
+            'ㄓㄨㄟ4':'墜｜綴贅惴｜-',
+            'ㄓㄨㄢ1':'專｜磚｜-',
+            'ㄓㄨㄢ3':'轉｜-｜-',
+            'ㄓㄨㄢ4':'傳轉賺｜篆撰饌｜-',
+            'ㄓㄨㄣ1':'諄｜-｜-',
+            'ㄓㄨㄣ3':'準准隼｜-｜-',
+            'ㄓㄨㄣ4':'-｜-｜-',
+            'ㄓㄨㄤ1':'裝妝｜莊庄樁｜-',
+            'ㄓㄨㄤ3':'奘｜-｜-',
+            'ㄓㄨㄤ4':'壯撞｜狀｜-',
+            'ㄓㄨㄥ1':'中終鐘｜忠鍾衷盅螽｜-',
+            'ㄓㄨㄥ3':'種腫｜塚踵｜-',
+            'ㄓㄨㄥ4':'中種重｜仲眾｜-',
+            'ㄓㄚ1':'渣｜扎喳｜-',
+            'ㄓㄚ2':'炸扎｜閘札紮｜-',
+            'ㄓㄚ3':'眨｜-｜-',
+            'ㄓㄚ4':'詐乍炸｜榨柵｜-',
+            'ㄓㄜ1':'遮｜折｜-',
+            'ㄓㄜ2':'折哲摺｜輒摘轍懾｜-',
+            'ㄓㄜ3':'者｜-｜-',
+            'ㄓㄜ4':'這｜浙蔗｜-',
+            'ㄓㄜ5':'著｜-｜-',
+            'ㄓㄞ1':'摘｜齋｜-',
+            'ㄓㄞ2':'宅｜-｜-',
+            'ㄓㄞ3':'窄｜-｜-',
+            'ㄓㄞ4':'債｜寨｜-',
+            'ㄓㄠ1':'招朝｜昭召｜-',
+            'ㄓㄠ2':'著｜-｜-',
+            'ㄓㄠ3':'找｜沼爪｜-',
+            'ㄓㄠ4':'照趙兆｜召罩肇詔｜-',
+            'ㄓㄡ1':'周週州｜舟粥｜-',
+            'ㄓㄡ2':'-｜妯軸｜-',
+            'ㄓㄡ3':'帚肘｜-｜-',
+            'ㄓㄡ4':'咒皺｜晝宙紂冑｜-',
+            'ㄓㄢ1':'沾占｜瞻氈詹｜-',
+            'ㄓㄢ3':'展｜斬盞輾嶄｜-',
+            'ㄓㄢ4':'戰站占｜暫佔棧顫湛綻｜-',
+            'ㄓㄣ1':'真針珍貞偵｜斟箴砧甄禎臻榛｜-',
+            'ㄓㄣ3':'診枕｜疹｜-',
+            'ㄓㄣ4':'陣震鎮｜振賑朕鴆｜-',
+            'ㄓㄤ1':'張章｜彰樟獐｜-',
+            'ㄓㄤ3':'長掌｜漲｜-',
+            'ㄓㄤ4':'帳脹｜丈仗杖漲障｜-',
+            'ㄓㄥ1':'爭正征蒸睜｜徵掙箏怔｜-',
+            'ㄓㄥ3':'整｜拯｜-',
+            'ㄓㄥ4':'正證政｜鄭｜-',
+            'ㄔ1':'吃｜癡痴蚩｜-',
+            'ㄔ2':'持池遲｜匙弛馳｜-',
+            'ㄔ3':'尺齒｜恥｜-',
+            'ㄔ4':'赤翅｜斥｜-',
+            'ㄔㄨ1':'出初｜-｜-',
+            'ㄔㄨ2':'除廚儲｜鋤櫥雛芻躇｜-',
+            'ㄔㄨ3':'處楚｜儲杵｜-',
+            'ㄔㄨ4':'處觸｜畜黜絀矗｜-',
+            'ㄔㄨㄚ1':'-｜-｜-',
+            'ㄔㄨㄚ3':'抓｜-｜-',
+            'ㄔㄨㄛ1':'-｜戳｜-',
+            'ㄔㄨㄛ4':'綽輟｜啜齪｜-',
+            'ㄔㄨㄞ2':'-｜-｜-',
+            'ㄔㄨㄞ3':'揣｜-｜-',
+            'ㄔㄨㄞ4':'踹｜-｜-',
+            'ㄔㄨㄟ1':'吹炊｜-｜-',
+            'ㄔㄨㄟ2':'垂錘｜槌鎚搥｜-',
+            'ㄔㄨㄟ4':'吹｜-｜-',
+            'ㄔㄨㄢ1':'穿｜川｜-',
+            'ㄔㄨㄢ2':'船傳｜-｜-',
+            'ㄔㄨㄢ3':'喘｜舛｜-',
+            'ㄔㄨㄢ4':'串｜-｜-',
+            'ㄔㄨㄣ1':'春｜-｜-',
+            'ㄔㄨㄣ2':'純｜唇醇淳｜-',
+            'ㄔㄨㄣ3':'蠢｜-｜-',
+            'ㄔㄨㄤ1':'窗｜創瘡囪｜-',
+            'ㄔㄨㄤ2':'床｜幢橦｜-',
+            'ㄔㄨㄤ3':'闖｜-｜-',
+            'ㄔㄨㄤ4':'創闖｜-｜-',
+            'ㄔㄨㄥ1':'衝沖充｜-｜-',
+            'ㄔㄨㄥ2':'重崇｜蟲｜-',
+            'ㄔㄨㄥ3':'寵｜-｜-',
+            'ㄔㄨㄥ4':'衝｜-｜-',
+            'ㄔㄚ1':'差叉｜插｜-',
+            'ㄔㄚ2':'查｜察茶｜-',
+            'ㄔㄚ3':'-｜-｜-',
+            'ㄔㄚ4':'岔差｜剎詫｜-',
+            'ㄔㄜ1':'車｜-｜-',
+            'ㄔㄜ3':'扯｜-｜-',
+            'ㄔㄜ4':'撤｜徹澈｜-',
+            'ㄔㄞ1':'拆｜釵差｜-',
+            'ㄔㄞ2':'柴｜豺儕｜-',
+            'ㄔㄞ4':'-｜-｜-',
+            'ㄔㄠ1':'超抄｜鈔｜-',
+            'ㄔㄠ2':'朝潮｜-｜-',
+            'ㄔㄠ3':'吵炒｜-｜-',
+            'ㄔㄠ4':'-｜耖｜-',
+            'ㄔㄡ1':'抽｜-｜-',
+            'ㄔㄡ2':'愁仇｜惆綢酬稠躊籌｜-',
+            'ㄔㄡ3':'丑醜｜瞅｜-',
+            'ㄔㄡ4':'臭｜-｜-',
+            'ㄔㄢ1':'-｜摻攙｜-',
+            'ㄔㄢ2':'纏｜蟬禪饞讒潺蟾｜-',
+            'ㄔㄢ3':'產鏟｜剷｜-',
+            'ㄔㄢ4':'-｜懺｜-',
+            'ㄔㄣ1':'-｜嗔瞋｜-',
+            'ㄔㄣ2':'陳沉｜晨臣塵辰娠忱沈｜-',
+            'ㄔㄣ3':'-｜-｜-',
+            'ㄔㄣ4':'趁襯｜稱櫬讖｜-',
+            'ㄔㄤ1':'昌｜倡猖娼｜-',
+            'ㄔㄤ2':'長常｜嘗償腸嫦｜-',
+            'ㄔㄤ3':'場廠｜-｜-',
+            'ㄔㄤ4':'唱｜倡暢悵｜-',
+            'ㄔㄥ1':'稱撐｜-｜-',
+            'ㄔㄥ2':'乘成城｜丞承呈程盛誠懲澄橙｜-',
+            'ㄔㄥ3':'-｜逞騁｜-',
+            'ㄔㄥ4':'秤｜稱｜-',
+            'ㄕ1':'失師詩｜屍施濕濕獅屍蝨｜-',
+            'ㄕ2':'十時實｜什石食拾蝕｜-',
+            'ㄕ3':'屎使始史｜駛矢匙｜-',
+            'ㄕ4':'是事世市士室示適｜勢識試視式氏釋飾侍誓逝嗜恃仕柿螫弒噬拭｜-',
+            'ㄕㄨ1':'書輸舒｜殊疏蔬梳樞紓抒｜-',
+            'ㄕㄨ2':'叔熟｜淑塾贖孰｜-',
+            'ㄕㄨ3':'數｜鼠屬暑署薯蜀黍｜-',
+            'ㄕㄨ4':'數樹｜術束述恕署豎庶曙墅漱｜-',
+            'ㄕㄨㄚ1':'刷｜-｜-',
+            'ㄕㄨㄚ3':'耍｜-｜-',
+            'ㄕㄨㄛ1':'說｜-｜-',
+            'ㄕㄨㄛ4':'-｜朔碩爍｜-',
+            'ㄕㄨㄞ1':'摔｜衰｜-',
+            'ㄕㄨㄞ3':'甩｜-｜-',
+            'ㄕㄨㄞ4':'率帥｜-｜-',
+            'ㄕㄨㄟ2':'誰｜-｜-',
+            'ㄕㄨㄟ3':'水｜-｜-',
+            'ㄕㄨㄟ4':'睡稅｜說｜-',
+            'ㄕㄨㄢ1':'-｜栓拴閂｜-',
+            'ㄕㄨㄢ4':'涮｜-｜-',
+            'ㄕㄨㄣ3':'吮｜盾｜-',
+            'ㄕㄨㄣ4':'順瞬｜舜｜-',
+            'ㄕㄨㄤ1':'雙霜｜-｜-',
+            'ㄕㄨㄤ3':'爽｜-｜-',
+            'ㄕㄚ1':'沙殺｜紗砂莎煞鯊裟｜-',
+            'ㄕㄚ2':'啥｜-｜-',
+            'ㄕㄚ3':'傻｜-｜-',
+            'ㄕㄚ4':'煞｜霎｜-',
+            'ㄕㄜ1':'-｜奢賒｜-',
+            'ㄕㄜ2':'蛇舌｜什｜-',
+            'ㄕㄜ3':'捨舍｜-｜-',
+            'ㄕㄜ4':'社設射｜涉攝赦麝｜-',
+            'ㄕㄞ1':'-｜篩｜-',
+            'ㄕㄞ3':'-｜骰｜-',
+            'ㄕㄞ4':'曬曬｜-｜-',
+            'ㄕㄟ2':'誰｜-｜-',
+            'ㄕㄠ1':'燒稍少｜捎｜-',
+            'ㄕㄠ2':'勺｜杓韶｜-',
+            'ㄕㄠ3':'少｜-｜-',
+            'ㄕㄠ4':'少｜紹哨｜-',
+            'ㄕㄡ1':'收｜-｜-',
+            'ㄕㄡ2':'熟｜-｜-',
+            'ㄕㄡ3':'手｜守首｜-',
+            'ㄕㄡ4':'受瘦｜售壽獸授｜-',
+            'ㄕㄢ1':'山衫｜扇刪杉｜-',
+            'ㄕㄢ3':'閃｜陝｜-',
+            'ㄕㄢ4':'善扇｜煽訕擅汕膳贍疝鱔禪單｜-',
+            'ㄕㄣ1':'身深伸｜申紳呻參蔘｜-',
+            'ㄕㄣ2':'神｜甚什｜-',
+            'ㄕㄣ3':'審｜沈嬸｜-',
+            'ㄕㄣ4':'滲｜腎慎甚蜃｜-',
+            'ㄕㄤ1':'商傷｜殤熵｜-',
+            'ㄕㄤ3':'上賞｜-｜-',
+            'ㄕㄤ4':'上尚｜-｜-',
+            'ㄕㄤ5':'-｜裳｜-',
+            'ㄕㄥ1':'生聲升｜勝牲昇甥笙｜-',
+            'ㄕㄥ2':'繩｜-｜-',
+            'ㄕㄥ3':'省｜-｜-',
+            'ㄕㄥ4':'勝剩聖｜盛｜-',
+            'ㄖ4':'日｜-｜-',
+            'ㄖㄨ2':'如｜儒茹孺蠕｜-',
+            'ㄖㄨ3':'乳汝｜辱｜-',
+            'ㄖㄨ4':'入｜辱褥孺｜-',
+            'ㄖㄨㄛ4':'若弱｜-｜-',
+            'ㄖㄨㄟ2':'-｜瑞｜-',
+            'ㄖㄨㄟ3':'-｜蕊｜-',
+            'ㄖㄨㄟ4':'瑞銳｜睿｜-',
+            'ㄖㄨㄢ2':'-｜-｜-',
+            'ㄖㄨㄢ3':'軟｜阮｜-',
+            'ㄖㄨㄣ1':'-｜-｜-',
+            'ㄖㄨㄣ4':'潤｜-｜-',
+            'ㄖㄨㄥ2':'容榮融｜戎絨茸榕溶熔｜-',
+            'ㄖㄨㄥ3':'冗｜-｜-',
+            'ㄖㄜ3':'惹｜若｜-',
+            'ㄖㄜ4':'熱｜-｜-',
+            'ㄖㄠ2':'饒｜-｜-',
+            'ㄖㄠ3':'擾｜-｜-',
+            'ㄖㄠ4':'繞｜-｜-',
+            'ㄖㄡ2':'柔揉｜-｜-',
+            'ㄖㄡ3':'-｜-｜-',
+            'ㄖㄡ4':'肉｜-｜-',
+            'ㄖㄢ2':'然｜燃｜-',
+            'ㄖㄢ3':'染｜冉苒髯｜-',
+            'ㄖㄣ2':'人仁｜任｜-',
+            'ㄖㄣ3':'忍｜荏稔｜-',
+            'ㄖㄣ4':'認任刃｜妊軔飪｜-',
+            'ㄖㄤ2':'-｜瓤｜-',
+            'ㄖㄤ3':'嚷壤｜攘｜-',
+            'ㄖㄤ4':'讓｜-｜-',
+            'ㄖㄥ1':'扔｜-｜-',
+            'ㄖㄥ2':'仍｜-｜-',
+            'ㄗ1':'資姿滋｜茲吱咨孜諮輜齜孳｜-',
+            'ㄗ3':'子仔｜梓紫籽｜-',
+            'ㄗ4':'自字｜恣漬｜-',
+            'ㄗㄨ1':'租｜-｜-',
+            'ㄗㄨ2':'足族｜卒｜-',
+            'ㄗㄨ3':'組阻｜詛祖俎｜-',
+            'ㄗㄨㄛ2':'昨｜-｜-',
+            'ㄗㄨㄛ3':'左佐｜-｜-',
+            'ㄗㄨㄛ4':'做坐座｜作｜-',
+            'ㄗㄨㄟ1':'-｜堆｜-',
+            'ㄗㄨㄟ3':'嘴｜-｜-',
+            'ㄗㄨㄟ4':'最罪醉｜-｜-',
+            'ㄗㄨㄢ1':'-｜鑽｜-',
+            'ㄗㄨㄢ3':'-｜-｜-',
+            'ㄗㄨㄢ4':'賺｜鑽｜-',
+            'ㄗㄨㄣ1':'尊遵｜-｜-',
+            'ㄗㄨㄣ3':'-｜-｜-',
+            'ㄗㄨㄣ4':'-｜圳｜-',
+            'ㄗㄨㄥ1':'綜蹤｜棕宗縱鬃｜-',
+            'ㄗㄨㄥ3':'總｜-｜-',
+            'ㄗㄨㄥ4':'縱粽｜綜｜-',
+            'ㄗㄚ1':'-｜紮匝｜-',
+            'ㄗㄚ2':'雜砸｜咱｜-',
+            'ㄗㄜ2':'則責澤｜擇嘖｜-',
+            'ㄗㄜ3':'怎｜-｜-',
+            'ㄗㄜ4':'-｜仄｜-',
+            'ㄗㄞ1':'災｜栽哉｜-',
+            'ㄗㄞ3':'載｜宰崽仔｜-',
+            'ㄗㄞ4':'在再｜載｜-',
+            'ㄗㄟ2':'賊｜-｜-',
+            'ㄗㄠ1':'遭糟｜｜-',
+            'ㄗㄠ2':'-｜鑿｜-',
+            'ㄗㄠ3':'早澡｜棗藻蚤｜-',
+            'ㄗㄠ4':'造｜皂燥噪躁灶｜-',
+            'ㄗㄡ1':'-｜鄒謅｜-',
+            'ㄗㄡ3':'走｜-｜-',
+            'ㄗㄡ4':'奏揍｜驟｜-',
+            'ㄗㄢ1':'-｜簪｜-',
+            'ㄗㄢ2':'咱｜-｜-',
+            'ㄗㄢ3':'-｜攢｜-',
+            'ㄗㄢ4':'讚｜贊｜-',
+            'ㄗㄣ3':'怎｜-｜-',
+            'ㄗㄣ4':'-｜-｜-',
+            'ㄗㄤ1':'髒｜-｜-',
+            'ㄗㄤ3':'-｜-｜-',
+            'ㄗㄤ4':'藏臟｜葬奘｜-',
+            'ㄗㄥ1':'曾增｜憎｜-',
+            'ㄗㄥ4':'贈｜-｜-',
+            'ㄘ1':'-｜差疵｜-',
+            'ㄘ2':'詞慈｜辭瓷磁雌祠｜-',
+            'ㄘ3':'此｜-｜-',
+            'ㄘ4':'次刺｜賜伺｜-',
+            'ㄘㄨ1':'粗｜-｜-',
+            'ㄘㄨ2':'-｜-｜-',
+            'ㄘㄨ4':'促｜醋簇蹴蔟蹙猝卒｜-',
+            'ㄘㄨㄛ1':'-｜搓撮磋蹉｜-',
+            'ㄘㄨㄛ2':'-｜-｜-',
+            'ㄘㄨㄛ3':'-｜-｜-',
+            'ㄘㄨㄛ4':'錯措｜挫剉厝｜-',
+            'ㄘㄨㄟ1':'摧催｜崔｜-',
+            'ㄘㄨㄟ2':'-｜-｜-',
+            'ㄘㄨㄟ3':'-｜-｜-',
+            'ㄘㄨㄟ4':'脆翠｜啐悴｜-',
+            'ㄘㄨㄢ1':'-｜-｜-',
+            'ㄘㄨㄢ2':'-｜-｜-',
+            'ㄘㄨㄢ4':'-｜竄篡｜-',
+            'ㄘㄨㄣ1':'村｜-｜-',
+            'ㄘㄨㄣ2':'存｜-｜-',
+            'ㄘㄨㄣ3':'-｜-｜-',
+            'ㄘㄨㄣ4':'寸吋｜-｜-',
+            'ㄘㄨㄥ1':'從匆｜聰囪｜-',
+            'ㄘㄨㄥ2':'從叢｜-｜-',
+            'ㄘㄨㄥ4':'-｜-｜-',
+            'ㄘㄚ1':'擦｜-｜-',
+            'ㄘㄚ3':'-｜-｜-',
+            'ㄘㄚ4':'-｜-｜-',
+            'ㄘㄜ4':'冊廁測側｜策｜-',
+            'ㄘㄞ1':'猜｜-｜-',
+            'ㄘㄞ2':'才財材｜裁｜-',
+            'ㄘㄞ3':'採彩踩｜采睬綵｜-',
+            'ㄘㄞ4':'菜｜蔡｜-',
+            'ㄘㄠ1':'操｜糙｜-',
+            'ㄘㄠ2':'曹槽｜-｜-',
+            'ㄘㄠ3':'草｜-｜-',
+            'ㄘㄠ4':'操｜糙肏｜-',
+            'ㄘㄡ4':'湊｜-｜-',
+            'ㄘㄢ1':'參｜餐｜-',
+            'ㄘㄢ2':'殘｜慚蠶｜-',
+            'ㄘㄢ3':'慘｜-｜-',
+            'ㄘㄢ4':'-｜燦璨｜-',
+            'ㄘㄣ1':'-｜參｜-',
+            'ㄘㄣ2':'-｜岑｜-',
+            'ㄘㄤ1':'倉蒼｜-｜-',
+            'ㄘㄤ2':'-｜藏｜-',
+            'ㄘㄥ1':'-｜-｜-',
+            'ㄘㄥ2':'曾層｜-｜-',
+            'ㄘㄥ4':'蹭｜-｜-',
+            'ㄙ1':'思司私｜斯絲撕廝嘶鷥｜-',
+            'ㄙ3':'死｜-｜-',
+            'ㄙ4':'四似飼寺｜賜嗣祀伺肆｜-',
+            'ㄙㄨ1':'-｜甦蘇酥｜-',
+            'ㄙㄨ2':'俗｜-｜-',
+            'ㄙㄨ4':'速素訴｜肅宿塑夙粟溯｜-',
+            'ㄙㄨㄛ1':'嗦｜縮梭唆娑簑｜-',
+            'ㄙㄨㄛ3':'所鎖｜索瑣｜-',
+            'ㄙㄨㄛ4':'-｜-｜-',
+            'ㄙㄨㄛ5':'-｜嗦｜-',
+            'ㄙㄨㄟ1':'雖｜-｜-',
+            'ㄙㄨㄟ2':'隨｜-｜-',
+            'ㄙㄨㄟ3':'-｜髓｜-',
+            'ㄙㄨㄟ4':'碎歲｜穗隧遂｜-',
+            'ㄙㄨㄢ1':'酸｜痠｜-',
+            'ㄙㄨㄢ3':'-｜-｜-',
+            'ㄙㄨㄢ4':'算｜蒜｜-',
+            'ㄙㄨㄣ1':'孫｜-｜-',
+            'ㄙㄨㄣ3':'損｜筍｜-',
+            'ㄙㄨㄣ4':'-｜-｜-',
+            'ㄙㄨㄥ1':'鬆送松｜-｜-',
+            'ㄙㄨㄥ3':'悚｜聳慫｜-',
+            'ㄙㄨㄥ4':'送宋頌｜訟誦｜-',
+            'ㄙㄚ1':'-｜撒｜-',
+            'ㄙㄚ3':'灑｜撒｜-',
+            'ㄙㄚ4':'-｜薩卅颯｜-',
+            'ㄙㄜ4':'色｜塞瑟圾嗇澀｜-',
+            'ㄙㄞ1':'塞腮｜-｜-',
+            'ㄙㄞ4':'賽塞｜-｜-',
+            'ㄙㄠ1':'騷｜搔艘｜-',
+            'ㄙㄠ3':'掃｜嫂｜-',
+            'ㄙㄠ4':'-｜-｜-',
+            'ㄙㄡ1':'搜｜颼蒐｜-',
+            'ㄙㄡ3':'-｜叟｜-',
+            'ㄙㄡ4':'-｜嗽｜-',
+            'ㄙㄢ1':'三｜參｜-',
+            'ㄙㄢ3':'散傘｜-｜-',
+            'ㄙㄢ4':'散｜-｜-',
+            'ㄙㄣ1':'-｜森｜-',
+            'ㄙㄤ1':'喪｜桑｜-',
+            'ㄙㄤ3':'嗓｜-｜-',
+            'ㄙㄤ4':'-｜喪｜-',
+            'ㄙㄥ1':'-｜僧｜-',
+            'ㄧ1':'一衣依醫｜壹揖漪伊｜-',
+            'ㄧ2':'一誼疑移遺宜怡咦｜姨儀夷｜-',
+            'ㄧ3':'以已乙椅｜倚蟻尾矣｜-',
+            'ㄧ4':'一抑意義易翼異益藝憶｜議亦億譯液役疫毅逸｜-',
+            'ㄧㄚ1':'呀壓鴨｜鴉押｜-',
+            'ㄧㄚ2':'牙芽涯｜衙蚜｜-',
+            'ㄧㄚ3':'亞雅｜啞｜-',
+            'ㄧㄚ4':'亞訝｜-｜-',
+            'ㄧㄚ5':'呀｜-｜-',
+            'ㄧㄛ1':'唷｜-｜-',
+            'ㄧㄝ1':'耶｜噎｜-',
+            'ㄧㄝ2':'爺耶｜椰｜-',
+            'ㄧㄝ3':'也野｜冶｜-',
+            'ㄧㄝ4':'夜葉頁｜業｜-',
+            'ㄧㄞ2':'-｜崖｜-',
+            'ㄧㄠ1':'要腰妖｜夭邀喲｜-',
+            'ㄧㄠ2':'搖遙姚｜淆餚謠堯｜-',
+            'ㄧㄠ3':'咬舀｜窈杳夭｜-',
+            'ㄧㄠ4':'要藥耀｜鑰樂｜-',
+            'ㄧㄡ1':'有優｜憂幽悠呦攸｜-',
+            'ㄧㄡ2':'由游油遊｜猶郵｜-',
+            'ㄧㄡ3':'有友｜酉｜-',
+            'ㄧㄡ4':'又右幼｜誘佑柚釉囿｜-',
+            'ㄧㄢ1':'煙淹咽｜焉醃奄菸閹胭｜-',
+            'ㄧㄢ2':'言顏嚴｜延沿炎研癌鹽岩筵簷｜-',
+            'ㄧㄢ3':'眼演掩｜衍｜-',
+            'ㄧㄢ4':'驗豔｜宴燄雁燕厭硯咽嚥｜-',
+            'ㄧㄣ1':'因音陰｜姻殷茵｜-',
+            'ㄧㄣ2':'銀吟淫｜齦｜-',
+            'ㄧㄣ3':'癮引飲隱｜尹蚓｜-',
+            'ㄧㄣ4':'印｜飲蔭廕｜-',
+            'ㄧㄤ1':'央殃｜秧泱鴦｜-',
+            'ㄧㄤ2':'楊陽揚｜洋羊徉｜-',
+            'ㄧㄤ3':'養仰氧癢｜-｜-',
+            'ㄧㄤ4':'樣養｜恙漾｜-',
+            'ㄧㄥ1':'英應嬰｜鷹鶯櫻罌鸚嚶膺｜-',
+            'ㄧㄥ2':'迎營蠅贏｜盈螢瑩｜-',
+            'ㄧㄥ3':'影景｜穎｜-',
+            'ㄧㄥ4':'硬映｜應｜-',
+            'ㄨ1':'烏嗚屋污圬｜汙巫誣鎢｜-',
+            'ㄨ2':'無吳吾｜唔蜈｜-',
+            'ㄨ3':'五午武舞｜侮忤｜-',
+            'ㄨ4':'勿霧物務惡｜誤悟兀｜-',
+            'ㄨㄚ1':'哇蛙挖｜窪媧窪｜-',
+            'ㄨㄚ2':'娃｜-｜-',
+            'ㄨㄚ3':'-｜瓦｜-',
+            'ㄨㄚ4':'襪｜-｜-',
+            'ㄨㄚ5':'娃｜-｜-',
+            'ㄨㄛ1':'窩｜-｜-',
+            'ㄨㄛ3':'我｜-｜-',
+            'ㄨㄛ4':'握臥｜沃齷斡｜-',
+            'ㄨㄞ1':'歪｜-｜-',
+            'ㄨㄞ3':'-｜舀｜-',
+            'ㄨㄞ4':'外｜-｜-',
+            'ㄨㄟ1':'威｜崴偎煨｜-',
+            'ㄨㄟ2':'為危圍微違｜唯惟桅維薇巍帷｜-',
+            'ㄨㄟ3':'委尾偉｜痿猥萎｜-',
+            'ㄨㄟ4':'未味位為畏｜魏蔚衛偽謂胃喂慰餵尉蝟｜-',
+            'ㄨㄢ1':'灣彎｜豌｜-',
+            'ㄨㄢ2':'完玩｜頑丸｜-',
+            'ㄨㄢ3':'晚碗挽｜宛婉｜-',
+            'ㄨㄢ4':'萬｜玩腕惋｜-',
+            'ㄨㄣ1':'溫｜-｜-',
+            'ㄨㄣ2':'文聞紋蚊｜-｜-',
+            'ㄨㄣ3':'穩吻｜刎｜-',
+            'ㄨㄣ4':'問｜紊｜-',
+            'ㄨㄤ1':'汪｜-｜-',
+            'ㄨㄤ2':'王亡｜-｜-',
+            'ㄨㄤ3':'往網枉｜罔惘魍｜-',
+            'ㄨㄤ4':'忘望旺｜妄｜-',
+            'ㄨㄥ1':'翁嗡｜-｜-',
+            'ㄨㄥ3':'-｜-｜-',
+            'ㄨㄥ4':'-｜-｜-',
+            'ㄩ1':'-｜迂淤瘀｜-',
+            'ㄩ2':'於愉魚｜娛餘於漁予愚余竽輿榆逾虞俞腴隅盂臾諛踰覦｜-',
+            'ㄩ3':'與語雨｜予羽嶼宇禹庾｜-',
+            'ㄩ4':'玉欲育浴寓遇癒｜預域喻愈裕芋御鬱禦與豫籲馭嫗｜-',
+            'ㄩㄝ1':'約｜曰｜-',
+            'ㄩㄝ4':'月越樂躍｜悅閱粵岳嶽｜-',
+            'ㄩㄢ1':'冤淵｜鴛鳶宛｜-',
+            'ㄩㄢ2':'原元員｜園圓緣源援媛袁猿｜-',
+            'ㄩㄢ3':'遠｜-｜-',
+            'ㄩㄢ4':'院願怨｜苑遠｜-',
+            'ㄩㄣ1':'暈｜-｜-',
+            'ㄩㄣ2':'雲勻｜昀耘芸｜-',
+            'ㄩㄣ3':'允｜隕殞｜-',
+            'ㄩㄣ4':'運韻孕｜熨蘊慍｜-',
+            'ㄩㄥ1':'擁｜臃庸雍壅｜-',
+            'ㄩㄥ2':'-｜-｜-',
+            'ㄩㄥ3':'永泳勇｜詠擁臃踴湧蛹甬俑｜-',
+            'ㄩㄥ4':'用｜傭｜-',
+            'ㄚ1':'阿啊｜-｜-',
+            'ㄚ4':'阿｜-｜-',
+            'ㄚ5':'啊阿｜-｜-',
+            'ㄛ1':'喔｜-｜-',
+            'ㄛ2':'哦｜-｜-',
+            'ㄜ1':'阿｜婀｜-',
+            'ㄜ2':'額鵝娥｜訛俄峨｜-',
+            'ㄜ3':'噁｜-｜-',
+            'ㄜ4':'惡餓呃｜俄鄂厄遏扼鱷愕顎噩｜-',
+            'ㄝ4':'誒｜-｜-',
+            'ㄞ1':'哀挨唉哎｜埃誒｜-',
+            'ㄞ2':'癌｜捱皚｜-',
+            'ㄞ3':'矮｜藹｜-',
+            'ㄞ4':'愛艾｜礙曖隘｜-',
+            'ㄟ4':'欸｜-｜-',
+            'ㄠ1':'凹｜-｜-',
+            'ㄠ2':'熬敖｜翱嗷遨螯鰲｜-',
+            'ㄠ3':'-｜襖｜-',
+            'ㄠ4':'傲懊｜奧澳墺奡｜-',
+            'ㄡ1':'歐｜毆鷗｜-',
+            'ㄡ2':'-｜-｜-',
+            'ㄡ3':'偶嘔｜藕耦｜-',
+            'ㄡ4':'噢｜嘔｜-',
+            'ㄢ1':'安鞍｜氨胺｜-',
+            'ㄢ2':'-｜-｜-',
+            'ㄢ3':'-｜俺｜-',
+            'ㄢ4':'暗案岸｜按黯｜-',
+            'ㄣ1':'恩嗯｜-｜-',
+            'ㄣ4':'摁｜-｜-',
+            'ㄣ5':'嗯｜-｜-',
+            'ㄤ1':'骯｜-｜-',
+            'ㄤ2':'-｜昂｜-',
+            'ㄤ3':'-｜-｜-',
+            'ㄤ4':'-｜盎｜-',
+            'ㄥ1':'-｜-｜-',
+            'ㄦ2':'而｜兒｜-',
+            'ㄦ3':'耳｜爾洱餌｜-',
+            'ㄦ4':'二｜貳｜-',
+        }
+        // ==================== 字庫解析引擎 ====================
+        let chineseDict = {};   // char → [baseZhuyin, ...] — 搜尋用（向下相容）
+        let charInfo = {};      // char → [{zhuyin, tone, tier}, ...] — 聲調/分級資訊
+
+        function buildIndex() {
+            chineseDict = {};
+            charInfo = {};
+
+            for (const [key, value] of Object.entries(rhymeDict)) {
+                const tone = parseInt(key.slice(-1));
+                const baseZhuyin = key.slice(0, -1);
+
+                const parts = value.split('｜');
+                const tiers = ['common', 'normal', 'rare'];
+
+                parts.forEach((part, idx) => {
+                    if (!part || part.trim() === '—' || part.trim() === '-') return;
+                    const tier = tiers[idx] || 'rare';
+                    const chars = [...part.trim()].filter(c => c.trim() && c !== '—' && c !== '-');
+
+                    chars.forEach(char => {
+                        // chineseDict（搜尋相容）
+                        if (!chineseDict[char]) chineseDict[char] = [];
+                        if (!chineseDict[char].includes(baseZhuyin)) {
+                            chineseDict[char].push(baseZhuyin);
+                        }
+                        // charInfo（聲調 + 分級）
+                        if (!charInfo[char]) charInfo[char] = [];
+                        charInfo[char].push({ zhuyin: baseZhuyin, tone, tier });
+                    });
+                });
+            }
+
+            console.log(`[buildIndex] ${Object.keys(chineseDict).length} 字, ${Object.keys(rhymeDict).length} 組`);
+        }
+
+        // ==================== 標記系統（直接修改字庫）====================
+
+        let dictOverrides = {}; // 記錄被使用者修改過的 rhymeDict key
+
+        function loadDictOverrides() {
+            try {
+                const saved = localStorage.getItem('dictOverrides_v076');
+                if (saved) {
+                    dictOverrides = JSON.parse(saved);
+                    for (const [key, val] of Object.entries(dictOverrides)) {
+                        rhymeDict[key] = val;
+                    }
+                }
+            } catch(e) { dictOverrides = {}; }
+        }
+
+        function saveDictOverrides() {
+            try { localStorage.setItem('dictOverrides_v076', JSON.stringify(dictOverrides)); } catch(e) {}
+        }
+
+        // 取得字的分級（直接從 charInfo 讀取，永遠是最新狀態）
+        function getCharMark(char, zhuyin) {
+            const infos = charInfo[char];
+            if (!infos || infos.length === 0) return 'normal';
+            if (zhuyin) {
+                const match = infos.find(i => i.zhuyin === zhuyin);
+                if (match) return match.tier;
+            }
+            return infos[0].tier;
+        }
+
+        // 在 rhymeDict 中移動字的分級位置
+        function moveCharTier(char, dictKey, newTier) {
+            const entry = rhymeDict[dictKey];
+            if (!entry) return;
+
+            const parts = entry.split('｜');
+            while (parts.length < 3) parts.push('—');
+
+            // 從所有區域移除該字
+            for (let i = 0; i < parts.length; i++) {
+                const chars = [...parts[i]].filter(c => c !== '—' && c !== '-' && c.trim());
+                const idx = chars.indexOf(char);
+                if (idx !== -1) {
+                    chars.splice(idx, 1);
+                    parts[i] = chars.length > 0 ? chars.join('') : '—';
+                }
+            }
+
+            // 加入目標區域
+            const tierIdx = { common: 0, normal: 1, rare: 2 }[newTier];
+            if (parts[tierIdx] === '—' || parts[tierIdx] === '-') {
+                parts[tierIdx] = char;
+            } else {
+                parts[tierIdx] += char;
+            }
+
+            // 更新 rhymeDict
+            rhymeDict[dictKey] = parts.join('｜');
+            dictOverrides[dictKey] = rhymeDict[dictKey];
+            saveDictOverrides();
+
+            // 更新 charInfo（就地修改，不需 rebuild）
+            const baseZhuyin = dictKey.slice(0, -1);
+            const tone = parseInt(dictKey.slice(-1));
+            const infos = charInfo[char];
+            if (infos) {
+                const match = infos.find(i => i.zhuyin === baseZhuyin && i.tone === tone);
+                if (match) match.tier = newTier;
+            }
+        }
+
+        // 循環切換：常用 → 一般 → 冷僻 → 常用
+        function cycleCharMark(char, dictKey) {
+            const baseZhuyin = dictKey.slice(0, -1);
+            const current = getCharMark(char, baseZhuyin);
+            let newTier;
+            if (current === 'common') newTier = 'normal';
+            else if (current === 'normal') newTier = 'rare';
+            else newTier = 'common';
+
+            moveCharTier(char, dictKey, newTier);
+        }
+
+        // ==================== 注音優先核心函數 ====================
+        
+        // 從注音字串提取聲母
+        function getZhuyinInitial(zhuyin) {
+            if (!zhuyin || zhuyin.length === 0) return '';
+            if (zhuyinInitialSet.has(zhuyin[0])) {
+                return zhuyin[0];
+            }
+            return ''; // 無聲母（如 ㄢ, ㄧ 等）
+        }
+        
+        // 從注音字串提取韻母
+        function getZhuyinRhyme(zhuyin) {
+            if (!zhuyin || zhuyin.length === 0) return '';
+            if (zhuyinInitialSet.has(zhuyin[0])) {
+                const rhyme = zhuyin.substring(1);
+                return rhyme || zhuyin; // 純聲母（如 ㄓ=知）時回傳整個
+            }
+            return zhuyin; // 整個都是韻母
+        }
+        
+                function pinyinToZhuyinGroups(pinyin) {
+            pinyin = pinyin.toLowerCase().trim();
+            if (!pinyin) return [];
+
+            // 1. 完整音節精確匹配
+            if (fullPinyinToZhuyin[pinyin]) {
+                // 直接查到（如 ban→[ㄅㄢ], nu→[ㄋㄨ,ㄋㄩ]）
+                const results = [];
+                const seenRhymes = new Set();
+                for (const zy of fullPinyinToZhuyin[pinyin]) {
+                    const rhyme = getZhuyinRhyme(zy);
+                    if (!seenRhymes.has(rhyme)) {
+                        seenRhymes.add(rhyme);
+                        results.push({ zhuyin: zy, rhyme: rhyme, type: 'exact' });
+                    }
+                }
+                return results;
+            }
+
+            // 2. 純拼音聲母（b, zh, sh...）
+            if (pinyinInitialToZhuyin[pinyin]) {
+                return [{ zhuyin: pinyinInitialToZhuyin[pinyin], type: 'initial' }];
+            }
+
+            // 3. 韻尾搜尋：找所有拼音結尾匹配的音節，收集不重複的注音韻母
+            const seenRhymes = new Set();
+            const results = [];
+            for (const [py, zhuyinList] of Object.entries(fullPinyinToZhuyin)) {
+                if (py.endsWith(pinyin) && py !== pinyin) {
+                    for (const zy of zhuyinList) {
+                        const rhyme = getZhuyinRhyme(zy);
+                        if (!seenRhymes.has(rhyme)) {
+                            seenRhymes.add(rhyme);
+                            results.push({ zhuyin: rhyme, rhyme: rhyme, type: 'rhyme' });
+                        }
+                    }
+                }
+            }
+            return results;
+        }
+
+        // 向下相容：單一結果版本（供顯示等用途）
+        function pinyinToZhuyin(pinyin) {
+            const groups = pinyinToZhuyinGroups(pinyin);
+            if (groups.length === 0) return '';
+            return groups[0].zhuyin;
+        }
+
+        // 注音 → 拼音（用於顯示）— 使用完整查找表
+        function zhuyinToPinyin(zhuyin) {
+            if (!zhuyin) return '';
+            // 直接查完整音節
+            if (fullZhuyinToPinyin[zhuyin]) return fullZhuyinToPinyin[zhuyin];
+            // 拆成聲母+韻母查找
+            const initial = getZhuyinInitial(zhuyin);
+            const rhyme = getZhuyinRhyme(zhuyin);
+            if (initial && initial !== zhuyin) {
+                const fullKey = initial + (rhyme !== zhuyin ? rhyme : '');
+                if (fullZhuyinToPinyin[fullKey]) return fullZhuyinToPinyin[fullKey];
+            }
+            // 純聲母
+            if (initial && rhyme === zhuyin) {
+                if (fullZhuyinToPinyin[initial]) return fullZhuyinToPinyin[initial];
+            }
+            return zhuyin; // fallback
+        }
+
+        function isPinyinInitial(input) {
+            return !!pinyinInitialToZhuyin[input.toLowerCase()];
+        }
+        
+        // 判斷輸入是否為注音聲母
+        function isZhuyinInitial(input) {
+            return zhuyinInitialSet.has(input);
+        }
+        
+        // 主搜尋邏輯（注音優先）
+        function searchRhyme(input) {
+            if (!input) { searchedTerms = []; return []; }
+            input = input.trim();
+            lastSearchInput = input;
+            const isBopomofo = /[ㄅ-ㄩ]/.test(input);
+            lastSearchType = isBopomofo ? 'bopomofo' : 'pinyin';
+            
+            const queries = input.split(/\s+/);
+            const allResults = [];
+            const seenChars = new Set();
+            searchedTerms = [];
+            let gOff = 0;
+
+            // === 輔助：從字典匹配韻母列表 ===
+            function collectByRhymes(rhymeList, initials, groupIdx) {
+                const rhymeSet = new Set(rhymeList);
+                for (let char in chineseDict) {
+                    if (seenChars.has(char)) continue;
+                    for (let zy of chineseDict[char]) {
+                        const rh = getZhuyinRhyme(zy);
+                        const ini = getZhuyinInitial(zy);
+                        if (rhymeSet.has(rh) && (!initials || initials.has(ini))) {
+                            allResults.push({
+                                char, zhuyin: zy, pinyin: zhuyinToPinyin(zy),
+                                zhuyinRhyme: rh, zhuyinInitial: ini,
+                                rhymeIndex: groupIdx
+                            });
+                            seenChars.add(char);
+                            break;
+                        }
+                    }
+                }
+            }
+            
+            // === 韻母搜尋（借韻展開，全部歸為同一組）===
+            // 同聲韻並列時由 displayResults 按子音重新分組
+            function expandBorrow(targetRhyme, queryLabel) {
+                const borrowed = BORROW_MAP[targetRhyme];
+                const allRhymes = borrowed || [targetRhyme];
+                const idx = gOff;
+                searchedTerms.push({
+                    original: queryLabel, zhuyin: targetRhyme,
+                    isInitial: false, isRhymeSearch: true, index: idx
+                });
+                collectByRhymes(allRhymes, null, idx);
+                gOff++;
+            }
+            
+            // === 子音搜尋（按韻母家族分組上色）===
+            function searchByInitial(targetInitial, queryLabel) {
+                const familyGroups = {};
+                for (let char in chineseDict) {
+                    if (seenChars.has(char)) continue;
+                    for (let zy of chineseDict[char]) {
+                        if (getZhuyinInitial(zy) === targetInitial) {
+                            const rh = getZhuyinRhyme(zy);
+                            const famId = RHYME_TO_FAMILY[rh] !== undefined ? RHYME_TO_FAMILY[rh] : -1;
+                            if (!familyGroups[famId]) familyGroups[famId] = [];
+                            familyGroups[famId].push({
+                                char, zhuyin: zy, pinyin: zhuyinToPinyin(zy),
+                                zhuyinRhyme: rh, zhuyinInitial: targetInitial
+                            });
+                            seenChars.add(char);
+                            break;
+                        }
+                    }
+                }
+                const sortedFamIds = Object.keys(familyGroups).sort((a, b) => parseInt(a) - parseInt(b));
+                sortedFamIds.forEach(famId => {
+                    const fam = RHYME_FAMILIES[parseInt(famId)];
+                    const idx = gOff;
+                    // 收集本組實際出現的韻母名稱
+                    const rhymesInGroup = [...new Set(familyGroups[famId].map(it => it.zhuyinRhyme))];
+                    searchedTerms.push({
+                        original: queryLabel,
+                        zhuyin: fam ? fam.label : '/',
+                        rhymeMembers: rhymesInGroup,
+                        isInitial: true, isRhymeSearch: false, index: idx
+                    });
+                    familyGroups[famId].forEach(item => {
+                        item.rhymeIndex = idx;
+                        allResults.push(item);
+                    });
+                    gOff++;
+                });
+            }
+            
+            // === 子音+介音搜尋（如 bi/bu/ju）===
+            function searchByInitialMedial(targetInitial, medial, queryLabel) {
+                const familyGroups = {};
+                for (let char in chineseDict) {
+                    if (seenChars.has(char)) continue;
+                    for (let zy of chineseDict[char]) {
+                        const ini = getZhuyinInitial(zy);
+                        const rh = getZhuyinRhyme(zy);
+                        if (ini === targetInitial && (rh === medial || rh.startsWith(medial))) {
+                            const famId = RHYME_TO_FAMILY[rh] !== undefined ? RHYME_TO_FAMILY[rh] : -1;
+                            if (!familyGroups[famId]) familyGroups[famId] = [];
+                            familyGroups[famId].push({
+                                char, zhuyin: zy, pinyin: zhuyinToPinyin(zy),
+                                zhuyinRhyme: rh, zhuyinInitial: ini
+                            });
+                            seenChars.add(char);
+                            break;
+                        }
+                    }
+                }
+                const sortedFamIds = Object.keys(familyGroups).sort((a, b) => parseInt(a) - parseInt(b));
+                sortedFamIds.forEach(famId => {
+                    const fam = RHYME_FAMILIES[parseInt(famId)];
+                    const idx = gOff;
+                    const rhymesInGroup = [...new Set(familyGroups[famId].map(it => it.zhuyinRhyme))];
+                    searchedTerms.push({
+                        original: queryLabel,
+                        zhuyin: fam ? fam.label : '/',
+                        rhymeMembers: rhymesInGroup,
+                        isInitial: true, isRhymeSearch: false, index: idx
+                    });
+                    familyGroups[famId].forEach(item => {
+                        item.rhymeIndex = idx;
+                        allResults.push(item);
+                    });
+                    gOff++;
+                });
+            }
+            
+            // === PINYIN_SPECIAL 分組匹配（韻母組分色）===
+            function matchSpecial(groups) {
+                groups.forEach((sg) => {
+                    const idx = gOff;
+                    searchedTerms.push({
+                        original: sg.label, zhuyin: sg.label,
+                        isInitial: false, isRhymeSearch: false, index: idx
+                    });
+                    const rhymeSet = new Set(sg.rhymes);
+                    for (let char in chineseDict) {
+                        if (seenChars.has(char)) continue;
+                        for (let zy of chineseDict[char]) {
+                            const rh = getZhuyinRhyme(zy);
+                            const ini = getZhuyinInitial(zy);
+                            if (rhymeSet.has(rh) && (!sg.initials || sg.initials.has(ini))) {
+                                allResults.push({
+                                    char, zhuyin: zy, pinyin: zhuyinToPinyin(zy),
+                                    zhuyinRhyme: rh, zhuyinInitial: ini,
+                                    rhymeIndex: idx
+                                });
+                                seenChars.add(char);
+                                break;
+                            }
+                        }
+                    }
+                    gOff++;
+                });
+            }
+            
+            // === uo 特殊處理（*ㄨㄛ + ㄅㄛ/ㄆㄛ/ㄇㄛ，按子音分組）===
+            function matchUo() {
+                const idx = gOff;
+                const bpmfSet = new Set(['ㄅ','ㄆ','ㄇ']);
+                searchedTerms.push({
+                    original: 'uo', zhuyin: 'ㄨㄛ',
+                    isInitial: false, isRhymeSearch: true, index: idx
+                });
+                for (let char in chineseDict) {
+                    if (seenChars.has(char)) continue;
+                    for (let zy of chineseDict[char]) {
+                        const rh = getZhuyinRhyme(zy);
+                        const ini = getZhuyinInitial(zy);
+                        if (rh === 'ㄨㄛ' || (rh === 'ㄛ' && bpmfSet.has(ini))) {
+                            allResults.push({
+                                char, zhuyin: zy, pinyin: zhuyinToPinyin(zy),
+                                zhuyinRhyme: rh, zhuyinInitial: ini,
+                                rhymeIndex: idx
+                            });
+                            seenChars.add(char);
+                            break;
+                        }
+                    }
+                }
+                gOff++;
+            }
+
+            // === 主流程 ===
+            queries.forEach((query) => {
+                const queryIsBopomofo = /[ㄅ-ㄩ]/.test(query);
+                
+                if (queryIsBopomofo) {
+                    const zy = query;
+                    const isSingleInitial = zy.length === 1 && zhuyinInitialSet.has(zy);
+                    
+                    if (isSingleInitial) {
+                        searchByInitial(zy, query);
+                    } else {
+                        let targetRhyme = zy;
+                        if (zy.length > 1 && zhuyinInitialSet.has(zy[0])) {
+                            targetRhyme = zy.substring(1);
+                        }
+                        expandBorrow(targetRhyme, query);
+                    }
+                } else {
+                    const py = query.toLowerCase();
+                    
+                    // 1. uo 特殊處理
+                    if (py === 'uo') { matchUo(); return; }
+                    
+                    // 2. 拼音特殊搜尋（ng, uan, un）
+                    if (PINYIN_SPECIAL[py]) {
+                        matchSpecial(PINYIN_SPECIAL[py]);
+                        return;
+                    }
+                    
+                    // 3. 拼音韻母對照表 → 轉注音 → 走借韻
+                    if (PINYIN_RHYME_MAP[py]) {
+                        expandBorrow(PINYIN_RHYME_MAP[py], query);
+                        return;
+                    }
+                    
+                    // 4. 完整拼音音節
+                    const groups = pinyinToZhuyinGroups(py);
+                    if (groups.length === 0) return;
+                    
+                    const isInitialSearch = groups.length === 1 && groups[0].type === 'initial';
+                    
+                    if (isInitialSearch) {
+                        searchByInitial(groups[0].zhuyin, query);
+                    } else if (groups.length === 1) {
+                        const g = groups[0];
+                        const gInitial = getZhuyinInitial(g.zhuyin);
+                        const gRhyme = g.rhyme || getZhuyinRhyme(g.zhuyin);
+                        const medials = new Set(['ㄧ', 'ㄨ', 'ㄩ']);
+                        if (gInitial && medials.has(gRhyme) && g.type === 'exact') {
+                            searchByInitialMedial(gInitial, gRhyme, query);
+                        } else {
+                            expandBorrow(gRhyme, query);
+                        }
+                    } else {
+                        groups.forEach((g) => {
+                            const targetRhyme = g.rhyme || g.zhuyin;
+                            expandBorrow(targetRhyme, query);
+                        });
+                    }
+                }
+            });
+            
+            return allResults;
+        }
+
+
+        // 全局狀態
+        let currentMode = 'common';
+        let selectedChars = new Set();
+        let recentClicks = [];
+        let lastSearchInput = '';
+        let lastSearchType = 'pinyin';
+        let searchedTerms = [];
+        let hasCustomTextColor = false;
+
+        // 創建字卡 (highlightTarget: 'initial'=標記子音, 'rhyme'=標記母音, null=自動)
+        function createCharCard(item, showPinyin, highlightTarget) {
+            const isSelected = selectedChars.has(item.char) ? 'selected' : '';
+            const highlightSearch = document.getElementById('highlightSearch').checked;
+            const mark = getCharMark(item.char, item.zhuyin);
+            const customColorClass = hasCustomTextColor ? 'custom-color' : '';
+            
+            let displayText = '';
+            
+            if (showPinyin) {
+                const showAsZhuyin = lastSearchType === 'bopomofo';
+                const zhuyinInit = item.zhuyinInitial || '';
+                const zhuyinRhy = item.zhuyinRhyme || '';
+                // 如果韻母就是整個注音（純聲母字如 ㄓ），不拆分
+                const isInitialOnly = zhuyinInit && zhuyinRhy === item.zhuyin;
+                
+                if (showAsZhuyin) {
+                    // === 注音顯示模式 ===
+                    const dispInit = zhuyinInit;
+                    const dispRhyme = isInitialOnly ? '' : zhuyinRhy;
+                    
+                    if (highlightSearch) {
+                        const searchTerm = searchedTerms.find(s => s.index === item.rhymeIndex) || searchedTerms[0];
+                        const colorIdx = item._displayIndex !== undefined ? item._displayIndex : item.rhymeIndex;
+                        const colorClass = `search-highlight-${(colorIdx % 5) + 1}`;
+                        // highlightTarget 優先，否則用 searchTerm.isInitial
+                        const hlInit = highlightTarget ? (highlightTarget === 'initial') : (searchTerm && searchTerm.isInitial);
+                        if (hlInit) {
+                            displayText = `<span class="${colorClass}">${dispInit}</span>${dispRhyme}`;
+                        } else {
+                            displayText = `${dispInit}<span class="${colorClass}">${dispRhyme || dispInit}</span>`;
+                        }
+                    } else {
+                        displayText = isInitialOnly ? zhuyinInit : (zhuyinInit + zhuyinRhy);
+                    }
+                } else {
+                    // === 拼音顯示模式 ===
+                    const pinyinFull = item.pinyin || zhuyinToPinyin(item.zhuyin);
+                    let pInit = '';
+                    let pRhyme = pinyinFull;
+                    for (const pi of pinyinInitials) {
+                        if (pinyinFull.startsWith(pi) && pinyinFull.length > pi.length) {
+                            pInit = pi;
+                            pRhyme = pinyinFull.substring(pi.length);
+                            break;
+                        }
+                    }
+                    
+                    if (highlightSearch) {
+                        const searchTerm = searchedTerms.find(s => s.index === item.rhymeIndex) || searchedTerms[0];
+                        const colorIdx = item._displayIndex !== undefined ? item._displayIndex : item.rhymeIndex;
+                        const colorClass = `search-highlight-${(colorIdx % 5) + 1}`;
+                        const hlInit = highlightTarget ? (highlightTarget === 'initial') : (searchTerm && searchTerm.isInitial);
+                        if (hlInit) {
+                            displayText = `<span class="${colorClass}">${pInit}</span>${pRhyme}`;
+                        } else {
+                            displayText = `${pInit}<span class="${colorClass}">${pRhyme}</span>`;
+                        }
+                    } else {
+                        displayText = pinyinFull;
+                    }
+                }
+            }
+            
+            // 聲調符號
+            if (showPinyin && displayText) {
+                const toneMarks = { 1: '', 2: 'ˊ', 3: 'ˇ', 4: 'ˋ', 5: '˙' };
+                const toneMark = toneMarks[item.tone] || '';
+                if (toneMark) {
+                    displayText += `<span class="tone-mark">${toneMark}</span>`;
+                }
+            }
+
+            // 標記徽章（帶 dictKey 供直接修改字庫）
+            const dictKey = (item.zhuyin || '') + (item.tone || 0);
+            let badgeHTML = '';
+            const badgeAttr = `data-char="${item.char}" data-key="${dictKey}"`;
+            if (mark === 'common') {
+                badgeHTML = `<span class="mark-badge common" ${badgeAttr} onclick="handleBadgeClick(event)">常用</span>`;
+            } else if (mark === 'rare') {
+                badgeHTML = `<span class="mark-badge rare" ${badgeAttr} onclick="handleBadgeClick(event)">冷僻</span>`;
+            } else {
+                badgeHTML = `<span class="mark-badge normal" ${badgeAttr} onclick="handleBadgeClick(event)">一般</span>`;
+            }
+            
+            return `
+                <div class="char-card ${isSelected}" data-char="${item.char}" data-key="${dictKey}">
+                    <div class="char-main ${customColorClass}">${item.char}</div>
+                    ${showPinyin ? `<div class="char-pinyin">${displayText}</div>` : ''}
+                    ${badgeHTML}
+                </div>
+            `;
+        }
+
+        // 延遲重排系統
+        let reorderTimer = null;
+        const REORDER_DELAY = 3000; // 3秒
+
+        // 處理徽章點擊（阻止冒泡，不觸發選取）
+        function handleBadgeClick(event) {
+            event.stopPropagation();
+            event.preventDefault();
+            const badge = event.target;
+            const char = badge.dataset.char;
+            const dictKey = badge.dataset.key;
+            if (!char || !dictKey) return;
+
+            cycleCharMark(char, dictKey);
+
+            // 就地更新徽章外觀（不重排）
+            const baseZhuyin = dictKey.slice(0, -1);
+            const newMark = getCharMark(char, baseZhuyin);
+            
+            if (newMark === 'common') {
+                badge.className = 'mark-badge common';
+                badge.textContent = '常用';
+            } else if (newMark === 'rare') {
+                badge.className = 'mark-badge rare';
+                badge.textContent = '冷僻';
+            } else {
+                badge.className = 'mark-badge normal';
+                badge.textContent = '一般';
+            }
+            
+            // 重置/延長 3 秒計時器（共用同一個計時器 = 同區間內累積）
+            if (reorderTimer) {
+                clearTimeout(reorderTimer);
+            }
+            reorderTimer = setTimeout(() => {
+                reorderTimer = null;
+                // 時間到：完整重新渲染（含排序）
+                const currentInput = document.getElementById('searchInput').value;
+                if (currentInput) {
+                    const results = searchRhyme(currentInput);
+                    // 加入淡入動畫
+                    const container = document.getElementById('resultsContainer');
+                    container.style.opacity = '0.001';
+                    container.style.transition = 'opacity 0.3s ease';
+                    setTimeout(() => {
+                        displayResults(results);
+                        container.style.opacity = '1';
+                    }, 500);
+                }
+            }, REORDER_DELAY);
+        }
+
+        // 切換選中狀態
+        function toggleSelection(char, cardElement) {
+            if (selectedChars.has(char)) {
+                selectedChars.delete(char);
+                cardElement.classList.remove('selected');
+            } else {
+                selectedChars.add(char);
+                cardElement.classList.add('selected');
+                addToRecentClicks(char);
+            }
+            updateBatchCount();
+        }
+
+        // 批量標記（含延遲重渲染）
+        function batchMark(action) {
+            if (selectedChars.size === 0) return;
+
+            const cards = document.querySelectorAll('.char-card.selected');
+            const processed = new Set();
+            const newTier = action === 'clear' ? 'normal' : action;
+            const tierLabels = { common: '常用', normal: '一般', rare: '冷僻' };
+
+            cards.forEach(card => {
+                const char = card.dataset.char;
+                const dictKey = card.dataset.key;
+                if (!char || !dictKey || dictKey === 'undefined0' || processed.has(char + dictKey)) return;
+                processed.add(char + dictKey);
+
+                moveCharTier(char, dictKey, newTier);
+
+                // 就地更新徽章外觀（不重排）
+                const badge = card.querySelector('.mark-badge');
+                if (badge) {
+                    badge.className = `mark-badge ${newTier}`;
+                    badge.textContent = tierLabels[newTier];
+                }
+
+                // 取消選取外觀
+                card.classList.remove('selected');
+            });
+
+            selectedChars.clear();
+            updateBatchCount();
+
+            // 延遲重渲染（與單字點擊共用 reorderTimer）
+            if (reorderTimer) clearTimeout(reorderTimer);
+            reorderTimer = setTimeout(() => {
+                reorderTimer = null;
+                const currentInput = document.getElementById('searchInput').value;
+                if (currentInput) {
+                    const container = document.getElementById('resultsContainer');
+                    container.style.opacity = '0.001';
+                    container.style.transition = 'opacity 0.3s ease';
+                    setTimeout(() => {
+                        const results = searchRhyme(currentInput);
+                        displayResults(results);
+                        container.style.opacity = '1';
+                    }, 500);
+                }
+            }, REORDER_DELAY);
+        }
+
+        // 更新批量面板計數
+        function updateBatchCount() {
+            const el = document.getElementById('batchCount');
+            if (selectedChars.size > 0) {
+                el.textContent = `已選 ${selectedChars.size} 字`;
+            } else {
+                el.textContent = '';
+            }
+        }
+
+
+        // 添加到最近點擊
+        function addToRecentClicks(char) {
+            recentClicks = recentClicks.filter(c => c !== char);
+            recentClicks.unshift(char);
+            if (recentClicks.length > 20) {
+                recentClicks.pop();
+            }
+            updateRecentClicksDisplay();
+        }
+
+        // 更新最近點擊顯示
+        function updateRecentClicksDisplay() {
+            const container = document.getElementById('recentClicks');
+            if (recentClicks.length === 0) {
+                container.innerHTML = '<span style="color: var(--text-secondary); font-size: 0.9rem;">點擊上方的字來記錄</span>';
+                return;
+            }
+            const ccClass = hasCustomTextColor ? ' custom-color' : '';
+            container.innerHTML = recentClicks.map(char => 
+                `<span class="recent-char${ccClass}">${char}</span>`
+            ).join('');
+        }
+
+        // 最近點擊面板展開/收合
+        function toggleRecentPanel() {
+            const panel = document.getElementById('recentPanel');
+            panel.classList.toggle('collapsed');
+            localStorage.setItem('recentPanelCollapsed', panel.classList.contains('collapsed'));
+        }
+
+        // 初始化面板狀態
+        (function() {
+            const collapsed = localStorage.getItem('recentPanelCollapsed');
+            if (collapsed === 'true') {
+                document.getElementById('recentPanel').classList.add('collapsed');
+            }
+        })();
+
+        // 顯示結果
+        function displayResults(results) {
+
+            results.forEach(r => {
+                const infos = charInfo[r.char];
+                if (infos) {
+                    const match = infos.find(i => i.zhuyin === r.zhuyin);
+                    if (match) {
+                        r.tone = match.tone;
+                        r.tier = match.tier;
+                    } else {
+                        r.tone = 0;
+                        r.tier = getCharMark(r.char, r.zhuyin);
+                    }
+                } else {
+                    r.tone = 0;
+                    r.tier = 'normal';
+                }
+            });
+
+            const container = document.getElementById('resultsContainer');
+            const showPinyin = document.getElementById('showPinyin').checked;
+            const hideRare = document.getElementById('hideRare').checked;
+            const filterDup = document.getElementById('filterDuplicate').checked;
+
+            // 過濾冷僻字
+            if (hideRare) {
+                results = results.filter(r => {
+                    const mark = getCharMark(r.char, r.zhuyin);
+                    return mark !== 'rare';
+                });
+            }
+
+            // 過濾破音字（勾選時或關閉讀音時，每字只保留第一個匹配）
+            if (filterDup || !showPinyin) {
+                const seen = new Set();
+                results = results.filter(r => {
+                    if (seen.has(r.char)) return false;
+                    seen.add(r.char);
+                    return true;
+                });
+            }
+            
+            if (results.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <line x1="12" y1="8" x2="12" y2="12"></line>
+                            <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                        </svg>
+                        <h3>沒有找到結果</h3>
+                        <p>試試其他韻腳，例如：an、ing、ong</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            const header = `
+                <div class="results-header">
+                    <div class="results-count">找到 ${results.length} 個字</div>
+                </div>
+            `;
+            
+            let content = '';
+            
+            if (currentMode === 'tone') {
+                // ===== 同聲調並列模式 =====
+                const toneNames = { 1: '一聲', 2: '二聲', 3: '三聲', 4: '四聲', 5: '輕聲', 0: '未標' };
+                const toneOrder = [1, 2, 3, 4, 5, 0];
+
+                const toneGroups = {};
+                results.forEach(item => {
+                    const t = item.tone || 0;
+                    if (!toneGroups[t]) toneGroups[t] = [];
+                    toneGroups[t].push(item);
+                });
+
+                const tierOrder = { common: 0, normal: 1, rare: 2 };
+                for (const t of Object.keys(toneGroups)) {
+                    toneGroups[t].sort((a, b) => (tierOrder[a.tier] || 1) - (tierOrder[b.tier] || 1));
+                }
+
+                toneOrder.forEach(t => {
+                    if (!toneGroups[t] || toneGroups[t].length === 0) return;
+                    content += `
+                        <div class="group-section">
+                            <div class="group-title">${toneNames[t]}（${toneGroups[t].length}）</div>
+                            <div class="results-grid">
+                                ${toneGroups[t].map(item => createCharCard(item, showPinyin)).join('')}
+                            </div>
+                        </div>
+                    `;
+                });
+            } else if (currentMode === 'initial') {
+                // ===== 同聲韻並列模式 =====
+                const showAsZhuyin = lastSearchType === 'bopomofo';
+                
+                // 判斷是否有韻母搜尋（需按子音分組）
+                const hasRhymeSearch = searchedTerms.some(s => s.isRhymeSearch);
+                const hasInitialSearch = searchedTerms.some(s => s.isInitial);
+                
+                // 三級排序函數
+                const tierSort = (a, b) => {
+                    const markA = getCharMark(a.char, a.zhuyin);
+                    const markB = getCharMark(b.char, b.zhuyin);
+                    return (markA === 'common' ? 0 : (markA === 'rare' ? 2 : 1))
+                         - (markB === 'common' ? 0 : (markB === 'rare' ? 2 : 1));
+                };
+                
+                if (hasRhymeSearch && !hasInitialSearch) {
+                    // ===== 韻母搜尋 → 按子音分組，顏色標記子音 =====
+                    const consonantGroups = {};
+                    results.forEach(item => {
+                        const key = item.zhuyinInitial || '/';
+                        if (!consonantGroups[key]) consonantGroups[key] = [];
+                        consonantGroups[key].push(item);
+                    });
+                    
+                    // 按聲母排序（/ 排最前）
+                    const zhuyinOrder = ['/', ...zhuyinInitials];
+                    const sortedConsonants = Object.keys(consonantGroups).sort((a, b) => {
+                        return zhuyinOrder.indexOf(a) - zhuyinOrder.indexOf(b);
+                    });
+                    
+                    sortedConsonants.forEach((consonant, ci) => {
+                        const group = consonantGroups[consonant];
+                        group.sort(tierSort);
+                        // 設定顯示用的顏色索引
+                        group.forEach(item => { item._displayIndex = ci; });
+                        
+                        const colorClass = `search-highlight-${(ci % 5) + 1}`;
+                        let displayTitle = consonant;
+                        if (!showAsZhuyin && consonant !== '/') {
+                            displayTitle = zhuyinInitialToPinyin[consonant] || consonant;
+                        }
+                        
+                        content += `
+                            <div class="group-section">
+                                <div class="group-title rhyme-group"><span class="${colorClass}">[${displayTitle}]</span>（${group.length}）</div>
+                                <div class="results-grid">
+                                    ${group.map(item => createCharCard(item, showPinyin, 'initial')).join('')}
+                                </div>
+                            </div>
+                        `;
+                    });
+                } else if (hasInitialSearch && !hasRhymeSearch) {
+                    // ===== 子音搜尋 → 按韻母家族分組，顏色標記母音 =====
+                    const grouped = {};
+                    results.forEach(item => {
+                        const gKey = item.rhymeIndex !== undefined ? item.rhymeIndex : 0;
+                        if (!grouped[gKey]) grouped[gKey] = [];
+                        grouped[gKey].push(item);
+                    });
+                    
+                    const sortedKeys = Object.keys(grouped).sort((a, b) => parseInt(a) - parseInt(b));
+                    
+                    sortedKeys.forEach(gKey => {
+                        const group = grouped[gKey];
+                        const searchTerm = searchedTerms.find(s => s.index === parseInt(gKey));
+                        
+                        // 標題：顯示該組實際出現的韻母
+                        let displayTitle = '';
+                        if (searchTerm) {
+                            const members = searchTerm.rhymeMembers || [searchTerm.zhuyin];
+                            if (showAsZhuyin) {
+                                displayTitle = members.join('.');
+                            } else {
+                                displayTitle = members.map(m => rhymeToPinyinLabel[m] || fullZhuyinToPinyin[m] || m).join('.');
+                            }
+                        }
+                        
+                        group.sort(tierSort);
+                        const colorClass = `search-highlight-${(parseInt(gKey) % 5) + 1}`;
+                        
+                        content += `
+                            <div class="group-section">
+                                <div class="group-title rhyme-group"><span class="${colorClass}">[${displayTitle}]</span>（${group.length}）</div>
+                                <div class="results-grid">
+                                    ${group.map(item => createCharCard(item, showPinyin, 'rhyme')).join('')}
+                                </div>
+                            </div>
+                        `;
+                    });
+                } else {
+                    // ===== 混合搜尋 / PINYIN_SPECIAL → 按 rhymeIndex 分組 =====
+                    const grouped = {};
+                    results.forEach(item => {
+                        const gKey = item.rhymeIndex !== undefined ? item.rhymeIndex : 0;
+                        if (!grouped[gKey]) grouped[gKey] = [];
+                        grouped[gKey].push(item);
+                    });
+                    
+                    const sortedKeys = Object.keys(grouped).sort((a, b) => parseInt(a) - parseInt(b));
+                    
+                    sortedKeys.forEach(gKey => {
+                        const group = grouped[gKey];
+                        const searchTerm = searchedTerms.find(s => s.index === parseInt(gKey));
+                        let displayTitle = '';
+                        if (searchTerm) {
+                            if (showAsZhuyin) {
+                                displayTitle = searchTerm.zhuyin || searchTerm.original;
+                            } else {
+                                const zy = searchTerm.zhuyin || '';
+                                displayTitle = fullZhuyinToPinyin[zy] || searchTerm.original;
+                            }
+                        }
+                        
+                        group.sort(tierSort);
+                        const colorClass = `search-highlight-${(parseInt(gKey) % 5) + 1}`;
+                        // 混合模式：根據該組的 searchTerm 決定高亮目標
+                        const hlTarget = searchTerm && searchTerm.isRhymeSearch ? 'initial' : 'rhyme';
+                        
+                        content += `
+                            <div class="group-section">
+                                <div class="group-title rhyme-group"><span class="${colorClass}">[${displayTitle}]</span>（${group.length}）</div>
+                                <div class="results-grid">
+                                    ${group.map(item => createCharCard(item, showPinyin, hlTarget)).join('')}
+                                </div>
+                            </div>
+                        `;
+                    });
+                }
+            } else {
+                // 常用字優先模式：三級排序
+                results.sort((a, b) => {
+                    const markA = getCharMark(a.char, a.zhuyin);
+                    const markB = getCharMark(b.char, b.zhuyin);
+                    const orderA = markA === 'common' ? 0 : (markA === 'rare' ? 2 : 1);
+                    const orderB = markB === 'common' ? 0 : (markB === 'rare' ? 2 : 1);
+                    return orderA - orderB;
+                });
+                
+                content = `<div class="results-grid">
+                    ${results.map(item => createCharCard(item, showPinyin)).join('')}
+                </div>`;
+            }
+            
+            container.innerHTML = header + content;
+            
+            // 點擊事件（使用事件委派）
+            const resultsContainer = document.getElementById('resultsContainer');
+            resultsContainer.onclick = function(e) {
+                if (e.target.classList.contains('mark-badge')) return;
+                const card = e.target.closest('.char-card');
+                if (card) {
+                    const char = card.dataset.char;
+                    toggleSelection(char, card);
+                }
+            };
+        }
+
+        // 事件監聽器
+        const searchInputEl = document.getElementById('searchInput');
+        
+        // 偏好設定面板
+        function toggleSettings() {
+            const overlay = document.getElementById('settingsOverlay');
+            overlay.classList.toggle('show');
+        }
+
+        function closeSettingsOverlay(event) {
+            // 點擊遮罩本身才關閉（內容區已 stopPropagation）
+            if (event.target === event.currentTarget) {
+                document.getElementById('settingsOverlay').classList.remove('show');
+            }
+        }
+
+        function toggleAbout() {
+            document.getElementById('aboutOverlay').classList.toggle('show');
+        }
+
+        function closeAbout(event) {
+            if (event.target === event.currentTarget) {
+                document.getElementById('aboutOverlay').classList.remove('show');
+            }
+        }
+        // 標準 input 事件
+        searchInputEl.addEventListener('input', (e) => {
+            // 如果正在輸入法組字中（如注音輸入法），跳過
+            if (e.isComposing) return;
+            const results = searchRhyme(e.target.value);
+            displayResults(results);
+        });
+        
+        // 輸入法組字完成事件（支援手機注音/拼音輸入法）
+        searchInputEl.addEventListener('compositionend', (e) => {
+            const results = searchRhyme(e.target.value);
+            displayResults(results);
+        });
+        
+        // 確保手機上點擊搜尋框能正確取得焦點
+        searchInputEl.addEventListener('touchend', (e) => {
+            setTimeout(() => e.target.focus(), 10);
+        });
+
+        document.getElementById('showPinyin').addEventListener('change', () => {
+            const currentInput = document.getElementById('searchInput').value;
+            if (currentInput) {
+                const results = searchRhyme(currentInput);
+                displayResults(results);
+            }
+        });
+        
+        document.getElementById('highlightSearch').addEventListener('change', () => {
+            const currentInput = document.getElementById('searchInput').value;
+            if (currentInput) {
+                const results = searchRhyme(currentInput);
+                displayResults(results);
+            }
+        });
+
+        document.getElementById('hideRare').addEventListener('change', () => {
+            const currentInput = document.getElementById('searchInput').value;
+            if (currentInput) {
+                const results = searchRhyme(currentInput);
+                displayResults(results);
+            }
+        });
+
+        document.getElementById('filterDuplicate').addEventListener('change', () => {
+            const currentInput = document.getElementById('searchInput').value;
+            if (currentInput) {
+                const results = searchRhyme(currentInput);
+                displayResults(results);
+            }
+        });
+
+        // 按鈕組切換
+        document.querySelectorAll('.mode-button').forEach(button => {
+            button.addEventListener('click', function() {
+                document.querySelectorAll('.mode-button').forEach(b => b.classList.remove('active'));
+                this.classList.add('active');
+                currentMode = this.dataset.mode;
+                const currentInput = document.getElementById('searchInput').value;
+                if (currentInput) {
+                    const results = searchRhyme(currentInput);
+                    displayResults(results);
+                }
+            });
+        });
+
+        // Dark mode 切換
+        const themeToggle = document.getElementById('themeToggle');
+        let isDark = false;
+        
+        // 顏色反轉工具函數
+        function invertColor(hex) {
+            hex = hex.replace('#', '');
+            const r = 255 - parseInt(hex.substring(0, 2), 16);
+            const g = 255 - parseInt(hex.substring(2, 4), 16);
+            const b = 255 - parseInt(hex.substring(4, 6), 16);
+            return '#' + [r, g, b].map(c => c.toString(16).padStart(2, '0')).join('');
+        }
+        
+        themeToggle.addEventListener('click', () => {
+            isDark = !isDark;
+            document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
+            themeToggle.textContent = isDark ? '🌙 深色模式' : '☀️ 淺色模式' ;
+            
+
+            
+            // 重新載入顏色（含反轉邏輯）
+            loadColors();
+            
+            // 重新渲染結果以套用顏色
+            const currentInput = document.getElementById('searchInput').value;
+            if (currentInput) {
+                const results = searchRhyme(currentInput);
+                displayResults(results);
+            }
+        });
+
+        // 縮放功能（只影響字卡區域）
+        const zoomSlider = document.getElementById('zoomSlider');
+        const zoomValue = document.getElementById('zoomValue');
+        const resultsSection = document.querySelector('.results-section');
+
+        zoomSlider.addEventListener('input', (e) => {
+            zoomValue.textContent = e.target.value + '%';
+        });
+        
+        zoomSlider.addEventListener('change', (e) => {
+            const value = parseInt(e.target.value);
+            const scale = value / 100;
+            resultsSection.style.zoom = scale;
+            resultsSection.style.transform = 'none';
+        });
+
+        // 顏色自定義
+        function loadColors() {
+            // 從 localStorage 讀取原始（淺色模式）顏色
+            const rawColors = {
+                bgColor1: localStorage.getItem('bgColor1') || '#667eea',
+                containerBg: localStorage.getItem('containerBg') || '#ffffff',
+                textColor: localStorage.getItem('textColor') || '#2d3748',
+                highlightColor: localStorage.getItem('highlightColor') || '#ed8936'
+            };
+            
+            // 深色模式：背景以外的顏色反轉
+            let displayColors;
+            if (isDark) {
+                displayColors = {
+                    bgColor1: rawColors.bgColor1, // 背景不反轉
+                    containerBg: invertColor(rawColors.containerBg),
+                    textColor: invertColor(rawColors.textColor),
+                    highlightColor: invertColor(rawColors.highlightColor)
+                };
+            } else {
+                displayColors = { ...rawColors };
+            }
+            
+            // 更新色票 UI 顯示當前實際使用的顏色
+            document.getElementById('bgColor1').value = rawColors.bgColor1; // 背景永遠顯示原色
+            document.getElementById('containerBg').value = displayColors.containerBg;
+            document.getElementById('textColor').value = displayColors.textColor;
+            document.getElementById('highlightColor').value = displayColors.highlightColor;
+            
+            applyColors(displayColors, rawColors.textColor);
+        }
+
+        function applyColors(colors, rawTextColor) {
+            // 背景不受深色模式影響（深色模式有自己的背景）
+            if (!isDark) {
+                document.documentElement.style.setProperty('--bg-gradient-1', colors.bgColor1);
+                document.documentElement.style.setProperty('--bg-gradient-2', colors.bgColor1);
+            }
+            document.documentElement.style.setProperty('--container-bg', colors.containerBg);
+            document.documentElement.style.setProperty('--highlight-border', colors.highlightColor);
+            
+            // 文字顏色
+            const defaultTextColor = '#2d3748';
+            const originalTextColor = rawTextColor || colors.textColor;
+            if (originalTextColor !== defaultTextColor || isDark) {
+                hasCustomTextColor = true;
+                document.documentElement.style.setProperty('--custom-text-color', colors.textColor);
+                document.documentElement.style.setProperty('--text-primary', colors.textColor);
+            } else {
+                hasCustomTextColor = false;
+                document.documentElement.style.setProperty('--text-primary', colors.textColor);
+            }
+        }
+
+        document.getElementById('bgColor1').addEventListener('change', (e) => {
+            // 背景不反轉，直接儲存
+            localStorage.setItem('bgColor1', e.target.value);
+            loadColors();
+        });
+
+        document.getElementById('containerBg').addEventListener('change', (e) => {
+            // 深色模式下使用者選的是反轉後的顏色，需反轉回原色再儲存
+            const rawValue = isDark ? invertColor(e.target.value) : e.target.value;
+            localStorage.setItem('containerBg', rawValue);
+            loadColors();
+        });
+
+        document.getElementById('textColor').addEventListener('change', (e) => {
+            const rawValue = isDark ? invertColor(e.target.value) : e.target.value;
+            localStorage.setItem('textColor', rawValue);
+            loadColors();
+            // 重新渲染以套用 custom-color class
+            const currentInput = document.getElementById('searchInput').value;
+            if (currentInput) {
+                const results = searchRhyme(currentInput);
+                displayResults(results);
+            }
+        });
+
+        document.getElementById('highlightColor').addEventListener('change', (e) => {
+            const rawValue = isDark ? invertColor(e.target.value) : e.target.value;
+            localStorage.setItem('highlightColor', rawValue);
+            loadColors();
+        });
+
+        // 初始化
+        loadDictOverrides();  // 先載入使用者修改，覆寫 rhymeDict
+        buildIndex();
+
+        // 手機版：將 batch panel 移入搜尋區域
+        if (window.innerWidth <= 640) {
+            const batchPanel = document.getElementById('batchPanel');
+            const mobileArea = document.getElementById('mobileBatchArea');
+            if (batchPanel && mobileArea) {
+                mobileArea.appendChild(batchPanel);
+            }
+        }
+
+        loadColors();
+        // 只在桌面自動 focus（避免手機打開就彈出鍵盤）
+        if (window.innerWidth > 640) {
+            document.getElementById('searchInput').focus();
+        }
+    </script>
+</body>
+</html>

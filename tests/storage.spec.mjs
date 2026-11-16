@@ -49,7 +49,6 @@ test('corrupt: 損毀後繼續編輯，原始內容仍另存可救回（歌詞�
     const { context, page, errors } = await bootPage(browser, { storage: CORRUPT });
     await page.locator('.section-textarea').first().fill('新寫的歌詞');   // 只改模型；存檔寫進 lh:songs，舊鍵不動
     await expect.poll(async () => (await activeSongRaw(page)).sections[0].text).toBe('新寫的歌詞');   // 等 300 毫秒的存檔計時器
-    await page.evaluate(() => { dictOverrides = { x: 'y' }; saveDictOverrides(); });
     const got = await page.evaluate(() => ({
         lyrics: localStorage.getItem('haiku_lyrics'),
         stashLyrics: JSON.parse(localStorage.getItem('lh:corrupt:haiku_lyrics')).raw,
@@ -61,9 +60,10 @@ test('corrupt: 損毀後繼續編輯，原始內容仍另存可救回（歌詞�
     expect(errors).toEqual([]);
     await context.close();
 
+    // 0.98.21 不再套用字庫覆寫：舊的覆寫資料原封不動留著（不讀、不刪）
     const b = await bootPage(browser, { storage: { dictOverrides_v076: '{bad' } });
-    await b.page.evaluate(() => { dictOverrides = { x: 'y' }; saveDictOverrides(); });
-    expect(await b.page.evaluate(() => JSON.parse(localStorage.getItem('lh:corrupt:dictOverrides_v076')).raw)).toBe('{bad');
+    expect(await b.page.evaluate(() => localStorage.getItem('dictOverrides_v076'))).toBe('{bad');
+    expect(b.errors).toEqual([]);
     await b.context.close();
 });
 
@@ -174,15 +174,15 @@ test('backup: 基準備份之後不會被覆寫', async ({ browser }) => {
     await context.close();
 });
 
-test('backup: 同一毫秒建立的備份不互相覆蓋，只保留最新 3 份', async ({ browser }) => {
+test('backup: 同一毫秒建立的備份不互相覆蓋，保留 24 小時（最多 10 份）', async ({ browser }) => {
     const { context, page, errors } = await bootPage(browser, {
         storage: FIXTURE,
         beforeGoto: ({ page }) => page.clock.setFixedTime(new Date('2026-01-01T00:00:00Z')),
     });
     await page.evaluate(() => Promise.all(['t1', 't2', 't3', 't4', 't5'].map(id => lhBackup(id, 'same-ms', { id }))));
     const list = await page.evaluate(() => lhListBackups());
-    expect(list.map(r => r.id)).toEqual(['baseline', 'pre-schema-2', 't3', 't4', 't5']);      // baseline 與 pre-schema-* 釘住不淘汰，其餘只留最新 3 份（t1、t2 被淘汰）
-    expect(new Set(list.map(r => r.id)).size).toBe(5);
+    expect(list.map(r => r.id)).toEqual(['baseline', 'pre-schema-2', 't1', 't2', 't3', 't4', 't5']);      // 0.98.21：24 小時內的都留（最多 10 份）
+    expect(new Set(list.map(r => r.id)).size).toBe(7);
     for (let i = 1; i < list.length; i++) expect(list[i - 1].seq).toBeLessThan(list[i].seq);
     expect(new Set(list.map(r => r.createdAt)).size).toBe(1);
     // 同 id 再備份：不覆寫
@@ -190,6 +190,10 @@ test('backup: 同一毫秒建立的備份不互相覆蓋，只保留最新 3 份
     expect(again).toMatchObject({ ok: true, existed: true });
     const after = await page.evaluate(() => lhListBackups());
     expect(after).toEqual(list);
+    // 過了一天再備份：超過 24 小時的全部淘汰（升級前的也照這個規則），只剩新的那份
+    await page.clock.setFixedTime(new Date('2026-01-02T01:00:00Z'));
+    await page.evaluate(() => lhBackup('t6', 'next-day', { id: 't6' }));
+    expect((await page.evaluate(() => lhListBackups())).map(r => r.id)).toEqual(['t6']);
     expect(errors).toEqual([]);
     await context.close();
 });

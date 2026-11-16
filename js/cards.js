@@ -110,33 +110,16 @@
             `;
         }
 
-        // 延遲重排系統
-        let reorderTimer = null;
-        const REORDER_DELAY = 3000;
-        const pendingChanges = new Map(); // key: char+dictKey → oldTier
-
-        function scheduleReorder() {
-            if (reorderTimer) clearTimeout(reorderTimer);
-            reorderTimer = setTimeout(() => {
-                reorderTimer = null;
-                // 快照庫空了 = 全部改回去了 = 不重排
-                if (pendingChanges.size === 0) return;
-                pendingChanges.clear();
-                const currentInput = document.getElementById('searchInput').value;
-                if (currentInput) {
-                    const container = document.getElementById('resultsContainer');
-                    container.style.opacity = '0.001';
-                    container.style.transition = 'opacity 0.3s ease';
-                    setTimeout(() => {
-                        const results = searchRhyme(currentInput);
-                        displayResults(results);
-                        container.style.opacity = '1';
-                    }, 500);
-                }
-            }, REORDER_DELAY);
+        // 0.98.21 Andy：字的常用度不給使用者改了（有意見走「回報」）；原本的批量標記、延遲重排、本機字庫覆寫都拿掉（見 git 0.98.20）。
+        // 「常用／一般／冷僻」改成篩選：按了只看那幾級（可以多選），都不按＝全部；搜尋的字一律照樣出現（js/results.js）
+        const lhTierShow = new Set();
+        function lhTierFilter(tier) {
+            if (lhTierShow.has(tier)) lhTierShow.delete(tier); else lhTierShow.add(tier);
+            document.querySelectorAll('[data-tier]').forEach(b => b.setAttribute('aria-pressed', String(lhTierShow.has(b.dataset.tier))));
+            const v = document.getElementById('searchInput').value;
+            if (v && typeof _handleSearch === 'function') _handleSearch(v);
         }
 
-        // 切換選中狀態
         function toggleSelection(char, cardElement) {
             if (selectedChars.has(char)) {
                 selectedChars.delete(char);
@@ -147,47 +130,6 @@
                 // addToRecentClicks replaced by new panels
             }
             updateBatchCount();
-        }
-
-        function batchMark(action) {
-            if (selectedChars.size === 0) return;
-
-            const cards = document.querySelectorAll('.char-card.selected');
-            const processed = new Set();
-            const newTier = action === 'clear' ? 'normal' : action;
-            const tierLabels = { common: '常用', normal: '一般', rare: '冷僻' };
-
-            cards.forEach(card => {
-                const char = card.dataset.char;
-                const dictKey = card.dataset.key;
-                if (!char || !dictKey || dictKey === 'undefined0' || processed.has(char + dictKey)) return;
-                processed.add(char + dictKey);
-
-                const baseZhuyin = dictKey.slice(0, -1);
-                const snapKey = char + dictKey;
-
-                // 拍快照（首次改動才記錄）
-                if (!pendingChanges.has(snapKey)) {
-                    pendingChanges.set(snapKey, getCharMark(char, baseZhuyin, +dictKey.slice(-1)));
-                }
-
-                moveCharTier(char, dictKey, newTier);
-
-                // 比對：改回原狀態 → 消除快照
-                if (pendingChanges.get(snapKey) === newTier) {
-                    pendingChanges.delete(snapKey);
-                }
-
-                // 更新徽章外觀
-                const badge = card.querySelector('.mark-badge');
-                if (badge) {
-                    badge.className = `mark-badge ${newTier}`;
-                    badge.textContent = tierLabels[newTier];
-                }
-            });
-
-            updateBatchCount();
-            scheduleReorder();
         }
 
         // 更新批量面板計數
@@ -223,6 +165,8 @@
                 const m = el.scrollWidth - el.clientWidth;
                 el.classList.toggle('sx-l', m > 1 && el.scrollLeft > 1);
                 el.classList.toggle('sx-r', m > 1 && el.scrollLeft < m - 1);
+                // 0.98.21 Andy：底下一條很淡的捲動軸（看得到目前在哪一段）：寬＝看得到的比例、位置＝捲到哪（css/base.css .sx-l／.sx-r 的背景）
+                if (m > 1) { el.style.setProperty('--sxw', (el.clientWidth / el.scrollWidth * 100).toFixed(1) + '%'); el.style.setProperty('--sxp', (el.scrollLeft / m * 100).toFixed(1) + '%'); }
             }
         }
         document.addEventListener('scroll', e => { if (e.target.matches && e.target.matches(LH_SX_SEL)) lhScrollCue(); }, true);

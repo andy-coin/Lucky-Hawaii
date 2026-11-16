@@ -1,0 +1,30 @@
+# 🐳 Docker Compose Template for AI Development
+# 可複用模板 - 複製後修改 container_name 和 ports
+#
+# ⚠️ 修改事項：
+#   1. container_name：改成專案名稱-dev（不要跟其他容器衝突）
+#   2. ports：如果有 web server 才需要，改成你的 port
+#   3. environment：如果不用 ToshLLM 連本地模型，可刪掉 PI_PROVIDER 和 LLAMA_SERVER_URL
+
+services:
+  dev:
+    # ⚠️ build context 是專案根目錄（不是 .devcontainer）
+    build:
+      context: .
+      dockerfile: .devcontainer/Dockerfile
+    container_name: Lucky-Hawaii-dev
+    volumes:
+      - ../:/workspace:cached                # 掛載專案根目錄到容器（.. 跳出 .devcontainer/）
+      - ~/.pi:/root/.pi:cached               # 🐱 帶走所有 Pi Agent 設定（skills, profiles, extensions, memory...）
+      - ~/.config/mcp:/root/.config/mcp:cached  # 🐱 MCP 工具配置（brave-search, tavily-search, reaper）
+    working_dir: /workspace
+    # ports:
+    #   - "3000:3000"            # 📌 如果有 web server 才需要，取消註解
+    environment:
+      - NODE_ENV=development
+      #- PI_PROVIDER=llama-server=http://host.docker.internal:8080  # 🐱 Pi Agent 預設 provider (X)
+      - PI_PROVIDER=http://host.docker.internal:8080                # 🐱 Pi Agent 預設 provider (O)
+      - LLAMA_SERVER_URL=http://host.docker.internal:8080          # 🐱 pi-llama-cpp extension 需要這個
+    command: sleep infinity     # 保持容器運行
+    stdin_open: true           # 互動式終端
+    tty: true                  # 分配 tty

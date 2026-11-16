@@ -1,0 +1,104 @@
+{
+ "items": [
+  {
+   "requirement_id": "EDIT-01",
+   "category": "concurrency",
+   "status": "resolved",
+   "verification": "explicit",
+   "resolution": "During a composition (compositionstart→compositionend) no storage write and no DOM mutation of any section textarea occurs; the committed text is saved within 400 ms after compositionend; the caret position and textarea node identity are unchanged across typing and composition; a page close/pagehide right after typing still persists the last edit.",
+   "reason": null,
+   "probe": "unclassified — review manually"
+  },
+  {
+   "requirement_id": "EDIT-04",
+   "category": "adjacency",
+   "status": "resolved",
+   "verification": "explicit",
+   "resolution": "Two songs may share the same title; they remain separate songs distinguished by id; a new song takes the next unused number N in 「未命名歌曲 N」 (gaps are not refilled unless N is the next free integer above the current max).",
+   "reason": null,
+   "probe": "When two things are exactly equal or just touch, do they merge, collide, or separate?"
+  },
+  {
+   "requirement_id": "EDIT-04",
+   "category": "empty",
+   "status": "resolved",
+   "verification": "explicit",
+   "resolution": "With zero songs (all deleted, or corrupt/empty lh:songs) the app always shows exactly one empty song; deleting the last song creates a new empty song; a migrated v0.96 user with an empty or missing haiku_lyrics gets one song with one empty section, and a blank rename keeps the previous title.",
+   "reason": null,
+   "probe": "What is the result for empty, single-element, or null input?"
+  },
+  {
+   "requirement_id": "EDIT-04",
+   "category": "ordering",
+   "status": "resolved",
+   "verification": "explicit",
+   "resolution": "The song list is ordered by createdAt descending (newest first); ties broken by id ascending (stable); switching or editing a song does not reorder the list.",
+   "reason": null,
+   "probe": "When elements compare equal, is output order specified and stable?"
+  },
+  {
+   "requirement_id": "EDIT-04",
+   "category": "idempotency",
+   "status": "resolved",
+   "verification": "explicit",
+   "resolution": "Running the 1→2 migration again (reload, second tab, re-run after crash) never creates a second migrated song: the fixed id song-migrated and the existing-valid-lh:songs check make it a no-op, and the legacy keys remain byte-identical.",
+   "reason": null,
+   "probe": "What happens if this runs twice on the same input?"
+  },
+  {
+   "requirement_id": "EDIT-04",
+   "category": "concurrency",
+   "status": "resolved",
+   "verification": "explicit",
+   "resolution": "If the migration is interrupted between writing lh:songs and setting lh:schema=2, the next boot converges to exactly one migrated song; two tabs editing different songs never lose each other's edits (merge-on-write re-reads lh:songs before each flush); the same song edited in two tabs is last-write-wins.",
+   "reason": null,
+   "probe": "If interrupted or run in parallel, what is guaranteed?"
+  },
+  {
+   "requirement_id": "EDIT-08",
+   "category": "empty",
+   "status": "resolved",
+   "verification": "explicit",
+   "resolution": "Export of a song whose sections are all blank shows a toast and produces no file; blank sections are skipped in TXT/Markdown/print output and blank labels fall back to 「段落 n」; the TXT built for download and the text copied to the clipboard are byte-identical; Markdown escapes lines starting with #, >, -, *, + or 1.; download filenames replace \\ / : * ? \" < > | with _.",
+   "reason": null,
+   "probe": "unclassified — review manually"
+  },
+  {
+   "requirement_id": "EDIT-09",
+   "category": "adjacency",
+   "status": "resolved",
+   "verification": "explicit",
+   "resolution": "In 「只加入歌曲」 mode an imported song whose id already exists gets a new id and a title colliding with an existing one gets the suffix 「（匯入）」; saved words are merged and de-duplicated by exact string.",
+   "reason": null,
+   "probe": "When two things are exactly equal or just touch, do they merge, collide, or separate?"
+  },
+  {
+   "requirement_id": "EDIT-09",
+   "category": "empty",
+   "status": "resolved",
+   "verification": "explicit",
+   "resolution": "A backup with zero songs, an empty file, invalid JSON, a wrong format, a newer version, or a file over 5 MB is rejected with a plain-language error and changes no stored data.",
+   "reason": null,
+   "probe": "What is the result for empty, single-element, or null input?"
+  },
+  {
+   "requirement_id": "EDIT-09",
+   "category": "ordering",
+   "status": "resolved",
+   "verification": "explicit",
+   "resolution": "Imported songs keep their relative createdAt order from the backup; in add-only mode they are inserted into the list by createdAt like any other song; in replace mode the active song becomes the backup's activeSong if present, else the newest song.",
+   "reason": null,
+   "probe": "When elements compare equal, is output order specified and stable?"
+  }
+ ],
+ "coverage": {
+  "applicable": 10,
+  "resolved": 10,
+  "unresolved": 0,
+  "unclassified": 0,
+  "byVerification": {
+   "explicit": 10,
+   "backstop": 0
+  }
+ }
+}

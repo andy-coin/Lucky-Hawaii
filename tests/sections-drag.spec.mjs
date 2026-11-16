@@ -236,6 +236,9 @@ test('排序：拖到最上與最下', async ({ browser }) => {
     await page.mouse.down();
     await page.mouse.move(a.x + a.width / 2, a.y + a.height - 2, { steps: 8 });
     await expect(page.locator('.section-drop-line')).toHaveCount(1);
+    // 0.98.21 段落下面多了「＋ 貼上文字」，列表捲得動：靠底會自動捲，等捲到底停下來再量
+    await expect.poll(() => page.locator('.section-drop-line').evaluate(el => { let p = el.parentElement; while (p && p.scrollHeight <= p.clientHeight + 1) p = p.parentElement; return p ? Math.round(p.scrollHeight - p.clientHeight - p.scrollTop) : 0; })).toBeLessThanOrEqual(1);
+    await page.waitForTimeout(100);
     const last = await secRect(2);
     const lr2 = await lineRect();
     expect(Math.abs(lr2.bottom - last.bottom)).toBeLessThanOrEqual(8);

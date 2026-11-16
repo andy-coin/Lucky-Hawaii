@@ -319,10 +319,7 @@ test.describe('分批', () => {
             await card.click();
             expect(await renderState(page)).toBe('more');                  // 點的當下確實還在分批（被卡住，所以一定是）
             await expect(card).toHaveClass(/selected/);
-            // 批量標記也要能用在已經畫好的字卡上（按「冷僻」鈕）
-            await page.evaluate(() => batchMark('rare'));
-            await expect(card.locator('.mark-badge')).toHaveText('冷僻');
-            expect(await renderState(page)).toBe('more');                  // 標記完仍然卡在分批中
+            // 0.98.21：常用／一般／冷僻改成篩選鈕，使用者不能再批次改字的頻率（原本的批次標記檢查拿掉）
 
             expect(await release(), '放行時應該有一格被擋下').toBe(1);
             await settle(page);

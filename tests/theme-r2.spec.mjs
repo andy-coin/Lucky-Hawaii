@@ -114,7 +114,8 @@ test('背景飄字：自動化測試下不畫、開關記住、減少動態時�
     expect(await plain.page.evaluate(() => [localStorage.getItem('lh:bgFx'), lhBgFxIsOn()])).toEqual(['1', false]);
     await plain.context.close();
 
-    const on = await bootPage(browser, { wordlist: 'stub', init: () => { window.__lhBgFxTest = true; } });
+    // 0.98.16 起第 3 級（預設）也定格，只有 4、5 級會跑：用第 4 級測
+    const on = await bootPage(browser, { wordlist: 'stub', storage: { 'lh:bgFx': '4' }, init: () => { window.__lhBgFxTest = true; } });
     const r = await on.page.evaluate(() => { const c = document.getElementById('lhBgFx'); const cs = getComputedStyle(c); return { z: cs.zIndex, pe: cs.pointerEvents, pos: cs.position, running: !!_lhBgRaf }; });
     expect(r).toEqual({ z: '-1', pe: 'none', pos: 'fixed', running: true });
     await on.page.evaluate(() => lhBgFxSet(false));
