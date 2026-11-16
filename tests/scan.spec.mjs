@@ -71,8 +71,8 @@ test('registry: 後台金鑰被排除且不在清單內', async ({ browser }) =>
     expect(reg.LH_EXCLUDED_KEYS).toEqual(expect.arrayContaining(['haoYunQi_admin_key', 'haoYunQi_admin_theme']));
     const keys = reg.LH_KEYS.map(k => k.key);
     for (const k of reg.LH_EXCLUDED_KEYS) expect(keys).not.toContain(k);
-    expect(keys).toHaveLength(34);   // 0.98.21 專案 lh:projects、lh:activeProject，快照 lh:snapCfg   // 0.98.06 AI 用量 lh:aiTune、本機模型 lh:aiLocal；0.98.05 自訂詞彙加入 lh:customWords   // 三直排查詢區收合加入 resultsPanelCollapsed；平板三直排拉寬加入 lh:panelW；R2 主題加入 lh:bgFx，寬螢幕版面加入 lh:dock，底部面板高度加入 lh:sheetH
-    expect(new Set(keys).size).toBe(34);
+    expect(keys).toHaveLength(35);   // 0.98.22.4 宇宙調參 lh:spTune； 0.98.21 專案 lh:projects、lh:activeProject，快照 lh:snapCfg   // 0.98.06 AI 用量 lh:aiTune、本機模型 lh:aiLocal；0.98.05 自訂詞彙加入 lh:customWords   // 三直排查詢區收合加入 resultsPanelCollapsed；平板三直排拉寬加入 lh:panelW；R2 主題加入 lh:bgFx，寬螢幕版面加入 lh:dock，底部面板高度加入 lh:sheetH
+    expect(new Set(keys).size).toBe(35);
 });
 
 test('registry: 掃描器自我檢查', () => {

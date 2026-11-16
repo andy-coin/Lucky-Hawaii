@@ -234,13 +234,17 @@ test('詞宇宙：調參齒輪（暫時）', async ({ browser }) => {
     await gear.click();
     await expect(page.locator('.ws-tune')).toBeVisible();
     await expect(page.locator('.ws-tune-h')).toHaveText(['殘影', '光暈閃爍', '混沌凝聚', '恆星日冕', '恆星輻射', '恆星熱浪']);
+    await page.locator('.ws-tune-h', { hasText: '混沌凝聚' }).click();   // 每組一開始收起來
+    await page.locator('.ws-tune-h', { hasText: '恆星輻射' }).click();
     const row = page.locator('.ws-tune-row', { hasText: '阻尼' });
     await row.locator('input').fill('0.8');
     await expect(row.locator('output')).toHaveText('0.8');
     const row2 = page.locator('.ws-tune-row', { hasText: '光芒數' });
     await row2.locator('input').fill('10');
     expect(await page.evaluate(() => [LH_SP_TUNE.gather.damp, LH_SP_STARFX.rays.n])).toEqual([0.8, 10]);
+    expect(JSON.parse(await page.evaluate(() => localStorage.getItem('lh:spTune'))).gather.damp).toBe(0.8);   // 調過的值記在瀏覽器
     await page.locator('.ws-tune-btn', { hasText: '還原預設' }).click();
+    expect(await page.evaluate(() => localStorage.getItem('lh:spTune'))).toBeNull();
     expect(await page.evaluate(() => [LH_SP_TUNE.gather.damp, LH_SP_STARFX.rays.n])).toEqual([0.5, 11]);
     await expect(row.locator('output')).toHaveText('0.5');
     await page.waitForTimeout(300);   // 畫幾格，確定新參數不會讓畫布出錯

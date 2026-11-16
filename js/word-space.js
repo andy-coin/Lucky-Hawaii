@@ -1880,7 +1880,7 @@ function _lhSpHoloDraw(c, t, z) {
 // ===== 第 5 級恆星特效（0.98.21 Andy）：日冕、輻射、扭曲——整體偏慢、偏淡、不搶焦點 =====
 // 微調只改這張表：a＝透明度，size／len＝大小（恆星字寬的倍數），spin＝每秒轉幾圈，breath／pulse＝亮暗一輪幾秒，speed＝波動每秒幾輪
 const LH_SP_STARFX = {
-    corona: { a: 0.12, size: 0.5, spin: 0.008, breath: 7.5, n: 70, amp: 0.05, freq: 2, speed: 0.25 }, // 日冕：細細的放射絲，每條是一道往外走的波（0.98.22.1）：amp＝震幅（日冕半徑倍）、freq＝一條絲上幾個波、speed＝每秒走幾個波
+    corona: { a: 0.12, size: 0.5, spin: 0.008, breath: 7.5, n: 70, amp: 0.25, speed: 0.06 }, // 日冕：直直的放射絲，每條各自慢慢伸長、縮短（0.98.22.4，取代像海草的波浪）：amp＝伸縮幅度（自己長度倍）、speed＝每秒伸縮幾輪
     rays:   { n: 11, a: 0.05, len: 0.6, width: 0.11, spin: 0.008, pulse: 3 }, // 輻射：幾道細長光芒，各自慢慢明滅（彼此錯開）
     heat:   { a: 0.12, amp: 0.02, speed: 0.3 },                             // 熱浪：字本身很輕的晃動（0.98.22 從「扭曲」獨立出來；扭曲光環刪掉）
 };
@@ -1894,6 +1894,7 @@ const LH_SP_TUNE = {
     starfx: LH_SP_STARFX,
 };
 const LH_SP_TUNE_DEF = JSON.parse(JSON.stringify(LH_SP_TUNE));
+// 0.98.22.4 Andy：滑桿調過的值存在這台瀏覽器（lh:spTune），關掉、閃退再開都還在；「還原預設」才清掉。只收表上有的數字，舊版多的鍵不理
 // [群組, 鍵, 名稱, 最小, 最大, 一格]；恆星特效是 starfx.子群組.鍵
 const LH_SP_TUNE_ROWS = [
     ['殘影', [['trail.hold', '最長停留（毫秒）', 0, 2000, 50], ['trail.fade', '從尾巴收完（毫秒）', 50, 2000, 25], ['trail.edge', '尾巴收的柔邊（越大越糊）', 0.05, 1.5, 0.05], ['trail.alpha', '濃度', 0, 1, 0.05],
@@ -1905,12 +1906,20 @@ const LH_SP_TUNE_ROWS = [
     ['混沌凝聚', [['gather.k', '一開始的拉力', 0.005, 0.2, 0.005], ['gather.stiff', '越拉越緊的程度', 0, 20, 0.5], ['gather.ramp', '變緊的時間尺度（秒）', 2, 30, 0.5],
         ['gather.damp', '阻尼（越小擺盪越多次）', 0.2, 2, 0.05], ['gather.spread', '每顆拉力差異', 0, 1, 0.05], ['gather.scatter', '起點散開（星系半徑倍）', 0.5, 4, 0.1]]],
     ['恆星日冕', [['starfx.corona.a', '透明度', 0, 1, 0.01], ['starfx.corona.size', '大小（星系半徑×，0.5＝50%）', 0.05, 1.5, 0.01], ['starfx.corona.spin', '轉速（圈／秒）', 0, 0.1, 0.002], ['starfx.corona.breath', '亮暗一輪（秒）', 1, 30, 0.5],
-        ['starfx.corona.n', '細絲數', 0, 200, 5], ['starfx.corona.amp', '波的震幅', 0, 0.3, 0.005], ['starfx.corona.freq', '波的頻率（一條幾個波）', 0, 8, 0.1], ['starfx.corona.speed', '波往外走的速度（波／秒）', 0, 3, 0.05]]],
+        ['starfx.corona.n', '細絲數', 0, 200, 5], ['starfx.corona.amp', '伸縮幅度', 0, 1, 0.01], ['starfx.corona.speed', '伸縮速度（輪／秒）', 0, 0.5, 0.005]]],
     ['恆星輻射', [['starfx.rays.n', '光芒數', 0, 16, 1], ['starfx.rays.a', '透明度', 0, 1, 0.01], ['starfx.rays.len', '長度（星系半徑×）', 0.05, 1.5, 0.01], ['starfx.rays.width', '粗細', 0.02, 0.5, 0.01],
         ['starfx.rays.spin', '轉速（圈／秒）', 0, 0.1, 0.002], ['starfx.rays.pulse', '明滅一輪（秒）', 1, 30, 0.5]]],
     ['恆星熱浪', [['starfx.heat.a', '透明度', 0, 1, 0.01], ['starfx.heat.amp', '晃動幅度', 0, 0.1, 0.002], ['starfx.heat.speed', '晃動速度（輪／秒）', 0, 2, 0.02]]],
 ];
-const _lhSpTunePath = (o, path) => { const ks = path.split('.'), last = ks.pop(); for (const k of ks) o = o[k]; return [o, last]; };
+const _lhSpTunePath = (o, path) => { const ks = path.split('.'), last = ks.pop(); for (const k of ks) o = o?.[k]; return [o, last]; };
+const _lhSpTuneSave = () => lhSet('lh:spTune', JSON.stringify(LH_SP_TUNE));
+{
+    const saved = lhGetJSON('lh:spTune', null, v => v && typeof v === 'object');
+    if (saved) for (const [, rows] of LH_SP_TUNE_ROWS) for (const [path] of rows) {
+        const [so, sk] = _lhSpTunePath(saved, path), [o, k] = _lhSpTunePath(LH_SP_TUNE, path);
+        if (so && Number.isFinite(so[sk])) o[k] = so[sk];
+    }
+}
 // 齒輪面板：每組一個標題、每個數字一條滑桿＋目前值；底下「複製數值」「還原預設」
 function _lhSpTunePanel() {
     const box = _lhWsEl('div', 'ws-tune');
@@ -1919,14 +1928,17 @@ function _lhSpTunePanel() {
     box.setAttribute('aria-label', '宇宙特效調參');
     const inputs = [];
     for (const [name, rows] of LH_SP_TUNE_ROWS) {
-        box.append(_lhWsEl('h4', 'ws-tune-h', name));
+        const grp = _lhWsEl('details', 'ws-tune-g');   // 0.98.22.4：每組可以收合，一開始全收起來
+        grp.append(_lhWsEl('summary', 'ws-tune-h', name));
+        box.append(grp);
         for (const [path, label, min, max, step] of rows) {
             const row = _lhWsEl('label', 'ws-tune-row'), out = _lhWsEl('output', 'ws-tune-v'), r = _lhWsEl('input', 'ws-tune-range');
             Object.assign(r, { type: 'range', min: String(min), max: String(max), step: String(step) });
             const sync = () => { const [o, k] = _lhSpTunePath(LH_SP_TUNE, path); r.value = String(o[k]); out.textContent = String(o[k]); };
             r.addEventListener('input', () => { const [o, k] = _lhSpTunePath(LH_SP_TUNE, path); o[k] = +r.value; out.textContent = r.value; _lhSp.dirty = true; });
+            r.addEventListener('change', _lhSpTuneSave);   // 放開滑桿才存
             row.append(_lhWsEl('span', 'ws-tune-l', label), out, r);
-            box.append(row);
+            grp.append(row);
             inputs.push(sync);
             sync();
         }
@@ -1947,6 +1959,7 @@ function _lhSpTunePanel() {
             else Object.assign(LH_SP_TUNE[g], LH_SP_TUNE_DEF[g]);
         }
         inputs.forEach(f => f());
+        lhRemove('lh:spTune');
         _lhSp.dirty = true;
     });
     acts.append(copy, reset);
@@ -1991,7 +2004,7 @@ function _lhSpStarFx(c, w, p, t, z) {
     c.globalCompositeOperation = 'lighter';
     c.translate(p.x, p.y);
     // 日冕
-    // 0.98.22.1 Andy：日冕每條細絲是一道往外走的波（根部固定、越外擺越大）；長短、角度每條固定不變，整圈用一道放射漸層越外越淡
+    // 0.98.22.4 Andy：日冕細絲直直的（波浪版像海草），每條各自慢慢伸長縮短、節奏錯開——像太陽外圈的冕流在吐納；整圈用一道放射漸層越外越淡
     { const C = F.corona, cr = Rg * C.size, br = 0.75 + 0.25 * Math.sin(TAU * s / C.breath + ph), n = C.n | 0;
       const h = (i, k) => { const x = Math.sin(i * 12.9898 + k * 78.233 + ph * 7) * 43758.5453; return x - Math.floor(x); };
       if (n > 0) {
@@ -2002,12 +2015,8 @@ function _lhSpStarFx(c, w, p, t, z) {
           c.beginPath();
           for (let i = 0; i < n; i++) {
               const a = (i + h(i, 1)) / n * TAU, r0 = cr * (0.27 + 0.11 * h(i, 2)), r1 = r0 + cr * (0.17 + 0.55 * h(i, 3)), q = h(i, 4) * TAU;
-              const ca = Math.cos(a), sa = Math.sin(a);
-              for (let k = 0; k <= 10; k++) {
-                  const u = k / 10, r = r0 + (r1 - r0) * u, d = C.amp * cr * u * Math.sin(TAU * (C.freq * u - C.speed * s) + q);
-                  const x = ca * r - sa * d, y = sa * r + ca * d;
-                  if (k) c.lineTo(x, y); else c.moveTo(x, y);
-              }
+              const L = (r1 - r0) * Math.max(0.05, 1 + C.amp * Math.sin(TAU * C.speed * (0.7 + 0.6 * h(i, 5)) * s + q)), ca = Math.cos(a), sa = Math.sin(a);
+              c.moveTo(ca * r0, sa * r0); c.lineTo(ca * (r0 + L), sa * (r0 + L));
           }
           c.stroke(); c.restore();
       } }
