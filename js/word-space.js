@@ -412,9 +412,13 @@ function _lhSpNavPlace() {
     const el = _lhSp.el;
     if (!el || el.hidden) return;
     const er = el.getBoundingClientRect(), pr = el.querySelector('.ws-panel').getBoundingClientRect(), lp = el.querySelector('.ws-legpanel'), tab = el.querySelector('.ws-legbtn');
+    // 0.98.22.7 Andy（iPad 截圖）：分頁貼齊左面板右邊緣、垂直置中；色標面板緊接在分頁右邊、頂端跟左面板對齊、至少跟左面板一樣高
+    const tw = tab.offsetWidth || 18;
     tab.style.left = (pr.right - er.left - 1) + 'px';
-    tab.style.top = (pr.top - er.top + (pr.height - (tab.offsetHeight || 64)) / 2) + 'px';   // 0.98.22.1：貼在左面板右邊緣的正中間
-    lp.style.left = (pr.right - er.left + (tab.offsetWidth || 22) + 4) + 'px';
+    tab.style.top = (pr.top - er.top + (pr.height - (tab.offsetHeight || 72)) / 2) + 'px';
+    lp.style.left = (pr.right - er.left + tw + 2) + 'px';
+    lp.style.top = (pr.top - er.top) + 'px';
+    lp.style.minHeight = pr.height + 'px';
     const prev = el.querySelector('.ws-prev'), mid = er.height / 2;
     let left = 12;
     for (const r of [pr, lp.hidden ? null : lp.getBoundingClientRect()]) if (r && r.width && r.bottom - er.top > mid - 32 && r.top - er.top < mid + 32) left = Math.max(left, r.right - er.left + 8);
@@ -433,6 +437,7 @@ function _lhSpFinishFx() {
     }
     for (const cl of _lhSp.groups) cl.ver++;
     _lhSp.slices = _lhSp.slCur = null;
+    for (const w of _lhSp.words) w.trl = null;   // 光帶（0.98.22.7）
     if (_lhSp.cv) _lhSp.cv.getAnimations().forEach(a => a.cancel());   // cancel 而不是 finish：星際穿越的放大是 fill forwards，finish 會停在全透明
     _lhSp.dirty = true;
 }
@@ -507,12 +512,10 @@ function _lhSpWarp(go) {
     // 0.98.21 Andy：還是像播完一個再播另一個 → 光線提早 0.45 秒接上（重疊一半以上），放大前段加速更猛（4 倍）、最後衝到 9 倍
     const PRE = 800, OVL = 450, GO = OVL / T;
     _lhSp.warp = true;
-    // 0.98.18 Andy：加速感不夠、太早變透明 → 前 0.5 秒越放越快到 3 倍（不透明），最後 0.2 秒衝到 6 倍、同時淡出
-    cv.animate([
-        { offset: 0, transform: 'scale(1)', filter: 'blur(0)', opacity: 1, easing: 'cubic-bezier(.7,0,1,.6)' },
-        { offset: (PRE - OVL) / PRE, transform: 'scale(4)', filter: 'blur(3px)', opacity: 1, easing: 'cubic-bezier(.3,0,1,1)' },
-        { offset: 1, transform: 'scale(9)', filter: 'blur(10px)', opacity: 0 },
-    ], { duration: PRE, fill: 'forwards' });
+    // 0.98.22.7 Andy：舊版兩段放大在中間接縫會先慢下來、最後還糊成一團光暈（blur 越來越大）→ 像減速停住。
+    // 改成放大一條曲線一路加速到 14 倍、不加模糊；透明度另外一條：前 6 成不透明，最後才快速淡掉，直接接上星光線
+    cv.animate([{ transform: 'scale(1)' }, { transform: 'scale(14)' }], { duration: PRE, fill: 'forwards', easing: 'cubic-bezier(.6,0,1,.5)' });
+    cv.animate([{ opacity: 1 }, { offset: 0.6, opacity: 1 }, { opacity: 0 }], { duration: PRE, fill: 'forwards', easing: 'ease-in' });
     let t0 = 0;   // 光線第一格才開始計時
     let swapped = false;
     const step = now => {
@@ -1431,14 +1434,35 @@ function _lhSpDraw(t, L) {
         const US = SL.filter(x => x.used).sort((a, b) => a.t0 - b.t0);   // 舊的先畫（墊在下面）
         const nw = US[US.length - 1], span = nw ? nw.tEnd - US[0].t0 + SLICE : 1;
         const cut = nw ? US[0].t0 + span * (1 + Math.max(0.05, TT.edge)) * (t - nw.tEnd - nw.hold) / FADE : 0;   // 掃到哪（時間）；多掃一個柔邊讓最新那片也淡完
+        const vis = (ti, hi) => nw ? Math.min(1, 1 - Math.max(0, t - ti - hi) / (FADE + span), (ti - cut) / (span * Math.max(0.05, TT.edge))) : 0;   // 一直在動時太舊的自己慢慢淡；停手後照掃描從尾巴收
         for (const s of US) {
-            const ua = 1 - Math.max(0, t - s.tEnd - s.hold) / (FADE + span);   // 一直在動時：太舊的片自己慢慢淡掉
-            const v = Math.min(1, ua, (s.tEnd - cut) / (span * Math.max(0.05, TT.edge)));
+            const v = vis(s.tEnd, s.hold);
             if (v <= 0) { s.used = false; continue; }
             live = true;
             M.globalAlpha = TT.alpha * (s.w || 0) * v * v * (3 - 2 * v);   // 越快的片越濃（0.98.22）
             M.drawImage(s.c, 0, 0, _lhSp.W, _lhSp.H);
         }
+        // 0.98.22.7 Andy：詞後面的光帶改成每個詞自己記一串點、每格現場畫成一條漸層線（尾端透明→頭端最亮）——
+        // 舊做法是畫進切片裡，一片 0.1 秒的光帶整段一起淡，看起來整條同時消失；現在每一點各自照掃描收，像彗星尾巴從尾端縮短
+        M.lineCap = 'round';
+        for (const w of _lhSp.words) {
+            const P = w.trl;
+            if (!P) continue;
+            let k0 = 0;
+            while (k0 < P.length && vis(P[k0].t, P[k0].h) <= 0) k0++;
+            if (k0) P.splice(0, k0);
+            if (P.length < 2) { if (!P.length) w.trl = null; continue; }
+            live = true;
+            const a = P[0], b = P[P.length - 1], sm = v => v * v * (3 - 2 * v), m = P[P.length >> 1];
+            const va = sm(Math.max(0, vis(a.t, a.h))), vm = sm(Math.max(0, vis(m.t, m.h))), vb = sm(Math.max(0, vis(b.t, b.h)));
+            const g = M.createLinearGradient(a.x, a.y, b.x, b.y);
+            g.addColorStop(0, _lhSpRGBA(w.rgb, 0)); g.addColorStop(0.5, _lhSpRGBA(w.rgb, (va + vm) / 2)); g.addColorStop(1, _lhSpRGBA(w.rgb, vb));
+            M.globalAlpha = w.alpha * 0.16 * TT.alpha * b.k; M.strokeStyle = g; M.lineWidth = b.lw;
+            M.beginPath(); M.moveTo(a.x, a.y);
+            for (let i = 1; i < P.length; i++) { if (P[i].br) M.moveTo(P[i].x, P[i].y); else M.lineTo(P[i].x, P[i].y); }
+            M.stroke();
+        }
+        _lhSp.trHold = hold; _lhSp.trW = Math.min(1, sw);
         M.globalAlpha = 1;
         if (live || _lhSp.zAcc > 0.003 || _lhSp.pAcc > 1 || mv > 0.01) _lhSp.dirty = true;   // 桶子還沒漏完、還有切片在停／在淡：繼續畫
         if (L.zoomTrail === 2 || mv >= 0.03) ghost = () => {   // 有詞要留疊影時才開切片（沒東西動就不花力氣）
@@ -1545,11 +1569,15 @@ function _lhSpDraw(t, L) {
                 const g = ghost(), m = w.kb || 1, sw = w.spr.width / w.spr.S * z * m, sh = w.spr.height / w.spr.S * z * m;
                 g.globalAlpha = w.alpha * 0.35;
                 g.drawImage(w.spr, p.x - sw / 2, p.y - sh / 2, sw, sh);
-                // 0.98.18.3 Andy：上一格到這一格之間用光帶填滿 → 疊影之間連成一片漸層，不是一個一個分開
-                if (mv1 > 2 && mv1 < 600) {
-                    g.globalAlpha = w.alpha * 0.16; g.strokeStyle = w.rgb; g.lineCap = 'butt';   // 平頭：圓頭每段互相重疊會變成一串珠子
-                    g.lineWidth = Math.max(1.5, 16 * w.s * z * 0.45);
-                    g.beginPath(); g.moveTo(x0, y0); g.lineTo(p.x, p.y); g.stroke();
+                // 0.98.18.3 Andy：上一格到這一格之間用光帶連起來；0.98.22.7 改成記點（上面殘影段現場畫），每 4px 記一點、最多 60 點
+                if (mv1 > 2) {
+                    const P = w.trl || (w.trl = []), q = P[P.length - 1], k = _lhSp.trW || 0, h = _lhSp.trHold || 0, lw = Math.max(1.5, 16 * w.s * z * 0.45);
+                    const far = mv1 >= 600;   // 一格跳太遠（換位置、瞬移）：斷開，不連一條長線
+                    if (!q || Math.hypot(q.x - x0, q.y - y0) > 1 || far) P.push({ x: far ? p.x : x0, y: far ? p.y : y0, t, h, k, lw, br: true });
+                    const q2 = P[P.length - 1];
+                    if (Math.hypot(q2.x - p.x, q2.y - p.y) >= 4) P.push({ x: p.x, y: p.y, t, h, k, lw });
+                    else Object.assign(q2, { t, h: Math.max(q2.h, h), k: Math.max(q2.k, k) });
+                    if (P.length > 60) P.splice(0, P.length - 60);
                 }
             }
         }
@@ -1888,9 +1916,9 @@ const LH_SP_STARFX = {
 // 滑桿直接改這張表、即時生效（重新整理會回到這裡寫的值）；Andy 調好按「複製數值」貼給 Claude 寫死，再把 LH_SP_TUNE_UI 改 false 藏起齒輪
 const LH_SP_TUNE_UI = true;
 const LH_SP_TUNE = {
-    trail:  { hold: 750, fade: 1750, alpha: 0.6, slice: 100, min: 0.2, edge: 0.9, gather: 0.35 },   // edge＝尾巴收的柔邊、gather＝凝聚／沖散速度算進殘影的比例（0.98.22.1）   // 0.98.22 Andy 調好的值
+    trail:  { hold: 750, fade: 1750, alpha: 0.6, slice: 100, min: 0.2, edge: 0.9, gather: 0.3 },   // edge＝尾巴收的柔邊、gather＝凝聚／沖散速度算進殘影的比例（0.98.22.1）   // 0.98.22 Andy 調好的值
     glow:   { star: 3, starSize: 0.5, twBoost: 1.5, twRate: 1.8, twLen: 1400, lineBreath: 5.6, lineDepth: 0.28, flashRate: 1, flashLen: 300, flash: 0.2, comet: 0.05, cometFlick: 140 },   // 0.98.22.6 Andy 調好的值
-    gather: { k: 0.155, stiff: 10, ramp: 17, damp: 0.6, spread: 0.7, scatter: 2.3 },
+    gather: { k: 0.14, stiff: 15, ramp: 15.5, damp: 0.45, spread: 0.6, scatter: 2.2 },
     starfx: LH_SP_STARFX,
 };
 const LH_SP_TUNE_DEF = JSON.parse(JSON.stringify(LH_SP_TUNE));
@@ -2012,18 +2040,26 @@ function _lhSpStarFx(c, w, p, t, z) {
           const gr = c.createRadialGradient(0, 0, cr * 0.27, 0, 0, cr);
           gr.addColorStop(0, _lhSpRGBA(w.rgb, 0.55)); gr.addColorStop(1, _lhSpRGBA(w.rgb, 0));
           c.save(); c.rotate(TAU * s * C.spin + ph * 3); c.globalAlpha = w.alpha * C.a * br;
-          c.strokeStyle = gr; c.lineWidth = Math.max(0.6, cr * 0.008); c.lineCap = 'round';
-          c.beginPath();
+          c.strokeStyle = gr; c.lineWidth = Math.max(0.6, cr * 0.008); c.lineCap = 'butt';
+          // 0.98.22.7 Andy：每條細絲自己的尾端也漸淡——切成 6 截，同一截的所有細絲一起畫（6 次就好），越外面那截越淡；平頭接起來不會疊出亮點
+          const A0 = c.globalAlpha, pts = [];
           for (let i = 0; i < n; i++) {
               const a = (i + h(i, 1)) / n * TAU, r0 = cr * (0.27 + 0.11 * h(i, 2)), r1 = r0 + cr * (0.17 + 0.55 * h(i, 3)), q = h(i, 4) * TAU;
               const L = (r1 - r0) * Math.max(0.05, 1 + C.amp * Math.sin(TAU * C.speed * (0.7 + 0.6 * h(i, 5)) * s + q)), ca = Math.cos(a), sa = Math.sin(a);
+              const f = [];
               for (let k = 0; k <= 24; k++) {
                   const u = k / 24, r = r0 + L * u, e = Math.min(1, u * 4), d = C.waveAmp * cr * e * e * (3 - 2 * e) * Math.sin(TAU * (C.waveFreq * r / cr - C.waveSpeed * s) + q);
-                  const x = ca * r - sa * d, y = sa * r + ca * d;
-                  if (k) c.lineTo(x, y); else c.moveTo(x, y);
+                  f.push(ca * r - sa * d, sa * r + ca * d);
               }
+              pts.push(f);
           }
-          c.stroke(); c.restore();
+          for (let sg = 0; sg < 6; sg++) {
+              c.globalAlpha = A0 * (1 - sg / 6) ** 1.6;
+              c.beginPath();
+              for (const f of pts) { c.moveTo(f[sg * 8], f[sg * 8 + 1]); for (let k = sg * 4 + 1; k <= sg * 4 + 4; k++) c.lineTo(f[k * 2], f[k * 2 + 1]); }
+              c.stroke();
+          }
+          c.restore();
       } }
     // 輻射
     { const img = _lhSpFxImg('ray', w.rgb), n = F.rays.n;

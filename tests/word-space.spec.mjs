@@ -245,8 +245,14 @@ test('詞宇宙：調參齒輪（暫時）', async ({ browser }) => {
     expect(JSON.parse(await page.evaluate(() => localStorage.getItem('lh:spTune'))).gather.damp).toBe(0.8);   // 調過的值記在瀏覽器
     await page.locator('.ws-tune-btn', { hasText: '還原預設' }).click();
     expect(await page.evaluate(() => localStorage.getItem('lh:spTune'))).toBeNull();
-    expect(await page.evaluate(() => [LH_SP_TUNE.gather.damp, LH_SP_STARFX.rays.n])).toEqual([0.6, 11]);
-    await expect(row.locator('output')).toHaveText('0.6');
+    expect(await page.evaluate(() => [LH_SP_TUNE.gather.damp, LH_SP_STARFX.rays.n])).toEqual([0.45, 11]);
+    await expect(row.locator('output')).toHaveText('0.45');
+    // 0.98.22.7：快速縮放留殘影光帶、停手後從尾巴收完就清空（直接每格縮小鏡頭模擬快速縮放）
+    await page.evaluate(() => new Promise(res => { let n = 0; const f = () => { _lhSp.z *= 0.88; _lhSp.dirty = true; if (++n < 20) requestAnimationFrame(f); else res(); }; requestAnimationFrame(f); }));
+    await page.waitForTimeout(50);
+    expect(await page.evaluate(() => _lhSp.words.some(w => w.trl && w.trl.length > 1))).toBe(true);
+    await page.waitForTimeout(2500);
+    expect(await page.evaluate(() => _lhSp.words.every(w => !w.trl))).toBe(true);   // 收完就清空
     await page.waitForTimeout(300);   // 畫幾格，確定新參數不會讓畫布出錯
     expect(errors).toEqual([]);
     await context.close();
