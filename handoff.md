@@ -1,3 +1,10 @@
+## 0.98.22.1（2026-11-16，已 push）
+- 殘影：凝聚／沖散速度只算 trail.gather（預設 0.25）倍進殘影；尾巴收的柔邊 trail.edge 進滑桿；fade 改名「從尾巴收完」（js/word-space.js 殘影段）
+- 日冕改成每條細絲一道往外走的波，現場畫（starfx.corona.n／amp／freq／speed），不再用預先畫好的圖
+- 色標：拿掉「收起色標」鈕；分頁改成主畫面側邊分頁款（寬 --tab-w、高 4.5rem），貼左面板右緣正中間（_lhSpNavPlace）
+- 換批三角形顏色改 --highlight-border（自訂顏色 UI 叫「邊框」的就是它；--border 是淡分隔線，命名容易混）
+- 待驗：凝聚殘影手感、日冕波浪、齒輪仍開著
+
 ## 0.98.22（2026-11-16，已 push）
 - 寫入 Andy 用 ⚙ 調好的數值（js/word-space.js LH_SP_TUNE／LH_SP_STARFX）；齒輪暫時還留著（LH_SP_TUNE_UI＝true），給新的熱浪、日冕扭動調參
 - 殘影從尾巴收：停手後停 hold，再用 fade 時間從最舊的片掃到最新的片；速度為主（凝聚 gv 也算）、距離只佔兩成；片的濃度跟速度走（s.w）

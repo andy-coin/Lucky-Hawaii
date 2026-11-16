@@ -3013,20 +3013,19 @@ body.ws-open .ws-space { opacity: 1; }
     box-shadow: 0 2px 10px var(--shadow); cursor: default;
 }
 .ws-legpanel[hidden] { display: none; }
-/* 0.98.21：貼在左面板右邊緣的小分頁（left／top 由 _lhSpNavPlace 設） */
-.ws-legbtn { position: absolute; z-index: 6; width: 1.375rem; min-width: 0; height: 3.5rem; min-height: 0; padding: 0;
-    border: 1px solid var(--border); border-left: 0; border-radius: 0 var(--radius-s) var(--radius-s) 0;
+/* 0.98.22.1 Andy：跟主畫面側邊收合分頁同一款——扁扁長長、貼在左面板右邊緣正中間（left／top 由 _lhSpNavPlace 設） */
+.ws-legbtn { position: absolute; z-index: 6; width: var(--tab-w); min-width: 0; height: 4.5rem; min-height: 0; padding: 0;
+    border: 1px solid var(--border); border-left: 0; border-radius: 0 0.75rem 0.75rem 0;
     background: color-mix(in srgb, var(--card-bg) 92%, transparent); color: var(--highlight-border); box-shadow: 2px 2px 8px var(--shadow); }
 .ws-legbtn[hidden] { display: none; }
-.ws-legclose { width: 100%; margin-top: var(--sp-2); min-height: 1.75rem; font-size: 0.75rem; color: var(--text-secondary); }
 .ws-legbtn .ic, .ws-nav .ic { fill: currentColor; stroke: none; }
-.ws-legbtn .ic { width: 0.875rem; height: 0.875rem; transition: transform 0.2s; }
+.ws-legbtn .ic { width: 0.75rem; height: 0.75rem; transition: transform 0.2s; }
 .ws-legbtn[aria-expanded="true"] .ic { transform: rotate(180deg); }
 @media (hover: hover) and (pointer: fine) { .ws-legbtn:hover { color: var(--text-primary); border-color: var(--border); } }
 /* 換批的左右三角形（多重宇宙才有）：畫面左右邊界的正中間 */
-/* 0.98.22 Andy：直接一顆大三角形（沒有底座），顏色用主題的邊框色 */
+/* 0.98.22 Andy：直接一顆大三角形（沒有底座）；0.98.22.1 顏色用自訂顏色裡叫「邊框」的那個（--highlight-border，city 是粉紅） */
 .ws-nav { position: absolute; z-index: 4; top: 50%; translate: 0 -50%; width: 4.5rem; height: 6rem; min-width: 0; padding: 0;
-    border: none; background: none; box-shadow: none; color: var(--border); opacity: 0.9; }
+    border: none; background: none; box-shadow: none; color: var(--highlight-border); opacity: 0.9; }
 .ws-nav[hidden] { display: none; }
 .ws-nav .ic { width: 4.5rem; height: 6rem; filter: drop-shadow(0 1px 2px var(--shadow)); }
 .ws-nav:active { scale: 0.92; }
