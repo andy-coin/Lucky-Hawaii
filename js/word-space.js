@@ -1923,17 +1923,17 @@ function _lhSpHoloDraw(c, t, z) {
 // ===== 第 5 級恆星特效（0.98.21 Andy）：日冕、輻射、扭曲——整體偏慢、偏淡、不搶焦點 =====
 // 微調只改這張表：a＝透明度，size／len＝大小（恆星字寬的倍數），spin＝每秒轉幾圈，breath／pulse＝亮暗一輪幾秒，speed＝波動每秒幾輪
 const LH_SP_STARFX = {
-    corona: { a: 0.6, size: 0.11, spin: 0.012, breath: 7, n: 160, amp: 0.3, speed: 0.05, waveAmp: 0.034, waveFreq: 1.6, waveSpeed: 0.08 }, // 日冕：每條各自慢慢伸縮（amp／speed）＋一道平滑的 sine 波（0.98.22.5）：waveAmp＝震幅（日冕半徑倍）、waveFreq＝日冕半徑內幾個波、waveSpeed＝每秒往外走幾個波
-    rays:   { n: 11, a: 0.05, len: 0.6, width: 0.11, spin: 0.008, pulse: 3 }, // 輻射：幾道細長光芒，各自慢慢明滅（彼此錯開）
-    heat:   { a: 0.12, amp: 0.02, speed: 0.3 },                             // 熱浪：字本身很輕的晃動（0.98.22 從「扭曲」獨立出來；扭曲光環刪掉）
+    corona: { a: 0.25, size: 0.11, spin: 0.012, breath: 7, n: 160, amp: 0.3, speed: 0.05, waveAmp: 0.034, waveFreq: 1.6, waveSpeed: 0.08 }, // 日冕：每條各自慢慢伸縮（amp／speed）＋一道平滑的 sine 波（0.98.22.5）：waveAmp＝震幅（日冕半徑倍）、waveFreq＝日冕半徑內幾個波、waveSpeed＝每秒往外走幾個波
+    rays:   { n: 11, a: 0.6, len: 0.1, width: 0.06, spin: 0.008, pulse: 5 }, // 輻射：幾道細長光芒，各自慢慢明滅（彼此錯開）
+    heat:   { a: 0.05, amp: 0.056, speed: 1.6 },                             // 熱浪：字本身很輕的晃動（0.98.22 從「扭曲」獨立出來；扭曲光環刪掉）
 };
 // ===== 0.98.21 Andy 暫時的調參面板（宇宙右上 ⚙）：殘影、光暈閃爍、混沌凝聚、第 5 級恆星特效的數字都在這裡 =====
 // 滑桿直接改這張表、即時生效（重新整理會回到這裡寫的值）；Andy 調好按「複製數值」貼給 Claude 寫死，再把 LH_SP_TUNE_UI 改 false 藏起齒輪
 const LH_SP_TUNE_UI = true;
 const LH_SP_TUNE = {
-    trail:  { hold: 750, fade: 1750, alpha: 0.6, slice: 100, min: 0.2, edge: 0.9, gather: 0.3 },   // edge＝尾巴收的柔邊、gather＝凝聚／沖散速度算進殘影的比例（0.98.22.1）   // 0.98.22 Andy 調好的值
+    trail:  { hold: 750, fade: 1750, alpha: 0.65, slice: 100, min: 0.2, edge: 0.9, gather: 0.3 },   // edge＝尾巴收的柔邊、gather＝凝聚／沖散速度算進殘影的比例（0.98.22.1）   // 0.98.22 Andy 調好的值
     glow:   { star: 3, starSize: 0.5, twBoost: 1.5, twRate: 1.8, twLen: 1400, lineBreath: 5.6, lineDepth: 0.28, flashRate: 1, flashLen: 300, flash: 0.2, comet: 0.05, cometFlick: 140 },   // 0.98.22.6 Andy 調好的值
-    gather: { k: 0.14, stiff: 15, ramp: 15.5, damp: 0.45, spread: 0.6, scatter: 2.2 },
+    gather: { k: 0.08, stiff: 15.5, ramp: 30, damp: 0.8, spread: 0.65, scatter: 2.2 },
     starfx: LH_SP_STARFX,
 };
 const LH_SP_TUNE_DEF = JSON.parse(JSON.stringify(LH_SP_TUNE));

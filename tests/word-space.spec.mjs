@@ -237,16 +237,16 @@ test('詞宇宙：調參齒輪（暫時）', async ({ browser }) => {
     await page.locator('.ws-tune-h', { hasText: '混沌凝聚' }).click();   // 每組一開始收起來
     await page.locator('.ws-tune-h', { hasText: '恆星輻射' }).click();
     const row = page.locator('.ws-tune-row', { hasText: '阻尼' });
-    await row.locator('input').fill('0.8');
-    await expect(row.locator('output')).toHaveText('0.8');
+    await row.locator('input').fill('0.5');
+    await expect(row.locator('output')).toHaveText('0.5');
     const row2 = page.locator('.ws-tune-row', { hasText: '光芒數' });
     await row2.locator('input').fill('10');
-    expect(await page.evaluate(() => [LH_SP_TUNE.gather.damp, LH_SP_STARFX.rays.n])).toEqual([0.8, 10]);
-    expect(JSON.parse(await page.evaluate(() => localStorage.getItem('lh:spTune'))).gather.damp).toBe(0.8);   // 調過的值記在瀏覽器
+    expect(await page.evaluate(() => [LH_SP_TUNE.gather.damp, LH_SP_STARFX.rays.n])).toEqual([0.5, 10]);
+    expect(JSON.parse(await page.evaluate(() => localStorage.getItem('lh:spTune'))).gather.damp).toBe(0.5);   // 調過的值記在瀏覽器
     await page.locator('.ws-tune-btn', { hasText: '還原預設' }).click();
     expect(await page.evaluate(() => localStorage.getItem('lh:spTune'))).toBeNull();
-    expect(await page.evaluate(() => [LH_SP_TUNE.gather.damp, LH_SP_STARFX.rays.n])).toEqual([0.45, 11]);
-    await expect(row.locator('output')).toHaveText('0.45');
+    expect(await page.evaluate(() => [LH_SP_TUNE.gather.damp, LH_SP_STARFX.rays.n])).toEqual([0.8, 11]);
+    await expect(row.locator('output')).toHaveText('0.8');
     // 0.98.22.7：快速縮放留殘影光帶、停手後從尾巴收完就清空（直接每格縮小鏡頭模擬快速縮放）
     await page.evaluate(() => new Promise(res => { let n = 0; const f = () => { _lhSp.z *= 0.88; _lhSp.dirty = true; if (++n < 20) requestAnimationFrame(f); else res(); }; requestAnimationFrame(f); }));
     await page.waitForTimeout(50);

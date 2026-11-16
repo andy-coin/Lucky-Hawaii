@@ -1,3 +1,6 @@
+## 0.98.22.10（2026-11-16，已 push）
+- Andy 新一輪宇宙數值寫成預設（trail.alpha、gather、corona.a、rays、heat）；齒輪仍開著
+
 ## 0.98.22.9（2026-11-16，已 push）
 - 星際穿越前放大：放大中心改成畫面中間 40% 區域裡離所有恆星最遠的點（7×5 格取樣，稍偏好靠中間），星光線也從這點射出；換內容時 transformOrigin 清回中心（js/word-space.js _lhSpWarp）
 
