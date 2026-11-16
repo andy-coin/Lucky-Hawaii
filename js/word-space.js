@@ -1880,7 +1880,7 @@ function _lhSpHoloDraw(c, t, z) {
 // ===== 第 5 級恆星特效（0.98.21 Andy）：日冕、輻射、扭曲——整體偏慢、偏淡、不搶焦點 =====
 // 微調只改這張表：a＝透明度，size／len＝大小（恆星字寬的倍數），spin＝每秒轉幾圈，breath／pulse＝亮暗一輪幾秒，speed＝波動每秒幾輪
 const LH_SP_STARFX = {
-    corona: { a: 0.12, size: 0.5, spin: 0.008, breath: 7.5, n: 70, amp: 0.25, speed: 0.06 }, // 日冕：直直的放射絲，每條各自慢慢伸長、縮短（0.98.22.4，取代像海草的波浪）：amp＝伸縮幅度（自己長度倍）、speed＝每秒伸縮幾輪
+    corona: { a: 0.12, size: 0.5, spin: 0.008, breath: 7.5, n: 70, amp: 0.25, speed: 0.06, waveAmp: 0.03, waveFreq: 3, waveSpeed: 0.15 }, // 日冕：每條各自慢慢伸縮（amp／speed）＋一道平滑的 sine 波（0.98.22.5）：waveAmp＝震幅（日冕半徑倍）、waveFreq＝日冕半徑內幾個波、waveSpeed＝每秒往外走幾個波
     rays:   { n: 11, a: 0.05, len: 0.6, width: 0.11, spin: 0.008, pulse: 3 }, // 輻射：幾道細長光芒，各自慢慢明滅（彼此錯開）
     heat:   { a: 0.12, amp: 0.02, speed: 0.3 },                             // 熱浪：字本身很輕的晃動（0.98.22 從「扭曲」獨立出來；扭曲光環刪掉）
 };
@@ -1906,7 +1906,8 @@ const LH_SP_TUNE_ROWS = [
     ['混沌凝聚', [['gather.k', '一開始的拉力', 0.005, 0.2, 0.005], ['gather.stiff', '越拉越緊的程度', 0, 20, 0.5], ['gather.ramp', '變緊的時間尺度（秒）', 2, 30, 0.5],
         ['gather.damp', '阻尼（越小擺盪越多次）', 0.2, 2, 0.05], ['gather.spread', '每顆拉力差異', 0, 1, 0.05], ['gather.scatter', '起點散開（星系半徑倍）', 0.5, 4, 0.1]]],
     ['恆星日冕', [['starfx.corona.a', '透明度', 0, 1, 0.01], ['starfx.corona.size', '大小（星系半徑×，0.5＝50%）', 0.05, 1.5, 0.01], ['starfx.corona.spin', '轉速（圈／秒）', 0, 0.1, 0.002], ['starfx.corona.breath', '亮暗一輪（秒）', 1, 30, 0.5],
-        ['starfx.corona.n', '細絲數', 0, 200, 5], ['starfx.corona.amp', '伸縮幅度', 0, 1, 0.01], ['starfx.corona.speed', '伸縮速度（輪／秒）', 0, 0.5, 0.005]]],
+        ['starfx.corona.n', '細絲數', 0, 200, 5], ['starfx.corona.amp', '伸縮幅度', 0, 1, 0.01], ['starfx.corona.speed', '伸縮速度（輪／秒）', 0, 0.5, 0.005],
+        ['starfx.corona.waveAmp', '波的震幅', 0, 0.15, 0.002], ['starfx.corona.waveFreq', '波的頻率（半徑內幾個波）', 0, 10, 0.1], ['starfx.corona.waveSpeed', '波往外走（波／秒）', 0, 2, 0.01]]],
     ['恆星輻射', [['starfx.rays.n', '光芒數', 0, 16, 1], ['starfx.rays.a', '透明度', 0, 1, 0.01], ['starfx.rays.len', '長度（星系半徑×）', 0.05, 1.5, 0.01], ['starfx.rays.width', '粗細', 0.02, 0.5, 0.01],
         ['starfx.rays.spin', '轉速（圈／秒）', 0, 0.1, 0.002], ['starfx.rays.pulse', '明滅一輪（秒）', 1, 30, 0.5]]],
     ['恆星熱浪', [['starfx.heat.a', '透明度', 0, 1, 0.01], ['starfx.heat.amp', '晃動幅度', 0, 0.1, 0.002], ['starfx.heat.speed', '晃動速度（輪／秒）', 0, 2, 0.02]]],
@@ -2004,7 +2005,7 @@ function _lhSpStarFx(c, w, p, t, z) {
     c.globalCompositeOperation = 'lighter';
     c.translate(p.x, p.y);
     // 日冕
-    // 0.98.22.4 Andy：日冕細絲直直的（波浪版像海草），每條各自慢慢伸長縮短、節奏錯開——像太陽外圈的冕流在吐納；整圈用一道放射漸層越外越淡
+    // 0.98.22.4 Andy：每條各自慢慢伸長縮短、節奏錯開；0.98.22.5 再加一道平滑的 sine 波——波長每條一樣（照日冕半徑算，不跟著絲的長短擠壓）、根部不擺、細分 24 段，才不會像海草那樣折來折去
     { const C = F.corona, cr = Rg * C.size, br = 0.75 + 0.25 * Math.sin(TAU * s / C.breath + ph), n = C.n | 0;
       const h = (i, k) => { const x = Math.sin(i * 12.9898 + k * 78.233 + ph * 7) * 43758.5453; return x - Math.floor(x); };
       if (n > 0) {
@@ -2016,7 +2017,11 @@ function _lhSpStarFx(c, w, p, t, z) {
           for (let i = 0; i < n; i++) {
               const a = (i + h(i, 1)) / n * TAU, r0 = cr * (0.27 + 0.11 * h(i, 2)), r1 = r0 + cr * (0.17 + 0.55 * h(i, 3)), q = h(i, 4) * TAU;
               const L = (r1 - r0) * Math.max(0.05, 1 + C.amp * Math.sin(TAU * C.speed * (0.7 + 0.6 * h(i, 5)) * s + q)), ca = Math.cos(a), sa = Math.sin(a);
-              c.moveTo(ca * r0, sa * r0); c.lineTo(ca * (r0 + L), sa * (r0 + L));
+              for (let k = 0; k <= 24; k++) {
+                  const u = k / 24, r = r0 + L * u, e = Math.min(1, u * 4), d = C.waveAmp * cr * e * e * (3 - 2 * e) * Math.sin(TAU * (C.waveFreq * r / cr - C.waveSpeed * s) + q);
+                  const x = ca * r - sa * d, y = sa * r + ca * d;
+                  if (k) c.lineTo(x, y); else c.moveTo(x, y);
+              }
           }
           c.stroke(); c.restore();
       } }
