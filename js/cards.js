@@ -208,5 +208,39 @@
             const rel = document.getElementById('wsRelBtn');
             if (rel) rel.hidden = selectedChars.size === 0;
             updateSelectedCharsHint();
+            // 0.98.20 Andy：字多到放不下時，捲到最新選的那個字（看得到捲動＝知道可以滑），兩側再淡出提示
+            requestAnimationFrame(() => {
+                for (const s of document.querySelectorAll('#selBoard, #selectedCharsDisplay')) if (s.scrollWidth > s.clientWidth) s.scrollTo({ left: s.scrollWidth, behavior: 'smooth' });
+                lhScrollCue();
+            });
         }
+
+        // 只能左右捲的那幾條（已選的字、破音字讀音鈕、AI 選字模式條）：哪一邊還有東西，那一邊就淡出（css/base.css .sx-l／.sx-r）；
+        // 滑鼠滾輪上下滾也會左右捲（捲到底就照常捲頁面）
+        const LH_SX_SEL = '.sel-board, .results-header .polyphonic-chips, .selected-chars-hint .hint-chars';
+        function lhScrollCue() {
+            for (const el of document.querySelectorAll(LH_SX_SEL)) {
+                const m = el.scrollWidth - el.clientWidth;
+                el.classList.toggle('sx-l', m > 1 && el.scrollLeft > 1);
+                el.classList.toggle('sx-r', m > 1 && el.scrollLeft < m - 1);
+            }
+        }
+        document.addEventListener('scroll', e => { if (e.target.matches && e.target.matches(LH_SX_SEL)) lhScrollCue(); }, true);
+        document.addEventListener('wheel', e => {
+            const el = e.target.closest && e.target.closest(LH_SX_SEL);
+            if (!el || Math.abs(e.deltaX) >= Math.abs(e.deltaY)) return;
+            const m = el.scrollWidth - el.clientWidth;
+            if (m <= 1 || (e.deltaY < 0 ? el.scrollLeft <= 0 : el.scrollLeft >= m - 1)) return;
+            el.scrollLeft += e.deltaY;
+            e.preventDefault();
+        }, { passive: false });
+        window.addEventListener('resize', lhScrollCue);
+
+        // 0.98.20 Andy：點查詢器（中間面板）的空白處也取消選字（詞卡的保留不動）：header 空白、選項列空白…都算；
+        // 按鈕、輸入框等控制項不算；結果區由 js/results.js 自己處理（字卡之間的縫不算）
+        document.addEventListener('click', e => {
+            if (!selectedChars.size || !e.target.closest('#mainContainer')) return;
+            if (e.target.closest('#resultsContainer, button, input, select, textarea, a, label, summary, [role="button"], [onclick], [contenteditable], .char-card')) return;
+            clearSelectedChars();
+        });
 

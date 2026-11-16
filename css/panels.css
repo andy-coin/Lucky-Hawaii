@@ -2994,6 +2994,37 @@ body.ws-open .ws-space { opacity: 1; }
 }
 .ws-close { min-width: 2rem; padding: 0; }
 .ws-close .ic { width: 1rem; height: 1rem; }
+/* 0.98.20：右上改成一欄——縮放列＋底下的特效等級滑桿 */
+.ws-tr { position: absolute; z-index: 5; top: calc(env(safe-area-inset-top, 0px) + 0.75rem); right: 0.75rem; display: flex; flex-direction: column; align-items: stretch; gap: var(--sp-1); }
+.ws-tr .ws-zoom { position: static; }
+.ws-fx { display: flex; align-items: center; gap: var(--sp-2); min-height: 2rem; padding: 0 var(--sp-2); font-size: 0.75rem; color: var(--text-secondary); cursor: default;
+    background: color-mix(in srgb, var(--card-bg) 88%, transparent); border: 1px solid var(--border); border-radius: var(--radius-s); }
+.ws-fx[hidden] { display: none; }
+.ws-fx-cap { flex: none; white-space: nowrap; min-width: 4.5em; }
+.ws-fx-range { flex: 1; min-width: 0; accent-color: var(--highlight-border); }
+/* 色標第二層面板（貼在左面板右邊，left 由 js/word-space.js _lhSpNavPlace 設） */
+.ws-legpanel {
+    position: absolute; z-index: 5; top: calc(env(safe-area-inset-top, 0px) + 0.75rem); left: 11.5rem;
+    width: 11rem; max-width: calc(100% - 1.5rem); max-height: calc(100% - 1.5rem); overflow-y: auto; padding: var(--sp-2);
+    background: color-mix(in srgb, var(--card-bg) 88%, transparent); border: 1px solid var(--border); border-radius: var(--radius-m);
+    box-shadow: 0 2px 10px var(--shadow); cursor: default;
+}
+.ws-legpanel[hidden] { display: none; }
+.ws-legbtn { flex: none; min-width: 1.25rem; min-height: 1.75rem; padding: 0; border-color: transparent; background: transparent; color: var(--text-secondary); }
+.ws-legbtn[hidden] { display: none; }
+.ws-legbtn .ic, .ws-nav .ic { fill: currentColor; stroke: none; }
+.ws-legbtn .ic { width: 0.875rem; height: 0.875rem; transition: transform 0.2s; }
+.ws-legbtn[aria-expanded="true"] .ic { transform: rotate(180deg); }
+.ws-panel.min .ws-legbtn { display: none; }
+@media (hover: hover) and (pointer: fine) { .ws-legbtn:hover { color: var(--text-primary); border-color: var(--border); } }
+/* 換批的左右三角形（多重宇宙才有）：畫面左右邊界的正中間 */
+.ws-nav { position: absolute; z-index: 4; top: 50%; translate: 0 -50%; width: 2.5rem; height: 4rem; min-width: 0; padding: 0;
+    border-color: transparent; background: transparent; color: var(--text-secondary); opacity: 0.6; transition: opacity 0.2s, color 0.2s; }
+.ws-nav[hidden] { display: none; }
+.ws-nav .ic { width: 1.5rem; height: 1.5rem; filter: drop-shadow(0 0 4px var(--shadow)); }
+.ws-prev { left: 12px; }
+.ws-next { right: 12px; }
+@media (hover: hover) and (pointer: fine) { .ws-nav:hover { opacity: 1; color: var(--text-primary); } }
 @media (max-width: 600px) { .ws-panel { max-width: calc(100% - 1.5rem); } }   /* 0.98.14：展開也貼齊上緣，跟收合鈕同一個位置（面板 10rem 寬，碰不到右上的縮放列） */
 @media (pointer: coarse) { .ws-hud-btn, .ws-leg { min-height: var(--hit); min-width: var(--hit); } }
 /* 三塊面板往左、上、右收走（只在打開／收合的動畫期間加 transition，不動面板平常的收合動畫） */

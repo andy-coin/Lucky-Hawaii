@@ -102,6 +102,7 @@
                     return `<button class="${cls}" data-char="${char}" data-reading="${r}" onclick="selectPolyphonicReading('${char}','${r}')">${fmtChip(r)}${mark}</button>`;
                 }).join('');
             header.appendChild(container);
+            if (typeof lhScrollCue === 'function') requestAnimationFrame(lhScrollCue);   // 0.98.20：放不下時兩側淡出提示可以左右捲
         }
 
         function selectPolyphonicReading(char, reading) {
