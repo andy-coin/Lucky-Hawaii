@@ -501,7 +501,16 @@ function _lhSpWarp(go) {
     o.className = 'ws-warp';
     o.width = Math.round(W * dpr); o.height = Math.round(H * dpr);
     el.insertBefore(o, cv.nextSibling);
-    const x = o.getContext('2d'), cx = W / 2, cy = H / 2, maxR = Math.hypot(cx, cy);
+    // 0.98.22.9 Andy：放大不要正面撞上恆星——往畫面中間一塊找離所有恆星最遠的點當放大中心（星光線也從這裡射出），恆星就從旁邊快速掠過
+    let cx = W / 2, cy = H / 2, best = -1;
+    const ss = _lhSp.words.filter(w => w.star && w.born && !w.off).map(w => _lhSpScr(w.px, w.py));
+    if (ss.length) for (let i = 0; i <= 6; i++) for (let j = 0; j <= 4; j++) {
+        const px = W * (0.3 + 0.4 * i / 6), py = H * (0.3 + 0.4 * j / 4);
+        const d = Math.min(...ss.map(q => Math.hypot(q.x - px, q.y - py))) - Math.hypot(px - W / 2, py - H / 2) * 0.3;   // 稍微偏好靠中間
+        if (d > best) { best = d; cx = px; cy = py; }
+    }
+    const x = o.getContext('2d'), maxR = Math.hypot(Math.max(cx, W - cx), Math.max(cy, H - cy));
+    cv.style.transformOrigin = cx + 'px ' + cy + 'px';
     // 0.98.10：光線顏色取畫面上看得到的詞（隨機抽，哪個色系佔得多，光線就多是那個色）；畫面空的才用文字色
     const seen = _lhSp.words.filter(w => w.born && !w.dim && !w.off && w.rgb && (p => p.x > 0 && p.x < W && p.y > 0 && p.y < H)(_lhSpScr(w.px, w.py))).map(w => w.rgb);
     const fallback = getComputedStyle(el).getPropertyValue('--text-primary').trim() || '#fff';
@@ -524,6 +533,7 @@ function _lhSpWarp(go) {
         if (!swapped && u >= GO) {
             swapped = true;
             cv.getAnimations().forEach(a => a.cancel());
+            cv.style.transformOrigin = '';   // 新宇宙照常從畫面中心拉近
             go();
             cv.animate([{ transform: 'scale(0.35)', filter: 'blur(8px)', opacity: 0 }, { transform: 'none', filter: 'blur(0)', opacity: 1 }], { duration: T * 0.6, easing: 'cubic-bezier(.15,.7,.3,1)' });
         }
