@@ -1,3 +1,11 @@
+## 0.98.22（2026-11-16，已 push）
+- 寫入 Andy 用 ⚙ 調好的數值（js/word-space.js LH_SP_TUNE／LH_SP_STARFX）；齒輪暫時還留著（LH_SP_TUNE_UI＝true），給新的熱浪、日冕扭動調參
+- 殘影從尾巴收：停手後停 hold，再用 fade 時間從最舊的片掃到最新的片；速度為主（凝聚 gv 也算）、距離只佔兩成；片的濃度跟速度走（s.w）
+- 恆星：刪掉扭曲光環；熱浪晃動獨立成 starfx.heat（a/amp/speed）；日冕兩層來回扭動＋微壓扁（corona.twist／twistSpeed）
+- 換批按鈕：大三角形、無底座，顏色 var(--border)（css/panels.css .ws-nav）；拿掉沒用到的 --mix-light
+- 測試：word-space 齒輪測試配合新群組與預設值
+- 待驗：殘影尾巴收的手感、日冕扭動、熱浪預設值；調好後關掉齒輪
+
 ## 0.98.21（2026-11-16，已 push）
 - 多專案：歌有 project 欄（沒有＝proj-default「我的歌詞」）；切換／新增／改名／刪除只在 ☰ 歌曲清單上方 .proj-bar（js/songs.js 專案區、renderProjectBar）；歌詞標題只顯示專案名（#songProj）。手機平板 proj-bar 會折行（css/panels.css .proj-bar）。
 - 快照（js/snapshots.js，IndexedDB lh-snaps：blobs/snaps/trash）：定時（滑桿 關閉/10/15/30/60 分）＋每專案「最新進度」閒置 10 秒；只留 24 小時；歌曲內容雜湊去重。卡片展開看歌詞、單首還原；同專案最多 3 張三欄比對（lhSnapCompare）。

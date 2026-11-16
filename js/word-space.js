@@ -352,7 +352,7 @@ function _lhSpBuild() {
     const nav = d => { const b = mk('ws-nav ' + (d < 0 ? 'ws-prev' : 'ws-next'), '', d < 0 ? '上一批' : '下一批', () => {
         const p = (_lhSp.cfg.page || 0) + d;
         if (p >= 0 && p < _lhSpPages(_lhSp.cfg).length) _lhSpWhip(p); });
-        b.innerHTML = '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="' + (d < 0 ? 'M16 5L7 12l9 7z' : 'M8 5l9 7-9 7z') + '"/></svg>';
+        b.innerHTML = '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="' + (d < 0 ? 'M18 2L5 12l13 10z' : 'M6 2l13 10L6 22z') + '"/></svg>';
         b.hidden = true; return b; };
     // 右上：縮放與關閉；底下一列特效等級（0.98.20 Andy，跟偏好設定同一個值）
     const tr = _lhWsEl('div', 'ws-tr');
@@ -1423,14 +1423,21 @@ function _lhSpDraw(t, L) {
         // （0.98.19 最長 0.8 秒、0.98.20 1.4 秒而且幾乎每次都停滿）。快不快＝最近 0.3 秒的速度（每秒縮放 e^4 倍、拖 3600px 算最快）
         const spdN = Math.max(Math.min(1, _lhSp.zAcc / 0.3 / 4), L.zoomTrail === 2 ? Math.min(1, _lhSp.pAcc / 0.3 / 3600) : 0);
         const TT = LH_SP_TUNE.trail, HOLD = TT.hold, FADE = Math.max(1, TT.fade), SLICE = TT.slice, RS = 0.75;   // 數字在 LH_SP_TUNE.trail
-        const hold = HOLD * Math.max(0, (spdN - TT.min) / (1 - Math.min(0.99, TT.min))) * Math.min(1, _lhSp.gD || 0);
+        // 0.98.22 Andy：主要看速度（凝聚、沖散的速度也算），距離只佔兩成——不然凝聚時慢慢收的星星會糊成一團。sw＝快不快 0～1，同時決定停多久、多濃
+        const sw = Math.max(0, (Math.max(spdN, L.zoomTrail === 2 ? _lhSp.gv || 0 : 0) - TT.min) / (1 - Math.min(0.99, TT.min)));
+        const hold = HOLD * Math.min(1, sw) * (0.8 + 0.2 * Math.min(1, _lhSp.gD || 0));
         const SL = _lhSp.slices || (_lhSp.slices = []);
         let live = false;
-        for (const s of SL.filter(x => x.used).sort((a, b) => a.t0 - b.t0)) {   // 舊的先畫（墊在下面）
-            const age = t - s.tEnd, u = age < s.hold ? 1 : 1 - (age - s.hold) / FADE;
-            if (u <= 0) { s.used = false; continue; }
+        // 0.98.22 Andy：從尾巴開始收——停手後先停 hold，再用 fade 的時間從最舊的一片掃到最新的一片（不是整條一起淡掉）
+        const US = SL.filter(x => x.used).sort((a, b) => a.t0 - b.t0);   // 舊的先畫（墊在下面）
+        const nw = US[US.length - 1], span = nw ? nw.tEnd - US[0].t0 + SLICE : 1;
+        const cut = nw ? US[0].t0 + span * 1.3 * (t - nw.tEnd - nw.hold) / FADE : 0;   // 掃到哪（時間）；1.3 倍讓最新那片也淡完
+        for (const s of US) {
+            const ua = 1 - Math.max(0, t - s.tEnd - s.hold) / (FADE + span);   // 一直在動時：太舊的片自己慢慢淡掉
+            const v = Math.min(1, ua, (s.tEnd - cut) / (span * 0.3));
+            if (v <= 0) { s.used = false; continue; }
             live = true;
-            M.globalAlpha = TT.alpha * u * u * (3 - 2 * u);   // 整體再透明一點（0.98.20 Andy：太重、難辨認）
+            M.globalAlpha = TT.alpha * (s.w || 0) * v * v * (3 - 2 * v);   // 越快的片越濃（0.98.22）
             M.drawImage(s.c, 0, 0, _lhSp.W, _lhSp.H);
         }
         M.globalAlpha = 1;
@@ -1443,10 +1450,10 @@ function _lhSpDraw(t, L) {
                 if (!s) { if (SL.length < 16) SL.push(s = { c: document.createElement('canvas') }); else s = SL.reduce((m, x) => x.tEnd < m.tEnd ? x : m); }   // ponytail: 最多 16 片（約 2 秒），再多就重用最舊的
                 if (!s.x || s.c.width !== cw || s.c.height !== ch) { s.c.width = cw; s.c.height = ch; s.x = s.c.getContext('2d'); } else { s.x.setTransform(1, 0, 0, 1, 0, 0); s.x.clearRect(0, 0, cw, ch); }
                 s.x.setTransform(RS, 0, 0, RS, 0, 0);
-                Object.assign(s, { used: true, t0: t, tEnd: t, hold });
+                Object.assign(s, { used: true, t0: t, tEnd: t, hold, w: 0 });
                 _lhSp.slCur = s;
             }
-            s.tEnd = t; if (hold > s.hold) s.hold = hold;
+            s.tEnd = t; if (hold > s.hold) s.hold = hold; s.w = Math.max(s.w, Math.min(1, sw));
             return s.x;
         };
     }
@@ -1874,17 +1881,17 @@ function _lhSpHoloDraw(c, t, z) {
 // ===== 第 5 級恆星特效（0.98.21 Andy）：日冕、輻射、扭曲——整體偏慢、偏淡、不搶焦點 =====
 // 微調只改這張表：a＝透明度，size／len＝大小（恆星字寬的倍數），spin＝每秒轉幾圈，breath／pulse＝亮暗一輪幾秒，speed＝波動每秒幾輪
 const LH_SP_STARFX = {
-    corona: { a: 0.30, size: 1.7, spin: 0.012, breath: 9 },              // 日冕：一圈細細的放射絲，約 80 秒轉一圈，9 秒一輪輕輕亮暗
-    rays:   { n: 6, a: 0.16, len: 3.2, width: 0.12, spin: 0.008, pulse: 7 }, // 輻射：幾道細長光芒，各自慢慢明滅（7 秒左右一輪、彼此錯開）
-    warp:   { a: 0.12, size: 1.35, amp: 0.035, speed: 0.12, shimmer: 0.02 }, // 扭曲：外圈一道緩慢波動的光環＋字本身很輕的熱浪晃動
+    corona: { a: 0.12, size: 2, spin: 0.008, breath: 7.5, twist: 0.12, twistSpeed: 0.05 }, // 日冕：細細的放射絲；twist＝慢慢扭動的幅度（弧度）、twistSpeed＝每秒扭幾輪（0.98.22）
+    rays:   { n: 11, a: 0.05, len: 3.2, width: 0.11, spin: 0.008, pulse: 3 }, // 輻射：幾道細長光芒，各自慢慢明滅（彼此錯開）
+    heat:   { a: 0.12, amp: 0.02, speed: 0.3 },                             // 熱浪：字本身很輕的晃動（0.98.22 從「扭曲」獨立出來；扭曲光環刪掉）
 };
 // ===== 0.98.21 Andy 暫時的調參面板（宇宙右上 ⚙）：殘影、光暈閃爍、混沌凝聚、第 5 級恆星特效的數字都在這裡 =====
 // 滑桿直接改這張表、即時生效（重新整理會回到這裡寫的值）；Andy 調好按「複製數值」貼給 Claude 寫死，再把 LH_SP_TUNE_UI 改 false 藏起齒輪
 const LH_SP_TUNE_UI = true;
 const LH_SP_TUNE = {
-    trail:  { hold: 1000, fade: 400, alpha: 0.5, slice: 120, min: 0.05 },
-    glow:   { star: 1, twBoost: 1, twRate: 1, twLen: 1400, lineBreath: 5.6, lineDepth: 0.28, flashRate: 1, flashLen: 1200, flash: 1, comet: 0.35, cometFlick: 260 },
-    gather: { k: 0.04, stiff: 6, ramp: 10, damp: 1.1, spread: 0.4, scatter: 2 },
+    trail:  { hold: 1000, fade: 800, alpha: 0.5, slice: 80, min: 0.45 },   // 0.98.22 Andy 調好的值
+    glow:   { star: 3, twBoost: 1.5, twRate: 1.8, twLen: 1400, lineBreath: 5.6, lineDepth: 0.28, flashRate: 1, flashLen: 300, flash: 0.2, comet: 0.05, cometFlick: 140 },
+    gather: { k: 0.18, stiff: 12, ramp: 12, damp: 0.5, spread: 0.7, scatter: 2.3 },
     starfx: LH_SP_STARFX,
 };
 const LH_SP_TUNE_DEF = JSON.parse(JSON.stringify(LH_SP_TUNE));
@@ -1898,11 +1905,11 @@ const LH_SP_TUNE_ROWS = [
         ['glow.comet', '流星光暈濃度', 0, 1, 0.05], ['glow.cometFlick', '流星閃爍速度（越大越慢）', 60, 1200, 20]]],
     ['混沌凝聚', [['gather.k', '一開始的拉力', 0.005, 0.2, 0.005], ['gather.stiff', '越拉越緊的程度', 0, 20, 0.5], ['gather.ramp', '變緊的時間尺度（秒）', 2, 30, 0.5],
         ['gather.damp', '阻尼（越小擺盪越多次）', 0.2, 2, 0.05], ['gather.spread', '每顆拉力差異', 0, 1, 0.05], ['gather.scatter', '起點散開（星系半徑倍）', 0.5, 4, 0.1]]],
-    ['恆星日冕', [['starfx.corona.a', '透明度', 0, 1, 0.01], ['starfx.corona.size', '大小', 0.5, 4, 0.05], ['starfx.corona.spin', '轉速（圈／秒）', 0, 0.1, 0.002], ['starfx.corona.breath', '亮暗一輪（秒）', 1, 30, 0.5]]],
+    ['恆星日冕', [['starfx.corona.a', '透明度', 0, 1, 0.01], ['starfx.corona.size', '大小', 0.5, 4, 0.05], ['starfx.corona.spin', '轉速（圈／秒）', 0, 0.1, 0.002], ['starfx.corona.breath', '亮暗一輪（秒）', 1, 30, 0.5],
+        ['starfx.corona.twist', '扭動幅度', 0, 0.6, 0.01], ['starfx.corona.twistSpeed', '扭動速度（輪／秒）', 0, 0.5, 0.01]]],
     ['恆星輻射', [['starfx.rays.n', '光芒數', 0, 16, 1], ['starfx.rays.a', '透明度', 0, 1, 0.01], ['starfx.rays.len', '長度', 0.5, 8, 0.1], ['starfx.rays.width', '粗細', 0.02, 0.5, 0.01],
         ['starfx.rays.spin', '轉速（圈／秒）', 0, 0.1, 0.002], ['starfx.rays.pulse', '明滅一輪（秒）', 1, 30, 0.5]]],
-    ['恆星扭曲', [['starfx.warp.a', '透明度', 0, 1, 0.01], ['starfx.warp.size', '光環大小', 0.5, 4, 0.05], ['starfx.warp.amp', '波動幅度', 0, 0.2, 0.005],
-        ['starfx.warp.speed', '波動速度（輪／秒）', 0, 1, 0.01], ['starfx.warp.shimmer', '字的熱浪晃動', 0, 0.1, 0.002]]],
+    ['恆星熱浪', [['starfx.heat.a', '透明度', 0, 1, 0.01], ['starfx.heat.amp', '晃動幅度', 0, 0.1, 0.002], ['starfx.heat.speed', '晃動速度（輪／秒）', 0, 2, 0.02]]],
 ];
 const _lhSpTunePath = (o, path) => { const ks = path.split('.'), last = ks.pop(); for (const k of ks) o = o[k]; return [o, last]; };
 // 齒輪面板：每組一個標題、每個數字一條滑桿＋目前值；底下「複製數值」「還原預設」
@@ -1984,9 +1991,15 @@ function _lhSpStarFx(c, w, p, t, z) {
     c.globalCompositeOperation = 'lighter';
     c.translate(p.x, p.y);
     // 日冕
-    { const cr = Rt * F.corona.size, br = 0.75 + 0.25 * Math.sin(TAU * s / F.corona.breath + ph);
-      c.save(); c.rotate(TAU * s * F.corona.spin + ph * 3); c.globalAlpha = w.alpha * F.corona.a * br;
-      c.drawImage(_lhSpFxImg('corona', w.rgb), -cr, -cr, cr * 2, cr * 2); c.restore(); }
+    // 0.98.22 Andy：日冕不要直直的——兩層各自來回慢慢扭、又各自往不同方向微微壓扁，疊起來細絲會像在彎動
+    { const cr = Rt * F.corona.size, br = 0.75 + 0.25 * Math.sin(TAU * s / F.corona.breath + ph), img = _lhSpFxImg('corona', w.rgb);
+      const T = F.corona.twist, ws = TAU * s * F.corona.twistSpeed;
+      c.globalAlpha = w.alpha * F.corona.a * br * 0.6;
+      for (const k of [0, 1]) {
+          const q = ws * (k ? -1.3 : 1) + ph * (k + 1) + k * 2.1, sq = 1 + T * 0.5 * Math.sin(q * 0.7);
+          c.save(); c.rotate(TAU * s * F.corona.spin + ph * 3 + T * Math.sin(q)); c.scale(sq, 1 / sq);
+          c.drawImage(img, -cr, -cr, cr * 2, cr * 2); c.restore();
+      } }
     // 輻射
     { const img = _lhSpFxImg('ray', w.rgb), n = F.rays.n;
       for (let i = 0; i < n; i++) {
@@ -1996,22 +2009,13 @@ function _lhSpStarFx(c, w, p, t, z) {
           c.globalAlpha = w.alpha * F.rays.a * pu * pu;
           c.drawImage(img, Rt * 0.55, -wd / 2, len, wd); c.restore();
       } }
-    // 扭曲：波動的光環
-    { const r0 = Rt * F.warp.size, A = F.warp.amp, sp = TAU * s * F.warp.speed;
-      c.globalAlpha = w.alpha * F.warp.a; c.strokeStyle = w.rgb; c.lineWidth = Math.max(1, Rt * 0.04);
-      c.beginPath();
-      for (let k = 0; k <= 72; k++) {
-          const a = k / 72 * TAU, r = r0 * (1 + A * Math.sin(5 * a + sp + ph) + A * 0.7 * Math.sin(3 * a - sp * 1.3 + ph * 2));
-          if (k) c.lineTo(Math.cos(a) * r, Math.sin(a) * r * 0.92); else c.moveTo(Math.cos(a) * r, Math.sin(a) * r * 0.92);
-      }
-      c.stroke(); }
     c.restore();
-    // 扭曲：字本身很輕的熱浪晃動（兩張錯開一點點的小圖墊在字下面）
-    if (w.spr) {
-        const sw = w.spr.width / w.spr.S * z * m, sh = w.spr.height / w.spr.S * z * m, sp = TAU * s * F.warp.speed * 2.5;
-        c.save(); c.globalCompositeOperation = 'lighter'; c.globalAlpha = w.alpha * F.warp.a;
+    // 熱浪：字本身很輕的晃動（兩張錯開一點點的小圖墊在字下面）
+    if (w.spr && F.heat.a > 0) {
+        const sw = w.spr.width / w.spr.S * z * m, sh = w.spr.height / w.spr.S * z * m, sp = TAU * s * F.heat.speed;
+        c.save(); c.globalCompositeOperation = 'lighter'; c.globalAlpha = w.alpha * F.heat.a;
         for (const d of [1, -1]) {
-            const dx = Math.sin(sp + ph + d) * Rt * F.warp.shimmer, dy = Math.cos(sp * 0.8 + ph * 2 + d) * Rt * F.warp.shimmer;
+            const dx = Math.sin(sp + ph + d) * Rt * F.heat.amp, dy = Math.cos(sp * 0.8 + ph * 2 + d) * Rt * F.heat.amp;
             c.drawImage(w.spr, p.x - sw / 2 + dx, p.y - sh / 2 + dy, sw * (1 + d * 0.01), sh);
         }
         c.restore();

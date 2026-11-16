@@ -39,7 +39,7 @@
             --accent-line: color-mix(in srgb, var(--highlight-border) 45%, var(--border));
             --accent-strong: color-mix(in srgb, var(--highlight-border) 82%, #000);
             --mix-dark: #000;   /* 只給 color-mix 調暗／遮罩用（0.98.21 ws-nav、sx 捲動淡出） */
-            --mix-light: #fff;
+           
             --fill-soft: color-mix(in srgb, var(--text-primary) 5%, transparent);
             --font-ui: 'Noto Sans TC', 'PingFang TC', 'Microsoft JhengHei', sans-serif;
             --font-serif: 'Noto Serif TC', 'Songti TC', 'PMingLiU', serif;

@@ -233,16 +233,16 @@ test('詞宇宙：調參齒輪（暫時）', async ({ browser }) => {
     await expect(page.locator('.ws-tune')).toBeHidden();
     await gear.click();
     await expect(page.locator('.ws-tune')).toBeVisible();
-    await expect(page.locator('.ws-tune-h')).toHaveText(['殘影', '光暈閃爍', '混沌凝聚', '恆星日冕', '恆星輻射', '恆星扭曲']);
+    await expect(page.locator('.ws-tune-h')).toHaveText(['殘影', '光暈閃爍', '混沌凝聚', '恆星日冕', '恆星輻射', '恆星熱浪']);
     const row = page.locator('.ws-tune-row', { hasText: '阻尼' });
-    await row.locator('input').fill('0.5');
-    await expect(row.locator('output')).toHaveText('0.5');
+    await row.locator('input').fill('0.8');
+    await expect(row.locator('output')).toHaveText('0.8');
     const row2 = page.locator('.ws-tune-row', { hasText: '光芒數' });
     await row2.locator('input').fill('10');
-    expect(await page.evaluate(() => [LH_SP_TUNE.gather.damp, LH_SP_STARFX.rays.n])).toEqual([0.5, 10]);
+    expect(await page.evaluate(() => [LH_SP_TUNE.gather.damp, LH_SP_STARFX.rays.n])).toEqual([0.8, 10]);
     await page.locator('.ws-tune-btn', { hasText: '還原預設' }).click();
-    expect(await page.evaluate(() => [LH_SP_TUNE.gather.damp, LH_SP_STARFX.rays.n])).toEqual([1.1, 6]);
-    await expect(row.locator('output')).toHaveText('1.1');
+    expect(await page.evaluate(() => [LH_SP_TUNE.gather.damp, LH_SP_STARFX.rays.n])).toEqual([0.5, 11]);
+    await expect(row.locator('output')).toHaveText('0.5');
     await page.waitForTimeout(300);   // 畫幾格，確定新參數不會讓畫布出錯
     expect(errors).toEqual([]);
     await context.close();
