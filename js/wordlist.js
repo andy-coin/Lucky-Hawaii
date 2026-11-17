@@ -382,6 +382,11 @@
                 try { out = applyWordlistOverrideDoc(out, layer.wordlist); }
                 catch(e) { lhWarn('修正層套用失敗', e); }
             }
+            // 使用者自己丟進宇宙黑洞的冷僻詞（lh:voidWords，js/word-space.js）：只從這個瀏覽器的詞庫拿掉，不影響別人；偏好設定可以還原
+            {
+                const mine = lhGetJSON('lh:voidWords', [], v => Array.isArray(v)).map(x => x && x.w).filter(w => typeof w === 'string');
+                if (mine.length) { const set = new Set(mine); out = out.filter(e => !set.has(e.w)); }
+            }
             return out;
         }
 

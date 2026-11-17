@@ -3014,13 +3014,14 @@ body.ws-open .ws-space { opacity: 1; }
 }
 .ws-legpanel[hidden] { display: none; }
 /* 0.98.22.1 Andy：跟主畫面側邊收合分頁同一款——扁扁長長；0.98.22.11 跨在左面板和色標面板中間的 2px 縫上（left／top 由 _lhSpNavPlace 設） */
-.ws-legbtn { position: absolute; z-index: 6; width: var(--tab-w); min-width: 0; height: 4.5rem; min-height: 0; padding: 0;
-    border: 1px solid var(--border); border-radius: 0.75rem;
+.ws-legbtn { --legbtn-w: calc(var(--tab-w) * 2 / 3);   /* Andy：再短、再窄三分之一（4.5→3rem、1→0.67rem），改成方一點、留小圓角 */
+    position: absolute; z-index: 6; width: var(--legbtn-w); min-width: 0; height: 3rem; min-height: 0; padding: 0;
+    border: 1px solid var(--border); border-radius: 0.1875rem;
     --legbtn-bg: color-mix(in oklab, var(--highlight-border) 68%, black);   /* Andy：暗一點（不透明度不變） */
     background: var(--legbtn-bg); color: var(--card-bg); border-color: var(--legbtn-bg); box-shadow: 0 2px 8px var(--shadow); }   /* 0.98.22.11 Andy：完全不透明；配色顛倒——底是強調色、箭頭是面板色 */
 .ws-legbtn[hidden] { display: none; }
 .ws-legbtn .ic, .ws-nav .ic { fill: currentColor; stroke: none; }
-.ws-legbtn .ic { width: 0.75rem; height: 0.75rem; transition: transform 0.2s; }
+.ws-legbtn .ic { width: 0.5rem; height: 0.5rem; transition: transform 0.2s; }
 .ws-legbtn[aria-expanded="true"] .ic { transform: rotate(180deg); }
 @media (hover: hover) and (pointer: fine) { .ws-legbtn:hover { background: var(--action-bg-hover); border-color: var(--action-bg-hover); } }
 /* 換批的左右三角形（多重宇宙才有）：畫面左右邊界的正中間 */
@@ -3038,7 +3039,7 @@ body.ws-open .ws-space { opacity: 1; }
 @media (max-width: 600px) { .ws-panel { max-width: calc(100% - 1.5rem); } }   /* 0.98.14：展開也貼齊上緣，跟收合鈕同一個位置（面板 10rem 寬，碰不到右上的縮放列） */
 @media (pointer: coarse) { .ws-hud-btn, .ws-leg { min-height: var(--hit); min-width: var(--hit); } }
 /* 0.98.22.7 Andy（iPad 截圖）：色標分頁在觸控上也維持扁扁的；看得到的窄，按得到的範圍用透明的 ::after 往右撐開 */
-@media (pointer: coarse) { .ws-legbtn.ws-hud-btn { min-width: 0; min-height: 0; } .ws-legbtn::after { content: ''; position: absolute; inset: 0 calc((var(--tab-w) - var(--hit)) / 2); } }
+@media (pointer: coarse) { .ws-legbtn.ws-hud-btn { min-width: 0; min-height: 0; } .ws-legbtn::after { content: ''; position: absolute; inset: 0 calc((var(--legbtn-w) - var(--hit)) / 2); } }
 /* 三塊面板往左、上、右收走（只在打開／收合的動畫期間加 transition，不動面板平常的收合動畫） */
 /* 打開：先 ws-leave（三塊面板收走 0.45 秒），面板走完才 ws-open（星雲淡入）；關閉反過來（js/word-space.js _lhSpShow／lhWsClose） */
 body.ws-anim :is(#leftPanel, #rightPanel, #mainContainer, #mobileTabBar) { transition: translate 0.45s cubic-bezier(0.6, 0, 0.3, 1), opacity 0.45s ease; will-change: translate, opacity; }
@@ -3194,7 +3195,48 @@ html[data-lm] .section-body.has-cols .section-textarea { padding-left: 0.75rem; 
 #settingsColorSection > .settings-pack-title, .prefs-fx > .prefs-fx-head, .prefs-panel .settings-pack-section > .settings-pack-title, .ai-tune > .settings-pack-title, .byok-provider > .settings-pack-title,
 #mapSettingsSection .section-menu-block > .section-menu-cap:first-child { margin-inline-start: calc(-1 * var(--pf-in)); }
 .prefs-show { gap: var(--sp-2); }
-.ws-warp { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 1; }   /* 第 5 級換批的星光線（js/word-space.js _lhSpWarp） */
+.ws-warp { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 1; }
+/* ===== Andy：開發者黑洞（只有本地）＋虛無空間 ===== */
+.ws-hud-btn.ws-bh { position: absolute; z-index: 5; left: 0; top: 0;   /* 位置、大小由 JS 每格設（沿宇宙畫布邊緣漂流，_lhSpBhDrift） */
+    width: 6rem; height: 6rem; touch-action: none; min-width: 0; min-height: 0; padding: 0; border: none; border-radius: 50%; cursor: grab; transition: transform 0.25s;
+    /* Andy（參考 Anytype 開場的黑洞）：沒有吸積盤、沒有硬邊——全黑的中心＋一圈很柔、很低調的暗玫瑰色光，帶細顆粒；
+       亮的那幾塊沿著環慢慢流動（兩層顏色不同的光，一層順轉、一層逆轉、速度不同，疊出隱約在流的感覺） */
+    --bh-t: 32;   /* 光環粗細（半徑的幾 %，JS 照齒輪 bh.ring 設）；黑色中心＝100 − 粗細 */
+    --bh-c: calc(100 - var(--bh-t));
+    --bh-band: radial-gradient(closest-side, transparent calc((var(--bh-c) - var(--bh-t) * 0.125) * 1%), #000 calc((var(--bh-c) + var(--bh-t) * 0.12) * 1%), #000 calc((var(--bh-c) + var(--bh-t) * 0.34) * 1%), transparent calc((var(--bh-c) + var(--bh-t) * 0.94) * 1%));   /* 柔邊全照光環粗細比例（不再有固定 4%／98%）→ 放很大時環也不會變粗 */
+    background: radial-gradient(closest-side, #000 0 calc(var(--bh-c) * 1%), rgba(60, 25, 38, 0.3) calc((var(--bh-c) + var(--bh-t) * 0.19) * 1%), rgba(50, 22, 34, 0.12) calc((var(--bh-c) + var(--bh-t) * 0.56) * 1%), transparent 100%); }
+.ws-hud-btn.ws-bh::before, .ws-hud-btn.ws-bh::after { content: ''; position: absolute; inset: 0; border-radius: 50%; pointer-events: none; mask: var(--bh-band); }
+.ws-hud-btn.ws-bh::before {   /* 第一層流光：暗紅＋灰白的亮塊 */
+    background: conic-gradient(from 0deg, transparent 0deg, rgba(228, 208, 218, 0.6) 40deg, rgba(190, 150, 170, 0.22) 95deg, transparent 140deg, transparent 220deg, rgba(150, 40, 70, 0.5) 270deg, transparent 325deg);
+    filter: blur(3px); }
+.ws-hud-btn.ws-bh::after {   /* 第二層流光＋細顆粒 */
+    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='96' height='96'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='1.1' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 0.9 0 0 0 0 0.95 0 0 0 0.35 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"),
+        conic-gradient(from 200deg, transparent 0deg, rgba(235, 220, 228, 0.32) 35deg, transparent 95deg, transparent 360deg);
+    background-size: 96px 96px, 100% 100%; filter: blur(1.5px); mix-blend-mode: screen; }
+@media (prefers-reduced-motion: no-preference) {
+    .ws-hud-btn.ws-bh::before { animation: wsBhFlow 19s linear infinite; }
+    .ws-hud-btn.ws-bh::after { animation: wsBhFlow 31s linear infinite reverse; }
+}
+@keyframes wsBhFlow { to { transform: rotate(360deg); } }
+.ws-hud-btn.ws-bh.near, .ws-hud-btn.ws-bh:hover { transform: scale(1.15); }
+.ws-bh-face { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); color: rgba(255, 255, 255, 0.75); font-size: 0.8rem; white-space: nowrap; pointer-events: none; opacity: 0; transition: opacity 0.3s; }   /* Andy：hover 只冒一個表情，不講說明 */
+.ws-hud-btn.ws-bh:hover .ws-bh-face { opacity: 1; transition-delay: 5s; }   /* Andy：停 5 秒才冒出淡定臉 */
+.ws-hud-btn.ws-bh.guide { opacity: 0.3; }   /* 調黑洞滑桿時：看得到裡面的輔助線 */
+.ws-hud-btn.ws-bh:active { cursor: grabbing; }
+.ws-bh.gulp { animation: wsGulp 0.5s ease-out; }
+@keyframes wsGulp { 30% { transform: scale(0.8); } 70% { transform: scale(1.25); } }
+.ws-void { position: absolute; inset: 0; z-index: 7; background: #000; overflow: hidden; touch-action: none; }
+.ws-void[hidden] { display: none; }
+.ws-void.ws-out { pointer-events: none; }   /* 白洞放大回宇宙的途中：不能再點 */
+.ws-voiding .ws-warp { z-index: 8; }   /* 進出虛無時星光線蓋在最上面 */
+.ws-space.ws-in-void > :not(.ws-void, .ws-warp, .ws-canvas) { visibility: hidden; }   /* 虛無裡：介面全部收起來，只剩黑與白洞 */
+.ws-wh { position: absolute; left: 50%; top: 50%; translate: -50% -50%; width: 0.75rem; height: 0.75rem;   /* Andy：再小一點 */ min-width: 0; min-height: 0; padding: 0; border: none; border-radius: 50%; cursor: pointer;
+    background: #fff; box-shadow: 0 0 0.5rem #fff, 0 0 1.5rem rgba(255, 255, 255, 0.45), 0 0 3.5rem rgba(255, 255, 255, 0.18); }
+@media (prefers-reduced-motion: no-preference) { .ws-wh { animation: wsWh 5s ease-in-out infinite; } }
+@keyframes wsWh { 50% { box-shadow: 0 0 0.7rem #fff, 0 0 2rem rgba(255, 255, 255, 0.55), 0 0 4.5rem rgba(255, 255, 255, 0.25); } }
+.ws-wh.gulp { animation: wsGulp 0.5s ease-out; }
+.ws-vw { position: absolute; left: 0; top: 0; white-space: nowrap; color: rgba(150, 150, 150, 0.42); font-family: inherit; user-select: none; cursor: grab; touch-action: none; filter: blur(0.3px); }
+.ws-vw.on { color: rgba(200, 200, 200, 0.7); cursor: grabbing; }   /* 第 5 級換批的星光線（js/word-space.js _lhSpWarp） */
 
 /* ==================== 0.98.21 專案、資料與備份、快照比對 ==================== */
 .song-proj { flex: 0 1 auto; min-width: 0; max-width: 35%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-family: var(--font-body, inherit); font-size: 0.75rem; font-weight: 400; color: var(--text-secondary); }
@@ -3296,6 +3338,15 @@ html[data-lm] .section-body.has-cols .section-textarea { padding-left: 0.75rem; 
 .ws-tune[hidden] { display: none; }
 .ws-tune-g { border-top: 1px solid var(--border); }
 .ws-tune-g:first-child { border-top: 0; }
+/* Andy：第二層收納——外層三大類（星系／互動／恆星），裡面的小組往右縮一點 */
+.ws-tune-c { border-top: 1px solid var(--border); }
+.ws-tune-c:first-child { border-top: 0; }
+.ws-tune-ch { padding: var(--sp-2) 0; min-height: var(--hit, 2rem); display: flex; align-items: center; cursor: pointer; font-size: 0.9375rem; font-weight: 700; color: var(--text-primary); }
+.ws-tune-c > .ws-tune-g { margin-left: var(--sp-3); }
+.ws-tune-c > .ws-tune-g:nth-child(2) { border-top: 0; }
+/* Andy 面板重整：組裡的小段標題（同一種主題整個面板同一個顏色）＋底下每條滑桿左邊一條同色的線 */
+.ws-tune-sub { margin: var(--sp-2) 0 0.125rem; padding-left: 0.5rem; border-left: 3px solid var(--sub-c); font-size: 0.6875rem; font-weight: 700; letter-spacing: 0.06em; color: var(--sub-c); }
+.ws-tune-row.ws-tagged { padding-left: 0.5rem; border-left: 3px solid color-mix(in srgb, var(--sub-c) 45%, transparent); }
 .ws-tune-h { margin: 0; padding: var(--sp-2) 0; min-height: var(--hit, 2rem); display: flex; align-items: center; cursor: pointer; font-size: 0.8125rem; font-weight: 700; color: var(--text-primary); }
 .ws-tune-row[hidden] { display: none; }   /* 「模式」切換後不用的滑桿 */
 .ws-tune-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: var(--sp-2); align-items: center; }
@@ -3316,6 +3367,11 @@ html[data-lm] .section-body.has-cols .section-textarea { padding-left: 0.75rem; 
     display: grid; grid-template-columns: auto var(--ws-pw) auto; column-gap: var(--sp-2); row-gap: var(--sp-1); align-items: start; pointer-events: none; }
 .ws-ptop > * { pointer-events: auto; }
 .ws-ptop > .ws-pages { position: static; transform: none; width: auto; grid-column: 2; grid-row: 1; }
+/* Andy：面板高度跟骰子／AI 方塊一樣（2.5rem）：上下內距、滑桿、數字列都壓扁 */
+.ws-ptop > .ws-pages { box-sizing: border-box; height: 2.5rem; gap: 0; padding-block: 0.1875rem; justify-content: center; }
+.ws-ptop > .ws-pages .ws-page-range { height: 0.875rem; }
+.ws-ptop > .ws-pages .ws-page-ticks { line-height: 1; }
+.ws-ptop > .ws-pages .ws-page-ticks > button { min-height: 1.125rem; }
 /* Andy：只有一個宇宙（沒有分批面板）：骰子、AI 往中間靠攏，中間那欄只剩導覽列的寬度 */
 .ws-ptop > .ws-pages[hidden] { display: none; }
 /* Andy：沒有分批面板時，導覽列四顆鈕直接排進格子，骰子疊在「保留」上、AI 疊在「更新」上（手機在下方也一樣上下關係） */
@@ -3332,6 +3388,10 @@ html[data-lm] .section-body.has-cols .section-textarea { padding-left: 0.75rem; 
 .ws-ptop > .ws-dice { grid-column: 1; grid-row: 1; }
 .ws-ptop > .ws-aib { grid-column: 3; grid-row: 1; }
 .ws-ptop > .ws-cnav { grid-column: 2; grid-row: 2; }
+/* Andy（手機橫放）：左邊兩塊面板碰到上方中間那排 → 整排搬到下方（JS 判斷後加 .ws-plow），排法跟窄螢幕一樣 */
+.ws-plow .ws-ptop { top: auto; bottom: calc(env(safe-area-inset-bottom, 0px) + 0.75rem); }
+.ws-plow .ws-ptop > .ws-cnav { grid-row: 1; align-self: end; }
+.ws-plow .ws-ptop > .ws-pages, .ws-plow .ws-ptop > .ws-dice, .ws-plow .ws-ptop > .ws-aib { grid-row: 2; }
 @media (max-width: 760px) {
     .ws-space { --ws-pw: calc(100vw - 1.5rem - 2 * (2.5rem + var(--sp-2))); }
     .ws-ptop { top: auto; bottom: calc(env(safe-area-inset-bottom, 0px) + 0.75rem); }
@@ -3355,3 +3415,11 @@ html[data-lm] .section-body.has-cols .section-textarea { padding-left: 0.75rem; 
 .ws-cn-mid[hidden] { display: none; }
 .ws-cn-mid > .ws-hud-btn { flex: 1 1 0; min-width: 1.875rem; min-height: 1.625rem; padding: 0; display: inline-flex; align-items: center; justify-content: center; }
 .ws-cn-mid .ic { width: 1rem; height: 1rem; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+
+/* Andy：偏好設定 → 查詢與詞庫 → 黑洞（放逐的冷僻詞）：數量＋實心紅色「還原詞庫」（跟自訂詞彙的紅字「重設全部」區別） */
+.void-section { margin-top: var(--sp-3); }
+.void-row { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); flex-wrap: wrap; }
+.void-count { font-size: 0.8125rem; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+.void-restore { min-height: var(--hit, 2.25rem); padding: 0 var(--sp-3); border: none; border-radius: var(--radius-s); background: var(--danger-bg); color: var(--danger-text); font: inherit; font-weight: 700; cursor: pointer; }
+@media (hover: hover) and (pointer: fine) { .void-restore:hover { background: var(--danger-bg-hover); } }
+.void-restore:focus-visible { outline: 2px solid var(--danger-bg); outline-offset: 2px; }

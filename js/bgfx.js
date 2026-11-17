@@ -66,15 +66,18 @@ function _lhBgPick() {
 function _lhBgNewFlake(anywhere) {
     const pk = _lhBgPick();
     const size = (14 + Math.random() * 22) * (pk.word ? 0.7 : 1);   // 詞比較長，字小一點
+    // Andy：改成橫向漂流（星際無重力）：有的往右、有的往左，慢慢飄，上下只有很輕的起伏；從自己要飄過來的那一側進場
+    const dir = Math.random() < 0.5 ? 1 : -1, pad = size * 3;
     return {
-        x: Math.random() * _lhBgW,
-        y: anywhere ? Math.random() * _lhBgH : -size - Math.random() * 80,
+        x: anywhere ? Math.random() * _lhBgW : dir > 0 ? -pad - Math.random() * 80 : _lhBgW + pad + Math.random() * 80,
+        y: Math.random() * _lhBgH,
         size,
-        vy: 10 + Math.random() * 16 + size * 0.3,      // 大字落得快一點，有遠近感
-        sway: 8 + Math.random() * 18,
+        vx: dir * (4 + Math.random() * 8 + size * 0.15),   // 大字飄得快一點，有遠近感（比舊的落字慢約一半）
+        vy: (Math.random() - 0.5) * 3,                     // 極輕的上下漂移
+        sway: 6 + Math.random() * 14,                      // 上下慢慢起伏
         phase: Math.random() * Math.PI * 2,
         rot: (Math.random() - 0.5) * 0.6,
-        vr: (Math.random() - 0.5) * 0.25,
+        vr: (Math.random() - 0.5) * 0.08,                  // 慢慢自轉
         ch: pk.ch,
         color: Math.floor(Math.random() * 8),
         a: 0.55 + Math.random() * 0.45,
@@ -102,18 +105,31 @@ function _lhBgResize() {
 function _lhBgDraw(dt) {
     const ctx = _lhBgCtx, d = _lhBgDpr;
     ctx.clearRect(0, 0, _lhBgW, _lhBgH);
+    // Andy：宇宙的開發者黑洞（js/word-space.js 每格寫 window.__lhBgSink）把漂過去的字吸進去——越近越快、繞著轉、越縮越小越淡，掉進核心就重生一個新的
+    const A = window.__lhBgSink && performance.now() - window.__lhBgSink.t < 200 ? window.__lhBgSink : null;
     for (let i = 0; i < _lhBgFlakes.length; i++) {
         let f = _lhBgFlakes[i];
+        if (dt && A) {
+            const dx = A.x - f.x, dy = A.y - f.y, d = Math.hypot(dx, dy) || 1;
+            if (d < A.R) {
+                const k = 1 - d / A.R, v = (30 + 420 * k * k) * dt;
+                f.x += dx / d * v - dy / d * v * 0.7; f.y += dy / d * v + dx / d * v * 0.7;   // 往中心＋繞著轉（螺旋吸入）
+                f.sink = Math.max(f.sink || 0, k);
+                if (d < Math.max(4, A.r)) f = _lhBgFlakes[i] = _lhBgNewFlake(false);
+            }
+        }
         if (dt) {
-            f.y += f.vy * dt;
-            f.phase += dt * 0.6;
+            f.x += f.vx * dt; f.y += f.vy * dt;
+            f.phase += dt * 0.25;
             f.rot += f.vr * dt;
-            if (f.y > _lhBgH + f.size) f = _lhBgFlakes[i] = _lhBgNewFlake(false);
+            const pad = f.size * 3;
+            if (f.x > _lhBgW + pad + 100 || f.x < -pad - 100 || f.y > _lhBgH + pad || f.y < -pad) f = _lhBgFlakes[i] = _lhBgNewFlake(false);
         }
         if (!f.img) f.img = _lhBgSprite(f);
         const cs = Math.cos(f.rot) * d, sn = Math.sin(f.rot) * d, iw = f.img.width / d, ih = f.img.height / d;
-        ctx.setTransform(cs, sn, -sn, cs, (f.x + Math.sin(f.phase) * f.sway) * d, f.y * d);
-        ctx.globalAlpha = _lhBgAlpha * f.a * (_lhBgFaint ? 0.28 : 1);
+        const sk = f.sink ? 1 - 0.85 * f.sink : 1;   // 被吸：縮小、變淡
+        ctx.setTransform(cs * sk, sn * sk, -sn * sk, cs * sk, f.x * d, (f.y + Math.sin(f.phase) * f.sway * sk) * d);
+        ctx.globalAlpha = _lhBgAlpha * f.a * (_lhBgFaint ? 0.35 : 1) * sk;
         ctx.drawImage(f.img, -iw / 2, -ih / 2, iw, ih);
     }
     ctx.setTransform(d, 0, 0, d, 0, 0);

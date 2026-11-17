@@ -233,9 +233,12 @@ test('詞宇宙：調參齒輪（暫時）', async ({ browser }) => {
     await expect(page.locator('.ws-tune')).toBeHidden();
     await gear.click();
     await expect(page.locator('.ws-tune')).toBeVisible();
-    await expect(page.locator('.ws-tune-h')).toHaveText(['殘影｜縮放光帶', '殘影｜公轉（煙霧）', '殘影｜拖畫布＋甩出去的詞（光帶）', '殘影｜凝聚（煙霧）', '星系｜公轉', '星系｜混沌凝聚', '互動｜黑洞放大', '互動｜星座', '恆星｜光暈閃爍', '恆星｜日冕', '恆星｜輻射', '恆星｜熱浪']);
+    await expect(page.locator('.ws-tune-ch')).toHaveText(['星系', '恆星', '互動', '黑洞']);   // 第二層收納：外層四大類
+    await expect(page.locator('.ws-tune-h')).toHaveText(['公轉', '流星', '混沌凝聚', '殘影：公轉煙霧', '殘影：凝聚煙霧', '光暈閃爍', '日冕', '輻射', '熱浪', '殘影：縮放光帶', '殘影：拖畫布光帶', '游標放大鏡', '星座', '黑洞']);
+    await page.locator('.ws-tune-ch', { hasText: '星系' }).click();
     await page.locator('.ws-tune-h', { hasText: '混沌凝聚' }).click();   // 每組一開始收起來
-    await page.locator('.ws-tune-h', { hasText: '恆星｜輻射' }).click();
+    await page.locator('.ws-tune-ch', { hasText: '恆星' }).click();
+    await page.locator('.ws-tune-h', { hasText: '輻射' }).click();
     const row = page.locator('.ws-tune-row', { hasText: '阻尼' });
     await row.locator('input').fill('0.5');
     await expect(row.locator('output')).toHaveText('0.5');

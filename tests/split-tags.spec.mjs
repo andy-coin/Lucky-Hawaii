@@ -7,7 +7,7 @@ import { stripHtmlComments } from './html-lib.mjs';
 // 原本 inline script 由上到下的 20 個區塊，加上 Phase 8 的 songs.js、song-io.js、Phase 9 的 sections-core.js、sections.js、undo.js、word-drag.js，Phase 10 的 rhyme-core.js、rhyme-map.js，角色標記的 roles.js，自由畫布的 canvas.js，Phase 11 的 line-core.js、夜間 UI 的 tour.js、R2 主題的 bgfx.js、寬螢幕版面的 dock.js、詞宇宙的 word-space.js、自訂詞彙的 custom-words.js 共 36 個（safety.js、layout.js 另外固定在最前面）
 const JS_ORDER = [
     'phonetic-tables', 'dict', 'search', 'state', 'sections-core', 'songs', 'undo', 'polyphonic', 'rhyme-core', 'line-core', 'cards', 'lyrics', 'sections', 'song-io', 'wordlist', 'panels', 'dock', 'rhyme-display',
-    'ai-client', 'candidates', 'ai-generate', 'ui-common', 'custom-words', 'snapshots', 'word-space', 'results', 'search-ui', 'theme', 'init', 'report', 'ai-word-events', 'word-drag', 'rhyme-map', 'roles', 'canvas', 'tour', 'bgfx',
+    'ai-client', 'candidates', 'ai-generate', 'ui-common', 'custom-words', 'snapshots', 'sp-tune-defaults', 'word-space', 'results', 'search-ui', 'theme', 'init', 'report', 'ai-word-events', 'word-drag', 'rhyme-map', 'roles', 'canvas', 'tour', 'bgfx',
 ].map(n => `js/${n}.js`);
 const CSS_ORDER = ['css/base.css', 'css/panels.css', 'css/responsive.css', 'css/print.css'];
 

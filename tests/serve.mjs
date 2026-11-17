@@ -40,7 +40,31 @@ async function saveTune(req, res) {
     res.writeHead(200, { 'content-type': 'text/plain; charset=utf-8' }).end('ok');
 }
 
+// 宇宙黑洞（開發者模式，只有本地伺服器有）：把詞丟進黑洞＝寫進 data/wordlist-overrides.json 的 removed（詞庫本體 wordlist-c*.json 一個字都不動）；
+// 丟進去的詞另外記在 data/void-words.json（虛無空間顯示用）。白洞救回＝兩邊都拿掉。原始 0.96 的刪除名單備份在 data/backup-0.96/
+async function voidOp(req, res) {
+    const origin = req.headers.origin || '';
+    if (origin && !/^http:\/\/(127\.0\.0\.1|localhost)(:\d+)?$/.test(origin)) { res.writeHead(403).end('forbidden'); return; }
+    let body = '';
+    for await (const ch of req) { body += ch; if (body.length > 4096) { res.writeHead(413).end('too large'); return; } }
+    let op, w;
+    try { ({ op, w } = JSON.parse(body)); } catch { op = null; }
+    if (!['del', 'restore'].includes(op) || typeof w !== 'string' || !/^[^\s\x00-\x1f]{1,20}$/u.test(w)) { res.writeHead(400).end('bad request'); return; }
+    const ovP = join(ROOT, 'data', 'wordlist-overrides.json'), vP = join(ROOT, 'data', 'void-words.json');
+    const ov = JSON.parse(await readFile(ovP, 'utf8'));
+    let vw = [];
+    try { vw = JSON.parse(await readFile(vP, 'utf8')); } catch { vw = []; }
+    ov.removed = (ov.removed || []).filter(x => x !== w);
+    vw = vw.filter(x => x !== w);
+    if (op === 'del') { ov.removed.push(w); vw.push(w); }
+    ov.updated_at = new Date().toISOString();
+    await writeFile(ovP, JSON.stringify(ov, null, 2) + '\n');
+    await writeFile(vP, JSON.stringify(vw, null, 1) + '\n');
+    res.writeHead(200, { 'content-type': 'application/json; charset=utf-8' }).end(JSON.stringify(vw));
+}
+
 http.createServer(async (req, res) => {
+    if (req.method === 'POST' && new URL(req.url, 'http://x').pathname === '/__lh/void') { await voidOp(req, res).catch(() => { if (!res.headersSent) res.writeHead(500).end('error'); }); return; }
     if (req.method === 'POST' && new URL(req.url, 'http://x').pathname === '/__lh/tune-defaults') { await saveTune(req, res).catch(() => { if (!res.headersSent) res.writeHead(500).end('error'); }); return; }
     try {
         let p = decodeURIComponent(new URL(req.url, 'http://x').pathname);
