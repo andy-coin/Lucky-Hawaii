@@ -38,6 +38,9 @@
             --accent-soft: color-mix(in srgb, var(--highlight-border) 11%, transparent);
             --accent-line: color-mix(in srgb, var(--highlight-border) 45%, var(--border));
             --accent-strong: color-mix(in srgb, var(--highlight-border) 82%, #000);
+            --space-bg: #000913;   /* 宇宙底色：午夜背景 #000b18 再暗 20%（所有主題共用） */
+            --con-dice: hsl(48 92% 60%);   /* 宇宙骰子星座：黃色系（0.98.22.11 Andy，所有主題共用） */
+            --con-ai: hsl(140 68% 52%);    /* 宇宙 AI 星座：綠色系 */
             --mix-dark: #000;   /* 只給 color-mix 調暗／遮罩用（0.98.21 ws-nav、sx 捲動淡出） */
            
             --fill-soft: color-mix(in srgb, var(--text-primary) 5%, transparent);
@@ -199,7 +202,8 @@
         }
 
         /* Midnight 午夜：近黑藍，藍強調／桃紅／黃／青；質地像夜空微光 */
-        html[data-lh-theme="midnight"] {
+        /* .ws-probe：宇宙畫布裡的字、線一律用午夜的配色（0.98.22.11 Andy：淺色主題開宇宙太怪） */
+        html[data-lh-theme="midnight"], .ws-probe {
             --bg-gradient-1: #000b18;
             --bg-gradient-2: #000b18;
             --container-bg: #050f1f;

@@ -1,3 +1,173 @@
+## 本地測試中（未升版號、未 push）
+- （空）本地要調宇宙美術：瀏覽器 localStorage 設 lh:spTuneUI＝1 就會出現齒輪（請 Claude 開）
+- 待清：_lhSpWispImg、_lhSpSmTurb 沒在用；smC（煙被沖散）程式停用中（smOnG.C＝false）——確認不要再刪
+- 已知：大星系仍有幾顆行星擺盪停不下來（已用卡住判定讓恆星／光芒照常完成）
+
+## 0.98.30（2026-11-17，已 push）里程碑：宇宙特效定稿
+- 煙霧系統（公轉／凝聚）、拖畫布光帶兩條吃尾巴規則、恆星凝聚（不透明 0→15%、對焦 0→80%＋最後 3 秒、熱浪 0→60% 且自己對焦 60→100%）、多重宇宙照字數排＋零頭合併＋篩選跳宇宙、星座留在自己的宇宙、導覽圖示、齒輪藏起來
+- 細節見下面（原「本地測試中」逐條記錄）
+- 恆星熱浪自己的對焦 w.gHeatF：gather.heatFocusFrom 0.6 → heatFocusTo 1（程式＋sp-tune-defaults＋滑桿）；整團判定完成後 3 秒補完；熱浪晃動放大也改看 gHeatF。實測 8 秒（60%）開始、17 秒清楚
+- Andy 按「寫成預設」時瀏覽器 localStorage 還是舊值，蓋掉了恆星的新數字；已手動改回 sp-tune-defaults.js：starTo 0.15、litHeatFrom 0、litHeatTo 0.6、focusFrom 0、focusTo 0.8（其他照 Andy 寫的）。請 Andy 按一次「還原預設」清掉瀏覽器舊值
+- 恆星熱浪對焦改成相鄰兩階交叉淡（跟本體 blit 同算法），舊版挑最近一階＝最後一刻輪廓突然變清楚
+- 星座留在自己的宇宙：_lhSpShow 換批前把骰子／AI 星座用詞文字存進 _lhSp.conStore.pages[page]（同一 cfg.list），回來照文字重建＋還原 mode；換查詢清掉。修換宇宙後導覽列沒更新（建完詞就 _lhSpConSync）。實測換到第 2 批導覽列消失、回第 1 批星座原樣回來
+- 恆星對焦：ease-out 撤回（回 fadeShape 曲線）；對焦 ≥90% 後改固定 3 秒收完（w.gF9T），整團判定完成的補完也 0.8→3 秒。實測 9.5 秒到 90%、12.5 秒完全清楚
+- 恆星對焦曲線改 ease-out（1−(1−x)²，最後一段慢）；不透明、行星照舊用 fadeShape
+- 星座導覽「更新」圖示換成雙方形循環箭頭（repeat 樣式）
+- 恆星透明→不透明 0→15%（gather.starTo 0.15，程式＋sp-tune-defaults）
+- 星座導覽：保留＝旗子、更新＝refresh、新增取消＝垃圾桶（_lhSpConDrop：丟掉目前骰子／AI 星座，已保留的詞不動），三顆包在 .ws-cn-mid，單一宇宙時跨骰子＋AI 底下兩格（css/panels.css）
+- 恆星對焦 0→80%（focusTo 0.8）；色標面板（第二面板）預設收合（_lhSp.legOpen＝false）；中間開關鈕 .ws-legbtn 底色暗 32%（--legbtn-bg，不透明度不變）
+- 恆星對焦試 0→100%（focusFrom 0，程式＋sp-tune-defaults）
+- 恆星熱浪凝聚中晃得更兇：幅度 ×(1＋(gather.heatBoost−1)×(1−對焦))，預設 4 倍，對焦完回到 starfx.heat.amp（新滑桿）
+- 恆星熱浪 0→60%（litHeatFrom 0，程式＋sp-tune-defaults）；恆星對焦三次方 ease-in 拿掉，回到 fadeShape 曲線
+- 光帶錐形寬度上限＝頭端字寬（band() Lp/Rp 段 min(P[i].lw, b.lw)）：急速縮小時尾巴點記的是大字寬，舊版尾巴鼓成寬頭
+- 恆星熱浪跟著對焦：熱浪兩張晃動小圖改用 w.gFocus 對應的模糊階（_lhSpBlurSpr），舊版一律清楚字＝凝聚 2～6 成時恆星看起來提早變清楚
+- 凝聚卡在 8～9 成（幾顆一直擺盪）→ 卡住判斷：物理段每 1.5 秒看 cl.gP，過 75% 且前進不到 2% 就 cl.gStall＋直接標 cl.gDoneT（畫面外的恆星也標得到）；恆星對焦在完成後 0.8 秒平順補完（w.gFc0）。實測恆星確實到 60% 才開始對焦
+- 拖畫布光帶規則①改「按部就班」：band() C 段 P.endT＝最後一次變長＋50÷kill 秒，每格吃 剩下長度÷剩下時間（不管多長都 5 秒吃完）；② 超出照舊加速吃。實測 150／400／1500px 停手後都約 5 秒吃完
+- 鏡頭光帶只在這一格鏡頭真的有動才記點（_lhSp.camMv；camOn 是衰減速度，停手後 1～2 秒還亮，公轉被當成拖畫布一直延長光帶）
+- 恆星對焦曲線改三次方 ease-in（前慢後快）；能量團試做已撤回
+- 拖畫布光帶規則②改成「加速吃」：band() C 段 P.eat 每格加 ①kill/50×dZ ＋ ②超出量×3÷distFade 秒（distFade 內吃掉 95%）；拿掉 q.xt 逐點淡出與 F（逐點越界才計時＝延遲感、點疏時整段一起）。dZ＝dist×_lhSpDistK()（100%＝1、最小縮放 1/8、最大 2，對數過渡）。實測 0.3 秒拖 1500px：峰值 695，停後 0.3 秒回到 ~500，之後每秒穩定吃 100px
+- 拖畫布光帶（C）化繁為簡成兩條規則（band()）：①P.eat 尾巴固定速度一直吃（trailC.kill 點／秒，一點＝dist÷50 px），不看停留時間／暫停／鏡頭停下時間／凍結切條；②超過 trailC.dist 的段 distFade 毫秒淡掉（q.xt）。C 不走 retire／freeze。實測：拖 400px 長到 ~350，停住、放開後一路穩定縮短到 0
+- 修：短光帶歪出去時 band() 用複本畫，狀態（eat、t0r…）沒帶 → NaN 顏色報錯；複本帶齊、記錄寫回 PO
+- 熱浪 20→60、對焦 60→100 只套恆星；行星對焦還原成跟不透明一起（0→fadeTo）
+- 放開等尾巴收、再按住拖整片重亮（第三次修）：凍結移到 band()——鏡頭一動（算出的 t0r 比上次記的晚）且已收＞2% 就凍結 P.t0r/h0/retT，不必等這顆記到新點；記點時看到已凍結就另起新條。實測（真滑鼠：拖→放→0.8 秒→再拖）所有光帶倒退次數 0（拿掉修正時抓到 1 次、倒退 17%）
+- 凝聚：熱浪 gather.litHeatFrom 0.2 → litHeatTo 0.6；對焦跟不透明分開 gather.focusFrom 0.6 → focusTo 1（行星、恆星都是；整團完成算 100%）；sp-tune-defaults 已加
+- 光帶停住又拖重亮（第二次修）：切條改看 band() 記下的收的進度 P.rp＞2%（舊條件要求位置差 1px，停住時永遠不成立）；凍結 P.t0rL/h0L。實測停 1.5 秒收到 31% 後再拖，舊條從 31% 繼續收。切出來的舊條頭端柔邊（P.retT，長 3 成≤40px、0.2 秒內出現）
+- 拖畫布光帶不看停留時間（band() tmin＝−∞ for C；停住時頭一直更新、舊點整批丟光＝瞬間消失），trailC.max 滑桿拿掉，長度只靠 dist 貪吃蛇
+- 拖畫布光帶長度上限改貪吃蛇淡出：量光帶自己的長度，超過 trailC.dist 的點記 q.xt，band() 乘 F（trailC.distFade 毫秒淡完），淡完才 shift 掉；兩條滑桿都是暫時
+- 光帶停住又拖會整條重亮修：記點段停過 0.1 秒又動 → 舊條凍結 t0r／h0 放 w.trRet（最多 4 條）照自己的時間收完，新的另起一條；band() 用 P.t0r ?? 原算法。實測停 1.5 秒後再拖，舊條照時收完沒重亮
+- 多重宇宙零頭合併（_lhSpPages 關聯詞段）：不到平均三成的宇宙併進前後較小的鄰居。實測「不」10→8 批（61、53 那兩批併掉）
+- 拖畫布光帶：C 組不再「折返整條清掉」（flip 只留給縮放）；改成照滑鼠走過距離限長 trailC.dist（滑桿，預設 500px，暫時），超過從尾巴剪（光帶記點段 grp==='C'）
+- 凝聚中詞先不透明再重走浮現修：①共用時間軸也套每顆時間保底 byTime（gather.fadeMs）②整團「新的凝聚」判斷 cl.gF 0.1→2 秒（卡頓不再把 cl.gP 歸零）。推測原因，待 Andy 確認
+- 臂間落單行星不落到外圈外：只在最外圈半徑 80% 內的圈挑（_lhSpLayout spiral 段 inside），半徑只往內散 0～0.6 圈
+- 歌詞面板標題列不換行（css/panels.css .lyrics-head flex-wrap: nowrap）：窄了歌名先 …；收成圖示的門檻 24→30rem（@container lpanel）
+- 觸角氣流拿掉（煙被 feDisplacementMap 撕成碎片＝「被抹掉的區塊」，截圖 shape 1 確認）：擴散步只剩 blur；_lhSpSmTurb 暫留未用；形狀 c 只管拉長
+- 沖散後煙閃爍修（推測，待 Andy 確認）：被沖散的行星回到離家半個字寬內（w.odist，物理段算）就固定改公轉煙（w.smHome，沖散時重設）；冒煙速度先平滑（w.smv）再換濃度，原地抖不會一團團濃煙
+- 旋臂之間落單行星改成齒輪滑桿 roam.interarm（0～0.1，預設 0.1；舊常數 LH_SP_INTERARM 0.15 拿掉），排版時讀，開新宇宙／換批生效
+- 煙霧破圖（方格）修：擴散步的濾鏡順序改「先 _lhSpSmTurb 推、再 blur」（最少 0.6px）；Chrome feDisplacementMap 整格搬，舊順序推完不糊＝一塊一塊。截圖對照 shape 0／0.4／1 已無方格。待 Andy 確認截圖裡光帶那些階梯是否也消失（若沒有，查 trailC 半解析度錐形）
+- 髮絲整套拿掉：煙團一律 _lhSpGlowImg(_lhSpSmRGB)，hairA/hairN 滑桿與預設移除；_lhSpWispImg 暫留未用（確認後刪）
+- 拖畫布定案用光帶：smOnG.C 寫死 false（smC 沖散程式留著），面板拆回「殘影｜公轉（煙霧）」「殘影｜拖畫布＋甩出去的詞（光帶）」（無開關）
+- 光帶省效能（band()）：整條在畫面外或濃度×寬度太小直接跳過；漸層點每 14px、最多 24（舊 6px／50）；顏色字串 1/128 階快取 _lhSpRGBAq。GPU 實測縮小全景拖畫布約 420→300 ms/s（量測雜訊大）
+- 多重宇宙：_lhSpPages 關聯詞照 兩字→三字→四字→多字（同字數 字首→中間→字尾）依序裝批；字首／字尾／字數鈕 _lhRelFind：照常篩選，目前宇宙沒有符合的才星際穿越到符合的第一個宇宙
+- 甩詞頓一拍修：hover 煞車（w.bk）不套用在拖著的／甩出去（src B）的詞，拖動開始 bk 歸零
+- 凝聚煙閃爍修：①小圖用近似色 _lhSpSmRGB（每頻道 56 一階；543 詞 534 色→39 色）、相位 8→4、快取 1200 張且滿了只丟最舊（舊：整批清＝每 2 秒全部重做、用軟光點代替＝閃）實測 215 張 0 次丟棄 ②smGapK 平滑（×0.1／格）＋每團濃度乘回間距倍率
+- 髮絲不再被寬度拉粗：_lhSpWispImg 加 H（16/32/64/128 依實際畫的寬度 wd 挑），線寬、小圖柔邊改真實像素；快取上限 600→400
+- 凝聚冒煙淡入改成到 smA.from 後固定 2 秒（smoothstep，w.smT0），原本是進度 5% 內
+- 髮絲拆兩條 smX.hairA（濃度，取代原本綁在 shape 的 wisp）／smX.hairN（密度：4→16 條、變細、少糊）；sp-tune-defaults 的 hairA 種成原 shape 值保持外觀。舊記錄：新滑桿 smD.hair／smA.hair「煙霧髮絲紋理」：_lhSpWispImg 加 hair 參數（細絲 5→14 條、線變細、小圖糊 3→0.6px），擴散 blur 也 ×(1−0.7·hair)
+- 煙霧大修（word-space.js 煙霧層＋逐字蓋煙）：①拖畫布沖散改「整張只搬一次、整數像素、小數留下一格」＋依相對速度×慣性糊開（舊：疊 3 份＋小數位移，淡煙四捨五入越拖越多＝水彩塗滿）②層裡固定用 0.6 濃度存煙，濃淡只在貼畫面時乘（精度）；濃淡 0 不冒 ③形狀 c 加 SVG 雜訊流場推煙（_lhSpSmTurb）＝靜止也長觸角 ④gap 可負 ⑤擴散範圍拆 len／wid（wid 1＝字寬），sp-tune-defaults 已轉 ⑥凝聚行星自己走完 95% 改用公轉煙（大星系停不下來的不再用 smA）
+- 待觀察：無拖動時煙衰減比 life 快（blur 尾巴四捨五入＋扣底），Andy 若覺得太快再處理
+- 面板改回約定：一區「殘影｜公轉＋拖畫布＋甩出去的詞」＝最上 0/1 開關，a～d 煙霧（smD）一直顯示，1 多 e/f（smC.inertia/fadeK），0 多光帶 6 條（trailC）；smD.gap 暫留
+- 甩出去的詞改歸拖畫布系統（word-space.js grp 那行＋逐字蓋煙 sg）：smC.on=0 畫 trailC 光帶（門檻／暫停也用 trailC）、=1 冒公轉煙（D）。面板區名改「殘影｜縮放光帶」「殘影｜拖畫布＋甩出去的詞（光帶／沖散煙霧）」
+- 面板：公轉煙霧、拖畫布拆成兩區（'殘影｜公轉（煙霧）'、'殘影｜拖畫布（光帶／沖散煙霧）'），滑桿名前綴「煙霧／光帶」；拖畫布區的 0/1 開關只顯示該模式的滑桿
+- 新滑桿 smD.gap／smA.gap「煙霧離星星多遠」（逐字蓋煙段 back 乘它，預設 1＝半個星球）。Andy 找到值後要釘死、移除滑桿
+- 煙霧 bug 修（word-space.js 煙霧層＋逐字蓋煙）：①慢公轉每格 <1px 起點不重設→會累積冒煙（w.smwx 只在走滿 1px 更新、速度用實際經過時間 w.smdt）②淡出 8 位元卡住（淡霧 ~14/255 永遠不消）→ 淡出累積到 6% 才扣（S.fAcc）＋每 life/10 用 SVG 濾鏡 _lhSpSmCut 固定扣 1/255。實測停產後 3 秒歸零
+- 滑桿用詞統一：光帶「尾巴最長」→「停留時間（移動中每一段留多久）」、「消逝速度」→「停下來後收尾」
+- 煙霧重整（js/word-space.js 煙霧層「Andy 煙霧（第 5 級，0.98.22.11 重整）」＋逐字蓋煙段）：只剩 D（公轉）、A（凝聚）兩張煙霧層，第 5 級永遠開；煙只看星星在宇宙裡自己走的距離（w.smwx/smwy）。拖畫布不冒煙：smC.on=1 煙有慣性（smC.inertia、smC.fadeK）、=0 畫 trailC 光帶、煙黏宇宙。凝聚每顆看自己的 w.gp ≥ smA.from 才冒煙。滑桿改 alpha/range/shape/life；公轉、自己動光帶滑桿隱藏（程式還在）。sp-tune-defaults.js 已轉成新欄位。待 Andy 試手感
+- 恆星恢復受黑洞影響，但乘 dock.star（預設 0.15）
+- 面板瘦身：拿掉 trail.ghost、trailC.hold/min/boost/ghost、gather.fadeShared/fadeMin 滑桿（數值仍生效）
+- 恆星不受黑洞影響：dock 段 !w.star（不放大、不推開）
+- 煙霧閃爍：①淡出改回每格淡（不再攢 8%）②擴散每兩格 blur(spread×0.35)③上限改自動拉間距（_lhSp.smGapK＝上一格需求÷2500），不再跳過後面的字
+- 煙不超前：每團往後退 len/2＋(字寬＋字高)/4（最前端在星球中心後半個星球）
+- 凝聚冒煙時機：自己動的煙要等整團進度 cl.gP ≥ gather.fadeTo＋gather.smokeGap（0.05）才開始，之後 5% 內淡入（沖散時 gP 已滿，照常冒）
+- 煙霧 spd（速度加成）→ thin「速度越快越稀疏」−1～1：濃度 ×(v/200)^(−thin)，夾 0.15～4；預設 1＝自然（每秒噴的煙一樣多）
+- 左右方向鍵導覽星星（_lhSpKey；導覽列看得到才作用，焦點在輸入框／滑桿不搶）
+- 殘影面板再改：拖畫布／公轉／自己動各一區，第一列「模式」smC／smD／smA.on（1 煙霧、0 光帶＝trailC／trailD／trailA），ROWS 第 6 欄＝顯示條件（'smD.on=1'），切換時 conds 即時藏／顯；
+  引擎：每組一張煙霧層 _lhSp.smk3[D|A|C]、各自 life／spread／濃淡…；_lhSp.smOnG 決定哪組冒煙、哪組畫光帶；共用每格 2500 團上限。舊 LH_SP_TUNE.smoke 拿掉
+- 星際穿越：煙霧畫在主畫布上本來就跟著放大；_lhSp.smFade＝放大結束前 0.3 秒開始淡，換宇宙時整張煙霧清掉（_lhSpWarp）
+- 齒輪面板重整：標題統一「類別｜名稱」，順序：殘影｜縮放光帶、殘影｜煙霧、星系｜公轉、星系｜混沌凝聚、互動｜黑洞放大、互動｜星座、恆星｜光暈閃爍／日冕／輻射／熱浪，最後「舊｜」三組（煙霧模式＝0 才作用，標題變淡 .ws-tune-h.old）
+- 旋臂星系：每圈 LH_SP_INTERARM（15%）行星散在兩臂中間（角度 ±0.175 臂距、半徑 ±0.4 圈距），大小＝左右兩臂行星平均（_lhSpLayout spiral 分支，w.inter）
+- 手機（LH_SP_COARSE＝pointer: coarse）第 5 級 fps 30
+- 煙團改 _lhSpWispImg：128×64 橢圓軟底＋5 條正弦細絲、blur 3px，每色 8 張相位，蓋時照時間（t/110）輪換＝流動；順著前進方向旋轉、拉長（smoke.stretch，走越快越長），smoke.wisp 細絲比例；間距＝長度 35%；每格最多新做 6 張（_lhSp.wispBudget），沒做好先用 _lhSpGlowImg。實測 GPU：拖畫布第一次 494、圖做好後 265 ms/s
+- 導覽星座的全息面板（holoPin）：_lhSpHoloDraw 試右上／左上／右下／左下，算框內蓋到的詞（大字重）＋出畫面＋壓到面板，挑最空的，記在 h.pl 不跟著跳；一般 hover 照舊
+- 煙霧模式（LH_SP_TUNE.smoke，on＝1 預設開，可切回 0 光帶）：_lhSp.smk 半解析度不清除畫布（×4 濃度、貼回 ÷4）；縮放時整張跟著放大（拖畫布不跟＝拉絲）；
+  攢到 8% 才 destination-out 淡一次（避免 8 位元殘渣）、spread＝每次淡時 blur；很久沒新煙整張清。逐字蓋 _lhSpGlowImg 光團，間距半團寬、濃度按實際長度分配、每格上限 2500 團。
+  煙霧開時：燃燒軌跡（A／D）不記、拖畫布 C 光帶不記；縮放 B 照舊。實測（GPU、「不」602 詞、第 5 級）：拖畫布 836→354 ms/s，靜止差不多（~330）
+- 拖畫布殘影整塊消失真因：記點時「上一點≠上一格位置」就插斷點（br），每格走 2～6px 時每格都斷 → 光帶碎成幾十段、收的時候一塊塊不見。改成上一點超過 0.1 秒沒更新才斷
+- 殘影引擎再拆：鏡頭殘影只剩 B（縮放＋甩出去）、C（拖畫布），只在鏡頭動時記（w.trl）；自己動 A／公轉 D 改「燃燒軌跡」w.brn（第 5 級）：
+  宇宙座標 wx／wy 記點、畫時換算；在動只留 life 毫秒；停下來（<2px/s 超過 0.15 秒）頭時間凍住→交給 kill 吃；停過再走舊的移到 w.brOld 自己收完；
+  A 濃淡 ×(1＋spd·v/600＋acc·平滑加速度/3000)；trailD.cap（30～1000，預設 200）同時最多畫幾條、快的優先。修了「切組 0.2 秒整條收掉」（放開拖畫布殘影突然消失的真因）
+- 短光帶隨機偏移：band() 裡全長比字寬短的，尾巴往 P.oa 隨機方向歪（最多半字寬，越短越歪，頭不動），只改畫的位置
+- 彎光帶接縫明暗紋（流星斷斷續續）：band() 彎的分支改成切「夠直」的大塊（頭尾直線 ≥ 路徑長 97%）各一條漸層，不再每 6px 一塊
+- 流星出界：記 cmSide、休息 15～60 秒（w.cmWait，期間不畫、不能點），再從對面以外的三邊隨機位置、朝內 ±45° 進來，清掉舊光帶
+- 滑鼠在畫布上就沒殘影 bug：殘影閘門排除了 mag>1.01、魚眼推開、w.hot → 游標 500px 內全沒殘影。改成速度看未變形位置 pu（w.lux／luy），閘門只剩 dim、pinned
+- 齒輪：公轉、自己動兩組拿掉「暫停時間」「判斷門檻」滑桿（值照舊在 LH_SP_TUNE，只是不顯示）
+- 切分頁回來爆殘影：_lhSp.trGap（兩格間隔 >250ms）那一格位移歸零、不記點
+- 公轉／自己動永遠沒殘影的真正原因：band() 看到只有 1 點就 return false 把 w.trl 丟掉，慢速要累積 6px 才有第 2 點 → 永遠只有 1 點。改成 1 點時 0.3 秒內保留
+- 只有中心拖殘影 bug：還在凝聚／擺盪的行星（w.free src A）鏡頭動時也算 A，自己速度＋加成必過門檻 → 改成鏡頭在動一律跟鏡頭組（B／C），鏡頭不動才算 A；甩出去的照舊 B
+- 凝聚沒殘影 bug：凝聚每秒只走 15～30px（每格 ~0.3px），A／D 組的記點門檻 0.3px 把它擋掉 → 改 0.02（w.spd 和 mv1 兩處）
+- 星座鈕：沒有分批面板時 .ws-ptop 改 4 欄、.ws-cnav display:contents，骰子在「保留」正上方、AI 在「更新」正上方（css/panels.css）；「刷新」改名「更新」
+- 星座連線重寫 _lhSpConBuild：k-means 有名額分區 → 組內最小生成樹 → 補短線（≤最長樹枝 1.6 倍、每組 ⌊n/3⌋ 條、每顆 ≤3 條、跟所有線不交叉才補）；導覽順序沿樹深度優先；星座照最左點由左到右；跨星座樹枝交叉會拔長的換最短不交叉的接法。200 次隨機實測：交叉 11.65→0.3 處／次、線段平均 225→160px
+- 2026-11-17 效能實測（「不」關聯 6016 詞、一批 602）已寫進分級表 artifact（NUoEJt5851vJEZdNq814Mf）：電腦 GPU 第 4 級靜止 44→縮放 324／拖 543 ms/s；第 5 級靜止 240、縮放 774、拖 945（40 格）；手機模擬第 5 級 9～20 格。
+  動的時候 >50% 在殘影光帶（addColorStop＋顏色字串最大）；靜止第 5 級一半是 _lhSpStarFx。建議 5 項（顏色字串快取、控制點減半、光帶上限 200、手機第 5 級 30 格、手機日冕減半）等 Andy 勾選，還沒動程式
+- 關聯詞彙偷跑字型：滑鼠移到／focus #wsRelBtn 就算清單並 _lhSpPreFont（_lhRelPre，選的字沒變不重算）
+- 星座鈕：只有一個宇宙時分批面板 display:none、骰子／AI 靠攏到中間（css/panels.css .ws-ptop:has）；導覽列縮小（1.625rem、0.75rem 字），文字改「保留」「刷新」
+  - ⚠ Andy 原話「如有多重宇宙就往中間靠攏」，我理解成「沒有分批面板時靠攏」（有面板時本來就貼著面板）；明天確認
+- 齒輪滑桿：雙擊整列還原成預設（LH_SP_TUNE_DEF，含寫成預設的檔）並存檔
+- 宇宙字型改 header 的粗明體（--font-serif、小圖 700）；_lhSpPreFont() 查詢完（lhWsRender 設 _lhWs.list 後）趁空檔預載字，打開時沒載完的載好再重畫
+- （舊）宇宙字型修正：Google 中文字型切 216 片、畫布不觸發下載（實測首頁只載 42 片）→ 打開宇宙時 document.fonts.load 這批詞的字（400＋700），載好整批小圖重畫（_lhSp.words 建好之後那段）
+- 殘影第四組 D＝公轉（trailD，鏡頭不動時自己繞著走的詞，速度＝畫面上每秒幾 px÷600）；四組都加 boost「速度加成」（A 0.3、D 0.1、B／C 0）；自己動的組（A、D）門檻放低、沒過門檻不開新光帶
+- 光帶錐形跟著收：band() 算出目前尾端的幾何位置 Rg，寬度＝(G−Rg)/(Lg−Rg)，跨在 Rg 上的那點挪到 Rg 當尖端（收到哪哪裡就是新尖端）
+- 黑洞放大：dock.max（倍數）＋14px 保底 → dock.px「至少放大到多少像素」預設 20，比它大的字不放；魚眼 D 也照 dock.px 算；dock.extra（預設 4）：已經比門檻大的字再加幾 px，目標字高＝max(px, 原字高＋extra)
+- 宇宙字體改成跟字卡同一套 --font-ui（Noto Sans TC 黑體），_lhSpTheme()；舊版是 --font-serif 明體
+- 黑洞魚眼：dock 段算 w.fox／w.foy（D＝push×(中心該放倍數−1)，夾 3，位移 D·d·(1−x)³），畫面位置統一走 _lhSpWS(w)（畫字、連線、多邊形、點擊、面板）；推開中的詞不留殘影、所屬星系不用整張圖；齒輪 dock.push
+- 光帶頭端：沒記點的格子頭端黏回字目前位置（以滑鼠為中心縮放尾聲的偏心）；彎的光帶改每段各自漸層（頭尾直線太短時整條不淡的 bug）
+- 殘影拆第三組 C＝拖畫布（trailC，齒輪「殘影：拖畫布」），B 只剩縮放＋甩出去；_lhSp.camG 依這次鏡頭動作縮放／拖哪個快決定組別；trW／trHold／camH 改成分組；sp-tune-defaults.js 的 trailC 先複製 trail
+- 恆星凝聚浮現 bug：行星進度還沒開始的頭 1.5 秒恆星先當 0（不再先冒出來）
+- 恆星凝聚：跟整團進度 cl.gP 共用時間軸，前 gather.starTo（0.3）透明→不透明＋失焦→清楚（word-space.js 凝聚浮現區塊的 else-if 分支），滑桿在混沌凝聚
+- 光帶漸層改 Andy 的寫法：從尾到頭平均灑 LH_SP_TRAIL_N 50 個控制點（at() 換算幾何位置），消逝速度改 kill＝每秒收掉幾個控制點（B 25／A 30，取代 rate）；短光帶按長度自動少畫點（每 6px 一點、最少 4），at() 改成接續往前找；拿掉收尾曲線 curve 和最後三成整條淡掉，改等速收，靠尾端柔邊自然淡完
+- 齒輪「公轉」組：roam.comet（流星倍數）、planet（行星公轉倍數）、fall（越外越慢程度：_lhSpOm＝omB·omD^(omE·fall)，旋臂 omE 1.5、同心圓 0.5）、wobAmp／wobFreq（晃動幅度／頻率倍數）
+- 收尾修正（band()）：進度 pr＝經過時間×rate；收掉長度 R＝Le·(1−(1−pr)^curve)（新滑桿 curve 2，前快後慢）；最後三成整條 smoothstep 淡掉；鏡頭留下的尾巴（P.cam）從 _lhSp.gT（鏡頭最後動）＋camH 一起開始收
+- 文字殘影改單張：不再畫進全螢幕切片（切片機制留著但不再寫入），band() 在光帶目前的尾端點畫一個字，濃度 0.35×速度權重×(1−經過秒數×rate)，不等 hold；w.trl.t0＝這條開始時間
+- 殘影消逝改 rate（每秒收掉全長比例，B 0.5／A 0.6），取代 speed px/s：長短尾巴同時收完（retract(…, len)）
+- 黑洞保底：放大後字高 <14px 的至少放到 14px（同距離曲線過渡）；縮放上限改最小字 21px；公轉速度滑桿上限 600；齒輪測試先把 trail.min 歸零（避免受預設檔門檻影響而時好時壞）
+- 微星系 ≤7 詞、小星系 8～15 詞會公轉（cl.roamK）；速度改齒輪 LH_SP_TUNE.roam.micro 21／small 8.5 px/s（×每團 0.75–1.25 隨機 ×等級 roam）
+- 殘影引擎重寫：LH_SP_TUNE.trail（B：縮放、拖畫布、甩出去 w.src='B'）／trailA（A：凝聚、沖散 w.src='A'）。拿掉 fade（秒數），改 speed（尾巴每秒縮 px，retract()）；新 cone（錐形粗細）；每條光帶記組別 P.g，換組丟進 trOld 淡掉；兩組各一組小畫布／柔邊；字的殘影切片照 B 的速度收（d×1200 換算 px）。滑桿各 9 條（濃淡、錐形、柔邊、尾端柔邊、消逝速度、暫停、門檻、文字殘影、尾巴最長）；flip/cap/slice/ghostMax 只留在預設
+- 星座換一批不重複（_lhSp.conSeen[kind]，剩不夠一半才重來）；導覽到站後 _lhSp.navF：鏡頭死區（短邊 12%）外才慢慢帶回、2.5Hz 閃爍；手動縮放／拖／點空白／下一顆／切模式就放開
+- 黑洞放大不糊：_lhSpDraw hiSpr()——mag>1.12 的字另畫 w.sprH（bucket(z·dpr·mag)，上限 SMAX×2，每格最多 12 張），mag 回 1 就丟
+- Andy 已用「寫成預設」寫入 js/sp-tune-defaults.js（現在的真預設）；齒輪測試改讀 LH_SP_TUNE_DEF，不寫死數字
+- 縮放上下限改照字大小（_lhSpZLim → _lhSp.zLim）：最小＝最大恆星字高 14px、最大＝最小字字高 21px；打開縮放也夾進去。導覽浮標籤門檻 14px
+- 星座 5～10 顆；骰子黃（--con-dice）、AI 綠（--con-ai）css/base.css :root，多個星座各自色相偏（GH 表）
+- 齒輪「寫成預設」：本地伺服器 tests/serve.mjs POST /__lh/tune-defaults（只收本機 origin、只留數字）寫 js/sp-tune-defaults.js（LH_SP_TUNE_FILE），word-space.js 載入時蓋過 LH_SP_TUNE 再拍 DEF。⚠️ 之後我改程式碼裡的預設，要同步檢查這個檔有沒有同名值會蓋掉
+- 黑洞範圍 500（REV 2）
+- 光帶柔邊淡出成塊：小畫布改 4 倍濃度畫（BB），貼回時 ÷4，保留色階（光帶段）
+- 黑洞放大：r 420（REV 1）、新 dock.curve 4（1−d/r 的次方，fast end）
+- 星座分組 _lhSpConSizes：每個 4～10 顆、最多 8 個星座，平均分後隨機挪 1～2 顆
+- 日冕點亮改凝聚 0→100%（gather.litCorona 0，REV 1；滑桿下限改 0）
+- 骰子／AI／導覽列拆成獨立按鈕：.ws-ptop 透明格子 [骰子][.ws-pages][AI]＋導覽列在下（窄螢幕在下方、導覽列在上）；導覽時 dpF＝0、不記光帶／疊影；字高 <11px 時導覽到站直接叫出全息標籤（_lhSp.holoPin：滑鼠移到空白不收，點空白／下一顆才收）
+- 齒輪：改過的值後面灰色寫「(預設)」、沒改不寫（LH_SP_TUNE_DEF），跟預設不同的整條標重點色、組標題寫「改了 n 項」；新增「貼上數值」（讀剪貼簿 JSON，失敗退 prompt，只套表上路徑並存檔）
+- 黑洞放大改 LH_SP_TUNE.dock（max 1.8＝最多 2.8 倍、r 280px，舊 1.3／240），新齒輪組「黑洞放大」
+- 骰子／AI 星座（js/word-space.js「骰子／AI 星座」段＋_lhSpDraw conLines；css/panels.css 檔尾）：.ws-pages 改常駐，.ws-prow＝[骰子][滑桿 pmid][AI]、.ws-cnav＝◀ 加入保留 再換一批 ▶。
+  _lhSp.cons.dice/ai＝{groups(每組≤LH_SP_CON_MAX 10，最近鄰連連看), segs(鏈＋首尾＋30% 跳一顆)}；_lhSp.mode 決定最顯眼（null＝保留詞），其餘 ×con.dim 0.1。
+  骰子：可見未篩詞加權 0.6+0.4·n 不重複抽 lhAiTune().n 個；AI：同主畫面 prompt／模型，候選＝可見詞，失敗照常用度補。按鈕：沒星座＝抽＋開，有＝開關。導覽沿目前模式順序、鏡頭跟著星走（_lhSp.nav.w）。
+  第 5 級封閉多邊形：_lhSpConFaces（交點切開＋右手走面）→ 最近星色 _lhSpHue 錯開，濃度 con.fill 0.04。線色用頁面主題 --accent-3／--accent-4（_lhSpTheme 從 html 讀）
+- 預設換成 Andy 最終 JSON（gather k.03/ramp20/scatter.6/fadeTo.5/fadeShape.3；rays n14/a.4/len.2）；熱浪 aHeat 在凝聚 0→gather.litHeatTo 0.7 亮完
+- 預設數值換成 Andy 2026-11-17 的 JSON（trail ghost1/soft0/hold400/alpha0.7/slice40/min0.1/gather0.35；gather k0.035/scatter1/fadeTo0.6/fadeCurve4），node 比對 match
+- 字的疊影加條件：畫面字高 16·s·z·kb > trail.ghostMax（64，新滑桿）就不畫進切片，光帶照記
+- 流程：Andy 用 node tests/serve.mjs 開 4310 看本地；測試改用 LH_TEST_PORT=4320 跑，避免撞埠
+- 宇宙一律深色底：css/base.css :root 加 --space-bg #000913（午夜背景暗 20%）；午夜主題選擇器加上 .ws-probe → 畫布的字／線／卡片永遠用午夜配色；css/panels.css .ws-space 底改 var(--space-bg)、暗角改 --mix-dark；js/word-space.js _lhSpWarp 星光線備用色改讀 probe。按鈕、面板仍跟主題
+- 星際穿越前放大：改成擦過離畫面中心最近的恆星（偏中心側 7% 短邊，MISS 寫死在 _lhSpWarp），星光線固定從畫面正中心射出
+- 殘影／光帶收尾改「照長度」等速縮短（js/word-space.js 殘影段 lenVis/cutAt）：切片記每片畫面移動量 d、光帶照弧長；超過 trail.max（新滑桿，預設 1500ms）的舊段權重漸歸 0，不再硬剪；切片上限改 ceil(max/slice)+2（≤24）；光帶點數超過 60 抽稀舊半段；光帶亮度改沿線前綴最大速度、漸層最多約 24 點
+- 宇宙色標：分頁跨在左面板與色標面板 2px 縫正中（_lhSpNavPlace、.ws-legbtn 全圓角）；關聯詞色標文字改「讀音·位置·字數」同恆星標籤（_lhSpClLabel 借 _lhSpClParts），括號全改半形
+- 混沌凝聚點亮三段（_lhSpDraw 恆星光暈段）：日冕＋熱浪 litCorona 0.7→完成；光暈從 litGlowAt 0.9 起 litGlowDur 8 秒（cl.gGlowT）；光芒凝聚完成起 litRayDur 8 秒（cl.gDoneT）。修：團內還有行星沒浮現（cl.gWait＝本格）時全部不亮——穿越後新恆星先亮又暗的 bug
+- 試驗：字的疊影（切片）可關，trail.ghost 預設 0＝只留光帶（彗星尾巴）；齒輪「字的殘影（0 關／1 開）」
+- 進宇宙背景同步轉深：css/panels.css body::after（z -1、var(--space-bg)），ws-leave 時 1.2 秒淡入、跟面板收走同步；關閉 0.45 秒淡出
+- 星際穿越前放大：拿掉透明度淡出，放大 14→40 倍讓星系直接飛出畫面（_lhSpWarp）；三角形 ws-nav 不透明；色標分頁實心底＋邊框陰影
+- 落字修正：body::after 改 z -2 墊在 #lhBgFx 下；.ws-space 拿掉實心 --space-bg（它 z 900 會蓋掉落字），只留暗角
+- 色標分頁配色顛倒：底 --highlight-border、箭頭 --card-bg，hover --action-bg-hover
+- 光帶改錐形：頭寬＝字在畫面上的寬（記點 lw＝w.tw*z*kb），沿長度線性收到 0；每點沿法線展開圍成多邊形 fill 漸層（光帶段 cone()）
+- 光帶柔邊：光帶畫到半解析度小畫布（_lhSp.bandC，BS 0.5），整張 blur 一次（trail.soft 像素，預設 4）再貼回 M
+- 齒輪覆寫機制：LH_SP_TUNE_REV（js/word-space.js 存檔函式上方）——Andy 請我改某個值時，改預設＋把該路徑的數字 +1，瀏覽器存的那一項就會被新預設蓋掉，其他他自己拉的保留
+- 極限來回拉：①記點時偵測折返（夾角>120°），舊點搬到 w.trOld、trail.flip 150ms 淡掉，新光帶從折返點重長；②光帶總量上限 trail.cap 0.1（Σ面積×透明度 ÷ 畫面面積，_lhSp.inkR），超過整層調淡（_lhSp.bandK，調淡快回亮慢）。實測 300 詞快縮放 inkR≈0.038
+- 凝聚中行星浮現：alpha × (fadeMin + (1−fadeMin)·smooth(w.gp ÷ gather.fadeTo))，w.gp＝自己走完的比例（只增），fadeTo 0.7（REV 1）、fadeMin 0（新滑桿）
+- 小星系（≤10 詞）漫遊改繞宇宙中心橢圓公轉（扁率 cl.oe 0.55–1、方向 cl.dir、角速度＝原直線速度一半÷半徑），拿掉出界從對面回來（_lhSpFrame 漫遊段）
+- 光芒不亮修正：①彈簧阻尼只壓相對目的地的速度（ov＝目的地每格位移÷dt，>300px/s 視為跳位不算）；②_lhSpSeats 不再替 gp>0.9 的凝聚中行星換座位；③cl.gDoneT 也在整團進度 ≥98% 時成立。實測 60 詞兩團 20 秒內都觸發
+- ⚠️ 待查：大星系（30 詞）仍有約一半行星 50 秒後還在 gk（離軌道 30–40px 擺盪），光芒已不受影響，但行星沒真正停穩
+- 恆星／流星光暈圖：_lhSpGlowImg 改 256px、滿濃度畫，淡度移到 globalAlpha（×0.13／×0.3），修放大後的顆粒、色階；再加 1−smoothstep 收尾＋alpha 抖色雜點 ±8 修平常亮度的分圈
+- 行星 hover 煞車：still 不再含行星的 hw；w.bk 0→1 走 0.8 秒（凝聚中／甩出去的 free 行星也煞：fx 積分與 th ×(1−bk)，不抵整團位移）（smoothstep），公轉 ×(1−bk)、整團位移照 bk 抵掉存 w.bax/bay（加在 px/py），放開後 0.75 秒恢復、偏移 exp(−3t) 滑回
+- 凝聚中行星：fadeCurve 換成 gather.fadeShape（0–1，指數 4^((0.5−c)·2)，浮現與對焦共用，預設 0＝指數 4）。gather.fadeShared 切換（1 預設＝整團共用進度 cl.gP、無時間保底；0＝每顆 w.gp＋時間保底）。亮度改 smooth(gp÷fadeTo)^fadeCurve（2，新滑桿）前段很淡，且取 min(距離進度, 出生後時間÷gather.fadeMs 2500)；起點改圓環（至少半徑一半）防出生就在目的地旁；（舊：亮度 0→fadeTo×0.4 先亮成模糊光）、對焦 0→fadeTo 才清楚（兩條曲線分開，舊版同曲線導致模糊版幾乎透明看不到）；對焦：w.gFocus＝浮現同一條曲線，_lhSpDraw blit() 在 f<1 時交叉淡「模糊版 _lhSpBlurSpr（每詞一次，blur＝字高×gather.blur 0.6）」與清楚版；對焦完放掉 w.sprB
+- 對焦改 4 階模糊（_lhSpBlurSpr(w, lv) 半徑 ×0.2/0.5/1，w.sprB 陣列），相鄰兩階交叉淡；起點散開改以 _lhSpOrbit(w) 為圓心（gather.scatter 改名「起點離目的地多遠」）
+- hover 光暈：行星改等完全煞停（w.bkT）才 0.3 秒亮起；starHi 對行星／流星半徑 ×0.5、光暈濃度 ×0.35（字的提亮不變）
+- 星際穿越放大：改 16 關鍵格指數倍率 40^(u^2.2)（修直線內插造成的減速感）；加 3 張放大殘影 .ws-echo（倍率 ^0.92/0.84/0.76、不透明 0.4/0.25/0.13、頭尾 15% 淡入淡出），換內容時移除
+
 ## 0.98.22.10（2026-11-16，已 push）
 - Andy 新一輪宇宙數值寫成預設（trail.alpha、gather、corona.a、rays、heat）；齒輪仍開著
 

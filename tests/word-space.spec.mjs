@@ -225,7 +225,7 @@ test('換批：點數字、點滑桿都能切換（第 3 級鏡頭一甩、第 5
 
 // 0.98.21 Andy 暫時的調參面板：縮放鈕左邊的 ⚙ 打開、滑桿即時改 LH_SP_TUNE、還原預設
 test('詞宇宙：調參齒輪（暫時）', async ({ browser }) => {
-    const { context, page, errors } = await bootPage(browser, { storage: { 'lh:bgFx': '5' } });
+    const { context, page, errors } = await bootPage(browser, { storage: { 'lh:bgFx': '5', 'lh:spTuneUI': '1' } });   // 齒輪平常藏起來，lh:spTuneUI＝1 才出現
     await page.evaluate(() => { _lhWs.input = '安打'; _lhWs.list = [{ w: '辦法', z: 'ㄅㄢˋ ㄈㄚˇ', p: 50 }, { w: '看法', z: 'ㄎㄢˋ ㄈㄚˇ', p: 90 }]; lhWsOpen(); });
     await expect.poll(() => page.evaluate(() => _lhSp.words.length)).toBe(2);
     const gear = page.locator('.ws-zoom .ws-gear');
@@ -233,9 +233,9 @@ test('詞宇宙：調參齒輪（暫時）', async ({ browser }) => {
     await expect(page.locator('.ws-tune')).toBeHidden();
     await gear.click();
     await expect(page.locator('.ws-tune')).toBeVisible();
-    await expect(page.locator('.ws-tune-h')).toHaveText(['殘影', '光暈閃爍', '混沌凝聚', '恆星日冕', '恆星輻射', '恆星熱浪']);
+    await expect(page.locator('.ws-tune-h')).toHaveText(['殘影｜縮放光帶', '殘影｜公轉（煙霧）', '殘影｜拖畫布＋甩出去的詞（光帶）', '殘影｜凝聚（煙霧）', '星系｜公轉', '星系｜混沌凝聚', '互動｜黑洞放大', '互動｜星座', '恆星｜光暈閃爍', '恆星｜日冕', '恆星｜輻射', '恆星｜熱浪']);
     await page.locator('.ws-tune-h', { hasText: '混沌凝聚' }).click();   // 每組一開始收起來
-    await page.locator('.ws-tune-h', { hasText: '恆星輻射' }).click();
+    await page.locator('.ws-tune-h', { hasText: '恆星｜輻射' }).click();
     const row = page.locator('.ws-tune-row', { hasText: '阻尼' });
     await row.locator('input').fill('0.5');
     await expect(row.locator('output')).toHaveText('0.5');
@@ -245,13 +245,14 @@ test('詞宇宙：調參齒輪（暫時）', async ({ browser }) => {
     expect(JSON.parse(await page.evaluate(() => localStorage.getItem('lh:spTune'))).gather.damp).toBe(0.5);   // 調過的值記在瀏覽器
     await page.locator('.ws-tune-btn', { hasText: '還原預設' }).click();
     expect(await page.evaluate(() => localStorage.getItem('lh:spTune'))).toBeNull();
-    expect(await page.evaluate(() => [LH_SP_TUNE.gather.damp, LH_SP_STARFX.rays.n])).toEqual([0.8, 11]);
-    await expect(row.locator('output')).toHaveText('0.8');
+    expect(await page.evaluate(() => [LH_SP_TUNE.gather.damp, LH_SP_STARFX.rays.n])).toEqual(await page.evaluate(() => [LH_SP_TUNE_DEF.gather.damp, LH_SP_TUNE_DEF.starfx.rays.n]));   // 預設可能被 js/sp-tune-defaults.js 改過：跟目前的預設比
+    await expect(row.locator('output')).toHaveText(String(await page.evaluate(() => LH_SP_TUNE_DEF.gather.damp)));
     // 0.98.22.7：快速縮放留殘影光帶、停手後從尾巴收完就清空（直接每格縮小鏡頭模擬快速縮放）
+    await page.evaluate(() => { LH_SP_TUNE.trail.min = 0; });   // 門檻歸零：不受 js/sp-tune-defaults.js 的門檻影響，測試結果固定
     await page.evaluate(() => new Promise(res => { let n = 0; const f = () => { _lhSp.z *= 0.88; _lhSp.dirty = true; if (++n < 20) requestAnimationFrame(f); else res(); }; requestAnimationFrame(f); }));
     await page.waitForTimeout(50);
     expect(await page.evaluate(() => _lhSp.words.some(w => w.trl && w.trl.length > 1))).toBe(true);
-    await page.waitForTimeout(2500);
+    await expect.poll(() => page.evaluate(() => _lhSp.words.every(w => !w.trl)), { timeout: 15000 }).toBe(true);   // 停留＋照消逝速度收完（照目前預設）
     expect(await page.evaluate(() => _lhSp.words.every(w => !w.trl))).toBe(true);   // 收完就清空
     await page.waitForTimeout(300);   // 畫幾格，確定新參數不會讓畫布出錯
     expect(errors).toEqual([]);

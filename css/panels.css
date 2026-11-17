@@ -242,7 +242,7 @@
         /* ===== 歌詞標題列與歌曲清單（Phase 8，UI-SPEC §2；只用 4 種字級 0.75／0.875／1／1.25rem、2 種字重） ===== */
         .lyrics-head {
             display: flex;
-            flex-wrap: wrap;
+            flex-wrap: nowrap;   /* Andy：不換行——寬度不夠先讓歌名縮成 …，再窄就只留圖示（下面 @container） */
             align-items: center;
             gap: var(--sp-2);
         }
@@ -279,7 +279,7 @@
         /* 匯出／展開：圖示＋文字；左欄窄（iPad 三欄全開約 280px）時只留圖示，名稱還在 aria-label，維持一排 */
         .export-toggle { display: inline-flex; align-items: center; justify-content: center; gap: 0.3125rem; }
         .side-panel-body { container: lpanel / inline-size; }
-        @container lpanel (max-width: 24rem) {
+        @container lpanel (max-width: 30rem) {   /* 24→30rem：歌名被擠到剩幾個字之前就先收成圖示 */
             .lyrics-head .btn-label { display: none; }
             .song-current { flex-basis: 0; }   /* 歌名讓位（太長就 …），三顆按鈕維持同一排 */
             .export-toggle { min-width: var(--hit); padding-inline: var(--sp-2); }
@@ -2916,11 +2916,11 @@ html .ws-grid { grid-template-columns: repeat(auto-fill, minmax(7.5rem, 1fr)); }
 .ws-card .char-main { font-size: 1.25rem; white-space: pre; }
 .ws-card .char-pinyin { font-size: 0.75rem; white-space: pre; overflow: hidden; text-overflow: ellipsis; }
 
-/* 顯示全部（星雲，js/word-space.js）：蓋滿整個畫面，主題底色上四周壓暗一圈 */
+/* 顯示全部（星雲，js/word-space.js）：蓋滿整個畫面，一律深色宇宙底（--space-bg），四周再壓暗一圈；按鈕、面板保留主題色 */
 .ws-space {
     position: fixed; inset: 0; z-index: 900; overflow: hidden;
     touch-action: none; user-select: none; -webkit-user-select: none; cursor: grab;
-    background: radial-gradient(ellipse at 50% 45%, transparent 35%, var(--shadow) 100%);
+    background: radial-gradient(ellipse at 50% 45%, transparent 35%, color-mix(in srgb, var(--mix-dark) 60%, transparent) 100%);   /* 深色底改由 body::after 墊（在落字下面），這層不能是實心，不然會蓋掉落字 */
     opacity: 0; transition: opacity 0.45s ease;
 }
 body.ws-open .ws-space { opacity: 1; }
@@ -3013,19 +3013,20 @@ body.ws-open .ws-space { opacity: 1; }
     box-shadow: 0 2px 10px var(--shadow); cursor: default;
 }
 .ws-legpanel[hidden] { display: none; }
-/* 0.98.22.1 Andy：跟主畫面側邊收合分頁同一款——扁扁長長、貼在左面板右邊緣正中間（left／top 由 _lhSpNavPlace 設） */
+/* 0.98.22.1 Andy：跟主畫面側邊收合分頁同一款——扁扁長長；0.98.22.11 跨在左面板和色標面板中間的 2px 縫上（left／top 由 _lhSpNavPlace 設） */
 .ws-legbtn { position: absolute; z-index: 6; width: var(--tab-w); min-width: 0; height: 4.5rem; min-height: 0; padding: 0;
-    border: 1px solid var(--border); border-left: 0; border-radius: 0 0.75rem 0.75rem 0;
-    background: color-mix(in srgb, var(--card-bg) 92%, transparent); color: var(--highlight-border); box-shadow: 2px 2px 8px var(--shadow); }
+    border: 1px solid var(--border); border-radius: 0.75rem;
+    --legbtn-bg: color-mix(in oklab, var(--highlight-border) 68%, black);   /* Andy：暗一點（不透明度不變） */
+    background: var(--legbtn-bg); color: var(--card-bg); border-color: var(--legbtn-bg); box-shadow: 0 2px 8px var(--shadow); }   /* 0.98.22.11 Andy：完全不透明；配色顛倒——底是強調色、箭頭是面板色 */
 .ws-legbtn[hidden] { display: none; }
 .ws-legbtn .ic, .ws-nav .ic { fill: currentColor; stroke: none; }
 .ws-legbtn .ic { width: 0.75rem; height: 0.75rem; transition: transform 0.2s; }
 .ws-legbtn[aria-expanded="true"] .ic { transform: rotate(180deg); }
-@media (hover: hover) and (pointer: fine) { .ws-legbtn:hover { color: var(--text-primary); border-color: var(--border); } }
+@media (hover: hover) and (pointer: fine) { .ws-legbtn:hover { background: var(--action-bg-hover); border-color: var(--action-bg-hover); } }
 /* 換批的左右三角形（多重宇宙才有）：畫面左右邊界的正中間 */
 /* 0.98.22 Andy：直接一顆大三角形（沒有底座）；0.98.22.1 顏色用自訂顏色裡叫「邊框」的那個（--highlight-border，city 是粉紅） */
 .ws-nav { position: absolute; z-index: 4; top: 50%; translate: 0 -50%; width: 4.5rem; height: 6rem; min-width: 0; padding: 0;
-    border: none; background: none; box-shadow: none; color: var(--highlight-border); opacity: 0.8; }   /* 0.98.22.8 Andy：淡一點 */
+    border: none; background: none; box-shadow: none; color: var(--highlight-border); }   /* 0.98.22.11 Andy：改回完全不透明（0.98.22.8 曾淡到 0.8） */
 .ws-nav[hidden] { display: none; }
 /* 0.98.22.7 Andy：一點點立體——底下一層壓暗的厚邊＋柔影，按下去沉一點、厚邊變薄 */
 .ws-nav .ic { width: 4.5rem; height: 6rem; filter: drop-shadow(0 3px 0 color-mix(in srgb, var(--highlight-border) 55%, var(--mix-dark))) drop-shadow(0 6px 6px var(--shadow)); }
@@ -3037,7 +3038,7 @@ body.ws-open .ws-space { opacity: 1; }
 @media (max-width: 600px) { .ws-panel { max-width: calc(100% - 1.5rem); } }   /* 0.98.14：展開也貼齊上緣，跟收合鈕同一個位置（面板 10rem 寬，碰不到右上的縮放列） */
 @media (pointer: coarse) { .ws-hud-btn, .ws-leg { min-height: var(--hit); min-width: var(--hit); } }
 /* 0.98.22.7 Andy（iPad 截圖）：色標分頁在觸控上也維持扁扁的；看得到的窄，按得到的範圍用透明的 ::after 往右撐開 */
-@media (pointer: coarse) { .ws-legbtn.ws-hud-btn { min-width: 0; min-height: 0; } .ws-legbtn::after { content: ''; position: absolute; inset: 0 calc(var(--tab-w) - var(--hit)) 0 0; } }
+@media (pointer: coarse) { .ws-legbtn.ws-hud-btn { min-width: 0; min-height: 0; } .ws-legbtn::after { content: ''; position: absolute; inset: 0 calc((var(--tab-w) - var(--hit)) / 2); } }
 /* 三塊面板往左、上、右收走（只在打開／收合的動畫期間加 transition，不動面板平常的收合動畫） */
 /* 打開：先 ws-leave（三塊面板收走 0.45 秒），面板走完才 ws-open（星雲淡入）；關閉反過來（js/word-space.js _lhSpShow／lhWsClose） */
 body.ws-anim :is(#leftPanel, #rightPanel, #mainContainer, #mobileTabBar) { transition: translate 0.45s cubic-bezier(0.6, 0, 0.3, 1), opacity 0.45s ease; will-change: translate, opacity; }
@@ -3046,8 +3047,12 @@ body.ws-leave #leftPanel { translate: -120vw 0; opacity: 0; }
 body.ws-leave #rightPanel { translate: 120vw 0; opacity: 0; }
 body.ws-leave #mainContainer { translate: 0 -120vh; opacity: 0; }
 body.ws-leave #mobileTabBar { translate: 0 120%; opacity: 0; }
+/* 0.98.22.11 Andy：淺色主題進宇宙，背景跟三塊面板收走同時轉深色（墊在所有內容下面的一層，不等面板走完才變黑）；關閉時跟著面板回來一起淡掉 */
+body::after { content: ''; position: fixed; inset: 0; z-index: -2;   /* -2：墊在背景飄字（#lhBgFx，-1）下面，飄字照樣看得到 */
+    background: var(--space-bg); opacity: 0; visibility: hidden; pointer-events: none; transition: opacity 0.45s ease, visibility 0s 0.45s; }
+body.ws-leave::after { opacity: 1; visibility: visible; transition: opacity 1.2s ease; }
 @media (prefers-reduced-motion: reduce) {
-    .ws-space, body.ws-anim :is(#leftPanel, #rightPanel, #mainContainer, #mobileTabBar) { transition: none; }
+    .ws-space, body::after, body.ws-leave::after, body.ws-anim :is(#leftPanel, #rightPanel, #mainContainer, #mobileTabBar) { transition: none; }
 }
 
 /* 選字列「指定角色 ▸ ＋ 新角色」原地的小表單（js/roles.js _lhRoleNewForm） */
@@ -3292,8 +3297,61 @@ html[data-lm] .section-body.has-cols .section-textarea { padding-left: 0.75rem; 
 .ws-tune-g { border-top: 1px solid var(--border); }
 .ws-tune-g:first-child { border-top: 0; }
 .ws-tune-h { margin: 0; padding: var(--sp-2) 0; min-height: var(--hit, 2rem); display: flex; align-items: center; cursor: pointer; font-size: 0.8125rem; font-weight: 700; color: var(--text-primary); }
+.ws-tune-row[hidden] { display: none; }   /* 「模式」切換後不用的滑桿 */
 .ws-tune-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: var(--sp-2); align-items: center; }
 .ws-tune-v { font-variant-numeric: tabular-nums; color: var(--highlight-border); }
 .ws-tune-range { grid-column: 1 / -1; width: 100%; margin: 0; accent-color: var(--highlight-border); }
+.ws-tune-vv { display: inline-flex; gap: 0.25rem; align-items: baseline; }
+.ws-tune-d { font-size: 0.75rem; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+.ws-tune-d[hidden] { display: none; }
+.ws-tune-row:not(.chg) .ws-tune-v { color: var(--text-secondary); }   /* 0.98.22.11：沒動過的值用灰色，動過的才是重點色 */
+.ws-tune-row.chg .ws-tune-l { color: var(--highlight-border); font-weight: 700; }
 .ws-tune-acts { position: sticky; bottom: calc(-1 * var(--sp-2)); display: flex; gap: var(--sp-2); padding: var(--sp-2) 0; background: var(--card-bg); }
 .ws-tune-btn { flex: 1; min-height: 2rem; border: 1px solid var(--border); border-radius: var(--radius-s); background: var(--card-bg); color: var(--text-primary); font: inherit; cursor: pointer; }
+
+/* ===== 0.98.22.11 Andy：骰子／AI 星座鈕（多重宇宙滑桿兩側）＋星座導覽列 ===== */
+/* 透明的格子排：[骰子][多重宇宙面板][AI]，導覽列在面板正下方；格子本身不吃點擊（空白處照樣能拖畫布） */
+.ws-space { --ws-pw: min(22rem, calc(100vw - 32rem)); }
+.ws-ptop { position: absolute; z-index: 5; top: calc(env(safe-area-inset-top, 0px) + 0.75rem); left: 50%; transform: translateX(-50%);
+    display: grid; grid-template-columns: auto var(--ws-pw) auto; column-gap: var(--sp-2); row-gap: var(--sp-1); align-items: start; pointer-events: none; }
+.ws-ptop > * { pointer-events: auto; }
+.ws-ptop > .ws-pages { position: static; transform: none; width: auto; grid-column: 2; grid-row: 1; }
+/* Andy：只有一個宇宙（沒有分批面板）：骰子、AI 往中間靠攏，中間那欄只剩導覽列的寬度 */
+.ws-ptop > .ws-pages[hidden] { display: none; }
+/* Andy：沒有分批面板時，導覽列四顆鈕直接排進格子，骰子疊在「保留」上、AI 疊在「更新」上（手機在下方也一樣上下關係） */
+.ws-ptop:has(> .ws-pages[hidden]) { grid-template-columns: repeat(4, auto); justify-items: center; }
+.ws-ptop:has(> .ws-pages[hidden]) > .ws-cnav:not([hidden]) { display: contents; }
+.ws-ptop:has(> .ws-pages[hidden]) > .ws-dice { grid-column: 2; grid-row: 1; }
+.ws-ptop:has(> .ws-pages[hidden]) > .ws-aib { grid-column: 3; grid-row: 1; }
+.ws-ptop:has(> .ws-pages[hidden]) > .ws-cnav > * { grid-row: 2; align-self: center; }
+.ws-ptop:has(> .ws-pages[hidden]) > .ws-cnav > .ws-cn-prev { grid-column: 1; }
+.ws-ptop:has(> .ws-pages[hidden]) > .ws-cnav > .ws-cn-mid { grid-column: 2 / 4; justify-self: stretch; }   /* 保留、更新、取消三顆擠在骰子＋AI 底下兩格 */
+.ws-ptop:has(> .ws-pages[hidden]) > .ws-cnav > .ws-cn-next { grid-column: 4; }
+.ws-ptop:has(> .ws-pages[hidden]) > .ws-cnav > .ws-hud-btn { min-width: 3.5rem; }
+.ws-ptop:has(> .ws-pages[hidden]) > .ws-cnav > :is(.ws-cn-prev, .ws-cn-next) { min-width: 0; width: 1.875rem; padding: 0; }
+.ws-ptop > .ws-dice { grid-column: 1; grid-row: 1; }
+.ws-ptop > .ws-aib { grid-column: 3; grid-row: 1; }
+.ws-ptop > .ws-cnav { grid-column: 2; grid-row: 2; }
+@media (max-width: 760px) {
+    .ws-space { --ws-pw: calc(100vw - 1.5rem - 2 * (2.5rem + var(--sp-2))); }
+    .ws-ptop { top: auto; bottom: calc(env(safe-area-inset-bottom, 0px) + 0.75rem); }
+    .ws-ptop > .ws-cnav { grid-row: 1; align-self: end; }   /* 窄螢幕在下方：導覽列改到面板上面 */
+    .ws-ptop > .ws-pages { grid-row: 2; }
+    .ws-ptop > .ws-dice, .ws-ptop > .ws-aib { grid-row: 2; }
+}
+.ws-cbtn { width: 2.5rem; height: 2.5rem; min-width: 2.5rem; padding: 0; flex: none; font-weight: 700; font-size: 0.875rem; letter-spacing: 0.02em; transition: box-shadow 0.25s, border-color 0.25s, color 0.25s; }
+.ws-cbtn .ic { width: 1.375rem; height: 1.375rem; fill: none; stroke: currentColor; stroke-width: 1.6; }
+.ws-cbtn .ic circle { fill: currentColor; stroke: none; }
+/* 亮起來＝跟星座線同一種發光：細亮線＋外面一圈柔光 */
+.ws-dice.on { color: var(--con-dice); border-color: var(--con-dice); box-shadow: 0 0 0 1px var(--con-dice), 0 0 0.5rem color-mix(in srgb, var(--con-dice) 70%, transparent), 0 0 1.25rem color-mix(in srgb, var(--con-dice) 35%, transparent); }
+.ws-aib.on { color: var(--con-ai); border-color: var(--con-ai); box-shadow: 0 0 0 1px var(--con-ai), 0 0 0.5rem color-mix(in srgb, var(--con-ai) 70%, transparent), 0 0 1.25rem color-mix(in srgb, var(--con-ai) 35%, transparent); }
+.ws-aib.busy { opacity: 0.5; cursor: progress; }   /* AI 想的時候變淡（不新增動畫：Phase 7 規則） */
+.ws-cnav { display: flex; gap: var(--sp-1); }   /* 每顆都是獨立按鈕（自己的底色、外框），沒有共用的面板底 */
+.ws-cnav[hidden] { display: none; }
+.ws-cnav > .ws-hud-btn { flex: 1 1 auto; min-height: 1.625rem; padding: 0 0.5rem; font-size: 0.75rem; white-space: nowrap; }   /* Andy：導覽列縮小 */
+.ws-cnav > .ws-cn-prev, .ws-cnav > .ws-cn-next { flex: 0 0 1.875rem; padding: 0; }
+.ws-cnav > [hidden] { display: none; }
+.ws-cn-mid { display: flex; gap: var(--sp-1); flex: 1 1 auto; justify-content: center; }
+.ws-cn-mid[hidden] { display: none; }
+.ws-cn-mid > .ws-hud-btn { flex: 1 1 0; min-width: 1.875rem; min-height: 1.625rem; padding: 0; display: inline-flex; align-items: center; justify-content: center; }
+.ws-cn-mid .ic { width: 1rem; height: 1rem; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
