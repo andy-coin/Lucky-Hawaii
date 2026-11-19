@@ -154,6 +154,20 @@ if (window.visualViewport) {
     window.visualViewport.addEventListener('scroll', _lhKbSchedule);
 }
 window.addEventListener('resize', _lhKbSchedule);
+// 0.98.41 量測小視窗（只給 Andy 查 iOS Web App 底部空白）：網址加 ?vp 才出現，畫出版面底（紅線）並列出各種高度
+if (/[?&]vp\b/.test(location.search)) addEventListener('load', () => {
+    const box = document.createElement('div'), line = document.createElement('div'), probe = document.createElement('div');
+    line.style.cssText = 'position:fixed;left:0;right:0;bottom:0;height:3px;background:red;z-index:99999;pointer-events:none';
+    probe.style.cssText = 'position:fixed;visibility:hidden;top:0;box-sizing:border-box;height:100dvh;width:1px;padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom)';
+    box.style.cssText = 'position:fixed;left:8px;top:40%;z-index:99999;background:rgba(0,0,0,.85);color:#0f0;font:12px/1.4 monospace;padding:6px;white-space:pre;pointer-events:none';
+    document.body.append(line, probe, box);
+    const show = () => { const cs = getComputedStyle(probe), vv = visualViewport;
+        box.textContent = ['screen ' + screen.width + 'x' + screen.height, 'inner ' + innerWidth + 'x' + innerHeight, 'client ' + document.documentElement.clientHeight,
+            'vv ' + (vv ? vv.height.toFixed(1) + ' top ' + vv.offsetTop.toFixed(1) : '-'), '100dvh ' + probe.getBoundingClientRect().height.toFixed(1),
+            'safe t/b ' + cs.paddingTop + ' / ' + cs.paddingBottom, 'standalone ' + (matchMedia('(display-mode: standalone)').matches || navigator.standalone === true),
+            'redline y ' + line.getBoundingClientRect().bottom.toFixed(1)].join('\n'); };
+    show(); addEventListener('resize', show);
+});
 document.addEventListener('focusin', () => {
     _lhKbSchedule();
     if (_lhTextFieldFocused()) {
@@ -163,6 +177,25 @@ document.addEventListener('focusin', () => {
     }
 });
 document.addEventListener('focusout', _lhKbSchedule);
+// 0.98.41 Andy（iPhone 截圖）：iOS 主畫面 Web App 的 bug——鍵盤第一次跳出再收起後，innerHeight／100dvh 縮小約一個狀態列高、不會自己恢復，
+// 底部分頁列下面空一條黑邊。解法（dev.to cederhook）：鍵盤收起後若視窗比記錄過的最高還矮，把整頁 display:none 再放回來＝逼 WebKit 重新量視窗。
+// 只在主畫面 Web App＋觸控；捲動位置先記下來再放回去。ponytail: 換頁瞬間可能閃一格，真的明顯再加作者的模糊遮罩
+const _lhHealMax = {};
+const _lhHealStandalone = () => (matchMedia('(display-mode: standalone)').matches || navigator.standalone === true) && matchMedia('(pointer: coarse)').matches;
+function _lhHealTrack() { const k = innerWidth; if (!(innerHeight <= (_lhHealMax[k] || 0))) _lhHealMax[k] = innerHeight; }
+_lhHealTrack();
+window.addEventListener('resize', _lhHealTrack);
+function _lhViewportHeal() {
+    if (!_lhHealStandalone() || _lhTextFieldFocused()) return;
+    const max = _lhHealMax[innerWidth] || 0;
+    if (innerHeight >= max - 4) return;
+    const scrolled = [...document.querySelectorAll('body *')].filter(e => e.scrollTop > 0).map(e => [e, e.scrollTop]);
+    const b = document.body, prev = b.style.display;
+    b.style.display = 'none'; void b.offsetHeight; b.style.display = prev;
+    for (const [e, y] of scrolled) e.scrollTop = y;
+    _lhKbSchedule();
+}
+document.addEventListener('focusout', () => setTimeout(_lhViewportHeal, 140));
 
 // ==================== 右鍵／長按選單定位（05-08，UI-SPEC §6） ====================
 // 以前用固定的 160／220／100／140 px 估選單大小，放大到 150% 時選單比估的大，右下角會被切掉。

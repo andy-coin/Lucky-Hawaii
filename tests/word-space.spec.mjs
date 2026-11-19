@@ -229,17 +229,18 @@ test('詞宇宙：調參齒輪（暫時）', async ({ browser }) => {
     await page.evaluate(() => { _lhWs.input = '安打'; _lhWs.list = [{ w: '辦法', z: 'ㄅㄢˋ ㄈㄚˇ', p: 50 }, { w: '看法', z: 'ㄎㄢˋ ㄈㄚˇ', p: 90 }]; lhWsOpen(); });
     await expect.poll(() => page.evaluate(() => _lhSp.words.length)).toBe(2);
     const gear = page.locator('.ws-zoom .ws-gear');
-    await expect(page.locator('.ws-zoom > *').first()).toHaveClass(/ws-gear/);   // 在縮放鈕的左邊
+    await expect(page.locator('.ws-zoom > *').first()).toHaveClass(/ws-gear/);   // 0.98.41：內部工具（齒輪、快轉）最左，再來才是「?」
+    await expect(page.locator('.ws-zoom > *').nth(2)).toHaveClass(/ws-help/);
     await expect(page.locator('.ws-tune')).toBeHidden();
     await gear.click();
     await expect(page.locator('.ws-tune')).toBeVisible();
     await expect(page.locator('.ws-tune-ch')).toHaveText(['星系', '恆星', '互動', '黑洞']);   // 第二層收納：外層四大類
-    await expect(page.locator('.ws-tune-h')).toHaveText(['公轉', '流星', '混沌凝聚', '殘影：公轉煙霧', '殘影：凝聚煙霧', '光暈閃爍', '日冕', '輻射', '熱浪', '殘影：縮放光帶', '殘影：拖畫布光帶', '游標放大鏡', '星座', '黑洞']);
+    await expect(page.locator('.ws-tune-h')).toHaveText(['公轉', '流星', '混沌凝聚', '殘影：公轉煙霧', '殘影：凝聚煙霧', '光暈閃爍', '日冕', '輻射', '熱浪', '殘影：縮放光帶', '殘影：拖畫布光帶', '游標放大鏡', '星座', '抓行星', '白洞出口', '黑洞']);
     await page.locator('.ws-tune-ch', { hasText: '星系' }).click();
     await page.locator('.ws-tune-h', { hasText: '混沌凝聚' }).click();   // 每組一開始收起來
     await page.locator('.ws-tune-ch', { hasText: '恆星' }).click();
     await page.locator('.ws-tune-h', { hasText: '輻射' }).click();
-    const row = page.locator('.ws-tune-row', { hasText: '阻尼' });
+    const row = page.locator('.ws-tune-row', { hasText: '阻尼（越小擺盪越多次）' });
     await row.locator('input').fill('0.5');
     await expect(row.locator('output')).toHaveText('0.5');
     const row2 = page.locator('.ws-tune-row', { hasText: '光芒數' });
@@ -261,3 +262,57 @@ test('詞宇宙：調參齒輪（暫時）', async ({ browser }) => {
     expect(errors).toEqual([]);
     await context.close();
 });
+
+// 0.98.41 Andy 新黑洞引力：a×(1−d/R)^b、速度上限、掉進核心＝吞；進過魚眼範圍又快到上限 8 成才算逃逸。用黑洞半徑當單位＝大小黑洞同樣的軌跡比例
+test('黑洞：新引力——從靜止掉進核心、速度不超過上限、繞過去的有逃逸記號、大小宇宙比例一樣', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, { wordlist: 'stub' });
+    const r = await page.evaluate(() => {
+        const T = { ...LH_SP_TUNE.bh, ga: 200, gb: 3, gmax: 30, range: 75, lensR: 10 };
+        const run = (u, x0, vy0) => {   // u＝宇宙半徑 1%；回傳：被吞、最高速（u／秒）、逃逸記號、結束時位置（u）
+            const H = { x: 0, y: 0, r: u, R: u * T.range, u, L: u * T.lensR }, o = { x: x0 * u, y: 0, vx: 0, vy: vy0 * u, e: {} };
+            let vmax = 0, st = 1, dt = 1 / 120, t = 0;
+            for (; t < 120 && st === 1; t += dt) { st = _lhSpBhG(o, H, T, dt); o.x += o.vx * dt; o.y += o.vy * dt; vmax = Math.max(vmax, Math.hypot(o.vx, o.vy) / u); }
+            return { eaten: st === 2, vmax: +vmax.toFixed(2), fast: !!o.e.fast, t: +t.toFixed(2), x: +(o.x / u).toFixed(2) };
+        };
+        return { fall: run(30, 60, 0), fall2: run(5, 60, 0), pass: run(30, 74, 4) };
+    });
+    expect(r.fall.eaten, JSON.stringify(r.fall)).toBe(true);
+    expect(r.fall.vmax).toBeLessThanOrEqual(30.001);
+    expect(r.fall.fast).toBe(true);
+    expect(r.fall2.t, '宇宙大小不同，掉進去的時間一樣').toBeCloseTo(r.fall.t, 1);
+    expect(r.pass.eaten, '範圍邊緣橫著路過：不會被吞 ' + JSON.stringify(r.pass)).toBe(false);
+    expect(r.pass.fast).toBe(false);
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+// 0.98.41 Andy：甩動煞車——煞停的路＝離宇宙邊界最遠距離 × 百分比（直線等減速）
+test('黑洞：甩動煞車距離照「離宇宙邊界最遠距離」的百分比', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, { wordlist: 'stub' });
+    const r = await page.evaluate(() => {
+        _lhSp.bhShape = _lhSpAmoeba(); _lhSp.bhK = 1000;
+        const AM = _lhSp.bhShape; let far = 0; for (let i = 0; i < AM.pts.length; i += 8) far = Math.max(far, Math.hypot(AM.pts[i][0] * 1000 - 100, AM.pts[i][1] * 1000));
+        const w = { fx: 100, fy: 0, fvx: 800, fvy: 0 }; w.brk = _lhSpBrakeOf(w.fx, w.fy, w.fvx, w.fvy, 30);
+        let x = 0; for (let i = 0; i < 20000 && w.brk; i++) { _lhSpBrakeW(w, 1 / 120); x += w.fvx / 120; }
+        _lhSp.bhShape = null; _lhSp.bhK = 0;
+        return { want: far * 0.3, got: x };
+    });
+    expect(Math.abs(r.got - r.want) / r.want, JSON.stringify(r)).toBeLessThan(0.02);
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+// 0.98.41 Andy：本地快轉鈕——跳過混沌凝聚，黑洞直接長好
+test('詞宇宙：本地快轉鈕跳過凝聚、黑洞直接長好', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, { storage: { 'lh:bgFx': '5', 'lh:spTuneUI': '1' } });
+    await page.evaluate(() => { _lhWs.input = '安打'; _lhWs.list = [{ w: '辦法', z: 'ㄅㄢˋ ㄈㄚˇ', p: 50 }, { w: '看法', z: 'ㄎㄢˋ ㄈㄚˇ', p: 90 }]; lhWsOpen(); });
+    await expect.poll(() => page.evaluate(() => _lhSp.words.length)).toBe(2);
+    await page.locator('.ws-zoom .ws-skip').click();
+    await expect.poll(() => page.evaluate(() => !!(_lhSp.bhW && _lhSp.bh && _lhSp.bh.born))).toBe(true);
+    const r = await page.evaluate(() => ({ r: _lhSp.bhW.r, want: LH_SP_TUNE.bh.size / 2 / _lhSpZ100() * LH_SP_TUNE.bh.core, gk: _lhSp.words.some(w => w.gk || w.gHold) }));
+    expect(r.gk).toBe(false);
+    expect(r.r).toBeCloseTo(r.want, 3);
+    expect(errors).toEqual([]);
+    await context.close();
+});
+

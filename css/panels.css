@@ -2952,11 +2952,12 @@ body.ws-open .ws-space { opacity: 1; }
     box-shadow: 0 2px 10px var(--shadow); cursor: default;
 }
 .ws-title { font-family: var(--font-serif); font-size: 1rem; font-weight: 700; color: var(--text-primary); }
-.ws-head { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; column-gap: var(--sp-1); }
+.ws-head { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; column-gap: var(--sp-1); }
 .ws-head .ws-title { display: contents; }
-.ws-title-main { grid-row: 1; grid-column: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ws-title-main { grid-row: 1; grid-column: 2; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ws-title-sub { grid-row: 2; grid-column: 1 / -1; font-family: var(--font-body, inherit); font-size: 0.75rem; font-weight: 400; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.ws-head .ws-fold { grid-row: 1; }
+.ws-head .ws-fold { grid-row: 1; grid-column: 1; }   /* 0.98.41 Andy：三角形在標題左邊 */
+.ws-panel.min ~ .ws-legbtn { display: none !important; }   /* 收合時不留色標分頁那條 */
 .ws-panel.min .ws-title-sub { display: none; }
 .ws-fold { flex: none; min-width: 1.75rem; min-height: 1.75rem; padding: 0; border-color: transparent; background: transparent; color: var(--text-secondary); }
 .ws-fold .ic { width: 1rem; height: 1rem; transition: transform 0.2s; }
@@ -2995,7 +2996,10 @@ body.ws-open .ws-space { opacity: 1; }
     background: var(--card-bg); color: var(--text-primary); font-family: inherit; font-size: 0.875rem; cursor: pointer;
     display: inline-flex; align-items: center; justify-content: center;
 }
-.ws-close { min-width: 2rem; padding: 0; }
+.ws-close, .ws-help { min-width: 2rem; padding: 0; }
+.ws-help { font-weight: 700; }
+.ws-zoom { justify-content: flex-end; }
+@media (pointer: coarse) { .ws-tr .ws-fx { min-width: 11rem; } }   /* 0.98.41：觸控沒有縮放鈕，右上那排變窄，特效滑桿自己撐開 */
 .ws-close .ic { width: 1rem; height: 1rem; }
 /* 0.98.20：右上改成一欄——縮放列＋底下的特效等級滑桿 */
 .ws-tr { position: absolute; z-index: 5; top: calc(env(safe-area-inset-top, 0px) + 0.75rem); right: 0.75rem; display: flex; flex-direction: column; align-items: stretch; gap: var(--sp-1); }
@@ -3218,9 +3222,11 @@ html[data-lm] .section-body.has-cols .section-textarea { padding-left: 0.75rem; 
     .ws-hud-btn.ws-bh::after { animation: wsBhFlow 31s linear infinite reverse; }
 }
 @keyframes wsBhFlow { to { transform: rotate(360deg); } }
-.ws-hud-btn.ws-bh.near, .ws-hud-btn.ws-bh:hover { transform: scale(1.15); }
+.ws-hud-btn.ws-bh:hover { transform: scale(1.15); }
+.ws-hud-btn.ws-bh.near { transform: scale(var(--bh-near, 2)); }   /* 0.98.41 Andy：拖詞到黑洞上方＝張大（bh.dropK 倍），丟的範圍跟著變大 */
 .ws-bh-face { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); color: rgba(255, 255, 255, 0.75); font-size: 0.8rem; white-space: nowrap; pointer-events: none; opacity: 0; transition: opacity 0.3s; }   /* Andy：hover 只冒一個表情，不講說明 */
 .ws-hud-btn.ws-bh:hover .ws-bh-face { opacity: 1; transition-delay: 5s; }   /* Andy：停 5 秒才冒出淡定臉 */
+.ws-bh-face.stay { opacity: 1; transition-delay: 0s; }   /* 彩蛋：變過臉之後，離開也留 3 秒（js/word-space.js _lhSpBhMood） */
 .ws-hud-btn.ws-bh.guide { opacity: 0.3; }   /* 調黑洞滑桿時：看得到裡面的輔助線 */
 .ws-hud-btn.ws-bh:active { cursor: grabbing; }
 .ws-bh.gulp { animation: wsGulp 0.5s ease-out; }
@@ -3230,12 +3236,15 @@ html[data-lm] .section-body.has-cols .section-textarea { padding-left: 0.75rem; 
 .ws-void.ws-out { pointer-events: none; }   /* 白洞放大回宇宙的途中：不能再點 */
 .ws-voiding .ws-warp { z-index: 8; }   /* 進出虛無時星光線蓋在最上面 */
 .ws-space.ws-in-void > :not(.ws-void, .ws-warp, .ws-canvas) { visibility: hidden; }   /* 虛無裡：介面全部收起來，只剩黑與白洞 */
-.ws-wh { position: absolute; left: 50%; top: 50%; translate: -50% -50%; width: 0.75rem; height: 0.75rem;   /* Andy：再小一點 */ min-width: 0; min-height: 0; padding: 0; border: none; border-radius: 50%; cursor: pointer;
+/* 0.98.41 Andy：本地調參——虛無裡也留齒輪、快轉和調參面板（其他鈕照樣收起來） */
+.ws-space.ws-in-void > .ws-tr, .ws-space.ws-in-void > .ws-tune { visibility: visible; z-index: 8; }
+.ws-space.ws-in-void .ws-tr > :not(.ws-zoom), .ws-space.ws-in-void .ws-zoom > :not(.ws-gear, .ws-skip) { visibility: hidden; }
+.ws-wh { position: absolute; left: 50%; top: 50%; translate: -50% -50%; width: 0.625rem; height: 0.625rem;   /* Andy：再小一點（0.98.41 再小 2px） */ min-width: 0; min-height: 0; padding: 0; border: none; border-radius: 50%; cursor: pointer;
     background: #fff; box-shadow: 0 0 0.5rem #fff, 0 0 1.5rem rgba(255, 255, 255, 0.45), 0 0 3.5rem rgba(255, 255, 255, 0.18); }
 @media (prefers-reduced-motion: no-preference) { .ws-wh { animation: wsWh 5s ease-in-out infinite; } }
 @keyframes wsWh { 50% { box-shadow: 0 0 0.7rem #fff, 0 0 2rem rgba(255, 255, 255, 0.55), 0 0 4.5rem rgba(255, 255, 255, 0.25); } }
 .ws-wh.gulp { animation: wsGulp 0.5s ease-out; }
-.ws-vw { position: absolute; left: 0; top: 0; white-space: nowrap; color: rgba(150, 150, 150, 0.42); font-family: inherit; user-select: none; cursor: grab; touch-action: none; filter: blur(0.3px); }
+.ws-vw { position: absolute; left: 0; top: 0; white-space: nowrap; color: rgba(150, 150, 150, 0.42); font-family: inherit; user-select: none; cursor: grab; touch-action: none; -webkit-tap-highlight-color: transparent; -webkit-font-smoothing: antialiased; }   /* 0.98.41：拿掉 blur(0.3px)——旋轉＋模糊的字拖動時邊緣會冒出彩色（粉紅）雜邊 */
 .ws-vw.on { color: rgba(200, 200, 200, 0.7); cursor: grabbing; }   /* 第 5 級換批的星光線（js/word-space.js _lhSpWarp） */
 
 /* ==================== 0.98.21 專案、資料與備份、快照比對 ==================== */
@@ -3423,3 +3432,32 @@ html[data-lm] .section-body.has-cols .section-textarea { padding-left: 0.75rem; 
 .void-restore { min-height: var(--hit, 2.25rem); padding: 0 var(--sp-3); border: none; border-radius: var(--radius-s); background: var(--danger-bg); color: var(--danger-text); font: inherit; font-weight: 700; cursor: pointer; }
 @media (hover: hover) and (pointer: fine) { .void-restore:hover { background: var(--danger-bg-hover); } }
 .void-restore:focus-visible { outline: 2px solid var(--danger-bg); outline-offset: 2px; }
+
+/* 0.98.41 Andy（手機）：星座導覽列（◀ 保留 更新 取消 ▶）放大到手指好按 */
+@media (pointer: coarse) {
+    html .ws-ptop > .ws-cnav > .ws-hud-btn, html .ws-ptop > .ws-cnav .ws-cn-mid > .ws-hud-btn { min-height: var(--hit) !important; min-width: var(--hit) !important; }   /* !important：蓋過窄螢幕 :has() 那組固定 1.875rem */
+    html .ws-ptop > .ws-cnav > :is(.ws-cn-prev, .ws-cn-next) { width: var(--hit) !important; flex-basis: var(--hit) !important; }
+    html .ws-cn-mid .ic { width: 1.375rem; height: 1.375rem; }
+}
+
+/* 0.98.41 Andy（item 13）：外觀不變，只把手指判定範圍加大——
+   iPad 交界：整條（全高）往主畫面那側多 14px；手機／iPad 直放面板頂端把手：整條往上多 14px（蓋在遮罩上，不擋面板內容） */
+@media (pointer: coarse) and (min-width: 901px) {
+    .pane-divider::after { content: ''; position: absolute; top: 0; bottom: 0; }
+    .pane-divider-l::after { left: 0; right: -0.875rem; }
+    .pane-divider-r::after { left: -0.875rem; right: 0; }
+}
+@media (max-width: 900px) {
+    .sheet-handle { position: relative; }
+    .sheet-handle::after { content: ''; position: absolute; left: 0; right: 0; top: -0.875rem; bottom: 0; }
+}
+
+.ws-tune-guide { display: flex; align-items: center; gap: var(--sp-4); grid-template-columns: none; padding-block: var(--sp-1); }
+.ws-tune-gl { display: flex; align-items: center; gap: var(--sp-2); cursor: pointer; }
+.ws-tune-phys { margin-left: auto; padding: 0 var(--sp-2); font-size: 0.6875rem; border-radius: var(--radius-s, 0.25rem); border: 1px solid var(--border); background: transparent; color: var(--text-secondary); cursor: pointer; }
+.ws-tune-cb { accent-color: var(--highlight-border); width: 1rem; height: 1rem; margin: 0; }
+.ws-skip { min-width: 2rem; padding: 0; }   /* 本地快轉鈕（js/word-space.js） */
+.ws-skip .ic { width: 1rem; height: 1rem; fill: currentColor; }
+
+/* 0.98.41：本地黑洞物理對照（js/space-pick.js）——切回新版的鈕，壓在宇宙上面 */
+.lh-phys-back { position: fixed; right: 0.75rem; bottom: 0.75rem; z-index: 100000; padding: var(--sp-1) var(--sp-3); font-size: 0.75rem; border-radius: var(--radius-m); border: 1px solid var(--highlight-border); background: var(--card-bg); color: var(--text-primary); cursor: pointer; }

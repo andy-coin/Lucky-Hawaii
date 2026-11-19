@@ -476,7 +476,8 @@ test('歌曲清單：標題列放得下', async ({ browser }) => {
             await waitStill(page);
             const panel = await rectOf(page, '#leftPanel');
             const kids = await page.locator('.lyrics-head > *:not(.panel-fold-btn)').evaluateAll(els => els.map(el => { const r = el.getBoundingClientRect(); return { n: el.id || el.className, x: r.x, y: r.y, width: r.width, height: r.height }; }));
-            expect(kids.length).toBe(5);   // ☰ 歌曲、專案名（0.98.21）、歌名、⬇ 匯出、⤢ 展開（R2：新增段落移到標籤＆情境下面）
+            expect(kids.length).toBe(6);   // 0.98.41 加導覽「?」
+            //   // ☰ 歌曲、專案名（0.98.21）、歌名、⬇ 匯出、⤢ 展開（R2：新增段落移到標籤＆情境下面）
             for (const k of kids) {
                 expect(k.x, `${name} ${pct}% ${k.n} 左緣`).toBeGreaterThanOrEqual(panel.x - 0.5);
                 expect(k.x + k.width, `${name} ${pct}% ${k.n} 右緣`).toBeLessThanOrEqual(panel.x + panel.width + 0.5);

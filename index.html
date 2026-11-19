@@ -56,13 +56,13 @@
                     <button class="m-zoomIn-button" id="MzoomIn" aria-label="放大介面" onclick="zoomIn()"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>
                 </div>
                 <div class="controls">
-                    <button type="button" class="help-btn" id="tourBtn" onclick="lhTourStart()" data-tip="功能導覽" aria-label="功能導覽">?</button>
+                    <button type="button" class="help-btn" id="tourBtn" onclick="lhTourStart('search')" data-tip="功能導覽" aria-label="韻腳查詢器功能導覽">?</button>
                     <button class="theme-toggle" id="themeToggle" ></button>
                     <button type="button" class="help-btn gear-btn" id="settingsTrigger" onclick="toggleSettings()" aria-label="偏好設定" data-tip="偏好設定"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button>
                 </div>
             </div>
             
-            <h1><span class="h1-cap">韻</span>腳查詢<span class="h1-cap">器</span><span class="about-btn about-btn-mobile" onclick="toggleAbout()">i</span></h1>
+            <h1><span class="h1-cap">韻</span>腳查詢<span class="h1-cap">器</span><small class="h1-build" id="h1Build" hidden></small><span class="about-btn about-btn-mobile" onclick="toggleAbout()">i</span></h1>
             <p>寫歌詞...不簡單...甘巴爹...早點睡...</p>
 
             <input type="file" id="importFileInput" accept="application/json,.json" style="display:none" onchange="importSession(event)">
@@ -180,9 +180,11 @@
                     <button type="button" role="tab" id="prefsTab-help" aria-controls="prefsPanel-help" aria-selected="false" tabindex="-1">說明與回饋</button>
                 </div>
                 <div class="prefs-panel" role="tabpanel" id="prefsPanel-look" aria-labelledby="prefsTab-look" tabindex="0">
+                    <!-- 0.98.41 Andy：手機標題列的主題鈕搬到這裡（只在手機出現；js/theme.js 填按鈕） -->
+                    <div class="prefs-theme" id="prefsTheme"><div class="settings-pack-title" style="margin-bottom:0.625rem;">主題</div><div class="prefs-theme-row" id="prefsThemeRow" role="group" aria-label="主題"></div></div>
                     <div class="settings-color-section" id="settingsColorSection">
                         <div class="settings-pack-title" style="margin-bottom:0.625rem;">客製顏色</div>
-                        <div style="display:flex; flex-wrap:wrap; gap:0.625rem;">
+                        <div class="color-grid">
                             <div class="color-item"><label for="sBgColor1">頁面背景</label><input type="color" id="sBgColor1" value="#667eea"></div>
                             <div class="color-item"><label for="sContainerBg">面板底色</label><input type="color" id="sContainerBg" value="#ffffff"></div>
                             <div class="color-item"><label for="sTextColor">文字</label><input type="color" id="sTextColor" value="#2d3748"></div>
@@ -328,13 +330,14 @@
 
     <!-- 手機底部 Tab 導覽列 -->
     <div class="mobile-tab-bar" id="mobileTabBar">
-        <button type="button" class="mtab-btn active" id="mtab-search" onclick="mobileTab('search')" aria-pressed="true">
-            <span class="mtab-icon"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.2-4.2"/></svg></span>
-            <span class="mtab-label">查韻</span>
-        </button>
+        <!-- 0.98.41 Andy：順序跟電腦版左中右一樣（歌詞｜查韻｜AI 建議） -->
         <button type="button" class="mtab-btn" id="mtab-lyrics" onclick="mobileTab('lyrics')" aria-pressed="false">
             <span class="mtab-icon"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16z"/><path d="M13.5 6.5l4 4"/></svg></span>
             <span class="mtab-label">歌詞</span>
+        </button>
+        <button type="button" class="mtab-btn active" id="mtab-search" onclick="mobileTab('search')" aria-pressed="true">
+            <span class="mtab-icon"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.2-4.2"/></svg></span>
+            <span class="mtab-label">查韻</span>
         </button>
         <button type="button" class="mtab-btn" id="mtab-ai" onclick="mobileTab('ai')" aria-pressed="false">
             <span class="mtab-icon"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8zM19 16l.8 2.2L22 19l-2.2.8L19 22l-.8-2.2L16 19l2.2-.8z"/></svg></span>
@@ -472,6 +475,7 @@
             <div class="side-panel-title lyrics-head">
                 <button type="button" id="songListToggle" class="song-toggle" onclick="toggleSongList()" aria-expanded="false" aria-controls="songList" aria-label="開關歌曲清單" title="開關歌曲清單">☰ 歌曲</button>
                 <span class="song-proj" id="songProj"></span><span id="songCurrent" class="song-current"></span>
+                <button type="button" class="export-toggle panel-help" onclick="lhTourStart('lyrics')" aria-label="歌詞功能導覽" data-tip="功能導覽">?</button>
                 <button type="button" class="panel-fold-btn" onclick="toggleLeftPanel()" aria-label="收合歌詞區" data-tip="收合歌詞區（收到左邊）">◀</button>
                 <button type="button" id="exportToggle" class="export-toggle" onclick="toggleExportMenu(event)" aria-haspopup="menu" aria-expanded="false" aria-label="匯出這首歌" title="匯出這首歌"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15V4M7 9l5-5 5 5M5 20h14"/></svg><span class="btn-label">匯出</span></button>
                 <button type="button" id="editorOpenBtn" class="export-toggle editor-open-btn" onclick="lhEditorToggle()" aria-label="展開完整歌詞編輯器" title="展開完整歌詞編輯器（也可以雙擊歌詞）"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 4h6v6M20 4l-7 7M10 20H4v-6M4 20l7-7"/></svg><span class="btn-label">展開</span></button>
@@ -544,7 +548,7 @@
             <div class="side-panel-title" style="flex-shrink:0;display:flex;align-items:center;justify-content:space-between;gap:0.5rem">
                 <span class="ai-title-group"><span>AI 建議</span><button type="button" class="panel-fold-btn" onclick="toggleRightPanel()" aria-label="收合 AI 建議" data-tip="收合 AI 建議（收到右邊）">▶</button></span>
                 <!-- 自製模型下拉（js/ai-client.js）：隱藏的 select 是值的來源，button＋listbox 是畫面 -->
-                <span class="ai-tools"><button type="button" class="ai-key-btn" id="aiKeyBtn" data-on="false" onclick="lhOpenAiPrefs()" aria-label="用你自己的 AI 金鑰，點此設定" data-tip="用你自己的 AI 金鑰"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="7.5" cy="15.5" r="4"/><path d="M10.5 12.5L20 3M16.5 6.5l2.5 2.5M14 9l2 2"/></svg></button>
+                <span class="ai-tools"><button type="button" class="help-btn panel-help" onclick="lhTourStart('ai')" aria-label="AI 建議功能導覽" data-tip="功能導覽">?</button><button type="button" class="ai-key-btn" id="aiKeyBtn" data-on="false" onclick="lhOpenAiPrefs()" aria-label="用你自己的 AI 金鑰，點此設定" data-tip="用你自己的 AI 金鑰"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="7.5" cy="15.5" r="4"/><path d="M10.5 12.5L20 3M16.5 6.5l2.5 2.5M14 9l2 2"/></svg></button>
                 <div class="model-picker" id="modelPickerWrap">
                     <select id="modelSelect" hidden onchange="onModelChange()"></select>
                     <button type="button" id="modelPicker" class="model-select" aria-haspopup="listbox" aria-expanded="false" aria-controls="modelList" title="選擇 AI 模型（自動＝由伺服器挑選並自動換手）"><span class="model-picker-label">自動（推薦）</span><svg class="ic model-picker-caret" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 10l5 5 5-5"/></svg></button>
@@ -624,8 +628,7 @@
     <script src="js/ui-common.js?v=0.98.40"></script>
     <script src="js/custom-words.js?v=0.98.40"></script>
     <script src="js/snapshots.js?v=0.98.40"></script>
-    <script src="js/sp-tune-defaults.js?v=0.98.40"></script>
-    <script src="js/word-space.js?v=0.98.40"></script>
+    <script src="js/space-pick.js?v=0.98.40"></script>   <!-- 宇宙：照設定載入新版或 0.98.40 對照版（sp-tune-defaults.js、sp-tune-defaults-mobile.js、word-space.js） -->
     <script src="js/results.js?v=0.98.40"></script>
     <script src="js/search-ui.js?v=0.98.40"></script>
     <script src="js/theme.js?v=0.98.40"></script>

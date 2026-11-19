@@ -7,7 +7,7 @@ import { stripHtmlComments } from './html-lib.mjs';
 // 原本 inline script 由上到下的 20 個區塊，加上 Phase 8 的 songs.js、song-io.js、Phase 9 的 sections-core.js、sections.js、undo.js、word-drag.js，Phase 10 的 rhyme-core.js、rhyme-map.js，角色標記的 roles.js，自由畫布的 canvas.js，Phase 11 的 line-core.js、夜間 UI 的 tour.js、R2 主題的 bgfx.js、寬螢幕版面的 dock.js、詞宇宙的 word-space.js、自訂詞彙的 custom-words.js 共 36 個（safety.js、layout.js 另外固定在最前面）
 const JS_ORDER = [
     'phonetic-tables', 'dict', 'search', 'state', 'sections-core', 'songs', 'undo', 'polyphonic', 'rhyme-core', 'line-core', 'cards', 'lyrics', 'sections', 'song-io', 'wordlist', 'panels', 'dock', 'rhyme-display',
-    'ai-client', 'candidates', 'ai-generate', 'ui-common', 'custom-words', 'snapshots', 'sp-tune-defaults', 'word-space', 'results', 'search-ui', 'theme', 'init', 'report', 'ai-word-events', 'word-drag', 'rhyme-map', 'roles', 'canvas', 'tour', 'bgfx',
+    'ai-client', 'candidates', 'ai-generate', 'ui-common', 'custom-words', 'snapshots', 'space-pick', 'results', 'search-ui', 'theme', 'init', 'report', 'ai-word-events', 'word-drag', 'rhyme-map', 'roles', 'canvas', 'tour', 'bgfx',
 ].map(n => `js/${n}.js`);
 const CSS_ORDER = ['css/base.css', 'css/panels.css', 'css/responsive.css', 'css/print.css'];
 
@@ -23,6 +23,8 @@ const isLocal = r => /^(js|css|data)\//.test(r.src);
 const local = [...scriptTags, ...linkTags].filter(isLocal);
 const pathOf = r => r.src.split('?')[0];
 const listDir = dir => (existsSync(dir) ? readdirSync(dir) : []);
+// 0.98.41：宇宙三支由 js/space-pick.js 照設定寫出（新版或 legacy/ 0.98.40 對照版），index.html 不直接引用
+const PICKED = ['js/sp-tune-defaults.js', 'js/sp-tune-defaults-mobile.js', 'js/word-space.js'];
 
 test('split：本機 js/css/data 都帶同一個 ?v=', () => {
     const versions = local.map(r => new URLSearchParams(r.src.split('?')[1] ?? '').get('v'));
@@ -36,7 +38,7 @@ test('split：js/、css/ 每個檔剛好被引用一次', () => {
     for (const p of paths) expect(existsSync(p), `${p} 不存在`).toBe(true);
     // data/ 底下有很多沒被 index.html 直接引用的檔，所以資料夾比對只看 js/、css/
     const referenced = paths.filter(p => !p.startsWith('data/'));
-    const onDisk = [...listDir('js').filter(f => f.endsWith('.js')).map(f => `js/${f}`),
+    const onDisk = [...listDir('js').filter(f => f.endsWith('.js')).map(f => `js/${f}`).filter(p => !PICKED.includes(p)),
         ...listDir('css').filter(f => f.endsWith('.css')).map(f => `css/${f}`)];
     expect([...referenced].sort(), '引用的檔案與資料夾內容不一致').toEqual(onDisk.sort());
 });
@@ -60,7 +62,7 @@ test('split：safety.js 最先、layout.js 緊接其後、其餘照原本順序'
 
 test('split：拆檔完成，index.html 只剩骨架', () => {
     const js = scriptTags.filter(isLocal).filter(r => r.src.startsWith('js/')).map(pathOf);
-    expect(js.slice(2), '完整 36 個 js 依序（safety.js、layout.js 之後）').toEqual(JS_ORDER);
+    expect(js.slice(2), '完整 js 依序（safety.js、layout.js 之後）').toEqual(JS_ORDER);
     expect(linkTags.filter(isLocal).map(pathOf), '完整 4 個 css 依序').toEqual(CSS_ORDER);
     const inline = [...html.matchAll(/<script\b([^>]*)>/g)].filter(m => !/\bsrc\s*=/.test(m[1]));
     expect(inline.length, '不可有沒有 src 的 script').toBe(0);

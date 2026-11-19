@@ -3,55 +3,85 @@
 // 第一次來自動跑一次（記在 lh:tourSeen）；之後從標題列的「?」或偏好設定重看。
 // 自動測試（navigator.webdriver）不自動出現，免得蓋住既有測試；導覽自己的測試直接呼叫 lhTourStart()。
 
-const LH_TOUR_KEY = 'lh:tourSeen';
+const LH_TOUR_KEY = 'lh:tourSeen';   // 看過哪些面板的導覽：空白分開的組名（"search lyrics"）；舊版的 '1'＝所有面板都看過
 
-// panel：這一步要開哪一邊（'left'／'right'／null＝都不用）；手機版對應底部分頁
-// place：'left'＝說明框放在目標左邊、靠上半段（目標是整個高高的面板時，不要壓在右下角）
-const LH_TOUR_STEPS = [
-    { sel: '.search-box', panel: null, title: '從一個字開始',
-      body: '輸入一個字或注音／拼音（例如「ㄞ」「ai」「唉」「唉呀」），列出所有同韻的字。' },
-    { sel: '#resultsContainer', panel: null, title: '同韻字卡',
-      body: '輸入一個字或用空白分開的多個單字（「洋 流」），會列出符合每個字的同韻字卡，依照常用頻率排序。點字卡會選字，讓 AI 建議只找含這些字的詞，也能按「關聯詞彙」看包含這些字的詞彙；按住字卡可以直接拖進歌詞。' },
-    { sel: '.search-box', panel: null, title: '一次找雙押、多押',
-      body: '若輸入連續文字詞（例如「洋流」），則會列出符合搜尋欄文字順序都押韻的詞，可以只看同聲調、排除借韻。按「顯示全部」，讓所有押韻詞展示在整個畫面：點擊詞彙可保留，拖曳可以搬動，滾輪縮放；詞彙過多時用上方的滑桿切換不同一批。',
-      bodyTouch: '若輸入連續文字詞（例如「洋流」），則會列出符合搜尋欄文字順序都押韻的詞，可以只看同聲調、排除借韻。按「顯示全部」，讓所有押韻詞展示在整個畫面：點擊詞彙可保留，拖曳可以搬動，兩指縮放；詞彙過多時用上方的滑桿切換不同一批。' },
-    { sel: '#leftPanel .lyrics-head', panel: 'left', title: '歌曲與匯出',
-      body: '這裡切換、新增歌曲，也能匯出。按「展開」打開完整歌詞編輯器，使用完整空間排版。' },
-    { sel: '#contextSection', panel: 'left', title: '標籤與情境',
-      body: '先替這首歌定方向：加幾個標籤、寫一兩句情境。按小燈泡讓 AI 從歌詞整理；這些都會當作 AI 建議的參考。' },
-    { sel: '#lyricsSections', panel: 'left', title: '分段寫歌詞',
-      body: 'Verse、Chorus 一段一段寫，抓著標題列拖曳換順序、右鍵複製或刪除。反白幾個字會浮出選字列：查韻、問 AI、指定角色都在那裡。',
-      bodyTouch: 'Verse、Chorus 一段一段寫，抓著標題列拖曳換順序、長按段落名稱可以複製或刪除。反白幾個字會浮出選字列：查韻、問 AI、指定角色都在那裡。' },
-    { sel: '#rhymeMenuBtn', panel: 'left', title: '韻腳地圖與角色',
-      body: '把押韻的句尾上色，一眼看出哪幾句押在一起；「角色」替對唱、音樂劇的字換上不同顏色。' },
-    { sel: '#editorOpenBtn', panel: 'left', title: '完整編輯器與排版',
-      body: '展開後有「吸附」與「自由」兩種排版。吸附：拖到另一塊中間是互換、拖到邊緣是並排；自由：想放哪就放哪，還能縮放。' },
-    { sel: '#rightPanel .side-panel-body', panel: 'right', place: 'left', title: 'AI 建議詞語',
-      body: '查完韻腳按「提供詞語建議」。最上面那列會告訴你 AI 這次參考了哪些標籤、情境與歌詞；點詞就保留到下面的「保留」。' },
-    { sel: '#mainContainer > .header', panel: null, title: '自己排版面', mouse: true,   // 平板、手機沒有這個功能，導覽跳過
-      body: '寬螢幕上抓著三塊的標題列拖曳：放到別塊中間是對調，放到邊緣是分割畫面。三塊並排時，左右兩塊旁邊的小三角形可以收合。' },
-    { sel: '#settingsTrigger', panel: null, title: '偏好設定',
-      body: '讀音顯示、自訂詞彙、主題顏色、背景動畫與特效（電腦比較慢就調低）、韻腳地圖、AI 服務商與自己的金鑰、備份都在這裡。按鈕停一下會浮出說明；想再看一次導覽，按標題列的「?」。',
-      bodyTouch: '讀音顯示、自訂詞彙、主題顏色、背景動畫與特效（裝置比較慢就調低）、韻腳地圖、AI 服務商與自己的金鑰、備份都在這裡。想再看一次導覽，按標題列的「?」。' },
-];
+// 0.98.41 Andy：每個面板各自一組導覽，右上角的「?」只講自己那塊；第一次進到那塊自動跑一次。
+// 用詞原則：講功能、用常用詞，不用內部設計稱呼；不重複講同一件事；隱藏彩蛋不提。
+// panel：這一步要開哪一邊（'left'／'right'／null）；手機版對應底部分頁。place：'left'＝說明框放目標左邊。
+// mouse：只有電腦（滑鼠、寬螢幕）才有的步驟；bodyTouch：手機、平板的說法
+const LH_TOURS = {
+    search: [
+        { sel: '.search-box', title: '從一個字開始',
+          body: '輸入一個字、注音或拼音（例如「唉」「ㄞ」「ai」），列出所有同韻的字。' },
+        { sel: '#resultsContainer', title: '同韻字卡',
+          body: '照常用程度排序。點字卡可以選字，AI 建議就只找含這些字的詞；按住字卡能直接拖進歌詞。' },
+        { sel: '.search-box', title: '雙押、多押',
+          body: '輸入連續的詞（例如「洋流」），列出每個字都押韻的詞。按「顯示全部」把所有押韻詞攤開來挑。' },
+        { sel: '#mainContainer > .header', title: '自己排版面', mouse: true,
+          body: '抓著三塊面板的標題列拖曳：放到別塊中間是對調，放到邊緣是分割畫面。拖面板之間的分隔線可以調寬度。' },
+        { sel: '#settingsTrigger', title: '偏好設定',
+          body: '讀音顯示、自訂詞彙、主題顏色、特效、AI 金鑰、備份都在這裡。每塊面板右上角的「?」可以再看一次說明。' },
+    ],
+    lyrics: [
+        { sel: '#leftPanel .lyrics-head', panel: 'left', title: '歌曲',
+          body: '在這裡切換、新增歌曲，也能匯出。' },
+        { sel: '#contextSection', panel: 'left', title: '標籤與情境',
+          body: '加幾個標籤、寫一兩句情境，AI 建議會照這個方向挑詞。小燈泡可以讓 AI 從歌詞幫你整理。' },
+        { sel: '#lyricsSections', panel: 'left', title: '分段寫歌詞',
+          body: '一段一段寫，拖標題列換順序，按右鍵複製或刪除。反白文字會浮出選字列：查韻、問 AI、指定角色。',
+          bodyTouch: '一段一段寫，拖標題列換順序，長按段落名稱複製或刪除。反白文字會浮出選字列：查韻、問 AI、指定角色。' },
+        { sel: '#rhymeMenuBtn', panel: 'left', title: '韻腳上色與角色',
+          body: '把押韻的句尾上色，一眼看出哪幾句押在一起；「角色」替對唱的不同人標上顏色。' },
+        { sel: '#editorOpenBtn', panel: 'left', title: '展開編輯器',
+          body: '展開後有三種排版——吸附：整齊排好，拖到另一段中間是互換、拖到邊緣是並排；自由：想放哪就放哪，還能拉大小；合併：所有段落接成一整份，像寫文件一樣。' },
+    ],
+    ai: [
+        { sel: '#rightPanel .side-panel-body', panel: 'right', place: 'left', title: 'AI 建議',
+          body: '先查好韻腳，再按「提供詞語建議」。AI 會參考標籤、情境和已經寫好的歌詞。' },
+        { sel: '#savedPoolSection', panel: 'right', place: 'left', title: '保留',
+          body: '點建議的詞就收進這裡，按住可以拖進歌詞。' },
+        { sel: '#modelPickerWrap', panel: 'right', title: '模型與金鑰',
+          body: '「自動」會幫你挑模型；有自己的 AI 金鑰，按旁邊的鑰匙設定。' },
+    ],
+    space: [
+        { sel: '.ws-panel', title: '篩選',
+          body: '照字在詞首或詞尾、字數、常用程度篩選，只留下想看的詞。' },
+        { sel: '.ws-canvas', title: '瀏覽與挑詞',
+          body: '拖曳空白處移動畫面，滾輪或右上角縮放。點詞＝保留，拖詞可以搬動位置。',
+          bodyTouch: '拖曳空白處移動畫面，兩指縮放。點詞＝保留，拖詞可以搬動位置。' },
+        { sel: '.ws-ptop', title: '換一批、找靈感',
+          body: '詞很多時會分成好幾批，用滑桿切換。骰子隨機挑一組詞、AI 照你的歌詞挑一組；出現後用左右箭頭一個一個看，旗子全部保留、循環箭頭重抽、垃圾桶放棄這組。' },
+        { sel: '.ws-fx', title: '特效',
+          body: '調畫面特效的多寡；裝置比較慢就往左調。' },
+    ],
+};
 
-// 電腦（滑鼠、不是底部 sheet 版面）走完整的步驟；平板、手機跳過 mouse: true 的步驟，說明有 bodyTouch 就用觸控版（0.98.12 Andy）
-function lhTourSteps() {
+// 電腦（滑鼠、不是底部 sheet 版面）走完整的步驟；平板、手機跳過 mouse: true 的步驟，說明有 bodyTouch 就用觸控版
+function lhTourSteps(group = 'search') {
     const desk = matchMedia('(hover: hover) and (pointer: fine)').matches && !lhIsSheetMode();
-    return LH_TOUR_STEPS.filter(s => desk || !s.mouse).map(s => desk || !s.bodyTouch ? s : { ...s, body: s.bodyTouch });
+    return (LH_TOURS[group] || LH_TOURS.search).filter(s => desk || !s.mouse).map(s => desk || !s.bodyTouch ? s : { ...s, body: s.bodyTouch });
+}
+const _lhTourSeen = () => { const v = lhGet(LH_TOUR_KEY) || ''; return v === '1' ? [] : v.split(' ').filter(Boolean); };   // 舊版 '1'：新的分面板導覽當作都沒看過
+function _lhTourMark(group) { const s = _lhTourSeen(); if (!s.includes(group)) lhSet(LH_TOUR_KEY, [...s, group].join(' ')); }
+// 第一次進到某個面板：自動跑那個面板的導覽（自動測試不跑；已經有導覽在跑就不疊）
+function lhTourAuto(group, delay = 400) {
+    if (navigator.webdriver || _lhTour || _lhTourSeen().includes(group)) return;
+    setTimeout(() => { if (!_lhTour && !_lhTourSeen().includes(group)) lhTourStart(group); }, delay);
 }
 
 let _lhTour = null;   // 進行中：{ i, root, spot, card, raf, restore, back }
 
-function lhTourStart(at = 0) {
-    if (_lhTour) { _lhTourGo(at); return; }
+function lhTourStart(group = 'search', at = 0) {
+    if (typeof group === 'number') { at = group; group = 'search'; }
+    if (_lhTour) lhTourEnd();
     // 先收掉會蓋在上面的對話框與浮層
     document.getElementById('settingsOverlay')?.classList.remove('show');
     if (typeof lhMapCloseAll === 'function') lhMapCloseAll();
     const lp = document.getElementById('leftPanel'), rp = document.getElementById('rightPanel');
     _lhTour = {
         i: -1,
-        steps: lhTourSteps(),
+        group,
+        steps: lhTourSteps(group),
         back: document.activeElement,
         restore: { left: lp && lp.classList.contains('collapsed'), right: rp && rp.classList.contains('collapsed') },
     };
@@ -108,7 +138,7 @@ function _lhTourKey(e) {
 // 這一步要的面板打開、另一邊收起（桌機兩邊放不下時 syncCenterPanel 也會收）；手機切到對應的分頁
 function _lhTourPanel(want) {
     const lp = document.getElementById('leftPanel'), rp = document.getElementById('rightPanel');
-    if (!lp || !rp) return;
+    if (!lp || !rp || _lhTour.group === 'space') return;   // 詞彙畫面蓋在最上面，不動底下的面板
     if (lhIsSheetMode()) {
         const tab = want === 'left' ? 'lyrics' : want === 'right' ? 'ai' : 'search';
         const open = !lp.classList.contains('collapsed') ? 'lyrics' : !rp.classList.contains('collapsed') ? 'ai' : 'search';
@@ -179,14 +209,13 @@ function _lhTourPlace() {
 
 function lhTourEnd() {
     if (!_lhTour) return;
-    const { root, raf, restore, back } = _lhTour;
+    const { root, raf, restore, back, group: _lhTourDone } = _lhTour;
     cancelAnimationFrame(raf);
     root.remove();
     _lhTour = null;
-    lhSet(LH_TOUR_KEY, '1');
-    // 面板回到導覽前的開關狀態
-    if (lhIsSheetMode()) mobileTab('search');
-    else {
+    _lhTourMark(_lhTourDone);
+    // 面板回到導覽前的開關狀態（手機：留在這個面板的分頁）
+    if (!lhIsSheetMode()) {
         const lp = document.getElementById('leftPanel'), rp = document.getElementById('rightPanel');
         if (lp && restore.left !== lp.classList.contains('collapsed')) toggleLeftPanel();
         if (rp && restore.right !== rp.classList.contains('collapsed')) toggleRightPanel();
@@ -195,9 +224,12 @@ function lhTourEnd() {
     if (b) b.focus({ preventScroll: true });
 }
 
-// 第一次來：歌曲與字典都好了之後才出現（目標區塊要先畫好）
-if (!lhGet(LH_TOUR_KEY) && !navigator.webdriver) {
-    Promise.allSettled([window.__hoyunReady, window.__hoyunSongsReady]).then(() => setTimeout(() => {
-        if (!_lhTour && !lhGet(LH_TOUR_KEY)) lhTourStart();
-    }, 400));
-}
+// 第一次來：歌曲與字典都好了之後，先跑查詢器的導覽（手機一打開就是查韻分頁）；
+// 歌詞、AI 建議：手機切到那個分頁、電腦第一次點進那塊面板時才跑；詞彙畫面在 js/word-space.js 打開時呼叫
+Promise.allSettled([window.__hoyunReady, window.__hoyunSongsReady]).then(() => {
+    lhTourAuto('search');
+    for (const [id, g] of [['leftPanel', 'lyrics'], ['rightPanel', 'ai']]) {
+        const el = document.getElementById(id);
+        if (el) el.addEventListener('pointerdown', () => { if (!lhIsSheetMode() && !el.classList.contains('collapsed')) lhTourAuto(g, 250); }, true);
+    }
+});

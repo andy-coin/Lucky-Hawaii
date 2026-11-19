@@ -790,6 +790,29 @@
         .prefs-tabs [role="tab"][aria-selected="true"] { color: var(--text-primary); font-weight: 700; box-shadow: inset 0 -2px 0 var(--highlight-border); }
         @media (hover: hover) and (pointer: fine) { .prefs-tabs [role="tab"]:hover { color: var(--text-primary); } }
         .prefs-tabs [role="tab"]:focus-visible { outline: 2px solid var(--highlight-border); outline-offset: -2px; }
+        /* 0.98.41：分頁列兩端的捲動提示（js/search-ui.js）——強調色小三角形，底下墊一層面板底色的漸層，蓋住被切一半的字 */
+        .prefs-tabs-wrap { position: relative; }
+        .prefs-tabs { scrollbar-width: none; }
+        .prefs-tabs::-webkit-scrollbar { display: none; }
+        .prefs-tabs-arr { position: absolute; top: -0.5rem; bottom: 1px; width: 2.25rem; border: 0; padding: 0; cursor: pointer; z-index: 1; }
+        .prefs-tabs-arr[hidden] { display: none; }
+        .prefs-tabs-arr.l { left: 0; background: linear-gradient(to right, var(--container-bg) 55%, transparent); }
+        .prefs-tabs-arr.r { right: 0; background: linear-gradient(to left, var(--container-bg) 55%, transparent); }
+        .prefs-tabs-arr::after { content: ''; position: absolute; top: 50%; width: 0; height: 0; border-block: 0.3125rem solid transparent; transform: translateY(-50%); }
+        .prefs-tabs-arr.l::after { left: 0.25rem; border-right: 0.4375rem solid var(--highlight-border); }
+        .prefs-tabs-arr.r::after { right: 0.25rem; border-left: 0.4375rem solid var(--highlight-border); }
+        /* 客製顏色四格：寬的時候一排；手機排成整齊的 2×2，不會掉一個到下一行 */
+        .color-grid { display: flex; flex-wrap: wrap; gap: 0.625rem; }
+        @media (max-width: 440px) {
+            .color-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem 0.75rem; }
+            .color-grid .color-item { margin-right: 0; justify-content: space-between; }
+        }
+        /* 主題（手機才有，標題列的主題鈕在手機藏起來） */
+        .prefs-theme { display: none; margin-bottom: 1rem; }
+        @media (max-width: 440px) { .prefs-theme { display: block; } }
+        .prefs-theme-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.375rem; }
+        .prefs-theme-row button { min-height: var(--hit); border: 1px solid var(--border); border-radius: var(--radius-s); background: var(--card-bg); color: var(--text-primary); font: inherit; font-size: 0.8rem; cursor: pointer; }
+        .prefs-theme-row button[aria-pressed="true"] { border-color: var(--highlight-border); color: var(--highlight-border); font-weight: 700; box-shadow: inset 0 0 0 1px var(--highlight-border); }
         .settings-dropdown > .prefs-panel { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; display: flex; flex-direction: column; gap: 0.75rem; }
         .prefs-panel > * { flex-shrink: 0; }
         .prefs-panel[hidden] { display: none; }
@@ -1232,7 +1255,7 @@ html .about-btn, html .about-btn-mobile { background: transparent; border: 1.5px
 
 /* 平板加到主畫面（全螢幕 App）：iOS 的狀態列疊在畫面最上面，整體往下讓一點（Andy 0.98.02；底部本來就有餘裕） */
 @media (display-mode: standalone) and (pointer: coarse) and (min-width: 768px), (display-mode: fullscreen) and (pointer: coarse) and (min-width: 768px) {
-    :root { --pad-t: calc(max(var(--page-pad), env(safe-area-inset-top)) + 1.25rem); }
+    :root { --pad-t: calc(max(var(--page-pad), env(safe-area-inset-top)) + 0.25rem); }   /* 0.98.41 Andy：1.25rem 太空，只多留一點 */
 }
 
 /* 查詢器標題列的按鈕（− % ＋ ? 主題 齒輪）：底色和標題列一樣只靠框不好認，墊一層淡淡的強調色（Andy 0.98.03） */
@@ -1240,6 +1263,7 @@ html :is(.m-zoomOut-button, .m-zoomIn-button, .zoom-reset, .theme-toggle, .help-
 @media (hover: hover) and (pointer: fine) { html :is(.m-zoomOut-button, .m-zoomIn-button, .zoom-reset, .theme-toggle, .help-btn):hover { background: color-mix(in srgb, var(--container-bg) 72%, var(--highlight-border)); } }
 
 /* 標題「韻腳查詢器」：頭尾的「韻」「器」低調地帶一點強調色與微光，和中間三個字分開（Andy 0.98.04） */
+.header h1 .h1-build { margin-left: var(--sp-2); font-size: 0.75rem; font-weight: 700; letter-spacing: 0; color: #1abc9c; vertical-align: middle; }   /* 本地測試代號（js/word-space.js LH_BUILD） */
 .header h1 .h1-cap { color: color-mix(in srgb, var(--text-primary) 90%, var(--highlight-border)); }   /* 0.98.05：再低調，只帶 10% 強調色、不發光 */
 /* 0.98.21 Andy：放不下時底下一條很淡的捲動軸（軌道＋目前看得到的那段），跟兩側淡出一起提示可以滑（js/cards.js lhScrollCue 設 --sw／--sx） */
 .sx-l, .sx-r {

@@ -132,6 +132,7 @@
                 //loadWordlist();
             }
             _lhSyncMobileTabs(tab);
+            if ((tab === 'lyrics' || tab === 'ai') && typeof lhTourAuto === 'function') lhTourAuto(tab === 'lyrics' ? 'lyrics' : 'ai', 450);   // 第一次切到這個分頁：跑它的導覽
             // 開關狀態變了：一併更新 inert 與 body 類別
             syncCenterPanel();
         }

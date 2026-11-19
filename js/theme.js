@@ -49,6 +49,7 @@
             themeToggle.innerHTML = LH_ICON_PALETTE + (lhIsPhone() ? '' : '<span>' + LH_THEME_NAMES[lhTheme] + '</span>');
             themeToggle.setAttribute('aria-label', label + '（點一下換下一個）');
             themeToggle.title = label + '（點一下換下一個）';
+            document.querySelectorAll('#prefsThemeRow button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.theme === lhTheme)));
             // 韻腳色組依新的 --card-bg 亮度重選、偏好設定的色票與對比提醒跟著新主題（明暗沒變時 rhyme-map.js 的 data-theme 監聽不會觸發）
             if (typeof lhMapApplyPalette === 'function') lhMapApplyPalette();
             if (typeof lhMapMenuSync === 'function') lhMapMenuSync();
@@ -68,6 +69,20 @@
         // 轉向／調整視窗跨過 440 時，圖示與文字跟著換（不存檔）
         LH_MQ_PHONE.addEventListener('change', () => applyTheme(lhTheme, false));
 
+        // 0.98.41：偏好設定 → 外觀的主題按鈕（手機用；點了跟標題列主題鈕一樣重畫結果）
+        {
+            const row = document.getElementById('prefsThemeRow');
+            if (row) for (const t of LH_THEMES) {
+                const b = document.createElement('button');
+                b.type = 'button'; b.dataset.theme = t; b.textContent = LH_THEME_NAMES[t]; b.setAttribute('aria-pressed', String(t === lhTheme));
+                b.addEventListener('click', () => {
+                    applyTheme(t, true);
+                    const v = document.getElementById('searchInput').value;
+                    if (v) displayResults(searchRhyme(v));
+                });
+                row.append(b);
+            }
+        }
         themeToggle.addEventListener('click', () => {
             lhNextTheme();
             // 重新渲染結果以套用顏色

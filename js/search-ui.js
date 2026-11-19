@@ -68,6 +68,18 @@
             const t = e.target.closest('[role="tab"]');
             if (t) lhPrefsSelectTab(t.id.slice('prefsTab-'.length), true);
         });
+        // 0.98.41 Andy：小螢幕分頁列放不下時，左右各一個強調色小三角形，提示還能往那邊捲（點了也會捲）；捲到底那邊的就藏起來
+        {
+            const bar = document.getElementById('prefsTabs'), wrap = document.createElement('div');
+            wrap.className = 'prefs-tabs-wrap';
+            bar.before(wrap); wrap.append(bar);
+            const arr = d => { const b = document.createElement('button'); b.type = 'button'; b.className = 'prefs-tabs-arr ' + (d < 0 ? 'l' : 'r'); b.tabIndex = -1; b.setAttribute('aria-hidden', 'true');
+                b.addEventListener('click', () => bar.scrollBy({ left: d * bar.clientWidth * 0.6, behavior: 'smooth' })); wrap.append(b); return b; };
+            const L = arr(-1), R = arr(1);
+            const sync = () => { const m = bar.scrollWidth - bar.clientWidth; L.hidden = bar.scrollLeft <= 2; R.hidden = bar.scrollLeft >= m - 2; };
+            bar.addEventListener('scroll', sync, { passive: true });
+            new ResizeObserver(sync).observe(bar);
+        }
         document.getElementById('prefsTabs').addEventListener('keydown', e => {
             const tabs = [...document.querySelectorAll('#prefsTabs [role="tab"]')];
             const i = tabs.indexOf(document.activeElement);

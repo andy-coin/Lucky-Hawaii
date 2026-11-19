@@ -1,6 +1,69 @@
-## 本地測試中（未升版號、未 push）
-
-（無）
+## 本地測試中（未升版號、未 push）— 0.98.41 行動裝置優化（2026-11-18）
+Andy 會自己用 iPhone 13 mini／iPad 測完回報，不用追問。
+- 手機測試：雙擊 `手機測試.command`（PORT 4311、HOST 0.0.0.0），手機開 http://192.168.1.50:4311；tests/serve.mjs 加 HOST、區網私有 IP 也可用開發者端點
+- 本地判斷 `LH_LOCAL_HOST`（js/word-space.js 開頭）：localhost＋區網私有 IP → 手機也有齒輪、輔助線
+- 行動裝置獨立參數：觸控（LH_SP_COARSE）疊 js/sp-tune-defaults-mobile.js（LH_SP_TUNE_FILE_M）、瀏覽器存 lh:spTuneM；寫成預設 POST ?m=1
+- iOS 畫布不支援 ctx.filter：word-space.js 開頭偵測後接手 drawImage，blur(Npx) 用縮小再放大模擬（WebKit 驗證中）。凝聚變快推測是模糊沒生效造成的錯覺（物理照真實時間算）
+- 導覽改分面板（js/tour.js LH_TOURS：search/lyrics/ai/space），lh:tourSeen 存組名；各面板右上「?」；第一次進入自動跑（手機切分頁 panels.js mobileTab、電腦第一次點面板、宇宙 _lhSpShow）
+- 手機：底部分頁順序 歌詞｜查韻｜AI；主題鈕藏起來、偏好設定外觀多「主題」列（theme.js #prefsThemeRow）；分頁列兩端強調色三角（search-ui.js）；客製顏色 2×2（.color-grid）
+- 多餘空白：iOS Web App 視窗矮一個狀態列 → layout.js _lhIosGap 寫 --ios-gap，分頁列／sheet／宇宙／body::after 往下補、--app-h 加回（**沒實機驗過**）；觸控 page-pad 8px、手機橫放瀏海側 6 成、iPad Web App 頂端 +0.25rem
+- 宇宙：觸控拿掉 − 100% ＋，叉叉旁「?」；色標面板放不下右邊就放左面板下面（_lhSpNavPlace）；星座導覽列觸控放大（panels.css 最後）；選中詞閃爍 2.5→1.25Hz
+- 黑洞：可放慢時鐘 _lhSpNow/_lhSpClk（word-space 裡 performance.now 全換，預算計時與 __lhBgSink 除外）；滑鼠停在黑洞／按住黑洞／拖詞到上方＝1/bh.slow（20）倍速，CSS 動畫與背景飄字一起；拖詞到上方黑洞放大 bh.dropK（2）倍
+- 抓行星：飛行中行星點擊框順著速度多 grab.lead 秒（最多 80px）；回家拉力 grab.easeT 秒內照 easeP 次方長到全力（新滑桿組「互動｜抓行星」）
+- 把手判定：iPad 交界 ::after 往主畫面多 0.875rem；sheet 把手往上多 0.875rem（外觀不變）
+- 第二輪（Andy 實機回報後）：
+  - 底部空白補償撤回（補過頭，分頁列被推出畫面）；改加量測視窗 js/layout.js（網址加 ?vp：紅線＝版面底、列 screen/inner/vv/100dvh/safe-area），等 Andy 截圖再修
+  - 黑洞：bh.slow 20→10、新 bh.slowT 0.75 秒煞車／放開；拖詞到上方改「直徑多 bh.dropPx（32）畫面 px」不管縮放；grab.easeT 4 秒（REV +1）
+  - 「?」一律在右上那排最左（歌詞：收合左邊；AI：鑰匙左邊；宇宙：齒輪左邊）
+  - 白洞：直徑 0.625rem；虛無裡可縮放（滾輪、兩指；上下限照字高 14／21px，白洞不變，_lhSpVoidLoad 的 Z）；字拿掉 blur(0.3px)（推測粉紅雜邊來源）；出口曲線參數化 wh.u1/pre/pow（齒輪「黑洞｜白洞出口」）
+  - 宇宙左上面板：三角形在標題左邊；收合時色標分頁不顯示
+  - 黑洞貼邊（離宇宙邊界 < RA）時行星不打彈弓：純引力＋吃掉橫向速度掉進核心（_lhSpBhPull o.eat），吞掉後從離黑洞最遠的邊界重生、速度 0、rt0 歸零＝老爺車起步；恆星照舊彈弓（**沒實測**）
+  - 引力彈弓修正：①在黑洞座標系算（_lhSpBhPull 包 _lhSpBhPullRel，H.vx/vy＝黑洞沿邊／飄回的速度，拖／甩時 0）②被抓住期間回家彈簧暫停（bhE.cap，物理分支同 esc/eat）——舊版彈簧跟引力在範圍裡打平＝堆在那圈 ③最近點不再限 0.6R 內 ④拖走／釘住清 bhE。測試 word-space.spec「引力彈弓一定逃出範圍」
+  - 恆星氣流變粗但柔（_lhSpBhStreams strand 的 G.big）：寬度 ×bh.stW（1.6）、中段收得慢、霧外再一圈大淡柔光、輝光三層由窄到寬疊、旁邊 bh.stFib（4）根細纖維、亮點多一倍；柔化 bh.stSoft（1）。齒輪「黑洞」組 #恆星氣流（**沒看過實際畫面**）
+  - 本地快轉鈕（齒輪右邊 ⏭，.ws-skip）：_lhSpFinishFx＋星系 gDoneT＋_lhSp.bhSkip→黑洞 born 往前推 bh.form 秒＝直接長好。測試 word-space.spec「本地快轉鈕」
+  - 修：貼邊吞噬（o.eat）那段在 gA 定義前就用到 → 一觸發就報錯；已搬到 vEnd 後面
+  - **底部空白真正原因**（Andy 截圖：一開正常、輸入框聚焦再收鍵盤才出現）：iOS 主畫面 Web App 鍵盤 bug，innerHeight/100dvh 縮一截不恢復。js/layout.js _lhViewportHeal：失焦 140ms 後若比記錄的最高矮 >4px → body display:none 再放回逼重量（保留捲動位置）。只在 standalone＋觸控。待 Andy 實機確認；?vp 量測視窗確認後可刪
+  - **引力回到 0.98.40 手感**（Andy：昨天的參數邊緣很緩慢被吸，今天超容易被吸）：拿掉 bhE.cap（被抓時暫停彈簧）；黑洞座標系只用在「已甩出去」那段；貼邊吞改成「到了彈弓那一刻（真的繞過黑洞）才改吞」（o.edge→E.eat），不再整個範圍都加強吸；老爺車起步只在放手（拖曳 pointerup）和被吞重生時（rt0）。_lhSpBhPullRel 靠近段跟 HEAD 逐字一致
+  - 修：來回縮放殘影殘留——縮放方向反轉（_lhSp.zFlipT）時，反轉前的縮放光帶（trl、正在收的 trRet，g＝B）都在 trail.flip 毫秒內淡掉。實測：放大→停→急縮，0.4 秒後舊殘影 0 條
+  - 恆星回家等速 bh.home＝5（程式＋sp-tune-defaults.js＋REV），拿掉「遠的時候更快」
+  - 星座線不受黑洞影響（拿掉重力透鏡，一律直線）
+  - 恆星氣流接光暈：起點往光暈裡退 bh.stBack（0.35×光暈半徑）、源頭淡入 bh.stFade（0.08）
+  - 爆食光圈滑桿：bh.enUp／enDown（點亮、冷卻秒）、enR（極限半徑，核心×8）、enBright、enSoft
+  - 拖詞到黑洞上方＝反魚眼：從黑洞半徑 bh.shrinkR（2.5）倍開始縮，進到半徑一半內字寬＝黑洞直徑 0.8 倍（實測 7 倍→0.8），跟放大鏡同樣緩動
+  - **恆星卡在引力範圍線上**（實機重現：黑洞拖到宇宙中心）三個原因都修：①甩出去那段引力把方向拗成沿著圓圈走→往外分量至少 6 成 ②勉強逃出界就被摩擦煞停在線外、還把那裡當新家→剛逃出（bhE.out）的在 1.3 倍範圍內往外至少 bh.speed，出 1.3 倍才落腳 ③走回家踩進範圍時速度歸零（撞牆感）→帶著走路速度進去；範圍內被吸時摩擦只吃側向／往外
+  - 齒輪最上面「一直顯示輔助線」開關（lh:spGuide）：開＝黑洞範圍＋宇宙邊界常駐；關＝拉黑洞滑桿／按住黑洞時暫時出現
+- 第三輪（Andy 7 點＋彩蛋）：
+  - 「光暈開始被吸」改看恆星光暈邊緣（_lhSpBhDrift words loop 的 dH＝距離－星系半徑×glow.starSize）：光暈變淡、恆星氣流起點都用 dH
+  - 白洞出口新滑桿 wh.t25（放大到 2.5 倍要幾秒，預設 1）：前段改 x^q 起步凝滯（_lhSpVoid 出口 grow）；sp-tune-defaults.js wh 加 t25
+  - 輔助線拆兩個勾選：「黑洞範圍」lh:spGuide、「宇宙邊界」lh:spGuideE（safety.js 已登記；_lhSp.guideBh／guideEdge）
+  - 星際穿越：黑洞（DOM）跟畫布同一個中心放大（translate＋scale 動畫），換內容時藏起來（_lhSpWarp）
+  - 黑洞白洞來回殘影 bug（截圖檔找不到，照推測修）：①時間放慢會把穿越、白洞出口的動畫也放慢 → 穿越／虛無中一律正常速度（_lhSpFrame tran）②進虛無清 bhHov（黑洞藏起來後收不到 pointerleave）③進虛無先清掉上一輪白洞出口「背景轉透明」的殘留動畫。實測來回 3 輪：虛無背景全黑、時間 k＝1
+  - 虛無裡也看得到齒輪、快轉、調參面板（panels.css ws-in-void 規則）
+  - 恆星撞牆：實測回家踩進範圍會順順加速進去（沒有撞牆）；另抓到「剛逃出 out 記號＋撞宇宙邊界」會一直被推回邊界抖動 → 撞邊界時清 out
+  - 彩蛋 _lhSpBhMood：hover 黑洞 5 秒淡定臉 → 20 秒暴怒 → 50 秒哭 → 110 秒「無聊」；變過臉後離開換回淡定臉留 3 秒（.ws-bh-face.stay）。**沒實測整段 110 秒**
+  - 本地測試代號：標題「韻腳查詢器」後面小字（index.html #h1Build、js/word-space.js 開頭 LH_BUILD，只有本地、自動測試不顯示）；每輪換一個。目前：西瓜汁
+  - 待討論：甩出後弧形滑行回家（目前是飄出 1.3 倍範圍→停→直線等速走回家）
+- **第四輪（2026-11-19，代號 西瓜）：黑洞物理全部退回 0.98.40**（Andy：越改越複雜、bug 無從重現）
+  - 退掉：彈弓改用黑洞座標系、往外分量 6 成、剛逃出維持往外飄（out）、範圍內摩擦只吃側向、回家帶速度進範圍、清繞過記號、等速回家（home 回「遠的更快」）、貼邊吞噬＋最遠邊界重生、老爺車起步（grab.easeT/easeP 滑桿也拿掉）、光暈外緣判定
+  - _lhSpBhDrift、_lhSpBhPull 跟 0.98.40 逐字一致（只差快轉鈕、時鐘 _lhSpNow）；退之前的版本備份在 scratchpad ws-before-revert.js
+  - 保留：時間放慢（A11）、所有畫面（氣流、爆食光圈、星座直線、拖詞縮小、穿越清黑洞、彩蛋）、介面（快轉、輔助線兩勾、虛空齒輪、白洞縮放／出口滑桿）、飛行中行星點擊加大
+  - 待討論：Andy 梳理的根本問題＝「被吸→甩飛→又被拉回→再被吸」循環（行星被自己還在範圍裡的恆星拉回來）。先提案、確認後再動
+- 代號 貓咪：scan 3 個舊失敗清掉（word-space 直接讀 localStorage→lhGet、lh:spTuneUI 補登記、吞錯 catch 拿掉；金鑰測試不再寫死鍵總數）；彈弓測試改成只驗黑洞不動（0.98.40 物理）
+- 代號 玫瑰花：黑洞大小 bh.size 改成「直徑＝宇宙半徑的 %」（預設 1.4，REV +1；_lhSpBhDrift 的 Hs 拿掉 T.size 下限、搬到 r 前面）。核心、引力範圍（核心×range）、引力都跟著宇宙縮放：實測引力範圍約宇宙半徑 35～55%（原本小宇宙 2625 蓋過整個宇宙）
+- 代號 鳳梨：黑洞所有距離／速度都改成宇宙半徑 %（_lhSpBhDrift 的 U＝Hs/100，bhW.u 帶給引力函式）：bh.speed 0.7%/s（出口速度＝1～2 倍，_lhSpBhPull vEnd）、bh.back 0.35%/s、bh.home 1.2%/s（遠的更快照舊）、bh.wob 0.14%、黑洞停下判定 1%/s、星星停下門檻 0.12%/s。REV 都 +1，sp-tune-defaults.js 同步。換算基準＝400 詞宇宙（半徑約 5000、鏡頭 0.29 倍），大宇宙手感不變。保留畫面 px：ring、dropPx、lens.px/extra/r、甩黑洞最快 3000px/s
+- **代號 保齡球瓶（2026-11-19）：新黑洞引擎**（Andy 規格，預設就是新版）
+  - 對照：齒輪最上面「切到 0.98.40 黑洞對照」→ lh:spPhys＝0.98.40，js/space-pick.js 改載 legacy/word-space-0.98.40.js＋legacy/sp-tune-defaults-0.98.40.js（git 0.98.40 原檔，調參存 lh:spTune40）；右下角鈕切回。index.html 只引用 space-pick.js（split-tags 測試已更新）
+  - 引力 _lhSpBhG：a×(1−d/R)^b（黑洞半徑／秒²）、範圍內速度上限 gmax、核心＝吞；進過魚眼範圍且到上限 8 成＝fast，離開範圍套反阻尼 bh.anti，其他路過套甩動煞車 bh.brake
+  - 煞車 _lhSpBrakeOf／_lhSpBrakeW：離宇宙邊界最遠距離 × % ＝煞停的路，直線等減速；黑洞、恆星、行星（煞停後彈簧才接手）、流星共用；放手甩動、離開範圍時設定
+  - 被吞 _lhSpReborn：離黑洞 1.5 個範圍以外、最空曠處淡入（reT 2 秒）；恆星整團搬家（_lhSpSettle），行星留原地自己飛去找
+  - 邊界：飛出去的在畫面外才換邊（_lhSpBhDrift w.outB），出現點在畫面裡就往外推到畫面外再飛進來；邊界外不煞車、保底速度 _lhSpOutMin。黑洞甩出去等減速、可出界，停下後照 bh.back 飄回邊上
+  - 代號 西瓜汁：外觀 bh.size＝縮放 100%（_lhSpZ100，剛進宇宙對好的縮放）時直徑 px（預設 60），核心＝它的倍數；實測 2～400 詞黑洞都 60px、範圍 30～31%。宇宙邊界滑桿 bh.margin 改 −0.2～0.4（步 0.005），預設 0.1（REV 2）
+  - 代號 草莓（Andy：範圍要每個宇宙一樣）：範圍、引力全部改宇宙半徑 %（U）：range 40／absorb 22／scatR 11／lensR 9，ga 450 %/s²、gmax 65 %/s（bhW.u）。實測 2／30／120／400 詞＝引力範圍是平均宇宙半徑的 34／29／34／35%
+  - 瓦解：dW、stSoft、dFib、dStarB、dStarFib、dOff；光暈往黑洞那側拉長偏移加強（和星塵接成一體）。吸食：bhEat 0→1（eSpd 每秒膨脹 %），黑洞外觀×eMaxB^e、光圈×eMaxR^e（重疊 eOver%）、光暈 eGlow／eGlowB；恆星縮水 shr（eStar×該處相對引力），併進 w.kb
+  - 互動：hover 不再放慢（彩蛋照舊）；拖詞縮小固定 2.5 倍黑洞半徑開始
+  - 拿掉：彈弓、冷卻、bhH0 走回家、wob、fric、grav/starM/cometM/curve、home、stW/stFib/stBack/stFade、爆食光圈組、shrinkR、lens.r
+  - **沒實機看過畫面**：星塵新參數、光圈光暈、恆星縮水、重生淡入
+- 測試：tour/layout/songs-*/split-tags/word-space 依新設計更新；截圖基準已更新。既有失敗（原版就有）：scan 3 個、line-audit、sections-audit、style 4 個
 
 ## 0.98.40（2026-11-18 已 push）
 - 白洞出口第五版：DUR 3.12 秒、五次方衝刺，約 1/4 螢幕面積起到回宇宙 <0.5 秒（白光 0.3 秒）

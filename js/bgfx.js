@@ -152,7 +152,7 @@ function _lhBgSprite(f) {
 function _lhBgFrame(t) {
     _lhBgRaf = requestAnimationFrame(_lhBgFrame);
     if (t - _lhBgLast < ({ 3: 50, 4: 32 }[_lhFxLv] || 15)) return;   // 3 級約 20 fps、4 級 30 fps、5 級最多 60 fps（高刷螢幕不多畫）
-    const dt = _lhBgLast ? Math.min((t - _lhBgLast) / 1000, 0.1) : 0;
+    const dt = (_lhBgLast ? Math.min((t - _lhBgLast) / 1000, 0.1) : 0) * (window.__lhTimeK ?? 1);   // 宇宙碰到黑洞時間放慢（js/word-space.js）
     _lhBgLast = t;
     _lhBgDraw(dt);
 }

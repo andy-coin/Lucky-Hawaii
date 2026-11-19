@@ -422,7 +422,7 @@ test('縮放：手機 150% 工具列不重疊、控制鈕都點得到、點百�
     try {
         await setScale(page, 150);
         await waitStill(page);
-        const items = ['#MzoomOut', '.zoom-reset', '#MzoomIn', '#themeToggle', '.header h1'];
+        const items = ['#MzoomOut', '.zoom-reset', '#MzoomIn', '#tourBtn', '.header h1'];   // 0.98.41：手機主題鈕搬進偏好設定，右上角是「?」
         const boxes = [];
         for (const sel of items) {
             const b = await page.locator(sel).first().boundingBox();
@@ -435,7 +435,7 @@ test('縮放：手機 150% 工具列不重疊、控制鈕都點得到、點百�
             }
         }
         // 全部要在視窗內，不必捲動就點得到（含設定齒輪）
-        for (const sel of ['#MzoomOut', '.zoom-reset', '#MzoomIn', '#themeToggle', '#settingsTrigger', '.header h1']) {
+        for (const sel of ['#MzoomOut', '.zoom-reset', '#MzoomIn', '#tourBtn', '#settingsTrigger', '.header h1']) {
             await expectFullyInViewport(page, page.locator(sel).first());
         }
         await page.locator('.zoom-reset').click();
@@ -470,8 +470,8 @@ test('版面：轉向時主題按鈕與提示字跟著換', async ({ browser }) 
             await page.setViewportSize({ width: w, height: h });
             await expect.poll(read, { message: `寬 ${w}px` }).toEqual(want);
         }
-        // 換主題（月光 → 城市）後轉向，圖示與文字也要對
-        await page.locator('#themeToggle').click();
+        // 換主題（月光 → 城市）後轉向，圖示與文字也要對（0.98.41：手機的主題鈕藏起來，用偏好設定的主題列換）
+        await page.evaluate(() => document.querySelector('#prefsThemeRow [data-theme="city"]').click());
         expect(await read()).toMatchObject({ theme: '' });
         await expect(page.locator('#themeToggle')).toHaveAttribute('aria-label', /City/);
         await page.setViewportSize({ width: 820, height: 1180 });
@@ -837,8 +837,8 @@ for (const [name, device] of [['手機', DEVICES.phone], ['平板', DEVICES.tabl
             // 三個分頁：文字、type、一開始「查韻」被按下
             expect(await page.evaluate(() => [...document.querySelectorAll('.mobile-tab-bar .mtab-btn')].map(b => ({ id: b.id, text: b.textContent.replace(/\s+/g, ' ').trim(), type: b.type }))))
                 .toEqual([
+                    { id: 'mtab-lyrics', text: '歌詞', type: 'button' },   // 0.98.41：跟電腦版左中右同順序
                     { id: 'mtab-search', text: '查韻', type: 'button' },
-                    { id: 'mtab-lyrics', text: '歌詞', type: 'button' },
                     { id: 'mtab-ai', text: 'AI 建議', type: 'button' },
                 ]);
             expect(await readSheets(page)).toEqual(NONE_OPEN);
@@ -1625,7 +1625,7 @@ const openRhymeMenu = async (page, d) => {
     await waitStill(page);
 };
 const TOUCH_STATES = [
-    ['閒置', ['button#MzoomIn', 'button#themeToggle', 'input#searchInput', 'button.mtab-btn', 'button#settingsTrigger'], async () => {}],
+    ['閒置', ['button#MzoomIn', 'button#tourBtn', 'input#searchInput', 'button.mtab-btn', 'button#settingsTrigger'], async () => {}],
     ['搜尋後', ['div.char-card', 'button.mode-button', 'button.poly-chip', 'span.mark-badge', 'button.m-batch-btn, button.batch-btn'], async page => {
         await page.fill('#searchInput', '樂');
         await settle(page);

@@ -42,10 +42,16 @@ const LH_KEYS = [
     { key: 'lh:activeProject', group: 'data' },
     { key: 'lh:snapCfg', group: 'setting' },       // 0.98.21 快照間隔（分鐘，0＝關閉）
     { key: 'lh:spTune', group: 'ui' },             // 0.98.22.4 宇宙調參齒輪（暫時）調過的數值
+    { key: 'lh:spTuneM', group: 'ui' },            // 同上，行動裝置（觸控）那一套
+    { key: 'lh:spGuide', group: 'ui' },            // 宇宙齒輪：一直顯示黑洞範圍輔助線（本地調參用）
+    { key: 'lh:spGuideE', group: 'ui' },           // 宇宙齒輪：一直顯示宇宙邊界輔助線（本地調參用）
     { key: 'lh:voidWords', group: 'setting' },     // 宇宙黑洞：使用者自己放逐的冷僻詞（只從這個瀏覽器的詞庫拿掉）
     { key: 'lh:voidSent', group: 'ui' },           // 已經回報過的放逐詞（同一個詞只回報一次）
     { key: 'lh:voidHinted', group: 'ui' },         // 「冷僻詞已放逐虛空」提示過了
-    { key: 'lh:spUserMode', group: 'ui' }          // 本地測試用：設 1＝本地也走使用者模式
+    { key: 'lh:spUserMode', group: 'ui' },         // 本地測試用：設 1＝本地也走使用者模式
+    { key: 'lh:spTuneUI', group: 'ui' },           // 線上也叫出宇宙調參齒輪：設 1
+    { key: 'lh:spPhys', group: 'ui' },             // 本地：宇宙物理用新版或 0.98.40 對照（js/space-pick.js）
+    { key: 'lh:spTune40', group: 'ui' }            // 0.98.40 對照版自己的調參（legacy/word-space-0.98.40.js）
 ];
 // secret 旗標讓之後的匯出（Phase 8）可以排除金鑰
 const LH_KEY_PREFIXES = [{ prefix: 'apiKey_', group: 'setting', secret: true }];

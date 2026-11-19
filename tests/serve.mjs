@@ -5,6 +5,9 @@ import { extname, isAbsolute, join, relative, resolve } from 'node:path';
 
 const ROOT = resolve(process.env.SITE_ROOT || process.cwd());
 const PORT = Number(process.env.PORT || 4310);
+const HOST = process.env.HOST || '127.0.0.1';   // 手機測試.command 用 0.0.0.0：同一個 Wi‑Fi 的 iPhone／iPad 連得進來
+// 本機或區網私有 IP（192.168／10／172.16～31）才能用寫檔的開發者端點
+const LOCAL_ORIGIN = /^http:\/\/(127\.0\.0\.1|localhost|192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+|172\.(1[6-9]|2\d|3[01])\.\d+\.\d+)(:\d+)?$/;
 const TYPES = {
     '.html': 'text/html; charset=utf-8',
     '.js': 'text/javascript; charset=utf-8',
@@ -27,16 +30,17 @@ const cleanTune = (o, d = 0) => {
 };
 async function saveTune(req, res) {
     const origin = req.headers.origin || '';
-    if (origin && !/^http:\/\/(127\.0\.0\.1|localhost)(:\d+)?$/.test(origin)) { res.writeHead(403).end('forbidden'); return; }
+    if (origin && !LOCAL_ORIGIN.test(origin)) { res.writeHead(403).end('forbidden'); return; }
     let body = '';
     for await (const ch of req) { body += ch; if (body.length > 64 * 1024) { res.writeHead(413).end('too large'); return; } }
     let obj;
     try { obj = cleanTune(JSON.parse(body)); } catch { obj = null; }
     if (!obj || !Object.keys(obj).length) { res.writeHead(400).end('bad json'); return; }
-    const txt = '// 宇宙特效調參的預設值（齒輪「寫成預設」由本地伺服器 tests/serve.mjs 寫入；蓋過 js/word-space.js 裡 LH_SP_TUNE 的同名數字）\n'
+    const m = new URL(req.url, 'http://x').searchParams.get('m') === '1';   // m＝1：手機／平板那一套（js/sp-tune-defaults-mobile.js）
+    const txt = '// 宇宙特效調參的預設值' + (m ? '（行動裝置：觸控的 iPhone／iPad 專用，疊在 sp-tune-defaults.js 上面）' : '') + '（齒輪「寫成預設」由本地伺服器 tests/serve.mjs 寫入；蓋過 js/word-space.js 裡 LH_SP_TUNE 的同名數字）\n'
         + '// 寫入時間：' + new Date().toISOString() + '\n'
-        + 'const LH_SP_TUNE_FILE = ' + JSON.stringify(obj) + ';\n';
-    await writeFile(join(ROOT, 'js', 'sp-tune-defaults.js'), txt);
+        + 'const LH_SP_TUNE_FILE' + (m ? '_M' : '') + ' = ' + JSON.stringify(obj) + ';\n';
+    await writeFile(join(ROOT, 'js', m ? 'sp-tune-defaults-mobile.js' : 'sp-tune-defaults.js'), txt);
     res.writeHead(200, { 'content-type': 'text/plain; charset=utf-8' }).end('ok');
 }
 
@@ -44,7 +48,7 @@ async function saveTune(req, res) {
 // 丟進去的詞另外記在 data/void-words.json（虛無空間顯示用）。白洞救回＝兩邊都拿掉。原始 0.96 的刪除名單備份在 data/backup-0.96/
 async function voidOp(req, res) {
     const origin = req.headers.origin || '';
-    if (origin && !/^http:\/\/(127\.0\.0\.1|localhost)(:\d+)?$/.test(origin)) { res.writeHead(403).end('forbidden'); return; }
+    if (origin && !LOCAL_ORIGIN.test(origin)) { res.writeHead(403).end('forbidden'); return; }
     let body = '';
     for await (const ch of req) { body += ch; if (body.length > 4096) { res.writeHead(413).end('too large'); return; } }
     let op, w;
@@ -82,4 +86,4 @@ http.createServer(async (req, res) => {
     } catch {
         res.writeHead(404).end('not found');
     }
-}).listen(PORT, '127.0.0.1');
+}).listen(PORT, HOST);

@@ -2,7 +2,7 @@
 import { test, expect } from '@playwright/test';
 import { bootPage } from './helpers.mjs';
 
-const STEPS = 11;
+const STEPS = 5;   // 0.98.41：分面板導覽，查詢器那組 5 步（手機少「自己排版面」）
 const card = page => page.locator('.tour-card');
 const inView = (b, vw, vh) => b.x >= 0 && b.y >= 0 && b.x + b.width <= vw + 0.5 && b.y + b.height <= vh + 0.5;
 
@@ -22,7 +22,7 @@ test('導覽：第一次來（非自動化）自動出現一次，看完就記�
     await expect(card(page)).toBeFocused({ timeout: 1 }).catch(() => {});   // 焦點在「下一步」，不強求在卡片本身
     await page.keyboard.press('Escape');
     await expect(page.locator('#lhTour')).toHaveCount(0);
-    expect(await page.evaluate(() => lhGet('lh:tourSeen'))).toBe('1');
+    expect(await page.evaluate(() => lhGet('lh:tourSeen'))).toBe('search');
     await page.reload();
     await page.evaluate(() => window.__hoyunSongsReady);
     await page.waitForTimeout(700);
@@ -63,12 +63,30 @@ test('導覽：桌機逐步走完，亮框對準目標、說明框在畫面內�
     await page.locator('.tour-next').click();
     await page.locator('.tour-next').click();
     await expect(page.locator('#lhTour')).toHaveCount(0);
-    expect(await page.evaluate(() => lhGet('lh:tourSeen'))).toBe('1');
+    expect(await page.evaluate(() => lhGet('lh:tourSeen'))).toBe('search');
     expect(errors).toEqual([]);
     await context.close();
 });
 
-test('導覽：手機每一步目標可見、說明框不超出畫面，結束回到查韻', async ({ browser }) => {
+test('導覽：歌詞、AI 建議各自一組，右上角「?」只講自己那塊', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, { wordlist: 'stub' });
+    for (const [g, n] of [['lyrics', 5], ['ai', 3]]) {
+        await page.evaluate(k => lhTourStart(k), g);
+        await expect(page.locator('#lhTourCount')).toHaveText('1 / ' + n);
+        for (let i = 0; i < n; i++) {
+            await page.waitForTimeout(400);
+            const sel = await page.evaluate(k => _lhTour.steps[k].sel, i);
+            expect(await page.locator(sel).first().boundingBox(), `${g} 第 ${i + 1} 步 ${sel}`).not.toBeNull();
+            await page.locator('.tour-next').click();
+        }
+        await expect(page.locator('#lhTour')).toHaveCount(0);
+    }
+    expect(await page.evaluate(() => lhGet('lh:tourSeen'))).toBe('lyrics ai');
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('導覽：手機每一步目標可見、說明框不超出畫面', async ({ browser }) => {
     const device = { viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, deviceScaleFactor: 2 };
     const { context, page, errors } = await bootPage(browser, { wordlist: 'stub', device });
     await page.evaluate(() => lhTourStart());
@@ -87,8 +105,6 @@ test('導覽：手機每一步目標可見、說明框不超出畫面，結束�
         await page.locator('.tour-next').tap();
     }
     await expect(page.locator('#lhTour')).toHaveCount(0);
-    await expect(page.locator('#leftPanel')).toHaveClass(/collapsed/);
-    await expect(page.locator('#rightPanel')).toHaveClass(/collapsed/);
     expect(errors).toEqual([]);
     await context.close();
 });
@@ -98,7 +114,7 @@ test('導覽：略過也記住，設定裡可以重看', async ({ browser }) => 
     await page.evaluate(() => lhTourStart());
     await page.locator('.tour-skip').click();
     await expect(page.locator('#lhTour')).toHaveCount(0);
-    expect(await page.evaluate(() => lhGet('lh:tourSeen'))).toBe('1');
+    expect(await page.evaluate(() => lhGet('lh:tourSeen'))).toBe('search');
     await page.evaluate(() => toggleSettings());
     await page.locator('#prefsTab-help').click();   // 分頁式偏好設定（R2）
     await page.locator('.tour-replay-btn').click();

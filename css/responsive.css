@@ -9,6 +9,15 @@
         @media (pointer: coarse) {
             :root { --tab-w: 1.125rem; }
         }
+        /* 0.98.41 Andy（截圖圈出來的空白）：行動裝置寸土寸金——外框留白收到 8px */
+        @media (pointer: coarse) and (max-width: 900px), (pointer: coarse) and (max-height: 500px) {
+            :root { --page-pad: 8px; }
+        }
+        /* 手機橫放：瀏海那側的安全區只留六成（面板本身還有內距，字不會被瀏海擋），頂端沒有狀態列只留 4px */
+        @media (pointer: coarse) and (orientation: landscape) and (max-height: 500px) {
+            :root { --pad-t: 4px; }
+            body { padding-left: max(var(--page-pad), calc(env(safe-area-inset-left) * 0.6)) !important; padding-right: max(var(--page-pad), calc(env(safe-area-inset-right) * 0.6)) !important; }
+        }
 
         @media (max-width: 900px) {
             /* 底部 sheet（UI-SPEC §6）：手機、平板都整個寬度（0.98.11.1 Andy：iPad 直式也撐滿）；高度取可見高度的 78%（最高 52rem），上方至少留 22% 讓人看到背景、知道可以點掉；拖把手可改高度（js/panels.js，存 lh:sheetH） */
@@ -421,7 +430,7 @@
 
             .save-load-text { display: none; }
             /* 手機標題列擠：導覽的「?」收進設定（「重看功能導覽」），不跟標題旁的 i 搶點擊範圍 */
-            #tourBtn { display: none; }   /* 手機只藏「?」，齒輪要留（偏好設定唯一入口） */
+            #themeToggle { display: none; }   /* 0.98.41 Andy：手機主題搬進偏好設定 → 外觀；右上角留「?」導覽 */
             .header-toolbar { margin-bottom: 0.5rem; }   /* 齒輪加進來後主題鈕往中間移，跟標題旁 i 的點擊範圍拉開 */
             
             .container { border-radius: 1rem; }
