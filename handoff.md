@@ -1,3 +1,51 @@
+## 0.98.42 上線＋黑洞新引力「先拉歪、散架圈才吸走」（2026-11-22，代號 鳳梨酥）
+**上線（0.98.42）**：線上版不出現黑洞（js/word-space.js 4 `LH_SP_BH = LH_LOCAL_HOST`；_lhSpBhDrift 4079 直接 return＝黑洞一直藏著、丟不進去、沒有引力）；偏好設定「黑洞」區沒放逐過詞就藏（4247）。本地照常有黑洞繼續調。使用者先享受新星雲、星塵效果
+**新引力（本地）**——Andy：舊參數外圈沒作用、一進「開始被吸」又突然太強。實測根因：①恆星的引力一直累積速度（調大＝遲早全被吸走、調小＝外圈沒作用）②行星抓力在「開始被吸→散架」降到 0（偏移＝引力÷抓力＝暴衝）。不是參數問題，改規則：
+- 還沒散架的星系只被「拉歪」（4180～4200）：恆星照公轉，整團往黑洞偏 cl.lx/ly（＝這裡的引力 × kL，平滑 1 秒，黑洞走開就彈回）；kL 定成「在散架圈上偏 bh.lean%」（gAt／kL 4126）。星系位置加 lx：_lhSpFrame 1588、1604
+- 行星潮汐拉長 w.tlx/tly（＝自己跟恆星的引力差 × kL），畫的位置加在 1783；變自由時算進起點（_lhSpScatter 3800、_lhSpReborn）
+- 恆星進散架圈才放開＋整團撕開（_lhSpScatter 第三個參數 bh＝不亂噴、行星帶原本公轉速度）；單顆行星軌道進散架圈＝被扯走（bhC，4205）；自由行星恆星還在＝只感受潮汐＋照常被拉回
+- 新滑桿 bh.lean（黑洞｜引力，預設 6）；範圍三圈說明改成新意思
+- 起點參數（程式預設＋js/sp-tune-defaults.js＋REV）：range 50、absorb 30、scatR 14、lensR 9、ga 6、gb 1.5、gmax 30、lean 6（Andy 的 fzT 10.3 等其他值沒動）
+- 實測（星系半徑約 20%，黑洞靜止）：0.9 倍範圍＝恆星偏 0.3%、近側行星拉長 ~3%；0.7＝偏 1.5%、偶爾 1～2 顆近側行星被扯走；0.5＝偏 4%、近側行星一顆顆被吃；0.35＝1 秒內整團撕開、2.6 秒落到視界
+- 測試：word-space.spec 新「星系先被拉歪（走開就彈回），恆星進散架圈才撕開」；13 個全過
+**順手修**：tests/serve.mjs 68 本地丟黑洞刪詞寫 data/wordlist-overrides.json 改用 tools/corrections/writeback.py 同一支排版（舊版 JSON.stringify 排版讓 corrections-writeback 的 round-trip 測試失敗，0.98.41 就壞了）；資料檔重新排版
+**6 個 audit 測試失敗全部處理掉（不再留「既有失敗」）**：
+- 真違規改程式：黑洞 :hover 包進 (hover: hover) and (pointer: fine)（css/panels.css 3225、3228；觸控點一下不再卡在放大＋冒淡定臉）；齒輪 .ws-tune-sub、.ws-tune-phys 字 11→12px；本地代號色 #1abc9c→#4fd1c5（base.css h1-build）；切回新版鈕改 var(--danger-bg)／var(--danger-text)；黑洞核心與虛空的 #000 改 var(--space-black)（base.css :root 新變數）
+- 測試過時改測試（點名放行）：style「Phase 7 沒有新的動畫」、line-audit、sections-audit 的 @keyframes 不算 wsBhFlow／wsGulp／wsWh（0.98.40 黑洞）；style 顏色白名單加 panels.css 限定的太空色（黑洞光環、淡定臉、白洞光暈、虛空字）；sections-audit WS_EXTRA 8→15（0.98.20～0.98.41 詞宇宙 8 個 transition，base.css 少 1）
+- style／line-audit／sections-audit 35 個全過
+**待 Andy 本地調**：lean（外圈想更明顯就調大，>15 恆星可能被自己的偏移帶進散架圈）、scatR（大星系近側行星多早被扯走）、ga／gmax（散架後掉進去多快）
+
+## 修：恆星被吞後行星瞬間跳格（2026-11-21，代號 牛舌餅）
+- 根因：整團呼吸（cl.b）把行星以「恆星目前位置」為中心縮放，飛散中的行星也算——恆星被吞、瞬移到遠方重生那格，行星被拉動「離恆星距離 × 呼吸幅度」（實測 45px；預測 (38,−49) 對實測 (41,−53)）
+- 修：飛散中的行星呼吸位移改照「自己家（軌道）離恆星多遠」算（js/word-space.js 1774）；在軌道上兩種算法一樣。行星變自由的兩個地方（_lhSpReborn 恆星分支、_lhSpBhDrift 進範圍）起點改用還沒乘呼吸的 ux/uy，接得上不多算一次
+- 驗證：新測試 word-space.spec「恆星瞬間搬家（被吞重生），飛散中的行星畫的位置不跳」（兩段：飛散行星、軌道上行星；拿掉修正會失敗）；word-space 12 個全過；真實吞噬 4 次：看得到的行星每格 3～9px 平順，沒有突跳
+- 量測時看到的 1000px 以上跳動＝行星自己也凍住淡到透明、被吃掉到遠方重生（透明度 0 時瞬移，設計如此）
+
+## 黑洞重整三階段（2026-11-21 夜，代號 太陽餅→牛舌餅）— 本地完成、未 commit、未升版、待 Andy 實機看
+存檔點：git `refs/backup/bh-before-refactor-20261121`（stash 物件，含當時所有未 commit 改動）＋ `history version/2026-11-21 黑洞重整前/`（word-space.js、兩個 sp-tune-defaults、spec）
+Andy 拍板：時間凝滯選 A（從外面看＝凍在視界上）、甜甜圈改沿圈拉長、恆星回出生半徑內、邊界改軟牆（擔心來回循環）、三階段一路做完
+**階段一 物理核心**（js/word-space.js）
+- 根因：引力範圍＝模式開關（進範圍剪掉彈簧＋gb 7.4 外側引力≈0 的死區）；恆星一進範圍變純慣性＝沿公轉切線往外飄（邊緣星系「解體」主因）
+- 行星：在「開始被吸」圈外照走軌道（_lhSpBhDrift 4192 附近）；圈內才自由，彈簧×抓力 w.hold（開始被吸 1 → 恆星散架 0，4194），physics 1688 hd
+- 被黑洞扯過的行星 bhR：彈簧隨時間變緊（最多 25 倍、阻尼等比例），離軌道 15% 內落回、偏移交給 bax 收（1688～1715）
+- 恆星：散架圈外照常公轉，引力只把家拉偏（cl.gvx，4179）；散架圈才自由；離開範圍照速度滑一段
+- 甩動 _lhSpFlingV（3868）：只看放手前 0.1 秒、停住 >80ms＝沒甩、畫面 <grab.flingMin（250px/s）＝放下；_lhSpBrakeOf（3859）滑行距離＝速度×grab.glide（0.4 秒），上限＝離邊界最遠×bh.brake%。黑洞、詞共用
+- 邊界：拿掉 outB 純慣性＋畫面外重生；改 w.outE＝煞車 3 倍（軟牆）；恆星停下後 bh.starIn（0.4%/s）飄回出生半徑 A0 內（_lhSpFrame 1591，照公轉橢圓量）
+- 拿掉：bh.anti（反阻尼）、逃逸 fast、trap／dm（視界內硬拗）、eStar／shr（恆星縮水）
+**階段二 事件視界**
+- tkAt（4119）：魚眼外緣→視界時間照 lens.curve 變慢到 1/bh.slow；lzq＝被拖住程度
+- 碰到視界（或核心）_lhSpFzStart／_lhSpFzStep（3845）：角度收斂、沉 ≤12%、bh.fzT（3 秒）淡完＝被吃（恆星打嗝 gulp＋吸食光圈亮一下）→ _lhSpReborn；流星同（1725 附近）
+- 外觀：甜甜圈放大＋推開整個拿掉（字畫在真正位置，輔助線對得上）；w.lzs 沿圈拉長／往中心壓扁（1869），blit 包一層變形＋紅移 sprRd（2308）；變暗 8 成（1820 附近）；凍住的日冕光芒照自己的時鐘 w.lt（2579）、不閃爍
+- 齒輪：「黑洞｜魚眼甜甜圈」「黑洞｜時間」合併成「黑洞｜事件視界」（3392：slow、lens.curve、slowT、fzT、lens.str、fzRed、lens.star）；甩動組加 grab.glide、grab.flingMin；黑洞外觀組加 bh.starIn。REV：bh.lens.curve、bh.lens.star +1；sp-tune-defaults.js 的 lens 只留 star、刪 anti／eStar
+**階段三 星塵**（_lhSpBhStreams 3930）
+- 每條個性 mkV（4008）：種子、流速、擺動、團塊濃淡、霧／線比例、亮點數、粗細曲線；恆星起點照實際畫的位置與光暈大小（cl.sw、kb、mag）；行星起點寬＝字實際寬 0.6 倍（舊：最少 12px 開根號，縮小時比字大很多）；凍住的行星星塵跟著淡
+**驗證**：word-space.spec 11 個全過（新：凍結、甩動、引力改寫；組名清單更新）；scan／split-tags 過；style 4 個舊失敗照舊（只查 CSS）
+- 實機腳本（不進專案，在 job tmp）：照常繞邊的黑洞經過 44% 處的星系＝行星 20 秒內離軌道 ≤0.17%；30% 處＝近側行星先被扯、恆星散架凍住被吃（正常劇情）；恆星 2500px/s 甩出邊界＝衝過一點停住再飄回；流星凍住淡完進休息；最忙 52 顆凍住＋拉長紅移多 ~2ms
+**待 Andy 看／可能要調**
+- 時間曲線 lens.curve 回到 1（舊 0.5 是甜甜圈放大用的，語意變了）；凍結秒數、拉長量、紅移、恆星飄回速度都是我抓的預設
+- 邊界離星系太近的宇宙（例：最外圈星系離邊界只有 20%），黑洞繞邊每圈都會吃掉它——要的話調大 bh.uK 或之後讓邊界跟星系保持距離
+- 觀察：視界內那片奶油色光是吸食光圈（eMaxR／eGlow），凍在圈上的字疊在它邊緣
+
 ## 本地測試中（未升版號、未 push）— 0.98.41 行動裝置優化（2026-11-18）
 Andy 會自己用 iPhone 13 mini／iPad 測完回報，不用追問。
 - 手機測試：雙擊 `手機測試.command`（PORT 4311、HOST 0.0.0.0），手機開 http://192.168.1.50:4311；tests/serve.mjs 加 HOST、區網私有 IP 也可用開發者端點
@@ -63,6 +111,30 @@ Andy 會自己用 iPhone 13 mini／iPad 測完回報，不用追問。
   - 互動：hover 不再放慢（彩蛋照舊）；拖詞縮小固定 2.5 倍黑洞半徑開始
   - 拿掉：彈弓、冷卻、bhH0 走回家、wob、fric、grav/starM/cometM/curve、home、stW/stFib/stBack/stFade、爆食光圈組、shrinkR、lens.r
   - **沒實機看過畫面**：星塵新參數、光圈光暈、恆星縮水、重生淡入
+  - 代號 芒果冰（2026-11-20，**沒實機看過**，js/word-space.js）：
+    ①行星被吞：自己恆星周圍半徑＝恆星光暈直徑（2×cl.r×glow.starSize）整圈在引力範圍外 → 就在那圈裡重生（_lhSpReborn），否則照舊找遠處
+    ②齒輪 bh.gmax 滑桿 0～200
+    ③恆星被吞：自己的行星照原本速度繼續滑（_lhSpBhDrift 記 lvx/lvy），等恆星完全成形（o.reW＝gather 曲線 full 秒）後，回家彈簧 3 秒內從 0 長到全力（行星彈簧那段 rw）
+    ④重生改走混沌凝聚時間軸（_lhSpFrame 新增 w.reT 分支：恆星照 starTo／focus／heatFocus，行星照 fadeTo／fadeMs）；舊 2 秒淡入只剩非第 5 級。_lhSpGatherCurve 多 full（99%）
+    ⑤恆星光暈：光暈邊緣碰到 absorb 圈才開始淡，線性到魚眼範圍一半（RL/2）才全透明；拿掉 stK 另外兩道變暗（aE、sk 的 ×0.55），只留往黑洞拉長
+    ⑥甩出宇宙邊界（飛到畫面外）＝不再換邊飛回，直接 _lhSpReborn 在宇宙內混沌凝聚；舊換邊碼備份 scratchpad/edge-wrap-old.js
+    ⑦（已被⑫取代）珍珠奶茶的整個宇宙放慢觸發已拿掉
+    ⑧代號 蘿蔔糕：宇宙大小改成 _lhSpHs()＝最遠兩顆行星（軌道位置，32 方向極點近似）距離 × bh.uK（1.2～5，預設 1.35＝宇宙直徑），_lhSpU 與 _lhSpBhDrift 共用；詞數變才重算（_lhSp.uDc）。bh.margin 滑桿換成 bh.uK（margin 留著沒用）
+    ⑨代號 肉圓：宇宙邊界外純慣性（拿掉 _lhSpOutMin 保底加速）；幾乎停在邊界外（<0.05%/s）也直接重生。拖畫面／縮放夾住：_lhSpApplyView 裡 px、py 限 ±半個視窗＝宇宙中心一定在視窗內
+    ⑩代號 蚵仔煎：行星星塵亮度曲線 k^1.5→k^0.75（細繩）、k^1.1→k^0.5（霧），一跨進 absorb 圈就看得到（_lhSpBhStreams 行星段）
+    ⑪代號 豆花：黑洞魚眼改甜甜圈（_lhSpFrame lens()，DK.ring 有值才走；游標放大鏡不變）：外緣→ring 圈照 curve 放大到 px，往內 smoothstep 縮到 inPx；新滑桿 bh.lens.ring（0.5）、bh.lens.inPx（6）。推開沒改
+    ⑫代號 愛玉：局部時間放慢——只有甜甜圈最大那圈（RL×bh.lens.ring）以內的星星 w.tk 漸變到 1/bh.slow（bh.slowT 秒），位置積分與引力 dt 都 ×tk（_lhSpBhDrift tkTo、_lhSpFrame 兩處 fx 積分、流星）；整個宇宙放慢只剩拖黑洞／拖詞到上方
+    ⑬代號 仙草：事件視界統一（_lhSpHzQ）：bh.lens.ring 改名「事件視界」（魚眼半徑比例，0.5）。魚眼外緣→視界：字照 curve 放大到 px、w.tk 1→1/bh.slow；視界→中心：字 smoothstep 縮到 inPx、tk 還原 1。tk 純照距離（拿掉局部 slowT 漸變）。進過視界 bhE.trap：_lhSpBhG 吃掉往外速度＝逃不出（流星被吞時清）
+    ⑭代號 杏仁豆腐：①視界內逃回去的原因＝速度大、半徑小，直線一步就往外飄（二階項），只砍往外速度不夠 → 進過視界的半徑只能變小且每秒縮 ≥3 成×tk（bhE.dm，_lhSpBhDrift 引力後、流星同樣）②「事件視界」滑桿搬到範圍那組（lensR 下面）③輔助線：魚眼範圍畫甜甜圈漸層（亮度＝_lhSpHzQ）＋白色「事件視界」圈
+    ⑮代號 紅豆餅：①行星重生：恆星（光暈）直徑×bh.reOut（1.5）那圈在引力範圍外 → 直徑×reIn（0.3）～reOut 圈之間面積均勻隨機（新滑桿在範圍組）②黑洞推開跟甜甜圈同曲線：G(x)=x(1+D·q)，從外往內取 min 保證不交錯（_lhSpHzPush 查表）；游標放大鏡推開不變
+    ⑯代號 雞蛋糕：①先縮小的原因＝恆星吸食縮水（eStar／shr）從 absorb 圈就開始 → 改成只在事件視界內縮 ②甜甜圈內側改 (x/hz)^lens.inCurve（1.5），新滑桿；外側 curve 改名「甜甜圈外側曲線」、下限 0.25。漸層輔助線、推開跟著變
+    ⑰代號 車輪餅：逃逸（bhE.fast→離開引力範圍套 bh.anti）改成「經過散架範圍以內、事件視界以外」那圈（拿掉進魚眼＋速度 8 成）；bhW 多 s（RS）、z（視界）；測試 H 同步
+    ⑱代號 豬血糕：齒輪面板重整成六大類 星系／恆星／行星／黑洞／白洞／互動（LH_SP_TUNE_ROWS 重寫，滑桿一個沒少；混沌凝聚拆成星系物理＋恆星／行星凝聚浮現；黑洞拆外觀／範圍／引力／魚眼甜甜圈／時間／瓦解／吸食；uK→星系｜宇宙、brake→互動｜甩動、reIn/Out→行星｜被吞重生）；小段標題點了收合（.ws-tune-sub.fold、row.ws-fold，css/panels.css）。改前備份 scratchpad/ws-before-panel.js；測試組名清單同步
+    ⑲代號 大腸包小腸：被吞重生的行星也用 reW（＝凝聚曲線 end 秒後）才開始被恆星拉；等待期間目的地速度 ovx 也 ×rw 漸變＝原地不滑。另：大小恆星吸速實測相同；「大恆星不動」根因＝gb 7.4 外圍半圈引力≈0＋範圍內關掉漫遊，建議先降 gb（Andy 決定中）
+    ⑳代號 刈包：面板改兩層——大類 → 有顏色的小段（每段一個 details.ws-tune-g，summary.ws-tune-h.ws-tune-hc 帶顏色，一開始收起來；一組多段＝「組名・段名」）。拿掉豬血糕那版的小段 JS 收合；測試清單同步（48 段）
+    ㉑代號 潤餅：0.98.40 對照的切回鈕（space-pick.js .lh-phys-back）本來就在右下角但太小不顯眼 → 改紅底大字；齒輪切換鈕文字註明會重新載入、右下角紅鈕切回
+    ㉒代號 筒仔米糕：面板第二層＝一組一個區塊（組名），'#' 小段只決定滑桿左邊色線、不再分段、不再「組名・段名」（Andy：不要擅自多分類）
+    - 限制：重生的行星位置走一般回家彈簧（沒套凝聚彈簧 gk，避免動到整團凝聚進度），只有透明＋模糊照凝聚
 - 測試：tour/layout/songs-*/split-tags/word-space 依新設計更新；截圖基準已更新。既有失敗（原版就有）：scan 3 個、line-audit、sections-audit、style 4 個
 
 ## 0.98.40（2026-11-18 已 push）

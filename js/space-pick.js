@@ -7,7 +7,7 @@
     document.write(src.map(s => '<script src="' + s + v + '"><\/script>').join(''));
     if (old) document.addEventListener('DOMContentLoaded', () => {   // 對照中：右下角一顆鈕切回新版（舊檔裡沒有切換開關）
         const b = document.createElement('button');
-        b.type = 'button'; b.className = 'lh-phys-back'; b.textContent = '0.98.40 黑洞對照中｜切回新版';
+        b.type = 'button'; b.className = 'lh-phys-back'; b.textContent = '⟲ 現在是 0.98.40 對照｜按這裡切回新版';
         b.addEventListener('click', () => { lhSet('lh:spPhys', 'new'); location.reload(); });
         document.body.append(b);
     });

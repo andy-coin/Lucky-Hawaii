@@ -1,5 +1,6 @@
 // 測試用靜態 server：只綁 127.0.0.1，行為對齊 GitHub Pages 的路徑配置（不是 file://）
 import http from 'node:http';
+import { execFileSync } from 'node:child_process';
 import { readFile, stat, writeFile } from 'node:fs/promises';
 import { extname, isAbsolute, join, relative, resolve } from 'node:path';
 
@@ -63,6 +64,8 @@ async function voidOp(req, res) {
     if (op === 'del') { ov.removed.push(w); vw.push(w); }
     ov.updated_at = new Date().toISOString();
     await writeFile(ovP, JSON.stringify(ov, null, 2) + '\n');
+    // 排版跟 tools/corrections/writeback.py 一樣（同一支 format_word；不然 tests/corrections-writeback 的 round-trip 會失敗）
+    execFileSync('python3', ['-I', '-B', '-c', 'import sys; sys.path.insert(0, sys.argv[1]); import writeback as W; p = sys.argv[2]; d = W.format_word(W.load_overrides(p)); open(p, "w", encoding="utf-8").write(d)', join(ROOT, 'tools', 'corrections'), ovP]);
     await writeFile(vP, JSON.stringify(vw, null, 1) + '\n');
     res.writeHead(200, { 'content-type': 'application/json; charset=utf-8' }).end(JSON.stringify(vw));
 }

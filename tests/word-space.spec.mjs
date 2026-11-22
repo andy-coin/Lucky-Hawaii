@@ -234,8 +234,8 @@ test('詞宇宙：調參齒輪（暫時）', async ({ browser }) => {
     await expect(page.locator('.ws-tune')).toBeHidden();
     await gear.click();
     await expect(page.locator('.ws-tune')).toBeVisible();
-    await expect(page.locator('.ws-tune-ch')).toHaveText(['星系', '恆星', '互動', '黑洞']);   // 第二層收納：外層四大類
-    await expect(page.locator('.ws-tune-h')).toHaveText(['公轉', '流星', '混沌凝聚', '殘影：公轉煙霧', '殘影：凝聚煙霧', '光暈閃爍', '日冕', '輻射', '熱浪', '殘影：縮放光帶', '殘影：拖畫布光帶', '游標放大鏡', '星座', '抓行星', '白洞出口', '黑洞']);
+    await expect(page.locator('.ws-tune-ch')).toHaveText(['星系', '恆星', '行星', '黑洞', '白洞', '互動']);   // 第二層收納：外層六大類
+    await expect(page.locator('.ws-tune-h')).toHaveText(['宇宙', '公轉', '流星', '混沌凝聚', '凝聚浮現', '光暈閃爍', '日冕', '輻射', '熱浪', '公轉', '凝聚浮現', '殘影：公轉煙霧', '殘影：凝聚煙霧', '被吞重生', '外觀', '範圍', '引力', '事件視界', '瓦解', '吸食', '出口', '甩動', '拖詞到黑洞', '殘影：縮放光帶', '殘影：拖畫布光帶', '游標放大鏡', '星座', '抓行星']);
     await page.locator('.ws-tune-ch', { hasText: '星系' }).click();
     await page.locator('.ws-tune-h', { hasText: '混沌凝聚' }).click();   // 每組一開始收起來
     await page.locator('.ws-tune-ch', { hasText: '恆星' }).click();
@@ -263,41 +263,147 @@ test('詞宇宙：調參齒輪（暫時）', async ({ browser }) => {
     await context.close();
 });
 
-// 0.98.41 Andy 新黑洞引力：a×(1−d/R)^b、速度上限、掉進核心＝吞；進過魚眼範圍又快到上限 8 成才算逃逸。用黑洞半徑當單位＝大小黑洞同樣的軌跡比例
-test('黑洞：新引力——從靜止掉進核心、速度不超過上限、繞過去的有逃逸記號、大小宇宙比例一樣', async ({ browser }) => {
+// 0.98.41 Andy 新黑洞引力：a×(1−d/R)^b、速度上限、掉進核心＝吞。用宇宙半徑 1% 當單位＝大小宇宙同樣的軌跡比例
+// 2026-11-21：拿掉逃逸反阻尼（fast）、視界內只准往內（trap）——到了事件視界改成凍住（_lhSpFzStep，下一個測試）
+test('黑洞：新引力——從靜止掉進核心、速度不超過上限、大小宇宙比例一樣、範圍邊緣路過不會被吞', async ({ browser }) => {
     const { context, page, errors } = await bootPage(browser, { wordlist: 'stub' });
     const r = await page.evaluate(() => {
         const T = { ...LH_SP_TUNE.bh, ga: 200, gb: 3, gmax: 30, range: 75, lensR: 10 };
-        const run = (u, x0, vy0) => {   // u＝宇宙半徑 1%；回傳：被吞、最高速（u／秒）、逃逸記號、結束時位置（u）
-            const H = { x: 0, y: 0, r: u, R: u * T.range, u, L: u * T.lensR }, o = { x: x0 * u, y: 0, vx: 0, vy: vy0 * u, e: {} };
+        const run = (u, x0, vy0) => {   // u＝宇宙半徑 1%；回傳：被吞、最高速（u／秒）、結束時位置（u）
+            const H = { x: 0, y: 0, r: u, R: u * T.range, u, L: u * T.lensR, s: u * T.scatR, z: u * T.lensR * 0.5 }, o = { x: x0 * u, y: 0, vx: 0, vy: vy0 * u };
             let vmax = 0, st = 1, dt = 1 / 120, t = 0;
             for (; t < 120 && st === 1; t += dt) { st = _lhSpBhG(o, H, T, dt); o.x += o.vx * dt; o.y += o.vy * dt; vmax = Math.max(vmax, Math.hypot(o.vx, o.vy) / u); }
-            return { eaten: st === 2, vmax: +vmax.toFixed(2), fast: !!o.e.fast, t: +t.toFixed(2), x: +(o.x / u).toFixed(2) };
+            return { eaten: st === 2, vmax: +vmax.toFixed(2), t: +t.toFixed(2), x: +(o.x / u).toFixed(2) };
         };
         return { fall: run(30, 60, 0), fall2: run(5, 60, 0), pass: run(30, 74, 4) };
     });
     expect(r.fall.eaten, JSON.stringify(r.fall)).toBe(true);
     expect(r.fall.vmax).toBeLessThanOrEqual(30.001);
-    expect(r.fall.fast).toBe(true);
     expect(r.fall2.t, '宇宙大小不同，掉進去的時間一樣').toBeCloseTo(r.fall.t, 1);
     expect(r.pass.eaten, '範圍邊緣橫著路過：不會被吞 ' + JSON.stringify(r.pass)).toBe(false);
-    expect(r.pass.fast).toBe(false);
     expect(errors).toEqual([]);
     await context.close();
 });
 
-// 0.98.41 Andy：甩動煞車——煞停的路＝離宇宙邊界最遠距離 × 百分比（直線等減速）
-test('黑洞：甩動煞車距離照「離宇宙邊界最遠距離」的百分比', async ({ browser }) => {
+// 2026-11-21 Andy 選 A：碰到事件視界＝凍在那圈上——角度收斂（越轉越慢）、往裡沉不超過 12%、bh.fzT 秒淡完＝被吃掉
+test('黑洞：事件視界凍結——越轉越慢、停在圈上、照秒數淡完', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, { wordlist: 'stub' });
+    const r = await page.evaluate(() => {
+        const H = { x: 100, y: 0 }, w = {}, Tf = LH_SP_TUNE.bh.fzT;
+        _lhSpFzStart(w, 150, 0, 0, 40, H, 0.1, 0);   // 半徑 50、往上 40／秒、時間已經被拖到 0.1 倍
+        const S = [];
+        for (const s of [0, 0.5, 1, 2, Tf * 0.99, Tf]) { const done = _lhSpFzStep(w, H, s * 1000); S.push({ s, done, r: Math.hypot(w.fz.x - H.x, w.fz.y - H.y), a: Math.atan2(w.fz.y - H.y, w.fz.x - H.x), u: w.fz.u, e: w.fz.e }); }
+        return S;
+    });
+    expect(r[0].r).toBeCloseTo(50, 3);
+    for (let i = 1; i < r.length; i++) {
+        expect(r[i].r, '只往裡沉、不往外').toBeLessThanOrEqual(r[i - 1].r + 1e-9);
+        expect(r[i].r, '最多沉 12%').toBeGreaterThanOrEqual(50 * 0.88 - 1e-9);
+        expect(r[i].a - r[i - 1].a, '照原本方向轉').toBeGreaterThanOrEqual(0);
+        expect(r[i].e, '時間越來越慢').toBeLessThan(r[i - 1].e);
+    }
+    expect(r[2].a - r[1].a, '越轉越慢').toBeLessThan(r[1].a - r[0].a);
+    expect(r[r.length - 2].done).toBe(false);
+    expect(r[r.length - 1].done).toBe(true);
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+// 2026-11-21 Andy（輕輕一下就滑超遠、沒甩也滑）：滑行距離＝速度 × grab.glide 秒（直線等減速），最遠＝離宇宙邊界最遠距離 × bh.brake%；
+// 放手的速度只看最後 0.1 秒、停住超過 0.08 秒＝沒甩、畫面上慢於 grab.flingMin＝只是放下
+test('甩動：滑多遠跟出手速度成正比（有上限）、慢放＝不滑、停住再放＝不滑', async ({ browser }) => {
     const { context, page, errors } = await bootPage(browser, { wordlist: 'stub' });
     const r = await page.evaluate(() => {
         _lhSp.bhShape = _lhSpAmoeba(); _lhSp.bhK = 1000;
         const AM = _lhSp.bhShape; let far = 0; for (let i = 0; i < AM.pts.length; i += 8) far = Math.max(far, Math.hypot(AM.pts[i][0] * 1000 - 100, AM.pts[i][1] * 1000));
-        const w = { fx: 100, fy: 0, fvx: 800, fvy: 0 }; w.brk = _lhSpBrakeOf(w.fx, w.fy, w.fvx, w.fvy, 30);
-        let x = 0; for (let i = 0; i < 20000 && w.brk; i++) { _lhSpBrakeW(w, 1 / 120); x += w.fvx / 120; }
+        const glide = v => v * v / (2 * _lhSpBrakeOf(100, 0, v, 0, 30));   // 直線等減速：煞停的路＝v²／(2×減速度)
+        const G = LH_SP_TUNE.grab.glide, z = _lhSpZv(), fv = (h, tUp) => _lhSpFlingV(h, tUp);
+        const H = (v, n) => Array.from({ length: n }, (_, i) => ({ t: 1000 + i * 16, x: i * 16 / 1000 * v / z, y: 0 }));   // 畫面上 v px／秒的拖動
+        const last = h => h[h.length - 1].t;
+        const out = { far, slow: glide(100), slow2: glide(200), huge: glide(1e5),
+            fSlow: fv(H(100, 10), last(H(100, 10)) + 10).vx, fFast: fv(H(2000, 10), last(H(2000, 10)) + 10).vx * z, fPause: fv(H(2000, 10), last(H(2000, 10)) + 200).vx, fMin: LH_SP_TUNE.grab.flingMin };
         _lhSp.bhShape = null; _lhSp.bhK = 0;
-        return { want: far * 0.3, got: x };
+        return { ...out, want: [100 * G, 200 * G] };
     });
-    expect(Math.abs(r.got - r.want) / r.want, JSON.stringify(r)).toBeLessThan(0.02);
+    expect(Math.abs(r.slow - r.want[0]) / r.want[0], JSON.stringify(r)).toBeLessThan(0.03);
+    expect(r.slow2 / r.slow, '快一倍＝滑遠一倍').toBeCloseTo(2, 1);
+    expect(Math.abs(r.huge - r.far * 0.3) / (r.far * 0.3), '再快也不超過上限').toBeLessThan(0.03);
+    expect(r.fSlow, '慢慢拖放手＝沒甩').toBe(0);
+    expect(r.fPause, '停住 0.2 秒才放＝沒甩').toBe(0);
+    expect(r.fFast, '快甩：超過門檻的部分才算').toBeCloseTo(2000 - r.fMin, -1);
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+// 2026-11-21 Andy bug：恆星被吞（到遠方重生）那一刻，飛散中的行星在畫面上瞬間跳格——整團呼吸以恆星為中心縮放，
+// 離恆星越遠被拉越多（距離 × 呼吸幅度）。飛散的行星改照「自己家離恆星多遠」算呼吸位移，恆星搬家不影響它畫在哪
+test('黑洞：恆星瞬間搬家（被吞重生），飛散中的行星畫的位置不跳', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, { storage: { 'lh:bgFx': '5', 'lh:spTuneUI': '1' } });
+    await page.evaluate(() => { _lhWs.input = '安打'; _lhWs.list = wordlistData.filter(e => [...e.w].length === 2 && /ㄢ/.test(e.z)).slice(0, 60); lhWsOpen(); });
+    await page.waitForFunction(() => _lhSp.words.length > 10 && !(_lhSp.queue || []).length, null, { timeout: 30000 });
+    await page.locator('.ws-zoom .ws-skip').click();   // 跳過凝聚：行星回到軌道上
+    await page.waitForFunction(() => _lhSp.groups.filter(c => _lhSp.words.some(w => w.cl === c && !w.star && !w.free)).length >= 2, null, { timeout: 20000 });
+    const r = await page.evaluate(() => new Promise(res => {
+        const cl = _lhSp.groups.find(c => _lhSp.words.some(w => w.cl === c && !w.star)), w = _lhSp.words.find(o => o.cl === cl && !o.star);
+        Object.assign(cl, { ba: 0.3, bp: 1e9, ph: [Math.PI / 2, ...cl.ph.slice(1)] });   // 呼吸固定在最大（b≈1.3），結果不看運氣
+        Object.assign(w, { free: true, fx: cl.x + 3000, fy: cl.y, fvx: 0, fvy: 0, reW: _lhSpNow() + 1e6, gk: 0 });   // 飛散在 3000 外、還在等（reW：不被拉回）
+        setTimeout(() => {
+            const a = { x: w.px, y: w.py, fx: w.fx, fy: w.fy };
+            cl.hx += 5000; cl.hy -= 4000; cl.x += 5000; cl.y -= 4000;   // 恆星瞬間搬家
+            setTimeout(() => res({ jump: Math.hypot(w.px - a.x - (w.fx - a.fx), w.py - a.y - (w.fy - a.fy)), off: Math.hypot(a.x - a.fx, a.y - a.fy), r: w.r }), 150);
+        }, 150);
+    }));
+    expect(r.jump, '恆星搬家：行星畫的位置只照自己的移動走 ' + JSON.stringify(r)).toBeLessThan(1);
+    expect(r.off, '呼吸位移不超過自己軌道半徑的幅度 ' + JSON.stringify(r)).toBeLessThanOrEqual(r.r * 0.31 + 1);
+    // 還在軌道上的行星：恆星被吞重生（_lhSpReborn）那一刻變成自由，畫的位置接得上（不多算一次呼吸）
+    const r2 = await page.evaluate(() => new Promise(res => {
+        const cl = _lhSp.groups.find(c => c !== _lhSp.groups[0] && _lhSp.words.some(w => w.cl === c && !w.star && !w.free)) || _lhSp.groups[1], star = _lhSp.words.find(o => o.star && o.cl === cl);
+        Object.assign(cl, { ba: 0.3, bp: 1e9, ph: [Math.PI / 2, ...cl.ph.slice(1)] });
+        _lhSp.bhShape = _lhSp.bhShape || _lhSpAmoeba(); _lhSp.bhK = _lhSp.bhK || _lhSpHs() * _lhSp.bhShape.k; _lhSp.bhW = _lhSp.bhW || { x: 1e7, y: 1e7, R: 1 }; _lhSp.bh = _lhSp.bh || { x: 1e7, y: 1e7 };
+        setTimeout(() => {
+            const P = _lhSp.words.filter(w => w.cl === cl && !w.star && !w.free && !w.pinned), a = P.map(w => ({ x: w.px, y: w.py }));
+            _lhSpReborn(star, _lhSpNow(), _lhSpCfg());
+            P.forEach(w => { w.fvx = w.fvy = 0; });   // 只看「變自由」那一下的位置，不看之後自己飛的
+            requestAnimationFrame(() => requestAnimationFrame(() => res({ n: P.length, free: P.every(w => w.free), jump: Math.max(0, ...P.map((w, i) => Math.hypot(w.px - a[i].x, w.py - a[i].y))) })));
+        }, 150);
+    }));
+    expect(r2.n).toBeGreaterThan(0);
+    expect(r2.free).toBe(true);
+    expect(r2.jump, '軌道上的行星變自由：畫的位置不跳 ' + JSON.stringify(r2)).toBeLessThan(1);
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+// 2026-11-22 Andy（外圈沒作用、一進「開始被吸」又突然太強）：還沒散架的星系只被拉歪、黑洞走開就彈回；恆星被拉進散架圈才整團撕開
+test('黑洞：星系先被拉歪（走開就彈回），恆星進散架圈才撕開', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, { storage: { 'lh:bgFx': '5', 'lh:spTuneUI': '1' } });
+    await page.evaluate(() => { _lhWs.input = '安打'; _lhWs.list = wordlistData.filter(e => [...e.w].length === 2 && /ㄢ/.test(e.z)).slice(0, 60); lhWsOpen(); });
+    await page.waitForFunction(() => _lhSp.words.length > 10 && !(_lhSp.queue || []).length, null, { timeout: 30000 });
+    await page.locator('.ws-zoom .ws-skip').click();
+    await page.waitForFunction(() => !!(_lhSp.bhW && _lhSp.bh && _lhSp.bh.born) && _lhSp.groups.some(c => _lhSp.words.some(w => w.cl === c && !w.star && !w.free)), null, { timeout: 20000 });
+    const put = f => page.evaluate(f => {   // 黑洞放在這團「往外」那側、距離＝引力範圍 × f（負的＝往宇宙中心那側）
+        const U = _lhSpU(), R = LH_SP_TUNE.bh.range * U, cl = window.__cl, d0 = Math.hypot(cl.x, cl.y) || 1;
+        Object.assign(_lhSp.bh, { mode: 'free', x: cl.x + cl.x / d0 * R * f, y: cl.y + cl.y / d0 * R * f, vx: 0, vy: 0, brk: undefined });
+    }, f);
+    const lean = () => page.evaluate(() => { const cl = window.__cl, U = _lhSpU(), s = _lhSp.words.find(w => w.star && w.cl === cl), B = _lhSp.bh; return { l: Math.hypot(cl.lx || 0, cl.ly || 0) / U, dot: (cl.lx || 0) * (B.x - cl.x) + (cl.ly || 0) * (B.y - cl.y), free: !!s.free, held: !!cl.held }; });
+    await page.evaluate(() => {
+        for (const k of ['micro', 'small', 'mid']) LH_SP_TUNE.roam[k] = 0;
+        Object.assign(LH_SP_TUNE.bh, { back: 0.001, starIn: 0 });
+        window.__cl = _lhSp.groups.filter(c => _lhSp.words.some(w => w.cl === c && !w.star)).sort((a, b) => Math.hypot(a.x, a.y) - Math.hypot(b.x, b.y))[0];
+    });
+    await put(0.8);
+    await page.waitForTimeout(2500);
+    const a = await lean();
+    expect(a.l, '外圈：恆星往黑洞那邊歪 ' + JSON.stringify(a)).toBeGreaterThan(0.05);
+    expect(a.dot, '歪的方向朝黑洞').toBeGreaterThan(0);
+    expect(a.free || a.held, '外圈：恆星還在軌道上、整團沒散').toBe(false);
+    await put(-1.6);   // 黑洞走開（範圍外）
+    await page.waitForTimeout(4000);
+    const b = await lean();
+    expect(b.l, '黑洞走開：彈回原位 ' + JSON.stringify(b)).toBeLessThan(a.l * 0.15);
+    await page.evaluate(() => { const cl = window.__cl, U = _lhSpU(); Object.assign(_lhSp.bh, { mode: 'free', x: cl.x + LH_SP_TUNE.bh.scatR * U * 0.6, y: cl.y, vx: 0, vy: 0, brk: undefined }); });
+    await page.waitForTimeout(1200);
+    expect((await lean()).held, '恆星進散架圈：整團撕開').toBe(true);
     expect(errors).toEqual([]);
     await context.close();
 });

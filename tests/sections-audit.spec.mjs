@@ -395,7 +395,7 @@ test('檢查：新程式沒有拼 HTML', () => {
 test('檢查：沒有新增動畫', () => {
     const START = '104f147';   // 2026-11-14 再重設起點（之前經核准的都算在內）；詞宇宙另外加的在下面 WS_EXTRA
     const strip = t => t.replace(/\/\*[\s\S]*?\*\//g, '');
-    const keyframes = t => (strip(t).match(/@keyframes\b/g) || []).length;
+    const keyframes = t => (strip(t).match(/@keyframes\b(?!\s+(?:wsBhFlow|wsGulp|wsWh)\b)/g) || []).length;   // 0.98.40 Andy 指定的黑洞 wsBhFlow／wsGulp／wsWh 不算
     const transitions = t => (strip(t).match(/(^|[;{\s])transition(?:-property|-duration|-delay|-timing-function)?\s*:/g) || []).length;
     const now = readdirSync('css').filter(f => f.endsWith('.css')).map(f => readFileSync('css/' + f, 'utf8'));
     const oldFiles = execFileSync('git', ['ls-tree', '--name-only', START, 'css/'], { encoding: 'utf8' }).split('\n').filter(f => f.endsWith('.css'));
@@ -404,7 +404,9 @@ test('檢查：沒有新增動畫', () => {
     expect(sum(then, keyframes), '前置：起點讀得到 @keyframes').toBeGreaterThan(0);
     expect(sum(then, transitions), '前置：起點讀得到 transition').toBeGreaterThan(10);
     expect(sum(now, keyframes), '@keyframes 沒有變多').toBeLessThanOrEqual(sum(then, keyframes) + 1);   // +1：宇宙第 1 級整片呼吸 wsBreath（0.98.19）
-    const WS_EXTRA = 8;   // 詞宇宙（css/panels.css 檔尾）經 Andy 指定新增的 5 個 transition＋歌詞面板拉寬（lp-anim 與減少動態的關閉）2 個（0.98.03）＋側邊面板收合動畫 1 個（0.98.04）
+    // 詞宇宙（css/panels.css 檔尾）經 Andy 指定新增的 5 個 transition＋歌詞面板拉寬（lp-anim 與減少動態的關閉）2 個（0.98.03）＋側邊面板收合動畫 1 個（0.98.04）
+    // ＋0.98.20～0.98.41 詞宇宙 8 個：收合三角 .ws-fold、色標鈕 .ws-legbtn、進場時長 .ws-in、黑洞縮放 .ws-bh、淡定臉 .ws-bh-face（淡入、滑過停 5 秒、.stay）、控制鈕 .ws-cbtn；base.css 同期少 1 個
+    const WS_EXTRA = 15;
     expect(sum(now, transitions), 'transition 宣告沒有變多').toBeLessThanOrEqual(sum(then, transitions) + WS_EXTRA);
     // 自檢：計數器抓得到
     expect(transitions('a { transition: all 0.2s; } /* transition: x */ b { transition-duration: 1s; }')).toBe(2);

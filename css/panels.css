@@ -3207,8 +3207,8 @@ html[data-lm] .section-body.has-cols .section-textarea { padding-left: 0.75rem; 
        亮的那幾塊沿著環慢慢流動（兩層顏色不同的光，一層順轉、一層逆轉、速度不同，疊出隱約在流的感覺） */
     --bh-t: 32;   /* 光環粗細（半徑的幾 %，JS 照齒輪 bh.ring 設）；黑色中心＝100 − 粗細 */
     --bh-c: calc(100 - var(--bh-t));
-    --bh-band: radial-gradient(closest-side, transparent calc((var(--bh-c) - var(--bh-t) * 0.125) * 1%), #000 calc((var(--bh-c) + var(--bh-t) * 0.12) * 1%), #000 calc((var(--bh-c) + var(--bh-t) * 0.34) * 1%), transparent calc((var(--bh-c) + var(--bh-t) * 0.94) * 1%));   /* 柔邊全照光環粗細比例（不再有固定 4%／98%）→ 放很大時環也不會變粗 */
-    background: radial-gradient(closest-side, #000 0 calc(var(--bh-c) * 1%), rgba(60, 25, 38, 0.3) calc((var(--bh-c) + var(--bh-t) * 0.19) * 1%), rgba(50, 22, 34, 0.12) calc((var(--bh-c) + var(--bh-t) * 0.56) * 1%), transparent 100%); }
+    --bh-band: radial-gradient(closest-side, transparent calc((var(--bh-c) - var(--bh-t) * 0.125) * 1%), var(--space-black) calc((var(--bh-c) + var(--bh-t) * 0.12) * 1%), var(--space-black) calc((var(--bh-c) + var(--bh-t) * 0.34) * 1%), transparent calc((var(--bh-c) + var(--bh-t) * 0.94) * 1%));   /* 柔邊全照光環粗細比例（不再有固定 4%／98%）→ 放很大時環也不會變粗 */
+    background: radial-gradient(closest-side, var(--space-black) 0 calc(var(--bh-c) * 1%), rgba(60, 25, 38, 0.3) calc((var(--bh-c) + var(--bh-t) * 0.19) * 1%), rgba(50, 22, 34, 0.12) calc((var(--bh-c) + var(--bh-t) * 0.56) * 1%), transparent 100%); }
 .ws-hud-btn.ws-bh::before, .ws-hud-btn.ws-bh::after { content: ''; position: absolute; inset: 0; border-radius: 50%; pointer-events: none; mask: var(--bh-band); }
 .ws-hud-btn.ws-bh::before {   /* 第一層流光：暗紅＋灰白的亮塊 */
     background: conic-gradient(from 0deg, transparent 0deg, rgba(228, 208, 218, 0.6) 40deg, rgba(190, 150, 170, 0.22) 95deg, transparent 140deg, transparent 220deg, rgba(150, 40, 70, 0.5) 270deg, transparent 325deg);
@@ -3222,16 +3222,16 @@ html[data-lm] .section-body.has-cols .section-textarea { padding-left: 0.75rem; 
     .ws-hud-btn.ws-bh::after { animation: wsBhFlow 31s linear infinite reverse; }
 }
 @keyframes wsBhFlow { to { transform: rotate(360deg); } }
-.ws-hud-btn.ws-bh:hover { transform: scale(1.15); }
+@media (hover: hover) and (pointer: fine) { .ws-hud-btn.ws-bh:hover { transform: scale(1.15); } }   /* 只給滑鼠：觸控點一下不會卡在放大 */
 .ws-hud-btn.ws-bh.near { transform: scale(var(--bh-near, 2)); }   /* 0.98.41 Andy：拖詞到黑洞上方＝張大（bh.dropK 倍），丟的範圍跟著變大 */
 .ws-bh-face { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); color: rgba(255, 255, 255, 0.75); font-size: 0.8rem; white-space: nowrap; pointer-events: none; opacity: 0; transition: opacity 0.3s; }   /* Andy：hover 只冒一個表情，不講說明 */
-.ws-hud-btn.ws-bh:hover .ws-bh-face { opacity: 1; transition-delay: 5s; }   /* Andy：停 5 秒才冒出淡定臉 */
+@media (hover: hover) and (pointer: fine) { .ws-hud-btn.ws-bh:hover .ws-bh-face { opacity: 1; transition-delay: 5s; } }   /* Andy：停 5 秒才冒出淡定臉 */
 .ws-bh-face.stay { opacity: 1; transition-delay: 0s; }   /* 彩蛋：變過臉之後，離開也留 3 秒（js/word-space.js _lhSpBhMood） */
 .ws-hud-btn.ws-bh.guide { opacity: 0.3; }   /* 調黑洞滑桿時：看得到裡面的輔助線 */
 .ws-hud-btn.ws-bh:active { cursor: grabbing; }
 .ws-bh.gulp { animation: wsGulp 0.5s ease-out; }
 @keyframes wsGulp { 30% { transform: scale(0.8); } 70% { transform: scale(1.25); } }
-.ws-void { position: absolute; inset: 0; z-index: 7; background: #000; overflow: hidden; touch-action: none; }
+.ws-void { position: absolute; inset: 0; z-index: 7; background: var(--space-black); overflow: hidden; touch-action: none; }
 .ws-void[hidden] { display: none; }
 .ws-void.ws-out { pointer-events: none; }   /* 白洞放大回宇宙的途中：不能再點 */
 .ws-voiding .ws-warp { z-index: 8; }   /* 進出虛無時星光線蓋在最上面 */
@@ -3354,7 +3354,8 @@ html[data-lm] .section-body.has-cols .section-textarea { padding-left: 0.75rem; 
 .ws-tune-c > .ws-tune-g { margin-left: var(--sp-3); }
 .ws-tune-c > .ws-tune-g:nth-child(2) { border-top: 0; }
 /* Andy 面板重整：組裡的小段標題（同一種主題整個面板同一個顏色）＋底下每條滑桿左邊一條同色的線 */
-.ws-tune-sub { margin: var(--sp-2) 0 0.125rem; padding-left: 0.5rem; border-left: 3px solid var(--sub-c); font-size: 0.6875rem; font-weight: 700; letter-spacing: 0.06em; color: var(--sub-c); }
+.ws-tune-sub { margin: var(--sp-2) 0 0.125rem; padding-left: 0.5rem; border-left: 3px solid var(--sub-c); font-size: 0.75rem; font-weight: 700; letter-spacing: 0.06em; color: var(--sub-c); }
+.ws-tune-h.ws-tune-hc { color: var(--sub-c); border-left: 3px solid var(--sub-c); padding-left: 0.5rem; }   /* Andy：第二層＝有顏色的小段 */
 .ws-tune-row.ws-tagged { padding-left: 0.5rem; border-left: 3px solid color-mix(in srgb, var(--sub-c) 45%, transparent); }
 .ws-tune-h { margin: 0; padding: var(--sp-2) 0; min-height: var(--hit, 2rem); display: flex; align-items: center; cursor: pointer; font-size: 0.8125rem; font-weight: 700; color: var(--text-primary); }
 .ws-tune-row[hidden] { display: none; }   /* 「模式」切換後不用的滑桿 */
@@ -3454,10 +3455,10 @@ html[data-lm] .section-body.has-cols .section-textarea { padding-left: 0.75rem; 
 
 .ws-tune-guide { display: flex; align-items: center; gap: var(--sp-4); grid-template-columns: none; padding-block: var(--sp-1); }
 .ws-tune-gl { display: flex; align-items: center; gap: var(--sp-2); cursor: pointer; }
-.ws-tune-phys { margin-left: auto; padding: 0 var(--sp-2); font-size: 0.6875rem; border-radius: var(--radius-s, 0.25rem); border: 1px solid var(--border); background: transparent; color: var(--text-secondary); cursor: pointer; }
+.ws-tune-phys { margin-left: auto; padding: 0 var(--sp-2); font-size: 0.75rem; border-radius: var(--radius-s, 0.25rem); border: 1px solid var(--border); background: transparent; color: var(--text-secondary); cursor: pointer; }
 .ws-tune-cb { accent-color: var(--highlight-border); width: 1rem; height: 1rem; margin: 0; }
 .ws-skip { min-width: 2rem; padding: 0; }   /* 本地快轉鈕（js/word-space.js） */
 .ws-skip .ic { width: 1rem; height: 1rem; fill: currentColor; }
 
 /* 0.98.41：本地黑洞物理對照（js/space-pick.js）——切回新版的鈕，壓在宇宙上面 */
-.lh-phys-back { position: fixed; right: 0.75rem; bottom: 0.75rem; z-index: 100000; padding: var(--sp-1) var(--sp-3); font-size: 0.75rem; border-radius: var(--radius-m); border: 1px solid var(--highlight-border); background: var(--card-bg); color: var(--text-primary); cursor: pointer; }
+.lh-phys-back { position: fixed; right: 1rem; bottom: 1rem; z-index: 100000; padding: var(--sp-2) var(--sp-4); font-size: 0.875rem; font-weight: 700; border-radius: var(--radius-m); border: 0; background: var(--danger-bg); color: var(--danger-text); box-shadow: 0 4px 16px rgba(0,0,0,.35); cursor: pointer; }   /* Andy：要一眼看得到怎麼切回來 */
