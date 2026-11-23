@@ -1,7 +1,9 @@
 // 本地伺服器＝本機或區網私有 IP（手機測試.command 讓同一個 Wi‑Fi 的 iPhone／iPad 連進來，也算本地：有齒輪、輔助線、開發者功能）
 const LH_LOCAL_HOST = (() => { try { return /^(localhost|127\.0\.0\.1|192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+|172\.(1[6-9]|2\d|3[01])\.\d+\.\d+)$/.test(location.hostname); } catch (e) { lhWarn('讀不到網址主機名稱', e); return false; } })();
-const LH_BUILD = '鳳梨酥';   // 本地測試代號：每輪改完換一個，Andy 看標題後面的小字就知道是不是最新版（只有本地顯示）
-const LH_SP_BH = LH_LOCAL_HOST;   // 0.98.42 Andy：線上版先不出現黑洞（新引力在本地調好再上線）；本地照常
+const LH_BUILD = '鹹酥雞';   // 本地測試代號（台灣小吃系列）：每輪改完換一個，Andy 看標題後面的小字就知道是不是最新版（只有本地顯示）
+// ===== 黑洞開關（Andy）：BLACK_HOLE_ONLINE＝線上版有沒有黑洞。改成 true、升版 push 就上線；本地永遠有（方便調） =====
+const BLACK_HOLE_ONLINE = true;   // 0.98.43：Andy 調好參數、寫進預設，線上開
+const LH_SP_BH = LH_LOCAL_HOST || BLACK_HOLE_ONLINE;
 if (LH_LOCAL_HOST && !navigator.webdriver) { const f = () => { const b = document.getElementById('h1Build'); if (b) { b.textContent = LH_BUILD; b.hidden = false; } }; if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', f); else f(); }   // 自動測試（webdriver）不顯示，截圖基準才不會每輪都變
 // iOS／iPadOS Safari 的畫布不支援 ctx.filter（blur(…) 直接被忽略＝柔邊、光暈、對焦模糊全變銳利）。
 // 偵測到不支援時接手：filter 字串記下來，drawImage 遇到 blur(Npx) 就先用「縮小再放大」做出模糊版再畫（url(#svg) 等其他濾鏡照樣略過）
@@ -56,14 +58,12 @@ const _lhWsToneMix = key => {
 const LH_WS_TONE_N = ['一聲', '二聲', '三聲', '四聲', '輕聲'];
 const _lhWs = { key: '', input: '', target: null, list: [], shown: 0, mode: 'rhyme', tone: false, strict: false, hidden: new Set(), io: null };
 
-// 輸入是不是「查整個詞」：去頭尾空白後沒有空白、2–6 個字、全是漢字或 *（* 是萬用字）、至少一個漢字。是就回傳字的陣列
+// 輸入是不是「查整個詞」：空白分開的每一段都是 2–6 個字、全是漢字或 *（* 是萬用字）、至少一個漢字。
+// 是就回傳每個詞的字陣列（[[西,瓜],[報,紙]]）；0.98.43 Andy：「西瓜 報紙」＝兩個詞的雙押一起列。有一段不是詞（「安 打」）就走單字韻
 function lhWsQuery(input) {
-    const t = String(input || '').trim();
-    if (!t || /\s/.test(t)) return null;
-    const cs = [...t];
-    if (cs.length < LH_WS_MIN || cs.length > LH_WS_MAX) return null;
-    if (!cs.every(c => /[一-鿿]/.test(c) || c === '*') || cs.every(c => c === '*')) return null;
-    return cs;
+    const ps = String(input || '').trim().split(/\s+/).filter(Boolean).map(p => [...p]);
+    const ok = cs => cs.length >= LH_WS_MIN && cs.length <= LH_WS_MAX && cs.every(c => /[一-鿿]/.test(c) || c === '*') && !cs.every(c => c === '*');
+    return ps.length && ps.every(ok) ? ps : null;
 }
 
 // 每個字的目標讀音：整個詞在詞庫裡就用詞庫的讀音（破音字才準），否則逐字取主要讀音。* 回 null；查不到的字回 { miss: true }
@@ -143,7 +143,7 @@ function _lhWsPhonEl(e) {
     const on = !hl || hl.checked, pin = lastSearchType === 'pinyin';
     e.z.split(' ').forEach((syl, i) => {
         if (i) box.append('  ');
-        const zy = stripTone(syl), t = _lhWs.target && _lhWs.target[i];
+        const T = (_lhWs.tOf && _lhWs.tOf.get(e)) || _lhWs.target, zy = stripTone(syl), t = T && T[i];
         let init = getZhuyinInitial(zy) || '', rest = zy.slice(init.length);
         if (pin) {
             const py = zhuyinToPinyin(zy), pi = pinyinInitials.find(x => py.startsWith(x) && py.length > x.length) || '';
@@ -171,29 +171,33 @@ function _lhWsPhonEl(e) {
 
 // displayResults 一開始呼叫：是「查整個詞」就畫詞卡並回 true（呼叫端就不畫字卡）
 function lhWsRender(input) {
-    const cs = lhWsQuery(input);
-    if (!cs) { _lhWs.key = ''; return false; }
+    const qs = lhWsQuery(input);
+    if (!qs) { _lhWs.key = ''; return false; }
     const container = document.getElementById('resultsContainer');
     if (_lhWs.io) { _lhWs.io.disconnect(); _lhWs.io = null; }
     container.onclick = null;
     container.dataset.render = 'done';
     container.removeAttribute('aria-busy');
-    const word = cs.join('');
+    const words = qs.map(cs => cs.join('')), word = words.join(' ');
     _lhWs.input = word;
-    const target = _lhWsTarget(cs);
-    if (target.some(t => t && t.miss)) {
+    const targets = qs.map(_lhWsTarget);
+    if (targets.some(T => T.some(t => t && t.miss))) {
         container.replaceChildren(_lhWsEmpty('有字不在字庫裡，查不到整個詞的韻', '試試換個字，或在字中間加空白分開查單字韻'));
         return true;
     }
-    _lhWs.target = target;
+    _lhWs.target = targets[0];
     if (!wordlistData) {
-        container.replaceChildren(_lhWsEmpty('詞庫載入中…', '載好就會列出押「' + word + '」的詞'));
+        container.replaceChildren(_lhWsEmpty('詞庫載入中…', '載好就會列出押「' + words.join('」「') + '」的詞'));
         loadWordlist().then(() => { if (wordlistData && lhWsQuery(document.getElementById('searchInput').value) && _lhWs.input === word) lhWsRender(word); });
         return true;
     }
-    _lhWs.list = lhWsMatch(typeof lhCwMerge === 'function' ? lhCwMerge(wordlistData) : wordlistData, target, word, _lhWs);   // 自訂詞彙一起比（js/custom-words.js）
+    // 每個詞各比一次再合併（同一個詞只留一次，記住它押的是哪個詞的韻：詞卡上色用）；常用的在前
+    const src = typeof lhCwMerge === 'function' ? lhCwMerge(wordlistData) : wordlistData;   // 自訂詞彙一起比（js/custom-words.js）
+    _lhWs.tOf = new Map();
+    qs.forEach((_, i) => lhWsMatch(src, targets[i], words[i], _lhWs).forEach(e => { if (!_lhWs.tOf.has(e) && !words.includes(e.w)) _lhWs.tOf.set(e, targets[i]); }));
+    _lhWs.list = [..._lhWs.tOf.keys()].sort((a, b) => (b.p || 0) - (a.p || 0));
     _lhSpPreFont(_lhWs.list.map(e => e.w));   // 查完就趁空檔先把宇宙要用的字下載好（Andy：打開時不要先閃系統字）
-    _lhWsDraw(container, word);
+    _lhWsDraw(container, words.join('」「'));
     return true;
 }
 
@@ -443,11 +447,12 @@ function _lhSpBuild() {
     el.append(cv, acts, probe, panel, legBtn, legPanel, ptop, nav(-1), nav(1), tr);
     if (LH_SP_TUNE_UI) {   // 0.98.21 Andy 暫時的調參齒輪：縮放鈕左邊
         const tune = _lhSpTunePanel();
-        const gear = mk('ws-gear', '⚙', '宇宙特效調參', () => { tune.hidden = !tune.hidden; gear.setAttribute('aria-expanded', String(!tune.hidden)); });
+        const gear = mk('ws-gear', '⚙', '宇宙特效調參', () => { tune.hidden = !tune.hidden; if (tune._env) tune._env();   /* 齒輪關掉＝吸入速度浮動視窗跟著收 */ gear.setAttribute('aria-expanded', String(!tune.hidden)); });
         gear.setAttribute('aria-expanded', 'false');
         zoom.prepend(gear);   // 0.98.41 Andy：齒輪、快轉是內部工具，放最左邊；「?」是使用者看得到的那排最左（手機＝緊貼 ✕ 左邊）
         // 0.98.41 Andy（本地測試用）：快轉——跳過混沌凝聚，黑洞直接長好（成形動畫的 bh.form 秒也跳過）
-        const skip = mk('ws-skip', '', '快轉：跳過凝聚、黑洞直接長好（本地測試）', () => {
+        const skip = mk('ws-skip', '', '快轉：跳過凝聚、黑洞直接長好、白洞出口直接回到宇宙（本地測試）', () => {
+            if (_lhSp.el.classList.contains('ws-in-void')) { if (!_lhSp.vFin) _lhSpVoid(false); if (_lhSp.vFin) _lhSp.vFin(); return; }   // 虛無裡／白洞出口動畫中：不播白洞，直接回到宇宙
             _lhSpFinishFx();
             const now = _lhSpNow();
             for (const cl of _lhSp.groups || []) if (!cl.gDoneT) cl.gDoneT = now - 10000;
@@ -461,6 +466,8 @@ function _lhSpBuild() {
         const bh = mk('ws-bh', '', '黑洞', () => { if (!_lhSp.bhNoClick) _lhSpVoid(true); });
         bh.removeAttribute('title'); bh.appendChild(_lhWsEl('span', 'ws-bh-face', 'ˊ_>ˋ'));   // Andy：不給說明，讓使用者自己發現；hover 只冒一個表情
         // 拖、甩黑洞：按住移動超過 5px 才算拖（沒動＝點擊進虛無）；放手照最後一小段的速度甩出去
+        bh.addEventListener('pointerenter', () => { _lhSp.bhHov = true; _lhSp.dirty = true; });
+        bh.addEventListener('pointerleave', () => { _lhSp.bhHov = false; });
         bh.addEventListener('pointerdown', e => {
             if (e.pointerType === 'mouse' && e.button !== 0) return;
             const B = _lhSp.bh; if (!B) return;
@@ -487,7 +494,7 @@ function _lhSpBuild() {
             B.vx = fv.vx; B.vy = fv.vy;
             B.mode = 'free'; B.rest = 0; B.brk = undefined;   // 煞車距離在 _lhSpBhDrift 第一格算
         };
-        bh.addEventListener('pointerup', bhUp); bh.addEventListener('pointercancel', bhUp);
+        bh.addEventListener('pointerup', bhUp); bh.addEventListener('pointercancel', bhUp); bh.addEventListener('lostpointercapture', bhUp);   // 抓不住指標了（被藏起來等）也算放手
         bh.addEventListener('pointerenter', () => { _lhSp.bhHov = true; _lhSpBhMood(bh, true); }); bh.addEventListener('pointerleave', () => { _lhSp.bhHov = false; _lhSpBhMood(bh, false); });   // 0.98.41：停在黑洞上＝時間放慢
         bh.style.visibility = 'hidden';   // 等凝聚完成才開始成形（_lhSpBhDrift）
         const vd = _lhWsEl('div', 'ws-void');
@@ -500,11 +507,13 @@ function _lhSpBuild() {
     }
     document.body.append(el);
     _lhSp.el = el;
+    window._lhSpER = () => _lhSp.er || (_lhSp.er = _lhSp.el.getBoundingClientRect());   // 2026-11-23：宇宙是全螢幕固定層，位置只在尺寸改變時才變——不要每格、每次滑鼠移動都逼瀏覽器重算版面
     _lhSp.cv = cv;
     _lhSp.ctx = cv.getContext('2d');
     _lhSp.acts = acts;
     _lhSp.probe = probe;
-    new ResizeObserver(() => _lhSpResize()).observe(el);
+    new ResizeObserver(() => { _lhSp.er = null; _lhSpResize(); }).observe(el);
+    addEventListener('scroll', () => { _lhSp.er = null; }, { passive: true, capture: true });
     const ro = new ResizeObserver(() => _lhSpNavPlace());   // 面板長高、收合、色標面板開關 → 色標面板和左三角形跟著挪
     for (const x of [el, panel, legPanel]) ro.observe(x);
     _lhSpEvents(el);
@@ -904,7 +913,7 @@ function _lhSpLayout(list, cfg = {}) {
     for (const cl of clusters) _lhSpDrift(cl, clusters);
     const bound = Math.max(600, ...clusters.map(c => Math.hypot(c.x, c.y) + c.r)) * 1.25;
     for (const e of comets) {   // 流星：隨機起點、隨機方向，沿著微彎的弧線穿過整片（0.98.08 快一點、直一點），出了邊界從對面回來
-        const a = R() * TAU, v = (45 + R() * 45) * 3, cv = (R() < 0.5 ? -1 : 1) * (0.0075 + R() * 0.0175) * 3;   // 0.98.09：速度 3 倍；轉彎速率也 ×3，看起來的彎度維持 0.98.08 的 1/2
+        const a = R() * TAU, v = (1 + R()) * 2 / 3, cv = (R() < 0.5 ? -1 : 1) * (0.0075 + R() * 0.0175) * 3;   // 0.98.09：轉彎速率 ×3，彎度維持 0.98.08 的 1/2；2026-11-23 Andy 統一單位：v 只是個體差（0.67～1.33 倍），速度＝roam.comet（宇宙半徑 %／秒）× v
         words.push({ e, cl: null, color: 'var(--text-primary)', s: sizeOf(e), n: norm(e), comet: true, x: (R() * 2 - 1) * bound, y: (R() * 2 - 1) * bound, v, cv, ang: a });
     }
     return { words, clusters, bound };
@@ -1142,7 +1151,7 @@ function _lhSpShow(cfg) {
         cons: Object.fromEntries(Object.entries(_lhSp.cons).map(([k, c]) => [k, { groups: c.groups.map(g => g.map(w => w.w)), segs: c.segs.map(([a, b]) => [a.w, b.w]) }])) };
     _lhSp.cons = {}; _lhSp.conSeen = {}; _lhSp.mode = null; _lhSp.cnI = -1; _lhSp.holoPin = false; _lhSp.navF = null; _lhSp.aiTok = (_lhSp.aiTok || 0) + 1;   // 骰子／AI 星座只屬於這次宇宙
     _lhSpTheme();
-    _lhSp.words = words.map(it => Object.assign(it, {
+    _lhSp.ghosts = []; _lhSp.words = words.map(it => Object.assign(it, {
         w: it.e.w, p: it.e.p || 0, rgb: _lhSpColor(it.color), phon: _lhWsPhon(it.e), spr: null, tw: _lhSpWidth(it.e.w, it.s) - 22, tH: 22 * it.s,
         cat: cfg.catOf ? cfg.catOf(it.e) : null, off: false, vis: 1, wob: Math.random() * 100, hot: false, pinned: false, kept: savedWords.includes(it.e.w), dim: false, free: false, fx: 0, fy: 0, fvx: 0, fvy: 0, sx: 0, sy: 0, born: 0, mag: 1, kb: 1, twk: 0 }));
     for (const cl of clusters) { const w = _lhSp.words.find(x => x.cl === cl); cl.cat = w ? w.cat : null; }
@@ -1284,7 +1293,7 @@ function _lhSpKey(e) {
 
 function _lhSpApplyView() {
     _lhSp.dirty = true;
-    { const hw = _lhSp.el.clientWidth / 2, hh = _lhSp.el.clientHeight / 2; _lhSp.px = Math.max(-hw, Math.min(hw, _lhSp.px)); _lhSp.py = Math.max(-hh, Math.min(hh, _lhSp.py)); }   // Andy：拖畫面、縮放都不能把宇宙中心 (0,0) 推出視窗
+    { const R = (_lhSpHs() || 0) * _lhSp.z, hw = Math.max(_lhSp.el.clientWidth / 2, R), hh = Math.max(_lhSp.el.clientHeight / 2, R); _lhSp.px = Math.max(-hw, Math.min(hw, _lhSp.px)); _lhSp.py = Math.max(-hh, Math.min(hh, _lhSp.py)); }   // Andy：畫面中心最遠只能拖到宇宙邊界（縮很小時＝宇宙中心 (0,0) 不出視窗；放大後可以拖去看旁邊的星系）
     const b = _lhSp.el.querySelector('.ws-pct');
     if (b) b.textContent = Math.round(_lhSp.z / _lhSpZ100() * 100) + '%';
 }
@@ -1352,8 +1361,9 @@ const _lhSpBucket = z => Math.pow(2, Math.round(Math.log2(Math.max(0.1, z)) * 2)
 function _lhSpSprite(w, S) {
     const fs = 16 * w.s * S, pad = Math.ceil(fs * 0.85);   // 0.98.18：0.6→0.85，光暈（模糊半徑 0.5 字高）不再被小圖邊緣切成方框
     const m = _lhSp.ctx;
-    m.font = '700 ' + fs + 'px ' + _lhSp.font;
-    const tw = m.measureText(w.w).width;
+    // 2026-11-23（效能）：字寬量過一次就照比例算（手機上平移、黑洞放大時一直重畫小圖，每次 measureText 佔掉三成時間）
+    if (w.twF !== _lhSp.font) { m.font = '700 ' + fs + 'px ' + _lhSp.font; w.twF = _lhSp.font; w.tw = m.measureText(w.w).width / S; }
+    const tw = w.tw * S;
     const c = document.createElement('canvas');
     c.width = Math.ceil(tw + pad * 2); c.height = Math.ceil(fs * 1.4 + pad * 2);
     const g = c.getContext('2d');
@@ -1369,7 +1379,7 @@ function _lhSpSprite(w, S) {
     g.globalAlpha = 1;
     g.fillText(w.w, c.width / 2, c.height / 2);
     c.S = S;
-    w.tw = tw / S; w.tH = fs * 1.4 / S;
+    w.tH = fs * 1.4 / S;
     return c;
 }
 
@@ -1391,7 +1401,7 @@ const _lhSpScr = (x, y) => { const z = _lhSpZv(); return { x: _lhSp.W / 2 + _lhS
 // 黑洞魚眼（Andy：保底 14 號字放大後全擠在一起）：詞在畫面上的位置＝原位置＋魚眼推開量（w.fox／w.foy，下面 dock 段算）
 function _lhSpWS(w) { const p = _lhSpScr(w.px || 0, w.py || 0); if (w.fox || w.foy) { p.x += w.fox || 0; p.y += w.foy || 0; } return p; }
 function _lhSpScreenOf(w) {   // 測試、按鈕定位用：詞在畫面上的位置（client 座標）
-    const r = _lhSp.el.getBoundingClientRect(), p = _lhSpWS(w);
+    const r = _lhSpER(), p = _lhSpWS(w);
     return { x: r.left + p.x, y: r.top + p.y };
 }
 
@@ -1417,7 +1427,7 @@ function _lhSpGoTo(cl) {
 }
 
 function _lhSpToWorld(x, y) {
-    const r = _lhSp.el.getBoundingClientRect();
+    const r = _lhSpER();
     const z = _lhSpZv();
     return { x: (x - r.left - r.width / 2 - _lhSp.px) / z, y: (y - r.top - r.height / 2 - _lhSp.py) / z };
 }
@@ -1447,11 +1457,11 @@ const LH_SP_LV = {
     // 第 2 級：星系一張圖；放手會滑（拖恆星仍整團搬）；星座線固定光暈；換批淡出淡入；流星停著、透明度慢慢循環
     2: { fps: 24, orbit: 0, drag: 'fling', starStay: 1, dock: 1, keptBreathe: 0.03, keptGlow: 1, img: 1, clBreath: 1, lineGlow: 'still', swap: 'fade', cometPulse: 1 },
     // 第 3 級：公轉 0.6 倍、少量閃爍（只亮不放大）；流星走直線；小星系不漫遊
-    3: { fps: 30, orbit: 0.6, drag: 'fling', dock: 1, comet: 1, curve: 0, tail: 1, cometGlow: 1, keptBreathe: 0.03, keptGlow: 1, whole: 1, twinkle: 0.4, twFlat: 1, starGlow: 1 },   // 0.98.21 Andy：第 3 級恆星也有光暈
+    3: { fps: 30, orbit: 0.6, bhG: 1, drag: 'fling', dock: 1, comet: 1, curve: 0, tail: 1, cometGlow: 1, keptBreathe: 0.03, keptGlow: 1, whole: 1, twinkle: 0.4, twFlat: 1, starGlow: 1 },   // 0.98.21 Andy：第 3 級恆星也有光暈
     // 第 4 級：分批浮現（螺旋發牌）、縮放殘影、恆星光暈；流星原本的彎度；小星系漫遊
-    4: { fps: 30, orbit: 1, drag: 'fling', dock: 1, spiral: 1, comet: 1, curve: 1, roam: 1, tail: 1, cometGlow: 1, keptBreathe: 0.03, keptGlow: 1, jitter: 1, wobble: 1, drift: 1, push: 1, twinkle: 1, starGlow: 1, whole: 1, lineGlow: 1, zoomTrail: 1 },
+    4: { fps: 30, orbit: 1, bhG: 1, bhSlow: 1, drag: 'fling', dock: 1, spiral: 1, comet: 1, curve: 1, roam: 1, tail: 1, cometGlow: 1, keptBreathe: 0.03, keptGlow: 1, jitter: 1, wobble: 1, drift: 1, push: 1, twinkle: 1, starGlow: 1, whole: 1, lineGlow: 1, zoomTrail: 1 },
     // 第 5 級：混沌凝聚獨有、常駐殘影、星座線常閃；流星彎度 2.5 倍＋光暈＋固定閃爍；小星系漫遊 1.8 倍速
-    5: { fps: LH_SP_COARSE ? 30 : 60, orbit: 1,   /* Andy：手機第 5 級固定每秒 30 格（效能實測 0.98.22.11：模擬手機只跑到 9～20 格） */ drag: 'fling', dock: 1, comet: 1, curve: 2.5, roam: 1.8, tail: 1, cometGlow: 1, cometHalo: 1, keptBreathe: 0.03, keptGlow: 1, jitter: 1, wobble: 1, drift: 1, push: 1, twinkle: 1, starGlow: 1, clBreath: 1, lineGlow: 1, lineFlash: 0.4, zoomTrail: 2, gather: 1, starFx: 1, sand: 1 },
+    5: { fps: LH_SP_COARSE ? 30 : 60, orbit: 1, bhG: 1, bhSlow: 1,   /* Andy：手機第 5 級固定每秒 30 格（效能實測 0.98.22.11：模擬手機只跑到 9～20 格） */ drag: 'fling', dock: 1, comet: 1, curve: 2.5, roam: 1.8, tail: 1, cometGlow: 1, cometHalo: 1, keptBreathe: 0.03, keptGlow: 1, jitter: 1, wobble: 1, drift: 1, push: 1, twinkle: 1, starGlow: 1, clBreath: 1, lineGlow: 1, lineFlash: 0.4, zoomTrail: 2, gather: 1, starFx: 1, sand: 1 },
 };
 const _lhSpCfg = () => LH_SP_LV[_lhSpReduce.matches ? 0 : (typeof lhFxLevel === 'function' ? lhFxLevel() : 5)] || LH_SP_LV[5];
 
@@ -1461,9 +1471,10 @@ function _lhSpHit(cx, cy) {
     const inside = w => {
         const m = w.mag || 1, hw = ((w.tw || 0) / 2 + 9 * w.s) * m, hh = (w.tH || 22 * w.s) / 2 * m;
         const up = w.hot || w.pinned || w === _lhSp.hover ? 26 / z : 0;   // 滑到隱藏鈕的路上不掉
-        // 0.98.41 Andy：飛行中（甩出去、正在回家）的行星，判定框順著速度往前後各多算 grab.lead 秒的路（最多畫面 80px），手指追得上
-        const ld = w.free && !w.star && !w.comet ? LH_SP_TUNE.grab.lead : 0, ex = ld ? Math.min(80 / z, Math.abs(w.fvx || 0) * ld) : 0, ey = ld ? Math.min(80 / z, Math.abs(w.fvy || 0) * ld) : 0;
-        return Math.abs(p.x - w.px) <= hw + ex && p.y - w.py <= hh + ey && w.py - p.y <= hh + up + ey;
+        // 2026-11-22 Andy：飛行中（甩出去、正在回家）的行星，點擊範圍改成四周多 grab.hitR 畫面 px 的圓（舊版順著速度往前後算路：飛很快時手指反而常落後）
+        if (Math.abs(p.x - w.px) <= hw && p.y - w.py <= hh && w.py - p.y <= hh + up) return true;
+        const R = w.free && !w.star && !w.comet ? (LH_SP_TUNE.grab.hitR ?? 30) / z : 0;
+        return R > 0 && Math.hypot(p.x - w.px, p.y - w.py) <= Math.max(hw, hh) + R;
     };
     // 黑洞放大會讓鄰居放大後蓋住游標下的詞：重疊時選中心離游標最近的那個（停住／釘住的優先）
     let best = null, bd = Infinity;
@@ -1506,10 +1517,18 @@ function _lhSpRescale(t) {
     _lhSp.S = Sv;
     const W = _lhSp.W, H = _lhSp.H, mx = W * 0.25, my = H * 0.25, t1 = performance.now();
     let left = false;
+    // 2026-11-23 Andy（順序）：畫面裡的先換、離畫面中心近的先；再來外圍；降回小倍率的（畫面外）最後——同樣的工作量，眼睛看得到的先清楚
+    const todo = [];
     for (const w of _lhSp.words) {
         if (!w.spr) continue;   // 還沒浮現的詞由 _lhSpReveal 負責
-        const p = _lhSpScr(w.px || 0, w.py || 0), want = p.x > -mx && p.x < W + mx && p.y > -my && p.y < H + my ? Sv : Sb;
+        const p = _lhSpScr(w.px || 0, w.py || 0), inV = (k, sx, sy) => p.x > -sx * k && p.x < W + sx * k && p.y > -sy * k && p.y < H + sy * k;
+        const want = inV(1, mx, my) ? Sv : w.spr.S === Sv && inV(4, mx, my) ? Sv : Sb;   // 2026-11-23（效能）：離開畫面要到外圍一整個畫面那麼遠才降回小倍率——平移來回時不會一直重畫
         if (w.spr.S === want) continue;
+        const dc = Math.hypot(p.x - W / 2, p.y - H / 2);
+        todo.push([w, want, want !== Sv ? 2e9 + dc : inV(0, mx, my) ? dc : 1e9 + dc]);
+    }
+    todo.sort((a, b) => a[2] - b[2]);
+    for (const [w, want] of todo) {
         if (performance.now() - t1 > 4) { left = true; break; }
         w.spr = _lhSpSprite(w, want);
         _lhSp.rsDirty = _lhSp.dirty = true;
@@ -1523,7 +1542,12 @@ function _lhSpFrame(tr) {
     _lhSp.raf = requestAnimationFrame(_lhSpFrame);
     {   // 時間放慢：目標倍速 1／(1/bh.slow)，約 0.25 秒平滑過去；CSS 動畫（黑洞光環、呼吸）一起放慢
         const C = _lhSpClk, el = _lhSp.el, bhEl = el && el.querySelector('.ws-bh');
-        const tran = !!(_lhSp.warp || el && el.matches('.ws-in-void, .ws-voiding')), slow = !tran && !!(_lhSp.bhD || (bhEl && bhEl.classList.contains('near'))), want = slow ? 1 / Math.max(1, LH_SP_TUNE.bh.slow || 1) : 1;
+        const tran = !!(_lhSp.warp || el && el.matches('.ws-in-void, .ws-voiding')), bhVis = !!(bhEl && bhEl.style.visibility !== 'hidden'), dragOn = !!(_lhSp.drag && _lhSp.drag.moved),
+              slow = !tran && bhVis && !!_lhSpCfg().bhSlow && !!(_lhSp.bhD || (dragOn && bhEl.classList.contains('near'))), want = slow ? 1 / Math.max(1, LH_SP_TUNE.bh.slow || 1) : 1;
+        // 2026-11-22 Andy（時間變慢偶爾解除不掉）：放慢只認「正在按著黑洞」或「正在拖詞、詞在黑洞上方」，而且黑洞看得到。
+        // 舊版只看旗標：放手沒收到（黑洞中途被藏起來、拖到視窗外放開、進虛無、關宇宙）旗標就一直留著＝永遠慢
+        if (!dragOn && bhEl && bhEl.classList.contains('near')) bhEl.classList.remove('near');
+        if (_lhSp.bhD && (!bhVis || tran)) _lhSp.bhD = null;
         const rdt = C.r ? Math.max(0, Math.min(0.1, (tr - C.r) / 1000)) : 0;
         _lhSpNow(tr);
         const k0 = C.k; C.k = Math.abs(want - C.k) < 0.002 ? want : C.k + (want - C.k) * (1 - Math.exp(-rdt * 3 / Math.max(0.05, LH_SP_TUNE.bh.slowT || 0.75)));   if (tran) C.k = 1;   // 0.98.41：穿越、進出虛無一律正常速度（轉場動畫不能被放慢）   // slowT 秒內約 95% 到位（煞車、放開一樣長）
@@ -1578,12 +1602,14 @@ function _lhSpFrame(tr) {
     if (L.roam && dt) {   // 0.98.16：第 3 級不漫遊（跟第 4 級拉開差別），第 5 級 1.8 倍速
         for (const cl of _lhSp.groups) {
             if (!cl.vx || cl.held || cl === hc) continue;
+            const gm = 1 - (cl.bm || 0); if (gm <= 0) continue;   // 2026-11-23 Andy：被黑洞接管多少，漫遊就弱多少（進出範圍照 bh.envT 秒過渡）
             // 0.98.22.11 Andy：不再直線走、出界從對面冒出來（行星會被彈簧硬拉過整個畫面）→ 改成繞宇宙中心公轉，大圓／橢圓，速度是原本直線的一半。
             // 每格把「(x, y÷扁率)」繞中心轉一個小角度再還原＝沿著通過目前位置的橢圓走；被推開時軌道跟著換，不會跳
             if (!cl.oe) cl.oe = 0.55 + Math.random() * 0.45;
             const ex = cl.hx, ey = cl.hy / cl.oe, A = Math.hypot(ex, ey);
             if (A > 1) {
-                const da = (cl.dir || 1) * Math.hypot(cl.vx, cl.vy) * (LH_SP_TUNE.roam[cl.roamK] ?? 10) * L.roam * dt / A, c = Math.cos(da), sn = Math.sin(da);
+                // 2026-11-23 Andy 力的層級：漫遊是「速度相加」層的一項——最快就是宇宙光速（家不會跑到恆星追不上的地方）
+                const da = (cl.dir || 1) * Math.min(Math.hypot(cl.vx, cl.vy) * (LH_SP_TUNE.roam[cl.roamK] ?? 1) * L.roam * _lhSpU(), _lhSpC()) * gm * dt / A, c = Math.cos(da), sn = Math.sin(da);
                 cl.hx = ex * c - ey * sn; cl.hy = (ex * sn + ey * c) * cl.oe;
             }
             if (!L.drift) { cl.x = cl.hx + (cl.lx || 0); cl.y = cl.hy + (cl.ly || 0); }   // lx：被黑洞拉歪（_lhSpBhDrift）
@@ -1598,7 +1624,7 @@ function _lhSpFrame(tr) {
             const A = Math.hypot(cl.hx, cl.hy / (cl.oe || 1));
             if (cl.A0 === undefined) cl.A0 = A;
             if (cl.held || cl === hc || A <= cl.A0 || A < 1e-6) continue;
-            const f = Math.max(cl.A0, A - vIn) / A; cl.hx *= f; cl.hy *= f;
+            const f = Math.max(cl.A0, A - vIn * (1 - (cl.bm || 0))) / A;   // 2026-11-23：被黑洞接管多少就弱多少（舊版綁著被拖的那團照樣往中心飄，跟範圍線上的吸入速度打平＝卡在線上） cl.hx *= f; cl.hy *= f;
         }
     }
     // 恆星在自己的範圍裡慢慢飄（被拖著的那團跟著恆星走）
@@ -1607,15 +1633,18 @@ function _lhSpFrame(tr) {
     if (L.push && dt) {
         const G = _lhSp.groups, kp = 1 - Math.exp(-dt / 4);
         for (let i = 0; i < G.length; i++) for (let j = i + 1; j < G.length; j++) {
-            const a = G[i], b = G[j], ah = a.held || a === hc, bh = b.held || b === hc, dx = b.x - a.x, dy = b.y - a.y, d = Math.hypot(dx, dy) || 1;
+            const a = G[i], b = G[j], pm = 1 - Math.max(a.bm || 0, b.bm || 0); if (pm <= 0) continue;   // 2026-11-23 Andy：被黑洞接管的星系不參與推開（照接管程度過渡）
+            const ah = a.held || a === hc, bh = b.held || b === hc, dx = b.x - a.x, dy = b.y - a.y, d = Math.hypot(dx, dy) || 1;
             const over = a.r + b.r + 30 - d;
             if (over <= 0 || (ah && bh)) continue;
-            const m = over * kp, ux = dx / d, uy = dy / d, fa = ah ? 0 : bh ? 1 : 0.5, fb = 1 - fa;
+            const m = over * kp * pm, ux = dx / d, uy = dy / d, fa = ah ? 0 : bh ? 1 : 0.5, fb = 1 - fa;
             a.hx -= ux * m * fa; a.hy -= uy * m * fa; b.hx += ux * m * fb; b.hy += uy * m * fb;
             if (!ah) { a.x -= ux * m * fa; a.y -= uy * m * fa; }
             if (!bh) { b.x += ux * m * fb; b.y += uy * m * fb; }
         }
     }
+    // 2026-11-22 Andy 力的層級：上面算出來的是恆星的「家」（漫遊、飄移、回中心、互相推開、被黑洞拖全部相加），恆星最快用光速追（_lhSpGate）。被抓著／自由的恆星照它自己的速度走
+    if (dt) for (const cl of _lhSp.groups) { if (cl.held) { cl.qx = cl.x; cl.qy = cl.y; continue; }   /* 被抓著／自由：實際位置跟著恆星本人，放開後從這裡接著追 */ _lhSpGate(cl, cl.x, cl.y, _lhSpLim(cl) * dt); cl.x = cl.qx; cl.y = cl.qy; }
     let gv = 0; const fr = Math.exp(-dt * 3.2),   /* 0.98.16 Andy：甩太遠 → 摩擦 2.2→3.2（滑行距離約剩 7 成） */ damp = Math.exp(-dt * 0.53), K = 0.155, B = _lhSp.bound, drag = _lhSp.drag && _lhSp.drag.w, dg = _lhSp.drag;
     // 黑洞放大：游標附近 240px 內的詞依距離放大，最近的約 2.3 倍，放大縮小都是緩動
     const dock = L.dock, mk = 1 - Math.exp(-dt * 14), mouse = _lhSp.mouse, TAU = Math.PI * 2;
@@ -1662,21 +1691,23 @@ function _lhSpFrame(tr) {
             }
         }
         if (w === drag) { if (w.star && w.free) { w.cl.x = w.fx; w.cl.y = w.fy; } }   // 按著還沒拖動（free 還沒開）不動整團
-        else if (w.free && w.fz) { if (w.star) { w.cl.x = w.fx; w.cl.y = w.fy; } busy = true; }   // 凍在事件視界上：位置由 _lhSpBhDrift 的凍結劇本決定
         else if (w.free) {
             if (w.comet || w.star) {   // 流星、恆星甩出去：照速度滑，摩擦慢慢停
-                w.fx += w.fvx * dt * (w.tk ?? 1); w.fy += w.fvy * dt * (w.tk ?? 1);
+                _lhSpSum(w, w.bhVx || 0, w.bhVy || 0, dt, 'fvx', 'fvy', 1 - (w.bm || 0));   // 力的層級：自己的速度×(1−接管)＋黑洞那份 → 擋上限 → 乘時間
+                w.fx += w._sx * dt; w.fy += w._sy * dt;
                 // 2026-11-21 重整：甩出去＝甩動煞車走完（進引力範圍也照走，不再「一進範圍就變純慣性」）；宇宙邊界外煞得快 3 倍＝撞進軟牆；
                 // 範圍內沒在煞車＝只有引力；沒有邊界的等級照舊摩擦。停下後恆星會自己慢慢飄回出生的半徑內（_lhSpFrame 的 bh.starIn）
-                if (w.brk) { if (_lhSpBrakeW(w, dt * (w.outE ? 3 : 1))) w.brkP = 0; } else if (!w.inBh) { w.fvx *= fr; w.fvy *= fr; }
+                if (w.brk) { if (_lhSpBrakeW(w, dt * (w.outE ? 3 : 1))) w.brkP = 0; } else { w.fvx *= fr; w.fvy *= fr; }   // 自己的慣性照常摩擦（被黑洞接管的那份另外算）
                 if (w.star) { w.cl.x = w.fx; w.cl.y = w.fy; }
-                if (!w.inBh && !w.brk && Math.hypot(w.fvx, w.fvy) < 0.12 * _lhSpU()) _lhSpSettle(w, L, T);   // 慢到停下（宇宙半徑 0.12%／秒）
+                if (!w.inBh && !w.bm && !w.brk && Math.hypot(w.fvx, w.fvy) < 0.12 * _lhSpU()) _lhSpSettle(w, L, T);   // 慢到停下（宇宙半徑 0.12%／秒）
             } else if (w.brk) {   // 行星被甩出去：直線煞停後彈簧才接手（範圍內引力照加；邊界外煞得快 3 倍）
-                w.fx += w.fvx * dt * (w.tk ?? 1); w.fy += w.fvy * dt * (w.tk ?? 1);
+                _lhSpCapV(w, dt);
+                w.fx += w.fvx * dt; w.fy += w.fvy * dt;
                 _lhSpBrakeW(w, dt * (w.outE ? 3 : 1));
             } else {   // 行星被甩出去或被沖散：自己的恆星像彈簧一樣慢慢把它拉回軌道
                 if (!still) w.th += _lhSpOm(w) * L.orbit * dt * (1 - bkS);
-                const o = _lhSpOrbit(w);
+                // 2026-11-22 Andy 力的層級：呼吸、小晃動屬於「家在動」——彈簧追的家就是畫在軌道上那個位置（含整團呼吸），自由的行星不再另外疊呼吸位移
+                const o0 = _lhSpOrbit(w), bb = w.cl.b ?? 1, o = { x: w.cl.x + (o0.x - w.cl.x) * bb, y: w.cl.y + (o0.y - w.cl.y) * bb };
                 // 接任的恆星：拉得更快、不彈（約 1 秒內到中心）。
                 // 凝聚中（gk，0.98.21 Andy）：彈簧隨時間越來越緊——剛度 0.04 ×（1＋6×(秒/10)²），阻尼比 0.55：
                 // 一開始鬆、慢慢飄近，約 9 秒到 9 成（星系輪廓出來）；後段變緊，衝過頭約 5% 再拉回，最後 6 秒左右小距離定型、約 15.5 秒完全停。
@@ -1685,27 +1716,42 @@ function _lhSpFrame(tr) {
                 const rw = w.reW ? Math.max(0, Math.min(1, (t - w.reW) / 3000)) : 1; if (w.reW && rw >= 1) w.reW = 0;   // Andy：恆星被吞、在別處重新形成——等它完全成形（reW）才開始被召喚，引力 3 秒慢慢長到全力＝方向漸變過去
                 const GT = LH_SP_TUNE.gather, gs = w.gk ? 1 / Math.max(0.1, GT.dur || 1) : 1, gd = dt * gs, ga = w.gk ? Math.min(30, (t - w.gt0) / 1000 * gs) : 0,   /* gs：凝聚完成時間倍數 dur 的倒數——整段時間軸一起快轉／慢放，軌跡跟比例完全不變 */ kg = w.gk ? GT.k * w.gk * (1 + GT.stiff * (ga / GT.ramp) ** 2) : 0;
                 // 2026-11-21 重整（邊緣星系解體的根因）：舊版一進引力範圍就把彈簧整條剪掉＝範圍外側引力≈0 的地方變成死區，行星帶著公轉速度直線飛走。
-                // 現在彈簧一直在，只是越靠近黑洞越抓不住（w.hold：「光暈開始被吸」那圈 1 → 「恆星散架」那圈 0，_lhSpBhDrift 算）；阻尼跟著變弱
-                const hd = w.inBh ? (w.hold ?? 1) : 1;
+                // 2026-11-23 Andy 速度混合：彈簧照常算（自己的速度一直知道家在哪），最後才跟黑洞那份按接管程度混合（_lhSpSum 的 s＝1−bm）；在等恆星的沒有家可回（不拉）
+                const wt = _lhSpWait(w, t), hd = wt && w.bm ? 0 : 1;
                 // 被黑洞扯過的行星（bhR）：抓回來的彈簧隨時間越拉越緊（3 秒 2 倍、6 秒 5 倍，最多 25 倍，阻尼等比例＝不彈），不然軟彈簧跟不上公轉、會一直鬆鬆地晃
-                if (hd < 1) w.bhR = 1;
-                if (w.bhR && (hd < 1 || !w.rtT)) w.rtT = t;
+                if (hd < 1 || w.inBh) w.bhR = 1;   // 2026-11-22 力的層級：在引力範圍裡被吸過的都算（出圈後才開始變緊）
+                if (w.bhR && (hd < 1 || w.inBh || wt || !w.rtT)) w.rtT = t;   // 越拉越緊從「真的開始回家」那刻算（被吸著、在等恆星／原地凝聚都不算）
                 const rk = w.bhR && !w.gk && !w.rising ? Math.min(25, 1 + ((t - w.rtT) / 3000) ** 2) : 1;
                 const k = (w.rising ? 12 : w.gk ? kg : K * rk) * rw * rw * (3 - 2 * rw) * hd, dm = Math.pow(w.rising ? Math.exp(-dt * 7) : w.gk ? Math.exp(-gd * GT.damp * Math.sqrt(kg)) : Math.pow(damp, Math.sqrt(rk)), hd);
                 // 0.98.22.11：阻尼只壓「相對目的地的速度」——目的地沿軌道在跑（小星系還繞中心公轉），舊寫法連跟著跑的速度都被阻尼吃掉，
                 // 行星永遠落後目的地一截（幾十 px）、相對速度也停不下來＝永遠不算凝聚完成、光芒不亮
                 // 目的地「跳位」（大風吹換座位、被推開）不算速度，不然一跳就把行星踢一下、永遠擺不停
                 let ovx = dt && w.oPx !== undefined ? (o.x - w.oPx) / dt : 0, ovy = dt && w.oPy !== undefined ? (o.y - w.oPy) / dt : 0;
-                if (Math.hypot(ovx, ovy) > 300) ovx = ovy = 0;
+                if (Math.hypot(ovx, ovy) > 300 || hd <= 0) ovx = ovy = 0;   // 沒人抓（被黑洞吸）：不跟著目的地跑，速度全照 envelope
                 { const e = rw * rw * (3 - 2 * rw); ovx *= e; ovy *= e; }   // 還在等（reW）：也不跟著目的地滑，原地／照自己的慣性
                 w.oPx = o.x; w.oPy = o.y;
+                // 2026-11-22 Andy：等恆星（_lhSpWait）而且在引力範圍外＝先煞車（甩動煞車），停了在原地黯淡、隨機慢慢漂；恆星成形後才飄過去找它。
+                // 在引力範圍裡的照 envelope 被吸（envOn，_lhSpBhDrift），不走這裡
+                const orph = !w.gk && !w.bm && wt;
+                if (!orph) w.orBk = 0;
+                else if (!w.orBk) { w.orBk = 1; const bk = _lhSpBrakeOf(w.fx, w.fy, w.fvx, w.fvy, LH_SP_TUNE.bh.brake); if (bk && Math.hypot(w.fvx, w.fvy) > 0.5 * _lhSpU()) w.brk = bk; }   // 剛開始等：有速度就先煞停（下一格起走上面的 brk 那段）
+                if (orph) {
+                    w.wd = (w.wd ?? Math.random() * 6.283) + (Math.random() - 0.5) * dt * 3;
+                    const vw = 0.35 * _lhSpU(), f = 1 - Math.exp(-dt * 0.8);
+                    w.fvx += (Math.cos(w.wd) * vw - w.fvx) * f; w.fvy += (Math.sin(w.wd) * vw - w.fvy) * f;
+                    w.fx += w.fvx * dt; w.fy += w.fvy * dt; w.odist = Math.hypot(o.x - w.fx, o.y - w.fy);
+                } else {
                 w.fvx = ovx + (w.fvx - ovx + (o.x - w.fx) * k * gd) * dm;
                 w.fvy = ovy + (w.fvy - ovy + (o.y - w.fy) * k * gd) * dm;
-                w.fx += (ovx + (w.fvx - ovx) * gs) * dt * (1 - bkS) * (w.tk ?? 1); w.fy += (ovy + (w.fvy - ovy) * gs) * dt * (1 - bkS) * (w.tk ?? 1); w.odist = Math.hypot(o.x - w.fx, o.y - w.fy);   // 離自己的位置多遠（煙霧判斷「回到家了」用）   // 0.98.22.11：凝聚中／甩出去的行星也照 hover 煞車（舊版只煞了在軌道上的，凝聚中的照跑＝沒生效）
+                // 2026-11-22 Andy 力的層級：速度相加（公轉＋彈簧＋慣性＋黑洞吸入）→ 擋宇宙光速 → 乘時間（局部時間、滑鼠停住的煞車）。凝聚（gk）是例外，照自己的時間軸
+                if (!w.gk) { _lhSpSum(w, w.bhVx || 0, w.bhVy || 0, dt, 'fvx', 'fvy', 1 - (w.bm || 0)); w.fx += w._sx * dt * (1 - bkS); w.fy += w._sy * dt * (1 - bkS); }
+                else { w.fx += (ovx + (w.fvx - ovx) * gs) * dt * (1 - bkS); w.fy += (ovy + (w.fvy - ovy) * gs) * dt * (1 - bkS); }
+                w.odist = Math.hypot(o.x - w.fx, o.y - w.fy);   // 離自己的位置多遠（煙霧判斷「回到家了」用）   // 0.98.22.11：凝聚中／甩出去的行星也照 hover 煞車（舊版只煞了在軌道上的，凝聚中的照跑＝沒生效）
+                }
                 if (w.gk && w.cl) { const cl = w.cl, dd = Math.hypot(o.x - w.fx, o.y - w.fy); if (cl.gF !== t) { if (cl.gD0 > 0 && cl.gF) { cl.gP = Math.max(cl.gP || 0, 1 - cl.gDn / cl.gD0); if (!cl.gPst) { cl.gPst = t; cl.gPs = cl.gP; } else if (t - cl.gPst > 1500) { cl.gStall = cl.gP > 0.75 && cl.gP - cl.gPs < 0.02; if (cl.gStall && !cl.gDoneT) cl.gDoneT = t; cl.gPst = t; cl.gPs = cl.gP; }   /* 在這裡就標完成（畫面外的恆星不會畫特效、原本永遠標不到） */ }   /* gStall：過 75% 後 1.5 秒內前進不到 2%＝卡住（幾顆一直擺盪） */ cl.gF = t; cl.gDn = 0; } cl.gDn += dd;   /* gP：上一格算完的整團進度（只增），共用時間軸模式用 */ w.gp = Math.max(w.gp || 0, 1 - dd / Math.max(1, w.gd0 || 1)); }   // gp：這顆自己走完幾成（只增不減，衝過頭不算倒退）   // 這一格整團還差多遠
                 gv = Math.max(gv, Math.min(0.85, Math.hypot(w.fvx, w.fvy) / 400));   // 0.98.16：沖散、甩出去的行星越快，第 5 級殘影越濃
                 const tol = w.rising ? 10 : w.bhR ? Math.max(3, 0.15 * (w.r || 0)) : 3;   // 接任的恆星：差不多到中心就接手，不必等完全停穩；被黑洞扯過的：離軌道 15% 以內就落回去（偏移交給 bax 0.3 秒收掉，不跳）
-                if (hd >= 1 && Math.hypot(o.x - w.fx, o.y - w.fy) < tol && Math.hypot(w.fvx - ovx, w.fvy - ovy) < tol * 5) { if (w.bhR) { w.bax = (w.bax || 0) + w.fx - o.x; w.bay = (w.bay || 0) + w.fy - o.y; w.bhR = 0; w.rtT = 0; } w.free = false;   /* 被黑洞抓著（開始被吸那圈內）不落地 */ w.bhF = false; if (w.gk) w.gHold = true; w.gk = 0; w.oPx = w.oPy = undefined; if (w.rising) { w.rising = false; w.star = true; } if (w.cl) w.cl.ver++; }
+                if (hd >= 1 && !w.inBh && !w.bm && Math.hypot(o.x - w.fx, o.y - w.fy) < tol && Math.hypot(w.fvx - ovx, w.fvy - ovy) < tol * 5) { if (w.bhR) { w.bax = (w.bax || 0) + w.fx - o.x; w.bay = (w.bay || 0) + w.fy - o.y; w.bhR = 0; w.rtT = 0; } w.free = false;   /* 被黑洞抓著（開始被吸那圈內）不落地 */ w.bhF = false; if (w.gk) w.gHold = true; w.gk = 0; w.oPx = w.oPy = undefined; if (w.rising) { w.rising = false; w.star = true; } if (w.cl) w.cl.ver++; }
             }
             busy = true;
         } else if (!still) {
@@ -1719,35 +1765,34 @@ function _lhSpFrame(tr) {
                     { const AM = _lhSp.bhShape, K = _lhSp.bhK; if (AM && K) {   // Andy：宇宙邊界其實是變形蟲（紫線）——從那一邊的紫線上進場
                         const a = [0, Math.PI, Math.PI / 2, -Math.PI / 2][ns] + (Math.random() - 0.5) * 1.2, l = _lhSpAmoebaR(AM, a) * K * 0.99;
                         w.x = Math.cos(a) * l; w.y = Math.sin(a) * l; w.ang = a + Math.PI + sp; } }
-                    w.cmWait = 0; w.trl = w.trOld = w.trRet = null; w.lsx = w.lsy = w.lux = w.luy = undefined;   // 瞬移回來：不要連一條光帶
+                    w.cmWait = 0; w.qx = undefined; w.bm = 0; w.bvIn = null; w.mang = w.mv = undefined; w.trl = w.trOld = w.trRet = null; w.lsx = w.lsy = w.lux = w.luy = undefined;   // 瞬移回來：不要連一條光帶
                 }
             } else if (w.comet) {   // 流星走弧線：前進方向慢慢轉（尾巴照前進方向畫，不用記走過的點）
                 w.ang += w.cv * (L.curve ?? 1) * dt;
-                const cv = w.v * (LH_SP_TUNE.roam.comet ?? 1);   // 流星速度倍數（齒輪「公轉」）
+                const cv = w.v * (LH_SP_TUNE.roam.comet ?? 5) * _lhSpU();   // 流星速度：宇宙半徑 %／秒（跟光速同一把尺）× 個體差
+                // 2026-11-23 Andy 交叉淡變：流星自己的巡航（ang、cv，不被改）×(1−接管)＋黑洞那份（吸入＋螺旋＋黑洞自己的速度）×接管 → 擋上限。
+                // 出了範圍，黑洞那份用離開那一刻的值淡掉，巡航慢慢接回來＝回到原本的航線速度
                 const H = _lhSp.bhW;
-                if (H && w.fz) {   // 2026-11-21：凍在事件視界上（同行星、恆星）；淡完＝被吞，閒置一段時間後從離黑洞最遠的那邊重生
-                    const done = _lhSpFzStep(w, H, t);
-                    w.x = w.fz.x; w.y = w.fz.y; w.tk = w.fz.e / Math.max(1, LH_SP_TUNE.bh.slow || 1); w.lzq = 1; w.inBh = 1;
-                    if (done) {
-                        const sec = 15.5 * (LH_SP_TUNE.gather.dur || 1) + Math.random() * LH_SP_TUNE.bh.form;
-                        _lhSp.bhEat = Math.min(1, (_lhSp.bhEat || 0) + 0.08);
-                        w.cmWait = _lhSpNow() + sec * 1000; w.cmFar = true; w.cs = 1; w.inBh = 0; w.bhE = {}; w.fz = null; w.tk = w.lzq = undefined; w.trl = w.trOld = w.trRet = null;
-                    }
-                } else if (H) {   // 0.98.41 新黑洞引力（跟行星、恆星同一條公式）；到了事件視界（或核心）＝凍住
-                    const o = { x: w.x, y: w.y, vx: Math.cos(w.ang) * cv * (w.cs || 1), vy: Math.sin(w.ang) * cv * (w.cs || 1) };
-                    const st = _lhSpBhG(o, H, LH_SP_TUNE.bh, dt * (w.tk ?? 1));
-                    w.inBh = st === 1 ? 1 : 0;
-                    if (st === 1) { w.ang = Math.atan2(o.vy, o.vx); w.cs = Math.max(0.2, Math.min(40, Math.hypot(o.vx, o.vy) / Math.max(1, cv))); }
-                    if (st === 2 || (st === 1 && Math.hypot(w.x - H.x, w.y - H.y) <= H.z)) { _lhSpFzStart(w, w.x, w.y, o.vx, o.vy, H, w.tk ?? 1, t); w.inBh = 1; }
-                } else w.inBh = 0;
-                if (!w.inBh && w.cs && w.cs !== 1) w.cs += (1 - w.cs) * (1 - Math.exp(-dt / 2.5));   // 離開後 2～3 秒慢慢回到原本速度
-                if (!w.fz) { w.x += Math.cos(w.ang) * cv * (w.cs || 1) * dt * (w.tk ?? 1); w.y += Math.sin(w.ang) * cv * (w.cs || 1) * dt * (w.tk ?? 1); }
-                let side = w.fz ? -1 : w.x > B ? 0 : w.x < -B ? 1 : w.y > B ? 2 : w.y < -B ? 3 : -1;   // 0 右、1 左、2 下、3 上（凍住的不出界）
-                { const AM = _lhSp.bhShape, K = _lhSp.bhK; if (AM && K && !w.fz) {   // Andy：照變形蟲邊界（紫線）出界，不是舊的方形
+                if (H && !w.cmWait) {
+                    const dC = Math.hypot(H.x - w.x, H.y - w.y) || 1e-6, ev = _lhSpEnvV(dC, H), BV = _lhSp.bhV || [0, 0];
+                    w.inBh = ev >= 0 ? 1 : 0; _lhSpLimStep(w, ev >= 0 ? ev + Math.hypot(BV[0], BV[1]) : ev, dt);
+                    if (ev >= 0) { const [tx, ty] = _lhSpEnvVec(H.x - w.x, H.y - w.y, dC, ev); w.bvIn = [tx + BV[0], ty + BV[1]]; }
+                    _lhSpMix(w, ev >= 0, dt); if (!w.bm) w.bvIn = null;
+                    if (ev >= 0 && dC <= H.z) _lhSpEatComet(w);
+                } else if (!w.cmWait) { w.inBh = 0; w.bm = 0; w.bvIn = null; _lhSpLimStep(w, 0, dt); }
+                if (!w.cmWait) {
+                    const m = w.bm || 0, bv = w.bvIn || [0, 0];
+                    let vx = Math.cos(w.ang) * cv * (1 - m) + bv[0] * m, vy = Math.sin(w.ang) * cv * (1 - m) + bv[1] * m;
+                    const v = Math.hypot(vx, vy), c = _lhSpLim(w); if (v > c) { vx *= c / v; vy *= c / v; }   // 加總後擋上限（光速；黑洞範圍內可到吸入速度）
+                    w.x += vx * dt; w.y += vy * dt;
+                    w.mang = m ? Math.atan2(vy, vx) : undefined; w.mv = m ? Math.min(v, c) : undefined;   // 實際的方向、速度（尾巴照這個畫）
+                }
+                let side = w.cmWait ? -1 : w.x > B ? 0 : w.x < -B ? 1 : w.y > B ? 2 : w.y < -B ? 3 : -1;   // 0 右、1 左、2 下、3 上（剛被吞的不算出界）
+                { const AM = _lhSp.bhShape, K = _lhSp.bhK; if (AM && K && !w.cmWait) {   // Andy：照變形蟲邊界（紫線）出界，不是舊的方形
                     const a = Math.atan2(w.y, w.x); side = Math.hypot(w.x, w.y) > _lhSpAmoebaR(AM, a) * K ? (Math.abs(Math.cos(a)) > Math.abs(Math.sin(a)) ? (Math.cos(a) > 0 ? 0 : 1) : (Math.sin(a) > 0 ? 2 : 3)) : -1; } }
                 if (side >= 0) { w.cmSide = side; w.cmWait = _lhSpNow() + (15 + Math.random() * 45) * 1000; }
             } else if (!w.star) {
-                w.th += _lhSpOm(w) * L.orbit * dt * (1 - bkS);
+                w.th += _lhSpOm(w) * L.orbit * dt * (1 - bkS);   // 2026-11-23 Andy：局部時間不再影響移動（事件視界附近的速度感全交給 envelope）
                 if (L.wobble) {   // 行星呼吸晃動（第 4、5 級），每個詞幅度不同（水彩的毛邊）
                     w.wob += dt;
                     const br = w.br || 2.5;
@@ -1772,15 +1817,15 @@ function _lhSpFrame(tr) {
         if (L.fadeIn && w.born) ease = vv;   // 第 1 級：不綻放，就在原位（整片淡入交給畫布 CSS）
         w.ux = ox + (bx - ox) * ease; w.uy = oy + (by - oy) * ease;   // 還沒乘上整團呼吸的位置（星系一張圖照這個畫）
         const b = w.cl && !w.comet ? w.cl.b : 1;
-        if (w.free && w.cl && !w.star && !w.comet && b !== 1) {   // 2026-11-21 Andy bug（恆星被吞重生，行星瞬間跳格）：飛散中的行星呼吸位移照「自己家離恆星多遠」算，
-            const o = _lhSpOrbit(w);                                // 不照「自己現在離恆星多遠」——恆星瞬間搬到遠方時，舊寫法會把行星拉動「距離×呼吸幅度」。在軌道上（ux＝家）兩種算法一樣
-            w.px = w.ux + (o.x - w.cl.x) * (b - 1); w.py = w.uy + (o.y - w.cl.y) * (b - 1);
+        if (w.free && w.cl && !w.star && !w.comet) { w.px = w.ux; w.py = w.uy;   // 2026-11-22 Andy 力的層級：自由的行星彈簧追的家已經含呼吸（家在動），畫的位置就是它自己的位置
         } else {
             w.px = w.cl && !w.comet ? w.cl.x + (w.ux - w.cl.x) * b : w.ux;
             w.py = w.cl && !w.comet ? w.cl.y + (w.uy - w.cl.y) * b : w.uy;
         }
         if (w.bax || w.bay) { w.px += w.bax; w.py += w.bay; }   // 煞車：抵掉整團帶著走的量
         if (w.tlx || w.tly) { if (w.free) w.tlx = w.tly = 0; else { w.px += w.tlx; w.py += w.tly; } }   // 被黑洞潮汐拉長（_lhSpBhDrift）；變自由時已經算進起點
+        // 力的層級最後一關（位置）：這一格最多移動「光速 × dt」。手拖、開場凝聚與浮現、篩選收放、流星不算（不是被力推著走）
+        if (w === drag || w.gk || w.comet || k < 1 || w.vis < 1 || _lhSp.warp || !dt) w.qx = undefined; else { _lhSpGate(w, w.px, w.py, _lhSpLim(w) * dt); w.px = w.qx; w.py = w.qy; }
         w.alpha = (L.gather && w.star && w.born ? Math.min(1, (t - w.born) / 1400) : L.fadeIn ? (u => u * u * (3 - 2 * u))(Math.min(1, (t - w.born) / 1600)) : Math.min(1, k * 1.6)) * vv;   /* 第 1 級：原位 1.6 秒慢慢浮現（緩進緩出；0.98.19.3 Andy：0.7 秒太像 pop） */
         // 0.98.22.11 Andy：凝聚中的行星從透明慢慢浮現，橫跨自己凝聚的 0 → gather.fadeTo（5 成）；起點亮度 gather.fadeMin（0＝完全看不到）
         // 再改（Andy：看不出模糊、一出來就俐落）：舊版透明度和對焦同一條曲線——模糊版最清楚的時候整個字幾乎透明（最多只佔 1/4），等看得到時已經是清楚版。
@@ -1842,10 +1887,10 @@ function _lhSpFrame(tr) {
         }
         else if (w.gFocus !== undefined || w.gHeatF !== undefined) { w.gFocus = w.gHeatF = undefined; w.sprB = null; }   // 對焦完：放掉模糊版
         if (w.reT && !L.gather) { const f = Math.min(1, (t - w.reT) / 2000); w.alpha *= f * f * (3 - 2 * f); if (f >= 1) w.reT = 0; else busy = true; }   // 0.98.41：被黑洞吞掉、在遠方重生＝2 秒淡入
-        // 2026-11-21 事件視界：被時間拖住的越來越暗（最暗 8 成）；凍住後 bh.fzT 秒慢慢淡到看不見＝被吃掉。rdK：紅移多少（blit 疊一張紅色的字）
+        // 2026-11-21 事件視界外觀：越靠近越暗（最暗 8 成）、越紅。rdK：紅移多少（blit 疊一張紅色的字）
         { const RD = LH_SP_TUNE.bh.fzRed ?? 0.8;
-          if (w.fz) { const u = w.fz.u || 0; w.alpha *= 0.8 * Math.pow(1 - u, 1.6); w.rdK = RD * (0.35 + 0.65 * u); busy = true; }
-          else if (w.lzq) { w.alpha *= 1 - 0.2 * w.lzq; w.rdK = RD * 0.35 * w.lzq; } else w.rdK = 0; }
+          if (w.lzq) { w.alpha *= 1 - 0.2 * w.lzq; w.rdK = RD * 0.35 * w.lzq; } else w.rdK = 0; }
+        { const oa = _lhSpWait(w, t) && !w.envOn ? 0.4 : 1; if (w.orA !== undefined || oa < 1) { w.orA = (w.orA ?? 1) + (oa - (w.orA ?? 1)) * Math.min(1, dt * 1.5); if (Math.abs(w.orA - 1) < 0.01 && oa === 1) w.orA = undefined; else { w.alpha *= w.orA; busy = true; } } }   // 無家可歸的行星：1 秒左右暗到 4 成，回去找恆星時亮回來
         if (L.fadeIn && w.born && t - w.born < 1600) busy = true;   // 第 1 級沒變化不畫：浮現中要一直畫，不然會停在半透明   // 凝聚模式的恆星 1.4 秒才完全浮現
         // 保留的詞呼吸（第 1、2 級）：3 秒一輪輕輕放大縮小
         w.kb = (L.keptBreathe && w.kept && !w.dim ? 1 + L.keptBreathe * Math.sin(t / 3000 * TAU + w.wob) : 1);
@@ -1855,7 +1900,7 @@ function _lhSpFrame(tr) {
         // 隨機星星閃爍（第 4、5 級）：每秒大約 5 顆；越常用越容易被選到，但最多只多 15%；亮起來時跟著放大一點點
         if (L.twinkle && w.born && !w.dim && dt) {
             if (w.twk && t - w.twk > LH_SP_TUNE.glow.twLen) w.twk = 0;
-            if (!w.twk && !w.fz && !(w.lzq > 0.3) && Math.random() < dt * 0.015 * LH_SP_TUNE.glow.twRate * L.twinkle * (1 + 0.15 * (w.n || 0)) * (w.star ? 0.4 : 1)) w.twk = t;   // 0.98.17：恆星閃爍機率降到 4 成   // 0.98.09：機率 0.006→0.015
+            if (!w.twk && !(w.lzq > 0.3) && Math.random() < dt * 0.015 * LH_SP_TUNE.glow.twRate * L.twinkle * (1 + 0.15 * (w.n || 0)) * (w.star ? 0.4 : 1)) w.twk = t;   // 0.98.17：恆星閃爍機率降到 4 成   // 0.98.09：機率 0.006→0.015
         } else if (!L.twinkle) w.twk = 0;
         if (dock) {
             let goal = 1, fx = 0, fy = 0;
@@ -1874,15 +1919,15 @@ function _lhSpFrame(tr) {
             if (w.born && !w.dim && mouse) lens(mouse, LH_SP_TUNE.dock, 1);   // Andy：恆星只受一點點影響（放大、推開都 × dock.star）
             // 2026-11-21 Andy 選 A：黑洞附近的字沿著事件視界那圈被拉長、往中心方向壓扁（重力透鏡的弧），時間越被拖住拉得越長；凍住後繼續拉長到 1＋lens.str 倍
             w.lzs = null;
-            { const Q = _lhSp.bhScr, qz = w.fz ? 0.4 + 0.6 * (w.fz.u || 0) : 0.4 * (w.lzq || 0);
+            { const Q = _lhSp.bhScr, qz = 0.4 * (w.lzq || 0);
               if (Q && qz > 0.002) { const s = _lhSpScr(w.px, w.py), dx = s.x - Q.x, dy = s.y - Q.y, dl = Math.hypot(dx, dy) || 1, sT = 1 + (LH_SP_TUNE.bh.lens.str ?? 1.5) * qz * (w.star ? LH_SP_TUNE.bh.lens.star ?? 0.15 : 1);
-                  w.lzs = { nx: dx / dl, ny: dy / dl, sT, sR: 1 / (1 + 0.6 * (sT - 1)) }; } }
+                  w.lzs = { nx: dx / dl, ny: dy / dl, sT, sR: 1 / (1 + 0.6 * (sT - 1)), r: dl, qx: Q.x, qy: Q.y, q: w.lzq || 0 }; } }   // r、qx/qy：弧形貼合用（離黑洞中心多遠）
             // 0.98.41 Andy：拖著詞到黑洞上方＝反魚眼——越靠近黑洞中心越小，到中心時字寬＝黑洞（放大後）直徑的 0.8 倍；
             // 從黑洞半徑 2.5 倍的地方開始，跟原本的大小（含游標放大鏡）平滑接上，大小變化照放大鏡同樣的緩動
             if (w === drag && _lhSp.drag.moved && _lhSp.bhScr) {
                 const be = _lhSp.el.querySelector('.ws-bh'), rect = be && be.style.visibility !== 'hidden' ? be.getBoundingClientRect() : null;
                 if (rect && rect.width) {
-                    const er = _lhSp.el.getBoundingClientRect(), cx = rect.left + rect.width / 2 - er.left, cy = rect.top + rect.height / 2 - er.top, sp = _lhSpWS(w);
+                    const er = _lhSpER(), cx = rect.left + rect.width / 2 - er.left, cy = rect.top + rect.height / 2 - er.top, sp = _lhSpWS(w);
                     const rb = rect.width / 2, Rn = rb * 2.5, dd = Math.hypot(sp.x - cx, sp.y - cy);
                     if (dd < Rn) {
                         const ww = Math.max(1, (w.tw || 40) * _lhSpZv() * (w.kb || 1)), sc0 = Math.min(goal, 0.8 * rect.width / ww), f = Math.min(1, (Rn - dd) / Math.max(1, Rn - rb * 0.5)), fs = f * f * (3 - 2 * f);   // 進到黑洞半徑一半以內＝完全縮到 0.8 倍
@@ -1896,6 +1941,7 @@ function _lhSpFrame(tr) {
             if (Math.abs(fx - w.fox) + Math.abs(fy - w.foy) > 0.3) busy = true; else { w.fox = fx; w.foy = fy; }
         } else { w.mag = 1; w.fox = w.foy = 0; w.lzs = null; }
     }
+    if (_lhSpGhostStep()) busy = true;   // 事件視界上的凍結殘影
     if (_lhSp.drag) busy = true;
     _lhSp.busy = busy; _lhSp.gv = gv;
     // 星座：釘住的詞之間的線（_lhSpPin 決定連哪些）
@@ -2302,12 +2348,14 @@ function _lhSpDraw(t, L) {
     // 0.98.22.11 Andy（縮很小時黑洞放大的字是糊的）：小圖照目前縮放畫（省效能），黑洞再放大 2～3 倍就是把小圖硬拉大。
     // 只替「正在被放大」的那幾十個字另外畫一張夠大的清楚小圖（每格最多新畫 12 張，不卡），離開黑洞就丟掉；其他字照舊
     let hiBudget = 12;
+    // 2026-11-23 Andy（順序）：額度先給放大最多的（越靠近黑洞中心越大越糊）——看上一格排隊的有誰，只讓前 12 名先畫
+    const hiReq = _lhSp.hiReq || [], hiCut = hiReq.length > 12 ? hiReq.sort((a, b) => b - a)[11] : 0; _lhSp.hiReq = [];
     const hiSpr = (w, m) => {
         if (m <= 1.12) { if (w.sprH) w.sprH = null; return w.spr; }
         const need = Math.min(LH_SP_SMAX * 2, _lhSpBucket(z * _lhSp.dpr * m));
         if (need <= w.spr.S * 1.05) return w.spr;
         if (w.sprH && w.sprH.S >= need * 0.95) return w.sprH;
-        if (hiBudget-- > 0) { w.sprH = _lhSpSprite(w, need); return w.sprH; }
+        _lhSp.hiReq.push(m); if (m >= hiCut && hiBudget-- > 0) { w.sprH = _lhSpSprite(w, need); return w.sprH; }
         return w.sprH && w.sprH.S > w.spr.S ? w.sprH : w.spr;   // 這格額度用完：先用手上最清楚的，下一格再補
     };
     // 2026-11-21 事件視界外觀：沿著視界那圈拉長、往中心壓扁（w.lzs，以字的中心為準的變形）＋紅移（w.rdK：同一張字換紅色疊上去，原色跟著淡）
@@ -2315,6 +2363,31 @@ function _lhSpDraw(t, L) {
     const blit = (w, p, m = 1) => {
         const Z = w.lzs, rd = w.rdK || 0;
         if (!Z && rd < 0.01) return blit0(w, p, m);
+        // 2026-11-22 Andy：拉長的字彎成弧形貼在視界上——字切成直條，每條沿著黑洞那圈轉到自己的位置（中間那條不動），字本身不轉向、照樣看得懂
+        if (Z && Z.r > 1 && w.spr) {
+            const tx = -Z.ny, ty = Z.nx, A = Z.sT * tx * tx + Z.sR * Z.nx * Z.nx, Bm = Z.sT * tx * ty + Z.sR * Z.nx * Z.ny, D = Z.sT * ty * ty + Z.sR * Z.ny * Z.ny;
+            const vt = Math.abs(ty) > Math.abs(tx);   // 視界在字的左右邊（切線直的）：切成橫條；在上下：切成直條
+            // 效能（2026-11-22 實測第 5 級 restore 佔 1.4 秒／3 秒）：每條不再 save/restore，直接算好整個變形一次 setTransform
+            const b0 = c.getTransform();
+            // 2026-11-23 Andy：螺旋式貼上視界——往黑洞轉的那一頭越貼越近視界、後面那頭翹出去（只是外觀）；捲的程度跟著螺旋角度（bh.swirl）：0＝正圓弧
+            const QS = _lhSp.bhScr, Rh = QS ? QS.r : 0, sw = (LH_SP_TUNE.bh.swirl ?? 0) * Math.PI / 180, kS = 1.2 * Math.sin(sw) * (_lhSp.bh?.spin || 1) * (Z.q ?? 1);   // Z.q：進魚眼多深（0＝魚眼外緣 → 1＝視界），捲的程度跟著長
+            const sF = da => { if (!kS || Z.r <= Rh) return 1; const e = Math.max(0.05, Math.min(3, Math.exp(kS * da))); return (Rh + (Z.r - Rh) * e) / Z.r; };
+            const arc = S => { const sw = S.width / S.S * z * m, sh = S.height / S.S * z * m, L0 = vt ? sh : sw, N = Math.max(4, Math.min(24, Math.round(L0 * Z.sT / 6))), cw = (vt ? S.height : S.width) / N;
+                for (let i = 0; i < N; i++) {
+                    const xi = -L0 / 2 + (i + 0.5) * L0 / N, ox = vt ? 0 : xi, oy = vt ? xi : 0, along = (A * ox + Bm * oy) * tx + (Bm * ox + D * oy) * ty, da = Math.max(-1.4, Math.min(1.4, along / Z.r));
+                    // 字上的點 x → 繞黑洞中心 Q 轉 da（R）∘ 沿切線退回 along ∘ 以字中心 p 拉長壓扁（M）
+                    const cs = Math.cos(da), sn = Math.sin(da), la = cs * A - sn * Bm, lb = sn * A + cs * Bm, lc = cs * Bm - sn * D, ld = sn * Bm + cs * D;
+                    const yx = -(A * p.x + Bm * p.y) + p.x - tx * along - Z.qx, yy = -(Bm * p.x + D * p.y) + p.y - ty * along - Z.qy;
+                    const f = sF(da); _lhMulSet(c, b0, la * f, lb * f, lc * f, ld * f, f * (cs * yx - sn * yy) + Z.qx, f * (sn * yx + cs * yy) + Z.qy);   // f：以黑洞中心縮放＝這一條離視界多遠
+                    if (vt) c.drawImage(S, 0, i * cw, S.width, Math.min(cw + 1, S.height - i * cw), p.x - sw / 2, p.y - sh / 2 + i * sh / N, sw, sh / N + 0.5);
+                    else c.drawImage(S, i * cw, 0, Math.min(cw + 1, S.width - i * cw), S.height, p.x - sw / 2 + i * sw / N, p.y - sh / 2, sw / N + 0.5, sh);
+                }
+                c.setTransform(b0); };
+            const ga = c.globalAlpha;
+            if (rd >= 0.01) { const R = w.sprRd && w.sprRd.S === w.spr.S ? w.sprRd : (w.sprRd = (o => { w.rgb = RED; const s2 = _lhSpSprite(w, w.spr.S); w.rgb = o; return s2; })(w.rgb)); c.globalAlpha = ga * (1 - rd); arc(w.spr); c.globalAlpha = ga * rd; arc(R); }
+            else arc(w.spr);
+            c.globalAlpha = ga; return;
+        }
         c.save();
         if (Z) { const tx = -Z.ny, ty = Z.nx, a = Z.sT * tx * tx + Z.sR * Z.nx * Z.nx, b = Z.sT * tx * ty + Z.sR * Z.nx * Z.ny, d = Z.sT * ty * ty + Z.sR * Z.ny * Z.ny; c.translate(p.x, p.y); c.transform(a, b, b, d, 0, 0); c.translate(-p.x, -p.y); }
         if (rd >= 0.01) {
@@ -2404,6 +2477,8 @@ function _lhSpDraw(t, L) {
         for (const w of _lhSp.words) if (w.cl && (!w.born || t - w.born < 900 || w.hot || w.free || w === drag || w.mag > 1.01 || w.fox || w.foy || w.off || w.vis < 1)) live.add(w.cl);
         for (const cl of _lhSp.groups) {
             if (live.has(cl)) continue;
+            { const o = _lhSpScr(cl.x, cl.y), R = (cl.img ? Math.max(-cl.img.x0, -cl.img.y0, cl.img.c.width / cl.img.S + cl.img.x0, cl.img.c.height / cl.img.S + cl.img.y0) : (cl.r || 0) * 3 + 80) * z * (cl.b || 1);
+              if (o.x + R < 0 || o.y + R < 0 || o.x - R > _lhSp.W || o.y - R > _lhSp.H) continue; }   // 2026-11-23（順序）：畫面外的星系不重畫星系圖，拖進來才畫
             const im = _lhSpClImg(cl);
             if (!im) continue;
             asImg.add(cl);
@@ -2588,7 +2663,7 @@ function _lhSpDraw(t, L) {
             }
         }
         if (w.comet && !w.dim && L.tail) {   // 流星尾巴：一整條往後漸細、漸淡的光（連續漸層，不分段），長度＝約 0.8 秒走的路（速度 3 倍後縮短）；放大、釘住時也畫（先畫，墊在字後面）
-            const z = _lhSpZv(), k = w.v * 0.8 * z * (w.fz ? w.fz.e : w.tk ?? 1), ex = p.x - Math.cos(w.ang) * k, ey = p.y - Math.sin(w.ang) * k;   // 時間被拖住／凍住：尾巴跟著縮
+            const z = _lhSpZv(), k = (w.mv !== undefined ? w.mv / Math.max(1e-6, (LH_SP_TUNE.roam.comet ?? 5)) : w.v * _lhSpU()) * 12 * z, ex = p.x - Math.cos(w.mang ?? w.ang) * k, ey = p.y - Math.sin(w.mang ?? w.ang) * k;
             if (k > 4) {
                 const nx = Math.sin(w.ang) * 1.8, ny = -Math.cos(w.ang) * 1.8;   // 頭端半寬 1.8px
                 const g = c.createLinearGradient(p.x, p.y, ex, ey);
@@ -2618,6 +2693,7 @@ function _lhSpDraw(t, L) {
         }
         if (w.kept && !w.dim) _lhSpKept(c, w, p, a, t, L, pill, blit, m);
     }
+    for (const g of _lhSp.ghosts || []) { const p = vis(g); if (!p) continue; c.globalAlpha = g.alpha; blit(g, p); }   // 凍結殘影（外觀，本體已經重生）
     c.globalAlpha = 1;
     for (const [w, p] of mags) {
         const m = w.mag * (w.kb || 1);
@@ -2656,10 +2732,13 @@ function _lhSpDraw(t, L) {
 
 // Andy：調黑洞滑桿時畫範圍輔助線（只有齒輪面板會觸發；放手 1.5 秒後淡掉）
 const LH_SP_LOCAL = LH_LOCAL_HOST;   // Andy：輔助線（黑洞範圍、宇宙邊界）只在本地畫，線上版一律不畫
+// 2026-11-23 Andy：輔助線只在拉「會改變那幾圈大小」的滑桿時跳出來（範圍、各圈、核心、黑洞大小、宇宙大小）；其他黑洞滑桿不跳。滑鼠停在黑洞上也顯示
+const LH_SP_GUIDE_KEYS = new Set(['bh.range', 'bh.absorb', 'bh.scatR', 'bh.lensR', 'bh.core', 'bh.size', 'bh.uK', 'bh.margin']);
 function _lhSpBhGuideDraw(c) {
     if (!LH_SP_LOCAL) return;
-    if (LH_SP_TUNE_UI && _lhSp.bhD) _lhSp.bhGuide = _lhSpNow();   // 本地：按住黑洞也畫輔助線（放手後一樣 2 秒淡掉）
-    const Q = _lhSp.bhScr, age = _lhSpNow() - (_lhSp.bhGuide || -1e9), on = !!Q && age <= 2000;
+    const Q = _lhSp.bhScr, Mx = _lhSp.mxy, onBh = !!(Q && Mx && Math.hypot(Mx.x - Q.x, Mx.y - Q.y) <= Math.max(Q.vr || 0, Q.r) * 1.2 + 6);   // 2026-11-23 Andy：滑鼠停在黑洞上（照畫面上看到的黑洞大小判斷，不靠按鈕的 hover 事件）
+    if (LH_SP_TUNE_UI && (_lhSp.bhD || _lhSp.bhHov || onBh)) _lhSp.bhGuide = _lhSpNow();   // 本地：按住、滑鼠停在黑洞上也畫輔助線（放手、移開後一樣 2 秒淡掉）
+    const age = _lhSpNow() - (_lhSp.bhGuide || -1e9), on = !!Q && age <= 2000;
     const bh = _lhSp.el && _lhSp.el.querySelector('.ws-bh'); if (bh) bh.classList.toggle('guide', on);   // 黑洞本體變半透明，裡面幾圈才看得到
     const tu = _lhSp.el && _lhSp.el.querySelector('.ws-tune'), AM = _lhSp.bhShape, K = _lhSp.bhK;
     const GB = _lhSp.guideBh ??= lhGet('lh:spGuide') === '1', GE = _lhSp.guideEdge ??= lhGet('lh:spGuideE') === '1';   // 0.98.41 Andy：齒輪面板兩個開關——「黑洞範圍」「宇宙邊界」各自一直畫；關＝拉滑桿、按住黑洞時才暫時出現
@@ -2671,7 +2750,7 @@ function _lhSpBhGuideDraw(c) {
     const always = GB && !!Q;
     if (!on && !always) return;
     _lhSp.dirty = true;
-    const LZ = LH_SP_TUNE.bh.lens, rings = [[Q.R, '#7fd4ff', '引力範圍'], [Q.a, '#ffd27f', '光暈開始被吸'], [Q.s, '#ff9f5a', '恆星散架'], [Q.l, '#b9ff9e', '魚眼'], [Q.l * Math.max(0.01, Math.min(0.99, LZ.ring ?? 0.5)), '#ffffff', '事件視界'], [Q.r, '#ff7f9e', '核心']];
+    const LZ = LH_SP_TUNE.bh.lens, rings = [[Q.R, '#7fd4ff', '引力範圍'], [Q.a, '#ffd27f', '光暈開始被吸'], [Q.s, '#ff9f5a', '恆星散架'], [Q.l, '#b9ff9e', '魚眼'], [Q.r, '#ffffff', '事件視界（核心表面）']];
     if (Q.l > 2) {   // 2026-11-21：時間漸層——越亮＝時間越慢（魚眼外緣 0 → 事件視界最亮），視界以內是凍住的那圈
         const hz = Math.max(0.01, Math.min(0.99, LZ.ring ?? 0.5)), g = c.createRadialGradient(Q.x, Q.y, 0, Q.x, Q.y, Q.l);
         for (let i = 0; i <= 40; i++) { const x = i / 40, q = x < hz ? 0 : Math.pow(1 - (x - hz) / (1 - hz), Math.max(0.05, LZ.curve ?? 1)); g.addColorStop(x, 'rgba(185,255,158,' + (0.38 * q).toFixed(3) + ')'); }
@@ -2720,7 +2799,7 @@ function _lhSpSettle(w, L, T) {
     const cl = w.cl;
     if (w.star) {
         _lhSpDrift(Object.assign(cl, { hx: w.fx, hy: w.fy }), _lhSp.groups);
-        cl.hx = w.fx - (L.drift ? _lhSpDx(cl, T - (cl.tOff || 0)) : 0); cl.hy = w.fy - (L.drift ? _lhSpDy(cl, T - (cl.tOff || 0)) : 0); cl.held = false; cl.lx = cl.ly = 0;
+        cl.hx = w.fx - (L.drift ? _lhSpDx(cl, T - (cl.tOff || 0)) : 0); cl.hy = w.fy - (L.drift ? _lhSpDy(cl, T - (cl.tOff || 0)) : 0); cl.held = false; cl.doom = 0; cl.lx = cl.ly = 0;
         cl.x = w.fx; cl.y = w.fy;
     } else {
         const dx = w.fx - cl.x, dy = w.fy - cl.y, ct = Math.cos(w.tilt), st = Math.sin(w.tilt);
@@ -2765,7 +2844,7 @@ function _lhSpPromote(cl) {
     if (!next) return;
     const at = _lhSpPos(next);
     Object.assign(next, { r: 0, ecc: 1, tilt: 0, om: 0, sx: 0, sy: 0, rising: true });
-    if (!next.free) Object.assign(next, { free: true, fx: at.x, fy: at.y, fvx: 0, fvy: 0 });
+    if (!next.free) Object.assign(next, { free: true, fx: next.px ?? at.x, fy: next.py ?? at.y, fvx: 0, fvy: 0 });   // 起點＝畫的位置（含呼吸）
 }
 
 // 釘住／放開之後整理星座（線都存在 _lhSp.chords）：第 2 點連第 1 點；第 3 點連前兩點（三角形）；
@@ -3159,7 +3238,7 @@ function _lhSpHoloDraw(c, t, z) {
     let pl;
     if (_lhSp.holoPin) {
         if (!h.pl || h.pl.w !== w) {
-            const box = _lhSp.el.getBoundingClientRect(), ui = [..._lhSp.el.querySelectorAll('.ws-panel, .ws-ptop, .ws-tune, .ws-tr, .ws-legpanel, .ws-legbtn')].filter(e => e.offsetParent).map(e => e.getBoundingClientRect()).map(q => [q.left - box.left, q.top - box.top, q.right - box.left, q.bottom - box.top]);
+            const box = _lhSpER(), ui = [..._lhSp.el.querySelectorAll('.ws-panel, .ws-ptop, .ws-tune, .ws-tune-envfl, .ws-tr, .ws-legpanel, .ws-legbtn')].filter(e => e.offsetParent).map(e => e.getBoundingClientRect()).map(q => [q.left - box.left, q.top - box.top, q.right - box.left, q.bottom - box.top]);
             let best = null;
             for (const [dir, vy] of [[1, -1], [-1, -1], [1, 1], [-1, 1]]) {
                 const c0 = place(dir, vy), x1 = c0.x0 - 10, y1 = c0.y0 - 10, x2 = c0.x0 + bw + 10, y2 = c0.y0 + bh + 10;
@@ -3231,27 +3310,43 @@ const LH_SP_TUNE = {
     smC:    { on: 1, inertia: 0.5, fadeK: 0 },   // 拖畫布：on 1 煙被沖散／0 光帶（trailC）；inertia＝受慣性影響程度；fadeK＝沖散時消失速度（＋快／−慢）
     glow:   { star: 3, starSize: 0.5, twBoost: 1.5, twRate: 1.8, twLen: 1400, lineBreath: 5.6, lineDepth: 0.28, flashRate: 1, flashLen: 300, flash: 0.2, comet: 0.05, cometFlick: 140 },   // 0.98.22.6 Andy 調好的值
     con:    { dim: 0.1, fill: 0.04 },
-    roam:   { micro: 21, small: 8.5, mid: 16, comet: 1, planet: 1, fall: 1, wobAmp: 1, wobFreq: 1, interarm: 0.1 },   // 微星系（≤7 詞）、小星系（8～15 詞）繞中心公轉的速度（px／秒，第 5 級再 ×1.8）
+    roam:   { micro: 1.6, small: 0.65, mid: 1.2, comet: 5, planet: 1, fall: 1, wobAmp: 1, wobFreq: 1, interarm: 0.1 },   // 微星系（≤7 詞）、小星系（8～15 詞）繞中心公轉的速度（2026-11-23 統一單位：宇宙半徑 %／秒，跟光速同一把尺；第 5 級再 ×1.8）；comet：流星速度（同單位）
     dock:   { px: 20, extra: 4, r: 500, curve: 4, push: 1, star: 0.15 },   // 黑洞放大：最多加幾倍（最小的字；越大的字、恆星加得越少）、游標周圍多大範圍   // 0.98.22.11：骰子／AI／保留詞星座——不顯眼的那兩種線的濃度、第 5 級封閉多邊形的填色濃度
     // 0.98.41 Andy 新黑洞：外觀大小＝縮放 100% 時的直徑 px；範圍、引力全部用宇宙半徑 %；引力 a×(1−距離/範圍)^b，所有天體一樣快；速度上限、甩動最遠距離（離宇宙邊界最遠距離的 %）都是相對量——大小宇宙表現一樣
-    // 2026-11-21 重整：lens＝事件視界（curve 時間變慢曲線、ring 視界在魚眼半徑的比例、str 沿圈拉長、star 恆星受影響程度）；fzT 凍住幾秒被吃掉、fzRed 紅移；starIn 恆星飄回出生半徑的速度
-    bh: { lens: { curve: 1, star: 0.15, ring: 0.5, str: 1.5 }, fzT: 3, fzRed: 0.8, starIn: 0.4, lean: 6, size: 60, core: 1, ring: 7, form: 30, margin: 0.1, uK: 1.35, reIn: 0.3, reOut: 1.5, speed: 0.7, back: 0.35, brake: 30, range: 50, absorb: 30, scatR: 14, lensR: 9, ga: 6, gb: 1.5, gmax: 30, dW: 1, stSoft: 1, dFib: 2, dStarB: 1.5, dStarFib: 2, dOff: 0.6, stGrow: 4, eMaxB: 1.4, eMaxR: 1.8, eOver: 30, eSpd: 40, eGlow: 2.5, eGlowB: 1, slow: 10, slowT: 0.75, dropPx: 32 },
-    grab: { lead: 0.15, glide: 0.4, flingMin: 250 },   // glide：甩動滑多遠＝出手速度×幾秒；flingMin：畫面上多快才算甩（px／秒）
-    wh: { u1: 0.8, pre: 2.4, pow: 3, t25: 1 },   // 0.98.41 Andy：白洞出口——前段慢慢放大到 pre 倍（到 u1 為止，t25＝起步凝滯：放大到 2.5 倍花幾秒），之後照 pow 次方衝到蓋滿
+    // 2026-11-21 重整：lens＝事件視界（curve 時間變慢曲線、ring 視界在魚眼半徑的比例、str 沿圈拉長、star 恆星受影響程度）；fzRed 紅移；starIn 恆星飄回出生半徑的速度
+    bh: { lens: { curve: 1, star: 0.15, ring: 0.5, str: 1.5 }, fzT: 3, fzRed: 0.8, starIn: 0.4, light: 6, size: 60, core: 1, ring: 7, form: 30, margin: 0.1, uK: 1.35, reP: 50, speed: 0.7, back: 0.35, brake: 30, range: 50, absorb: 30, scatR: 14, lensR: 9, env: [0, 0, 0, 1, 1, 0, 2, 3, 0, 3, 6, 0, 4, 12, 0, 5, 12, 0], envT: 1.5, swirl: 35, dW: 1, stSoft: 1, dFib: 2, dStarB: 1.5, dStarFib: 2, dOff: 0.6, stGrow: 4, stIn: 1, dB: 1, knA: 1, knZ: 0.6, knF: 1, knS: 1, knE: 1.8, eMaxB: 1.4, eMaxR: 1.8, eOver: 30, eSpd: 40, eGlow: 2.5, eGlowB: 1, slow: 10, slowT: 0.75, dropPx: 32 },
+    grab: { hitR: 30, glide: 0.4, flingMin: 250 },   // glide：甩動滑多遠＝出手速度×幾秒；flingMin：畫面上多快才算甩（px／秒）
+    wh: { env: [0, 0, 0.25, 2.5, 24, 1, 2.82, 100, 0] },   // 2026-11-23 Andy：白洞出口改成 envelope——[秒, 大小％, 曲率] 一組三個；0％＝白洞本身、100％＝蓋滿畫面，最後一點＝蓋滿的時間（預設照舊版 u1 0.8／pre 6.5／pow 4／t25 1 換算）   // 0.98.41 Andy：白洞出口——前段慢慢放大到 pre 倍（到 u1 為止，t25＝起步凝滯：放大到 2.5 倍花幾秒），之後照 pow 次方衝到蓋滿
     gather: { dur: 1, k: 0.03, stiff: 15.5, ramp: 20, damp: 0.8, spread: 0.65, scatter: 0.6, fadeTo: 0.5, fadeMin: 0, fadeShared: 1, fadeShape: 0.3, starTo: 0.4, fadeMs: 2500, litHeatFrom: 0, litHeatTo: 0.6, heatBoost: 4, heatFocusFrom: 0.6, heatFocusTo: 1, focusFrom: 0, focusTo: 0.8, blur: 0.6, litCorona: 0, litGlowAt: 0.9, litGlowDur: 8, litRayDur: 8 },
     starfx: LH_SP_STARFX,
 };
+// bh.env 合法：[x, 速度, 曲率] 一組三個，x 從 0 到 5 由小到大、6 個預設點（整數 x）都在
+function _lhSpEnvOk(E) {
+    if (!Array.isArray(E) || E.length < 18 || E.length % 3 || E.length > 600 || !E.every(Number.isFinite)) return false;
+    for (let i = 3; i < E.length; i += 3) if (E[i] < E[i - 3]) return false;
+    for (let k = 0; k <= 5; k++) if (!E.some((x, i) => i % 3 === 0 && x === k)) return false;
+    return E[0] === 0 && E[E.length - 3] === 5;
+}
+// wh.env 合法：[秒, 大小％, 曲率]，秒由小到大、從 0 開始、最後一點大小＝100（蓋滿）
+function _lhSpWhOk(E) {
+    if (!Array.isArray(E) || E.length < 6 || E.length % 3 || E.length > 600 || !E.every(Number.isFinite)) return false;
+    for (let i = 3; i < E.length; i += 3) if (E[i] <= E[i - 3]) return false;
+    return E[0] === 0 && E[E.length - 2] === 100;
+}
+const _lhSpArrOk = (dst, E) => dst === LH_SP_TUNE.wh ? _lhSpWhOk(E) : _lhSpEnvOk(E);
 // 0.98.22.11 Andy：齒輪「寫成預設」寫進 js/sp-tune-defaults.js 的數字，蓋過上面寫死的預設（只收同名、有限的數字）
 if (typeof LH_SP_TUNE_FILE === 'object' && LH_SP_TUNE_FILE) (function m(dst, src) {
     for (const k of Object.keys(src)) {
-        if (dst[k] && typeof dst[k] === 'object' && src[k] && typeof src[k] === 'object') m(dst[k], src[k]);
+        if (Array.isArray(dst[k])) { if (_lhSpArrOk(dst, src[k])) dst[k] = src[k].slice(); }   // bh.env／wh.env：整條換掉
+        else if (dst[k] && typeof dst[k] === 'object' && src[k] && typeof src[k] === 'object') m(dst[k], src[k]);
         else if (typeof dst[k] === 'number' && Number.isFinite(src[k])) dst[k] = src[k];
     }
 })(LH_SP_TUNE, LH_SP_TUNE_FILE);
 // Andy：觸控裝置（iPhone／iPad）另一套參數——js/sp-tune-defaults-mobile.js 再疊一層；瀏覽器存的也分開（lh:spTuneM）
 if (LH_SP_COARSE && typeof LH_SP_TUNE_FILE_M === 'object' && LH_SP_TUNE_FILE_M) (function m(dst, src) {
     for (const k of Object.keys(src)) {
-        if (dst[k] && typeof dst[k] === 'object' && src[k] && typeof src[k] === 'object') m(dst[k], src[k]);
+        if (Array.isArray(dst[k])) { if (_lhSpArrOk(dst, src[k])) dst[k] = src[k].slice(); }   // bh.env／wh.env：整條換掉
+        else if (dst[k] && typeof dst[k] === 'object' && src[k] && typeof src[k] === 'object') m(dst[k], src[k]);
         else if (typeof dst[k] === 'number' && Number.isFinite(src[k])) dst[k] = src[k];
     }
 })(LH_SP_TUNE, LH_SP_TUNE_FILE_M);
@@ -3263,15 +3358,17 @@ const LH_SP_TUNE_ROWS = [
     // Andy 面板重整（第二版）：外層六大類 星系／恆星／行星／黑洞／白洞／互動（組名「｜」前面），組裡的 '#名稱|色票' 小段可以收合
     ['星系｜宇宙', [
         '#大小|len',
-        ['bh.uK', '宇宙大小（最遠兩顆行星距離的幾倍）', 1.2, 5, 0.05]]],
+        ['bh.uK', '宇宙大小（最遠兩顆行星距離的幾倍）', 1.2, 5, 0.05],
+        '#光速|motion',
+        ['bh.light', '宇宙光速：任何東西最快多快（宇宙半徑 %／秒）——所有速度相加後的最後一關（只有手拖、開場凝聚不算）', 1, 200, 0.5]]],
     ['星系｜公轉', [
         '#星系漫遊|galaxy',
-        ['roam.micro', '微星系（7 詞以下）繞中心速度', 0, 600, 1],
-        ['roam.small', '小星系（8～15 詞）繞中心速度', 0, 600, 1],
-        ['roam.mid', '中小星系（16～30 詞）繞中心速度（開新宇宙才生效）', 0, 600, 0.5]]],
+        ['roam.micro', '微星系（7 詞以下）繞中心速度（宇宙半徑 %／秒）', 0, 30, 0.05],
+        ['roam.small', '小星系（8～15 詞）繞中心速度（宇宙半徑 %／秒）', 0, 30, 0.05],
+        ['roam.mid', '中小星系（16～30 詞）繞中心速度（宇宙半徑 %／秒；開新宇宙才生效）', 0, 30, 0.05]]],
     ['星系｜流星', [
         '#流星|comet',
-        ['roam.comet', '流星速度（倍）', 0, 5, 0.05],
+        ['roam.comet', '流星速度（宇宙半徑 %／秒；每顆再隨機 0.67～1.33 倍，最快到光速）', 0, 30, 0.1],
         ['glow.comet', '流星光暈濃度', 0, 1, 0.05],
         ['glow.cometFlick', '流星閃爍速度（越大越慢）', 60, 1200, 20]]],
     ['星系｜混沌凝聚', [
@@ -3372,12 +3469,11 @@ const LH_SP_TUNE_ROWS = [
         ['smA.life', '煙霧停留時間（毫秒：每一團煙散到看不見）', 200, 6000, 50]]],
     ['行星｜被吞重生', [
         '#位置|len',
-        ['bh.reIn', '行星重生：離恆星最近（恆星直徑的幾倍圈）', 0, 3, 0.05],
-        ['bh.reOut', '行星重生：離恆星最遠（這圈在引力範圍外才用）', 0.1, 4, 0.05]]],
+        ['bh.reP', '行星重生：離自己該去的位置幾 px 內（那裡在引力範圍內才去遠方）', 0, 300, 5]]],
     ['黑洞｜外觀', [
         '#外觀|look',
         ['bh.size', '大小（縮放 100% 時的直徑 px）', 10, 300, 1],
-        ['bh.core', '核心（黑洞半徑×；掉進來＝被吞）', 0.2, 1, 0.01],
+        ['bh.core', '事件視界＝核心表面（黑洞半徑×；碰到就被吞、馬上重生，殘影凍在上面淡掉；光環在它外面）', 0.2, 1, 0.01],
         ['bh.ring', '光環粗細（畫面 px）', 1, 40, 0.5],
         ['bh.form', '凝聚完成後幾秒長成', 1, 120, 1],
         '#移動|motion',
@@ -3386,24 +3482,22 @@ const LH_SP_TUNE_ROWS = [
         ['bh.starIn', '恆星飄回出生半徑內的速度（黑洞飄回邊緣的孿生；宇宙半徑 %／秒，0 關）', 0, 3, 0.01]]],
     ['黑洞｜範圍', [
         '#範圍|trig',
-        ['bh.range', '引力範圍（宇宙半徑 %；這圈內星系開始被拉歪、行星被潮汐拉長）', 2, 150, 0.5],
+        ['bh.range', '引力範圍（宇宙半徑 %；這圈內開始照「吸入速度」被拖向黑洞）', 2, 150, 0.5],
         ['bh.absorb', '光暈開始被吸（宇宙半徑 %；星塵從這圈開始被拉出來）', 1, 150, 0.5],
         ['bh.scatR', '恆星散架（宇宙半徑 %；恆星被拉進這圈＝整團撕開、回不去；單顆行星進這圈也會被扯走）', 0.5, 150, 0.5],
-        ['bh.lensR', '魚眼範圍（宇宙半徑 %；時間從這圈開始變慢、字開始被拉長）', 0.5, 100, 0.5],
-        ['bh.lens.ring', '事件視界（魚眼半徑的比例：碰到就凍住、慢慢淡掉被吃掉）', 0.05, 0.95, 0.05]]],
-    ['黑洞｜引力', [
-        '#引力|phys',
-        ['bh.ga', '強度 a：黑洞中心的加速度（宇宙半徑 %／秒²）', 0, 5000, 10],
-        ['bh.gb', '加速度 b：加速度＝a×(1−距離／範圍)^b（越大越集中在中心）', 0.2, 8, 0.05],
-        ['bh.gmax', '速度上限（宇宙半徑 %／秒）', 0, 200, 1],
-        ['bh.lean', '拉歪程度：還沒散架的星系在散架圈上被拉近多少（宇宙半徑 %；越遠拉越少、行星照潮汐拉長）', 0, 30, 0.5]]],
+        ['bh.lensR', '魚眼範圍（宇宙半徑 %；外觀：字從這圈開始沿圈拉長、變暗、紅移，一路到事件視界。不影響速度）', 0.5, 100, 0.5]]],
+    ['黑洞｜吸入速度', [   // 2026-11-22 Andy：舊引力公式整套換成速度 envelope（_lhSpEnvEditor）
+        '#吸入速度|phys',
+        '@env',
+        ['bh.envT', '進出引力範圍的過渡秒數（進來：自己的力慢慢交給黑洞；出去：黑洞的力慢慢放手、想起家在哪）', 0.1, 10, 0.1],
+        ['bh.swirl', '螺旋角度：吸入方向偏離正中心幾度（0＝直直掉進去；越大繞越多圈；速度大小照圖表不變）', 0, 85, 1]]],
     ['黑洞｜事件視界', [
         '#時間|time',
-        ['bh.slow', '時間放慢倍數（事件視界上＝這個倍數；拖黑洞、拖詞到上方＝整個宇宙；1＝不放慢）', 1, 60, 1],
-        ['bh.lens.curve', '時間變慢曲線（魚眼外緣→事件視界；1＝直線，越小越早變慢）', 0.25, 6, 0.05],
+        ['bh.slow', '時間放慢倍數：按住黑洞、拖詞到黑洞上方＝整個宇宙放慢（1＝不放慢）；也決定靠近事件視界時日冕轉慢的程度（只是外觀）', 1, 60, 1],
+        ['bh.lens.curve', '拉長／變暗／紅移的曲線（魚眼外緣→事件視界；1＝直線，越小越早開始）', 0.25, 6, 0.05],
         ['bh.slowT', '拖黑洞時整個宇宙煞車／放開要幾秒', 0.05, 3, 0.05],
         '#凍結|end',
-        ['bh.fzT', '凍在事件視界上幾秒才被吃掉（越轉越慢、慢慢淡掉）', 0.3, 15, 0.1],
+        ['bh.fzT', '凍在事件視界上的殘影幾秒淡完（只是外觀，本體一碰到就重生了）', 0.3, 15, 0.1],
         ['bh.lens.str', '沿著視界被拉長多少（凍到最後＝字寬×1＋這個值；0 關）', 0, 5, 0.05],
         ['bh.fzRed', '紅移（越靠近越紅；0 關）', 0, 1, 0.05],
         ['bh.lens.star', '恆星被拉長的程度（0 不拉／1 跟行星一樣）', 0, 1, 0.05]]],
@@ -3412,10 +3506,17 @@ const LH_SP_TUNE_ROWS = [
         ['bh.dW', '星塵起點寬度（星球半徑×）', 0.1, 4, 0.05],
         ['bh.stSoft', '星塵柔化', 0, 3, 0.05],
         ['bh.dFib', '細纖維根數', 0, 10, 1],
+        ['bh.dB', '星塵亮度（倍；恆星、行星都算）', 0, 5, 0.05],
         ['bh.dStarB', '恆星星塵亮度加成（倍）', 0, 5, 0.05],
+        ['bh.stIn', '恆星星塵亮起來的曲線（光暈跨進「開始被吸」那圈幾成 → 多亮；1＝等比例，越大剛碰到越暗、越深才亮）', 0.3, 4, 0.05],
         ['bh.dStarFib', '恆星細纖維根數加成（倍）', 0, 5, 0.1],
         ['bh.dOff', '星塵起點（離星球中心，星球半徑×）', 0, 2, 0.01],
-        ['bh.stGrow', '星塵從透明長到扎實要幾秒（約）', 0.5, 15, 0.5]]],
+        ['bh.stGrow', '星塵從透明長到扎實要幾秒（約）', 0.5, 15, 0.5],
+        '#星塵光團|motion',
+        ['bh.knA', '星塵光團：亮暗多明顯（倍；0＝關掉、整條平均亮）', 0, 3, 0.05],
+        ['bh.knZ', '星塵光團：大小（亮的那段佔一個間隔的比例）', 0.05, 1, 0.01],
+        ['bh.knF', '星塵光團：多密（倍；越大一條上越多團）', 0.2, 4, 0.05],
+        ['bh.knE', '星塵霧：再拉長幾倍（順著流；1＝基本的 2 倍長）', 1, 5, 0.05]]],
     ['黑洞｜吸食', [
         '#吸食|heat',
         ['bh.eMaxB', '黑洞膨脹最大（直徑倍數）', 1, 4, 0.05],
@@ -3425,11 +3526,8 @@ const LH_SP_TUNE_ROWS = [
         ['bh.eGlow', '光暈大小（光圈×）', 1, 6, 0.05],
         ['bh.eGlowB', '光暈亮度（倍）', 0, 3, 0.05]]],
     ['白洞｜出口', [
-        '#加速|motion',
-        ['wh.u1', '慢慢放大的那段佔全程多少（越大＝衝刺越晚）', 0.3, 0.88, 0.01],
-        ['wh.pre', '衝刺前放大到幾倍', 1, 8, 0.1],
-        ['wh.pow', '衝刺曲線（1 直線／越大越晚才猛衝）', 1, 6, 0.1],
-        ['wh.t25', '起步凝滯：放大到 2.5 倍要幾秒', 0.2, 2.5, 0.05]]],
+        '#大小|motion',
+        '@whenv']],   // 2026-11-23 Andy：三條滑桿換成 envelope（秒 × 大小）
     ['互動｜甩動', [
         '#煞車|end',
         ['grab.glide', '甩動滑多遠（出手速度 × 幾秒；黑洞、恆星、行星共用）', 0.05, 2, 0.05],
@@ -3485,7 +3583,7 @@ const LH_SP_TUNE_ROWS = [
         ['glow.flash', '星座線閃光亮度（倍）', 0, 2, 0.05]]],
     ['互動｜抓行星', [
         '#點擊範圍|len',
-        ['grab.lead', '飛行中的行星點擊範圍往前多算幾秒的路（0 關）', 0, 0.6, 0.01]]]
+        ['grab.hitR', '飛行中的行星點擊範圍：四周多算幾 px 的半徑（畫面 px；0 關）', 0, 120, 1]]]
 ];
 const _lhSpTuneAll = () => LH_SP_TUNE_ROWS.flatMap(([, rows]) => rows.filter(Array.isArray));   // 所有滑桿（跳過小段標題字串）
 // 小段的色票：同一種主題整個面板同一個顏色（兩種主題都看得清楚的中間亮度）
@@ -3493,7 +3591,7 @@ const _lhSpTuneTagC = { time: '#8f98ab', phys: '#8d8fe0', planet: '#4fa3e3', sta
     look: '#de6fa2', trig: '#5fb867', end: '#d95f5f', len: '#8fbf3a', motion: '#3fb3d6', wave: '#6f9be8', line: '#c08ae0' };
 const _lhSpTunePath = (o, path) => { const ks = path.split('.'), last = ks.pop(); for (const k of ks) o = o?.[k]; return [o, last]; };
 // 0.98.22.11 Andy：請 Claude 改的值要蓋掉瀏覽器裡存的——改哪個就把它在這裡的數字 +1，存的版本比較舊的那一項會用新預設，其他自己拉的照舊
-const LH_SP_TUNE_REV = { 'bh.lens.curve': 1, 'bh.lens.star': 1, 'bh.size': 3, 'bh.margin': 2, 'bh.range': 4, 'bh.absorb': 4, 'bh.scatR': 3, 'bh.lensR': 3, 'bh.ga': 2, 'bh.gb': 1, 'bh.gmax': 2, 'bh.lean': 1, 'bh.core': 1, 'bh.stSoft': 1, 'bh.speed': 1, 'bh.back': 1, 'bh.slow': 1, 'gather.starTo': 1, 'trail.soft': 1, 'gather.fadeTo': 1, 'gather.litCorona': 1, 'dock.r': 2 };   // bh.margin：Andy 宇宙再大一點（0.05→0.4）
+const LH_SP_TUNE_REV = { 'roam.micro': 1, 'roam.small': 1, 'roam.mid': 1, 'roam.comet': 1, 'bh.lens.curve': 1, 'bh.lens.star': 1, 'bh.size': 3, 'bh.margin': 2, 'bh.range': 4, 'bh.absorb': 4, 'bh.scatR': 3, 'bh.lensR': 3, 'bh.env': 1, 'bh.core': 1, 'bh.stSoft': 1, 'bh.speed': 1, 'bh.back': 1, 'bh.slow': 1, 'gather.starTo': 1, 'trail.soft': 1, 'gather.fadeTo': 1, 'gather.litCorona': 1, 'dock.r': 2 };   // bh.margin：Andy 宇宙再大一點（0.05→0.4）
 const _lhSpTuneSave = () => (v => LH_SP_COARSE ? lhSet('lh:spTuneM', v) : lhSet('lh:spTune', v))(JSON.stringify({ ...LH_SP_TUNE, _rev: LH_SP_TUNE_REV }));
 {
     const saved = LH_SP_TUNE_UI && (LH_SP_COARSE ? lhGetJSON('lh:spTuneM', null, v => v && typeof v === 'object') : lhGetJSON('lh:spTune', null, v => v && typeof v === 'object'));   // 齒輪藏起來時不套瀏覽器裡調過的值（一律用 sp-tune-defaults.js）
@@ -3501,6 +3599,8 @@ const _lhSpTuneSave = () => (v => LH_SP_COARSE ? lhSet('lh:spTuneM', v) : lhSet(
         const [so, sk] = _lhSpTunePath(saved, path), [o, k] = _lhSpTunePath(LH_SP_TUNE, path);
         if (so && Number.isFinite(so[sk]) && (saved._rev?.[path] || 0) >= (LH_SP_TUNE_REV[path] || 0)) o[k] = so[sk];
     }
+    if (saved && _lhSpEnvOk(saved.bh?.env) && (saved._rev?.['bh.env'] || 0) >= LH_SP_TUNE_REV['bh.env']) LH_SP_TUNE.bh.env = saved.bh.env.slice();
+    if (saved && _lhSpWhOk(saved.wh?.env)) LH_SP_TUNE.wh.env = saved.wh.env.slice();
 }
 // 齒輪面板：每組一個標題、每個數字一條滑桿＋目前值；底下「複製數值」「還原預設」
 function _lhSpTunePanel() {
@@ -3537,6 +3637,7 @@ function _lhSpTunePanel() {
         let grp = null, rs = null, tagC = '';
         const sec = (lab, c) => { grp = _lhWsEl('details', 'ws-tune-g'); const h = _lhWsEl('summary', 'ws-tune-h', lab); if (c) { h.classList.add('ws-tune-hc'); h.style.setProperty('--sub-c', c); } grp.append(h); cat[0].append(grp); rs = []; cat[2].push(rs); groups.push([h, lab, rs]); };
         for (const it of rows) {
+            if (it === '@env' || it === '@whenv') { if (!grp) sec(sub, tagC); const ed = _lhSpEnvEditor(recount, it === '@env' ? LH_SP_ENV_BH : LH_SP_ENV_WH), g0 = grp; g0.addEventListener('toggle', () => { box._env(); }); ed.onX = () => { g0.open = false; }; const f0 = box._env; box._env = () => { if (f0) f0(); if (g0.open && !box.hidden) ed.open(); else ed.close(); }; grp.append(ed.el);   /* 2026-11-23 Andy：一打開「吸入速度」這組就直接跳出浮動視窗 */ rs.push(ed.el); inputs.push(ed.sync); continue; }   // 吸入速度 envelope 編輯器
             if (typeof it === 'string') {   // 小段（有顏色）：自己一個可收合的區塊，底下的滑桿左邊一條同色的線
                 tagC = _lhSpTuneTagC[it.slice(1).split('|')[1]] || '#999';
                 if (!grp) sec(sub, tagC);   // 區塊顏色＝第一個色票
@@ -3553,7 +3654,7 @@ function _lhSpTunePanel() {
             Object.assign(r, { type: 'range', min: String(min), max: String(max), step: String(step) });
             const mark = v => { const c = Math.abs(+v - def) > 1e-9; row.classList.toggle('chg', c); dv.hidden = !c; recount(); };
             const sync = () => { const [o, k] = _lhSpTunePath(LH_SP_TUNE, path); r.value = String(o[k]); out.textContent = String(o[k]); mark(o[k]); };
-            r.addEventListener('input', () => { const [o, k] = _lhSpTunePath(LH_SP_TUNE, path); o[k] = +r.value; out.textContent = r.value; mark(r.value); _lhSp.dirty = true; if (path.startsWith('bh.')) _lhSp.bhGuide = _lhSpNow(); });   // 拉黑洞滑桿：畫面上畫範圍輔助線
+            r.addEventListener('input', () => { const [o, k] = _lhSpTunePath(LH_SP_TUNE, path); o[k] = +r.value; out.textContent = r.value; mark(r.value); _lhSp.dirty = true; if (LH_SP_GUIDE_KEYS.has(path)) _lhSp.bhGuide = _lhSpNow(); if (path === 'bh.light') _lhSp.envDraw?.(); });   // 拉黑洞滑桿：畫面上畫範圍輔助線
             r.addEventListener('change', _lhSpTuneSave);   // 放開滑桿才存
             row.addEventListener('dblclick', e => { e.preventDefault(); const [o, k] = _lhSpTunePath(LH_SP_TUNE, path); if (o && def !== undefined) { o[k] = def; sync(); _lhSpTuneSave(); _lhSp.dirty = true; } });   // Andy：雙擊這一列＝還原預設
             row.append(_lhWsEl('span', 'ws-tune-l', label), vv, r);
@@ -3579,7 +3680,7 @@ function _lhSpTunePanel() {
     reset.addEventListener('click', () => {
         for (const g of Object.keys(LH_SP_TUNE_DEF)) {
             if (g === 'starfx') for (const s of Object.keys(LH_SP_TUNE_DEF.starfx)) Object.assign(LH_SP_STARFX[s], LH_SP_TUNE_DEF.starfx[s]);
-            else Object.assign(LH_SP_TUNE[g], LH_SP_TUNE_DEF[g]);
+            else Object.assign(LH_SP_TUNE[g], JSON.parse(JSON.stringify(LH_SP_TUNE_DEF[g])));
         }
         inputs.forEach(f => f());
         if (LH_SP_COARSE) lhRemove('lh:spTuneM'); else lhRemove('lh:spTune');
@@ -3599,6 +3700,8 @@ function _lhSpTunePanel() {
             const [so, sk] = _lhSpTunePath(obj, path), [o, k] = _lhSpTunePath(LH_SP_TUNE, path);
             if (so && Number.isFinite(so[sk]) && o) { o[k] = so[sk]; n++; }
         }
+        if (_lhSpEnvOk(obj.bh?.env)) { LH_SP_TUNE.bh.env = obj.bh.env.slice(); n++; }
+        if (_lhSpWhOk(obj.wh?.env)) { LH_SP_TUNE.wh.env = obj.wh.env.slice(); n++; }
         if (!n) { showToast('剪貼簿裡沒有認得的數值', 2600); return; }
         inputs.forEach(f => f());
         _lhSpTuneSave();
@@ -3622,6 +3725,129 @@ function _lhSpTunePanel() {
     acts.append(...nodes);
     box.append(acts);
     return box;
+}
+// 2026-11-22 Andy：吸入速度 envelope 編輯器（齒輪 → 黑洞｜吸入速度）。X＝6 個預設點分 5 段（每段 0～100%），Y＝往黑洞走的速度（宇宙半徑 %／秒）。
+// 拖點＝改速度（加的點也能左右移，不能越過鄰居）；雙擊空白＝加點；雙擊加的點＝刪掉；雙擊預設點＝還原那點；Opt＋拖線段＝改那段曲率。黃色虛線＝宇宙光速（可以畫得比它高）
+// 2026-11-23 Andy：envelope 編輯器共用一套（黑洞吸入速度 bh.env、白洞出口 wh.env）——拖點、雙擊加／刪／還原、Opt＋拖線段調曲率都一樣，差別在 spec
+const LH_SP_ENV_BH = {
+    o: () => LH_SP_TUNE.bh, d: () => LH_SP_TUNE_DEF.bh, title: '黑洞｜吸入速度', hint: '拖點調速度｜雙擊空白加點｜雙擊加的點刪掉｜雙擊預設點還原｜Opt＋拖線段調曲率',
+    xMax: () => 5, fixed: (E, i) => Number.isInteger(E[i * 3]), moveX: (E, i) => !Number.isInteger(E[i * 3]), lockY: () => false,
+    yFit: E => { let m = (LH_SP_TUNE.bh.light ?? 6) * 1.25; for (let i = 1; i < E.length; i += 3) m = Math.max(m, E[i] * 1.15); return Math.max(1, m); }, yHi: 500,
+    addX: x => Number.isInteger(x) ? null : Math.max(0.01, Math.min(4.99, x)),
+    grid: (c, X, top, bot, H) => { const SN = ['範圍', '光暈', '散架', '魚眼', '視界', '中心']; for (let k = 0; k <= 5; k++) { c.globalAlpha = 0.18; c.beginPath(); c.moveTo(X(k), top); c.lineTo(X(k), bot); c.stroke(); c.globalAlpha = 0.7; c.textAlign = k === 0 ? 'left' : k === 5 ? 'right' : 'center'; c.fillText(SN[k], X(k) + (k === 0 ? -4 : k === 5 ? 4 : 0), H - 6); } },
+    extra: (c, Y, yMax, l, r) => { const lc = LH_SP_TUNE.bh.light ?? 6; if (lc > yMax) return; c.globalAlpha = 0.9; c.strokeStyle = c.fillStyle = '#d8b43a'; c.setLineDash([4, 3]); c.beginPath(); c.moveTo(l, Y(lc)); c.lineTo(r, Y(lc)); c.stroke(); c.setLineDash([]); c.textAlign = 'left'; c.fillText('宇宙光速 ' + lc, l + 3, Y(lc) - 3); c.textAlign = 'right'; c.fillText(String(lc), l - 4, Y(lc) + 3); },
+    say: (x, v) => { const NM = ['引力範圍', '光暈被吸', '恆星散架', '魚眼', '事件視界', '黑洞中心'], k = Math.min(4, Math.floor(x)), u = Math.round((x - k) * 100); return NM[k] + (u ? ' → ' + NM[k + 1] + ' ' + u + '%' : '') + (v === undefined ? '' : '：' + (+v.toFixed(2)) + ' %／秒' + (v > (LH_SP_TUNE.bh.light ?? 6) ? '（超光速：黑洞範圍內允許）' : '')); },
+    restore: (A, i, D) => { const j = D.findIndex((x, q) => q % 3 === 0 && x === A[i * 3]); if (j >= 0) A[i * 3 + 1] = D[j + 1]; },
+    onPut: () => { _lhSp.bhGuide = _lhSpNow(); },
+};
+// 白洞出口：橫軸＝秒（最後一點＝蓋滿畫面的時間，往右拖＝整段變長；放手後橫軸重新撐開），縱軸＝大小（0％＝白洞本身、100％＝蓋滿整個畫面）
+const LH_SP_ENV_WH = {
+    o: () => LH_SP_TUNE.wh, d: () => LH_SP_TUNE_DEF.wh, title: '白洞｜出口', hint: '拖點調大小／時間｜最後一點往右拖＝整段拉長｜雙擊空白加點｜雙擊加的點刪掉｜雙擊頭尾還原｜Opt＋拖線段調曲率',
+    xMax: E => Math.max(1, E[E.length - 3] * 1.25), fixed: (E, i) => i === 0 || i === E.length / 3 - 1, moveX: (E, i) => i > 0, lockY: (E, i) => i === E.length / 3 - 1,
+    yFit: () => 100, yHi: 100, addX: (x, E) => x > 0 && x < E[E.length - 3] ? x : null,
+    grid: (c, X, top, bot, H, xMax) => { const st = xMax > 8 ? 2 : xMax > 3 ? 1 : 0.5; for (let k = 0; k <= xMax + 1e-6; k += st) { c.globalAlpha = 0.18; c.beginPath(); c.moveTo(X(k), top); c.lineTo(X(k), bot); c.stroke(); c.globalAlpha = 0.7; c.textAlign = k === 0 ? 'left' : 'center'; c.fillText(+k.toFixed(1) + 's', X(k), H - 6); } },
+    extra: () => {},
+    say: (x, v) => (+x.toFixed(2)) + ' 秒' + (v === undefined ? '' : '：大小 ' + Math.round(v) + '％'),
+    restore: (A, i, D) => { if (i === 0) A[1] = D[1]; else A[i * 3] = Math.max(A[i * 3 - 3] + 0.05, D[D.length - 3]); },
+    onPut: () => {},
+};
+function _lhSpEnvEditor(recount, S = LH_SP_ENV_BH) {
+    const el = _lhWsEl('div', 'ws-tune-row ws-tune-env'), cv = document.createElement('canvas'), tip = _lhWsEl('div', 'ws-tune-envtip', ' ');
+    cv.className = 'ws-tune-envc';
+    // 2026-11-23 Andy：浮動視窗跟面板裡這一組的展開同步——打開這組＝跳出視窗，✕ 關視窗＝這組收合（面板裡沒有按鈕）
+    const body = _lhWsEl('div', 'ws-tune-envb');
+    body.append(cv, tip, _lhWsEl('div', 'ws-tune-envhint', S.hint));
+    let fl = null;
+    el.style.display = 'none';   // 面板裡只是掛載點（浮動視窗定位用），不佔位置
+    const api = { el, onX: null };
+    const dock = () => { if (fl) fl.hidden = true; };
+    const open = () => {
+        if (!fl) {
+            fl = _lhWsEl('div', 'ws-tune-envfl'); fl.setAttribute('role', 'dialog'); fl.setAttribute('aria-label', S.title);
+            const hd = _lhWsEl('div', 'ws-tune-envfh'), x = _lhWsEl('button', 'ws-tune-envx', '✕');
+            x.type = 'button'; x.setAttribute('aria-label', '關閉'); x.addEventListener('click', () => { dock(); if (api.onX) api.onX(); });
+            hd.append(_lhWsEl('span', '', S.title), x); fl.append(hd);
+            let g = null;
+            hd.addEventListener('pointerdown', e => { if (e.target === x) return; const r = fl.getBoundingClientRect(); g = [e.clientX - r.left, e.clientY - r.top]; hd.setPointerCapture(e.pointerId); });
+            hd.addEventListener('pointermove', e => { if (!g) return; fl.style.left = Math.max(0, Math.min(innerWidth - 80, e.clientX - g[0])) + 'px'; fl.style.top = Math.max(0, Math.min(innerHeight - 40, e.clientY - g[1])) + 'px'; });
+            hd.addEventListener('pointerup', () => { g = null; });
+            (el.closest('.ws-tune')?.parentElement || document.body).append(fl);
+        }
+        fl.append(body); fl.hidden = false; draw();
+    };
+    const P = { l: 30, r: 12, t: 12, b: 20 };
+    let W = 0, H = 0, yMax = 1, xMax = 5, drag = null, hov = -1;
+    const E = () => S.o().env, n = () => E().length / 3, fixed = i => S.fixed(E(), i);
+    const fit = () => { yMax = S.yFit(E()); xMax = S.xMax(E()); };
+    const X = x => P.l + x / xMax * (W - P.l - P.r), Y = v => H - P.b - v / yMax * (H - P.t - P.b);
+    const iX = px => (px - P.l) / Math.max(1, W - P.l - P.r) * xMax, iV = py => (H - P.b - py) / Math.max(1, H - P.t - P.b) * yMax;
+    const hit = (px, py) => { let b = -1, bd = 9; for (let i = 0; i < n(); i++) { const d = Math.hypot(X(E()[i * 3]) - px, Y(E()[i * 3 + 1]) - py); if (d < bd) { bd = d; b = i; } } return b; };
+    const seg = px => { const x = iX(px); let i = 0; while (i < n() - 2 && E()[(i + 1) * 3] <= x) i++; return i; };
+    const mark = () => { el.classList.toggle('chg', JSON.stringify(E()) !== JSON.stringify(S.d().env)); recount(); };
+    function draw() {
+        const dpr = window.devicePixelRatio || 1; W = cv.clientWidth; H = cv.clientHeight; if (!W || !H) return;
+        if (cv.width !== Math.round(W * dpr)) { cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); }
+        if (!drag) fit();
+        const c = cv.getContext('2d'), fg = getComputedStyle(el).color, Ev = E();
+        c.setTransform(dpr, 0, 0, dpr, 0, 0); c.clearRect(0, 0, W, H); c.font = '10px sans-serif';
+        c.strokeStyle = fg; c.fillStyle = fg; c.lineWidth = 1;
+        S.grid(c, X, P.t, H - P.b, H, xMax);
+        c.globalAlpha = 0.18; c.beginPath(); c.moveTo(P.l, H - P.b); c.lineTo(W - P.r, H - P.b); c.stroke();
+        c.globalAlpha = 0.7; c.textAlign = 'right'; c.fillText('0', P.l - 4, H - P.b + 3); c.fillText(String(+yMax.toFixed(1)), P.l - 4, P.t + 3);
+        S.extra(c, Y, yMax, P.l, W - P.r);
+        const xe = Ev[Ev.length - 3];
+        c.globalAlpha = 1; c.strokeStyle = '#8d8fe0'; c.lineWidth = 2; c.beginPath();
+        for (let i = 0; i <= 250; i++) { const x = i / 250 * xe, px = X(x), py = Y(_lhSpEnvAt(Ev, x)); i ? c.lineTo(px, py) : c.moveTo(px, py); }
+        c.stroke();
+        for (let i = 0; i < n(); i++) {
+            const px = X(Ev[i * 3]), py = Y(Ev[i * 3 + 1]), r = i === hov || (drag && drag.i === i) ? 5.5 : 4;
+            c.beginPath(); c.arc(px, py, r, 0, Math.PI * 2);
+            if (fixed(i)) { c.fillStyle = '#8d8fe0'; c.fill(); } else { c.fillStyle = getComputedStyle(el.closest('.ws-tune') || el).backgroundColor; c.fill(); c.lineWidth = 1.8; c.strokeStyle = '#8d8fe0'; c.stroke(); }
+        }
+    }
+    const put = A => { S.o().env = A; _lhSp.dirty = true; S.onPut(); draw(); };
+    const at = e => { const r = cv.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; };
+    cv.addEventListener('pointerdown', e => {
+        const [px, py] = at(e), i = hit(px, py);
+        fit();
+        if (e.altKey) { const s0 = seg(px); drag = { c: s0, y0: py, c0: E()[s0 * 3 + 2], up: E()[s0 * 3 + 4] > E()[s0 * 3 + 1] }; }
+        else if (i >= 0) drag = { i };
+        else return;
+        S.o().env = E().slice();   // 不動到預設那份
+        cv.setPointerCapture(e.pointerId); e.preventDefault();
+    });
+    cv.addEventListener('pointermove', e => {
+        const [px, py] = at(e), A = E();
+        if (!drag) { const h = hit(px, py); if (h !== hov) { hov = h; draw(); } const x = Math.max(0, Math.min(A[A.length - 3], iX(px))); tip.textContent = S.say(x, _lhSpEnvAt(A, x)); return; }
+        if (drag.i !== undefined) {
+            const i = drag.i, last = i === n() - 1;
+            if (!S.lockY(A, i)) A[i * 3 + 1] = Math.max(0, Math.min(S.yHi, +iV(py).toFixed(2)));
+            if (S.moveX(A, i)) A[i * 3] = Math.max(A[i * 3 - 3] + 0.01, last ? Math.min(xMax, iX(px)) : Math.min(A[i * 3 + 3] - 0.01, iX(px)));
+            if (S === LH_SP_ENV_BH && Number.isInteger(A[i * 3]) && !fixed(i)) A[i * 3] += 0.001;   // 加的點不會變成預設點
+            tip.textContent = S.say(A[i * 3], A[i * 3 + 1]);
+        } else {
+            const k = drag.c * 3 + 2; A[k] = Math.max(-1, Math.min(1, +(drag.c0 + (drag.y0 - py) / 60 * (drag.up ? -1 : 1)).toFixed(3)));
+            tip.textContent = S.say(A[drag.c * 3]) + ' 那段曲率 ' + A[k];
+        }
+        put(A);
+    });
+    const end = () => { if (!drag) return; drag = null; _lhSpTuneSave(); mark(); draw(); };
+    cv.addEventListener('pointerup', end); cv.addEventListener('pointercancel', end);
+    cv.addEventListener('pointerleave', () => { if (!drag && hov >= 0) { hov = -1; draw(); } });
+    cv.addEventListener('dblclick', e => {
+        const [px, py] = at(e), i = hit(px, py), A = E().slice();
+        if (i >= 0 && !fixed(i)) A.splice(i * 3, 3);   // 刪掉加的點
+        else if (i >= 0) S.restore(A, i, S.d().env);   // 預設點：還原
+        else {   // 空白：在這裡加一個點（曲率沿用那段）
+            const x = S.addX(iX(px), A), s0 = seg(px);
+            if (x === null) return;
+            A.splice((s0 + 1) * 3, 0, x, Math.max(0, Math.min(S.yHi, +iV(py).toFixed(2))), A[s0 * 3 + 2]);
+        }
+        put(A); _lhSpTuneSave(); mark();
+    });
+    if (typeof ResizeObserver === 'function') new ResizeObserver(draw).observe(cv);
+    if (S === LH_SP_ENV_BH) _lhSp.envDraw = draw;
+    return Object.assign(api, { open, close: dock, sync: () => { draw(); mark(); } });
 }
 const _lhSpFxC = new Map();   // 日冕、光芒的小圖：每種顏色畫一次
 function _lhSpFxImg(kind, rgb) {
@@ -3803,7 +4029,7 @@ function _lhSpScatter(s, L, bh) {   // bh：黑洞撕開（不亂噴，行星帶
     for (const o of _lhSp.words) {
         if (o.cl !== s.cl || o === s || o.pinned) continue;
         const at = _lhSpPos(o), a = Math.random() * Math.PI * 2, v = bh ? 0 : 120 + Math.random() * 220;
-        if (!o.free) { o.fx = (o.ux ?? at.x) + (o.tlx || 0); o.fy = (o.uy ?? at.y) + (o.tly || 0); o.fvx = bh ? o.lvx || 0 : 0; o.fvy = bh ? o.lvy || 0 : 0; o.free = true; }   // 起點＝畫的位置（還沒乘呼吸＋潮汐拉長） o.src = 'A'; o.smHome = false; o.odist = undefined;   // smHome：回到家（煙改公轉）一次就不再切回，重新沖散才重來   // 被沖散＝A 組殘影
+        if (!o.free) { o.fx = o.px ?? at.x; o.fy = o.py ?? at.y; o.fvx = bh ? o.lvx || 0 : 0; o.fvy = bh ? o.lvy || 0 : 0; o.free = true; }   // 起點＝畫的位置（含呼吸；2026-11-22 力的層級：自由的行星直接畫在自己的位置） o.src = 'A'; o.smHome = false; o.odist = undefined;   // smHome：回到家（煙改公轉）一次就不再切回，重新沖散才重來   // 被沖散＝A 組殘影
         o.gk = 0;   // 凝聚到一半又被沖散：照一般的速度拉回
         o.fvx += Math.cos(a) * v; o.fvy += Math.sin(a) * v;
     }
@@ -3835,31 +4061,83 @@ function _lhSpAmoeba() {
     const k = Math.sqrt(4 * (1 + Math.random() * 0.5) / area);   // 面積＝方形（4）×1～1.5
     return Object.assign(A, { k, pts, cum, len: cum[N] });
 }
-// 0.98.41 Andy 新黑洞引力：加速度＝a ×（1 − 距離／引力範圍）^b，指向黑洞中心；大天體、小天體一樣快（不分質量），角動量自然保留＝會繞著走。
-// 單位是宇宙半徑的 1%（H.u）——每個宇宙的範圍、速度感一樣。範圍內速度最多 gmax。
-// 回傳 0＝範圍外、1＝範圍內、2＝掉進核心。2026-11-21：拿掉「逃逸反阻尼」「視界內只准往內」——到了事件視界就凍住（_lhSpFzStep），不用再硬拗速度
-function _lhSpBhG(o, H, T, dt) {
-    const dx = H.x - o.x, dy = H.y - o.y, d = Math.hypot(dx, dy) || 1e-6;
-    if (d > H.R) return 0;
-    if (d < H.r) return 2;
-    const a = T.ga * H.u * Math.pow(Math.max(0, 1 - d / H.R), T.gb);
-    o.vx += dx / d * a * dt; o.vy += dy / d * a * dt;
-    const vm = Math.max(1e-3, T.gmax * H.u), v = Math.hypot(o.vx, o.vy);
-    if (v > vm) { o.vx *= vm / v; o.vy *= vm / v; }
-    return 1;
+// 2026-11-22 Andy：行星每一格只走一條規則，由上往下第一個成立的贏（不再到處標旗子）：
+//  1. 釘住／正在被你拖／篩選掉／還沒誕生 → 黑洞不管
+//  2. 碰到事件視界 → 被吞，馬上重生（_lhSpEatWord）
+//  3. 在引力範圍內，而且「被扯走（自己進過散架點）」或「在等恆星」→ 照 envelope 被吸
+//  4. 在引力範圍內、恆星好好的 → 跟著恆星（綁著＝整團被拖；自由的＝彈簧拉回恆星）
+//  5. 在引力範圍外、在等恆星 → 先煞車、停了在原地黯淡地漂
+//  6. 其他 → 平常的樣子（公轉／彈簧回家）
+// 「在等恆星」＝恆星進了散架點注定被吞（cl.doom，恆星被吃掉重生、或逃出去停下才解除），或這顆自己剛重生、還在原地凝聚（reW）
+const _lhSpWait = (w, t) => !w.star && !w.comet && !!w.cl && (!!w.cl.doom || (!!w.reW && t < w.reW));
+// 2026-11-22 Andy：吸入速度 envelope（取代 0.98.41 的引力公式）。X 軸＝6 個預設點分成 5 段，每段 0～100%：
+// 引力範圍(0) → 光暈開始被吸(1) → 恆星散架(2) → 魚眼(3) → 事件視界(4) → 黑洞中心(5)；Y 軸＝往黑洞走的速度（宇宙半徑 %／秒，可以超光速）。
+// bh.env＝[x, 速度, 曲率] 一組三個；曲率是「這個點到下一個點」那段：0 直線、正＝前段慢後段快、負＝前段快後段慢
+const _lhSpEnvAt = (E, x) => {
+    let i = 0; while (i + 3 < E.length - 3 && E[i + 3] <= x) i += 3;
+    const x0 = E[i], x1 = E[i + 3], u = x1 > x0 ? Math.max(0, Math.min(1, (x - x0) / (x1 - x0))) : 1;
+    return E[i + 1] + (E[i + 4] - E[i + 1]) * Math.pow(u, Math.pow(4, E[i + 2]));
+};
+// 距離 → envelope 的 X（0～5）；引力範圍外回 -1。圈比外圈大（例：光暈圈 > 引力範圍）就當成跟外圈一樣大＝那段寬度 0
+function _lhSpEnvX(d, H) {
+    const R = [H.R, H.A, H.s, H.L, H.z, 0];
+    for (let i = 1; i < 6; i++) R[i] = Math.min(R[i], R[i - 1]);
+    if (d > R[0]) return -1;
+    for (let i = 0; i < 5; i++) if (d >= R[i + 1]) return i + (R[i] > R[i + 1] ? (R[i] - d) / (R[i] - R[i + 1]) : 1);
+    return 5;
 }
-// 2026-11-21 Andy 選 A：事件視界＝從外面看「永遠到不了」——碰到視界就凍在那一圈上：繞的角度越轉越慢（收斂）、往裡沉一點點、
-// 慢慢淡掉（外觀另外沿圈拉長、變暗、紅移，見 _lhSpFrame）；bh.fzT 秒淡完＝被吃掉。位置相對黑洞，黑洞走到哪跟到哪
-function _lhSpFzStart(w, x, y, vx, vy, H, tk, t) {
-    const dx = x - H.x, dy = y - H.y, d = Math.hypot(dx, dy) || 1e-6;
-    w.fz = { t0: t, a: Math.atan2(dy, dx), r: d, om: (dx * vy - dy * vx) / (d * d) * tk, u: 0, e: 1, x, y };   // om：碰到時看起來的角速度（已經被時間拖慢）
+// 這個距離往黑洞走多快（宇宙座標／秒）；範圍外 -1
+const _lhSpEnvV = (d, H) => { const x = _lhSpEnvX(d, H); return x < 0 ? -1 : Math.max(0, _lhSpEnvAt(LH_SP_TUNE.bh.env, x)) * H.u; };
+// 2026-11-23 Andy 進出引力範圍的過渡（交叉淡變）：每個天體一個「被黑洞接管的程度」bm（0～1）——在範圍內 bh.envT 秒等速走到 1，出了範圍同樣秒數走回 0。
+// 宇宙裡的力（恆星彈簧、漫遊、飄回中心、互相推開、自己的慣性）×(1−bm)；黑洞的（吸入＋螺旋＋黑洞自己的速度）×bm。出去時黑洞那份用離開那一刻的值慢慢淡掉
+// （取代舊的：一進範圍就關彈簧／停漫遊、自己的速度 envT 秒抵銷、出範圍甩動煞車滑一段）
+const _lhSpMix = (o, inR, dt) => { o.bm = Math.max(0, Math.min(1, (o.bm || 0) + (inR ? 1 : -1) * dt / Math.max(0.05, LH_SP_TUNE.bh.envT ?? 1.5))); return o.bm; };
+// 2026-11-23 Andy 黑洞螺旋：吸入速度的方向不是正對中心，而是偏 bh.swirl 度（整個黑洞同一個轉向）。速度大小照 envelope 不變，
+// 往內的分量＝速度×cos(角度)，所以一定掉得進去（角度 < 90°）；剩下的分量繞著轉＝螺旋
+const _lhSpEnvVec = (dx, dy, d, ev) => {
+    if (ev < 0) return [0, 0];
+    const B = _lhSp.bh, sp = B ? (B.spin ||= Math.random() < 0.5 ? -1 : 1) : 1, a = (LH_SP_TUNE.bh.swirl ?? 0) * Math.PI / 180 * sp;
+    const c = Math.cos(a), sn = Math.sin(a), ux = dx / d, uy = dy / d;
+    return [(ux * c - uy * sn) * ev, (ux * sn + uy * c) * ev];
+};
+// 2026-11-23 Andy：碰到事件視界（核心表面）＝被吞，馬上觸發重生。凍在圈上慢慢淡掉的動畫照跑，但只是留在原地的殘影（外觀），
+// 因為從外面看這過程是無限久的，不能等它淡完才重生
+function _lhSpGhost(w, x, y, vx, vy) {
+    const B = _lhSp.bh; if (!B || !w.spr) return;
+    const dx = x - B.x, dy = y - B.y, d = Math.hypot(dx, dy) || 1e-6;
+    const g = Object.assign({}, w, { ghost: true, px: x, py: y, fox: 0, foy: 0, mag: 1, kb: 1, sprH: null, sprRd: null, twk: 0, dim: false, trl: null, lzs: null, rdK: 0, alpha: 0 });
+    g.fz = { t0: _lhSpNow(), a: Math.atan2(dy, dx), r: d, om: (dx * vy - dy * vx) / (d * d), u: 0, e: 1, x, y };   // om：碰到時繞黑洞的角速度
+    (_lhSp.ghosts ||= []).push(g);
 }
-function _lhSpFzStep(w, H, t) {
-    const F = w.fz, Tf = Math.max(0.3, LH_SP_TUNE.bh.fzT ?? 3), s = Math.max(0, (t - F.t0) / 1000), tau = Tf * 0.3;
-    F.e = Math.exp(-s / tau);   // 剩下的時間流速（1 → 0）
-    const a = F.a + F.om * tau * (1 - F.e), r = F.r * (1 - 0.12 * (1 - F.e));
-    F.x = H.x + Math.cos(a) * r; F.y = H.y + Math.sin(a) * r; F.u = Math.min(1, s / Tf);
-    return F.u >= 1;
+// 殘影每格：釘在事件視界那一圈上（2026-11-23 Andy：死了只剩投影——跟黑洞整團一起被拖，不再沉進視界裡面；沉進去的在拖黑洞時會露出來、像重新綻放），繞的角度越轉越慢（收斂）、bh.fzT 秒淡完
+function _lhSpGhostStep() {
+    const G = _lhSp.ghosts, B = _lhSp.bh; if (!G || !G.length) return false;
+    if (!B || !_lhSp.bhW) { G.length = 0; return false; }
+    const t = _lhSpNow(), Tf = Math.max(0.3, LH_SP_TUNE.bh.fzT ?? 3), RD = LH_SP_TUNE.bh.fzRed ?? 0.8, Q = _lhSp.bhScr;
+    for (let i = G.length - 1; i >= 0; i--) {
+        const g = G[i], F = g.fz, s = Math.max(0, (t - F.t0) / 1000), tau = Tf * 0.3;
+        F.e = Math.exp(-s / tau); F.u = Math.min(1, s / Tf);
+        if (F.u >= 1) { G.splice(i, 1); continue; }
+        const a = F.a + F.om * tau * (1 - F.e), r = _lhSp.bhW.z;   // 半徑＝視界（世界座標）
+        g.px = B.x + Math.cos(a) * r; g.py = B.y + Math.sin(a) * r;
+        g.alpha = 0.8 * Math.pow(1 - F.u, 1.6); g.rdK = RD * (0.35 + 0.65 * F.u); g.lzs = null;
+        if (Q) { const qz = 0.4 + 0.6 * F.u, p = _lhSpScr(g.px, g.py), dx = p.x - Q.x, dy = p.y - Q.y, dl = Math.hypot(dx, dy) || 1, sT = 1 + (LH_SP_TUNE.bh.lens.str ?? 1.5) * qz * (g.star ? LH_SP_TUNE.bh.lens.star ?? 0.15 : 1);
+            g.lzs = { nx: dx / dl, ny: dy / dl, sT, sR: 1 / (1 + 0.6 * (sT - 1)), r: dl, qx: Q.x, qy: Q.y, q: 1 }; }
+    }
+    return G.length > 0;
+}
+function _lhSpEatWord(w, t, L) {
+    if (w.free) _lhSpGhost(w, w.fx, w.fy, w._sx ?? w.fvx, w._sy ?? w.fvy); else _lhSpGhost(w, w.px, w.py, 0, 0);
+    const b = _lhSp.el.querySelector('.ws-bh');
+    if (w.star && b) { b.classList.remove('gulp'); void b.offsetWidth; b.classList.add('gulp'); }   // 吃掉一整顆恆星：打一個嗝
+    _lhSp.bhEat = Math.min(1, (_lhSp.bhEat || 0) + (w.star ? 0.35 : 0.08));   // 吸食光圈亮一下
+    _lhSpReborn(w, t, L); w.lwx = undefined;
+}
+function _lhSpEatComet(w) {   // 流星：休息一段時間後從離黑洞最遠的那邊重新出場（凍結殘影照跑）
+    { const sp = w.mv ?? (w.v || 0) * (LH_SP_TUNE.roam.comet ?? 5) * _lhSpU(), a = w.mang ?? w.ang; _lhSpGhost(w, w.x, w.y, Math.cos(a) * sp, Math.sin(a) * sp); }
+    const sec = 15.5 * (LH_SP_TUNE.gather.dur || 1) + Math.random() * LH_SP_TUNE.bh.form;
+    _lhSp.bhEat = Math.min(1, (_lhSp.bhEat || 0) + 0.08);
+    Object.assign(w, { cmWait: _lhSpNow() + sec * 1000, cmFar: true, inBh: 0, bm: 0, bvIn: null, mang: undefined, mv: undefined, bhE: {}, tk: undefined, lzq: undefined, trl: null, trOld: null, trRet: null });
 }
 // 0.98.41 Andy 甩動煞車（黑洞、恆星、行星、流星共用），直線等減速。
 // 2026-11-21 重整：煞停的路＝出手速度 × grab.glide 秒（跟手機捲動一樣，輕輕一撥滑一點、用力甩滑很遠），
@@ -3873,6 +4151,20 @@ function _lhSpBrakeOf(x, y, vx, vy, pct) {
 }
 // 放手時的甩動速度（宇宙座標／秒）：只看放手前 0.1 秒的移動；停住超過 0.08 秒才放手＝沒甩。
 // 畫面上低於 grab.flingMin px／秒＝只是放下（手抖不會滑走），超過的部分才算甩，最快 4000 px／秒
+// 2026-11-22 Andy：宇宙光速（常數）——任何東西都不能比它快：甩出去的詞與黑洞（_lhSpFlingV）、被彈簧拉回家的行星、被黑洞吸的恆星與行星。凝聚、流星除外（有自己的時間軸／軌道）
+const _lhSpC = () => (LH_SP_TUNE.bh.light ?? 6) * _lhSpU();
+// 2026-11-22 Andy 力的層級最後一關：速度超過上限就夾到上限，沒有例外（甩出去也是從光速開始滑）。
+// 上限＝Math.max(宇宙光速, 這裡的黑洞吸入速度)——2026-11-23 Andy：黑洞範圍內 envelope 可以超過光速。
+// 上限往上＝立刻；往下（離開黑洞、往外走）＝等速降，不管超出多少都在 1.8 秒內回到光速（不會有速度斷層）。o.limL：這個天體現在的上限
+const LH_SP_LIM_BACK = 1.8;
+const _lhSpLimStep = (o, ev, dt) => { const c = _lhSpC(), tgt = Math.max(c, ev || 0), L = o.limL || c; if (tgt >= L) { o.limL = tgt; o.limR = undefined; } else { if (o.limR === undefined) o.limR = (L - c) / LH_SP_LIM_BACK; o.limL = Math.max(tgt, L - o.limR * dt); } };
+const _lhSpLim = o => Math.max(_lhSpC(), o.limL || 0);
+const _lhSpCapV = (o, dt, kx = 'fvx', ky = 'fvy') => { const c = _lhSpLim(o), v = Math.hypot(o[kx], o[ky]); if (v > c) { o[kx] *= c / v; o[ky] *= c / v; } };
+// 位置照公式擺的（軌道上的行星、還綁著的恆星）：這一格最多移動 m（＝光速 × dt），追不上的下一格繼續追。o.qx／qy＝實際畫的位置；瞬間搬家（重生、重新出場）把 qx 清掉
+const _lhSpGate = (o, x, y, m) => { if (o.qx === undefined) { o.qx = x; o.qy = y; return; } const dx = x - o.qx, dy = y - o.qy, d = Math.hypot(dx, dy); if (d > m) { o.qx += dx / d * m; o.qy += dy / d * m; } else { o.qx = x; o.qy = y; } };
+// 2026-11-22 Andy 力的層級：速度相加（自己的 o[kx]＋外加的 ex，例如黑洞吸入）→ 擋光速 → 回寫自己的（被擋掉的部分不會越積越多）。結果在 o._sx／_sy
+// 速度相加：自己的速度 ×s（s＝1−黑洞接管程度）＋黑洞那份 → 擋上限。擋到時自己的那份等比例縮（黑洞那份是外力，不寫回）
+const _lhSpSum = (o, ex, ey, dt, kx = 'fvx', ky = 'fvy', s = 1) => { o._sx = o[kx] * s + ex; o._sy = o[ky] * s + ey; const c = _lhSpLim(o), v = Math.hypot(o._sx, o._sy); if (v > c) { const f = c / v; o._sx *= f; o._sy *= f; o[kx] *= f; o[ky] *= f; } return o; };
 function _lhSpFlingV(h, tUp) {
     const b = h[h.length - 1];
     if (!b || tUp - b.t > 80) return { vx: 0, vy: 0 };
@@ -3880,7 +4172,7 @@ function _lhSpFlingV(h, tUp) {
     const dt = (b.t - a.t) / 1000; if (dt < 0.005) return { vx: 0, vy: 0 };
     const z = _lhSpZv(), vx = (b.x - a.x) / dt, vy = (b.y - a.y) / dt, v = Math.hypot(vx, vy) * z, vm = LH_SP_TUNE.grab.flingMin ?? 250;
     const k = v > vm ? Math.min(v - vm, 4000) / v : 0;
-    return { vx: vx * k, vy: vy * k };
+    return { vx: vx * k, vy: vy * k };   // 出手照手速；超過光速的部分在飛行中平滑收掉（_lhSpCapV）
 }
 const _lhSpBrakeW = (w, dt) => { const v = Math.hypot(w.fvx, w.fvy), dv = w.brk * dt; if (v <= dv) { w.fvx = w.fvy = 0; w.brk = 0; return true; } w.fvx *= (v - dv) / v; w.fvy *= (v - dv) / v; return false; };
 // Andy：宇宙大小＝「距離最遠的兩顆行星」的距離 × bh.uK（宇宙直徑），只有一個星系也適用；沒有兩顆行星才退回舊算法（星系群半徑）。
@@ -3906,35 +4198,39 @@ function _lhSpReborn(w, t, L) {
     for (let i = 0; i < 48; i++) {
         const a = Math.random() * Math.PI * 2, l = _lhSpAmoebaR(AM, a) * K * (0.2 + 0.65 * Math.sqrt(Math.random())), x = Math.cos(a) * l, y = Math.sin(a) * l;
         let dG = Infinity; for (const cl of _lhSp.groups || []) if (!(w.star && cl === w.cl)) dG = Math.min(dG, Math.hypot(x - cl.x, y - cl.y) - (cl.r || 0));
-        const sc = Math.min(1, Math.hypot(x - B.x, y - B.y) / (H.R * 1.5)) * 2 + Math.min(1, Math.max(0, dG) / (K * 0.15));   // 先求離黑洞夠遠，再求空曠
+        const dB = Math.hypot(x - B.x, y - B.y), sc = Math.min(1, dB / (H.R * 1.5)) * 2 + Math.min(1, Math.max(0, dG) / (K * 0.15)) - (dB < H.R ? 10 : 0);   // 先求離黑洞夠遠，再求空曠；2026-11-22 Andy：引力範圍內一律不選（全都在範圍內才挑最遠的）
         if (sc > bs) { bs = sc; best = { x, y }; }
     }
-    if (!w.star && w.cl) {   // Andy：行星——恆星「直徑 × bh.reOut」那圈完全在引力範圍外，就在直徑 × reIn～reOut 的圈圈之間隨機出生（直徑＝光暈直徑）
-        const cl = w.cl, Dg = 2 * (cl.r || 0) * LH_SP_TUNE.glow.starSize, TB = LH_SP_TUNE.bh, ro = Dg * (TB.reOut ?? 1.5) / 2, ri = Math.min(ro, Dg * (TB.reIn ?? 0.3) / 2);
-        if (ro > 0 && Math.hypot(cl.x - B.x, cl.y - B.y) - ro > H.R) { const a = Math.random() * Math.PI * 2, l = Math.sqrt(ri * ri + (ro * ro - ri * ri) * Math.random()); best = { x: cl.x + Math.cos(a) * l, y: cl.y + Math.sin(a) * l }; }
+    if (!w.star && w.cl && w.r !== undefined) {   // 2026-11-23 Andy：行星——在自己該去的位置（軌道上）bh.reP 畫面 px 內隨機出生；只有那裡還在引力範圍內，才去遠方
+        const P = _lhSpOrbit(w), rr = (LH_SP_TUNE.bh.reP ?? 50) / Math.max(1e-6, _lhSpZv());
+        for (let i = 0; i < 12; i++) { const a = Math.random() * Math.PI * 2, l = rr * Math.sqrt(Math.random()), x = P.x + Math.cos(a) * l, y = P.y + Math.sin(a) * l; if (Math.hypot(x - B.x, y - B.y) > H.R) { best = { x, y, near: true }; break; } }
+        if (best.near) { const om = _lhSpOm(w) * (L.orbit || 0), h = 0.01; w.th += om * h; const P1 = _lhSpOrbit(w); w.th -= om * h; best.vx = (P1.x - P.x) / h; best.vy = (P1.y - P.y) / h; }   // 2026-11-23 Andy：出生就帶著軌道的公轉速度（慣性），邊凝聚邊跟著走、彈簧同時拉——不會凝聚完才從大半圈外追過去
     }
     _lhSpStBreak(w); w.stK = w.stL = 0;
-    const clr = { bhF: false, bhE: {}, inBh: 0, bhC: 0, tlx: 0, tly: 0, brk: 0, brkP: 0, outE: false, hold: undefined, fz: null, lzq: undefined, lzs: null, lt: undefined, rdK: 0, sprRd: null, trl: null, trOld: null, trRet: null, bhA: undefined, tk: undefined, reT: t };
+    // 2026-11-23 Andy（重生的行星回家像拖車、停車）：速度上限歸零；行星回家的「越拉越緊」彈簧從出生那刻重新算（之前沿用被吸時的計時，一出生就最緊）
+    const clr = { qx: undefined, bhF: false, bhE: {}, inBh: 0, bm: 0, bvIn: null, bhC: 0, bhR: 0, rtT: 0, limL: 0, limR: undefined, tlx: 0, tly: 0, brk: 0, brkP: 0, outE: false, hold: undefined, lzq: undefined, lzs: null, lt: undefined, rdK: 0, sprRd: null, trl: null, trOld: null, trRet: null, bhA: undefined, tk: undefined, reT: t };
     if (w.star) {
         const cl = w.cl;
         const reW = t + _lhSpGatherCurve().full * (LH_SP_TUNE.gather.dur || 1) * 1000, dg = _lhSp.drag && _lhSp.drag.w;   // 恆星完全成形的時間
         for (const o of _lhSp.words) if (o.cl === cl && o !== w && !o.pinned && o !== dg && o.px !== undefined) {   // 行星照原本的速度繼續走，等恆星成形完才慢慢轉向新家（不瞬間改方向）
-            if (!o.free) Object.assign(o, { free: true, fx: (o.ux ?? o.px) + (o.tlx || 0), fy: (o.uy ?? o.py) + (o.tly || 0), fvx: o.lvx || 0, fvy: o.lvy || 0, src: 'A', smHome: false, odist: undefined, gk: 0 });   // 起點用還沒乘呼吸的位置（呼吸位移照家算，畫的位置完全接得上）
-            o.reW = reW;
+            if (!o.free) Object.assign(o, { free: true, fx: o.px ?? o.ux, fy: o.py ?? o.uy, fvx: o.lvx || 0, fvy: o.lvy || 0, src: 'A', smHome: false, odist: undefined, gk: 0 });   // 起點＝畫的位置（含呼吸），畫的位置完全接得上
+            o.reW = reW;   // 恆星重新成形前：等（_lhSpWait）
         }
         Object.assign(w, clr, { fx: best.x, fy: best.y, fvx: 0, fvy: 0 });
         _lhSpSettle(w, L, (_lhSpNow() - _lhSp.t0) / 1000);
-        cl.held = false;
-    } else Object.assign(w, clr, { free: true, fx: best.x, fy: best.y, fvx: 0, fvy: 0, src: 'A', smHome: false, odist: undefined, gk: 0, reW: t + _lhSpGatherCurve().end * (LH_SP_TUNE.gather.dur || 1) * 1000 });   // Andy：行星在原地形成完（reW）才開始飄去找恆星
+        cl.held = false; cl.doom = 0; cl.qx = undefined;   // 瞬間搬家：不用從黑洞那邊追過來
+    } else Object.assign(w, clr, { free: true, fx: best.x, fy: best.y, fvx: best.vx || 0, fvy: best.vy || 0, bhR: 1, rtT: t, src: 'A', smHome: false, odist: undefined, gk: 0, reW: best.near ? 0 : t + _lhSpGatherCurve().end * (LH_SP_TUNE.gather.dur || 1) * 1000 });   // Andy：行星在原地形成完（reW）才開始飄去找恆星
 }
 // ===== Andy 第 5 級：被黑洞吸的東西拉成「麵條」潮汐流（參考 GRO J1655-40、潮汐瓦解模擬圖）=====
 // 源頭寬而散的霧 → 越靠近越收成一條發亮的細線 → 最後繞著黑洞捲進去；細沙粒沿著流越跑越快（看得出方向）；匯聚處發亮。
 // 第 4 級以下：只有原本的平滑淡掉。每條流只是幾十段線＋幾十顆 1px 的沙（照參數算位置，不做物理），最多 14 條
 // 麵條斷掉（被甩出去、太遠、換邊）：最後一次畫的形狀留下來變成一截殘煙，尾端沿著原路被吸進去（_lhSpBhStreams 畫）
 function _lhSpStBreak(w) {
-    if (w.stG && w.stK > 0.03) { const R = _lhSp.bhRem || (_lhSp.bhRem = []); if (R.length < 12) R.push({ ...w.stG, t0: 0 }); }
+    if (w.stG && w.stK > 0.03) { const R = _lhSp.bhRem || (_lhSp.bhRem = []); if (R.length < 12) R.push({ ...w.stG, t0: 0, z0: _lhSpZv() }); }
     w.stK = w.stL = 0; w.stG = null;
 }
+// 畫布變形：base（DOMMatrix）∘ [a b c d e f]，一次 setTransform（取代 save／translate／rotate／restore，便宜很多）
+function _lhMulSet(ctx, M, a, b, c, d, e, f) { ctx.setTransform(M.a * a + M.c * b, M.b * a + M.d * b, M.a * c + M.c * d, M.b * c + M.d * d, M.a * e + M.c * f + M.e, M.b * e + M.d * f + M.f); }
 function _lhSpBhStreams(c, t, z) {
     const all = _lhSp.bhSrc || [], SC = all.filter(o => o.cl).sort((a, b) => b.k - a.k).slice(0, 6), S = all.filter(o => o.w).sort((a, b) => b.k - a.k).slice(0, 8);   // 星系光暈（大餐）最多 6 條；行星（點綴）最多 8 條
     const Q = _lhSp.bhScr;
@@ -3944,7 +4240,15 @@ function _lhSpBhStreams(c, t, z) {
     const N = 40, K = 16, hash = j => { const v = Math.sin(j * 127.1 + 311.7) * 43758.5453; return v - Math.floor(v); }, r1 = Q.r * 0.85;
     const sg = _lhSp.bhSpin || (_lhSp.bhSpin = Math.random() < 0.5 ? -1 : 1);
     const dtE = Math.min(0.1, Math.max(0, (t - (_lhSp.bhEnT || t)) / 1000)); _lhSp.bhEnT = t;
-    const gT = Math.max(0.3, (LH_SP_TUNE.bh.stGrow ?? 4) * 0.45), grow = o => (o.stL = Math.min(1, (o.stL || 0) + dtE / gT));   // Andy：麵條只有真的畫出來時才往黑洞伸（排隊沒畫到的不偷長，輪到它時才從源頭慢慢伸過去）
+    // 2026-11-23 Andy（特效也要守光速）：星塵裡的東西（前端、光團、亮點、殘煙）往黑洞走的速度＝那個距離的吸入速度（跟天體同一套 envelope，含螺旋的徑向分量）。
+    // 麵條上的位置 u（0＝源頭、1＝黑洞口）對應離黑洞的畫面距離 r＝r1＋(d0−r1)(1−u)^ex；flowU 把 u 照那裡的速度往前推 dt 秒
+    const HW = _lhSp.bhW, cosS = Math.cos((LH_SP_TUNE.bh.swirl ?? 0) * Math.PI / 180);
+    const flowU = (u, d0, ex, dt) => {
+        const span = d0 - r1; if (span <= 1 || !HW || dt <= 0) return Math.min(1, u);
+        const r = r1 + span * Math.pow(Math.max(0, 1 - u), ex), ev = _lhSpEnvV(r / z, HW), v = (ev >= 0 ? ev : _lhSpC()) * cosS * z;
+        const r2 = Math.max(r1, r - v * dt); return Math.min(1, 1 - Math.pow((r2 - r1) / span, 1 / ex));
+    };
+    const grow = (o, d0, ex) => (o.stL = flowU(o.stL || 0, d0, ex, dtE));   // Andy：麵條只有真的畫出來時才往黑洞伸（排隊沒畫到的不偷長）；前端照吸入速度伸過去
     for (const o of all) if (!SC.includes(o) && !S.includes(o)) { const x = o.cl || o.w; x.stL = 0; x.stG = null; }   // 排隊沒畫到的：不偷長，也不留舊形狀（Andy 抓到：散架時所有行星一起斷，本來看不見的也全變成殘煙同時冒出來＝瞬間大亮）
     c.save(); c.globalCompositeOperation = 'lighter'; c.lineCap = 'round'; c.lineJoin = 'round';
     let sum = 0;
@@ -3957,8 +4261,14 @@ function _lhSpBhStreams(c, t, z) {
         const { th0, d0, V, W0, rgb } = G, sd = V.sd ?? 0, fl = V.fl ?? 1, ts = t / 1000, fog = V.fog ?? 1, str = V.str ?? 1;
         const bow = V.bow + (V.bw ?? 0) * Math.sin(ts * (V.bf ?? 0.5) + sd), wnd = V.wind * (1 + (V.bw ?? 0) * 0.3 * Math.sin(ts * (V.bf ?? 0.5) * 0.7 + sd * 1.3));   // 整條慢慢擺、繞的圈數微微呼吸
         const at = u => { const r = r1 + (d0 - r1) * Math.pow(1 - u, V.ex), th = th0 + sg * wnd * Math.pow(u, V.pw) + bow * Math.sin(Math.PI * u) * (1 - u); return [Q.x + Math.cos(th) * r, Q.y + Math.sin(th) * r]; };   // 越後段繞越多＝捲進去
-        const knot = u => 1 + (V.kn ?? 0) * Math.sin(Math.PI * 2 * (u * (V.kf ?? 3) - ts * (V.ks ?? 0.6) * fl));   // 一團團的濃淡沿著流往黑洞推
-        const BW = LH_SP_TUNE.bh, wid = u => W0 * Math.pow(1 - u, V.we ?? (G.big ? 1.15 : 1.6)) + 0.7, uu = i => uLo + (uHi - uLo) * i / N;   // 0.98.41 Andy：恆星的氣流（big）中段收得慢＝整條比較粗
+        // 星塵光團（Andy 命名）：一團團亮的沿著流被「吸」進去——離黑洞越近跑越快、間距被拉開（舊版等速＝像恆星往外送）。
+        // 位置用 g(u)＝1−(1−u)^1.8 當尺（越靠黑洞同樣的 g 差對應越長的 u），大小＝亮的那段佔一個週期多少（knZ），明顯程度 knA、多密 knF、速度 knS 都是倍數
+        const KB = LH_SP_TUNE.bh, kAmp = (V.kn ?? 0) * (KB.knA ?? 1), kZ = Math.max(0.05, Math.min(1, KB.knZ ?? 0.6));
+        const kSp = 1 / Math.max(0.2, (V.kf ?? 3) * (KB.knF ?? 1)), KN = G.kn || [];   // 2026-11-23：光團是一顆顆被吸進去的東西（G.kn：位置 u，照吸入速度走，見 adv），不再自己按時間跑
+        const knot = u => { if (kAmp <= 0) return 1; let dd = 9; for (const q of KN) dd = Math.min(dd, Math.abs(u - q)); dd /= kSp * kZ / 2; const blob = dd < 1 ? 0.5 + 0.5 * Math.cos(Math.PI * dd) : 0; return Math.max(0, 1 - kAmp + 2 * kAmp * blob); };
+        // 2026-11-22 Andy（伸向黑洞時前端像被剪斷的斷面）：還在長的星塵前端收成尖的——寬度在最前面 tipL 那段收到 0，細纖維中間那根領先、旁邊的參差落後
+        const tipL = uLo === 0 && uHi < 0.995 ? Math.max(0.02, 0.22 * uHi) : 0, tip = u => tipL ? Math.pow(Math.min(1, Math.max(0, (uHi - u) / tipL)), 0.55) : 1;
+        const BW = LH_SP_TUNE.bh, wid = u => (W0 * Math.pow(1 - u, V.we ?? (G.big ? 1.15 : 1.6)) + 0.7) * tip(u), uu = i => uLo + (uHi - uLo) * i / N;   // 0.98.41 Andy：恆星的氣流（big）中段收得慢＝整條比較粗
         const pts = []; for (let i = 0; i <= N; i++) pts.push(at(uu(i)));
         const ribbon = wf => {   // 照寬度函式 wf 圍出整條帶子（左邊一路過去、右邊一路回來）
             const L = [], R = [];
@@ -3974,18 +4284,24 @@ function _lhSpBhStreams(c, t, z) {
         const bh = (G.bh ?? b);
         // Andy（第四版）：霧＝把「光暈」本身吸過來——沿著麵條一路蓋星星光暈那張柔光（中間亮、邊緣柔到沒有），越往黑洞越小、越淡＝光暈被拉長、擰細。
         // 舊版是實心帶子，邊緣是硬的（像一條色帶）。間距＝大小的 0.28，柔光彼此融成一片，看不出一顆一顆
-        { const img = _lhSpGlowImg(rgb); let u = uLo, n = 0;
+        { const img = _lhSpGlowImg(rgb), b0f = c.getTransform(), eR = 2 * Math.max(1, BW.knE ?? 1); let u = uLo, n = 0;   // 2026-11-23 Andy（效能）：霧改成順著流拉長 2 倍的橢圓（再乘「光團橢圓率」）——同樣連續，張數減半
           while (u < uHi && n < 70) {
               const sz = wid(u) * (G.soft ? 2.4 : 1.7), P = at(u), a = bh * hz * fog * knot(u) * (sz > 60 ? 0.28 : 0.2) * Math.pow(1 - u, 0.7) * Math.min(1, u / (G.soft ? 0.35 : G.big ? 0.08 : 0.22));   // 源頭淡入：霧是從光暈邊緣被撕下來的——源頭那端不能最濃（Andy 抓到：星系霧流的源頭疊在恆星身上＝恆星光暈被吸乾後又「大亮」）；行星點綴更柔
-              if (a > 0.003) { c.globalAlpha = Math.min(1, a); c.drawImage(img, P[0] - sz / 2, P[1] - sz / 2, sz, sz);
-                  if (G.big) { const s2 = sz * (1 + 1.2 * BW.stSoft); c.globalAlpha = Math.min(1, a * 0.3); c.drawImage(img, P[0] - s2 / 2, P[1] - s2 / 2, s2, s2); } }   // 恆星：外面再一圈更大更淡的柔光＝有體積、邊緣柔到看不見
               const P2 = at(Math.min(1, u + 0.01)), dl = Math.hypot(P2[0] - P[0], P2[1] - P[1]) / 0.01 || 1;
-              u += Math.max(0.003, (sz > 60 ? 0.42 : 0.28) * sz / dl); n++;   // 大張的柔光間距放寬（夠柔，看不出接縫；省效能）
+              if (a > 0.003) {
+                  const an = Math.atan2(P2[1] - P[1], P2[0] - P[0]);   // 順著流的方向
+                  _lhMulSet(c, b0f, Math.cos(an), Math.sin(an), -Math.sin(an), Math.cos(an), P[0], P[1]);
+                  const ox = 0, oy = 0;
+                  c.globalAlpha = Math.min(1, a); c.drawImage(img, ox - sz * eR / 2, oy - sz / 2, sz * eR, sz);
+                  if (G.big) { const s2 = sz * (1 + 1.2 * BW.stSoft); c.globalAlpha = Math.min(1, a * 0.3); c.drawImage(img, ox - s2 * eR / 2, oy - s2 / 2, s2 * eR, s2); }   // 恆星：外面再一圈更大更淡的柔光＝有體積、邊緣柔到看不見
+                  c.setTransform(b0f);
+              }
+              u += Math.max(0.003, (sz > 60 ? 0.42 : 0.28) * sz * 2 / dl); n++;   // 大張的柔光間距放寬（夠柔，看不出接縫；省效能）。每張比以前長 2 倍、間距也 2 倍＝每一點蓋到的張數不變（亮度一樣），張數少一半
           } c.globalAlpha = 1; }
         // 輝光：越擰越亮（窄窄一條，貼著細繩）
         // 恆星（big）：三層由窄到寬、由亮到淡疊起來＝橫切面是柔的（不是一條硬邊色帶）；行星照舊一層
         for (const [wm, am] of G.big ? [[1, 0.7], [1 + 1.5 * BW.stSoft, 0.32], [1 + 4 * BW.stSoft, 0.14]] : [[1, 1]]) {
-            ribbon(u => (2 + 6 * Math.pow(u, 1.2)) * wm * (G.big ? 1 + 0.6 * (1 - u) : 1)); c.fillStyle = rg([[0, 'rgba(255,240,225,' + Math.min(1, 0.22 * b * am * str).toFixed(3) + ')'], [0.3, _lhSpRGBA(rgb, Math.min(1, 0.14 * b * am * str))], [1, _lhSpRGBA(rgb, 0)]]); c.fill();
+            ribbon(u => (2 + 6 * Math.pow(u, 1.2)) * wm * (G.big ? 1 + 0.6 * (1 - u) : 1) * tip(u)); c.fillStyle = rg([[0, 'rgba(255,240,225,' + Math.min(1, 0.22 * b * am * str).toFixed(3) + ')'], [0.3, _lhSpRGBA(rgb, Math.min(1, 0.14 * b * am * str))], [1, _lhSpRGBA(rgb, 0)]]); c.fill();
         }
         // 細繩：一次描完，越靠近黑洞越亮、最後一段轉白熱
         c.beginPath(); c.moveTo(pts[0][0], pts[0][1]); for (const q of pts) c.lineTo(q[0], q[1]);
@@ -3994,9 +4310,11 @@ function _lhSpBhStreams(c, t, z) {
             const nf = Math.round(BW.dFib * (G.big ? BW.dStarFib : 1));
             for (let f = 0; f < nf; f++) {
                 const sdf = (hash(f * 7 + 1 + sd) - 0.5) * 0.9, ph = hash(f * 3 + 2 + sd) * 6.28;
+                const uEf = tipL ? uHi - tipL * (0.1 + 1.2 * Math.abs(sdf) / 0.45) * (0.5 + hash(f * 5 + 4 + sd)) : uHi;   // 越靠邊的纖維越落後、各自參差
                 c.beginPath();
                 for (let i = 0; i <= N; i++) {
-                    const u = uu(i), a = pts[Math.max(0, i - 1)], bb = pts[Math.min(N, i + 1)], tx = bb[0] - a[0], ty = bb[1] - a[1], tl = Math.hypot(tx, ty) || 1;
+                    const u = uu(i); if (u > uEf && i) break;
+                    const a = pts[Math.max(0, i - 1)], bb = pts[Math.min(N, i + 1)], tx = bb[0] - a[0], ty = bb[1] - a[1], tl = Math.hypot(tx, ty) || 1;
                     const off = wid(u) * sdf * (1 + 0.25 * Math.sin(u * 9 + ph + t / 900 * fl)), x = pts[i][0] - ty / tl * off, y = pts[i][1] + tx / tl * off;
                     i ? c.lineTo(x, y) : c.moveTo(x, y);
                 }
@@ -4004,8 +4322,8 @@ function _lhSpBhStreams(c, t, z) {
             }
         }
         // 流動：一顆顆亮點沿著流跑、越近越快、被拉成越長的光線；一開始散在整條寬度、最後收成一線
-        for (let j = 0, KK = Math.round((G.big ? K * 2 : K) * (V.pn ?? 1)); j < KK; j++) {   // 恆星：亮點多一倍，散在整條寬度裡；每條亮點多寡、流速不同
-            const f = (hash(j + sd) + ts * fl * (0.22 + 0.18 * hash(j + 9 + sd))) % 1, u = uLo + (0.5 + 0.5 * Math.pow(f, 1.8)) * (uHi - uLo), u0 = Math.max(uLo, u - 0.005 - 0.022 * u * u);   // Andy：從麵條中段才開始、短很多
+        for (let j = 0, SP = G.sp || [], KK = Math.min(SP.length, Math.round((G.big ? K * 2 : K) * (V.pn ?? 1))); j < KK; j++) {   // 恆星：亮點多一倍，散在整條寬度裡（2026-11-23：位置 G.sp 照吸入速度走，見 adv）
+            const u = Math.max(uLo, Math.min(uHi, SP[j])), f = Math.max(0, Math.min(1, (u - 0.5 * uHi) / Math.max(1e-6, 0.5 * uHi))), u0 = Math.max(uLo, u - 0.005 - 0.022 * u * u);   // Andy：從麵條中段才開始、短很多
             const A = at(u), B = at(u0), tx = A[0] - B[0], ty = A[1] - B[1], tl = Math.hypot(tx, ty) || 1, off = (hash(j + 3 + sd) - 0.5) * wid(u) * 0.85;
             const ox = -ty / tl * off, oy = tx / tl * off;
             c.strokeStyle = u > 0.6 ? 'rgba(255,246,232,1)' : rgb; c.globalAlpha = Math.min(1, b * 0.4 * str * (0.2 + 0.6 * u) * (0.6 + 0.5 * hash(j + 5 + sd)) * Math.min(1, f * 6)); c.lineWidth = 0.8 + 0.6 * u;   // 淡很多、細一點
@@ -4016,17 +4334,27 @@ function _lhSpBhStreams(c, t, z) {
     const mkV = (big, base) => { const m = Math.random(); return { ...base, sd: Math.random() * 1000, fl: 0.6 + Math.random() * 0.9, bw: 0.05 + Math.random() * 0.3, bf: 0.25 + Math.random() * 0.6,
         kn: Math.random() < 0.4 ? Math.random() * 0.12 : 0.25 + Math.random() * 0.45, kf: 1.5 + Math.random() * 4, ks: 0.3 + Math.random() * 0.9,
         fog: 0.55 + 0.9 * m, str: 1.45 - 0.8 * m, pn: 0.5 + Math.random(), we: big ? 0.9 + Math.random() * 0.6 : 1.1 + Math.random() * 0.9 }; };   // m：這條偏「霧」（大）還是偏「線」（小）
+    const adv = (o, G, uM) => {   // 光團、亮點：每格照吸入速度往黑洞推（粒子），到前端就消失／從中段重來
+        const V = G.V, kSp = 1 / Math.max(0.2, (V.kf ?? 3) * (LH_SP_TUNE.bh.knF ?? 1)), KK = Math.round((G.big ? K * 2 : K) * (V.pn ?? 1));
+        const kn = o.stKn || (o.stKn = []); for (let i = 0; i < kn.length; i++) kn[i] = flowU(kn[i], G.d0, V.ex, dtE);
+        while (kn.length && kn[kn.length - 1] >= uM) kn.pop();
+        if (!kn.length || kn[0] >= kSp) kn.unshift(kn.length ? kn[0] - kSp : 0);
+        const sp = o.stSp || (o.stSp = []); while (sp.length < KK) sp.push(0.5 * uM + 0.5 * uM * hash(sp.length + V.sd));
+        for (let j = 0; j < sp.length; j++) { sp[j] = flowU(sp[j], G.d0, V.ex, dtE * (0.85 + 0.3 * hash(j + 9 + V.sd))); if (sp[j] >= uM) sp[j] = 0.5 * uM + 0.15 * uM * hash(j * 7 + t * 0.001); }
+        G.kn = kn; G.sp = sp;
+    };
     for (const { cl, k } of SC) {   // 恆星的星塵（主角）：從光暈面向黑洞那側被撕下來，一路擰細捲進去
         // 0.98.41 Andy：起點離恆星中心 bh.dOff 個光暈半徑、寬 bh.dW 個光暈半徑；亮度看光暈跨進「光暈開始被吸」那圈多少（兩圓重疊的弦長）× bh.dStarB
         const sw = cl.sw && cl.sw.cl === cl && cl.sw.star ? cl.sw : null, c0 = sw ? _lhSpWS(sw) : _lhSpScr(cl.x, cl.y);   // 2026-11-21（位置對不上）：照恆星實際畫在哪、光暈實際多大（含呼吸、游標放大鏡）
         const hr = Math.max(4, (cl.r || 40) * LH_SP_TUNE.glow.starSize * z * (sw ? (sw.kb || 1) * (sw.mag || 1) : 1)), dC = Math.hypot(c0.x - Q.x, c0.y - Q.y) || 1, A = Q.a;
-        const xx = (dC * dC + A * A - hr * hr) / (2 * dC), chord = dC <= Math.abs(A - hr) ? 2 * Math.min(A, hr) : dC >= A + hr ? 0 : 2 * Math.sqrt(Math.max(0, A * A - xx * xx)), ov = Math.min(1, chord / (2 * hr));
+        const xx = (dC * dC + A * A - hr * hr) / (2 * dC), chord = dC <= Math.abs(A - hr) ? 2 * Math.min(A, hr) : dC >= A + hr ? 0 : 2 * Math.sqrt(Math.max(0, A * A - xx * xx)), ov = Math.max(0, Math.min(1, (A + hr - dC) / (2 * hr)));   // 2026-11-23 Andy（一沾到就整團大亮）：光暈跨進去幾成（線性），不再用弦長（剛碰到就長很快）
         const dS = Math.max(Q.r * 1.6, dC - hr * LH_SP_TUNE.bh.dOff), px = Q.x + (c0.x - Q.x) / dC * dS, py = Q.y + (c0.y - Q.y) / dC * dS, dx = px - Q.x, dy = py - Q.y, d0 = Math.hypot(dx, dy);
         if (d0 < Q.r * 1.5 || chord < 2) { cl.stG = null; continue; }   // 太近不畫，也不留舊的（亮的）形狀當殘煙
         const nearK = Math.min(1, (d0 - Q.r * 1.5) / (Q.r * 5));   // 恆星已經很靠近：星塵很短、全疊在黑洞口＝爆亮——越近越淡
         const rgb = cl.stRgb || (cl.stRgb = (_lhSp.words.find(o => o.star && o.cl === cl) || {}).rgb || '#cfe0ff');
         const V = cl.stV && cl.stV.sd !== undefined ? cl.stV : (cl.stV = mkV(true, { wind: 1.0 + Math.random() * 2.0, ex: 1.2 + Math.random() * 0.8, pw: 1.5 + Math.random() * 1.4, bow: (Math.random() - 0.5) * 0.9 }));
-        const SB = LH_SP_TUNE.bh.dStarB, b = Math.pow(k, 1.5) * (0.35 + 0.65 * ov) * nearK * SB, G = { big: true, th0: Math.atan2(dy, dx), d0, V, W0: hr * LH_SP_TUNE.bh.dW * (0.6 + 0.4 * k), rgb, bh: Math.pow(k, 1.1) * 1.3 * (0.3 + 0.7 * ov) * nearK * SB }, uM = Math.max(0.02, grow(cl));
+        const SB = LH_SP_TUNE.bh.dStarB * (LH_SP_TUNE.bh.dB ?? 1), ovP = Math.pow(ov, LH_SP_TUNE.bh.stIn ?? 1), b = Math.pow(k, 1.5) * ovP * nearK * SB, G = { big: true, th0: Math.atan2(dy, dx), d0, V, W0: hr * LH_SP_TUNE.bh.dW * (0.6 + 0.4 * k), rgb, bh: Math.pow(k, 1.1) * 1.3 * ovP * nearK * SB }, uM = Math.max(0.02, grow(cl, d0, V.ex));
+        adv(cl, G, uM);
         cl.stG = { ...G, b, uM };
         strand(G, 0, uM, b, 1);
         sum += b * 2;
@@ -4035,23 +4363,27 @@ function _lhSpBhStreams(c, t, z) {
         const p = _lhSpWS(w), dx = p.x - Q.x, dy = p.y - Q.y, d0 = Math.hypot(dx, dy);
         if (d0 < Q.r * 1.2 || d0 > Q.R * 1.3 || k <= 0.01) continue;   // 太遠（剛換邊瞬移）：這一格就不畫
         const sz = Math.max(0.1, Math.min(0.35, ((w.s || 1) - 0.6) / 3));   // Andy：行星只是點綴（恆星的大餐在上面那段）——亮度看大小，最多 0.35
-        const a0 = w.fz ? Math.min(1, w.alpha ?? 1) : Math.max(0.15, Math.min(1, w.alpha ?? 1)), b = a0 * Math.pow(k, 0.75) * sz, bh = a0 * Math.pow(k, 0.5) * (0.45 + 0.55 * sz);   // Andy：行星一跨進「光暈開始被吸」那圈就看得到（舊 k^1.5／k^1.1 要很深才浮出來），跟恆星只差濃淡、亮度   // b：細繩（剛開始幾乎透明、慢慢扎實）；bh：霧（前段就看得到，小行星也有一片淡霧）   // 能量來源：這顆星本身多亮 × 多大 × 被吸了多少
+        const DB = LH_SP_TUNE.bh.dB ?? 1, a0 = Math.max(0.15, Math.min(1, w.alpha ?? 1)), b = a0 * Math.pow(k, 0.75) * sz * DB, bh = a0 * Math.pow(k, 0.5) * (0.45 + 0.55 * sz) * DB;   // Andy：行星一跨進「光暈開始被吸」那圈就看得到（舊 k^1.5／k^1.1 要很深才浮出來），跟恆星只差濃淡、亮度   // b：細繩（剛開始幾乎透明、慢慢扎實）；bh：霧（前段就看得到，小行星也有一片淡霧）   // 能量來源：這顆星本身多亮 × 多大 × 被吸了多少
         // Andy：每條長得不一樣（繞多少、彎的弧度、中段往旁邊鼓），但大家照黑洞同一個旋轉方向捲進去＝越近越匯聚成同一個漩渦
         const V = w.stV && w.stV.sd !== undefined ? w.stV : (w.stV = mkV(false, { wind: 1.2 + Math.random() * 2.8, ex: 1.1 + Math.random() * 1.0, pw: 1.4 + Math.random() * 1.6, bow: (Math.random() - 0.5) * 1.2 }));
         const ww = (w.tw || 40) * z * (w.kb || 1) * (w.mag || 1);   // 字實際畫多寬
-        const G = { th0: Math.atan2(dy, dx), d0, V, W0: Math.max(4, ww * 0.6) * LH_SP_TUNE.bh.dW * (0.6 + 0.4 * k), rgb: w.rgb, bh, soft: 1 }, uM = Math.max(0.02, grow(w));
+        const G = { th0: Math.atan2(dy, dx), d0, V, W0: Math.max(4, ww * 0.6) * LH_SP_TUNE.bh.dW * (0.6 + 0.4 * k), rgb: w.rgb, bh, soft: 1 }, uM = Math.max(0.02, grow(w, d0, V.ex));
+        adv(w, G, uM);
         w.stG = { ...G, b, uM };   // 斷掉時留下來當殘煙
         strand(G, 0, uM, b, 1);
         sum += b;
     }
-    // 殘煙：斷掉的那截，尾端沿著原路越來越快被吸進去（約 1.3 秒吸光），越短越稀疏
+    // 殘煙：斷掉的那截，尾端沿著原路照吸入速度被吸進去（2026-11-23：跟天體同一套速度，不再固定 1.3 秒），越短越稀疏
     for (let i = Rm.length - 1; i >= 0; i--) {
-        const r = Rm[i]; if (!r.t0) r.t0 = t;
-        const f = (t - r.t0) / 1300;
-        if (f >= 1) { Rm.splice(i, 1); continue; }
-        const uLo = r.uM * Math.pow(f, 1.4);
-        if (r.uM - uLo > 0.01) strand({ ...r, bh: (r.bh ?? r.b) * Math.pow(1 - f, 0.8) }, uLo, r.uM, r.b * Math.pow(1 - f, 0.8), 0.6);
-        sum += r.b * (1 - f) * 0.5;
+        const r = Rm[i]; if (r.t0 === 0) { r.t0 = t; r.uLo = 0; }
+        const kz = z / (r.z0 || z), d0 = r.d0 * kz;   // 存的是斷掉那一刻的畫面距離：縮放後跟著縮放（不跑位）
+        r.uLo = flowU(r.uLo || 0, d0, r.V.ex, dtE);
+        // 2026-11-23 Andy（行星星塵的源頭憑空出現）：斷掉的那截沒有源頭在餵了——照「透明長到扎實」同樣秒數（bh.stGrow）淡掉；不然外圈吸入速度慢，斷口會在原地掛很久
+        const f = Math.min(1, r.uLo / Math.max(1e-6, r.uM)), fade = Math.max(0, 1 - (t - r.t0) / 1000 / Math.max(0.3, LH_SP_TUNE.bh.stGrow ?? 4));
+        if (f >= 0.99 || fade <= 0) { Rm.splice(i, 1); continue; }
+        const uLo = r.uLo, kf = Math.pow(1 - f, 0.8) * fade;
+        if (r.uM - uLo > 0.01) strand({ ...r, d0, W0: r.W0 * kz, bh: (r.bh ?? r.b) * kf }, uLo, r.uM, r.b * kf, 0.6);
+        sum += r.b * (1 - f) * fade * 0.5;
     }
     // 0.98.41 Andy［吸食］：有東西在吸＝膨脹（每秒膨脹自己 bh.eSpd%），沒有＝用同樣的速度消散。e 0→1：黑洞外觀 ×eMaxB^e、光圈 ×eMaxR^e（引力範圍不變）
     const TB = LH_SP_TUNE.bh, mx = Math.max(1.01, TB.eMaxB, TB.eMaxR), rate = Math.log(1 + Math.max(0.01, TB.eSpd) / 100) / Math.log(mx);
@@ -4105,6 +4437,7 @@ function _lhSpBhDrift(t) {
         if (B.ease) { const f = Math.min(1, (t - B.ease.t) / 1500), e = f * f * (3 - 2 * f); B.x = B.ease.x + (p.x - B.ease.x) * e; B.y = B.ease.y + (p.y - B.ease.y) * e; if (f >= 1) B.ease = null; }   // 剛回到邊：1.5 秒順順接上
         else { B.x = p.x; B.y = p.y; }
     } else if (B.mode === 'free') {   // 甩出去：直線等減速（甩動煞車，跟星星共用），可以飛出宇宙邊界；停下後照「飄回邊緣的速度」回到邊上（不瞬移）
+        _lhSpCapV(B, dt, 'vx', 'vy');   // 黑洞也遵守宇宙光速
         B.x += B.vx * dt; B.y += B.vy * dt;
         if (B.brk === undefined) B.brk = _lhSpBrakeOf(B.x, B.y, B.vx, B.vy, T.brake);
         const v = Math.hypot(B.vx, B.vy), dv = B.brk * dt;
@@ -4119,13 +4452,11 @@ function _lhSpBhDrift(t) {
     b.style.left = (sp.x - rS) + 'px'; b.style.top = (sp.y - rS) + 'px';
     // 0.98.41 Andy（每個宇宙的黑洞要一樣兇）：範圍、引力全部用宇宙半徑的 %（U）；黑洞外觀和核心照恆星大小。成形中跟著 grow 一起長
     const Rc = r * T.core, RG = T.range * U * grow, RA = T.absorb * U * grow, RS = T.scatR * U * grow, RL = T.lensR * U * grow;
-    _lhSp.bhW = grow > 0.01 ? { x: B.x, y: B.y, r: Rc, R: RG, u: U, L: RL, s: RS, z: RL * Math.max(0.01, Math.min(0.99, T.lens.ring ?? 0.5)) } : null;
-    // Andy 局部時間（w.tk）：照離黑洞的距離——魚眼外緣原速 → 事件視界 1/bh.slow → 凍住（見 tkAt）。宇宙其他地方照常
-    const RZ = RL * Math.max(0.01, Math.min(0.99, T.lens.ring ?? 0.5)), kW = 1 / Math.max(1, T.slow || 1);
-    // 引力向量（宇宙座標／秒²，同 _lhSpBhG 的公式）、拉歪係數 kL（秒²）：在散架圈上的引力 × kL ＝ bh.lean%（宇宙半徑）
-    const gAt = (x, y) => { const dx = B.x - x, dy = B.y - y, dd = Math.hypot(dx, dy) || 1e-6; if (dd > RG) return [0, 0]; const a = T.ga * U * Math.pow(Math.max(0, 1 - dd / RG), T.gb); return [dx / dd * a, dy / dd * a]; };
-    const aRS = T.ga * Math.pow(Math.max(1e-3, 1 - RS / Math.max(1e-6, RG)), T.gb), kL = aRS > 0 ? (T.lean ?? 6) / aRS : 0;
-    // 2026-11-21 Andy 選 A（從外面看的真實版）：時間只在「魚眼外緣 → 事件視界」這段越來越慢（照 lens.curve），到視界＝1/bh.slow，然後凍住（_lhSpFzStep）。
+    _lhSp.bhW = grow > 0.01 ? { x: B.x, y: B.y, r: Rc, R: RG, A: RA, u: U, L: RL, s: RS, z: Rc } : null;   // 2026-11-22 Andy：事件視界＝黑洞核心表面（光環在它外面）
+    // Andy 局部時間（w.tk）：照離黑洞的距離——魚眼外緣原速 → 事件視界 1/bh.slow → 凍住（見 tkAt）。
+    // 2026-11-23 Andy：只剩外觀用（日冕、光芒的時鐘 lt；沿圈拉長、變暗、紅移看 lzq），不再影響任何移動——速度感全交給 envelope
+    const RZ = Rc, kW = 1 / Math.max(1, T.slow || 1);
+    // 2026-11-21 Andy 選 A（從外面看的真實版）：時間只在「魚眼外緣 → 事件視界」這段越來越慢（照 lens.curve），到視界＝1/bh.slow；碰到視界＝被吞（_lhSpEatWord）。
     // 舊版視界內時間又還原、字又被推開放大＝進去反而變快。lzq：被時間拖住的程度 0～1（外觀用：沿圈拉長、變暗、紅移）
     const tkAt = (w, d) => {
         const x = RL > RZ ? (d - RZ) / (RL - RZ) : 1;
@@ -4135,80 +4466,75 @@ function _lhSpBhDrift(t) {
     };
     if (dt) for (const w of _lhSp.words) w.lt = w.tk !== undefined ? (w.lt ?? t) + dt * 1000 * w.tk : undefined;   // 每顆自己的時鐘：日冕、光芒照這個轉（時間被拖住的連呼吸都慢下來）
     if (!dt || !_lhSp.bhW) { _lhSp.bhScr = null; return; }
+    const vB = B.tp || !(B.mode === 'edge' || B.mode === 'back') || B.vpx === undefined ? [0, 0] : [(B.x - B.vpx) / dt, (B.y - B.vpy) / dt]; B.vpx = B.x; B.vpy = B.y; B.tp = 0; _lhSp.bhV = vB;   // 黑洞這一格自己的速度——只算它自己在走（繞邊、飄回邊）。2026-11-23 Andy：手拖＝「手」那一層；甩出去的滑行是灰色地帶，先不算（不然路過的黑洞會把整片天體一起帶走）；tp＝瞬移
     _lhSp.bhScr = { x: sp.x, y: sp.y, r: Rc * z, R: RG * z, a: RA * z, s: RS * z, l: RL * z, g: grow, vr: rS };   // 畫面座標（vr：吸食膨脹後看到的黑洞半徑）
-    { const er2 = _lhSp.el.getBoundingClientRect(); window.__lhBgSink = { x: er2.left + sp.x, y: er2.top + sp.y, r: Rc * z, R: RG * z, t: performance.now() }; }   // 背景飄字（js/bgfx.js）也會被吸進來
-    const drag = _lhSp.drag && _lhSp.drag.w, L = _lhSpCfg(), VW = _lhSp.el.clientWidth, VH = _lhSp.el.clientHeight;
+    { const er2 = _lhSpER(); window.__lhBgSink = { x: er2.left + sp.x, y: er2.top + sp.y, r: Rc * z, R: RG * z, t: performance.now() }; }   // 背景飄字（js/bgfx.js）也會被吸進來
+    const drag = _lhSp.drag && _lhSp.drag.w, L = _lhSpCfg(), VW = _lhSp.W, VH = _lhSp.H;   // 量好的尺寸（每格讀 clientWidth 會逼瀏覽器重算版面）
     const onScr = (x, y) => { const q = _lhSpScr(x, y); return q.x > -60 && q.x < VW + 60 && q.y > -60 && q.y < VH + 60; };
     _lhSp.bhSrc = [];
-    // 星系光暈的大餐：光暈邊緣一碰到「光暈開始被吸」那圈，就從面向黑洞那側拉出星塵；恆星散架＝這頓吃完了，只收不再亮
+    // 2026-11-22 Andy：第 1、2 級黑洞只繞邊、可以丟詞（拖到上方黑洞變大、詞變小照舊），沒有引力；切到這兩級時被拉歪、凍住的一律放開
+    if (!L.bhG) {
+        for (const cl of _lhSp.groups || []) { cl.doom = 0; cl.bhIn = cl.limL = cl.bm = 0; if (cl.lx || cl.ly) { cl.hx += cl.lx || 0; cl.hy += cl.ly || 0; cl.lx = cl.ly = 0; } }   // 被拖走的位移併進家裡（不跳）
+        for (const w of _lhSp.words) if (w.inBh || w.tk !== undefined || w.tlx || w.tly || w.bhA !== undefined) Object.assign(w, { inBh: 0, envOn: 0, bhVx: 0, bhVy: 0, limL: 0, bhC: 0, bm: 0, bvIn: null, bhA: undefined, tk: undefined, lzq: undefined, lzs: null, rdK: 0, tlx: 0, tly: 0, lwx: undefined });
+        return;
+    }
+    // 星系光暈的大餐：光暈邊緣一碰到「光暈開始被吸」那圈，就從面向黑洞那側拉出星塵；2026-11-22 Andy（14.6）：散架後照樣吸，一路到恆星被吃掉（重生到遠方＝離開圈子自然斷）
     if (L.sand) for (const cl of _lhSp.groups || []) {
-        if (cl.held && !cl.stK) continue;
-        const de = Math.hypot(B.x - cl.x, B.y - cl.y) - (cl.r || 0) * LH_SP_TUNE.glow.starSize, tk = cl.held ? 0 : de < RA ? Math.sqrt(Math.min(1, (RA - Math.max(de, Rc)) / Math.max(1e-6, RA - Rc))) : 0;
+        const de = Math.hypot(B.x - cl.x, B.y - cl.y) - (cl.r || 0) * LH_SP_TUNE.glow.starSize, tk = de < RA ? Math.sqrt(Math.min(1, (RA - Math.max(de, Rc)) / Math.max(1e-6, RA - Rc))) : 0;
         if (tk > 0 || cl.stK) {
-            cl.stK = (cl.stK || 0) + (tk - (cl.stK || 0)) * Math.min(1, dt * (tk < (cl.stK || 0) ? 2.5 : 3 / Math.max(0.3, T.stGrow ?? 4)));
-            if (tk === 0 && cl.stK < 0.2) _lhSpStBreak(cl); else if (cl.stK > 0.01) _lhSp.bhSrc.push({ cl, k: cl.stK }); else cl.stK = cl.stL = 0;
+            { const k0 = cl.stK || 0, gRw = Math.max(1e-6, 0.5 * (cl.r || 0) * LH_SP_TUNE.glow.starSize), up = tk > k0, evE = _lhSpEnvV(Math.max(Rc, de), _lhSp.bhW);
+              const cap = (up ? Math.max(0, evE) : _lhSpC()) * dt / gRw;   // 2026-11-23 Andy（特效也要守光速）：光暈被拉過去 0.5 個光暈半徑×stK——拉過去最快照光暈邊緣那裡的吸入速度，放回來最快光速
+              cl.stK = k0 + Math.max(-cap, Math.min(cap, (tk - k0) * Math.min(1, dt * (up ? 3 / Math.max(0.3, T.stGrow ?? 4) : 2.5)))); }
+            if (tk === 0 && cl.stK < 0.2) _lhSpStBreak(cl); else if (cl.stK > 0.01) _lhSp.bhSrc.push({ cl, k: cl.stK }); else if (tk === 0) cl.stK = cl.stL = 0;   // 2026-11-22 修：剛進範圍那幾格還很淡（<0.01）時不能歸零，不然長不起來＝沒觸發
         }
     }
     for (const w of _lhSp.words) {
         if (w.bhA !== undefined) { w.bhA = Math.min(1, w.bhA + dt / Math.max(0.1, LH_SP_TUNE.gather.litGlowDur || 8)); if (w.bhA >= 1) w.bhA = undefined; }   // 離開後光暈照「光暈亮滿」秒數慢慢重建
         if (w.star && w.cl) w.cl.sw = w;   // 星塵從恆星實際畫的位置出發（_lhSpBhStreams）
-        if (w.comet) { if (!w.off && !w.cmWait && !w.fz) tkAt(w, Math.hypot(B.x - w.x, B.y - w.y)); else if (!w.fz) w.tk = w.lzq = undefined; }
-        if (w.comet || w.off || !w.born || w.pinned || w === drag || w.px === undefined) { w.inBh = 0; w.lwx = undefined; if (!w.comet) w.tk = w.lzq = undefined; continue; }
-        if (w.fz) {   // 凍在事件視界上（_lhSpFzStep）：跟著黑洞走、越轉越慢、往裡沉一點、慢慢淡掉；淡完＝被吃掉，到遠方重生
-            const done = _lhSpFzStep(w, B, t);
-            Object.assign(w, { fx: w.fz.x, fy: w.fz.y, fvx: 0, fvy: 0, free: true, inBh: 1, tk: kW * w.fz.e, lzq: 1 });
-            if (w.star) { w.cl.x = w.fx; w.cl.y = w.fy; }
-            if (done) {
-                if (w.star) { b.classList.remove('gulp'); void b.offsetWidth; b.classList.add('gulp'); }   // 吃掉一整顆恆星：打一個嗝
-                _lhSp.bhEat = Math.min(1, (_lhSp.bhEat || 0) + (w.star ? 0.35 : 0.08));   // 吸食光圈亮一下
-                _lhSpReborn(w, t, L); w.lwx = undefined;
-            }
-            _lhSp.dirty = true; continue;
-        }
+        if (w.comet) { if (!w.off && !w.cmWait) tkAt(w, Math.hypot(B.x - w.x, B.y - w.y)); else w.tk = w.lzq = undefined; }
+        if (w.comet || w.off || !w.born || w.pinned || w === drag || w.px === undefined) { if (!w.comet) { w.bm = 0; w.bvIn = null; if (w.star && w.cl) w.cl.bm = 0; } w.inBh = 0; w.envOn = 0; w.bhVx = w.bhVy = 0; _lhSpLimStep(w, 0, dt); if (w.star && w.cl) { w.cl.bhIn = 0; _lhSpLimStep(w.cl, 0, dt); } w.lwx = undefined; if (!w.comet) w.tk = w.lzq = undefined; continue; }
         const wx = w.free ? w.fx : w.px, wy = w.free ? w.fy : w.py, d = Math.hypot(B.x - wx, B.y - wy);
         tkAt(w, d);
         const pvx = w.lwx !== undefined ? (wx - w.lwx) / dt : 0, pvy = w.lwy !== undefined ? (wy - w.lwy) / dt : 0; w.lwx = wx; w.lwy = wy; w.lvx = pvx; w.lvy = pvy;   // 在軌道上公轉的速度（被吸進範圍時帶著走＝有角動量，不會直直掉進去）
         if (L.sand && !w.star) {   // 行星的星塵（點綴）：越深入越濃
             const kd = d < RA ? Math.sqrt(Math.min(1, (RA - Math.max(d, Rc)) / Math.max(1e-6, RA - Rc))) : 0;
             if (d > RG * 1.2 && w.stK) _lhSpStBreak(w);   // 離黑洞太遠（換邊瞬移）＝星塵斷掉，留下的那截被吸完
-            if (kd > 0 || w.stK) { w.stK = (w.stK || 0) + (kd - (w.stK || 0)) * Math.min(1, dt * (kd < (w.stK || 0) ? 2.5 : 3 / Math.max(0.3, T.stGrow ?? 4))); if (kd === 0 && w.stK < 0.2) _lhSpStBreak(w); else if (w.stK > 0.01) _lhSp.bhSrc.push({ w, k: w.stK }); else w.stK = w.stL = 0; }
+            if (kd > 0 || w.stK) { w.stK = (w.stK || 0) + (kd - (w.stK || 0)) * Math.min(1, dt * (kd < (w.stK || 0) ? 2.5 : 3 / Math.max(0.3, T.stGrow ?? 4))); if (kd === 0 && w.stK < 0.2) _lhSpStBreak(w); else if (w.stK > 0.01) _lhSp.bhSrc.push({ w, k: w.stK }); else if (kd === 0) w.stK = w.stL = 0; }
         }
         if (w.star && w.cl) { const gR = (w.cl.r || 0) * LH_SP_TUNE.glow.starSize, d0 = RL / 2; if (d < RA + gR) w.bhA = Math.min(w.bhA ?? 1, Math.max(0, Math.min(1, (d - d0) / Math.max(1e-6, RA + gR - d0)))); }   // Andy：恆星光暈——光暈邊緣碰到「開始被吸」那圈才開始淡，到魚眼範圍一半才全透明（散架線上還看得到）
         if (d < RA && !w.star) w.bhA = Math.min(w.bhA ?? 1, Math.max(0, Math.min(1, (d - Rc) / Math.max(1e-6, RA - Rc))) ** 2);   // 越近，光暈／熱浪越被吸掉
         // 宇宙邊界（2026-11-21 重整）：出了邊界不再純慣性飛走、也不在畫面外重生——煞車變 3 倍（像撞進軟牆），停下後恆星自己飄回出生半徑內、行星被自己的恆星拉回
         { const dd = Math.hypot(wx, wy) || 1; w.outE = dd > _lhSpAmoebaR(AM, Math.atan2(wy, wx)) * K; }
-        // 2026-11-21 v2（Andy：引力範圍外圈沒作用、一進「開始被吸」又突然太強）：還沒散架的星系一律「被拉歪」、不「被吸走」——
-        // 恆星往黑洞那邊傾（cl.lx：這裡的引力 × 拉歪係數 kL，不累積速度，黑洞走開就彈回），行星照潮汐（自己跟恆星的引力差）被拉長、遠側落後；
-        // 恆星被拉進「散架」圈才整團撕開、變自由、真的掉進去。kL 定成「在散架圈上被拉近 bh.lean%（宇宙半徑）」。
-        // 舊版：恆星的引力一直累積（外圈調大＝遲早全被吸走、調小＝外圈沒作用），行星抓力在「開始被吸→散架」掉到 0（偏移＝引力÷抓力＝暴衝）
-        if (!w.free && (w.star || !w.cl.held)) {
-            const lk = 1 - Math.exp(-dt), g = d <= RG ? gAt(wx, wy) : null;
-            if (w.star) {
-                const cl = w.cl; cl.lx = (cl.lx || 0) + ((g ? g[0] * kL : 0) - (cl.lx || 0)) * lk; cl.ly = (cl.ly || 0) + ((g ? g[1] * kL : 0) - (cl.ly || 0)) * lk;
-                if (!g && Math.abs(cl.lx) + Math.abs(cl.ly) < 0.01) cl.lx = cl.ly = 0;
-                if (d > RS || cl.held) { w.inBh = g ? 1 : 0; continue; }
-                Object.assign(w, { free: true, fx: wx, fy: wy, fvx: pvx, fvy: pvy, src: 'B' }); cl.bhS = w; cl.lx = cl.ly = 0;   // 拉進散架圈：放開（位置已經含傾斜，接得上）
-            } else {
-                const gs = g ? gAt(w.cl.x, w.cl.y) : null, tx = g ? (g[0] - gs[0]) * kL : 0, ty = g ? (g[1] - gs[1]) * kL : 0;
-                w.tlx = (w.tlx || 0) + (tx - (w.tlx || 0)) * lk; w.tly = (w.tly || 0) + (ty - (w.tly || 0)) * lk;
-                if (!g && Math.abs(w.tlx) + Math.abs(w.tly) < 0.01) w.tlx = w.tly = 0;
-                if (d > RS) { w.inBh = g ? 1 : 0; continue; }
-                Object.assign(w, { free: true, fx: (w.ux ?? wx) + w.tlx, fy: (w.uy ?? wy) + w.tly, fvx: pvx, fvy: pvy, src: 'A', smHome: false, odist: undefined, gk: 0, bhC: 1 });   // 軌道太靠近黑洞（散架圈內）：這顆被扯走
-            }
+        // 2026-11-22 Andy「力的層級」（排序頁 board/main）：手 → 開場凝聚（例外）→ 家在動 → 速度相加 → 光速上限 → 外觀 → 時間。
+        // 黑洞吸入速度（bh.env，_lhSpEnvV）是「速度相加」層的一項：w.bhVx／bhVy 存這一格的吸入速度，移動時跟自己的速度（公轉、彈簧、慣性）相加、
+        // 加完才擋光速（_lhSpSum），最後乘時間。沒人拉回的（恆星、被扯走、在等恆星的）自己的速度照 bh.envT 秒慢慢被抵銷＝螺旋
+        const ev = _lhSpEnvV(d, _lhSp.bhW), evL = ev >= 0 ? ev + Math.hypot(vB[0], vB[1]) : ev; _lhSpLimStep(w, evL, dt); if (w.star && w.cl) { w.cl.bhIn = ev >= 0 ? 1 : 0; _lhSpLimStep(w.cl, evL, dt); }   // 上限：吸入速度＋黑洞自己的速度
+        // 黑洞那份（相對黑洞的吸入＋螺旋，再加黑洞自己走的速度）。出了範圍沿用離開那一刻的值，照接管程度淡掉
+        if (ev >= 0) { const [ex0, ey0] = _lhSpEnvVec(B.x - wx, B.y - wy, d || 1e-6, ev); w.bvIn = [ex0 + vB[0], ey0 + vB[1]]; }
+        const m = _lhSpMix(w, ev >= 0, dt), bv = w.bvIn || [0, 0]; if (!m) w.bvIn = null;
+        if (w.star && w.cl) w.cl.bm = w.free ? 0 : m;   // 星系的家（漫遊、回中心、推開）照恆星被接管的程度放手
+        if (!w.free && w.star && !w.cl.held) {   // 還沒散架的星系：恆星（連同家）整團被拖；位移記在 lx，接管程度回到 0 才併進家裡
+            const cl = w.cl;
+            if (m) { let vx = bv[0] * m, vy = bv[1] * m; const c = _lhSpLim(cl), v = Math.hypot(vx, vy); if (v > c) { vx *= c / v; vy *= c / v; } cl.lx = (cl.lx || 0) + vx * dt; cl.ly = (cl.ly || 0) + vy * dt; }
+            else if (cl.lx || cl.ly) { cl.hx += cl.lx; cl.hy += cl.ly; cl.lx = cl.ly = 0; }
+            if (ev < 0) { w.inBh = 0; continue; }
+            if (d > RS) { w.inBh = 1; continue; }
+            Object.assign(w, { free: true, fx: wx, fy: wy, fvx: pvx * (1 - m), fvy: pvy * (1 - m), src: 'B' }); cl.bhS = w; cl.lx = cl.ly = 0; cl.bm = 0;   // 拉進散架點：放開（位置已經含拖走的量，接得上；自己的那份速度＝實際速度扣掉黑洞那份）
+        } else if (!w.free && !w.star) {   // 綁著的行星進了引力範圍：變自由（畫的位置、公轉速度都接上），之後彈簧×(1−接管)＋黑洞那份×接管
+            if (ev < 0) { w.inBh = 0; w.bhVx = w.bhVy = 0; continue; }
+            Object.assign(w, { free: true, fx: wx, fy: wy, fvx: pvx, fvy: pvy, src: 'A', smHome: false, odist: undefined, gk: 0, oPx: undefined, oPy: undefined });
         }
-        if (d > RG) {   // 範圍外（自由的）。剛離開範圍：恆星照離開時的速度滑一段（越快滑越遠，同甩動）；行星交給彈簧
-            if (w.inBh) { w.inBh = 0; w.hold = undefined; w.bhC = 0; if (w.star && !w.brk) { w.brkP = T.brake; w.brk = _lhSpBrakeOf(w.fx, w.fy, w.fvx, w.fvy, T.brake); } w.bhE = {}; }
-            continue;
+        w.bhVx = bv[0] * m; w.bhVy = bv[1] * m;
+        if (ev < 0) {   // 範圍外：黑洞那份照接管程度淡掉（frame 裡相加），自己的力慢慢接回來
+            if (w.inBh) { w.inBh = 0; w.bhC = 0; w.bhE = {}; }
+            w.envOn = 0; continue;
         }
-        if (w.star && !w.cl.held && d <= RS && !(w.bhT && t - w.bhT < 1500)) { w.bhT = t; _lhSpScatter(w, L, true); }   // 恆星散架（黑洞撕開：行星帶著公轉速度飛散，不亂噴）
-        w.inBh = 1; w.bhF = true; w.bhIn = t;
-        if (!w.star && d <= RS) w.bhC = 1;   // 進了散架圈的行星＝回不去了
-        w.hold = w.star || (w.cl && !w.cl.held && !w.bhC) ? 1 : 0;   // 自由的行星：恆星還在（沒散架）＝照常被拉回；散架了／被扯走＝沒人抓
-        const o = { x: w.fx, y: w.fy, vx: w.fvx, vy: w.fvy };
-        const st = _lhSpBhG(o, _lhSp.bhW, T, dt * (w.tk ?? 1));
-        if (w.hold && !w.star && !(w.cl.sw && w.cl.sw.free)) { const gs = gAt(w.cl.x, w.cl.y), k = dt * (w.tk ?? 1); o.vx -= gs[0] * k; o.vy -= gs[1] * k; }   // 恆星還抓得住：只感受潮汐（跟恆星的引力差）
-        w.fvx = o.vx; w.fvy = o.vy;
-        if (st === 2 || d <= RZ) _lhSpFzStart(w, w.fx, w.fy, w.fvx, w.fvy, B, w.tk ?? kW, t);   // 到了事件視界（黑洞比視界大就是碰到核心）＝凍住，之後交給凍結劇本
+        if (!w.free) { w.inBh = 1; w.bhVx = w.bhVy = 0; continue; }   // 你正抓著那團的恆星（綁著）：跟著你的手
+        // 恆星（綁著被拖進來的、或被你甩進來的都一樣）進散架點＝注定被吞：整團撕開，其他行星都在等恆星（_lhSpWait）
+        if (w.star && w.cl && !w.cl.doom && d <= RS) { _lhSpScatter(w, L, true); w.cl.doom = 1; }
+        w.inBh = 1; w.bhF = true; w.bhIn = t; w.envOn = 1; w.brk = 0;
+        if (!w.star && d <= RS) w.bhC = 1;   // 進了散架點的行星＝被扯走，回不去了
+        if (d <= RZ) _lhSpEatWord(w, t, L);   // 碰到事件視界（核心表面）＝被吞，馬上到遠方重生
         _lhSp.dirty = true;
     }
 }
@@ -4262,7 +4588,7 @@ function _lhSpVoid(on) {
     if (!on) {   // Andy：回來不用星際穿越（虛無裡什麼都沒有）——白洞放大到整個畫面變白，再淡掉露出宇宙
         const wh = vd.querySelector('.ws-wh'), done = () => {
             cancelAnimationFrame(_lhSp.vRaf); vd.querySelectorAll('.ws-vw').forEach(x => x.remove()); if (_lhSp.vAC) _lhSp.vAC.abort();
-            vd.hidden = true; vd.classList.remove('ws-out'); vd.style.opacity = ''; wh.getAnimations().forEach(a => a.cancel()); vd.getAnimations().forEach(a => a.cancel());
+            _lhSp.vFin = null; vd.hidden = true; vd.classList.remove('ws-out'); vd.style.opacity = ''; wh.getAnimations().forEach(a => a.cancel()); vd.getAnimations().forEach(a => a.cancel());
         };
         vd.classList.add('ws-out');
         if (_lhSpReduce.matches) { _lhSp.el.classList.remove('ws-in-void'); done(); return; }
@@ -4271,18 +4597,19 @@ function _lhSpVoid(on) {
         // Andy（第三版）：總長 3.2 秒——前 6 成「努力走卻看不到盡頭」只放大到 1.6 倍左右，之後短短一秒內越衝越快蓋滿畫面
         // Andy（第四版）：前段照舊（2.82 秒衝到蓋滿），但不再轉黑——一路白到全螢幕，白光只閃 0.5 秒（先快後慢淡掉），我們已經回到宇宙
         // Andy（第五版）：最後加速更猛（五次方）——從約 1/4 螢幕面積開始，到蓋滿、白光淡掉回到宇宙，0.5 秒內走完（衝刺約 0.18 秒＋白光 0.3 秒）
-        const WT = LH_SP_TUNE.wh, C = Math.hypot(vd.clientWidth, vd.clientHeight) / Math.max(1, wh.offsetWidth) * 1.15, DUR = 3120, N = 96, F0 = 2820 / 3120, U1 = Math.min(F0 - 0.02, WT.u1), PRE = Math.min(C, WT.pre);   // 0.98.41 Andy：衝刺更晚、白洞更大才衝、曲線往直線拉（wh.*）   // C：到 F0 剛好蓋滿整個畫面的倍率
-        // 0.98.41 Andy：前段改成 x^q 起步（一瞬間凝滯再動）——q 讓「放大到 2.5 倍」剛好花 t25 秒；前段放不到 2.5 倍就維持直線
-        const x25 = (WT.t25 ?? 1) * 1000 / DUR / U1, Q = PRE > 2.5 && x25 > 0 && x25 < 1 ? Math.min(6, Math.max(0.3, Math.log(1.5 / (PRE - 1)) / Math.log(x25))) : 1;
-        const grow = u => 1 + (PRE - 1) * Math.pow(Math.min(u, U1) / U1, Q) + (u > U1 ? (C - PRE) * Math.pow(Math.min(1, (u - U1) / (F0 - U1)), WT.pow) : 0);
+        // 2026-11-23 Andy（第六版）：大小照 envelope（wh.env：秒 × 大小％，0％＝白洞本身、100％＝蓋滿）——最後一點＝蓋滿的時間 TC，之後白光 0.3 秒淡掉
+        const WE = LH_SP_TUNE.wh.env, C = Math.hypot(vd.clientWidth, vd.clientHeight) / Math.max(1, wh.offsetWidth) * 1.15, TC = Math.max(0.1, WE[WE.length - 3]) * 1000, DUR = TC + 300, N = Math.max(48, Math.round(TC / 30)), F0 = TC / DUR;   // C：到 F0 剛好蓋滿整個畫面的倍率
+        const grow = u => 1 + (C - 1) * Math.max(0, Math.min(100, _lhSpEnvAt(WE, Math.min(u, F0) * DUR / 1000))) / 100;
         wh.animate(Array.from({ length: N + 1 }, (_, i) => { const u = i / N, sc = grow(u), w2 = Math.max(0, (u - F0) / (1 - F0));
             return { offset: u, transform: 'scale(' + sc.toFixed(3) + ')', opacity: (1 - (1 - (1 - w2) ** 2.2)).toFixed(3) }; }), { duration: DUR, easing: 'linear', fill: 'forwards' });   // 淡掉用 (1−w)^2.2：一閃之後很快退、尾巴柔
-        setTimeout(() => {
+        let t2 = 0;
+        const t1 = setTimeout(() => {
             _lhSp.el.classList.remove('ws-in-void');   // 宇宙和介面先回到底下
             vd.querySelectorAll('.ws-vw').forEach(x => x.remove());
             vd.animate([{ background: '#000' }, { background: 'rgba(0,0,0,0)' }], { duration: 60, fill: 'forwards' });   // 白光蓋滿時，底下已經換成宇宙
-            setTimeout(done, DUR * (1 - F0) + 30);
+            t2 = setTimeout(done, DUR * (1 - F0) + 30);
         }, DUR * F0);
+        _lhSp.vFin = () => { clearTimeout(t1); clearTimeout(t2); _lhSp.el.classList.remove('ws-in-void'); done(); };   // 2026-11-22 Andy：快轉鈕＝白洞出口動畫直接跳到結束
         return;
     }
     _lhSp.el.classList.add('ws-voiding');
@@ -4365,19 +4692,20 @@ function _lhSpEvents(el) {
         if (e.target.closest('.ws-hide')) _lhSpDropWord(w);
     });
     el.addEventListener('wheel', e => {
-        if (e.target.closest('.ws-panel, .ws-tune, .ws-legpanel, .ws-legbtn, .ws-ptop, .ws-tr, .ws-void')) return;
+        if (e.target.closest('.ws-panel, .ws-tune, .ws-tune-envfl, .ws-legpanel, .ws-legbtn, .ws-ptop, .ws-tr, .ws-void')) return;
         e.preventDefault();
-        const r = el.getBoundingClientRect();
+        const r = _lhSpER();
         _lhSpZoom(_lhSp.z * Math.exp(-e.deltaY * (e.ctrlKey ? 0.01 : 0.0015)), e.clientX - r.left, e.clientY - r.top);
     }, { passive: false });
     // 滑鼠停在詞上：定格＋外框光暈＋浮出 📌 ✕；剛取消釘選的詞要等游標離開再回來才會再亮（不然看起來像沒取消）
     el.addEventListener('pointermove', e => {
+        if (e.pointerType === 'mouse') { const r = _lhSpER(); _lhSp.mxy = { x: e.clientX - r.left, y: e.clientY - r.top }; }   // 滑鼠實際在哪（黑洞輔助線 hover 用，每一級都要；不管底下是什麼元素）
         if (e.pointerType === 'mouse' && _lhSpCfg().dock) {   // 黑洞放大要知道游標在哪
-            const r = el.getBoundingClientRect();
-            _lhSp.mouse = e.target.closest('.ws-panel, .ws-tune, .ws-legpanel, .ws-legbtn, .ws-tr, .ws-ptop, .ws-nav, .ws-bh') ? null : { x: e.clientX - r.left, y: e.clientY - r.top };
+            const r = _lhSpER();
+            _lhSp.mouse = e.target.closest('.ws-panel, .ws-tune, .ws-tune-envfl, .ws-legpanel, .ws-legbtn, .ws-tr, .ws-ptop, .ws-nav, .ws-bh') ? null : { x: e.clientX - r.left, y: e.clientY - r.top };
             _lhSp.dirty = true;
         }
-        if (e.pointerType !== 'mouse' || _lhSp.pts.size || e.target.closest('.ws-panel, .ws-tune, .ws-legpanel, .ws-legbtn, .ws-tr, .ws-ptop, .ws-nav')) return;
+        if (e.pointerType !== 'mouse' || _lhSp.pts.size || e.target.closest('.ws-panel, .ws-tune, .ws-tune-envfl, .ws-legpanel, .ws-legbtn, .ws-tr, .ws-ptop, .ws-nav')) return;
         if (e.target.closest('.ws-acts')) return;
         let w = _lhSpHit(e.clientX, e.clientY);
         if (_lhSp.mute && w !== _lhSp.mute) _lhSp.mute = null;
@@ -4387,9 +4715,9 @@ function _lhSpEvents(el) {
         if (w) _lhSp.holoPin = false;
         _lhSpHolo(w || null, w && !w.star ? LH_SP_HOLO_PLANET_WAIT : 0);   // 恆星馬上、行星和流星晚一點（0.98.20：流星也顯示讀音）
     });
-    el.addEventListener('pointerleave', e => { if (e.pointerType === 'mouse') { _lhSp.mouse = null; _lhSp.dirty = true; if (!_lhSp.drag) { _lhSpSetHover(null); _lhSpHolo(null); } } });
+    el.addEventListener('pointerleave', e => { if (e.pointerType === 'mouse') { _lhSp.mouse = _lhSp.mxy = null; _lhSp.dirty = true; if (!_lhSp.drag) { _lhSpSetHover(null); _lhSpHolo(null); } } });
     el.addEventListener('pointerdown', e => {
-        if (e.target.closest('.ws-panel, .ws-tune, .ws-legpanel, .ws-legbtn, .ws-tr, .ws-acts, .ws-ptop, .ws-nav, .ws-bh, .ws-void')) return;   // 換批滑桿移出面板後也要排除（0.98.09）
+        if (e.target.closest('.ws-panel, .ws-tune, .ws-tune-envfl, .ws-legpanel, .ws-legbtn, .ws-tr, .ws-acts, .ws-ptop, .ws-nav, .ws-bh, .ws-void')) return;   // 換批滑桿移出面板後也要排除（0.98.09）
         if (e.pointerType === 'mouse' && e.button !== 0) return;
         _lhSp.nav = null;
         // 0.98.12：第一根手指放下＝之前的手指都離開了；iOS 偶爾漏掉 pointerup，殘留的點會讓第二指湊不成「剛好 2 指」→ 不能縮放
@@ -4397,7 +4725,7 @@ function _lhSpEvents(el) {
         _lhSp.pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
         if (_lhSp.pts.size === 2) {   // 第二根手指：放棄拖曳／平移，改成以兩指中點為中心縮放
             _lhSp.drag = null; _lhSp.pan = null;
-            const [a, b] = [..._lhSp.pts.values()], r = el.getBoundingClientRect();
+            const [a, b] = [..._lhSp.pts.values()], r = _lhSpER();
             _lhSp.pinch = { d0: Math.hypot(a.x - b.x, a.y - b.y) || 1, z0: _lhSp.z, mx: (a.x + b.x) / 2 - r.left, my: (a.y + b.y) / 2 - r.top };
             return;
         }
@@ -4406,7 +4734,7 @@ function _lhSpEvents(el) {
         const w = _lhSpHit(e.clientX, e.clientY);
         if (w) {
             const p = _lhSpToWorld(e.clientX, e.clientY), at = _lhSpPos(w);
-            w.bhE = undefined; w.inBh = 0; w.brk = 0; w.fz = null; w.tk = w.lzq = w.lzs = undefined;   // Andy：手拖過的詞＝黑洞的狀態歸零；凍在事件視界上的也可以救出來
+            w.bhE = undefined; w.inBh = 0; w.brk = 0; w.tk = w.lzq = w.lzs = undefined;   // Andy：手拖過的詞＝黑洞的狀態歸零
             const d = _lhSp.drag = { w, id: e.pointerId, sx: e.clientX, sy: e.clientY, gx: p.x - at.x, gy: p.y - at.y, moved: false, hist: [], touch: e.pointerType !== 'mouse' };
             // 觸控按住恆星 0.35 秒：浮出全息標籤（放手就收），這次放手不算點擊（不釘選）
             clearTimeout(_lhSp.holoTm);

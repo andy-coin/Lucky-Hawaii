@@ -25,6 +25,7 @@ let _lhBgFont = 'serif';
 let _lhBgW = 0;
 let _lhBgH = 0;
 let _lhBgDpr = 1;
+const _lhBgSprites = new Map();   // 小圖快取（見 _lhBgSprite）
 
 function _lhBgAllowed() {
     return !!_lhFxLv && !(navigator.webdriver && !window.__lhBgFxTest);
@@ -91,7 +92,7 @@ function _lhBgResize() {
     _lhBgH = window.innerHeight;
     _lhBgCanvas.width = Math.round(_lhBgW * dpr);
     _lhBgCanvas.height = Math.round(_lhBgH * dpr);
-    if (dpr !== _lhBgDpr) for (const f of _lhBgFlakes) f.img = null;
+    if (dpr !== _lhBgDpr) { _lhBgSprites.clear(); for (const f of _lhBgFlakes) f.img = null; }
     _lhBgDpr = dpr;
     _lhBgCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
     // 字數跟面積走，iPad 約 16 個、桌機約 20 個，上限 24
@@ -136,16 +137,21 @@ function _lhBgDraw(dt) {
     ctx.globalAlpha = 1;
 }
 // 0.98.09：每個字先畫成一張小圖，每格只貼圖、不再 fillText（每格重畫中文字型很吃 CPU，風扇會轉）；換主題時清掉重畫
+// 2026-11-23：同一個字、大小、顏色的小圖只畫一次（被黑洞吸進去重生的字很多，每次重畫＝手機每秒量幾百次字寬）
 function _lhBgSprite(f) {
-    const d = _lhBgDpr, font = Math.round(f.size) + 'px ' + _lhBgFont;
-    const c = document.createElement('canvas'), x = c.getContext('2d');
+    const d = _lhBgDpr, sz = Math.round(f.size), col = _lhBgColors[f.color % _lhBgColors.length], key = f.ch + '|' + sz + '|' + col;
+    let c = _lhBgSprites.get(key); if (c) return c;
+    if (_lhBgSprites.size > 600) _lhBgSprites.clear();   // ponytail: 整包清掉，不做 LRU
+    const font = sz + 'px ' + _lhBgFont;
+    c = document.createElement('canvas'); const x = c.getContext('2d');
     x.font = font;
-    const w = Math.ceil(x.measureText(f.ch).width + 4), h = Math.ceil(f.size * 1.4);
+    const w = Math.ceil(x.measureText(f.ch).width + 4), h = Math.ceil(sz * 1.4);
     c.width = Math.max(1, Math.round(w * d)); c.height = Math.max(1, Math.round(h * d));
     x.scale(d, d);
     x.font = font; x.textAlign = 'center'; x.textBaseline = 'middle';
-    x.fillStyle = _lhBgColors[f.color % _lhBgColors.length];
+    x.fillStyle = col;
     x.fillText(f.ch, w / 2, h / 2);
+    _lhBgSprites.set(key, c);
     return c;
 }
 
@@ -192,7 +198,7 @@ function lhBgFxRefresh() {
     if (!_lhBgColors.length) _lhBgColors = ['#888'];
     _lhBgAlpha = parseFloat(cs.getPropertyValue('--fx-opacity')) || 0.16;
     _lhBgFont = cs.getPropertyValue('--font-serif').trim() || 'serif';   // 每幀不再讀樣式
-    for (const f of _lhBgFlakes) f.img = null;   // 顏色、字型換了：小圖重畫
+    _lhBgSprites.clear(); for (const f of _lhBgFlakes) f.img = null;   // 顏色、字型換了：小圖重畫
     if (_lhBgCanvas && !_lhBgRaf) _lhBgDraw(0);
 }
 

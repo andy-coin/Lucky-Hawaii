@@ -3237,7 +3237,7 @@ html[data-lm] .section-body.has-cols .section-textarea { padding-left: 0.75rem; 
 .ws-voiding .ws-warp { z-index: 8; }   /* 進出虛無時星光線蓋在最上面 */
 .ws-space.ws-in-void > :not(.ws-void, .ws-warp, .ws-canvas) { visibility: hidden; }   /* 虛無裡：介面全部收起來，只剩黑與白洞 */
 /* 0.98.41 Andy：本地調參——虛無裡也留齒輪、快轉和調參面板（其他鈕照樣收起來） */
-.ws-space.ws-in-void > .ws-tr, .ws-space.ws-in-void > .ws-tune { visibility: visible; z-index: 8; }
+.ws-space.ws-in-void > .ws-tr, .ws-space.ws-in-void > .ws-tune, .ws-space.ws-in-void > .ws-tune-envfl { visibility: visible; z-index: 8; }
 .ws-space.ws-in-void .ws-tr > :not(.ws-zoom), .ws-space.ws-in-void .ws-zoom > :not(.ws-gear, .ws-skip) { visibility: hidden; }
 .ws-wh { position: absolute; left: 50%; top: 50%; translate: -50% -50%; width: 0.625rem; height: 0.625rem;   /* Andy：再小一點（0.98.41 再小 2px） */ min-width: 0; min-height: 0; padding: 0; border: none; border-radius: 50%; cursor: pointer;
     background: #fff; box-shadow: 0 0 0.5rem #fff, 0 0 1.5rem rgba(255, 255, 255, 0.45), 0 0 3.5rem rgba(255, 255, 255, 0.18); }
@@ -3361,6 +3361,17 @@ html[data-lm] .section-body.has-cols .section-textarea { padding-left: 0.75rem; 
 .ws-tune-row[hidden] { display: none; }   /* 「模式」切換後不用的滑桿 */
 .ws-tune-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: var(--sp-2); align-items: center; }
 .ws-tune-v { font-variant-numeric: tabular-nums; color: var(--highlight-border); }
+/* 2026-11-22 Andy：吸入速度 envelope 編輯器（黑洞｜吸入速度） */
+.ws-tune-env { display: block; color: var(--text-secondary); }
+.ws-tune-envc { display: block; width: 100%; height: 11rem; touch-action: none; cursor: crosshair; }
+.ws-tune-envtip { min-height: 1.1em; font-size: 0.75rem; font-variant-numeric: tabular-nums; color: var(--text-primary); }
+.ws-tune-envhint { font-size: 0.75rem; color: var(--text-secondary); }
+.ws-tune-envfl { position: fixed; left: 1.5rem; top: 4rem; z-index: 60; width: 34rem; height: 22rem; min-width: 18rem; min-height: 12rem; max-width: calc(100vw - 1rem); resize: both; overflow: hidden; display: flex; flex-direction: column; padding: 0 var(--sp-2) var(--sp-2); border: 1px solid var(--border); border-radius: var(--radius-s); background: var(--card-bg); color: var(--text-secondary); box-shadow: var(--shadow); }
+.ws-tune-envfl[hidden] { display: none; }
+.ws-tune-envfh { display: flex; align-items: center; justify-content: space-between; min-height: 2rem; cursor: move; touch-action: none; font-size: 0.8125rem; font-weight: 700; color: var(--text-primary); user-select: none; }
+.ws-tune-envx { min-width: 2rem; min-height: 2rem; border: 0; background: none; color: var(--text-secondary); font: inherit; cursor: pointer; }
+.ws-tune-envfl .ws-tune-envb { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.ws-tune-envfl .ws-tune-envc { flex: 1; height: auto; min-height: 0; }
 .ws-tune-range { grid-column: 1 / -1; width: 100%; margin: 0; accent-color: var(--highlight-border); }
 .ws-tune-vv { display: inline-flex; gap: 0.25rem; align-items: baseline; }
 .ws-tune-d { font-size: 0.75rem; color: var(--text-secondary); font-variant-numeric: tabular-nums; }

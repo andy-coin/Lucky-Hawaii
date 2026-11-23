@@ -1,0 +1,3477 @@
+        /* ===== 左右側邊面板 ===== */
+        /* 共用外觀（所有寬度）；位置、寬度、收合位移只在 ≥ 901px 的推開版型定義（D-03），
+           ≤ 900 的底部 sheet 版型在 responsive.css 自己決定，不必再用 !important 蓋掉桌機規則 */
+        .side-panel {
+            position: fixed;
+            background: var(--card-bg);
+            background-image: var(--tex-panel);
+            border: 1px solid var(--border);
+            box-shadow: 0 1px 3px var(--shadow);
+            display: flex;
+            z-index: 800;
+            transition: transform 0.3s ease;
+        }
+
+        /* 桌機／平板橫放：面板推開主畫面，不再疊在上面。
+           以前用 translateX 把展開的面板往外推，面板裡 86–100px 的內容被切掉，縮放按鈕也被蓋住 */
+        @media (min-width: 901px) {
+            .side-panel {
+                /* 主畫面加入主畫面全螢幕時，狀態列蓋在最上面：頂端讓出 safe-area */
+                top: var(--pad-t);
+                height: calc(var(--app-h) - var(--pad-t) - var(--page-pad));
+                width: var(--panel-w);
+            }
+            .left-panel {
+                left: 0;
+                border-radius: 0 0.75rem 0.75rem 0;
+                flex-direction: row;
+            }
+            .right-panel {
+                right: 0;
+                border-radius: 0.75rem 0 0 0.75rem;
+                flex-direction: row-reverse;
+            }
+            /* 多推 1px（面板的邊框佔 1px）：不然收合時分頁有 1px 跑到視窗外，量起來「沒有整個在畫面內」 */
+            .left-panel.collapsed { transform: translateX(calc(-100% + var(--tab-w) + 1px)); }
+            .right-panel.collapsed { transform: translateX(calc(100% - var(--tab-w) - 1px)); }
+            .left-panel:not(.collapsed), .right-panel:not(.collapsed) { transform: none; }
+            .side-panel-tab { width: var(--tab-w); }
+
+            /* 收合時兩側各留一條分頁寬的邊，分頁不會貼到主畫面；展開時整個面板寬度讓給面板（不做 transition，避免每一幀重排） */
+            body {
+                padding-left: max(var(--page-pad), env(safe-area-inset-left), calc(var(--tab-w) + 0.25rem));
+                padding-right: max(var(--page-pad), env(safe-area-inset-right), calc(var(--tab-w) + 0.25rem));
+            }
+            body.lp-open { padding-left: calc(var(--lp-w, var(--panel-w)) + var(--song-w, 0px) + var(--pane-gap)); }
+            /* 歌曲清單推開欄（≥ 1024）：左面板多寬一欄，歌詞區寬度不變，主畫面照樣置中（D-02）；不做 transition，和上面一樣避免每一幀重排 */
+            .left-panel { width: calc(var(--lp-w, var(--panel-w)) + var(--song-w, 0px)); }
+            .right-panel { width: var(--rp-w, var(--panel-w)); }
+            body.rp-open { padding-right: calc(var(--rp-w, var(--panel-w)) + var(--pane-gap)); }
+        }
+
+        @media (min-width: 1024px) {
+            body.songs-open { --song-w: 9rem; }
+        }
+
+        .side-panel-tab {
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            writing-mode: vertical-rl;
+            font-size: 0.8125rem;
+            font-weight: 700;
+            color: var(--text-secondary);
+            padding: 1rem 0;
+            user-select: none;
+            transition: background 0.2s ease;
+            letter-spacing: 0.3em;
+            order: 2;
+            background: var(--fill-soft);
+        }
+        .left-panel .side-panel-tab {
+            border-right: 1px solid var(--border);
+            border-radius: 0 0.75rem 0.75rem 0;
+        }
+        .left-panel .side-panel-tab { color: var(--accent-2); }
+        .right-panel .side-panel-tab { color: var(--accent-4); }
+        .right-panel .side-panel-title { color: var(--accent-4); }
+        .right-panel .side-panel-tab {
+            border-left: 1px solid var(--border);
+            border-radius: 0.75rem 0 0 0.75rem;
+        }
+        @media (hover: hover) and (pointer: fine) {
+            .side-panel-tab:hover {
+                background: var(--accent-soft);
+                color: var(--text-primary);
+            }
+        }
+
+        .side-panel-body {
+            flex: 1;
+            overflow: hidden;
+            padding: 0.875rem 0.75rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            order: 1;
+            min-height: 0;
+        }
+
+        /* 歌詞區可捲動容器 */
+        .lyrics-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 0.375rem;
+            overflow-y: auto;
+            min-height: 0;
+            scrollbar-width: thin;
+        }
+        .lyrics-area::-webkit-scrollbar { width: 0.25rem; }
+        .lyrics-area::-webkit-scrollbar-track { background: transparent; }
+        .lyrics-area::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.15); border-radius: 0.125rem; }
+
+        /* 右側 AI 建議可捲動區 */
+        .ai-scroll-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            overflow-y: auto;
+            min-height: 0;
+            scrollbar-width: thin;
+        }
+        .ai-scroll-area::-webkit-scrollbar { width: 0.25rem; }
+        .ai-scroll-area::-webkit-scrollbar-track { background: transparent; }
+        .ai-scroll-area::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.15); border-radius: 0.125rem; }
+
+        /* 左側上方：標籤 & 情境（Andy 1-d：放在歌詞上面）；高度跟著內容，最多佔四成，歌詞吃剩下的 */
+        .context-section {
+            flex: 0 1 auto;
+            max-height: 42%;
+            overflow: hidden;
+            transition: flex-basis 0.25s ease;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+        }
+        /* 收起：高度跟著標題列（觸控時按鈕 44px，寫死高度會裁掉），內容整塊藏起來 */
+        .context-section.collapsed { flex: 0 0 auto; }
+        .context-section.collapsed .context-body { display: none; }
+        .context-section-header {
+            display: flex;
+            align-items: center;
+            gap: 0.3125rem;
+            flex-shrink: 0;
+            cursor: pointer;
+            user-select: none;
+            padding: 0.4375rem 0.25rem 0.3125rem;
+            border-radius: 0.375rem;
+            transition: background 0.15s;
+        }
+        @media (hover: hover) and (pointer: fine) {
+            .context-section-header:hover { background: var(--fill-soft); }
+        }
+        /* 標籤移到「標籤 ＆ 情境」那一列、燈泡右邊（Andy）：標籤自己撐開、可換行，點標籤不會收合區塊 */
+        /* 只排一行、太多就橫向捲：標題列高度永遠固定，下面的標籤輸入框位置不會跟著標籤數量跑（Andy） */
+        .context-section-header > .hashtag-chips { flex: 1 1 0; min-width: 0; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; cursor: default; margin-left: 0.25rem; }
+        .context-section-header > .hashtag-chips::-webkit-scrollbar { display: none; }
+        .context-section-header > .hashtag-chips > * { flex: none; white-space: nowrap; max-width: none; }
+        .context-chevron {
+            margin-left: auto;
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            opacity: 0.6;
+            flex-shrink: 0;
+            transition: transform 0.22s;
+        }
+        .context-section.collapsed .context-chevron { transform: rotate(-90deg); }
+        .context-body {
+            flex: 1;
+            overflow-y: auto;
+            min-height: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 0.4375rem;
+            padding-bottom: 0.5rem;
+            scrollbar-width: thin;
+        }
+        .context-section-subtitle {
+            flex: 1;
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            opacity: 0.75;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        /* 小標：小字、加寬字距，當成區塊的「標籤」而不是標題 */
+        .context-section-title {
+            font-size: 0.75rem;
+            font-weight: 700;
+            letter-spacing: 0.12em;
+            color: var(--text-secondary);
+        }
+
+        .side-panel-title {
+            font-size: 0.9375rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            padding-bottom: 0.375rem;
+            border-bottom: 1px solid var(--border);
+            flex-shrink: 0;
+        }
+
+        .word-input-row {
+            display: flex;
+            gap: 0.375rem;
+            flex-shrink: 0;
+        }
+        .word-input-row input {
+            flex: 1;
+            padding: 0.375rem 0.5rem;
+            border: 1px solid var(--border);
+            border-radius: 0.5rem;
+            font-size: 0.88rem;
+            background: var(--container-bg);
+            color: var(--text-primary);
+            font-family: var(--font-ui);
+            outline: none;
+        }
+        .word-input-row input:focus { border-color: var(--text-secondary); }
+
+        .panel-add-btn {
+            padding: 0.375rem 0.625rem;
+            background: transparent;
+            color: var(--text-primary);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-s);
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: 700;
+            transition: background 0.2s;
+            flex-shrink: 0;
+        }
+        @media (hover: hover) and (pointer: fine) {
+            .panel-add-btn:hover { border-color: var(--highlight-border); background: var(--accent-soft); }
+        }
+
+        /* ===== 歌詞標題列與歌曲清單（Phase 8，UI-SPEC §2；只用 4 種字級 0.75／0.875／1／1.25rem、2 種字重） ===== */
+        .lyrics-head {
+            display: flex;
+            flex-wrap: nowrap;   /* Andy：不換行——寬度不夠先讓歌名縮成 …，再窄就只留圖示（下面 @container） */
+            align-items: center;
+            gap: var(--sp-2);
+        }
+        .song-toggle, .export-toggle {
+            padding: var(--sp-1) var(--sp-3);
+            min-height: 2rem;
+            background: var(--card-bg);
+            color: var(--text-primary);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-s);
+            font-family: inherit;
+            font-size: 0.875rem;
+            font-weight: 400;
+            cursor: pointer;
+            flex-shrink: 0;
+        }
+        .song-toggle[hidden] { display: none; }
+        .song-toggle[aria-expanded="true"], .export-toggle[aria-expanded="true"] { border-color: var(--highlight-border); }
+        @media (hover: hover) and (pointer: fine) {
+            .song-toggle:hover, .export-toggle:hover { background: var(--fill-soft); }
+        }
+        .song-current {
+            flex: 1 1 8rem;
+            min-width: 0;
+            font-family: var(--font-serif);
+            font-size: 1.125rem;
+            font-weight: 700;
+            line-height: 1.5;
+            color: var(--text-primary);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        /* 匯出／展開：圖示＋文字；左欄窄（iPad 三欄全開約 280px）時只留圖示，名稱還在 aria-label，維持一排 */
+        .export-toggle { display: inline-flex; align-items: center; justify-content: center; gap: 0.3125rem; }
+        .side-panel-body { container: lpanel / inline-size; }
+        @container lpanel (max-width: 30rem) {   /* 24→30rem：歌名被擠到剩幾個字之前就先收成圖示 */
+            .lyrics-head .btn-label { display: none; }
+            .song-current { flex-basis: 0; }   /* 歌名讓位（太長就 …），三顆按鈕維持同一排 */
+            .export-toggle { min-width: var(--hit); padding-inline: var(--sp-2); }
+        }
+        .undo-btn { display: inline-flex; align-items: center; justify-content: center; }
+
+        .lyrics-layout {
+            position: relative;
+            flex: 1;
+            min-height: 0;
+            display: flex;
+        }
+        .lyrics-main {
+            flex: 1;
+            min-width: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+        /* 工具列：整首歌的總字數（之後 ↶ ↷ 也放這一列） */
+        .lyrics-tools {
+            display: flex;
+            align-items: center;
+            gap: var(--sp-2);
+            min-height: 2rem;
+            flex-shrink: 0;
+            flex-wrap: wrap;   /* 手機放大到 150% 時「共 N 字」掉到第二行，不橫向溢出 */
+        }
+        /* 復原／重做：外觀跟 .song-toggle 同一套（外框小按鈕）；變灰用 aria-disabled，按鈕有焦點時不丟焦點 */
+        .undo-group { display: inline-flex; gap: var(--sp-1); }
+        .undo-btn {
+            width: 2rem;
+            height: 2rem;
+            padding: 0;
+            background: var(--card-bg);
+            color: var(--text-primary);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-s);
+            font-family: inherit;
+            font-size: 1rem;
+            font-weight: 400;
+            cursor: pointer;
+        }
+        .undo-btn[aria-disabled="true"] { opacity: 0.4; cursor: not-allowed; }
+        @media (hover: hover) and (pointer: fine) {
+            .undo-btn:not([aria-disabled="true"]):hover { background: var(--fill-soft); }
+        }
+        /* 「韻腳 ▾」按鈕（UI-SPEC D-12）：外框小按鈕加文字；打開時外框改用主文字色（不用強調色） */
+        .rhyme-menu-btn {
+            min-height: 2rem;
+            padding: var(--sp-1) var(--sp-3);
+            background: var(--card-bg);
+            color: var(--text-primary);
+            border: 1px solid var(--border);
+            border-radius: 0.5rem;
+            font-family: inherit;
+            font-size: 0.875rem;
+            font-weight: 700;
+            cursor: pointer;
+        }
+        .rhyme-menu-btn[aria-expanded="true"] { border-color: var(--text-primary); }
+        /* 韻腳選單的開關列（D-14）：整列是按鈕；狀態用右邊的「開／關」字，不靠顏色 */
+        .rm-switch {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: var(--sp-2);
+            width: 100%;
+            min-height: 2rem;
+            padding: var(--sp-1) var(--sp-3);
+            background: var(--card-bg);
+            color: var(--text-primary);
+            border: 1px solid var(--border);
+            border-radius: 0.5rem;
+            font-family: var(--font-ui);
+            font-size: 0.875rem;
+            font-weight: 400;
+            text-align: left;
+            cursor: pointer;
+        }
+        .rm-pill {
+            padding: 0 var(--sp-2);
+            border: 1px solid var(--border);
+            border-radius: 0.5rem;
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+            font-weight: 700;
+        }
+        .rm-switch[aria-checked="true"] .rm-pill { background: var(--action-bg); color: var(--action-text); border-color: var(--action-bg); }
+        /* 句中押韻：只畫底線，字本身仍是透明（D-07）；底線色＝家族色混 30% 文字色，對卡片底 ≥ 3:1 */
+        .rm-inner {
+            text-decoration: underline;
+            text-decoration-thickness: 0.125rem;
+            text-underline-offset: 0.2em;
+            text-decoration-color: var(--rm-c);
+        }
+        @supports (background: color-mix(in srgb, red 50%, blue)) {
+            .rm-inner { text-decoration-color: color-mix(in srgb, var(--text-primary) 30%, var(--rm-c)); }
+        }
+        /* 色票對照：17 個不能點的小格（色塊＋家族名稱） */
+        .rm-legend {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(4.5rem, 1fr));
+            gap: var(--sp-1);
+        }
+        .rm-cell { display: flex; align-items: center; gap: var(--sp-1); }
+        .rm-cell-label { font-size: 0.75rem; font-weight: 400; color: var(--text-primary); }
+        .rm-sw {
+            flex: none;
+            width: 1rem;
+            height: 1rem;
+            border: 1px solid var(--border);
+            border-radius: 0.25rem;
+            background: var(--rm-c);
+        }
+        @supports (background: color-mix(in srgb, red 50%, blue)) {
+            .rm-sw { background: color-mix(in srgb, var(--rm-c) var(--rm-end, 34%), var(--card-bg)); }
+        }
+        @media (hover: hover) and (pointer: fine) {
+            .rhyme-menu-btn:hover { background: var(--container-bg); }
+            .rm-switch:hover { background: var(--container-bg); }
+        }
+        /* 選字浮動列（10-05）：兩顆按鈕一排，窄螢幕換行；沿用 .word-ctx-menu 的底、框、層級 */
+        .word-ctx-menu.rm-bar { padding: var(--sp-1); min-width: 0; }
+        .word-ctx-menu.rm-bar.show { display: flex; gap: var(--sp-1); flex-wrap: wrap; }
+        .rm-bar .section-menu-btn { min-height: 2rem; min-width: var(--hit); white-space: nowrap; }
+        /* 指定讀音那一列（10-06）：佔滿整列，標籤＋晶片；晶片外觀對齊字卡上的破音字 .poly-chip */
+        .rm-bar-reading { flex: 1 0 100%; display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-1); }
+        .rm-bar-reading[hidden] { display: none; }
+        .rm-bar-reading-label { font-size: 0.75rem; font-weight: 400; color: var(--text-secondary); }
+        .rm-chip {
+            padding: 0.125rem 0.625rem;
+            border-radius: 1.25rem;
+            border: 1.5px solid rgba(102, 126, 234, 0.5);
+            background: rgba(102, 126, 234, 0.08);
+            color: var(--text-primary);
+            font: 400 0.875rem 'Noto Sans TC', 'JetBrains Mono', sans-serif;
+            cursor: pointer;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .rm-chip[aria-pressed="true"] { font-weight: 700; border-left: 0.25rem solid var(--highlight-border); }
+        /* 復原／重做後第一個變動的段落閃 700 毫秒外框（不用動畫） */
+        .lyrics-section.sec-flash { outline: 2px solid var(--highlight-border); outline-offset: -2px; }
+
+        /* ===== 詞卡／字卡拖進歌詞（09-09）：殘影、插入線、輸入框外框；拖曳中只畫覆蓋層 ===== */
+        .word-drag-ghost {
+            position: fixed;
+            left: 0;
+            top: 0;
+            pointer-events: none;
+            z-index: 10000;
+            max-width: 14rem;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            background: var(--card-bg);
+            border: 2px solid var(--highlight-border);
+            border-radius: 0.75rem;
+            padding: var(--sp-1) var(--sp-3);
+            font-size: 1rem;
+            font-weight: 700;
+            line-height: 1.2;
+            color: var(--text-primary);
+            box-shadow: 0 4px 16px rgba(0,0,0,0.18);
+        }
+        .drop-caret {
+            position: fixed;
+            width: 0.125rem;
+            pointer-events: none;
+            z-index: 10000;
+            background: var(--highlight-border);
+        }
+        .section-textarea.drop-target { outline: 2px solid var(--highlight-border); outline-offset: -2px; }
+        .word-drag-source { opacity: 0.5; }
+        /* 拖曳停在收合段落的標題列上：等 600ms 展開，這段時間標題列先淡淡亮起（靜態，不做動畫） */
+        .lyrics-section.dwell .lyrics-section-header { background: color-mix(in srgb, var(--highlight-border) 25%, var(--container-bg)); }
+        body.is-word-dragging, body.is-word-dragging * { user-select: none; cursor: grabbing; }
+        /* 卡片上長按不跳出系統選單、不選字；觸控仍可捲動清單（touch-action 維持 manipulation） */
+        .ai-word-card, .char-card { -webkit-touch-callout: none; user-select: none; }
+        .drag-hint {
+            position: fixed;
+            top: calc(env(safe-area-inset-top) + var(--sp-2));
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 10000;
+            width: max-content;
+            max-width: min(92vw, 28rem);
+            background: rgba(0,0,0,0.72);
+            color: white;
+            border-radius: 1rem;
+            padding: var(--sp-1) var(--sp-3);
+            font-size: 0.875rem;
+            font-weight: 700;
+            line-height: 1.5;
+            text-align: center;
+            pointer-events: none;
+        }
+        .lyrics-total {
+            margin-inline-start: auto;
+            font-size: 0.75rem;
+            font-weight: 400;
+            color: var(--text-secondary);
+            font-variant-numeric: tabular-nums;
+            white-space: nowrap;
+        }
+
+        .song-list {
+            display: flex;
+            flex-direction: column;
+            gap: var(--sp-2);
+            padding: var(--sp-2);
+            background: var(--card-bg);
+            overflow-y: auto;
+            overscroll-behavior: contain;
+            min-height: 0;
+        }
+        .song-list[hidden] { display: none; }
+        .song-list--push {
+            width: var(--song-w);
+            flex-shrink: 0;
+            border-right: 1px solid var(--border);
+        }
+        .song-list--overlay {
+            position: absolute;
+            inset: 0;
+            z-index: 2;
+            padding: var(--sp-3);
+            box-shadow: 0 4px 24px rgba(0,0,0,0.18);
+            transition: opacity 0.2s ease, transform 0.2s ease;
+        }
+        /* 從隱藏到顯示的那一刻：由透明、往上 0.5rem 淡入落下（不用 @keyframes；不支援的瀏覽器就是直接出現） */
+        @starting-style {
+            .song-list--overlay { opacity: 0; transform: translateY(-0.5rem); }
+        }
+        .song-list-head {
+            display: flex;
+            flex-direction: column;
+            gap: var(--sp-2);
+            flex-shrink: 0;
+        }
+        .song-list--overlay .song-list-head {
+            flex-direction: row;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .song-list-caption {
+            font-size: 0.875rem;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+        .song-new-btn {
+            min-height: 2rem;
+            padding: var(--sp-1) var(--sp-3);
+            font-size: 0.875rem;
+            width: 100%;
+        }
+        .song-list--overlay .song-new-btn { width: auto; margin-inline-start: auto; }
+        .song-items {
+            list-style: none;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            gap: var(--sp-1);
+        }
+        .song-item {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: var(--sp-1);
+            padding: 0 var(--sp-1) 0 var(--sp-2);
+            border-radius: 0.5rem;
+            border-left: 0.25rem solid transparent;
+        }
+        .song-item[aria-current="true"] {
+            background: var(--container-bg);
+            border-left-color: var(--highlight-border);
+        }
+        .song-item[aria-current="true"] .song-pick { font-weight: 700; }
+        @media (hover: hover) and (pointer: fine) {
+            .song-item:not([aria-current="true"]):hover { background: var(--border); }
+        }
+        .song-pick {
+            flex: 1 1 100%;
+            min-width: 0;
+            min-height: 2rem;
+            padding: 0;
+            text-align: left;
+            font-family: inherit;
+            font-size: 0.875rem;
+            font-weight: 400;
+            color: var(--text-primary);
+            background: none;
+            border: 0;
+            cursor: pointer;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .song-list--overlay .song-pick { flex: 1 1 0; }
+        .song-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: var(--sp-1);
+            flex: 1 1 100%;
+        }
+        .song-list--overlay .song-actions { flex: 0 0 auto; }
+        /* 窄欄裡只有目前這首顯示動作，第二行靠右（D-06） */
+        .song-list--push .song-item:not([aria-current="true"]) .song-actions { display: none; }
+        .song-act {
+            width: 2rem;
+            height: 2rem;
+            padding: 0;
+            font-family: inherit;
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+            background: none;
+            border: 0;
+            border-radius: 0.375rem;
+            cursor: pointer;
+        }
+        .song-item.renaming .song-actions { display: none; }
+        .song-name-input {
+            flex: 1 1 100%;
+            min-width: 0;
+            min-height: 2rem;
+            padding: var(--sp-1) var(--sp-2);
+            border: 2px solid var(--highlight-border);
+            border-radius: 0.375rem;
+            background: var(--container-bg);
+            color: var(--text-primary);
+            font-family: inherit;
+            font-size: 0.875rem;
+            outline: none;
+        }
+        .song-list-hint {
+            margin: 0;
+            font-size: 0.75rem;
+            font-weight: 400;
+            line-height: 1.5;
+            color: var(--text-secondary);
+        }
+        .song-list-hint[hidden] { display: none; }
+
+        .word-chips {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.375rem;
+            flex: 1;
+            align-content: flex-start;
+        }
+        .word-chip {
+            display: flex;
+            align-items: center;
+            gap: 0.25rem;
+            background: var(--container-bg);
+            border: 1px solid var(--border);
+            border-radius: 0.375rem;
+            padding: 0.25rem 0.5rem;
+            font-size: 0.95rem;
+            color: var(--text-primary);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        @media (hover: hover) and (pointer: fine) {
+            .word-chip:hover {
+                border-color: var(--accent-line);
+                background: var(--accent-soft);
+            }
+        }
+        .chip-remove {
+            color: var(--text-secondary);
+            font-size: 0.75rem;
+            cursor: pointer;
+            line-height: 1;
+            padding: 0.0625rem 0.125rem;
+        }
+        @media (hover: hover) and (pointer: fine) {
+            .chip-remove:hover { color: var(--danger-line); }
+        }
+
+        /* AI 建議面板 */
+        .ai-rhyme-display {
+            background: var(--container-bg);
+            border-radius: var(--radius-m);
+            padding: 0.5rem 0.625rem;
+            font-size: 0.82rem;
+            color: var(--text-secondary);
+            border: 1px solid var(--border);
+            flex-shrink: 0;
+            line-height: 1.6;
+        }
+        .ai-rhyme-display .rhyme-label {
+            font-size: 1.15rem;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+        .rhyme-not-found {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.25rem;
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+        .report-char-btn {
+            font-size: 0.75rem;
+            padding: 0.0625rem 0.3125rem;
+            border: 1px solid var(--border);
+            border-radius: 0.25rem;
+            background: var(--card-bg);
+            color: var(--text-secondary);
+            cursor: pointer;
+            font-family: var(--font-ui);
+            line-height: 1.4;
+        }
+        @media (hover: hover) and (pointer: fine) {
+            .report-char-btn:hover { border-color: var(--text-secondary); color: var(--text-primary); }
+        }
+        .model-select {
+            font-size: 0.75rem;
+            padding: 0.125rem 0.25rem;
+            border: 1px solid var(--border);
+            border-radius: 0.375rem;
+            background: var(--card-bg);
+            color: var(--text-secondary);
+            font-family: var(--font-ui);
+            max-width: 10rem;
+            cursor: pointer;
+        }
+        @media (hover: hover) and (pointer: fine) {
+            .model-select:hover { border-color: var(--text-secondary); }
+        }
+
+        .generate-btn {
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.4375rem;
+            padding: 0.625rem;
+            background: var(--action-bg);
+            color: var(--action-text);
+            border: none;
+            border-radius: var(--radius-m);
+            font-size: 0.9375rem;
+            font-weight: 700;
+            letter-spacing: 0.04em;
+            cursor: pointer;
+            font-family: var(--font-ui);
+            transition: opacity 0.2s;
+            flex-shrink: 0;
+        }
+        @media (hover: hover) and (pointer: fine) {
+            .generate-btn:hover:not(:disabled) { background: var(--action-bg-hover); }
+        }
+        .generate-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        .ai-loading {
+            text-align: center;
+            color: var(--text-secondary);
+            font-size: 0.83rem;
+            padding: 0.375rem;
+            flex-shrink: 0;
+        }
+        .ai-word-card {
+            background: var(--container-bg);
+            border: 1px solid color-mix(in srgb, var(--accent-4) 30%, var(--border));
+            border-radius: 0.5rem;
+            padding: 0.3125rem 0.625rem;
+            font-size: 0.95rem;
+            color: var(--text-primary);
+            cursor: pointer;
+            text-align: center;
+            transition: all 0.2s;
+            position: relative;
+            user-select: none;
+            -webkit-user-select: none;
+            -webkit-touch-callout: none;
+            -webkit-tap-highlight-color: transparent;
+            touch-action: manipulation;
+        }
+        @media (hover: hover) and (pointer: fine) {
+            .ai-word-card:hover {
+                border-color: var(--accent-line);
+                background: var(--accent-soft);
+            }
+        }
+        .ai-word-card.wt-hot  { background: rgba(210,45,40,0.11); border-color: rgba(210,45,40,0.4); }
+        .ai-word-card.wt-warm { background: rgba(225,115,15,0.11); border-color: rgba(225,115,15,0.4); }
+        .ai-word-card.wt-cool { background: rgba(0,148,115,0.09); border-color: rgba(0,148,115,0.35); }
+        .ai-word-card.wt-cold { background: rgba(50,95,220,0.09); border-color: rgba(50,95,220,0.35); }
+        /* AI 詞卡回報列（Phase 7，D-03）：一般時只有「回報詞語」鈕；選取模式時黏在上方，捲動詞卡也看得到 */
+        .ai-report-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); flex-shrink: 0; }
+        .ai-report-row[hidden], .ai-report-btn[hidden] { display: none; }
+        .ai-report-row.active { position: sticky; top: 0; z-index: 1; background: var(--card-bg); padding: var(--sp-2) 0; }
+        .ai-report-text { flex: 1 1 auto; font-size: 0.875rem; color: var(--text-secondary); }
+        .ai-report-text:empty { display: none; }   /* 一般狀態沒有文字：讓「回報詞語」靠左 */
+        .ai-report-btn {
+            min-height: 2rem;
+            padding: 0 var(--sp-3);
+            border: 2px solid var(--border);
+            border-radius: 0.625rem;
+            background: var(--card-bg);
+            color: var(--text-secondary);
+            font-family: var(--font-ui);
+            font-size: 0.875rem;
+            font-weight: 700;
+            cursor: pointer;
+        }
+        /* 「回報」跟中間詞卡／字卡的回報鈕長得一模一樣（0.98.07） */
+        .ai-report-row .batch-btn { flex-direction: row; padding: 0.1875rem 0.625rem; font-size: 0.8rem; gap: 0.25rem; box-shadow: none; }
+        .ai-report-row .batch-btn.btn-report { margin-inline-start: 0; }
+        .ai-words-grid > :not(.ai-word-card) { grid-column: 1 / -1; }   /* 說明列、用完提示跨整排，不被擠進一格 */
+        .ai-report-row .batch-btn[hidden] { display: none; }
+        @media (pointer: coarse), (max-width: 900px) { .ai-report-row .batch-btn { min-height: var(--hit); min-width: var(--hit); } }
+        .ai-report-btn.primary { background: var(--action-bg); color: var(--action-text); border-color: var(--action-bg); }
+        /* 選到的詞卡：框線＋外框＋前面的「✓」，不只靠顏色 */
+        .ai-word-card.report-picked { border-color: var(--highlight-border); outline: 2px solid var(--highlight-border); outline-offset: -1px; }
+        .ai-word-card.report-picked::before { content: '✓ '; font-weight: 700; }
+        .ai-badge {
+            position: absolute;
+            bottom: 0.125rem;
+            right: 0.25rem;
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            opacity: 0.6;
+            font-weight: 700;
+            pointer-events: none;
+            line-height: 1;
+            letter-spacing: 0.02em;
+        }
+        .phonetic-tooltip {
+            position: fixed;
+            background: var(--container-bg);
+            border: 1px solid var(--border);
+            border-radius: 0.375rem;
+            padding: 0.25rem 0.625rem;
+            font-size: 0.8rem;
+            color: var(--text-primary);
+            box-shadow: 0 2px 10px rgba(0,0,0,0.18);
+            pointer-events: none;
+            z-index: 9999;
+            white-space: nowrap;
+            opacity: 0;
+            transition: opacity 0.2s ease;
+            transform: translate(-50%, calc(-100% - 6px));
+        }
+        .phonetic-tooltip.show { opacity: 1; }
+        .word-ctx-menu {
+            position: fixed;
+            background: var(--container-bg);
+            border: 1px solid var(--border);
+            border-radius: 0.5rem;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.18);
+            padding: 0.25rem 0;
+            z-index: 10000;
+            min-width: 9rem;
+            /* 極端縮放（150% 的橫放手機）選單比畫面還高時，在選單內捲動，不整個切掉 */
+            max-height: calc(var(--app-h) - 1rem);
+            overflow-y: auto;
+            display: none;
+        }
+        .word-ctx-menu.show { display: block; }
+        .word-ctx-menu-title {
+            font-size: 1.05rem;
+            color: var(--text-primary);
+            font-weight: 700;
+            padding: 0.4375rem 0.875rem 0.375rem;
+            border-bottom: 1px solid var(--border);
+            margin-bottom: 0.1875rem;
+            display: flex;
+            align-items: baseline;
+            gap: 0.5rem;
+        }
+        .word-ctx-menu-title .ctx-phonetic {
+            font-size: 0.78rem;
+            font-weight: 400;
+            color: var(--text-secondary);
+        }
+        .word-ctx-reading-row {
+            padding: 0.25rem 0.875rem;
+            font-size: 0.82rem;
+            color: var(--text-secondary);
+            cursor: default;
+        }
+        .word-ctx-item {
+            display: flex;
+            align-items: center;
+            gap: 0.4375rem;
+            padding: 0.4375rem 0.875rem;
+            font-size: 0.85rem;
+            color: var(--text-primary);
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+        @media (hover: hover) and (pointer: fine) {
+            .word-ctx-item:hover { background: var(--accent-soft); }
+        }
+        .word-ctx-divider { height: 0.0625rem; background: var(--border); margin: 0.1875rem 0; }
+        /* 匯出選單（Phase 8，UI-SPEC §4.1）：每項上面是名稱、下面一行提示 */
+        .export-menu { min-width: 14rem; max-width: calc(100vw - 1rem); }
+        .export-item {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 0;
+            width: 100%;
+            padding: var(--sp-2) var(--sp-3);
+            background: transparent;
+            border: 0;
+            font-family: inherit;
+            text-align: left;
+        }
+        /* 列印用的隱藏頁，螢幕上不顯示；列印規則在 css/print.css */
+        #printSheet { display: none; }
+        .export-label { font-size: 0.875rem; font-weight: 700; line-height: 1.5; }
+        .export-hint { font-size: 0.75rem; font-weight: 400; line-height: 1.5; color: var(--text-secondary); }
+
+        .feedback-modal-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.45);
+            z-index: 12000;
+            align-items: center;
+            justify-content: center;
+        }
+        .feedback-modal-overlay.show { display: flex; }
+        .feedback-modal {
+            background: var(--container-bg);
+            border-radius: 0.875rem;
+            padding: 1.5rem;
+            width: min(26.25rem, 92vw);
+            max-height: calc(var(--app-h) - 2rem);
+            overflow-y: auto;
+            overscroll-behavior: contain;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.25);
+        }
+        .feedback-modal h3 { margin: 0 0 1rem; font-size: 1rem; color: var(--text-primary); }
+        .feedback-modal input, .feedback-modal textarea {
+            width: 100%;
+            box-sizing: border-box;
+            padding: 0.5625rem 0.75rem;
+            border: 1.5px solid var(--border);
+            border-radius: 0.5rem;
+            background: var(--input-bg, var(--card-bg));
+            color: var(--text-primary);
+            font-family: var(--font-ui);
+            font-size: 0.88rem;
+            margin-bottom: 0.625rem;
+            resize: none;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        .feedback-modal input:focus, .feedback-modal textarea:focus { border-color: var(--highlight-border); }
+        .feedback-modal-actions { display: flex; gap: 0.5rem; justify-content: flex-end; margin-top: 0.25rem; }
+        .feedback-modal-actions button {
+            padding: 0.4375rem 1.125rem;
+            border-radius: 0.5rem;
+            font-size: 0.85rem;
+            cursor: pointer;
+            border: 1.5px solid var(--border);
+            font-family: var(--font-ui);
+            transition: all 0.2s;
+        }
+        .feedback-send-btn { background: var(--highlight-border); color: #fff; border-color: var(--highlight-border); }
+        @media (hover: hover) and (pointer: fine) {
+            .feedback-send-btn:hover { background: var(--action-bg-hover); }
+        }
+        .feedback-cancel-btn { background: none; color: var(--text-secondary); }
+
+        /* ===== 回報視窗（Phase 7，FB-01）：沿用 .feedback-modal 外殼，這裡只放它自己的部分 ===== */
+        .report-modal h3 { font-size: 1.25rem; font-weight: 700; line-height: 1.2; margin: 0 0 var(--sp-3); }
+        .report-words { display: flex; flex-wrap: wrap; gap: var(--sp-2); margin-bottom: var(--sp-4); }
+        .report-chip {
+            min-width: 0;
+            overflow-wrap: anywhere;
+            padding: var(--sp-1) var(--sp-3);
+            border: 1px solid var(--border);
+            border-radius: 1rem;
+            background: var(--card-bg);
+            color: var(--text-primary);
+            font-size: 1rem;
+            font-weight: 400;
+        }
+        .report-chip.reported { opacity: .6; }
+        .report-chip-reading, .report-chip-done {
+            margin-inline-start: var(--sp-1);
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+        }
+        .report-chip-reading { font-family: var(--font-mono); }
+        .report-reasons { display: grid; grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr)); gap: var(--sp-2); }
+        .report-reason {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            min-height: 3.5rem;
+            padding: var(--sp-2) var(--sp-3);
+            border: 2px solid var(--border);
+            border-radius: 0.75rem;
+            background: var(--card-bg);
+            font-family: var(--font-ui);
+            text-align: left;
+            cursor: pointer;
+        }
+        .report-reason[hidden] { display: none; }   /* display:flex 會蓋掉 hidden 屬性 */
+        .report-reason[aria-checked="true"] { border-color: var(--highlight-border); }
+        .report-reason:disabled { opacity: .5; cursor: default; }
+        .report-reason-label { font-size: 1rem; font-weight: 700; color: var(--text-primary); }
+        .report-reason-hint { font-size: 0.75rem; font-weight: 400; color: var(--text-secondary); }
+        .report-modal textarea { margin: var(--sp-4) 0 0; scroll-margin-bottom: 1rem; }
+        .report-status { min-height: 1.5rem; margin-top: var(--sp-2); font-size: 0.875rem; color: var(--text-secondary); }
+        .report-status.error { color: #e53e3e; font-weight: 700; }
+        .report-send-btn { background: var(--action-bg); color: var(--action-text); border-color: var(--action-bg); }
+        .report-send-btn:disabled { opacity: .5; cursor: not-allowed; }
+        /* 觸控或窄螢幕：縮小比例時 3.5rem 會低於 44px，所以取兩者較大 */
+        @media (max-width: 900px), (pointer: coarse) {
+            .report-reason { min-height: max(3.5rem, var(--hit)); }
+        }
+        @media (hover: hover) and (pointer: fine) {
+            .report-send-btn:not(:disabled):hover { background: var(--action-bg-hover); border-color: var(--action-bg-hover); }
+        }
+        @media (hover: hover) and (pointer: fine) {
+            .feedback-cancel-btn:hover { border-color: var(--highlight-border); color: var(--highlight-border); }
+        }
+        /* ===== 歌曲對話框與匯入備份視窗（Phase 8，UI-SPEC §3、§5.2）：沿用 .feedback-modal 外殼 ===== */
+        .song-dialog h3 { font-size: 1.25rem; font-weight: 700; line-height: 1.2; margin: 0 0 var(--sp-3); }
+        .import-dialog [hidden] { display: none; }   /* 下面幾個元素有自己的 display，會蓋掉 hidden 屬性 */
+        .import-summary { margin: 0; font-size: 1rem; font-weight: 400; line-height: 1.5; color: var(--text-primary); }
+        .import-meta { margin: 0; font-size: 0.875rem; font-weight: 400; line-height: 1.5; color: var(--text-secondary); }
+        .import-chips { display: flex; flex-wrap: wrap; gap: var(--sp-2); margin: var(--sp-3) 0; }
+        .import-choices { display: flex; flex-direction: column; gap: var(--sp-2); }
+        .import-choice {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            width: 100%;
+            min-height: max(3.5rem, var(--hit));
+            padding: var(--sp-2) var(--sp-3);
+            border: 2px solid var(--border);
+            border-radius: 0.75rem;
+            background: var(--card-bg);
+            font-family: var(--font-ui);
+            text-align: left;
+            cursor: pointer;
+            overflow-wrap: anywhere;
+        }
+        .import-choice-label { font-size: 1rem; font-weight: 700; line-height: 1.5; color: var(--text-primary); }
+        .import-choice-hint { font-size: 0.75rem; font-weight: 400; line-height: 1.5; color: var(--text-secondary); }
+        .import-choice.add { background: var(--action-bg); border-color: var(--action-bg); }
+        .import-choice.add .import-choice-label, .import-choice.add .import-choice-hint { color: var(--action-text); }
+        .import-choice.replace { background: var(--card-bg); border-color: var(--danger-line); }
+        .import-choice:disabled { opacity: .5; cursor: not-allowed; }
+        @media (hover: hover) and (pointer: fine) {
+            .import-choice.add:not(:disabled):hover { background: var(--action-bg-hover); border-color: var(--action-bg-hover); }
+        }
+        .import-status { min-height: 1.5rem; margin: var(--sp-2) 0 0; font-size: 0.875rem; font-weight: 400; line-height: 1.5; color: var(--text-secondary); }
+        .import-error { margin: 0 0 var(--sp-4); font-size: 1rem; font-weight: 400; line-height: 1.5; color: var(--text-primary); }
+        .import-dialog .feedback-modal-actions { margin-top: var(--sp-3); }
+
+        /* ===== 刪除歌曲視窗（Phase 8，UI-SPEC §3）：破壞性按鈕用 --danger-* 固定色 ===== */
+        .song-delete-body { margin: 0; font-size: 1rem; font-weight: 400; line-height: 1.5; color: var(--text-primary); }
+        .song-delete-full { margin: 0 0 var(--sp-2); font-size: 0.875rem; font-weight: 400; line-height: 1.5; color: var(--text-secondary); overflow-wrap: anywhere; }
+        .song-delete-last { margin: var(--sp-2) 0 0; font-size: 0.875rem; font-weight: 400; line-height: 1.5; color: var(--text-secondary); }
+        .song-dialog [hidden] { display: none; }
+        #songDeleteStatus { min-height: 1.5rem; margin: var(--sp-2) 0 0; font-size: 0.875rem; font-weight: 700; line-height: 1.5; color: var(--danger-line); }
+        /* ===== 設定裡的自動備份清單（Phase 8，F1）：每份一個小卡片，時間、名稱、還原鈕上下排，窄欄與放大都不擠 ===== */
+        .settings-backups { margin-top: var(--sp-2); font-size: 0.9rem; color: var(--text-primary); }
+        .settings-backups summary { cursor: pointer; padding: var(--sp-1) 0; }
+        .settings-backups-hint { margin: var(--sp-1) 0 var(--sp-2); font-size: 0.75rem; font-weight: 400; line-height: 1.5; color: var(--text-secondary); }
+        #autoBackupList { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--sp-2); }
+        .backup-item { display: flex; flex-direction: column; align-items: flex-start; gap: var(--sp-1); padding: var(--sp-2); border: 1px solid var(--border); border-radius: 0.5rem; background: var(--container-bg); }
+        .backup-empty { font-size: 0.875rem; font-weight: 400; color: var(--text-secondary); }
+        .backup-time { font-size: 0.75rem; font-weight: 400; line-height: 1.5; color: var(--text-secondary); }
+        .backup-label { font-size: 0.875rem; font-weight: 400; line-height: 1.5; color: var(--text-primary); overflow-wrap: anywhere; }
+        .backup-restore-btn { max-width: 100%; padding: var(--sp-1) var(--sp-3); font-family: inherit; font-size: 0.875rem; font-weight: 400; color: var(--text-primary); background: none; border: 1.5px solid var(--border); border-radius: 0.5rem; cursor: pointer; }
+        .backup-restore-btn[data-armed="1"] { border-color: var(--danger-line); color: var(--danger-line); font-weight: 700; }
+        @media (hover: hover) and (pointer: fine) {
+            .backup-restore-btn:hover { border-color: var(--highlight-border); }
+        }
+        .song-danger-btn { background: var(--danger-bg); color: var(--danger-text); border-color: var(--danger-bg); }
+        .song-danger-btn:disabled { opacity: .5; cursor: not-allowed; }
+        @media (hover: hover) and (pointer: fine) {
+            .song-danger-btn:not(:disabled):hover { background: var(--danger-bg-hover); border-color: var(--danger-bg-hover); }
+            .song-act.delete:hover { color: var(--danger-line); }
+        }
+        .ai-exhausted {
+            text-align: center;
+            padding: 1.375rem 0.625rem 0.875rem;
+            color: var(--text-secondary);
+            font-size: 0.83rem;
+        }
+        .reset-pool-btn {
+            display: block;
+            margin: 0.5rem auto 0;
+            padding: 0.3125rem 1rem;
+            border: 1px solid var(--border);
+            border-radius: 0.75rem;
+            background: transparent;
+            color: var(--text-secondary);
+            cursor: pointer;
+            font-size: 0.82rem;
+            transition: all 0.2s;
+        }
+        @media (hover: hover) and (pointer: fine) {
+            .reset-pool-btn:hover { background: var(--accent-soft); color: var(--text-primary); border-color: var(--accent-line); }
+        }
+        .ai-filter-row {
+            display: none;
+            flex-wrap: wrap;
+            gap: 0.375rem;
+            padding: 0.3125rem 0 0.125rem;
+        }
+        .filter-chip {
+            padding: 0.1875rem 0.625rem;
+            border: 1px solid var(--border);
+            border-radius: 0.75rem;
+            font-size: 0.78rem;
+            color: var(--text-secondary);
+            cursor: pointer;
+            background: transparent;
+            transition: all 0.18s;
+        }
+        .filter-chip.active { background: var(--accent-soft); border-color: var(--highlight-border); color: var(--text-primary); }
+        @media (hover: hover) and (pointer: fine) {
+            .filter-chip:hover { border-color: var(--text-secondary); color: var(--text-primary); }
+        }
+
+        /* 複製提示 toast */
+        .copy-toast {
+            position: fixed;
+            bottom: 4.375rem;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0,0,0,0.72);
+            color: white;
+            padding: 0.4375rem 1.125rem;
+            border-radius: 1.25rem;
+            font-size: 0.85rem;
+            white-space: normal;
+            width: max-content;   /* left:50% 讓可用寬度只剩半個畫面，不加的話短句也會被擠成窄窄一條 */
+            max-width: min(92vw, 28rem);
+            text-align: center;
+            line-height: 1.5;
+            z-index: 9999;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+        .copy-toast.show { opacity: 1; }
+        /* 帶「復原」按鈕的提示（09-05）：只在顯示時收點擊，藏起來的提示不擋觸控 */
+        .copy-toast.show.has-action {
+            pointer-events: auto;
+            display: flex;
+            align-items: center;
+            gap: var(--sp-3);
+        }
+        .toast-action {
+            font-family: inherit;
+            font-size: 0.875rem;
+            font-weight: 700;
+            color: inherit;
+            background: transparent;
+            border: 1px solid currentColor;
+            border-radius: 1rem;
+            padding: 0 var(--sp-3);
+            min-height: var(--hit);
+            min-width: var(--hit);
+            cursor: pointer;
+        }
+
+        /* 情境自動生成按鈕 */
+        .context-refresh-btn {
+            background: none;
+            border: 1px solid var(--border);
+            border-radius: 0.375rem;
+            color: var(--text-secondary);
+            cursor: pointer;
+            font-size: 1rem;
+            padding: 0.125rem 0.5rem;
+            transition: all 0.2s;
+            flex-shrink: 0;
+        }
+        @media (hover: hover) and (pointer: fine) {
+            .context-refresh-btn:hover { color: var(--text-primary); border-color: var(--text-secondary); }
+        }
+        .context-refresh-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+        /* 主編輯區（無標籤大格，佔 2/3 空間）*/
+        .lyrics-section.unlabeled { border: 1px solid var(--border); flex: 2; }
+        .section-textarea.main-textarea { background: var(--card-bg); }
+
+        /* 子音/母音 切換 */
+        .rhyme-mode-toggle {
+            display: flex;
+            gap: 0.25rem;
+            flex-shrink: 0;
+        }
+        .rhyme-mode-btn {
+            flex: 1;
+            padding: 0.3125rem 0.375rem;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-s);
+            background: transparent;
+            color: var(--text-secondary);
+            font-size: 0.8125rem;
+            font-family: var(--font-ui);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .rhyme-mode-btn.active {
+            background: var(--card-bg);
+            color: var(--text-primary);
+            border-color: var(--text-primary);
+            font-weight: 700;
+        }
+
+        /* 情境標籤（底部面板升級）*/
+        .context-textarea {
+            width: 100%;
+            padding: 0.5rem 0.625rem;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-s);
+            font-size: 0.875rem;
+            line-height: 1.6;
+            font-family: var(--font-ui);
+            background: var(--container-bg);
+            color: var(--text-primary);
+            resize: none;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        .context-textarea:focus { border-color: var(--text-secondary); }
+
+        .hashtag-input-row {
+            display: flex;
+            gap: 0.375rem;
+            align-items: center;
+        }
+        .hashtag-input-row input {
+            flex: 1;
+            min-width: 0;
+            padding: 0.375rem 0.5rem;
+            border: 1px solid var(--border);
+            border-radius: 0.5rem;
+            font-size: 0.85rem;
+            font-family: var(--font-ui);
+            background: var(--container-bg);
+            color: var(--text-primary);
+            outline: none;
+        }
+        .hashtag-input-row input:focus { border-color: var(--highlight-border); }
+        .context-textarea { min-width: 0; }
+
+        .hashtag-chips {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.375rem;
+            min-height: 1.75rem;
+        }
+        .hashtag-chip {
+            display: flex;
+            align-items: center;
+            gap: 0.25rem;
+            background: var(--fill-soft);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-s);
+            padding: 0.1875rem 0.5rem;
+            font-size: 0.8125rem;
+            color: var(--text-primary);
+            border-left: 3px solid var(--accent-3);
+        }
+
+        /* 歌詞段落 */
+        .lyrics-section {
+            position: relative;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-m);
+            overflow: hidden;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+        /* 段落多到放不下時列表自己捲，不把每段壓成只剩標題列（和 ≤ 900 的 9rem 一致；有存高度的段落由下面 data-h 的規則放行） */
+        .lyrics-section:not(.collapsed) { min-height: 9rem; }
+        .lyrics-section-header {
+            display: flex;
+            align-items: center;
+            gap: var(--sp-1);
+            padding: 0 var(--sp-1);
+            background: var(--container-bg);
+            border-bottom: 1px solid var(--border);
+            flex-shrink: 0;
+            cursor: pointer;
+            user-select: none;
+        }
+        @media (hover: hover) and (pointer: fine) {
+            .lyrics-section-header:hover { background: var(--fill-soft); }
+        }
+        .section-chevron {
+            /* 正方形的框：收合時轉 90 度，外框大小不變，不會壓到旁邊的名稱按鈕 */
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 1rem;
+            height: 1rem;
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            opacity: 0.6;
+            flex-shrink: 0;
+            transition: transform 0.2s;
+        }
+        .lyrics-section.collapsed .section-chevron { transform: rotate(-90deg); }
+        /* 段落名稱按鈕：點一下換下一種類型；只有它會縮（文字用 … 收尾），chevron 與 − 不縮 */
+        .section-type {
+            flex: 0 100 auto;   /* 比字母條縮得快：空間不夠時先縮名稱，名稱縮到底才輪到字母條（UI-SPEC D-09） */
+            min-width: 4rem;
+            max-width: 100%;
+            min-height: 2rem;
+            padding: var(--sp-1) var(--sp-3);
+            border: 1px solid transparent;
+            border-radius: var(--radius-s);
+            background: transparent;
+            color: var(--text-primary);
+            font-family: var(--font-ui);
+            font-size: 0.8125rem;
+            font-weight: 700;
+            letter-spacing: 0.06em;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            cursor: pointer;
+            -webkit-touch-callout: none;
+            user-select: none;
+        }
+        @media (hover: hover) and (pointer: fine) {
+            .section-type:hover { border-color: var(--border); background: var(--card-bg); }
+        }
+        /* 段落顏色（D-03）：左邊 0.25rem 色條＋名稱鈕淡色底；--sec-color 與 data-color 只由 js/sections.js 寫入驗證過的 #rrggbb */
+        .lyrics-section[data-color]::before {
+            content: '';
+            position: absolute;
+            inset-block: 0;
+            left: 0;
+            width: 0.25rem;
+            background: var(--sec-color);
+            pointer-events: none;
+            z-index: 1;
+        }
+        /* 14% 淡色底：最壞的自訂色（深色主題的純白）文字對比仍有 4.69:1；不支援 color-mix 的瀏覽器只畫色條 */
+        @supports (background: color-mix(in srgb, red 50%, blue)) {
+            .lyrics-section[data-color] .section-type {
+                background: color-mix(in srgb, var(--sec-color) 14%, var(--card-bg));
+                border-color: color-mix(in srgb, var(--sec-color) 60%, var(--border));
+            }
+        }
+        /* 段落設定選單（UI-SPEC §3）：沿用 .word-ctx-menu 的底、框、層級，裡面分成幾個區塊 */
+        .section-menu {
+            width: min(20rem, calc(100vw - 1rem));
+            padding: var(--sp-3);
+        }
+        .section-menu.show {
+            display: flex;
+            flex-direction: column;
+            gap: var(--sp-3);
+        }
+        .section-menu > * { flex-shrink: 0; }
+        .section-menu-title {
+            font-size: 1rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            overflow-wrap: anywhere;
+        }
+        .section-menu-block {
+            display: flex;
+            flex-direction: column;
+            gap: var(--sp-1);
+        }
+        .section-menu-cap {
+            font-size: 0.75rem;
+            font-weight: 400;
+            color: var(--text-secondary);
+        }
+        .section-menu-row {
+            display: flex;
+            align-items: center;
+            gap: var(--sp-2);
+        }
+        .swatch-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(2rem, 1fr));
+            gap: var(--sp-1);
+        }
+        .swatch {
+            width: 2rem;
+            height: 2rem;
+            padding: 0;
+            border: none;
+            border-radius: 50%;
+            background: var(--sw);
+            box-shadow: inset 0 0 0 1px rgba(0,0,0,0.2);
+            cursor: pointer;
+        }
+        .swatch[aria-pressed="true"] { outline: 3px solid var(--text-primary); outline-offset: 2px; }
+        .section-color-input {
+            width: 2rem;
+            height: 2rem;
+            padding: 0;
+            border: 1px solid var(--border);
+            border-radius: 0.5rem;
+            background: var(--card-bg);
+            cursor: pointer;
+        }
+        .section-menu-btn {
+            min-height: 2rem;
+            padding: var(--sp-1) var(--sp-3);
+            border: 1px solid var(--border);
+            border-radius: 0.5rem;
+            background: var(--card-bg);
+            color: var(--text-primary);
+            font-family: var(--font-ui);
+            font-size: 0.875rem;
+            font-weight: 700;
+            cursor: pointer;
+        }
+        .section-menu-btn[aria-pressed="true"] { border-color: var(--text-primary); }
+        .section-menu-btn[aria-disabled="true"] { opacity: 0.4; cursor: not-allowed; }
+        .section-menu-row .section-move-up, .section-menu-row .section-move-down { flex: 1; }
+        .section-menu-close { width: 100%; }
+        .section-menu [hidden] { display: none; }
+        /* 選取文字「移到段落」選單（quick 261113-j3a）：精簡版，寬度跟內容走 */
+        .move-sel-menu {
+            width: auto;
+            min-width: 10rem;
+            max-width: min(18rem, calc(100vw - 1rem));
+            padding: var(--sp-2);
+        }
+        .move-sel-menu.show { gap: var(--sp-1); }
+        .move-sel-menu .section-menu-btn {
+            width: 100%;
+            text-align: left;
+            overflow-wrap: anywhere;
+        }
+        /* 類型：兩欄八列的單選；目前這個加粗並在左邊畫一條 --highlight-border（跟歌曲清單的「目前」同一種寫法） */
+        .type-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: var(--sp-1);
+        }
+        .type-grid-3 { grid-template-columns: repeat(3, 1fr); }   /* 小中大、淡標準濃：三欄 */
+        .type-row {
+            min-height: 2rem;
+            padding: var(--sp-1) var(--sp-2);
+            border: 1px solid var(--border);
+            border-radius: 0.5rem;
+            background: var(--card-bg);
+            color: var(--text-primary);
+            font-family: var(--font-ui);
+            font-size: 0.875rem;
+            font-weight: 400;
+            text-align: left;
+            cursor: pointer;
+        }
+        .type-row[aria-checked="true"] { font-weight: 700; border-left: 0.25rem solid var(--highlight-border); }
+        .section-name-input {
+            min-height: 2rem;
+            padding: var(--sp-1) var(--sp-2);
+            border: 1px solid var(--border);
+            border-radius: 0.5rem;
+            background: var(--card-bg);
+            color: var(--text-primary);
+            font-family: var(--font-ui);
+            font-size: 1rem;
+        }
+        .section-name-input:focus { border: 2px solid var(--highlight-border); padding: calc(var(--sp-1) - 1px) calc(var(--sp-2) - 1px); outline: none; }
+        /* 觸控按住名稱鈕時的深色（長按的提示）；放在顏色淡底之後，同權重時這裡贏 */
+        .lyrics-section .section-type.is-pressing { background: var(--border); }
+        /* 每段字數：靠右，不縮、不換行；點它不會收合（js/sections.js 排除） */
+        .section-count {
+            margin-inline-start: auto;
+            flex-shrink: 0;
+            font-size: 0.75rem;
+            font-weight: 400;
+            color: var(--text-secondary);
+            font-variant-numeric: tabular-nums;
+            white-space: nowrap;
+        }
+        /* 押韻結構字母條（10-07，UI-SPEC D-09）：名稱和字數之間；窄螢幕先縮名稱、再縮它（…），把手、字數、− 不縮；點它開統計，不收合段落 */
+        .section-rhyme {
+            flex: 0 1 auto;
+            min-width: 2.75rem;
+            min-height: 2rem;
+            margin-inline-start: auto;
+            padding: var(--sp-1) var(--sp-2);
+            border: 1px solid var(--border);
+            border-radius: 0.5rem;
+            background: var(--card-bg);
+            color: var(--text-primary);
+            font-family: var(--font-ui);
+            font-size: 0.75rem;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            cursor: pointer;
+        }
+        .section-rhyme[hidden] { display: none; }
+        .section-rhyme:not([hidden]) + .section-count { margin-inline-start: 0; }
+        /* 字母底線＝那一行句尾的家族色混 30% 文字色（和句中押韻同一套）；「-」沒有 data-f，不畫 */
+        .section-rhyme span[data-f], .rm-letters span[data-f] {
+            border-bottom: 0.125rem solid var(--rm-c);
+        }
+        @supports (background: color-mix(in srgb, red 50%, blue)) {
+            .section-rhyme span[data-f], .rm-letters span[data-f] { border-bottom-color: color-mix(in srgb, var(--text-primary) 30%, var(--rm-c)); }
+        }
+        /* 偏好設定裡的「韻腳地圖與句構分析」（第 11 階段）：開關列沿用選單的 .rm-switch；四個細項縮排在逐行標記底下 */
+        #mapSettingsSection .section-menu-block { margin-top: var(--sp-3); }
+        #mapSettingsSection > .lm-preview-block { margin-top: 0; }
+        #mapSettingsSection .rm-sub { display: flex; flex-direction: column; gap: var(--sp-1); margin-inline-start: var(--sp-4); }
+        .rm-more { width: 100%; }
+        /* 韻族顏色：16 個原生色票（下面是家族名）加不能點的空韻，每格至少 --hit 寬 */
+        .rm-colors { display: grid; grid-template-columns: repeat(auto-fill, minmax(var(--hit), 1fr)); gap: var(--sp-1); }
+        .rm-color-cell { display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 0.125rem; }
+        .rm-color-cell .rm-cell-label { color: var(--text-secondary); }
+        .rm-color-reset { align-self: flex-start; }
+        .rm-color-reset[aria-disabled="true"] { opacity: 0.5; cursor: default; }
+        .rm-probe { display: none; color: var(--text-primary); background-color: var(--card-bg); }   /* 提醒用的探針：只讓瀏覽器幫忙算出目前主題的文字色與底色 */
+        .rm-color-cell .rm-sw { margin-block: 0.5rem; }   /* 空韻色塊垂直置中在 2rem 的色票高度裡 */
+        /* 韻腳統計（10-07，UI-SPEC 4.2）：沿用段落設定選單的外殼，裡面超出可見範圍就在選單內捲動 */
+        #rhymeStats { width: min(22rem, calc(100vw - 1rem)); }
+        .rm-letters {
+            font-size: 1.25rem;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            overflow-wrap: anywhere;
+            color: var(--text-primary);
+        }
+        .rm-sum, .rm-sum-multi { font-size: 0.875rem; font-weight: 400; color: var(--text-primary); }
+        .rm-group { display: flex; align-items: center; gap: var(--sp-2); font-size: 0.875rem; font-weight: 400; color: var(--text-primary); }
+        .rm-g-letter { flex: none; min-width: 1rem; font-weight: 700; }
+        .rm-row {
+            display: flex;
+            align-items: center;
+            gap: var(--sp-2);
+            width: 100%;
+            min-height: 2rem;
+            padding: var(--sp-1) var(--sp-2);
+            border: 1px solid var(--border);
+            border-radius: 0.5rem;
+            background: var(--card-bg);
+            color: var(--text-primary);
+            font-family: var(--font-ui);
+            font-size: 0.875rem;
+            font-weight: 400;
+            text-align: left;
+            cursor: pointer;
+        }
+        .rm-tail { flex: none; min-width: 1rem; font-weight: 700; }
+        .rm-prev { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-secondary); }
+        .rm-row[aria-disabled="true"] { opacity: 0.4; cursor: default; }
+        @media (hover: hover) and (pointer: fine) {
+            .rm-row:not([aria-disabled="true"]):hover { background: var(--container-bg); }
+        }
+        /* 句構分析面板（11-05，UI-SPEC D-08／4.2）：沿用段落設定選單的外殼；標題、摘要、關閉鈕固定，表格在自己的捲動區裡捲 */
+        #rhymeAnalysis { width: min(24rem, calc(100vw - 1rem)); max-height: calc(var(--app-h) - 1rem); overflow: hidden; }
+        #rhymeAnalysis .rm-an-scroll { flex: 0 1 auto; min-height: 0; overflow-y: auto; }
+        .rm-an-table { width: 100%; table-layout: fixed; border-collapse: collapse; font-size: 0.875rem; font-weight: 400; color: var(--text-primary); }
+        .rm-an-table th { font-size: 0.75rem; font-weight: 400; color: var(--text-secondary); text-align: left; }
+        .rm-an-table th, .rm-an-table td { padding: var(--sp-1) var(--sp-2) var(--sp-1) 0; vertical-align: top; text-align: left; }
+        .rm-an-table th:nth-child(1) { width: 4rem; }
+        .rm-an-table th:nth-child(3) { width: 2.5rem; }
+        .rm-an-table th:nth-child(4) { width: 6.5rem; }
+        .rm-an-no { white-space: nowrap; }
+        .rm-an-t { color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .rm-an-n { font-variant-numeric: tabular-nums; }
+        .rm-an-s { overflow-wrap: anywhere; }
+        .rm-an-ref td { padding-top: 0; font-size: 0.75rem; color: var(--text-secondary); overflow-wrap: anywhere; }
+        .rm-an-end td { border-bottom: 1px solid var(--border); }
+        .rm-an-v { margin-left: var(--sp-1); font-weight: 700; color: var(--text-primary); }
+        /* 收合：高度跟著標題列（觸控時按鈕 44px），不寫死 */
+        .lyrics-section.collapsed { flex: 0 0 auto; min-height: 0; }
+        .lyrics-section.collapsed .section-body { display: none; }
+        /* 輸入框撐滿整段：看到的框＝拉桿量到的高度，拉高度時不會先縮一下（R2） */
+        .section-body { flex: 1; min-height: 0; position: relative; display: flex; flex-direction: column; }
+        /* 排序（js/sections.js）：拖的那段半透明，殘影跟著指標，落點線標出會放在哪裡 */
+        .lyrics-section.dragging { opacity: 0.5; }
+        .section-handle {
+            flex-shrink: 0;
+            width: 2rem;
+            align-self: stretch;
+            padding: 0;
+            border: none;
+            background: none;
+            color: var(--text-secondary);
+            font-family: var(--font-ui);
+            font-size: 1rem;
+            font-weight: 700;
+            line-height: 1;
+            cursor: grab;
+            touch-action: none;
+            user-select: none;
+            -webkit-touch-callout: none;
+        }
+        @media (hover: hover) and (pointer: fine) {
+            .section-handle:hover { color: var(--text-primary); }
+        }
+        body.is-section-dragging { user-select: none; cursor: grabbing; }
+        /* 底邊拉桿（C4、D-11）：在 textarea 下面的正常排版裡，不蓋住最後一行；拖、鍵盤上下、雙擊回自動高度 */
+        .section-resize {
+            position: relative;
+            flex-shrink: 0;
+            height: 0.75rem;
+            background: var(--container-bg);
+            border-top: 1px solid var(--border);
+            cursor: ns-resize;
+            touch-action: none;
+            user-select: none;
+            -webkit-touch-callout: none;
+        }
+        .section-resize::before {
+            content: '';
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            width: 2.5rem;
+            height: 0.25rem;
+            transform: translate(-50%, -50%);
+            border-radius: 0.125rem;
+            background: var(--border);
+        }
+        .section-resize:focus-visible::before, .section-resize.resizing::before { background: var(--text-secondary); }
+        @media (hover: hover) and (pointer: fine) {
+            .section-resize:hover::before { background: var(--text-secondary); }
+        }
+        .lyrics-section.collapsed .section-resize { display: none; }
+        body.is-section-resizing { user-select: none; cursor: ns-resize; }
+        /* 有存高度的段落：只有它不再被 Phase 5 的 9rem／7rem 下限與第一段 12rem 撐住（多寫一個 .lyrics-area 才壓得過那些規則）；收合時不看 data-h */
+        /* 段落不做 flex 動畫：從「跟著空間撐開」換成「固定高度」那一下若有動畫，一開始拉就先縮一下再長回來（R2） */
+        .lyrics-area .lyrics-section[data-h]:not(.collapsed) { flex: 0 0 auto; min-height: 0; }
+        .lyrics-area .lyrics-section[data-h]:not(.collapsed) .section-body { flex: 0 0 auto; }
+        .lyrics-area .lyrics-section[data-h]:not(.collapsed) .section-textarea { display: block; flex: none; height: var(--sec-h); min-height: 0; }
+        #lyricsSections { position: relative; }
+        .section-drop-line {
+            position: absolute;
+            left: 0;
+            right: 0;
+            height: 0.25rem;
+            border-radius: 0.125rem;
+            background: var(--highlight-border);
+            z-index: 3;
+            pointer-events: none;
+        }
+        .section-drag-ghost {
+            position: fixed;
+            left: 0;
+            top: 0;
+            display: flex;
+            align-items: center;
+            gap: var(--sp-2);
+            pointer-events: none;
+            z-index: 10000;
+            width: min(18rem, 80vw);
+            box-sizing: border-box;
+            opacity: 0.95;
+            background: var(--container-bg);
+            border: 1px solid var(--border);
+            border-radius: 0.625rem;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.18);
+            padding: var(--sp-1) var(--sp-3);
+            font-size: 0.875rem;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+        .section-drag-ghost-bar { align-self: stretch; width: 0.25rem; border-radius: 0.125rem; flex-shrink: 0; }
+        .section-drag-ghost-name { flex: 1 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .section-drag-ghost-count { flex-shrink: 0; font-size: 0.75rem; font-weight: 400; color: var(--text-secondary); }
+        .section-remove {
+            background: transparent;
+            border: none;
+            color: var(--text-secondary);
+            cursor: pointer;
+            font-size: 1.1rem;
+            font-weight: 700;
+            padding: 0 0.125rem;
+            line-height: 1;
+            opacity: 0.4;
+            transition: opacity 0.15s, color 0.15s;
+            flex-shrink: 0;
+        }
+        .section-remove[hidden] { display: none; }   /* 觸控版的 inline-flex 會蓋掉 hidden 屬性 */
+        @media (hover: hover) and (pointer: fine) {
+            .section-remove:hover { opacity: 1; color: var(--danger-line); }
+        }
+        .section-textarea, .rhyme-mirror {
+            width: 100%;
+            padding: 0.625rem 0.75rem;
+            border: none;
+            font-size: 1rem;
+            /* 歌詞框與鏡像層必須同一個字型、逐字對齊；襯線字（Songti 等後備字）在英數字寬上會讓兩層錯開，所以維持無襯線 */
+            font-family: var(--font-ui);
+            background: var(--card-bg);
+            color: var(--text-primary);
+            resize: none;
+            flex: 1;
+            outline: none;
+            line-height: 1.8;
+        }
+        /* 韻腳地圖（js/rhyme-map.js）：鏡像層在輸入框正後方，排版規則與輸入框共用上面那一條 */
+        .section-textarea { position: relative; }   /* 同為定位元素時，DOM 順序在後的輸入框畫在鏡像層上面，不必 z-index */
+        .rhyme-mirror {
+            position: absolute;
+            left: 0;
+            top: 0;
+            display: none;
+            overflow: hidden;
+            pointer-events: none;
+            user-select: none;
+            color: transparent;
+            background: none;
+            white-space: pre-wrap;
+            overflow-wrap: break-word;
+            word-break: normal;
+            box-sizing: border-box;
+            resize: none;
+            flex: none;
+        }
+        .lyrics-section.rm-on .rhyme-mirror { display: block; }
+        /* 偏好設定裡的預覽（第 11 階段，UI-SPEC D-13）：同一個 .rhyme-mirror 的排版規則，只是改成一般流動的唯讀區塊；
+           文字顏色用主題文字色（真正的鏡像層是透明字蓋在輸入框上） */
+        .rhyme-mirror.lm-preview {
+            position: relative;
+            display: block;
+            height: auto;
+            overflow: hidden;
+            color: var(--text-primary);
+            pointer-events: none;
+            user-select: none;
+            border: 1px solid var(--border);
+            border-radius: 0.5rem;
+            background: var(--card-bg);
+        }
+        html[data-lm="right"] .lm-preview { padding-right: calc(0.75rem + min(var(--lm-cols), 36%) + var(--sp-2)); }
+        /* 夠高的螢幕：預覽固定在「韻腳與句構」分頁最上面（捲動的是分頁本身，沒有上內距，top: 0 就貼齊）；〈麻雀〉有 11 行，預覽最多顯示約 6 行，其餘在預覽裡捲 */
+        @media (min-height: 37.5rem) {
+            /* 預覽整段攤開、不黏頂、沒有自己的捲軸（Andy 2026-11-13：寧願面板長一點，不要兩條捲軸） */
+        }
+        .lyrics-section.rm-on .section-body { background: var(--card-bg); }
+        .lyrics-section.rm-on .section-textarea { background: transparent; }
+        .rhyme-mirror.rm-stale { visibility: hidden; }   /* 組字中捲動：先藏起來，確認後重畫再對齊 */
+        html[data-lm="tail"] .rhyme-mirror.lm-typing .lm-mk { visibility: hidden; }   /* 句尾後打字中：只藏標記，色塊留著（UI-SPEC D-06） */
+        .rm-hl {
+            background: color-mix(in srgb, var(--rm-c) var(--rm-end, 34%), var(--card-bg));
+            border-radius: 0.25rem;
+            -webkit-box-decoration-break: clone;
+            box-decoration-break: clone;
+        }
+        .rm-hl.rm-solo { background: color-mix(in srgb, var(--rm-c) var(--rm-orph, 17%), var(--card-bg)); }
+        .rm-hl.rm-manual { border-bottom: 0.125rem dotted var(--text-secondary); }
+        /* 雙押／多押：句尾前面跟著押的字淡一層（和孤句同濃度，但一定緊貼在句尾色塊左邊），整組底下一條同色細線；
+           inset 陰影不佔版面，換行位置和輸入框一樣 */
+        .rm-multi {
+            background: color-mix(in srgb, var(--rm-c) var(--rm-orph, 17%), var(--card-bg));
+            border-radius: 0.25rem;
+            -webkit-box-decoration-break: clone;
+            box-decoration-break: clone;
+        }
+        .rm-mx { box-shadow: inset 0 -0.125rem 0 var(--rm-c); }   /* 手動指定讀音的提示：只有下緣，不改水平盒子，換行不受影響 */
+        @supports not (background: color-mix(in srgb, red 50%, blue)) {
+            .rm-hl { background: var(--rm-c); opacity: 0.34; }
+            .rm-hl.rm-solo, .rm-multi { background: var(--rm-c); opacity: 0.17; }
+        }
+        /* 角色標記（js/roles.js）：標記範圍在鏡像層包一層 span.rl，直接換成角色色的字（底色留給韻腳地圖）。
+           段落有角色標記時（.rl-text，js/rhyme-map.js）鏡像層的字顯示出來、輸入框的字變透明；
+           打字中（.rl-typing）或鏡像層暫時藏起來（.rm-stale）時退回輸入框自己的字，字不會消失 */
+        .rhyme-mirror .rl { color: color-mix(in srgb, var(--rl-c) var(--rl-mix, 75%), var(--text-primary)); }   /* 往主題文字色混一點，各主題字都夠清楚（tests/roles.spec.mjs 量對比）；不加粗：粗體英數字寬會和輸入框錯開 */
+        [data-theme="light"] .rhyme-mirror .rl { --rl-mix: 55%; }   /* 淺底：多混一點深色字才夠對比 */
+        .lyrics-section.rl-text:not(.rl-typing) .rhyme-mirror { color: var(--text-primary); }
+        .lyrics-section.rl-text:not(.rl-typing) .rhyme-mirror:not(.rm-stale) + .section-textarea {
+            color: transparent; -webkit-text-fill-color: transparent; caret-color: var(--text-primary);
+        }
+        [data-rl="0"] { --rl-c: var(--rl0, transparent); }
+        [data-rl="1"] { --rl-c: var(--rl1, transparent); }
+        [data-rl="2"] { --rl-c: var(--rl2, transparent); }
+        [data-rl="3"] { --rl-c: var(--rl3, transparent); }
+        [data-rl="4"] { --rl-c: var(--rl4, transparent); }
+        [data-rl="5"] { --rl-c: var(--rl5, transparent); }
+        [data-rl="6"] { --rl-c: var(--rl6, transparent); }
+        [data-rl="7"] { --rl-c: var(--rl7, transparent); }
+        .role-dot { display: inline-block; width: 0.75rem; height: 0.75rem; border-radius: 50%; background: var(--rl-c); margin-inline-end: 0.375rem; vertical-align: middle; }
+        .role-sel-new[aria-disabled="true"] { opacity: 0.5; }
+        /* 角色管理面板 #roleMenu（js/roles.js）：沿用 .section-menu 的外觀，每個角色一列；觸控尺寸由 responsive.css 的 swatch／輸入框／按鈕規則涵蓋 */
+        .role-row { display: flex; flex-direction: column; gap: var(--sp-1); padding-top: var(--sp-2); border-top: 1px solid var(--border); }
+        .role-row-head { display: flex; align-items: center; gap: var(--sp-2); }
+        .role-row-head .role-name { flex: 1; min-width: 0; }
+        .role-del[data-armed="1"] { border-color: var(--danger-line); color: var(--danger-line); }
+        .role-add { width: 100%; }
+        [data-f="0"] { --rm-c: var(--rm-c0); }
+        [data-f="1"] { --rm-c: var(--rm-c1); }
+        [data-f="2"] { --rm-c: var(--rm-c2); }
+        [data-f="3"] { --rm-c: var(--rm-c3); }
+        [data-f="4"] { --rm-c: var(--rm-c4); }
+        [data-f="5"] { --rm-c: var(--rm-c5); }
+        [data-f="6"] { --rm-c: var(--rm-c6); }
+        [data-f="7"] { --rm-c: var(--rm-c7); }
+        [data-f="8"] { --rm-c: var(--rm-c8); }
+        [data-f="9"] { --rm-c: var(--rm-c9); }
+        [data-f="10"] { --rm-c: var(--rm-c10); }
+        [data-f="11"] { --rm-c: var(--rm-c11); }
+        [data-f="12"] { --rm-c: var(--rm-c12); }
+        [data-f="13"] { --rm-c: var(--rm-c13); }
+        [data-f="14"] { --rm-c: var(--rm-c14); }
+        [data-f="15"] { --rm-c: var(--rm-c15); }
+        [data-f="16"] { --rm-c: var(--rm-c16); }
+        /* 自動配色：data-c 蓋過 data-f（同權重、排在後面） */
+        [data-c="0"] { --rm-c: var(--rm-c0); }
+        [data-c="1"] { --rm-c: var(--rm-c1); }
+        [data-c="2"] { --rm-c: var(--rm-c2); }
+        [data-c="3"] { --rm-c: var(--rm-c3); }
+        [data-c="4"] { --rm-c: var(--rm-c4); }
+        [data-c="5"] { --rm-c: var(--rm-c5); }
+        [data-c="6"] { --rm-c: var(--rm-c6); }
+        [data-c="7"] { --rm-c: var(--rm-c7); }
+        [data-c="8"] { --rm-c: var(--rm-c8); }
+        [data-c="9"] { --rm-c: var(--rm-c9); }
+        [data-c="10"] { --rm-c: var(--rm-c10); }
+        [data-c="11"] { --rm-c: var(--rm-c11); }
+        [data-c="12"] { --rm-c: var(--rm-c12); }
+        [data-c="13"] { --rm-c: var(--rm-c13); }
+        [data-c="14"] { --rm-c: var(--rm-c14); }
+        [data-c="15"] { --rm-c: var(--rm-c15); }
+
+        /* 逐行標記（js/rhyme-map.js，第 11 階段）：標記是鏡像層裡的絕對定位元素，不佔 inline 空間，所以不可能移動換行位置；
+           不設 left／top，讓它落在「該行最後一個非空白字元之後」的靜態位置，也就是折行後的最後一個視覺列 */
+        .lm-mk {
+            position: absolute;
+            white-space: nowrap;
+            pointer-events: none;
+            color: var(--text-secondary);
+            font-weight: 400;
+            font-style: normal;
+        }
+        /* 靠右欄：輸入框與鏡像層一起把右內距加寬（鏡像層的內距由 _lhMapSync 從輸入框複製），欄寬以 36% 為上限，寫字的地方永遠留得出來。
+           純 CSS 的 calc，輸入框與鏡像層會解析成同一個像素值，不必用 JS 量寬度，也就沒有 ResizeObserver 迴圈的風險 */
+        html[data-lm="right"] .section-textarea { padding-right: calc(0.75rem + min(var(--lm-cols), 36%) + var(--sp-2)); }
+        html[data-lm="right"] .lm-mk {
+            right: calc(var(--lm-bar, 0px) + 0.75rem);
+            width: min(var(--lm-cols), 36%);
+            overflow: hidden;   /* 欄位塞不下時在標記這一層裁掉，不要溢出輸入框 */
+        }
+        /* 句尾後：緊接在最後一個字後面 0.5em，不佔寬度、不動內距；行太滿時被鏡像層邊緣裁掉，換行位置不變（UI-SPEC D-03） */
+        html[data-lm="tail"] .lm-mk { margin-inline-start: 0.5em; }
+        /* 內層小字：繼承鏡像層的字級與行高，只縮小字，基線自然和歌詞對齊；不給 inline-block 設 overflow（會讓基線掉到底邊），
+           需要裁切的欄位用 overflow: clip（不是捲動容器，基線不變） */
+        .lm-t { display: inline-block; font-size: var(--lm-fs); font-variant-numeric: tabular-nums; }
+        .lm-t + .lm-t { margin-inline-start: 0.5em; }
+        html[data-lm="right"] .lm-t-c { width: 1.5em; text-align: right; }
+        html[data-lm="right"] .lm-t-s { width: 5.5em; overflow: clip; text-overflow: ellipsis; }
+        html[data-lm="right"] .lm-t-r { width: 1.25em; text-align: center; }
+        html[data-lm="right"] .lm-t-d { width: 2.25em; }
+        /* 行尾韻腳字母：底線＝家族色混 30% 文字色，和標題列字母條同一套；「-」沒有 data-f，不畫 */
+        .lm-t-r[data-f] { border-bottom: 0.125rem solid var(--rm-c); }
+        @supports (background: color-mix(in srgb, red 50%, blue)) {
+            .lm-t-r[data-f] { border-bottom-color: color-mix(in srgb, var(--text-primary) 30%, var(--rm-c)); }
+        }
+        /* 句尾後的分隔：空的欄位整個藏起來；前面有內容的欄位才有間距與「· 」，對照差異直接接在字數後面（「7 ≠8」）。
+           靠右欄的間距與固定欄寬照舊（上面 html[data-lm="right"] 的規則） */
+        html[data-lm="tail"] .lm-t:empty { display: none; }
+        html[data-lm="tail"] .lm-t + .lm-t { margin-inline-start: 0; }
+        html[data-lm="tail"] .lm-t:not(:empty) ~ .lm-t:not(:empty) { margin-inline-start: 0.5em; }
+        html[data-lm="tail"] .lm-t:not(:empty) ~ .lm-t:not(:empty)::before { content: '· '; }
+        html[data-lm="tail"] .lm-t-c:not(:empty) + .lm-t-d:not(:empty)::before { content: none; }
+        .lm-t-d { color: var(--text-primary); font-weight: 700; }   /* 唯一加粗的標記：字數不一樣才有，要一眼看到（UI-SPEC D-04、D-23） */
+        .lm-guess { font-style: italic; }   /* 機器猜的那一段用斜體，自己標的維持正體（CONTEXT A2） */
+
+        /* AI 詞彙 grid（右側，多欄顯示）*/
+        .ai-words-grid {
+            display: grid;
+            /* 至少兩欄；每張大約 7rem 起跳，面板寬就自動變三欄、四欄（詞卡不會被拉得太寬） */
+            grid-template-columns: repeat(auto-fill, minmax(min(7rem, calc(50% - 0.1875rem)), 1fr));
+            gap: 0.375rem;
+            align-content: flex-start;
+        }
+        @media (hover: hover) and (pointer: fine) {
+            .ai-word-card:hover::after {
+                content: ' +';
+                font-size: 0.75rem;
+                opacity: 0.6;
+            }
+            #aiWordsContainer.report-mode .ai-word-card:hover::after { content: none; }   /* 選取模式點了不是保留，不要顯示「+」 */
+        }
+
+        /* 保留池 */
+        .saved-pool-section {
+            border-top: 1px solid var(--border);
+            flex: 0 0 28%;
+            overflow: hidden;
+            transition: flex-basis 0.25s ease;
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+        }
+        .saved-pool-section.collapsed { flex-basis: 2.125rem; }
+        .saved-pool-title {
+            font-size: 0.82rem;
+            font-weight: 700;
+            color: var(--text-secondary);
+            display: flex;
+            align-items: center;
+            gap: 0.375rem;
+            cursor: pointer;
+            user-select: none;
+            padding: 0.4375rem 0.5rem 0.3125rem;
+            border-radius: 0.375rem;
+            transition: background 0.15s;
+            flex-shrink: 0;
+            background: var(--fill-soft);   /* 標題列突顯：底色＋左邊一條重點色 */
+            border: 1px solid var(--border);
+            border-left: 3px solid var(--highlight-border);
+            color: var(--text-primary);
+        }
+        @media (hover: hover) and (pointer: fine) {
+            .saved-pool-title:hover { background: var(--border); color: var(--text-primary); }
+        }
+        .saved-pool-chevron {
+            font-size: 0.75rem;
+            opacity: 0.6;
+            flex-shrink: 0;
+            margin-left: auto;
+            transition: transform 0.22s;
+        }
+        .saved-pool-section.collapsed .saved-pool-chevron { transform: rotate(-90deg); }
+        .saved-pool-body {
+            flex: 1;
+            overflow-y: auto;
+            min-height: 0;
+            display: flex;
+            flex-direction: column;
+            padding-bottom: 0.25rem;
+            scrollbar-width: thin;
+        }
+        .saved-pool-count {
+            background: var(--highlight-border);
+            color: white;
+            border-radius: 0.625rem;
+            padding: 0.0625rem 0.4375rem;
+            font-size: 0.75rem;
+        }
+
+        /* 給桌面主內容留出底部空間（側邊面板 tab 可見） */
+        .results-section {
+            padding-bottom: 1.875rem;
+        }
+
+        /* ===== 手機底部 Tab 導覽列 ===== */
+        .mobile-tab-bar {
+            display: none;
+            position: fixed;
+            bottom: 0; left: 0; right: 0;
+            height: calc(var(--tabbar-h) + var(--tab-safe));
+            padding-bottom: var(--tab-safe);
+            background: var(--card-bg);
+            /* 上緣線用內陰影畫、不佔高度：48px 的分頁按鈕才不會被框線擠出視窗底部 */
+            box-shadow: inset 0 1px 0 var(--border);
+            z-index: 870;
+        }
+        .mtab-btn {
+            flex: 1;
+            min-width: 0;
+            min-height: max(48px, 3rem);
+            padding: 0.3125rem 0.25rem 0.5rem;
+            border: none;
+            background: none;
+            color: var(--text-secondary);
+            font-size: 0.75rem;
+            font-family: var(--font-ui);
+            cursor: pointer;
+            transition: color 0.2s;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 0.125rem;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .mtab-icon { display: inline-flex; font-size: 1.375rem; line-height: 1; }
+        /* 標籤太長（大字級、150%）時截斷，不撐破分頁 */
+        .mtab-label {
+            max-width: 100%;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .mtab-btn.active { color: var(--text-primary); font-weight: 700; }
+        .mtab-btn.active .mtab-icon { color: var(--highlight-border); }
+        /* 桌機沒有底部 sheet，也就沒有把手（≤ 900 在 responsive.css 才顯示） */
+        .sheet-handle { display: none; }
+
+        /* 手機底部面板遮罩 */
+        .mobile-backdrop {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.42);
+            z-index: 840;
+            display: none;
+            backdrop-filter: blur(4px);
+            -webkit-backdrop-filter: blur(4px);
+        }
+        .mobile-backdrop.show { display: block; }
+        /* 手機：整個畫面的背景模糊很吃效能，觸控裝置只留半透明暗色 */
+        @media (pointer: coarse) {
+            .mobile-backdrop { backdrop-filter: none; -webkit-backdrop-filter: none; }
+        }
+
+
+        /* ===== 觸控目標下限（05-08，UI-SPEC §7，D-07）：兩個面板裡的控制項 =====
+           晶片裡的 × 與段落刪除鈕直接做成 44×44 的實體大小（不用 ::after 外擴），
+           這樣相鄰的晶片、標題列文字不會被它的透明範圍蓋住（相鄰重疊 ≤ 4px）。 ===== */
+        @media (pointer: coarse), (max-width: 900px) {
+            .panel-add-btn, .reset-pool-btn, .rhyme-mode-btn, .filter-chip, .generate-btn, .model-select,
+            .ai-word-card, .ai-report-btn, .context-refresh-btn, .lyrics-section-header, .section-type, .section-rhyme { min-height: var(--hit); }
+            .context-refresh-btn { min-width: var(--hit); }
+            .undo-btn { width: var(--hit); height: var(--hit); }
+            .rhyme-menu-btn { min-width: var(--hit); min-height: var(--hit); }
+            .rm-switch { min-height: var(--hit); }
+            .section-rhyme { min-width: max(44px, 1rem); }
+            /* 放大到 150% 的手機：把手、字數、− 都不縮，名稱和字母條各留 44px（實際像素）的觸控下限，其餘讓出來 */
+            .section-type:has(+ .section-rhyme:not([hidden])) { min-width: max(44px, 1rem); }
+            .rm-row { min-height: var(--hit); }
+            .rm-bar .section-menu-btn { min-height: var(--hit); }
+            .rm-chip { min-height: var(--hit); min-width: var(--hit); }
+            .word-chip, .hashtag-chip { min-height: var(--hit); padding-block: 0; padding-right: 0; }
+            .chip-remove {
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                min-width: var(--hit);
+                min-height: var(--hit);
+                padding: 0;
+                font-size: 1rem;
+            }
+            .lyrics-section-header { padding-block: 0; }
+            /* 排序把手：觸控一律實體 44×44（相鄰重疊 ≤ 4px） */
+            .section-handle { width: var(--hit); min-width: var(--hit); min-height: var(--hit); }
+            /* 底邊拉桿：觸控一律 44px 高（D-11，這是為了好抓付出的版面代價，列入 UAT） */
+            .section-resize { height: var(--hit); }
+            /* 段落刪除：觸控上沒有 hover，所以一律完整顯示；刪除不確認，改由下方提示的「復原」救回（js/sections.js） */
+            .section-remove {
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                min-width: var(--hit);
+                min-height: var(--hit);
+                padding: 0;
+                opacity: 1;
+            }
+            /* 右鍵／長按選單：每個選項夠高、選單夠寬（UI-SPEC §6） */
+            .word-ctx-item { min-height: var(--hit); }
+        }
+
+        /* ===== AI 會參考什麼（Andy 1-b）：右面板頂部一列小標籤，點了跳到左邊對應區塊 ===== */
+        .ai-ref {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.25rem 0.375rem;
+            flex-shrink: 0;
+            padding: 3px;   /* 閃框（2px 外框）不被捲動區切掉 */
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+        }
+        .ai-ref:empty { display: none; }
+        .ai-ref-label { margin-inline-end: 0.125rem; }
+        .ai-ref.is-empty .ai-ref-label { flex: 1 1 10rem; line-height: 1.4; }
+        .ai-ref-item {
+            font: inherit;
+            font-weight: 700;
+            color: var(--text-primary);
+            background: transparent;
+            border: 1px solid var(--border);
+            border-radius: 1rem;
+            padding: 0.125rem 0.5rem;
+            min-height: 1.5rem;
+            cursor: pointer;
+        }
+        @media (hover: hover) and (pointer: fine) {
+            .ai-ref-item:hover { border-color: var(--highlight-border); }
+        }
+        @media (pointer: coarse), (max-width: 900px) {
+            .ai-ref-item { min-height: var(--hit); padding-inline: 0.75rem; }
+        }
+
+        /* 被 AI 參考的區塊閃一下（按產生建議、點狀態列時）；減少動態時只換外框不動畫 */
+        .lh-flash { animation: lh-flash 1.2s ease-out; }
+        @media (prefers-reduced-motion: reduce) {
+            .lh-flash { animation: none; box-shadow: 0 0 0 2px var(--highlight-border); }
+        }
+
+        /* ===== 新手導覽（Andy 1-c，js/tour.js）：亮框外一圈超大陰影當遮罩，說明框跟著目標走 ===== */
+        .tour {
+            position: fixed;
+            inset: 0;
+            z-index: 3000;   /* 蓋過面板、分頁列、對話框 */
+        }
+        .tour-spot {
+            position: fixed;
+            left: 0;
+            top: 0;
+            border-radius: 0.5rem;
+            box-shadow: 0 0 0 200vmax rgba(0, 0, 0, 0.6);
+            outline: 2px solid var(--highlight-border);
+            outline-offset: 0;
+            pointer-events: none;
+        }
+        .tour-card {
+            position: fixed;
+            left: 0;
+            top: 0;
+            width: min(24rem, calc(100vw - 1.5rem));
+            padding: 1rem 1.125rem 0.875rem;   /* 不設 overflow：箭頭伸在框外，overflow 會把它裁掉 */
+            background: var(--card-bg);
+            color: var(--text-primary);
+            border: 1px solid var(--border);
+            border-radius: 0.625rem;
+            box-shadow: 0 12px 32px rgba(0, 0, 0, 0.28);
+        }
+        .tour-card:focus { outline: none; }
+        /* 箭頭：和亮框同色、夠大，一眼看出說明指的是哪一塊 */
+        .tour-arrow {
+            position: absolute;
+            left: calc(var(--arrow-x, 50%) - 0.625rem);
+            width: 1.25rem;
+            height: 1.25rem;
+            background: var(--card-bg);
+            border: 2px solid var(--highlight-border);
+            transform: rotate(45deg);
+        }
+        .tour-card[data-side="top"] .tour-arrow { top: -0.69rem; border-right: 0; border-bottom: 0; }
+        .tour-card[data-side="bottom"] .tour-arrow { bottom: -0.69rem; border-left: 0; border-top: 0; }
+        .tour-card[data-side="none"] .tour-arrow { display: none; }
+        .tour-card[data-side="right"] .tour-arrow { left: auto; right: -0.69rem; top: calc(var(--arrow-y, 1.5rem) - 0.625rem); border-left: 0; border-bottom: 0; }
+        .tour-count {
+            font-size: 0.75rem;
+            letter-spacing: 0.06em;
+            color: var(--text-secondary);
+            font-variant-numeric: tabular-nums;
+        }
+        .tour-title {
+            margin: 0.125rem 0 0.375rem;
+            font-size: 1.0625rem;
+            font-weight: 700;
+            line-height: 1.35;
+        }
+        .tour-body {
+            max-height: calc(var(--app-h) - 10rem);   /* 很矮的橫向手機：只讓說明文字自己捲 */
+            overflow-y: auto;
+            font-size: 0.875rem;
+            line-height: 1.65;
+            color: var(--text-primary);
+        }
+        .tour-foot {
+            display: flex;
+            align-items: center;
+            gap: 0.375rem;
+            margin-top: 0.875rem;
+        }
+        .tour-dots { display: flex; flex-wrap: wrap; gap: 0.3125rem; margin-inline-end: auto; min-width: 0; }
+        .tour-dots span {
+            width: 0.375rem;
+            height: 0.375rem;
+            border-radius: 50%;
+            background: var(--border);
+        }
+        .tour-dots span.on { background: var(--highlight-border); width: 1rem; border-radius: 0.1875rem; }
+        .tour-btn {
+            font: inherit;
+            font-size: 0.8125rem;
+            font-weight: 700;
+            min-height: 2rem;
+            padding: 0.25rem 0.75rem;
+            border-radius: 0.375rem;
+            border: 1px solid var(--border);
+            background: transparent;
+            color: var(--text-primary);
+            cursor: pointer;
+        }
+        .tour-btn[hidden] { display: none; }
+        .tour-btn { white-space: nowrap; flex: none; }   /* 略過、上一步、下一步不換行 */
+        .tour-skip { border-color: transparent; color: var(--text-secondary); }
+        .tour-btn.primary { background: var(--action-bg); border-color: var(--action-bg); color: var(--action-text); }
+        @media (hover: hover) and (pointer: fine) {
+            .tour-btn:hover { border-color: var(--text-secondary); }
+            .tour-btn.primary:hover { background: var(--action-bg-hover); }
+        }
+        @media (pointer: coarse), (max-width: 900px) {
+            .tour-btn { min-height: var(--hit); }
+            .tour-dots span { width: 0.3125rem; }
+        }
+
+/* ===== 完整歌詞編輯器（R2，js/lyrics.js lhEditorOpen）：左側的歌詞標題列與歌詞區整塊搬進來，幾乎全螢幕 ===== */
+.lyrics-editor-overlay {
+    position: fixed;
+    left: 0;
+    right: 0;
+    top: var(--vv-top);
+    height: var(--app-h);
+    /* 四邊留白 = 主畫面外框的間距（和 body padding、js/dock.js 外框同一組變數）；
+       下緣不加 --body-extra，因為遮罩本來就蓋住底部分頁列 */
+    padding: var(--pad-t)
+             max(var(--page-pad), env(safe-area-inset-right))
+             max(var(--page-pad), env(safe-area-inset-bottom))
+             max(var(--page-pad), env(safe-area-inset-left));
+    z-index: 950;   /* 高於面板與分頁列（≤ 900），低於設定、選單、浮動列、提示 */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0,0,0,0.45);   /* 和其他對話框的遮罩一樣 */
+}
+.lyrics-editor-overlay[hidden] { display: none; }
+.lyrics-editor {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-2);
+    padding: var(--sp-3) var(--sp-4) var(--sp-4);
+    box-sizing: border-box;
+    background: var(--container-bg);
+    color: var(--text-primary);
+    border: 1px solid var(--border);
+    border-radius: 0.875rem;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.25);
+    outline: none;
+}
+.lyrics-editor-bar {
+    display: flex;
+    align-items: flex-end;
+    gap: var(--sp-2);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+}
+.editor-tabs {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    gap: var(--sp-1);
+    overflow-x: auto;
+    scrollbar-width: thin;
+}
+.editor-tab {
+    flex-shrink: 0;
+    max-width: 12rem;
+    min-height: 2.25rem;
+    padding: var(--sp-1) var(--sp-3);
+    border: 1px solid transparent;
+    border-bottom: 0;
+    border-radius: var(--radius-s) var(--radius-s) 0 0;
+    background: transparent;
+    color: var(--text-secondary);
+    font-family: var(--font-ui);
+    font-size: 0.875rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    cursor: pointer;
+}
+.editor-tab[aria-current="true"] {
+    color: var(--text-primary);
+    font-weight: 700;
+    background: var(--card-bg);
+    border-color: var(--border);
+    box-shadow: inset 0 2px 0 var(--highlight-border);
+}
+.editor-tab-add { font-weight: 700; color: var(--text-primary); }
+@media (hover: hover) and (pointer: fine) {
+    .editor-tab:hover { background: var(--fill-soft); }
+    .editor-close:hover { background: var(--fill-soft); }
+}
+.editor-tabs .song-name-input { flex-shrink: 0; width: 12rem; margin-bottom: var(--sp-1); }
+.editor-close {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 2.25rem;
+    min-height: 2.25rem;
+    margin-bottom: var(--sp-1);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-s);
+    background: var(--card-bg);
+    color: var(--text-primary);
+    cursor: pointer;
+}
+.lyrics-editor-body { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: var(--sp-2); }
+/* 編輯器裡：分頁取代 ☰ 歌曲清單 */
+.lyrics-editor-body .song-list { display: none; }
+.lyrics-editor-body .lyrics-layout { flex: 1; min-height: 0; }
+.lyrics-editor-bar .export-toggle { margin-bottom: var(--sp-1); }
+/* 新增段落：放在「標籤 ＆ 情境」與段落列表之間，整條寬（跟著下面的段落） */
+.section-add-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.3125rem;
+    flex-shrink: 0;
+    min-height: 2rem;
+    padding: var(--sp-1) var(--sp-3);
+    font-size: 0.875rem;
+    border-style: dashed;
+    color: var(--text-secondary);
+}
+
+        /* ===== 用自己的金鑰（BYOK，js/ai-client.js）：標題旁的鑰匙、自製模型下拉、偏好設定「AI」分頁 ===== */
+        .ai-title-group { display: inline-flex; align-items: center; gap: var(--sp-1); min-width: 0; flex-shrink: 0; white-space: nowrap; }   /* 「AI 建議」不換行 */
+        /* 鑰匙：無外框；沒在用自己的金鑰時淡淡的，用的時候亮起來慢慢呼吸（沿用既有的 lhPulse，不新增 @keyframes） */
+        .ai-key-btn {
+            display: inline-flex; align-items: center; justify-content: center;
+            border: 0; background: none; padding: var(--sp-1); margin: 0; cursor: pointer;
+            color: var(--text-secondary); opacity: 0.45; border-radius: var(--radius-s); font-size: 0.95rem;
+        }
+        .ai-key-btn[data-on="true"] { color: var(--highlight-border); opacity: 1; animation: lhPulse 2.6s ease-in-out infinite; }
+        @media (hover: hover) and (pointer: fine) { .ai-key-btn:hover { opacity: 1; } }
+        .ai-key-btn:focus-visible { outline: 2px solid var(--highlight-border); outline-offset: 1px; opacity: 1; }
+        @media (prefers-reduced-motion: reduce) { .ai-key-btn[data-on="true"] { animation: none; } }
+
+        .model-picker { position: relative; min-width: 0; display: flex; }
+        #modelPicker { display: inline-flex; align-items: center; gap: var(--sp-1); min-width: 0; text-align: left; }
+        .model-picker-label { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .model-picker-caret { font-size: 0.9em; }
+        .model-list {
+            position: absolute; top: calc(100% + var(--sp-1)); right: 0; z-index: 60;
+            min-width: 100%; width: max-content; max-width: min(18rem, 85vw); max-height: min(70vh, 32rem); overflow-y: auto; overscroll-behavior: contain;
+            padding: var(--sp-1); background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--radius-m);
+            box-shadow: 0 6px 20px var(--shadow); font-size: 0.8rem; font-weight: 400; letter-spacing: 0;
+        }
+        .model-list[hidden] { display: none; }
+        .model-list:focus-visible { outline: 2px solid var(--accent-line); outline-offset: 1px; }
+        .model-group-label { padding: var(--sp-2) var(--sp-2) var(--sp-1); font-size: 0.75rem; color: var(--text-secondary); }
+        .model-list [role="group"] + [role="group"] { border-top: 1px solid var(--border); margin-top: var(--sp-1); }
+        .model-opt {
+            display: flex; align-items: center; gap: var(--sp-3); min-height: 2rem; padding: 0 var(--sp-2);
+            border-radius: var(--radius-s); color: var(--text-primary); cursor: pointer;
+        }
+        .model-opt-name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .model-opt[aria-selected="true"] { font-weight: 700; box-shadow: inset 2px 0 0 var(--highlight-border); }
+        .model-opt.active { background: var(--accent-soft); }
+        @media (hover: hover) and (pointer: fine) { .model-opt:hover { background: var(--fill-soft); } }
+        /* 用量訊號格：靠右，亮的格數＝吃免費額度的多寡 */
+        .model-opt-usage { flex: none; margin-left: auto; display: inline-flex; align-items: center; color: var(--text-secondary); }
+        .usage-bars { width: 1.05em; height: 0.85em; }
+        .usage-bars rect { fill: currentColor; opacity: 0.25; }
+        .usage-bars rect.on { opacity: 1; }
+
+        /* 偏好設定「AI」分頁 */
+        .byok-intro { margin: 0; font-size: 0.85rem; line-height: 1.6; color: var(--text-secondary); }
+        .byok-intro strong { color: var(--text-primary); }
+        .byok-provider { display: flex; flex-direction: column; gap: var(--sp-2); }   /* 上面 .ai-tune 已經有分隔線 */
+        .byok-row { display: flex; align-items: stretch; gap: var(--sp-1); }
+        .byok-input {
+            flex: 1 1 auto; min-width: 0; min-height: 2.25rem; padding: 0 var(--sp-2);
+            border: 1px solid var(--border); border-radius: var(--radius-s); background: var(--card-bg); color: var(--text-primary);
+            font-family: var(--font-mono); font-size: 0.85rem;
+        }
+        .byok-input:focus-visible { outline: 2px solid var(--highlight-border); outline-offset: 0; }
+        .byok-eye {
+            flex: none; min-width: 2.25rem; display: inline-flex; align-items: center; justify-content: center;
+            border: 1px solid var(--border); border-radius: var(--radius-s); background: var(--container-bg); color: var(--text-secondary); cursor: pointer;
+        }
+        .byok-eye[aria-pressed="true"] { color: var(--text-primary); }
+        .byok-eye:focus-visible { outline: 2px solid var(--highlight-border); outline-offset: 1px; }
+        .byok-actions { display: flex; gap: var(--sp-2); }
+        .byok-actions .save-load-btn { flex: 1; text-align: center; }
+        .byok-status { font-size: 0.8rem; color: var(--text-secondary); min-height: 1.2em; line-height: 1.5; }
+        .byok-status[data-kind="err"] { color: var(--danger-line); }
+        .byok-status[data-kind="ok"] { color: var(--text-primary); }
+        .byok-video { font-size: 0.85rem; color: var(--accent-strong); align-self: flex-start; }
+
+        @media (pointer: coarse), (max-width: 900px) {
+            .ai-key-btn, .byok-eye, .prefs-tabs [role="tab"] { min-width: var(--hit); min-height: var(--hit); }
+            .model-opt, .byok-actions .save-load-btn, .byok-video { min-height: var(--hit); }
+            .byok-video { display: inline-flex; align-items: center; }
+            .byok-input { min-height: var(--hit); }
+        }
+
+/* 編輯器＋鍵盤打開（html.kb-open，js/layout.js）：只留正在打字的那一塊撐滿，其餘控制列先收起；鍵盤收起就恢復 */
+html.kb-open .lyrics-editor-overlay { padding: 0; }
+html.kb-open .lyrics-editor { width: 100vw; max-width: none; height: 100%; border-radius: 0; padding: var(--sp-2); gap: var(--sp-1); }
+html.kb-open .lyrics-editor-body .lyrics-tools,
+html.kb-open .lyrics-editor-body .section-add-btn,
+html.kb-open .lyrics-editor-body .context-section:not(:focus-within),
+html.kb-open .lyrics-editor-body .lyrics-section:not(:focus-within) { display: none; }
+html.kb-open .lyrics-editor-body .context-section:focus-within { flex: 1 1 auto; max-height: none; min-height: 0; }
+html.kb-open .lyrics-editor-body .context-section:focus-within .context-textarea { flex: 1 1 auto; min-height: 3rem; }
+html.kb-open .lyrics-editor-body .lyrics-section:focus-within { flex: 1 1 auto !important; height: auto !important; min-height: 0; }
+html.kb-open .lyrics-editor-body .lyrics-section:focus-within .section-textarea { flex: 1 1 auto; min-height: 0; }
+html.kb-open .lyrics-editor-body .lyrics-area { flex: 1 1 auto; min-height: 0; }
+
+/* ===== 自由畫布（js/canvas.js）：編輯器工具列的「吸附／自由」，自由模式下段落是畫布上的卡片 ===== */
+.canvas-tools { display: inline-flex; align-items: center; margin-left: auto; }
+body:not(.editor-open):not(.lp-wide) .canvas-tools { display: none; }
+#canvasSnapBtn { border-radius: 0.5rem 0 0 0.5rem; }
+#canvasFreeBtn { border-radius: 0 0.5rem 0.5rem 0; margin-left: -1px; }   /* 兩顆接在一起：重疊 1px，不再把左邊框拿掉（選到「自由」時才不會缺左框） */
+.canvas-tools > .canvas-btn[aria-pressed="true"] { position: relative; z-index: 1; }
+/* 縮放鈕只在自由畫布出現（js/canvas.js 在 body 上加 cv-free） */
+.canvas-zoom { display: inline-flex; margin-right: 0.5rem; }
+body:not(.cv-free) .canvas-zoom { display: none; }
+.canvas-zoom > .canvas-btn { border-radius: 0; margin-left: -1px; min-width: 2.25rem; }
+.canvas-zoom > .canvas-btn:first-child { border-radius: 0.5rem 0 0 0.5rem; margin-left: 0; }
+.canvas-zoom > .canvas-btn:last-child { border-radius: 0 0.5rem 0.5rem 0; }
+.canvas-btn[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--highlight-border); }
+.cv-corner { display: none; }
+/* 自由模式下畫布是唯一的捲動容器（原生捲動），所以桌面上外層沒有東西會被帶著捲；
+   鍵盤打開（html.kb-open）時整組規則不生效，改回原本只留正在打字那段的直列（D-06） */
+html:not(.kb-open) #lyricsSections[data-canvas="free"] {
+    display: block;
+    overflow: auto;
+    flex: 1 1 0;
+    min-height: 16rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-m);
+    background-color: var(--container-bg);
+    background-image: radial-gradient(var(--border) 1px, transparent 1px);
+    background-size: 1.5rem 1.5rem;
+    background-attachment: local;
+    touch-action: none;   /* 單指平移、雙指縮放都由 js/canvas.js 處理：瀏覽器不接手，才不會時順時卡，也不會帶著背後的主視窗捲 */
+}
+html:not(.kb-open) #lyricsSections[data-canvas="free"] > .lyrics-section {
+    position: absolute;
+    left: calc(var(--cv-x) * var(--cv-z, 1));   /* 縮放：位置照倍率換算，卡片本身用 scale，內部座標不變 */
+    top: calc(var(--cv-y) * var(--cv-z, 1));
+    transform: scale(var(--cv-z, 1));
+    transform-origin: 0 0;
+    width: var(--cv-w);
+    height: var(--cv-h);
+    margin: 0;
+    flex: none;
+    min-height: 0;
+    background: var(--card-bg);
+    box-shadow: 0 1px 4px var(--shadow);
+}
+html:not(.kb-open) #lyricsSections[data-canvas="free"] > .lyrics-section.collapsed { height: auto; }
+html:not(.kb-open) #lyricsSections[data-canvas="free"] .section-body { flex: 1 1 auto; min-height: 0; }
+/* 蓋掉 lhSecFit 寫的行內高度：文字框撐滿卡片，字多就在卡片裡捲 */
+html:not(.kb-open) #lyricsSections[data-canvas="free"] .section-textarea { flex: 1 1 auto !important; height: auto !important; min-height: 0 !important; overflow-y: auto !important; }
+html:not(.kb-open) #lyricsSections[data-canvas="free"] .lyrics-section-header { cursor: move; touch-action: none; }
+html:not(.kb-open) #lyricsSections[data-canvas="free"] .lyrics-section-header button:not(.section-handle) { cursor: pointer; }
+html:not(.kb-open) #lyricsSections[data-canvas="free"] .cv-corner {
+    display: block;
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    width: 1.25rem;
+    height: 1.25rem;
+    z-index: 1;
+    cursor: nwse-resize;
+    touch-action: none;
+    background: linear-gradient(135deg, transparent 50%, var(--border) 50%);
+}
+@media (pointer: coarse) {
+    html:not(.kb-open) #lyricsSections[data-canvas="free"] .cv-corner { width: 2.75rem; height: 2.75rem; }
+}
+html:not(.kb-open) #lyricsSections[data-canvas="free"] .lyrics-section.collapsed .cv-corner { display: none; }
+.lyrics-section.cv-moving { z-index: 2; box-shadow: 0 6px 20px var(--shadow); }
+body.is-canvas-dragging { user-select: none; }
+#lyricsSections.cv-panning { cursor: grabbing; user-select: none; }
+
+/* 段落依內容自動長高（js/sections.js lhSecFit）：段落自己不捲，整個歌詞區只剩一條捲軸；拉高度的把手拿掉 */
+.lyrics-area .lyrics-section:not(.collapsed) { flex: 0 0 auto; min-height: 0; }
+.lyrics-area .lyrics-section:not(.collapsed) .section-body { flex: 0 0 auto; }
+.lyrics-area .lyrics-section:not(.collapsed) .section-textarea { flex: none; overflow-y: hidden; min-height: 7rem; }
+.section-resize { display: none; }
+/* 鍵盤打開時編輯器只留正在打字的那段撐滿可見範圍：這時改回段落自己捲 */
+html.kb-open .lyrics-editor-body .lyrics-section:focus-within .section-textarea { flex: 1 1 auto !important; height: auto !important; overflow-y: auto; min-height: 0; }
+html.kb-open .lyrics-editor-body .lyrics-section:focus-within .section-body { flex: 1 1 auto; min-height: 0; }
+/* 句構分析面板：結構欄可以點來改；手動／AI 的標記；底下的動作鈕 */
+.rm-an-edit { display: block; width: 100%; min-height: 1.75rem; padding: 0 var(--sp-1); border: 1px dashed transparent; border-radius: 0.25rem; background: none; color: inherit; font: inherit; text-align: left; cursor: text; overflow-wrap: anywhere; }
+.rm-an-edit:focus-visible { border-color: var(--border); }
+@media (hover: hover) and (pointer: fine) { .rm-an-edit:hover { border-color: var(--border); } }
+.rm-an-src { margin-left: var(--sp-1); padding: 0 0.25em; border-radius: 0.25rem; background: var(--container-bg); font-size: 0.75rem; font-style: normal; color: var(--text-secondary); }
+.rm-an-input { width: 100%; min-height: 1.75rem; padding: 0 var(--sp-1); border: 1px solid var(--accent, var(--border)); border-radius: 0.25rem; background: var(--card-bg); color: var(--text-primary); font: inherit; }
+.rm-an-acts { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+.rm-an-acts .rm-an-act { flex: 1 1 auto; width: auto; }
+.rm-an-table th:nth-child(4) { width: 8rem; }
+/* 並排角色欄（js/sections.js lhSecBuildCols）：第一列是角色名，第二列是各欄歌詞；不換行、太長左右捲，同一行在每欄同一個高度 */
+.section-body.has-cols { display: grid; grid-template-columns: repeat(var(--cols), minmax(0, 1fr)); column-gap: 1px; background: var(--border); }
+.section-body.has-cols > .section-textarea, .section-body.has-cols > .section-col-ta { grid-row: 2; }
+.section-body.has-cols .section-textarea, .section-body.has-cols .section-col-ta, .section-body.has-cols .rhyme-mirror { white-space: pre; overflow-wrap: normal; overflow-x: auto; }
+.sec-role { grid-row: 1; display: flex; align-items: center; gap: var(--sp-1); padding: var(--sp-1) var(--sp-2); background: var(--card-bg); }
+.sec-role-name { flex: 1; min-width: 0; min-height: 1.75rem; padding: 0 var(--sp-1); border: 1px solid transparent; border-radius: 0.25rem; background: none; color: var(--text-primary); font: inherit; font-size: 0.875rem; font-weight: 700; }
+.sec-role-name:focus { border-color: var(--border); outline: none; }
+@media (hover: hover) and (pointer: fine) { .sec-role-name:hover { border-color: var(--border); } }
+.sec-col-del, .sec-col-add { flex: none; min-width: var(--hit, 2rem); min-height: 1.75rem; padding: 0 var(--sp-1); border: 1px solid var(--border); border-radius: 0.25rem; background: none; color: var(--text-secondary); font: inherit; font-size: 0.875rem; cursor: pointer; }
+.section-col-ta { position: relative; width: 100%; padding: 0.625rem 0.75rem; border: none; font-size: 1rem; font-family: var(--font-ui); background: var(--card-bg); color: var(--text-primary); resize: none; outline: none; line-height: 1.8; }
+.lyrics-area .lyrics-section:not(.collapsed) .section-col-ta { overflow-y: hidden; min-height: 7rem; }
+.lyrics-section.rm-on .section-col-ta { background: transparent; }
+/* 角色欄並排時欄很窄：不顯示逐行標記（字數、斷句看各欄的分析面板），也不留標記欄的內距 */
+.section-body.has-cols .lm-mk { display: none; }
+html[data-lm] .section-body.has-cols .section-textarea { padding-right: 0.75rem; }
+
+/* AI 面板標題列：搜尋過後韻腳搬到這裡固定在頂端（js/rhyme-display.js renderRhymeDisplay），太長就省略 */
+.ai-rhyme-display.in-title { flex: 1 1 auto; min-width: 0; padding: 0; border: none; background: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 0.75rem; line-height: 1.4; }
+.ai-rhyme-display.in-title .rhyme-label { font-size: 1rem; }
+.ai-rhyme-display.in-title .report-char-btn { display: none; }
+/* 新增的 # 標籤：總高度跟輸入框、按鈕一樣是 --hit（原本 × 撐滿 --hit 再加上下框線，多出 2px）；× 蓋過框線，點擊範圍不變 */
+@media (pointer: coarse), (max-width: 900px) {
+    .hashtag-chip .chip-remove { margin-block: -1px; }
+}
+/* 韻腳「滑過才顯示」：色塊、雙押細線、句中底線平常透明，同韻的字被指到才浮出（js/rhyme-map.js 檔尾） */
+html[data-rm-hover] .rhyme-mirror:not(.lm-preview) :is(.rm-hl, .rm-multi, .rm-inner) { opacity: 0; transition: opacity 0.35s ease; }
+html[data-rm-hover] .rhyme-mirror:not(.lm-preview) :is(.rm-hl, .rm-multi, .rm-inner).rm-show { opacity: 1; transition-duration: 0.15s; }
+/* 預覽的字是看得見的：不能整個透明，只把底色、細線、底線拿掉 */
+html[data-rm-hover] .lm-preview :is(.rm-hl, .rm-multi, .rm-inner) { transition: background-color 0.35s ease, box-shadow 0.35s ease, text-decoration-color 0.35s ease; }
+html[data-rm-hover] .lm-preview :is(.rm-hl, .rm-multi, .rm-inner):not(.rm-show) { background: transparent; box-shadow: none; text-decoration-color: transparent; border-bottom-color: transparent; }
+@media (prefers-reduced-motion: reduce) { html[data-rm-hover] .rhyme-mirror :is(.rm-hl, .rm-multi, .rm-inner) { transition: none; } }
+/* 句構面板（2026-11-13）：寬度跟著表格（說明文字不撐寬），結構與歌詞都不換行，太寬就在捲動區左右捲；標題可以拖 */
+#rhymeAnalysis { width: max-content; min-width: min(20rem, calc(100vw - 1rem)); max-width: calc(100vw - 1rem); }
+#rhymeAnalysis > :not(.rm-an-scroll) { contain: inline-size; }
+#rhymeAnalysis .rm-an-scroll { overflow: auto; }
+#rhymeAnalysis .section-menu-title { cursor: move; touch-action: none; user-select: none; }
+#rhymeAnalysis .rm-an-table { width: auto; table-layout: auto; }
+#rhymeAnalysis .rm-an-table th, #rhymeAnalysis .rm-an-table td:not([colspan]) { width: auto; white-space: nowrap; }
+#rhymeAnalysis .rm-an-edit { white-space: nowrap; overflow-wrap: normal; }
+#rhymeAnalysis .rm-an-t { overflow: visible; text-overflow: clip; color: var(--text-primary); }
+.rm-an-no .rm-an-l, .rm-an-no .rm-an-n { display: block; }
+.rm-an-no .rm-an-n { font-size: 0.75rem; color: var(--text-secondary); }
+.rm-br-line { display: inline-flex; align-items: flex-start; white-space: pre; }
+.rm-br { display: inline-flex; flex-direction: column; align-items: stretch; }
+.rm-br-b { height: 0.35em; margin: 0.1em 0.15em 0; border: 1px solid var(--text-secondary); border-top: none; border-radius: 0 0 0.5em 0.5em; }
+.rm-br-n { text-align: center; font-size: 0.75rem; line-height: 1.2; color: var(--text-secondary); }
+
+/* 韻腳地圖模式三鈕（樣式比照主頁「常用字優先／同聲韻並列／同聲調並列」） */
+.rm-seg { display: flex; gap: 0.125rem; padding: 0.1875rem; background: var(--fill-soft); border: 1px solid var(--border); border-radius: var(--radius-m); }
+.rm-seg-btn { flex: 1 1 0; min-width: 0; min-height: 2rem; padding: 0.375rem 0.25rem; border: none; border-radius: var(--radius-s); background: transparent; color: var(--text-secondary); font-family: var(--font-ui); font-size: 0.875rem; cursor: pointer; }   /* 放大 150% 的手機放不下時字可以折行，不撐出左右捲動 */
+#mapSettingsSection .rm-seg { padding: 0; gap: 0; }   /* 0.98.09：外框貼齊被選到的那顆，不多一圈 */
+.rm-seg-btn.active { background: var(--card-bg); color: var(--text-primary); box-shadow: 0 1px 2px var(--shadow), inset 0 -2px 0 var(--highlight-border); }
+@media (hover: hover) and (pointer: fine) { .rm-seg-btn:hover:not(.active) { color: var(--text-primary); } }
+@media (pointer: coarse), (max-width: 900px) { .rm-seg-btn { min-height: var(--hit); } }
+/* 斷句結構畫在每行下面：行距拉開；每組字下面一個小括號和小字數（偽元素，不佔寬度） */
+html[data-lm-under] .section-textarea, html[data-lm-under] .rhyme-mirror { line-height: 2.6; }
+.rhyme-mirror .lm-g { position: relative; }
+.rhyme-mirror .lm-g::before { content: ''; position: absolute; left: 0.12em; right: 0.12em; top: calc(100% + 0.05em); height: 0.28em; border: 1px solid var(--text-secondary); border-top: none; border-radius: 0 0 0.4em 0.4em; opacity: 0.55; }
+.rhyme-mirror .lm-g::after { content: attr(data-n); position: absolute; left: 0; right: 0; top: calc(100% + 0.3em); text-align: center; font-size: 0.55em; line-height: 1; font-style: normal; color: var(--text-secondary); }
+.rhyme-mirror .lm-g.lm-g-guess::after { font-style: italic; }
+.section-body.has-cols .lm-g::before, .section-body.has-cols .lm-g::after { display: none; }
+
+/* ===== 寬螢幕吸附版面（js/dock.js 加 body.dock） ===== */
+/* 三塊的矩形由 js/dock.js 寫成 --dk-x/--dk-y/--dk-w/--dk-h；收起的面板不吃這些變數，回到貼邊只露分頁的抽屜外觀 */
+@media screen {
+    /* 兩側留一條分頁寬的邊給收起面板的分頁；展開時整邊讓給面板 */
+    body.dock {
+        padding-left: max(var(--page-pad), env(safe-area-inset-left), calc(var(--tab-w) + 0.25rem));
+        padding-right: max(var(--page-pad), env(safe-area-inset-right), calc(var(--tab-w) + 0.25rem));
+    }
+    body.dock.lp-open { padding-left: max(var(--page-pad), env(safe-area-inset-left)); }
+    body.dock.rp-open { padding-right: max(var(--page-pad), env(safe-area-inset-right)); }
+    /* absolute 而不是 fixed：fixed 一定開新的堆疊層，裡面的設定／關於浮層會被 z-index 800 的面板蓋住 */
+    body.dock #mainContainer {
+        position: absolute;
+        left: var(--dk-x);
+        top: var(--dk-y);
+        width: var(--dk-w);
+        height: var(--dk-h);
+        max-width: none;
+        margin: 0;
+    }
+    body.dock .results-section { min-height: 0; }   /* 區塊矮時捲動，不裁切 */
+    body.dock .side-panel:not(.collapsed) {
+        left: var(--dk-x);
+        top: var(--dk-y);
+        right: auto;
+        width: var(--dk-w);
+        height: var(--dk-h);
+        border-radius: 0.75rem;
+    }
+    body.dock .side-panel { transition: none; }   /* 收合／展開直接到位，不從很遠的地方滑過來 */
+
+    /* 「重設版面」只在寬螢幕模式有意義 */
+    body:not(.dock) #dockResetBtn { display: none; }
+
+    /* 分隔線：矩形就是兩塊之間的縫；平常看不見，滑過或拖曳時畫一條線 */
+    .dock-divider {
+        position: fixed;
+        left: var(--dk-x);
+        top: var(--dk-y);
+        width: var(--dk-w);
+        height: var(--dk-h);
+        z-index: 810;
+        touch-action: none;
+        cursor: col-resize;
+    }
+    .dock-divider[aria-orientation="horizontal"] { cursor: row-resize; }
+    .dock-divider::after {
+        content: '';
+        position: absolute;
+        background: var(--highlight-border);
+        opacity: 0;
+        left: 50%; top: 0; bottom: 0; width: 2px; transform: translateX(-50%);
+    }
+    .dock-divider[aria-orientation="horizontal"]::after { left: 0; right: 0; top: 50%; bottom: auto; width: auto; height: 2px; transform: translateY(-50%); }
+    .dock-divider.active::after { opacity: 1; }
+    @media (hover: hover) and (pointer: fine) {
+        .dock-divider:hover::after { opacity: 1; }
+    }
+    body.dock-resizing { user-select: none; }
+
+    /* 三個標題列可以抓著拖；標題列上的按鈕仍是一般點擊 */
+    body.dock #leftPanel .lyrics-head,
+    body.dock #mainContainer > .header,
+    body.dock #rightPanel .side-panel-body > .side-panel-title { cursor: grab; user-select: none; }
+    body.dock-dragging, body.dock-dragging * { cursor: grabbing !important; user-select: none; }
+    .dock-src { opacity: 0.55; }
+    /* 預覽框在面板（800）之上、選單（870+）之下 */
+    #dockPreview {
+        position: fixed;
+        left: var(--dk-x);
+        top: var(--dk-y);
+        width: var(--dk-w);
+        height: var(--dk-h);
+        z-index: 850;
+        pointer-events: none;
+        border: 2px solid var(--highlight-border);
+        background: var(--accent-soft);
+        border-radius: 0.75rem;
+        transition: left 0.12s ease, top 0.12s ease, width 0.12s ease, height 0.12s ease;
+    }
+    #dockPreview[hidden] { display: none; }
+}
+
+/* ===== 吸附分列（完整編輯器，js/canvas.js _lhRowsLayout）：120 格格線，每列均分寬度，列高跟著內容；所有寬度都分列（含手機、平板直版） ===== */
+@media all {
+    html:not(.kb-open) #lyricsSections[data-layout="rows"] {
+        display: grid;
+        grid-template-columns: repeat(120, minmax(0, 1fr));
+        align-content: start;
+        align-items: start;
+        gap: 0.375rem;
+    }
+    html:not(.kb-open) #lyricsSections[data-layout="rows"] > .lyrics-section {
+        grid-row: var(--r-row);
+        grid-column: var(--r-col) / span var(--r-span);
+        min-width: 0;
+    }
+}
+/* 拖曳落點預覽：蓋在畫面上的半透明方塊（面板 800 之上、選單 870 之下），邊緣＝那一半、中間＝整張（互換） */
+#lhRowPreview {
+    position: fixed;
+    z-index: 955;   /* 完整編輯器是 950：要在它上面，拖曳中才看得到（原本 850 被蓋住，放開才像出現） */
+    pointer-events: none;
+    border: 2px solid var(--highlight-border);
+    background: var(--accent-soft);
+    border-radius: 0.5rem;
+}
+#lhRowPreview[hidden] { display: none; }
+
+/* 每個區塊的文字對齊（輸入框與韻腳鏡像層同步，逐字才對得齊） */
+.lyrics-section[data-align="center"] .section-textarea, .lyrics-section[data-align="center"] .rhyme-mirror { text-align: center; }
+.lyrics-section[data-align="right"] .section-textarea, .lyrics-section[data-align="right"] .rhyme-mirror { text-align: right; }
+.section-align[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--highlight-border); }
+.section-menu .section-act-del { color: var(--danger-text, inherit); }
+.section-full-only[hidden] { display: none; }
+
+/* 標題列更明顯：整條有底色、抓得到（游標變成抓手），⋮⋮ 把手加深；標題列上的按鈕仍是一般點擊 */
+.lyrics-section-header { background: var(--fill-soft); border-bottom: 1px solid var(--highlight-border); cursor: grab; }
+.lyrics-section-header button:not(.section-handle), .lyrics-section-header .section-count { cursor: pointer; }
+.section-handle { color: var(--text-primary); opacity: 0.75; }
+@media (hover: hover) and (pointer: fine) {
+    .lyrics-section-header:hover { background: var(--accent-soft); }
+    .section-handle:hover { opacity: 1; }
+}
+html:not(.kb-open) #lyricsSections[data-canvas="free"] .lyrics-section-header { cursor: move; }
+
+/* ===== 主視窗（寬螢幕吸附）：標題列更明顯、展開的面板不留側邊分頁 ===== */
+.panel-fold-btn { display: none; }
+@media (hover: hover) and (pointer: fine) {
+    body.dock:not(.dk-tab-l) #leftPanel .panel-fold-btn,
+    body.dock:not(.dk-tab-r) #rightPanel .panel-fold-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 1.5rem;
+        height: 1.5rem;
+        padding: 0;
+        margin-left: 0.375rem;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-s);
+        background: var(--card-bg);
+        color: var(--accent-4);
+        font-size: 0.75rem;
+        line-height: 1;
+        cursor: pointer;
+        flex: none;
+    }
+    body.dock .left-panel .panel-fold-btn { color: var(--accent-2); }
+    body.dock .panel-fold-btn:hover { background: var(--accent-soft); }
+    body.dock:not(.dk-tab-l) #leftPanel:not(.collapsed) .side-panel-tab,
+    body.dock:not(.dk-tab-r) #rightPanel:not(.collapsed) .side-panel-tab { display: none; }
+    /* 三個標題列：有底色、有分隔線，整條都能抓著拖 */
+    body.dock #leftPanel .lyrics-head,
+    body.dock #mainContainer > .header,
+    body.dock #rightPanel .side-panel-body > .side-panel-title {
+        position: relative;
+        background: var(--fill-soft);
+        border-bottom: 2px solid var(--highlight-border);
+        border-radius: 0.5rem 0.5rem 0 0;
+    }
+    body.dock #leftPanel .lyrics-head:hover,
+    body.dock #mainContainer > .header:hover,
+    body.dock #rightPanel .side-panel-body > .side-panel-title:hover { background: var(--accent-soft); }
+}
+
+
+/* ===== 平板／窄桌機的三直排：左右兩條交界線可以拖，直接拉寬或縮窄左右面板（js/panels.js 最後）===== */
+.pane-divider { display: none; }
+@media (min-width: 901px) {
+    body.lp-open:not(.dock) .pane-divider-l, body.rp-open:not(.dock) .pane-divider-r {
+        display: block;
+        position: fixed;
+        top: var(--pad-t);
+        height: calc(var(--app-h) - var(--pad-t) - var(--page-pad));
+        width: var(--pane-gap);
+        z-index: 805;
+        touch-action: none;
+        cursor: col-resize;
+    }
+    /* 放在面板和主畫面之間的空隙（不蓋到面板邊上的收合分頁）；另一邊收起來時這條照樣能拉 */
+    body.lp-open:not(.dock) .pane-divider-l { left: calc(var(--lp-w, var(--panel-w)) + var(--song-w, 0px)); }
+    body.rp-open:not(.dock) .pane-divider-r { right: var(--rp-w, var(--panel-w)); }
+    .pane-divider::before {   /* 中間一顆小把手，觸控沒有 hover 也看得到 */
+        content: '';
+        position: absolute;
+        left: 50%; top: 50%;
+        width: 0.25rem; height: 2.5rem;
+        transform: translate(-50%, -50%);
+        border-radius: 0.125rem;
+        background: var(--text-secondary);
+        opacity: 0.45;
+    }
+    .pane-divider.active::before, .pane-divider:focus-visible::before { opacity: 1; background: var(--highlight-border); }
+    @media (hover: hover) and (pointer: fine) {
+        .pane-divider:hover::before { opacity: 1; background: var(--highlight-border); }
+    }
+    body.pane-resizing { user-select: none; cursor: col-resize; }
+}
+
+/* ===== 分隔線：十字路口可同時拉兩個方向、隔空對齊的導引線 ===== */
+.dock-divider.junction { cursor: move; }
+#dockSnap {
+    position: fixed;
+    left: var(--dk-x);
+    top: var(--dk-y);
+    width: var(--dk-w);
+    height: var(--dk-h);
+    z-index: 812;
+    pointer-events: none;
+    background: var(--highlight-border);
+    opacity: 0.85;
+}
+#dockSnap[hidden] { display: none; }
+
+/* 拖曳落點預覽上的說明文字（主視窗與編輯器共用） */
+#dockPreview, #lhRowPreview {
+    display: flex; align-items: center; justify-content: center; text-align: center;
+    overflow: hidden; padding: 0.25rem;
+    font-size: 0.875rem; font-weight: 700; color: var(--text-primary);
+    border-style: dashed;
+}
+#dockPreview[hidden], #lhRowPreview[hidden] { display: none; }
+/* 自由畫布隔空對齊的導引線（js/canvas.js _lhCvSnap） */
+/* 導引線：鮮豔洋紅（--snap-guide）、半透明、2.4Hz 閃爍（一個週期 1/2.4 ≈ 0.417 秒；沿用 lhPulse 加 steps 變成一明一暗，不新增 @keyframes；減少動態時不閃） */
+.cv-guide { position: absolute; z-index: 3; pointer-events: none; background: var(--snap-guide); --pulse-hi: 0.4; --pulse-lo: 0.15; animation: lhPulse 0.4167s steps(1, end) infinite; }   /* 亮 40%、暗 15%（Andy） */
+@media (prefers-reduced-motion: reduce) { .cv-guide, #lhRowGuide.snap { animation: none; opacity: 0.4; } }
+
+/* ===== 2026-11-14 收尾 ===== */
+/* ⋮⋮ 看不見（標題列整條可拖）：電腦全部、完整編輯器所有裝置；手機平板的左側面板保留（手指在那裡只能抓 ⋮⋮，標題列要留給捲動）。
+   鍵盤仍可 Tab 到它（Alt＋↑↓ 排序、自由畫布方向鍵） */
+body.editor-open .section-handle:not(:focus-visible) {
+    position: absolute; width: 1px; min-width: 0; height: 1px; min-height: 0; padding: 0; border: 0;
+    overflow: hidden; clip-path: inset(50%); white-space: nowrap;
+}
+@media (hover: hover) and (pointer: fine) {
+    .section-handle:not(:focus-visible) {
+    position: absolute; width: 1px; min-width: 0; height: 1px; min-height: 0; padding: 0; border: 0;
+    overflow: hidden; clip-path: inset(50%); white-space: nowrap;
+}
+}
+/* 觸控也能抓標題列拖（js/sections.js），瀏覽器不接手捲動，才不會帶著主畫面跑 */
+body.editor-open .lyrics-section-header { touch-action: none; }
+/* 新增段落：和「提供詞語建議」同一個主要動作色 */
+.section-add-btn { background: var(--action-bg); color: var(--action-text); border: none; font-weight: 700; }
+@media (hover: hover) and (pointer: fine) { .section-add-btn:hover { background: var(--action-bg-hover); border: none; } }
+/* 保留池：標題列和下面的內容合成一個有框的分區 */
+.saved-pool-section:not(.collapsed) .saved-pool-title { border-radius: 0.375rem 0.375rem 0 0; }
+.saved-pool-body { border: 1px solid var(--border); border-top: none; border-left: 3px solid var(--highlight-border); border-radius: 0 0 0.375rem 0.375rem; }
+.saved-pool-section.collapsed .saved-pool-body { border: none; }
+/* 設定「韻腳與句構」：預覽黏在分頁頂端，下面的選項自己捲，切換時馬上看得到 */
+/* 手機（窄或矮）維持整個面板一起捲，不讓預覽吃掉半個畫面 */
+@media (min-width: 600px) and (min-height: 600px) {
+    .prefs-panel > .lm-preview-block { position: sticky; top: 0; z-index: 2; background: var(--card-bg); padding-bottom: var(--sp-2); border-bottom: 1px solid var(--border); }   /* 0.98.07：預覽凍結在頂端（歌詞短了，不會吃掉太多空間） */
+    .prefs-panel > .lm-preview-block .lm-preview { max-height: none; overflow: visible; }   /* 預覽完整顯示，不在裡面捲 */
+}
+/* 吸附分列：縫加寬一點好抓（js/canvas.js 拖縫調整兩邊）；同一列卡片等高；有固定列高（data-rh）時文字框撐滿、字多在裡面捲 */
+@media all {
+    /* 120 欄之間不能有 column-gap（會被乘上 119 次把卡片擠出去）：每張卡片依位置分攤左右邊距（js/canvas.js 寫 --r-ml／--r-mr），等寬的仍等寬 */
+    html:not(.kb-open) #lyricsSections[data-layout="rows"] { column-gap: 0; row-gap: 0.75rem; align-items: stretch; padding-bottom: 0.875rem; }
+    html:not(.kb-open) #lyricsSections[data-layout="rows"] > .lyrics-section { margin-left: calc(0.75rem * var(--r-ml, 0)); margin-right: calc(0.75rem * var(--r-mr, 0)); }
+    html:not(.kb-open) #lyricsSections[data-layout="rows"] > .lyrics-section[data-rh]:not(.collapsed) { height: var(--r-h); }
+    html:not(.kb-open) #lyricsSections[data-layout="rows"] > .lyrics-section[data-rh]:not(.collapsed) .section-body { flex: 1 1 auto; min-height: 0; }
+    html:not(.kb-open) #lyricsSections[data-layout="rows"] > .lyrics-section[data-rh]:not(.collapsed) .section-textarea { flex: 1 1 auto !important; height: auto !important; min-height: 0 !important; overflow-y: auto !important; }
+}
+body.rows-resizing { user-select: none; }
+#lhRowGuide { position: fixed; z-index: 955; width: 2px; pointer-events: none; background: var(--highlight-border); opacity: 0.5; }
+#lhRowGuide.snap { opacity: 0.4; width: 3px; background: var(--snap-guide); --pulse-hi: 0.4; --pulse-lo: 0.15; animation: lhPulse 0.4167s steps(1, end) infinite; }
+#lhRowGuide[hidden] { display: none; }
+/* 自由畫布：卡片範圍外多留空白（js/canvas.js _lhCvExtent），手掌工具才有地方拖 */
+html:not(.kb-open) #lyricsSections[data-canvas="free"]::after { content: ''; position: absolute; left: var(--cv-ex, 0); top: var(--cv-ey, 0); width: 1px; height: 1px; pointer-events: none; }
+/* AI 狀態列（js/ai-client.js lhAiNotice）：「回報詞語」右邊一行小字，幾秒後淡出 */
+.ai-status { flex: 1 1 0; min-width: 0; font-size: 0.75rem; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }   /* 淡出用 WAAPI（js/ai-client.js），不加 CSS transition */
+.ai-status.fade { opacity: 0; }
+.ai-report-row.active .ai-status { display: none; }
+
+/* ===== 2026-11-14 美術修正（Andy 截圖）===== */
+/* 寬螢幕兩側標題列：往上、往左右延伸貼齊面板邊（面板內距 0.875rem／0.75rem），不再是浮在中間的一塊灰條 */
+@media (hover: hover) and (pointer: fine) {
+    body.dock #leftPanel .lyrics-head,
+    body.dock #rightPanel .side-panel-body > .side-panel-title {
+        margin: -0.875rem -0.75rem 0.5rem;
+        padding: 0.5rem 0.75rem 0.375rem;
+        border-radius: 0;
+    }
+    body.dock #leftPanel .lyrics-head { border-top-left-radius: 0.6875rem; }
+    body.dock:not(.dk-tab-l) #leftPanel .lyrics-head { border-top-right-radius: 0.6875rem; }
+    body.dock #rightPanel .side-panel-body > .side-panel-title { border-top-right-radius: 0.6875rem; }
+    body.dock:not(.dk-tab-r) #rightPanel .side-panel-body > .side-panel-title { border-top-left-radius: 0.6875rem; }
+}
+/* 新增段落與提供詞語建議：同高、同字級，左右對稱。用固定高度（不是最小高度）：實機上圖示＋字會把其中一顆撐高；html 前綴壓過各尺寸的 min-height */
+html .section-add-btn, html .generate-btn, html .ws-expand-btn { height: 2.25rem; min-height: 0; line-height: 1; padding-block: 0; font-size: 0.9375rem; letter-spacing: 0.04em; border-radius: var(--radius-m); }
+/* 保留池：內容離左邊線遠一點，底色比面板深一階 */
+.saved-pool-section:not(.collapsed) .saved-pool-body { padding: 0.5rem 0.625rem; background: var(--fill-soft); }
+
+
+/* ===== 三直排（js/dock.js lhDockRender 標 data-dk-side＝l／m／r）：三塊共用同一套收合規則 =====
+   左右兩塊一律有一條窄窄的三角形分頁（靠中間那一側），收起時貼到自己那一邊、只露分頁；中間那塊一律沒有收合 */
+.results-side-tab { display: none; }
+@media screen {
+    body.dock.dock-classic [data-dk-side="m"] :is(.side-panel-tab, .results-side-tab, .panel-fold-btn) { display: none !important; }
+    body.dock.dock-classic :is(#leftPanel, #rightPanel)[data-dk-side] .panel-fold-btn { display: none !important; }
+    /* 側邊面板：分頁擺在靠中間那一側（左邊那塊的右緣、右邊那塊的左緣） */
+    body.dock.dock-classic .side-panel[data-dk-side="l"] { flex-direction: row; }
+    body.dock.dock-classic .side-panel[data-dk-side="r"] { flex-direction: row-reverse; }
+    body.dock.dock-classic .side-panel[data-dk-side] .side-panel-tab { order: 2; display: flex; }
+    body.dock.dock-classic .side-panel[data-dk-side="l"] .side-panel-tab { border-left: 1px solid var(--border); border-right: 0; border-radius: 0 0.75rem 0.75rem 0; }
+    body.dock.dock-classic .side-panel[data-dk-side="r"] .side-panel-tab { border-right: 1px solid var(--border); border-left: 0; border-radius: 0.75rem 0 0 0.75rem; }
+    /* 收起：貼到自己那一邊，只露分頁（和沒收起的面板同高） */
+    body.dock.dock-classic .side-panel.collapsed[data-dk-side] { transform: none; width: var(--tab-w); }
+    body.dock.dock-classic .side-panel.collapsed[data-dk-side="l"] { left: 0; right: auto; border-radius: 0 0.75rem 0.75rem 0; }
+    body.dock.dock-classic .side-panel.collapsed[data-dk-side="r"] { left: auto; right: 0; border-radius: 0.75rem 0 0 0.75rem; }
+    body.dock.dock-classic .side-panel.collapsed[data-dk-side] > :not(.side-panel-tab) { display: none; }
+    body.dock.dock-classic .side-panel.collapsed[data-dk-side] .side-panel-tab { border: 0; }
+    /* 查詢區站在側邊：分頁疊在它靠中間那一側 */
+    body.dock.dock-classic #mainContainer:is([data-dk-side="l"], [data-dk-side="r"]) .results-side-tab {
+        display: flex; align-items: center; justify-content: center; cursor: pointer; user-select: none;
+        position: absolute; top: 0; bottom: 0; width: var(--tab-w); z-index: 2;
+        background: var(--fill-soft); color: var(--text-secondary);
+    }
+    body.dock.dock-classic #mainContainer[data-dk-side="l"] .results-side-tab { right: 0; border-left: 1px solid var(--border); border-radius: 0 0.75rem 0.75rem 0; }
+    body.dock.dock-classic #mainContainer[data-dk-side="r"] .results-side-tab { left: 0; border-right: 1px solid var(--border); border-radius: 0.75rem 0 0 0.75rem; }
+    body.dock.dock-classic #mainContainer[data-dk-side="l"]:not(.dk-fold) { padding-right: var(--tab-w); }
+    body.dock.dock-classic #mainContainer[data-dk-side="r"]:not(.dk-fold) { padding-left: var(--tab-w); }
+    body.dock.dock-classic #mainContainer.dk-fold {
+        position: fixed; top: var(--pad-t); width: var(--tab-w); height: calc(var(--app-h) - var(--pad-t) - var(--page-pad));
+        padding: 0; z-index: 800;
+    }
+    body.dock.dock-classic #mainContainer.dk-fold[data-dk-side="l"] { left: 0; border-radius: 0 0.75rem 0.75rem 0; }
+    body.dock.dock-classic #mainContainer.dk-fold[data-dk-side="r"] { left: auto; right: 0; border-radius: 0.75rem 0 0 0.75rem; }
+    body.dock.dock-classic #mainContainer.dk-fold > :not(.results-side-tab) { display: none; }
+    body.dock.dock-classic #mainContainer.dk-fold .results-side-tab { left: 0; right: 0; width: auto; border: none; }
+    @media (hover: hover) and (pointer: fine) {
+        body.dock .results-side-tab:hover { background: var(--accent-soft); color: var(--text-primary); }
+    }
+    /* 外框：三直排兩側平常不留分頁邊；哪一側有收起的區塊才留一條分頁寬（壓過 lp-open／rp-open 的規則） */
+    body.dock.dock-classic { padding-left: max(var(--page-pad), env(safe-area-inset-left)); padding-right: max(var(--page-pad), env(safe-area-inset-right)); }
+    body.dock.dock-classic.dk-fold-l { padding-left: max(var(--page-pad), env(safe-area-inset-left), calc(var(--tab-w) + 0.25rem)); }
+    body.dock.dock-classic.dk-fold-r { padding-right: max(var(--page-pad), env(safe-area-inset-right), calc(var(--tab-w) + 0.25rem)); }
+}
+/* 分頁：拿掉文字，只留三角形（指向按下去會收／開的方向）；窄窄一條（原本 2.5rem 的 40%） */
+.side-panel-tab, .results-side-tab { writing-mode: horizontal-tb; letter-spacing: 0; padding: 0; font-size: 0.75rem; }
+.side-panel-tab::before, .results-side-tab::before { content: '◀'; }
+.left-panel.collapsed .side-panel-tab::before, .right-panel:not(.collapsed) .side-panel-tab::before { content: '▶'; }
+body.dock.dock-classic .side-panel[data-dk-side="l"] .side-panel-tab::before { content: '◀'; }
+body.dock.dock-classic .side-panel[data-dk-side="r"] .side-panel-tab::before { content: '▶'; }
+body.dock.dock-classic .side-panel.collapsed[data-dk-side="l"] .side-panel-tab::before { content: '▶'; }
+body.dock.dock-classic .side-panel.collapsed[data-dk-side="r"] .side-panel-tab::before { content: '◀'; }
+#mainContainer[data-dk-side="r"]:not(.dk-fold) .results-side-tab::before, #mainContainer.dk-fold[data-dk-side="l"] .results-side-tab::before { content: '▶'; }
+.side-panel-tab:focus-visible, .results-side-tab:focus-visible { outline: 2px solid var(--highlight-border); outline-offset: -2px; }
+
+/* ===== 詞卡（多字查雙押）與詞宇宙（js/word-space.js）===== */
+.ws-header { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2) var(--sp-3); margin-bottom: 1.25rem; }   /* 跟字卡的 .results-header 一樣，數量列上下等距 */
+.ws-header .results-count { margin: 0; }
+/* 選項列（詞卡）：同聲調／排除借韻緊接在比對方式後面，回報靠最右（和字卡的排法一樣） */
+/* 字卡模式：常用／冷僻／取消緊接比對分頁（跟詞卡的同聲調／排除借韻同位置），回報靠最右 */
+body[data-q="char"] .options #batchPanel { flex: 1 1 auto; margin-inline-start: var(--sp-3); }
+body[data-q="char"] .options #batchPanel .btn-report { margin-inline-start: auto; }
+.options .batch-panel.inline .batch-btn { padding-inline: var(--sp-2); }   /* 窄一點，字卡模式的四顆才放得進比對分頁同一行 */
+/* 0.98.09：面板變窄時先擠（藏圖示、按鈕往回報靠），真的放不下才換到下一行；換行後靠左對齊分頁 */
+.options { container-type: inline-size; }
+@container (max-width: 38.5rem) { .options .batch-panel.inline .batch-icon { display: none; } }
+@container (max-width: 33.75rem) { body[data-q="char"] .options #batchPanel, body[data-q="word"] .options .ws-filters { margin-inline-start: 0; } }
+body[data-q="word"] .options .ws-filters { margin-inline-start: var(--sp-3); margin-inline-end: auto; }
+.ws-rep { display: inline-flex; gap: var(--sp-1); }
+.ws-rep .batch-btn[hidden] { display: none; }
+.ws-card.kept { border-color: var(--highlight-border); outline: 2px solid var(--highlight-border); outline-offset: -1px; background: var(--accent-soft); }   /* 已保留的詞卡：外框跟選取的字卡一樣（不用 .selected，字卡的程式會抓那個） */
+.report-mode .ws-card { cursor: pointer; }
+.report-mode .ws-card.report-picked { border-color: var(--danger-line); box-shadow: inset 0 0 0 2px var(--danger-line); }
+/* 關聯詞彙（查單字時選了字卡才出現，js/cards.js updateBatchCount） */
+.ws-rel-btn:not([hidden]) { display: flex; width: auto; margin: calc(-1 * var(--sp-2)) var(--sp-4) var(--sp-3); flex: 0 0 auto; }   /* 0.98.09：在上面那排按鈕和分隔線的正中間 */
+body:not([data-q="char"]) #wsRelBtn, body:not([data-q="word"]) #wsAllBtn { display: none; }
+/* 搜尋欄空的時候整排選項收起；查單字用字卡那兩組，查整個詞換成詞卡那兩組（js/results.js 設 body[data-q]） */
+body:not([data-q="char"]):not([data-q="word"]) .options, body:not([data-q="char"]):not([data-q="word"]) .mobile-batch-area,
+body:not([data-q="char"]) .q-char, body:not([data-q="word"]) .q-word { display: none !important; }
+body[data-q="word"] .ws-filters { display: flex; }
+.ws-filters .batch-btn[aria-pressed="true"] { background: var(--card-bg); border-color: var(--highlight-border); box-shadow: inset 0 -2px 0 var(--highlight-border); }
+/* 「展開詞宇宙」：和「新增段落」「提供詞語建議」同一個主要動作色、同高 */
+.ws-expand-btn {
+    flex: 1 0 100%; height: 2.25rem; border: none; border-radius: var(--radius-m);
+    display: inline-flex; align-items: center; justify-content: center; gap: var(--sp-2);
+    background: var(--action-bg); color: var(--action-text);
+    font-family: inherit; font-size: 0.9375rem; font-weight: 700; letter-spacing: 0.04em; cursor: pointer;
+}
+.ws-expand-btn:disabled { opacity: 0.5; cursor: default; }
+.ws-expand-btn[hidden] { display: none; }
+@media (hover: hover) and (pointer: fine) { .ws-expand-btn:not(:disabled):hover { background: var(--action-bg-hover); } }
+html .ws-grid { grid-template-columns: repeat(auto-fill, minmax(7.5rem, 1fr)); }   /* 0.98.01：原本 8.5rem 的 0.88 倍 */   /* html：壓過手機、平板字卡格線的欄寬 */
+@media (max-width: 440px) { html .ws-grid { grid-template-columns: repeat(auto-fill, minmax(6.125rem, 1fr)); } }
+.ws-card .char-main { font-size: 1.25rem; white-space: pre; }
+.ws-card .char-pinyin { font-size: 0.75rem; white-space: pre; overflow: hidden; text-overflow: ellipsis; }
+
+/* 顯示全部（星雲，js/word-space.js）：蓋滿整個畫面，一律深色宇宙底（--space-bg），四周再壓暗一圈；按鈕、面板保留主題色 */
+.ws-space {
+    position: fixed; inset: 0; z-index: 900; overflow: hidden;
+    touch-action: none; user-select: none; -webkit-user-select: none; cursor: grab;
+    background: radial-gradient(ellipse at 50% 45%, transparent 35%, color-mix(in srgb, var(--mix-dark) 60%, transparent) 100%);   /* 深色底改由 body::after 墊（在落字下面），這層不能是實心，不然會蓋掉落字 */
+    opacity: 0; transition: opacity 0.45s ease;
+}
+body.ws-open .ws-space { opacity: 1; }
+.ws-space.panning { cursor: grabbing; }
+/* 0.98.05 起星雲畫在一張 canvas 上（js/word-space.js _lhSpDraw），詞不再是一個個 DOM 節點；
+   只有游標停住／釘住的那個詞，右上角浮出真的隱藏鈕（.ws-acts，跟著詞移動） */
+.ws-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+/* 第 1 級整片呼吸（0.98.15.5）：交給顯示卡縮放整張畫布，6 秒一輪 ±1.2%，畫布本身不用重畫 */
+@media (prefers-reduced-motion: no-preference) { .ws-space.ws-breathe .ws-canvas { animation: wsBreath 6s ease-in-out infinite; } }
+.ws-space.on-word { cursor: pointer; }
+.ws-acts { position: absolute; left: 0; top: 0; z-index: 4; pointer-events: none; }
+.ws-acts[hidden] { display: none; }
+.ws-hide {
+    position: absolute; width: 1.375rem; height: 1.375rem; padding: 0; pointer-events: auto;
+    display: inline-flex; align-items: center; justify-content: center;
+    border: 1px solid var(--border); border-radius: 50%; background: var(--card-bg); color: var(--text-secondary);
+    font-size: 0.75rem; cursor: pointer; opacity: 0.75;
+}
+.ws-hide .ic { width: 0.8125rem; height: 0.8125rem; }
+.ws-hide { transform: translate(0, -100%); }
+@media (hover: hover) and (pointer: fine) { .ws-hide:hover { opacity: 1; color: var(--text-primary); } }
+@media (pointer: coarse) { .ws-hide { width: 2rem; height: 2rem; } }
+/* 左上：標題、各團按鈕、常用度；有底，不被漂浮的詞蓋住 */
+.ws-panel {
+    position: absolute; z-index: 5; top: calc(env(safe-area-inset-top, 0px) + 0.75rem); left: 0.75rem;
+    width: 10rem; max-width: calc(100% - 1.5rem); max-height: calc(100% - 1.5rem); overflow-y: auto; padding: var(--sp-2) var(--sp-3);
+    display: flex; flex-direction: column; gap: var(--sp-2);
+    background: color-mix(in srgb, var(--card-bg) 88%, transparent); border: 1px solid var(--border); border-radius: var(--radius-m);
+    box-shadow: 0 2px 10px var(--shadow); cursor: default;
+}
+.ws-title { font-family: var(--font-serif); font-size: 1rem; font-weight: 700; color: var(--text-primary); }
+.ws-head { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; column-gap: var(--sp-1); }
+.ws-head .ws-title { display: contents; }
+.ws-title-main { grid-row: 1; grid-column: 2; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ws-title-sub { grid-row: 2; grid-column: 1 / -1; font-family: var(--font-body, inherit); font-size: 0.75rem; font-weight: 400; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ws-head .ws-fold { grid-row: 1; grid-column: 1; }   /* 0.98.41 Andy：三角形在標題左邊 */
+.ws-panel.min ~ .ws-legbtn { display: none !important; }   /* 收合時不留色標分頁那條 */
+.ws-panel.min .ws-title-sub { display: none; }
+.ws-fold { flex: none; min-width: 1.75rem; min-height: 1.75rem; padding: 0; border-color: transparent; background: transparent; color: var(--text-secondary); }
+.ws-fold .ic { width: 1rem; height: 1rem; transition: transform 0.2s; }
+.ws-panel.min .ws-fold .ic { transform: rotate(180deg); }
+.ws-panel.min { width: auto; }   /* 收起來時標題盡量一行 */
+.ws-panel.min > :not(.ws-head) { display: none !important; }
+/* 手機（0.98.13 Andy）：收起來只剩小三角形，不寫字，才不會跟右上的縮放鈕重疊 */
+@media (max-width: 600px) { .ws-panel.min { padding: 0; top: calc(env(safe-area-inset-top, 0px) + 0.75rem); } .ws-panel.min .ws-title { display: none; } }
+@media (hover: hover) and (pointer: fine) { .ws-fold:hover { color: var(--text-primary); border-color: var(--border); } }
+.ws-legend, .ws-sub { display: flex; flex-direction: column; gap: var(--sp-1); }
+.ws-sub { padding-inline-start: var(--sp-3); }
+.ws-sub[hidden] { display: none; }
+.ws-leg-tone { font-weight: 700; }
+.ws-leg-tone::after { content: '▸'; margin-inline-start: auto; color: var(--text-secondary); }
+.ws-leg-tone[aria-expanded="true"]::after { content: '▾'; }
+.ws-leg {
+    display: inline-flex; align-items: center; min-height: 1.75rem; padding: 0 var(--sp-2);
+    border: 1px solid var(--border); border-radius: 10rem; background: var(--card-bg); color: var(--text-primary);
+    font: inherit; font-size: 0.75rem; cursor: pointer;
+}
+.ws-leg::before { content: ''; width: 0.625rem; height: 0.625rem; border-radius: 50%; background: var(--c); margin-inline-end: 0.375rem; }
+@media (hover: hover) and (pointer: fine) { .ws-leg:hover { border-color: var(--c); } }
+.ws-pos { display: flex; gap: var(--sp-1); }
+.ws-pos[hidden] { display: none; }
+.ws-pos .ws-hud-btn { flex: 1; }
+.ws-pos .ws-hud-btn[aria-pressed="true"] { border-color: var(--highlight-border); color: var(--highlight-border); box-shadow: inset 0 -2px 0 var(--highlight-border); }
+.ws-tools { display: flex; flex-direction: column; align-items: stretch; gap: var(--sp-2); }
+.ws-tools .ws-clear { margin-inline-start: 0; min-height: 2rem; }
+.ws-filter { display: inline-flex; align-items: center; gap: var(--sp-2); font-size: 0.75rem; color: var(--text-secondary); }
+.ws-filter { flex-direction: column; align-items: stretch; }
+.ws-range { width: 100%; accent-color: var(--highlight-border); }
+/* 右上：縮放與關閉 */
+.ws-zoom { position: absolute; z-index: 5; top: calc(env(safe-area-inset-top, 0px) + 0.75rem); right: 0.75rem; display: inline-flex; gap: var(--sp-1); cursor: default; }
+.ws-hud-btn {
+    min-height: 2rem; padding: 0 0.75rem; border: 1px solid var(--border); border-radius: var(--radius-s);
+    background: var(--card-bg); color: var(--text-primary); font-family: inherit; font-size: 0.875rem; cursor: pointer;
+    display: inline-flex; align-items: center; justify-content: center;
+}
+.ws-close, .ws-help { min-width: 2rem; padding: 0; }
+.ws-help { font-weight: 700; }
+.ws-zoom { justify-content: flex-end; }
+@media (pointer: coarse) { .ws-tr .ws-fx { min-width: 11rem; } }   /* 0.98.41：觸控沒有縮放鈕，右上那排變窄，特效滑桿自己撐開 */
+.ws-close .ic { width: 1rem; height: 1rem; }
+/* 0.98.20：右上改成一欄——縮放列＋底下的特效等級滑桿 */
+.ws-tr { position: absolute; z-index: 5; top: calc(env(safe-area-inset-top, 0px) + 0.75rem); right: 0.75rem; display: flex; flex-direction: column; align-items: stretch; gap: var(--sp-1); }
+.ws-tr .ws-zoom { position: static; }
+.ws-fx { width: 0; min-width: 100%; box-sizing: border-box; display: flex; align-items: center; gap: var(--sp-2); min-height: 2rem; padding: 0 var(--sp-2); font-size: 0.75rem; color: var(--text-secondary); cursor: default;
+    background: color-mix(in srgb, var(--card-bg) 88%, transparent); border: 1px solid var(--border); border-radius: var(--radius-s); }
+.ws-fx[hidden] { display: none; }
+.ws-fx-cap { flex: none; white-space: nowrap; }
+.ws-fx-range { flex: 1; min-width: 0; accent-color: var(--highlight-border); }
+/* 色標第二層面板（貼在左面板右邊，left 由 js/word-space.js _lhSpNavPlace 設） */
+.ws-legpanel {
+    position: absolute; z-index: 5; top: calc(env(safe-area-inset-top, 0px) + 0.75rem); left: 11.5rem;
+    width: 11rem; max-width: calc(100% - 1.5rem); max-height: calc(100% - 1.5rem); overflow-y: auto; padding: var(--sp-2);
+    background: color-mix(in srgb, var(--card-bg) 88%, transparent); border: 1px solid var(--border); border-radius: var(--radius-m);
+    box-shadow: 0 2px 10px var(--shadow); cursor: default;
+}
+.ws-legpanel[hidden] { display: none; }
+/* 0.98.22.1 Andy：跟主畫面側邊收合分頁同一款——扁扁長長；0.98.22.11 跨在左面板和色標面板中間的 2px 縫上（left／top 由 _lhSpNavPlace 設） */
+.ws-legbtn { --legbtn-w: calc(var(--tab-w) * 2 / 3);   /* Andy：再短、再窄三分之一（4.5→3rem、1→0.67rem），改成方一點、留小圓角 */
+    position: absolute; z-index: 6; width: var(--legbtn-w); min-width: 0; height: 3rem; min-height: 0; padding: 0;
+    border: 1px solid var(--border); border-radius: 0.1875rem;
+    --legbtn-bg: color-mix(in oklab, var(--highlight-border) 68%, black);   /* Andy：暗一點（不透明度不變） */
+    background: var(--legbtn-bg); color: var(--card-bg); border-color: var(--legbtn-bg); box-shadow: 0 2px 8px var(--shadow); }   /* 0.98.22.11 Andy：完全不透明；配色顛倒——底是強調色、箭頭是面板色 */
+.ws-legbtn[hidden] { display: none; }
+.ws-legbtn .ic, .ws-nav .ic { fill: currentColor; stroke: none; }
+.ws-legbtn .ic { width: 0.5rem; height: 0.5rem; transition: transform 0.2s; }
+.ws-legbtn[aria-expanded="true"] .ic { transform: rotate(180deg); }
+@media (hover: hover) and (pointer: fine) { .ws-legbtn:hover { background: var(--action-bg-hover); border-color: var(--action-bg-hover); } }
+/* 換批的左右三角形（多重宇宙才有）：畫面左右邊界的正中間 */
+/* 0.98.22 Andy：直接一顆大三角形（沒有底座）；0.98.22.1 顏色用自訂顏色裡叫「邊框」的那個（--highlight-border，city 是粉紅） */
+.ws-nav { position: absolute; z-index: 4; top: 50%; translate: 0 -50%; width: 4.5rem; height: 6rem; min-width: 0; padding: 0;
+    border: none; background: none; box-shadow: none; color: var(--highlight-border); }   /* 0.98.22.11 Andy：改回完全不透明（0.98.22.8 曾淡到 0.8） */
+.ws-nav[hidden] { display: none; }
+/* 0.98.22.7 Andy：一點點立體——底下一層壓暗的厚邊＋柔影，按下去沉一點、厚邊變薄 */
+.ws-nav .ic { width: 4.5rem; height: 6rem; filter: drop-shadow(0 3px 0 color-mix(in srgb, var(--highlight-border) 55%, var(--mix-dark))) drop-shadow(0 6px 6px var(--shadow)); }
+.ws-nav:active .ic { translate: 0 2px; filter: drop-shadow(0 1px 0 color-mix(in srgb, var(--highlight-border) 55%, var(--mix-dark))) drop-shadow(0 2px 3px var(--shadow)); }
+.ws-prev { left: 0.75rem; }
+.ws-next { right: 0.75rem; }
+@media (hover: hover) and (pointer: fine) { .ws-nav:hover { opacity: 1; } }
+@media (max-width: 600px) { .ws-nav, .ws-nav .ic { width: 3rem; height: 4rem; } }
+@media (max-width: 600px) { .ws-panel { max-width: calc(100% - 1.5rem); } }   /* 0.98.14：展開也貼齊上緣，跟收合鈕同一個位置（面板 10rem 寬，碰不到右上的縮放列） */
+@media (pointer: coarse) { .ws-hud-btn, .ws-leg { min-height: var(--hit); min-width: var(--hit); } }
+/* 0.98.22.7 Andy（iPad 截圖）：色標分頁在觸控上也維持扁扁的；看得到的窄，按得到的範圍用透明的 ::after 往右撐開 */
+@media (pointer: coarse) { .ws-legbtn.ws-hud-btn { min-width: 0; min-height: 0; } .ws-legbtn::after { content: ''; position: absolute; inset: 0 calc((var(--legbtn-w) - var(--hit)) / 2); } }
+/* 三塊面板往左、上、右收走（只在打開／收合的動畫期間加 transition，不動面板平常的收合動畫） */
+/* 打開：先 ws-leave（三塊面板收走 0.45 秒），面板走完才 ws-open（星雲淡入）；關閉反過來（js/word-space.js _lhSpShow／lhWsClose） */
+body.ws-anim :is(#leftPanel, #rightPanel, #mainContainer, #mobileTabBar) { transition: translate 0.45s cubic-bezier(0.6, 0, 0.3, 1), opacity 0.45s ease; will-change: translate, opacity; }
+body.ws-leave :is(.pane-divider, .dock-divider) { display: none !important; }   /* 交界把手也收走，不然會透過星雲看到 */
+body.ws-leave #leftPanel { translate: -120vw 0; opacity: 0; }
+body.ws-leave #rightPanel { translate: 120vw 0; opacity: 0; }
+body.ws-leave #mainContainer { translate: 0 -120vh; opacity: 0; }
+body.ws-leave #mobileTabBar { translate: 0 120%; opacity: 0; }
+/* 0.98.22.11 Andy：淺色主題進宇宙，背景跟三塊面板收走同時轉深色（墊在所有內容下面的一層，不等面板走完才變黑）；關閉時跟著面板回來一起淡掉 */
+body::after { content: ''; position: fixed; inset: 0; z-index: -2;   /* -2：墊在背景飄字（#lhBgFx，-1）下面，飄字照樣看得到 */
+    background: var(--space-bg); opacity: 0; visibility: hidden; pointer-events: none; transition: opacity 0.45s ease, visibility 0s 0.45s; }
+body.ws-leave::after { opacity: 1; visibility: visible; transition: opacity 1.2s ease; }
+@media (prefers-reduced-motion: reduce) {
+    .ws-space, body::after, body.ws-leave::after, body.ws-anim :is(#leftPanel, #rightPanel, #mainContainer, #mobileTabBar) { transition: none; }
+}
+
+/* 選字列「指定角色 ▸ ＋ 新角色」原地的小表單（js/roles.js _lhRoleNewForm） */
+.role-new-name { width: 100%; min-height: 2rem; padding: 0 var(--sp-2); border: 1px solid var(--border); border-radius: var(--radius-s); background: var(--card-bg); color: var(--text-primary); font: inherit; font-size: 0.875rem; }
+.role-new-name:focus { outline: 2px solid var(--highlight-border); outline-offset: -1px; }
+.role-new-sws { display: flex; flex-wrap: wrap; gap: var(--sp-1); padding-block: var(--sp-1); }
+.role-new-sw[aria-pressed="true"] { box-shadow: 0 0 0 2px var(--card-bg), 0 0 0 4px var(--text-primary); }
+.role-new-ok { justify-content: center; font-weight: 700; }
+
+/* ===== 歌詞面板拉寬＝完整編輯器（js/lyrics.js lhLpFull／_lhLpSync，0.98.03）=====
+   展開：貼著原本的邊拉到接近全螢幕（左邊往右、中間往兩邊、右邊往左；最後都是整個可用範圍），蓋在另外兩塊上面。
+   夠寬（lp-wide）才出現歌曲分頁、自由／吸附、畫布縮放；窄的時候只是把這些藏起來 */
+.lp-tabs { display: none; }
+body.lp-wide:not(.editor-open) .lp-tabs { display: flex; flex: 0 0 auto; padding-block: var(--sp-1); margin-bottom: var(--sp-1); border-bottom: 1px solid var(--border); }
+@media (min-width: 901px) {
+    body.lp-full #leftPanel:not(.collapsed) {
+        z-index: 850;
+        left: max(var(--page-pad), env(safe-area-inset-left));
+        width: calc(100vw - 2 * var(--page-pad) - env(safe-area-inset-left) - env(safe-area-inset-right));
+        top: var(--pad-t);
+        height: calc(var(--app-h) - var(--pad-t) - var(--page-pad));
+        border-radius: 0.75rem;
+        box-shadow: 0 0.5rem 2rem var(--shadow);
+    }
+    body.lp-anim #leftPanel { transition: left 0.38s cubic-bezier(0.3, 0, 0.2, 1), width 0.38s cubic-bezier(0.3, 0, 0.2, 1), top 0.38s ease, height 0.38s ease, transform 0.3s ease; }
+    body.lp-full :is(.pane-divider, .dock-divider) { display: none !important; }
+    #editorOpenBtn[aria-pressed="true"] { border-color: var(--highlight-border); color: var(--highlight-border); }
+}
+@media (prefers-reduced-motion: reduce) { body.lp-anim #leftPanel { transition: none; } }
+
+/* ===== 平板／窄桌機：左右面板收起時主畫面留在原地（js/panels.js syncCenterPanel 的 lp-room／rp-room），面板滑出去的動畫和歌詞面板展開同一條曲線 ===== */
+@media (min-width: 901px) {
+    body:not(.dock) .side-panel { transition: transform 0.38s cubic-bezier(0.3, 0, 0.2, 1); }
+    body.lp-room:not(.dock) { padding-left: calc(var(--lp-room, 0px) + var(--page-pad)); }
+    body.rp-room:not(.dock) { padding-right: calc(var(--rp-room, 0px) + var(--page-pad)); }
+}
+
+/* 保留池「清除全部」：標題列右邊，小小的、危險色字（0.98.05） */
+.saved-clear-btn { margin-inline-start: auto; padding: 0.125rem var(--sp-2); border: 1px solid var(--border); border-radius: var(--radius-s); background: transparent; color: var(--danger-line); font: inherit; font-size: 0.75rem; font-weight: 400; cursor: pointer; }
+.saved-clear-btn[hidden] { display: none; }
+.saved-clear-btn.armed { background: var(--danger-line); border-color: var(--danger-line); color: #fff; font-weight: 700; }
+.saved-clear-btn + .saved-pool-chevron { margin-inline-start: 0; }
+@media (pointer: coarse), (max-width: 900px) { .saved-clear-btn { min-height: var(--hit); min-width: var(--hit); } }
+@media (hover: hover) and (pointer: fine) { .saved-clear-btn:hover { background: var(--danger-bg); color: var(--danger-text); } }
+
+/* 歌曲顏色標籤（0.98.05）：分頁上方一條顏色、清單歌名前一個點；分頁列最後的「●」選色 */
+.editor-tab.has-color { box-shadow: inset 0 3px 0 var(--song-c); }
+.editor-tab.has-color[aria-current="true"] { box-shadow: inset 0 3px 0 var(--song-c); }
+.editor-tab-color { min-width: 2rem; display: inline-flex; align-items: center; justify-content: center; }
+.editor-tab-color::before { content: ''; width: 0.75rem; height: 0.75rem; border-radius: 50%; background: var(--song-c, transparent); border: 1.5px dashed var(--text-secondary); }
+.editor-tab-color[style]::before { border-style: solid; border-color: var(--song-c); }
+.song-pick.has-color::before { content: ''; display: inline-block; width: 0.5rem; height: 0.5rem; border-radius: 50%; background: var(--song-c); margin-inline-end: 0.375rem; vertical-align: 0.1em; }
+.song-color-pop { position: fixed; z-index: 10001; display: grid; grid-template-columns: repeat(3, 2rem); gap: var(--sp-1); padding: var(--sp-2); background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--radius-m); box-shadow: 0 4px 16px var(--shadow); }
+.song-color-sw { width: 2rem; height: 2rem; border-radius: 50%; border: 2px solid transparent; background: var(--song-c); cursor: pointer; padding: 0; }
+.song-color-sw.none { background: transparent; border: 1px dashed var(--text-secondary); color: var(--text-secondary); font: inherit; font-size: 0.75rem; }
+.song-color-sw[aria-pressed="true"] { border-color: var(--text-primary); box-shadow: 0 0 0 2px var(--card-bg) inset; }
+@media (pointer: coarse) { .song-color-pop { grid-template-columns: repeat(3, var(--hit)); } .song-color-sw { width: var(--hit); height: var(--hit); } }
+
+/* 自訂詞彙（設定 → 查詢與詞庫，js/custom-words.js） */
+#lexiconPackSection[hidden] { display: none; }
+.cw-section { gap: var(--sp-2); margin-top: var(--sp-3); }
+.cw-count { font-size: 0.75rem; color: var(--text-secondary); font-weight: 400; margin-inline-start: var(--sp-1); }
+.cw-hint { font-size: 0.75rem; color: var(--text-secondary); line-height: 1.5; }
+.cw-add, .cw-tools { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); }
+.cw-input { flex: 1 1 8rem; min-width: 0; }
+.cw-input, .cw-select, .cw-z { padding: 0.3125rem var(--sp-2); border: 1px solid var(--border); border-radius: var(--radius-s); background: var(--card-bg); color: var(--text-primary); font: inherit; font-size: 0.875rem; }
+.cw-btn { padding: 0.3125rem var(--sp-3); border: 1px solid var(--border); border-radius: var(--radius-s); background: var(--card-bg); color: var(--text-primary); font: inherit; font-size: 0.8125rem; cursor: pointer; }
+.cw-btn.danger { color: var(--danger-line); margin-inline-start: auto; }
+@media (hover: hover) and (pointer: fine) { .cw-btn:hover { background: var(--fill-soft); } }
+.cw-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--sp-1); max-height: 16rem; overflow-y: auto; }
+.cw-row { display: grid; grid-template-columns: auto auto 1fr auto; align-items: center; gap: var(--sp-2); padding: var(--sp-1) 0; border-bottom: 1px solid var(--border); }
+.cw-word { font-family: var(--font-serif); font-size: 1rem; color: var(--text-primary); white-space: nowrap; }
+.cw-z { min-width: 0; font-size: 0.8125rem; }
+.cw-scope { font-size: 0.75rem; color: var(--text-secondary); white-space: nowrap; max-width: 7rem; overflow: hidden; text-overflow: ellipsis; }
+@media (pointer: coarse) { .cw-btn, .cw-input, .cw-select, .cw-z { min-height: var(--hit); } }
+/* 詞卡上的自訂詞：右上角一個小小的「自訂」 */
+.ws-card.ws-custom { position: relative; }
+.ws-card.ws-custom::after { content: '自訂'; position: absolute; top: 0.125rem; right: 0.25rem; font-size: 0.75rem; line-height: 1; color: var(--highlight-border); opacity: 0.8; }
+
+/* ===== 0.98.06：星雲打開慢一點（面板收走 1.2 秒，這段時間背景先畫字的小圖）；字數篩選、平行宇宙翻頁 ===== */
+body.ws-anim.ws-in :is(#leftPanel, #rightPanel, #mainContainer, #mobileTabBar) { transition-duration: 1.2s; }
+.ws-len .ws-hud-btn, .ws-pos .ws-hud-btn { flex: 1 1 0; min-width: 0; white-space: nowrap; }
+.ws-len .ws-hud-btn { font-size: 0.75rem; padding: 0 0.25rem; }   /* 兩字／三字／四字／多字：不換行（觸控的 44px 最小寬度不套在這裡，四顆才放得下）*/
+.ws-pages { position: absolute; z-index: 5; top: calc(env(safe-area-inset-top, 0px) + 0.75rem); left: 50%; transform: translateX(-50%); width: min(22rem, calc(100% - 26rem));
+    display: flex; flex-direction: column; gap: 0.125rem; padding: var(--sp-2) var(--sp-3);
+    background: color-mix(in srgb, var(--card-bg) 88%, transparent); border: 1px solid var(--border); border-radius: var(--radius-m); box-shadow: 0 2px 10px var(--shadow); }
+@media (max-width: 760px) { .ws-pages { top: auto; bottom: calc(env(safe-area-inset-bottom, 0px) + 0.75rem); width: calc(100% - 1.5rem); } }   /* 窄螢幕上方被左右兩塊擋住：移到下方中間 */
+.ws-pages[hidden] { display: none; }
+/* 分批滑桿（0.98.09）：軌道切成幾等份，目前這一份用重點色 */
+.ws-page-range { -webkit-appearance: none; appearance: none; width: 100%; height: 1.25rem; margin: 0; background: transparent; cursor: pointer; }
+.ws-page-range::-webkit-slider-runnable-track { height: 0.375rem; border-radius: 1rem; background: linear-gradient(to right, var(--border) var(--a, 0%), var(--highlight-border) var(--a, 0%), var(--highlight-border) var(--b, 100%), var(--border) var(--b, 100%)); }
+.ws-page-range::-moz-range-track { height: 0.375rem; border-radius: 1rem; background: linear-gradient(to right, var(--border) var(--a, 0%), var(--highlight-border) var(--a, 0%), var(--highlight-border) var(--b, 100%), var(--border) var(--b, 100%)); }
+.ws-page-range::-webkit-slider-thumb { -webkit-appearance: none; width: 0.875rem; height: 0.875rem; margin-top: -0.25rem; border-radius: 50%; background: transparent; border: none; opacity: 0; }   /* 0.98.09：不顯示圓點，區段上色就夠清楚（仍可點、可拖、可用鍵盤） */
+.ws-page-range::-moz-range-thumb { width: 0.875rem; height: 0.875rem; border-radius: 50%; background: transparent; border: none; opacity: 0; }   /* 0.98.09：不顯示圓點，區段上色就夠清楚（仍可點、可拖、可用鍵盤） */
+.ws-page-range:focus-visible { outline: 2px solid var(--highlight-border); outline-offset: 2px; }
+.ws-page-ticks { display: flex; font-size: 0.75rem; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+.ws-page-ticks > button { flex: 1; min-height: 1.5rem; padding: 0; border: none; background: none; color: inherit; font: inherit; cursor: pointer; border-radius: var(--radius-s); }
+@media (hover: hover) and (pointer: fine) { .ws-page-ticks > button:hover:not(.on) { color: var(--text-primary); } }
+.ws-page-ticks > button:focus-visible { outline: 2px solid var(--highlight-border); outline-offset: -2px; }
+@media (pointer: coarse) { .ws-page-ticks > button { min-height: var(--hit); } }
+.ws-page-ticks > .on { color: var(--highlight-border); font-weight: 700; }
+
+/* ===== 0.98.06：韻腳與句構設定——三個細項一行、大小＋濃淡一行；標記位置「靠左欄」 ===== */
+#mapSettingsSection .rm-row { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+#mapSettingsSection .rm-row-3 > .rm-switch { flex: 1 1 8rem; min-width: 0; }
+#mapSettingsSection .rm-row-2 > .rm-col { flex: 1 1 12rem; min-width: 0; display: flex; flex-direction: column; gap: var(--sp-1); }
+html[data-lm="left"] .section-textarea, html[data-lm="left"] .lm-preview { padding-left: calc(0.75rem + min(var(--lm-cols), 36%) + var(--sp-2)); }
+html[data-lm="left"] .lm-mk { left: 0.75rem; width: min(var(--lm-cols), 36%); overflow: hidden; }
+html[data-lm="left"] .lm-t-c { width: 1.5em; text-align: right; }
+html[data-lm="left"] .lm-t-s { width: 5.5em; overflow: clip; text-overflow: ellipsis; }
+html[data-lm="left"] .lm-t-r { width: 1.25em; text-align: center; }
+html[data-lm="left"] .lm-t-d { width: 2.25em; }
+html[data-lm] .section-body.has-cols .section-textarea { padding-left: 0.75rem; }
+
+/* ===== 0.98.06：AI 分頁——服務商下拉、一行金鑰、用量滑桿；AI 會參考＝可開關的按鈕 ===== */
+.byok-select { min-height: 2.25rem; padding: 0 var(--sp-2); border: 1px solid var(--border); border-radius: var(--radius-s); background: var(--container-bg); color: var(--text-primary); font: inherit; }
+.byok-row[hidden] { display: none; }
+.byok-row .byok-mini { flex: none; padding: 0 var(--sp-3); }
+.byok-note { margin: 0; font-size: 0.8rem; line-height: 1.6; color: var(--text-secondary); }
+.byok-note a { color: var(--accent-strong); }
+@media (pointer: coarse) { .byok-note a { display: inline-flex; align-items: center; min-height: var(--hit); } }
+.byok-have { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-1); font-size: 0.8rem; color: var(--text-secondary); }
+.byok-have:empty { display: none; }
+.byok-chip { padding: 0.125rem var(--sp-2); border: 1px solid var(--border); border-radius: 10rem; background: var(--card-bg); color: var(--text-primary); font: inherit; font-size: 0.78rem; cursor: pointer; }
+.ai-tune { display: flex; flex-direction: column; gap: var(--sp-2); padding-bottom: var(--sp-3); margin-bottom: var(--sp-3); border-bottom: 1px solid var(--border); }
+.ai-tune-row { display: grid; grid-template-columns: 1fr auto; gap: 0.25rem var(--sp-2); align-items: center; font-size: 0.85rem; color: var(--text-primary); }
+.ai-tune-row output { font-size: 0.8rem; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+.ai-tune-row input { grid-column: 1 / -1; width: 100%; min-height: var(--hit, 2rem); accent-color: var(--highlight-border); }
+.ai-ref-item[aria-pressed="false"] { background: var(--container-bg); border-color: transparent; color: var(--text-secondary); font-weight: 400; }
+.ai-ref-item:disabled { cursor: default; opacity: 0.7; }
+.ai-ref-item[aria-pressed] { cursor: pointer; }
+@media (pointer: coarse) { .byok-select, .byok-row .byok-mini, .byok-chip { min-height: var(--hit); } }
+
+/* ===== 偏好設定排版統一（0.98.09）：子標題一種樣式（跟「客製顏色」一樣），底下的選項與說明往內縮一點 ===== */
+.prefs-panel { --pf-in: 0.625rem; }
+.prefs-panel .settings-pack-title, .prefs-fx-head, #mapSettingsSection .section-menu-block > .section-menu-cap:first-child { display: block; font-size: 0.9rem; font-weight: 400; color: var(--text-primary); }
+.prefs-fx-head { display: flex; }
+#settingsColorSection, .prefs-fx, .prefs-panel .settings-pack-section, .ai-tune, .byok-provider, #mapSettingsSection .section-menu-block { padding-inline-start: var(--pf-in); }
+#settingsColorSection > .settings-pack-title, .prefs-fx > .prefs-fx-head, .prefs-panel .settings-pack-section > .settings-pack-title, .ai-tune > .settings-pack-title, .byok-provider > .settings-pack-title,
+#mapSettingsSection .section-menu-block > .section-menu-cap:first-child { margin-inline-start: calc(-1 * var(--pf-in)); }
+.prefs-show { gap: var(--sp-2); }
+.ws-warp { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 1; }
+/* ===== Andy：開發者黑洞（只有本地）＋虛無空間 ===== */
+.ws-hud-btn.ws-bh { position: absolute; z-index: 5; left: 0; top: 0;   /* 位置、大小由 JS 每格設（沿宇宙畫布邊緣漂流，_lhSpBhDrift） */
+    width: 6rem; height: 6rem; touch-action: none; min-width: 0; min-height: 0; padding: 0; border: none; border-radius: 50%; cursor: grab; transition: transform 0.25s;
+    /* Andy（參考 Anytype 開場的黑洞）：沒有吸積盤、沒有硬邊——全黑的中心＋一圈很柔、很低調的暗玫瑰色光，帶細顆粒；
+       亮的那幾塊沿著環慢慢流動（兩層顏色不同的光，一層順轉、一層逆轉、速度不同，疊出隱約在流的感覺） */
+    --bh-t: 32;   /* 光環粗細（半徑的幾 %，JS 照齒輪 bh.ring 設）；黑色中心＝100 − 粗細 */
+    --bh-c: calc(100 - var(--bh-t));
+    --bh-band: radial-gradient(closest-side, transparent calc((var(--bh-c) - var(--bh-t) * 0.125) * 1%), var(--space-black) calc((var(--bh-c) + var(--bh-t) * 0.12) * 1%), var(--space-black) calc((var(--bh-c) + var(--bh-t) * 0.34) * 1%), transparent calc((var(--bh-c) + var(--bh-t) * 0.94) * 1%));   /* 柔邊全照光環粗細比例（不再有固定 4%／98%）→ 放很大時環也不會變粗 */
+    background: radial-gradient(closest-side, var(--space-black) 0 calc(var(--bh-c) * 1%), rgba(60, 25, 38, 0.3) calc((var(--bh-c) + var(--bh-t) * 0.19) * 1%), rgba(50, 22, 34, 0.12) calc((var(--bh-c) + var(--bh-t) * 0.56) * 1%), transparent 100%); }
+.ws-hud-btn.ws-bh::before, .ws-hud-btn.ws-bh::after { content: ''; position: absolute; inset: 0; border-radius: 50%; pointer-events: none; mask: var(--bh-band); }
+.ws-hud-btn.ws-bh::before {   /* 第一層流光：暗紅＋灰白的亮塊 */
+    background: conic-gradient(from 0deg, transparent 0deg, rgba(228, 208, 218, 0.6) 40deg, rgba(190, 150, 170, 0.22) 95deg, transparent 140deg, transparent 220deg, rgba(150, 40, 70, 0.5) 270deg, transparent 325deg);
+    filter: blur(3px); }
+.ws-hud-btn.ws-bh::after {   /* 第二層流光＋細顆粒 */
+    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='96' height='96'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='1.1' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 0.9 0 0 0 0 0.95 0 0 0 0.35 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"),
+        conic-gradient(from 200deg, transparent 0deg, rgba(235, 220, 228, 0.32) 35deg, transparent 95deg, transparent 360deg);
+    background-size: 96px 96px, 100% 100%; filter: blur(1.5px); mix-blend-mode: screen; }
+@media (prefers-reduced-motion: no-preference) {
+    .ws-hud-btn.ws-bh::before { animation: wsBhFlow 19s linear infinite; }
+    .ws-hud-btn.ws-bh::after { animation: wsBhFlow 31s linear infinite reverse; }
+}
+@keyframes wsBhFlow { to { transform: rotate(360deg); } }
+@media (hover: hover) and (pointer: fine) { .ws-hud-btn.ws-bh:hover { transform: scale(1.15); } }   /* 只給滑鼠：觸控點一下不會卡在放大 */
+.ws-hud-btn.ws-bh.near { transform: scale(var(--bh-near, 2)); }   /* 0.98.41 Andy：拖詞到黑洞上方＝張大（bh.dropK 倍），丟的範圍跟著變大 */
+.ws-bh-face { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); color: rgba(255, 255, 255, 0.75); font-size: 0.8rem; white-space: nowrap; pointer-events: none; opacity: 0; transition: opacity 0.3s; }   /* Andy：hover 只冒一個表情，不講說明 */
+@media (hover: hover) and (pointer: fine) { .ws-hud-btn.ws-bh:hover .ws-bh-face { opacity: 1; transition-delay: 5s; } }   /* Andy：停 5 秒才冒出淡定臉 */
+.ws-bh-face.stay { opacity: 1; transition-delay: 0s; }   /* 彩蛋：變過臉之後，離開也留 3 秒（js/word-space.js _lhSpBhMood） */
+.ws-hud-btn.ws-bh.guide { opacity: 0.3; }   /* 調黑洞滑桿時：看得到裡面的輔助線 */
+.ws-hud-btn.ws-bh:active { cursor: grabbing; }
+.ws-bh.gulp { animation: wsGulp 0.5s ease-out; }
+@keyframes wsGulp { 30% { transform: scale(0.8); } 70% { transform: scale(1.25); } }
+.ws-void { position: absolute; inset: 0; z-index: 7; background: var(--space-black); overflow: hidden; touch-action: none; }
+.ws-void[hidden] { display: none; }
+.ws-void.ws-out { pointer-events: none; }   /* 白洞放大回宇宙的途中：不能再點 */
+.ws-voiding .ws-warp { z-index: 8; }   /* 進出虛無時星光線蓋在最上面 */
+.ws-space.ws-in-void > :not(.ws-void, .ws-warp, .ws-canvas) { visibility: hidden; }   /* 虛無裡：介面全部收起來，只剩黑與白洞 */
+/* 0.98.41 Andy：本地調參——虛無裡也留齒輪、快轉和調參面板（其他鈕照樣收起來） */
+.ws-space.ws-in-void > .ws-tr, .ws-space.ws-in-void > .ws-tune { visibility: visible; z-index: 8; }
+.ws-space.ws-in-void .ws-tr > :not(.ws-zoom), .ws-space.ws-in-void .ws-zoom > :not(.ws-gear, .ws-skip) { visibility: hidden; }
+.ws-wh { position: absolute; left: 50%; top: 50%; translate: -50% -50%; width: 0.625rem; height: 0.625rem;   /* Andy：再小一點（0.98.41 再小 2px） */ min-width: 0; min-height: 0; padding: 0; border: none; border-radius: 50%; cursor: pointer;
+    background: #fff; box-shadow: 0 0 0.5rem #fff, 0 0 1.5rem rgba(255, 255, 255, 0.45), 0 0 3.5rem rgba(255, 255, 255, 0.18); }
+@media (prefers-reduced-motion: no-preference) { .ws-wh { animation: wsWh 5s ease-in-out infinite; } }
+@keyframes wsWh { 50% { box-shadow: 0 0 0.7rem #fff, 0 0 2rem rgba(255, 255, 255, 0.55), 0 0 4.5rem rgba(255, 255, 255, 0.25); } }
+.ws-wh.gulp { animation: wsGulp 0.5s ease-out; }
+.ws-vw { position: absolute; left: 0; top: 0; white-space: nowrap; color: rgba(150, 150, 150, 0.42); font-family: inherit; user-select: none; cursor: grab; touch-action: none; -webkit-tap-highlight-color: transparent; -webkit-font-smoothing: antialiased; }   /* 0.98.41：拿掉 blur(0.3px)——旋轉＋模糊的字拖動時邊緣會冒出彩色（粉紅）雜邊 */
+.ws-vw.on { color: rgba(200, 200, 200, 0.7); cursor: grabbing; }   /* 第 5 級換批的星光線（js/word-space.js _lhSpWarp） */
+
+/* ==================== 0.98.21 專案、資料與備份、快照比對 ==================== */
+.song-proj { flex: 0 1 auto; min-width: 0; max-width: 35%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-family: var(--font-body, inherit); font-size: 0.75rem; font-weight: 400; color: var(--text-secondary); }
+.song-proj:not(:empty)::after { content: '›'; margin-inline-start: 0.375rem; opacity: 0.6; }
+.proj-bar { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-1); padding: var(--sp-2) var(--sp-2) 0; }
+.proj-select { flex: 1 1 8rem; min-width: 0; min-height: var(--hit, 2rem); padding: 0 var(--sp-2); border: 1px solid var(--border); border-radius: var(--radius-s); background: var(--card-bg); color: var(--text-primary); font: inherit; font-weight: 700; }
+.proj-act { flex: none; }
+.proj-act[disabled] { opacity: 0.35; cursor: not-allowed; }
+.lh-ask-input { width: 100%; box-sizing: border-box; min-height: 2.25rem; margin: 0 0 var(--sp-3); padding: 0 var(--sp-2); border: 1px solid var(--border); border-radius: var(--radius-s); background: var(--card-bg); color: var(--text-primary); font: inherit; }
+.data-note { padding: var(--sp-2) var(--sp-3); border: 1px solid var(--accent-line, var(--border)); border-radius: var(--radius-s); background: var(--accent-soft, transparent); font-size: 0.8125rem; line-height: 1.6; }
+.data-note p { margin: 0.25rem 0 0; color: var(--text-secondary); }
+.data-note strong { color: var(--text-primary); }
+.data-sec { margin-top: var(--sp-3); display: flex; flex-direction: column; gap: var(--sp-2); }
+.data-sec h4 { margin: 0; font-size: 0.9375rem; }
+.data-hint { margin: 0; font-size: 0.75rem; line-height: 1.6; color: var(--text-secondary); }
+.data-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); }
+.data-row-cap { min-width: 4.5em; font-weight: 700; font-size: 0.875rem; }
+.data-import { align-self: flex-start; }
+.snap-cfg { display: flex; align-items: center; gap: var(--sp-2); font-size: 0.875rem; }
+.snap-range { flex: 1; min-width: 0; accent-color: var(--highlight-border); }
+.snap-cap { min-width: 5.5em; text-align: end; color: var(--text-secondary); }
+.snap-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--sp-1); max-height: 22rem; overflow-y: auto; }
+.snap-card { border: 1px solid var(--border); border-radius: var(--radius-s); background: var(--card-bg); }
+.snap-head { display: flex; align-items: center; gap: var(--sp-2); padding: 0.25rem var(--sp-2); min-height: 2.25rem; }
+.snap-open, .snap-song-name { flex: 1; min-width: 0; display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 var(--sp-2); padding: 0.25rem 0; border: 0; background: none; color: var(--text-primary); font: inherit; text-align: start; cursor: pointer; }
+.snap-kind { flex: none; padding: 0 0.375rem; border-radius: 10rem; font-size: 0.75rem; background: var(--fill-soft, var(--accent-soft)); color: var(--text-secondary); }
+.snap-name { font-weight: 700; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.snap-meta, .snap-when { font-size: 0.75rem; color: var(--text-secondary); }
+.snap-when { margin-inline-start: auto; }
+.snap-btn { flex: none; min-height: 1.75rem; padding: 0 0.625rem; border: 1px solid var(--border); border-radius: var(--radius-s); background: var(--card-bg); color: var(--text-primary); font: inherit; font-size: 0.75rem; cursor: pointer; }
+.snap-btn[disabled] { opacity: 0.45; cursor: not-allowed; }
+.snap-btn.danger { color: var(--danger-line); }
+.snap-btn[data-armed="1"] { border-color: var(--danger-line); color: var(--danger-line); }
+.snap-body { padding: 0 var(--sp-2) var(--sp-2); display: flex; flex-direction: column; align-items: flex-start; gap: var(--sp-2); }
+.snap-body[hidden] { display: none; }
+.snap-songs { list-style: none; margin: 0; padding: 0; width: 100%; display: flex; flex-direction: column; gap: 2px; }
+.snap-song { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); border-top: 1px dashed var(--border); }
+.snap-lyrics { flex-basis: 100%; margin: 0 0 var(--sp-2); padding: var(--sp-2); max-height: 16rem; overflow: auto; white-space: pre-wrap; font: inherit; font-size: 0.8125rem; line-height: 1.7; background: var(--fill-soft, transparent); border-radius: var(--radius-s); }
+.snap-lyrics[hidden] { display: none; }
+.snap-empty { padding: var(--sp-2); font-size: 0.8125rem; color: var(--text-secondary); }
+@media (pointer: coarse) { .snap-btn { min-height: var(--hit); } }
+/* 三欄比對：全螢幕，上面是每張快照的歌曲順序，下面是選到那首歌的逐行比對 */
+.snap-cmp { position: fixed; inset: 0; z-index: 2000; display: flex; flex-direction: column; gap: var(--sp-2); padding: calc(env(safe-area-inset-top, 0px) + var(--sp-3)) var(--sp-3) var(--sp-3);
+    background: var(--container-bg, var(--card-bg)); color: var(--text-primary); overflow: auto; }
+.snap-cmp-top { display: flex; align-items: center; gap: var(--sp-2); }
+.snap-cmp-top h3 { flex: 1; margin: 0; font-size: 1rem; }
+.snap-cmp-grid { display: grid; grid-template-columns: repeat(var(--n), minmax(14rem, 1fr)); gap: var(--sp-2); overflow-x: auto; }
+.snap-cmp-col { min-width: 0; padding: var(--sp-2); border: 1px solid var(--border); border-radius: var(--radius-s); background: var(--card-bg); }
+.snap-cmp-h { font-weight: 700; font-size: 0.875rem; margin-bottom: 0.25rem; }
+.snap-cmp-order { margin: var(--sp-1) 0 0; padding-inline-start: 1.5em; display: flex; flex-direction: column; gap: 2px; max-height: 12rem; overflow-y: auto; }
+.snap-cmp-song { width: 100%; display: flex; justify-content: space-between; gap: var(--sp-2); padding: 0.125rem 0.375rem; border: 1px solid transparent; border-radius: var(--radius-s); background: none; color: inherit; font: inherit; font-size: 0.8125rem; text-align: start; cursor: pointer; }
+.snap-cmp-song[aria-pressed="true"] { border-color: var(--highlight-border); }
+.snap-cmp-song.add { background: color-mix(in srgb, var(--accent-2) 22%, transparent); }
+.snap-cmp-song.chg { background: color-mix(in srgb, var(--accent-3) 22%, transparent); }
+.snap-cmp-gone { font-size: 0.8125rem; color: var(--text-secondary); text-decoration: line-through; }
+.snap-hint { margin: 0; font-size: 0.75rem; color: var(--text-secondary); }
+.snap-cmp-lyr .snap-cmp-col { font-size: 0.875rem; line-height: 1.75; }
+.snap-ln { white-space: pre-wrap; padding: 0 0.25rem; border-radius: 2px; }
+.snap-ln.sec { font-style: italic; color: var(--text-secondary); font-size: 0.8125rem; }
+.snap-ln.add { background: color-mix(in srgb, var(--accent-2) 24%, transparent); }
+.snap-ln.del { background: color-mix(in srgb, var(--danger-line) 20%, transparent); text-decoration: line-through; text-decoration-color: var(--danger-line); }
+.snap-cmp-none { color: var(--text-secondary); font-size: 0.8125rem; }
+.use-bar { height: 0.375rem; border-radius: 3px; background: var(--fill-soft, color-mix(in srgb, var(--text-primary) 10%, transparent)); overflow: hidden; }
+.use-bar span { display: block; height: 100%; width: 0; background: var(--highlight-border); }
+.use-bar span.warn { background: var(--danger-line); }
+/* 0.98.21：常用／一般／冷僻改成篩選鈕，按下去是開著的狀態 */
+.tier-filter[aria-pressed="true"] { border-color: var(--highlight-border); color: var(--highlight-border); box-shadow: inset 0 -2px 0 var(--highlight-border); }
+/* ===== 0.98.21 合併模式（js/canvas.js 設 #lyricsSections[data-merge]）：外框、標題列、間距拿掉，接成一整份文件；每段上面一行斜體 ---Verse I--- ===== */
+#canvasFreeBtn { border-radius: 0; }
+#canvasMergeBtn { border-radius: 0 0.5rem 0.5rem 0; margin-left: -1px; }
+#lyricsSections[data-merge] { gap: 0; background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--radius-m); padding-block: var(--sp-2); }
+#lyricsSections[data-merge] .lyrics-section { flex: 0 0 auto; min-height: 0; border: 0; border-radius: 0; overflow: visible; background: none; box-shadow: none; }
+#lyricsSections[data-merge] .lyrics-section.collapsed .section-body { display: block; }
+#lyricsSections[data-merge] .lyrics-section-header { min-height: 0; padding: var(--sp-2) 0.75rem 0; background: none; border: 0; cursor: default; }
+#lyricsSections[data-merge] .lyrics-section:first-child .lyrics-section-header { padding-top: 0; }
+#lyricsSections[data-merge] .lyrics-section-header > :not(.section-type) { display: none; }
+#lyricsSections[data-merge] .section-type { padding: 0; min-height: 0; border: 0; background: none; font-style: italic; font-weight: 400; font-size: 0.8125rem; color: var(--text-secondary); }
+#lyricsSections[data-merge] .section-type::before { content: '---'; }
+#lyricsSections[data-merge] .section-type::after { content: '---'; }
+#lyricsSections[data-merge] .section-textarea, #lyricsSections[data-merge] .rhyme-mirror { padding-block: 0 0.25rem; background: transparent; }
+#lyricsSections[data-merge] .lyrics-section[data-color] { box-shadow: inset 3px 0 0 var(--sec-color); }
+/* ＋ 貼上文字：段落列表最後面的虛線區塊，高度跟預設段落一樣；自由畫布不放（卡片是絕對定位） */
+.paste-block { flex: 0 0 auto; min-height: 9rem; display: flex; align-items: center; justify-content: center; border: 2px dashed var(--border); border-radius: var(--radius-m);
+    background: transparent; color: var(--text-secondary); font: inherit; font-size: 0.9375rem; cursor: pointer; }
+@media (hover: hover) and (pointer: fine) { .paste-block:hover { border-color: var(--highlight-border); color: var(--highlight-border); } }
+#lyricsSections[data-canvas="free"] .paste-block { display: none; }
+#lyricsSections[data-merge] .paste-block { min-height: 4rem; margin: var(--sp-2) 0.75rem 0; }
+
+/* 0.98.21 Andy 暫時的宇宙調參面板（⚙，js/word-space.js LH_SP_TUNE；調好寫死後 LH_SP_TUNE_UI 關掉就不會出現） */
+.ws-gear { min-width: 2rem; padding: 0; font-size: 1.125rem; line-height: 1; }
+.ws-gear[aria-expanded="true"] { border-color: var(--highlight-border); color: var(--highlight-border); }
+.ws-tune {
+    position: absolute; z-index: 6; top: calc(env(safe-area-inset-top, 0px) + 5.5rem); right: 0.75rem;
+    width: 19rem; max-width: calc(100% - 1.5rem); max-height: calc(100% - 6.5rem); overflow-y: auto; padding: var(--sp-2) var(--sp-3);
+    display: flex; flex-direction: column; gap: 0.25rem; font-size: 0.75rem; color: var(--text-secondary);
+    background: color-mix(in srgb, var(--card-bg) 94%, transparent); border: 1px solid var(--border); border-radius: var(--radius-m);
+    box-shadow: 0 2px 10px var(--shadow); cursor: default;
+}
+.ws-tune[hidden] { display: none; }
+.ws-tune-g { border-top: 1px solid var(--border); }
+.ws-tune-g:first-child { border-top: 0; }
+/* Andy：第二層收納——外層三大類（星系／互動／恆星），裡面的小組往右縮一點 */
+.ws-tune-c { border-top: 1px solid var(--border); }
+.ws-tune-c:first-child { border-top: 0; }
+.ws-tune-ch { padding: var(--sp-2) 0; min-height: var(--hit, 2rem); display: flex; align-items: center; cursor: pointer; font-size: 0.9375rem; font-weight: 700; color: var(--text-primary); }
+.ws-tune-c > .ws-tune-g { margin-left: var(--sp-3); }
+.ws-tune-c > .ws-tune-g:nth-child(2) { border-top: 0; }
+/* Andy 面板重整：組裡的小段標題（同一種主題整個面板同一個顏色）＋底下每條滑桿左邊一條同色的線 */
+.ws-tune-sub { margin: var(--sp-2) 0 0.125rem; padding-left: 0.5rem; border-left: 3px solid var(--sub-c); font-size: 0.75rem; font-weight: 700; letter-spacing: 0.06em; color: var(--sub-c); }
+.ws-tune-h.ws-tune-hc { color: var(--sub-c); border-left: 3px solid var(--sub-c); padding-left: 0.5rem; }   /* Andy：第二層＝有顏色的小段 */
+.ws-tune-row.ws-tagged { padding-left: 0.5rem; border-left: 3px solid color-mix(in srgb, var(--sub-c) 45%, transparent); }
+.ws-tune-h { margin: 0; padding: var(--sp-2) 0; min-height: var(--hit, 2rem); display: flex; align-items: center; cursor: pointer; font-size: 0.8125rem; font-weight: 700; color: var(--text-primary); }
+.ws-tune-row[hidden] { display: none; }   /* 「模式」切換後不用的滑桿 */
+.ws-tune-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: var(--sp-2); align-items: center; }
+.ws-tune-v { font-variant-numeric: tabular-nums; color: var(--highlight-border); }
+/* 2026-11-22 Andy：吸入速度 envelope 編輯器（黑洞｜吸入速度） */
+.ws-tune-env { display: block; color: var(--text-secondary); }
+.ws-tune-envc { display: block; width: 100%; height: 11rem; touch-action: none; cursor: crosshair; }
+.ws-tune-envtip { min-height: 1.1em; font-size: 0.75rem; font-variant-numeric: tabular-nums; color: var(--text-primary); }
+.ws-tune-envhint { font-size: 0.75rem; color: var(--text-secondary); }
+.ws-tune-envpop { width: 100%; margin-bottom: var(--sp-2); }
+.ws-tune-envpop[hidden] { display: none; }
+.ws-tune-envfl { position: fixed; left: 1.5rem; top: 4rem; z-index: 60; width: 34rem; height: 22rem; min-width: 18rem; min-height: 12rem; max-width: calc(100vw - 1rem); resize: both; overflow: hidden; display: flex; flex-direction: column; padding: 0 var(--sp-2) var(--sp-2); border: 1px solid var(--border); border-radius: var(--radius-s); background: var(--card-bg); color: var(--text-secondary); box-shadow: var(--shadow); }
+.ws-tune-envfl[hidden] { display: none; }
+.ws-tune-envfh { display: flex; align-items: center; justify-content: space-between; min-height: 2rem; cursor: move; touch-action: none; font-size: 0.8125rem; font-weight: 700; color: var(--text-primary); user-select: none; }
+.ws-tune-envx { min-width: 2rem; min-height: 2rem; border: 0; background: none; color: var(--text-secondary); font: inherit; cursor: pointer; }
+.ws-tune-envfl .ws-tune-envb { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.ws-tune-envfl .ws-tune-envc { flex: 1; height: auto; min-height: 0; }
+.ws-tune-range { grid-column: 1 / -1; width: 100%; margin: 0; accent-color: var(--highlight-border); }
+.ws-tune-vv { display: inline-flex; gap: 0.25rem; align-items: baseline; }
+.ws-tune-d { font-size: 0.75rem; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+.ws-tune-d[hidden] { display: none; }
+.ws-tune-row:not(.chg) .ws-tune-v { color: var(--text-secondary); }   /* 0.98.22.11：沒動過的值用灰色，動過的才是重點色 */
+.ws-tune-row.chg .ws-tune-l { color: var(--highlight-border); font-weight: 700; }
+.ws-tune-acts { position: sticky; bottom: calc(-1 * var(--sp-2)); display: flex; gap: var(--sp-2); padding: var(--sp-2) 0; background: var(--card-bg); }
+.ws-tune-btn { flex: 1; min-height: 2rem; border: 1px solid var(--border); border-radius: var(--radius-s); background: var(--card-bg); color: var(--text-primary); font: inherit; cursor: pointer; }
+
+/* ===== 0.98.22.11 Andy：骰子／AI 星座鈕（多重宇宙滑桿兩側）＋星座導覽列 ===== */
+/* 透明的格子排：[骰子][多重宇宙面板][AI]，導覽列在面板正下方；格子本身不吃點擊（空白處照樣能拖畫布） */
+.ws-space { --ws-pw: min(22rem, calc(100vw - 32rem)); }
+.ws-ptop { position: absolute; z-index: 5; top: calc(env(safe-area-inset-top, 0px) + 0.75rem); left: 50%; transform: translateX(-50%);
+    display: grid; grid-template-columns: auto var(--ws-pw) auto; column-gap: var(--sp-2); row-gap: var(--sp-1); align-items: start; pointer-events: none; }
+.ws-ptop > * { pointer-events: auto; }
+.ws-ptop > .ws-pages { position: static; transform: none; width: auto; grid-column: 2; grid-row: 1; }
+/* Andy：面板高度跟骰子／AI 方塊一樣（2.5rem）：上下內距、滑桿、數字列都壓扁 */
+.ws-ptop > .ws-pages { box-sizing: border-box; height: 2.5rem; gap: 0; padding-block: 0.1875rem; justify-content: center; }
+.ws-ptop > .ws-pages .ws-page-range { height: 0.875rem; }
+.ws-ptop > .ws-pages .ws-page-ticks { line-height: 1; }
+.ws-ptop > .ws-pages .ws-page-ticks > button { min-height: 1.125rem; }
+/* Andy：只有一個宇宙（沒有分批面板）：骰子、AI 往中間靠攏，中間那欄只剩導覽列的寬度 */
+.ws-ptop > .ws-pages[hidden] { display: none; }
+/* Andy：沒有分批面板時，導覽列四顆鈕直接排進格子，骰子疊在「保留」上、AI 疊在「更新」上（手機在下方也一樣上下關係） */
+.ws-ptop:has(> .ws-pages[hidden]) { grid-template-columns: repeat(4, auto); justify-items: center; }
+.ws-ptop:has(> .ws-pages[hidden]) > .ws-cnav:not([hidden]) { display: contents; }
+.ws-ptop:has(> .ws-pages[hidden]) > .ws-dice { grid-column: 2; grid-row: 1; }
+.ws-ptop:has(> .ws-pages[hidden]) > .ws-aib { grid-column: 3; grid-row: 1; }
+.ws-ptop:has(> .ws-pages[hidden]) > .ws-cnav > * { grid-row: 2; align-self: center; }
+.ws-ptop:has(> .ws-pages[hidden]) > .ws-cnav > .ws-cn-prev { grid-column: 1; }
+.ws-ptop:has(> .ws-pages[hidden]) > .ws-cnav > .ws-cn-mid { grid-column: 2 / 4; justify-self: stretch; }   /* 保留、更新、取消三顆擠在骰子＋AI 底下兩格 */
+.ws-ptop:has(> .ws-pages[hidden]) > .ws-cnav > .ws-cn-next { grid-column: 4; }
+.ws-ptop:has(> .ws-pages[hidden]) > .ws-cnav > .ws-hud-btn { min-width: 3.5rem; }
+.ws-ptop:has(> .ws-pages[hidden]) > .ws-cnav > :is(.ws-cn-prev, .ws-cn-next) { min-width: 0; width: 1.875rem; padding: 0; }
+.ws-ptop > .ws-dice { grid-column: 1; grid-row: 1; }
+.ws-ptop > .ws-aib { grid-column: 3; grid-row: 1; }
+.ws-ptop > .ws-cnav { grid-column: 2; grid-row: 2; }
+/* Andy（手機橫放）：左邊兩塊面板碰到上方中間那排 → 整排搬到下方（JS 判斷後加 .ws-plow），排法跟窄螢幕一樣 */
+.ws-plow .ws-ptop { top: auto; bottom: calc(env(safe-area-inset-bottom, 0px) + 0.75rem); }
+.ws-plow .ws-ptop > .ws-cnav { grid-row: 1; align-self: end; }
+.ws-plow .ws-ptop > .ws-pages, .ws-plow .ws-ptop > .ws-dice, .ws-plow .ws-ptop > .ws-aib { grid-row: 2; }
+@media (max-width: 760px) {
+    .ws-space { --ws-pw: calc(100vw - 1.5rem - 2 * (2.5rem + var(--sp-2))); }
+    .ws-ptop { top: auto; bottom: calc(env(safe-area-inset-bottom, 0px) + 0.75rem); }
+    .ws-ptop > .ws-cnav { grid-row: 1; align-self: end; }   /* 窄螢幕在下方：導覽列改到面板上面 */
+    .ws-ptop > .ws-pages { grid-row: 2; }
+    .ws-ptop > .ws-dice, .ws-ptop > .ws-aib { grid-row: 2; }
+}
+.ws-cbtn { width: 2.5rem; height: 2.5rem; min-width: 2.5rem; padding: 0; flex: none; font-weight: 700; font-size: 0.875rem; letter-spacing: 0.02em; transition: box-shadow 0.25s, border-color 0.25s, color 0.25s; }
+.ws-cbtn .ic { width: 1.375rem; height: 1.375rem; fill: none; stroke: currentColor; stroke-width: 1.6; }
+.ws-cbtn .ic circle { fill: currentColor; stroke: none; }
+/* 亮起來＝跟星座線同一種發光：細亮線＋外面一圈柔光 */
+.ws-dice.on { color: var(--con-dice); border-color: var(--con-dice); box-shadow: 0 0 0 1px var(--con-dice), 0 0 0.5rem color-mix(in srgb, var(--con-dice) 70%, transparent), 0 0 1.25rem color-mix(in srgb, var(--con-dice) 35%, transparent); }
+.ws-aib.on { color: var(--con-ai); border-color: var(--con-ai); box-shadow: 0 0 0 1px var(--con-ai), 0 0 0.5rem color-mix(in srgb, var(--con-ai) 70%, transparent), 0 0 1.25rem color-mix(in srgb, var(--con-ai) 35%, transparent); }
+.ws-aib.busy { opacity: 0.5; cursor: progress; }   /* AI 想的時候變淡（不新增動畫：Phase 7 規則） */
+.ws-cnav { display: flex; gap: var(--sp-1); }   /* 每顆都是獨立按鈕（自己的底色、外框），沒有共用的面板底 */
+.ws-cnav[hidden] { display: none; }
+.ws-cnav > .ws-hud-btn { flex: 1 1 auto; min-height: 1.625rem; padding: 0 0.5rem; font-size: 0.75rem; white-space: nowrap; }   /* Andy：導覽列縮小 */
+.ws-cnav > .ws-cn-prev, .ws-cnav > .ws-cn-next { flex: 0 0 1.875rem; padding: 0; }
+.ws-cnav > [hidden] { display: none; }
+.ws-cn-mid { display: flex; gap: var(--sp-1); flex: 1 1 auto; justify-content: center; }
+.ws-cn-mid[hidden] { display: none; }
+.ws-cn-mid > .ws-hud-btn { flex: 1 1 0; min-width: 1.875rem; min-height: 1.625rem; padding: 0; display: inline-flex; align-items: center; justify-content: center; }
+.ws-cn-mid .ic { width: 1rem; height: 1rem; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+
+/* Andy：偏好設定 → 查詢與詞庫 → 黑洞（放逐的冷僻詞）：數量＋實心紅色「還原詞庫」（跟自訂詞彙的紅字「重設全部」區別） */
+.void-section { margin-top: var(--sp-3); }
+.void-row { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); flex-wrap: wrap; }
+.void-count { font-size: 0.8125rem; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+.void-restore { min-height: var(--hit, 2.25rem); padding: 0 var(--sp-3); border: none; border-radius: var(--radius-s); background: var(--danger-bg); color: var(--danger-text); font: inherit; font-weight: 700; cursor: pointer; }
+@media (hover: hover) and (pointer: fine) { .void-restore:hover { background: var(--danger-bg-hover); } }
+.void-restore:focus-visible { outline: 2px solid var(--danger-bg); outline-offset: 2px; }
+
+/* 0.98.41 Andy（手機）：星座導覽列（◀ 保留 更新 取消 ▶）放大到手指好按 */
+@media (pointer: coarse) {
+    html .ws-ptop > .ws-cnav > .ws-hud-btn, html .ws-ptop > .ws-cnav .ws-cn-mid > .ws-hud-btn { min-height: var(--hit) !important; min-width: var(--hit) !important; }   /* !important：蓋過窄螢幕 :has() 那組固定 1.875rem */
+    html .ws-ptop > .ws-cnav > :is(.ws-cn-prev, .ws-cn-next) { width: var(--hit) !important; flex-basis: var(--hit) !important; }
+    html .ws-cn-mid .ic { width: 1.375rem; height: 1.375rem; }
+}
+
+/* 0.98.41 Andy（item 13）：外觀不變，只把手指判定範圍加大——
+   iPad 交界：整條（全高）往主畫面那側多 14px；手機／iPad 直放面板頂端把手：整條往上多 14px（蓋在遮罩上，不擋面板內容） */
+@media (pointer: coarse) and (min-width: 901px) {
+    .pane-divider::after { content: ''; position: absolute; top: 0; bottom: 0; }
+    .pane-divider-l::after { left: 0; right: -0.875rem; }
+    .pane-divider-r::after { left: -0.875rem; right: 0; }
+}
+@media (max-width: 900px) {
+    .sheet-handle { position: relative; }
+    .sheet-handle::after { content: ''; position: absolute; left: 0; right: 0; top: -0.875rem; bottom: 0; }
+}
+
+.ws-tune-guide { display: flex; align-items: center; gap: var(--sp-4); grid-template-columns: none; padding-block: var(--sp-1); }
+.ws-tune-gl { display: flex; align-items: center; gap: var(--sp-2); cursor: pointer; }
+.ws-tune-phys { margin-left: auto; padding: 0 var(--sp-2); font-size: 0.75rem; border-radius: var(--radius-s, 0.25rem); border: 1px solid var(--border); background: transparent; color: var(--text-secondary); cursor: pointer; }
+.ws-tune-cb { accent-color: var(--highlight-border); width: 1rem; height: 1rem; margin: 0; }
+.ws-skip { min-width: 2rem; padding: 0; }   /* 本地快轉鈕（js/word-space.js） */
+.ws-skip .ic { width: 1rem; height: 1rem; fill: currentColor; }
+
+/* 0.98.41：本地黑洞物理對照（js/space-pick.js）——切回新版的鈕，壓在宇宙上面 */
+.lh-phys-back { position: fixed; right: 1rem; bottom: 1rem; z-index: 100000; padding: var(--sp-2) var(--sp-4); font-size: 0.875rem; font-weight: 700; border-radius: var(--radius-m); border: 0; background: var(--danger-bg); color: var(--danger-text); box-shadow: 0 4px 16px rgba(0,0,0,.35); cursor: pointer; }   /* Andy：要一眼看得到怎麼切回來 */

@@ -18,13 +18,14 @@ const TYPES = {
     '.txt': 'text/plain; charset=utf-8',
 };
 
-// 宇宙齒輪「寫成預設」（0.98.22.11）：只收本機頁面送來的 JSON，只留數字（最多三層、鍵名只能英文字母），寫成 js/sp-tune-defaults.js
+// 宇宙齒輪「寫成預設」（0.98.22.11）：只收本機頁面送來的 JSON，只留數字或數字陣列（最多三層、鍵名只能英文字母），寫成 js/sp-tune-defaults.js
 const cleanTune = (o, d = 0) => {
     if (!o || typeof o !== 'object' || Array.isArray(o) || d > 3) return null;
     const out = {};
     for (const [k, v] of Object.entries(o)) {
         if (!/^[A-Za-z]{1,32}$/.test(k)) continue;
         if (typeof v === 'number' && Number.isFinite(v)) out[k] = v;
+        else if (Array.isArray(v)) { if (v.length <= 600 && v.every(Number.isFinite)) out[k] = v; }   // bh.env：吸入速度 envelope（一串數字）
         else { const c = cleanTune(v, d + 1); if (c && Object.keys(c).length) out[k] = c; }
     }
     return out;
