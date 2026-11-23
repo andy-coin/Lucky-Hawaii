@@ -1,3 +1,6 @@
+## 最新：0.98.44.1（2026-11-24，只換 ?v= 快取編號，顯示版本仍 0.98.44）——已 push
+- iPad 橫放點歌詞框：iOS 把整頁往上推，段落標題被推出畫面、下面空一截。js/layout.js `_lhKbReveal`：非 sheet 版面先 scrollTo(0,0)，再把整段 .lyrics-section（放得下的話）捲進面板可見範圍。**待 Andy iPad 實機確認**；手機（sheet）不受影響。
+
 ## 最新：0.98.44（2026-11-24）——已 push
 - 底部空白：css/base.css standalone 100vh 解法 Andy 實測 iPhone、iPad 都有效。
 - 說明／導覽範例改「蒸籠 發粿」（index.html、js/tour.js）。

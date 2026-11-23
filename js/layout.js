@@ -146,7 +146,14 @@ function _lhKbSchedule() {
 function _lhKbReveal() {
     if (!lhKbOpen && !document.documentElement.classList.contains('kb-open')) return;
     const el = document.activeElement;
-    if (el && _lhTextFieldFocused() && el.scrollIntoView) el.scrollIntoView({ block: 'nearest' });
+    if (!el || !_lhTextFieldFocused() || !el.scrollIntoView) return;
+    // 2026-11-24 Andy（iPad 橫放截圖）：寬版沒有底部 sheet 那套 --vv-top 補位，iOS 為了露出游標把整頁往上推——
+    // 面板已經縮成鍵盤上方的高度，頂端（段落標題）被推出畫面、下面空一大截。把整頁捲回頂端，捲動交給面板自己
+    const vv = window.visualViewport;
+    if (!lhIsSheetMode() && (window.scrollY || (vv && vv.offsetTop))) window.scrollTo(0, 0);
+    // 歌詞段落放得下就整段（標題＋歌詞框）帶進來，太高才只對輸入框
+    const box = el.closest('.lyrics-section'), h = vv ? vv.height : innerHeight;
+    (box && box.getBoundingClientRect().height <= h * 0.9 ? box : el).scrollIntoView({ block: 'nearest' });
 }
 
 if (window.visualViewport) {
