@@ -1,3 +1,32 @@
+## 最新：0.98.44（2026-11-24）——已 push
+- 底部空白：css/base.css standalone 100vh 解法 Andy 實測 iPhone、iPad 都有效。
+- 說明／導覽範例改「蒸籠 發粿」（index.html、js/tour.js）。
+- 導覽（search 組）加一步「加到主畫面」：只給 iPhone／iPad 用 Safari、還沒加到主畫面的人（js/tour.js _lhTourIosWeb）。
+- 底部 sheet 拉到底收起：等滑下去的動畫走完（400ms）才換回上次高度（js/panels.js ~206），不再先彈回原高。
+- **待討論**：行動裝置點輸入框時「出現完整的輸入框」——等 Andy 說是哪個輸入框、哪裡被切到（截圖）。
+
+## 最新：豆花（2026-11-24）——Web App 底部空白：換解法
+- 還原：js/layout.js 地瓜球那輪的「多次檢查＋視窗縮就修」（iPad 會一直跳）；回到 0.98.41 原本的失焦 140ms 修一次。
+- 新增：css/base.css（~94）`@media (display-mode: standalone) { html { height: 100vh } :root { --app-h: 100vh } }`——網路上 iOS 26.2 實測有效（MiguelMedeiros/ghostly #651、zarda/home-account #493）。鍵盤打開時 layout.js 照舊寫 inline --app-h。
+- **待 Andy 實機（iPhone＋iPad，主畫面 Web App）**：打字收鍵盤後底部有沒有空白、iPad 會不會跳。沒用就刪 base.css 這段。
+
+## 最新：肉羹（2026-11-24）——iPad 宇宙排版跟上手機
+- 觸控裝置（iPad）分批那排一律放下方（_lhSpNavPlace 的 ws-plow 加 LH_SP_COARSE），不再開色標就跳上跳下；iPad 底部只留 0.5rem（css ~3416）。
+- 收合鈕只剩一顆：條件從「≤600px」改成「≤600px 或觸控」（css ~2968）。
+- 特效鈕寬＝「?」＋「✕」（_lhSpNavPlace 量出來設）；線上沒有齒輪／快轉時放進第一列 ? 左邊。
+- 色標面板在下方時跟左面板等寬。
+- 底部空白修復（地瓜球那輪）iPad 也有效（同一段，只看主畫面 Web App＋觸控）。待實機確認。
+- tests：163 項全過（含「重生的行星」這次也過）。
+
+## 最新：地瓜球（2026-11-23）——手機宇宙排版（Andy 截圖 IMG_5694／5695）
+- 底部空白（iOS 主畫面 Web App 收鍵盤後少算一個狀態列高）：js/layout.js 修復改成失焦後 0.14／0.4／0.8 秒各看一次，視窗縮了（resize）也看。**待 Andy 實機確認**，沒用的話下一步考慮直接用記錄過的最高高度撐版面。
+- 收合鈕疊兩層：css/panels.css 手機 .ws-panel.min 的標題格子收掉（~2968）。
+- 特效滑桿 → 循環按鈕（簡單→…→浮誇→簡單）：js/word-space.js 建按鈕那段（~432）、_lhSpFxSync。
+- 色標分頁：色標面板在左面板下面時，分頁改橫的跨在下緣（_lhSpNavPlace，.ws-legdown）；這時左邊大三角形不讓位。
+- 手機底部：有分批滑桿＋星座導覽時排成 [骰子][◀][滑桿][▶][AI]，保留／更新／取消在上一列（css ~3428）；底部只讓開 iPhone 橫條（max(0.75rem, safe-area)）。
+- 宇宙還沒成形（_lhSpFormed，跟黑洞開始長同一個條件）：骰子、AI 變淡不能按（_lhSpFrame 每 0.3 秒檢查）。
+- tests：word-space／style／layout／visual／audit 162 過；「重生的行星」照舊偶爾失敗（改之前 6 次失敗 3 次，舊問題）。
+
 ## 最新：0.98.43（2026-11-23）——多詞一起查、萬用字說明、黑洞上線
 - js/word-space.js `lhWsQuery`（~62）：空白分開、每段都是 2–6 字的詞 → 回傳每個詞的字陣列；有一段不是詞（「安 打」）照舊走單字韻。
 - `lhWsRender`（~172）：每個詞各比一次再合併（_lhWs.tOf 記每張卡押的是哪個詞，`_lhWsPhonEl` 照它上色），常用在前；標題「押「西瓜」「報紙」的詞」。

@@ -91,6 +91,13 @@
         @supports not (height: 100dvh) {
             :root { --app-h: 100vh; }
         }
+        /* 2026-11-24 Andy：iOS 主畫面 Web App 收鍵盤後底部多一條空白（WebKit 把視窗少算一個狀態列高，dvh 也跟著縮）。
+           網路上的解法（iOS 26.2 實測）：只在主畫面 Web App 把 html 撐成 100vh，WebKit 就把整個螢幕高度還給網頁。
+           鍵盤打開時 js/layout.js 會另外寫 --app-h（inline），不受影響。Safari 分頁不套（100vh 比看得到的高，會被工具列蓋住） */
+        @media (display-mode: standalone) {
+            html { height: 100vh; }
+            :root { --app-h: 100vh; }
+        }
 
         /* 縮放走根字級：用 % 才會尊重瀏覽器的文字大小設定 */
         html {

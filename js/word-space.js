@@ -1,6 +1,6 @@
 // 本地伺服器＝本機或區網私有 IP（手機測試.command 讓同一個 Wi‑Fi 的 iPhone／iPad 連進來，也算本地：有齒輪、輔助線、開發者功能）
 const LH_LOCAL_HOST = (() => { try { return /^(localhost|127\.0\.0\.1|192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+|172\.(1[6-9]|2\d|3[01])\.\d+\.\d+)$/.test(location.hostname); } catch (e) { lhWarn('讀不到網址主機名稱', e); return false; } })();
-const LH_BUILD = '鹹酥雞';   // 本地測試代號（台灣小吃系列）：每輪改完換一個，Andy 看標題後面的小字就知道是不是最新版（只有本地顯示）
+const LH_BUILD = '碗粿';   // 本地測試代號（台灣小吃系列）：每輪改完換一個，Andy 看標題後面的小字就知道是不是最新版（只有本地顯示）
 // ===== 黑洞開關（Andy）：BLACK_HOLE_ONLINE＝線上版有沒有黑洞。改成 true、升版 push 就上線；本地永遠有（方便調） =====
 const BLACK_HOLE_ONLINE = true;   // 0.98.43：Andy 調好參數、寫進預設，線上開
 const LH_SP_BH = LH_LOCAL_HOST || BLACK_HOLE_ONLINE;
@@ -59,7 +59,7 @@ const LH_WS_TONE_N = ['一聲', '二聲', '三聲', '四聲', '輕聲'];
 const _lhWs = { key: '', input: '', target: null, list: [], shown: 0, mode: 'rhyme', tone: false, strict: false, hidden: new Set(), io: null };
 
 // 輸入是不是「查整個詞」：空白分開的每一段都是 2–6 個字、全是漢字或 *（* 是萬用字）、至少一個漢字。
-// 是就回傳每個詞的字陣列（[[西,瓜],[報,紙]]）；0.98.43 Andy：「西瓜 報紙」＝兩個詞的雙押一起列。有一段不是詞（「安 打」）就走單字韻
+// 是就回傳每個詞的字陣列（[[蒸,籠],[發,粿]]）；0.98.43 Andy：「蒸籠 發粿」＝兩個詞的雙押一起列。有一段不是詞（「安 打」）就走單字韻
 function lhWsQuery(input) {
     const ps = String(input || '').trim().split(/\s+/).filter(Boolean).map(p => [...p]);
     const ok = cs => cs.length >= LH_WS_MIN && cs.length <= LH_WS_MAX && cs.every(c => /[一-鿿]/.test(c) || c === '*') && !cs.every(c => c === '*');
@@ -429,11 +429,9 @@ function _lhSpBuild() {
         b.hidden = true; return b; };
     // 右上：縮放與關閉；底下一列特效等級（0.98.20 Andy，跟偏好設定同一個值）
     const tr = _lhWsEl('div', 'ws-tr');
-    const fx = _lhWsEl('label', 'ws-fx'), fxCap = _lhWsEl('span', 'ws-fx-cap'), fxR = _lhWsEl('input', 'ws-fx-range');
-    fxR.type = 'range'; fxR.min = '1'; fxR.max = '5'; fxR.step = '1';
-    fxR.setAttribute('aria-label', '特效等級');
-    fxR.addEventListener('input', () => { if (typeof lhFxSetLevel === 'function') lhFxSetLevel(+fxR.value); _lhSpFxSync(); _lhSpFinishFx(); });
-    fx.append(fxCap, fxR);
+    // 2026-11-23 Andy：滑桿改成一顆按鈕，點一下換下一級（浮誇之後回到簡單）
+    const fx = mk('ws-fx', '', '特效等級：點一下換下一級', () => { if (typeof lhFxSetLevel === 'function') lhFxSetLevel(lhFxLevel() % 5 + 1); _lhSpFxSync(); _lhSpFinishFx(); });
+    fx.append(_lhWsEl('span', 'ws-fx-cap'));
     const zoom = _lhWsEl('div', 'ws-zoom');
     // 以畫面中心縮放、星系位置不動（0.98.14.4 Andy）；0.98.20 Andy：在 100% 就切到 50%，其他倍率回 100%（兩檔循環）
     const pct = mk('ws-pct', '100%', '切換 100%／50%', () => { const z1 = _lhSpZ100(); _lhSpZoom(Math.round(_lhSp.z / z1 * 100) === 100 ? z1 / 2 : z1); });
@@ -444,6 +442,7 @@ function _lhSpBuild() {
     close.innerHTML = LH_SP_X;
     zoom.prepend(help); zoom.append(close);
     tr.append(zoom, fx);
+    if (!LH_SP_TUNE_UI) help.before(fx);   // 線上沒有齒輪、快轉：特效鈕放進那個空位（? 左邊）
     el.append(cv, acts, probe, panel, legBtn, legPanel, ptop, nav(-1), nav(1), tr);
     if (LH_SP_TUNE_UI) {   // 0.98.21 Andy 暫時的調參齒輪：縮放鈕左邊
         const tune = _lhSpTunePanel();
@@ -544,25 +543,34 @@ function _lhSpNavPlace() {
     if (!el || el.hidden) return;
     const er = el.getBoundingClientRect(), pr = el.querySelector('.ws-panel').getBoundingClientRect(), lp = el.querySelector('.ws-legpanel'), tab = el.querySelector('.ws-legbtn');
     // 0.98.22.7 Andy（iPad 截圖）：分頁貼齊左面板右邊緣、垂直置中；色標面板緊接在分頁右邊、頂端跟左面板對齊、至少跟左面板一樣高
-    const tw = tab.offsetWidth || 18;
-    // 0.98.22.11 Andy：兩個面板只隔 2px，分頁跨在縫的正中間
-    tab.style.left = (pr.right - er.left + 1 - tw / 2) + 'px';
-    tab.style.top = (pr.top - er.top + (pr.height - (tab.offsetHeight || 72)) / 2) + 'px';
-    lp.style.left = (pr.right - er.left + 2) + 'px';
-    lp.style.top = (pr.top - er.top) + 'px';
-    lp.style.minHeight = pr.height + 'px';
-    // 0.98.41 Andy（手機直放）：右邊放不下（會壓到右上角那排）→ 色標面板改放在左面板正下方
+    // 0.98.41 Andy（手機直放）：右邊放不下（會壓到右上角那排）→ 色標面板改放在左面板正下方；2026-11-23 分頁也跟著改橫的、跨在下緣的縫上
     const trR = el.querySelector('.ws-tr')?.getBoundingClientRect();
-    if (trR && trR.width && pr.right + 2 + (lp.offsetWidth || 176) > trR.left - 4 && pr.bottom < trR.bottom + 400) {
-        lp.style.left = (pr.left - er.left) + 'px'; lp.style.top = (pr.bottom - er.top + 4) + 'px'; lp.style.minHeight = '0';
+    const below = !!(trR && trR.width && pr.right + 2 + (lp.offsetWidth || 176) > trR.left - 4 && pr.bottom < trR.bottom + 400);
+    tab.classList.toggle('ws-legdown', below);
+    const tw = tab.offsetWidth || 18, th = tab.offsetHeight || 72;
+    if (below) {
+        tab.style.left = (pr.left - er.left + (pr.width - tw) / 2) + 'px';
+        tab.style.top = (pr.bottom - er.top + 1 - th / 2) + 'px';
+        lp.style.left = (pr.left - er.left) + 'px'; lp.style.top = (pr.bottom - er.top + 2) + 'px'; lp.style.minHeight = '0';
+        lp.style.width = pr.width + 'px';   // 2026-11-24 Andy：上下兩塊等寬
+    } else {
+        lp.style.width = '';
+        // 0.98.22.11 Andy：兩個面板只隔 2px，分頁跨在縫的正中間
+        tab.style.left = (pr.right - er.left + 1 - tw / 2) + 'px';
+        tab.style.top = (pr.top - er.top + (pr.height - th) / 2) + 'px';
+        lp.style.left = (pr.right - er.left + 2) + 'px';
+        lp.style.top = (pr.top - er.top) + 'px';
+        lp.style.minHeight = pr.height + 'px';
     }
+    { const h = el.querySelector('.ws-help').getBoundingClientRect(), c = el.querySelector('.ws-close').getBoundingClientRect(), fx = el.querySelector('.ws-fx');
+      if (h.width && c.width) fx.style.width = (c.right - h.left) + 'px'; }   // 2026-11-24 Andy：特效鈕跟「?」＋「✕」一樣寬
     const prev = el.querySelector('.ws-prev'), mid = er.height / 2;
     let left = 12;
-    for (const r of [pr, lp.hidden ? null : lp.getBoundingClientRect()]) if (r && r.width && r.bottom - er.top > mid - 32 && r.top - er.top < mid + 32) left = Math.max(left, r.right - er.left + 8);
+    for (const r of [pr, lp.hidden || below ? null : lp.getBoundingClientRect()]) if (r && r.width && r.bottom - er.top > mid - 32 && r.top - er.top < mid + 32) left = Math.max(left, r.right - er.left + 8);
     prev.style.left = left + 'px';
     // Andy（手機橫放）：左面板＋色標面板寬到碰到上方中間那排（骰子／滑桿／AI）→ 那排搬到畫面下方（只看左右有沒有撞，搬上搬下左右不變，不會來回跳）
     const pt = el.querySelector('.ws-ptop');
-    if (pt) { const pl = pt.getBoundingClientRect().left; el.classList.toggle('ws-plow', [pr, lp.hidden ? null : lp.getBoundingClientRect()].some(r => r && r.width && r.right + 8 > pl)); }
+    if (pt) { const pl = pt.getBoundingClientRect().left; el.classList.toggle('ws-plow', LH_SP_COARSE || [pr, lp.hidden ? null : lp.getBoundingClientRect()].some(r => r && r.width && r.right + 8 > pl)); }   // 2026-11-24 Andy：觸控（iPad）一律放下方，不要開色標就跳上跳下
 }
 // 0.98.21 Andy：宇宙裡切換特效等級時，正在播的特效直接收尾（打斷）：還沒浮現的全部出現、凝聚／沖散中的詞直接歸位、殘影清掉、換批過場停掉
 function _lhSpFinishFx() {
@@ -584,11 +592,10 @@ function _lhSpFinishFx() {
 }
 const LH_SP_FX_NAME = ['', '簡單', '省電', '精緻', '生動', '浮誇'];
 function _lhSpFxSync() {
-    const el = _lhSp.el, lv = typeof lhFxLevel === 'function' ? lhFxLevel() : 5, r = el.querySelector('.ws-fx-range');
+    const el = _lhSp.el, lv = typeof lhFxLevel === 'function' ? lhFxLevel() : 5;
     el.querySelector('.ws-fx').hidden = typeof lhFxSetLevel !== 'function';
-    r.value = String(lv);
-    r.setAttribute('aria-valuetext', LH_SP_FX_NAME[lv]);
     el.querySelector('.ws-fx-cap').textContent = '特效：' + LH_SP_FX_NAME[lv];
+    el.querySelector('.ws-fx').setAttribute('aria-label', '特效：' + LH_SP_FX_NAME[lv] + '（點一下換下一級）');
 }
 
 // 常用度篩選：只留前 (100 - v)% 常用的詞；0＝不限
@@ -1556,6 +1563,11 @@ function _lhSpFrame(tr) {
     }
     const t = _lhSpClk.v;
     if (_lhSp.visible) _lhSpBhDrift(t);   // 黑洞沿邊漂（不畫畫布的格子也照漂）
+    {   // 2026-11-23 Andy：宇宙還沒成形，畫面上沒有能抽的詞——骰子、AI 先變淡、不能按
+        const wait = tr - (_lhSp.conT || 0) < 300 ? _lhSp.conWait : !_lhSpFormed();   // 每 0.3 秒看一次就好（要掃過全部的詞）
+        if (tr - (_lhSp.conT || 0) >= 300) _lhSp.conT = tr;
+        if (_lhSp.el && wait !== _lhSp.conWait) { _lhSp.conWait = wait; for (const b of _lhSp.el.querySelectorAll('.ws-dice, .ws-aib')) { b.classList.toggle('wait', wait); b.setAttribute('aria-disabled', String(wait)); } }
+    }
     const L = _lhSpCfg();
     // 省電：照等級限制每秒畫幾次；第 1、2 級沒變化就完全不畫
     if (_lhSp.el && _lhSp.el.classList.contains('ws-breathe') !== !!L.cssBreath) _lhSp.el.classList.toggle('ws-breathe', !!L.cssBreath);
@@ -2944,6 +2956,7 @@ function _lhSpOm(w) {
     return w.omB !== undefined ? w.omB * Math.pow(w.omD, w.omE * RM.fall) * RM.planet : w.om;
 }
 function _lhSpConPress(kind) {
+    if (_lhSp.conWait) return;   // 還沒成形（見 _lhSpFrame）
     if (!_lhSp.cons[kind]) { _lhSpConRoll(kind); return; }
     _lhSp.mode = _lhSp.mode === kind ? null : kind;
     _lhSp.cnI = -1; _lhSp.navF = null; _lhSp.dirty = true;
@@ -4406,12 +4419,16 @@ const _lhSpAmoebaR = (A, th) => 1 + A.H.reduce((v, [n, a, ph]) => v + a * Math.s
 // 停下來之後自己慢慢飄回最近的邊接著繞。引力：行星、流星、恆星靠近都會被吸、越近越快，但核心進不去——最後一定驚險地被甩出去；
 // 恆星被甩＝跟滑鼠拖恆星一樣整團散架、之後慢慢聚回來。參數在齒輪「黑洞」（LH_SP_TUNE.bh）。每格由 _lhSpFrame 呼叫
 // 狀態 _lhSp.bh（宇宙座標）：mode edge（繞邊）／drag（手拖）／free（甩出去在滑）／back（飄回邊）
+// 宇宙成形了沒（混沌凝聚完成；沒有凝聚特效的等級＝一開始就算）：黑洞開始長、骰子／AI 星座才能按
+function _lhSpFormed() {
+    return !_lhSpCfg().gather || (_lhSp.words.length && !(_lhSp.queue || []).length && !_lhSp.words.some(w => (w.gk || w.gHold) && w.cl && !w.cl.gDoneT));
+}
 function _lhSpBhDrift(t) {
     const b = _lhSp.el && _lhSp.el.querySelector('.ws-bh');
     if (!b || !LH_SP_BH || _lhSp.el.classList.contains('ws-in-void')) return;   // 線上版沒有黑洞：一直藏著（丟不進去、沒有引力）
     // Andy：黑洞等混沌凝聚完成才開始成形——從一個點慢慢長大，bh.form 秒長到設定大小；核心、引力範圍都跟著大小一起長
     const T = LH_SP_TUNE.bh, z = _lhSpZv(), B0 = _lhSp.bh;
-    if (B0 && !B0.born && (!_lhSpCfg().gather || (_lhSp.words.length && !(_lhSp.queue || []).length && !_lhSp.words.some(w => (w.gk || w.gHold) && w.cl && !w.cl.gDoneT)))) B0.born = t;   // 凝聚完成＝開始成形
+    if (B0 && !B0.born && _lhSpFormed()) B0.born = t;   // 凝聚完成＝開始成形
     if (B0 && _lhSp.bhSkip) { B0.born = t - T.form * 1000 - 1; _lhSp.bhSkip = false; }   // 本地快轉鈕：直接長好
     const gu = B0 && B0.born ? Math.min(1, (t - B0.born) / Math.max(1, T.form * 1000)) : 0, grow = gu * gu * (3 - 2 * gu);
     b.style.visibility = grow > 0.002 ? '' : 'hidden';

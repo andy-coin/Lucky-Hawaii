@@ -2965,7 +2965,8 @@ body.ws-open .ws-space { opacity: 1; }
 .ws-panel.min { width: auto; }   /* 收起來時標題盡量一行 */
 .ws-panel.min > :not(.ws-head) { display: none !important; }
 /* 手機（0.98.13 Andy）：收起來只剩小三角形，不寫字，才不會跟右上的縮放鈕重疊 */
-@media (max-width: 600px) { .ws-panel.min { padding: 0; top: calc(env(safe-area-inset-top, 0px) + 0.75rem); } .ws-panel.min .ws-title { display: none; } }
+@media (max-width: 600px), (pointer: coarse) { .ws-panel.min { padding: 0; top: calc(env(safe-area-inset-top, 0px) + 0.75rem); } .ws-panel.min .ws-title { display: none; }
+    .ws-panel.min .ws-head { display: block; } .ws-panel.min .ws-fold { display: flex; } }   /* 2026-11-23 Andy：收起時格子還留著標題那欄＋間距，面板框比鈕寬一截＝看起來疊兩層 */
 @media (hover: hover) and (pointer: fine) { .ws-fold:hover { color: var(--text-primary); border-color: var(--border); } }
 .ws-legend, .ws-sub { display: flex; flex-direction: column; gap: var(--sp-1); }
 .ws-sub { padding-inline-start: var(--sp-3); }
@@ -2999,7 +3000,7 @@ body.ws-open .ws-space { opacity: 1; }
 .ws-close, .ws-help { min-width: 2rem; padding: 0; }
 .ws-help { font-weight: 700; }
 .ws-zoom { justify-content: flex-end; }
-@media (pointer: coarse) { .ws-tr .ws-fx { min-width: 11rem; } }   /* 0.98.41：觸控沒有縮放鈕，右上那排變窄，特效滑桿自己撐開 */
+   /* 0.98.41：觸控沒有縮放鈕，右上那排變窄，特效滑桿自己撐開 */
 .ws-close .ic { width: 1rem; height: 1rem; }
 /* 0.98.20：右上改成一欄——縮放列＋底下的特效等級滑桿 */
 .ws-tr { position: absolute; z-index: 5; top: calc(env(safe-area-inset-top, 0px) + 0.75rem); right: 0.75rem; display: flex; flex-direction: column; align-items: stretch; gap: var(--sp-1); }
@@ -3008,7 +3009,7 @@ body.ws-open .ws-space { opacity: 1; }
     background: color-mix(in srgb, var(--card-bg) 88%, transparent); border: 1px solid var(--border); border-radius: var(--radius-s); }
 .ws-fx[hidden] { display: none; }
 .ws-fx-cap { flex: none; white-space: nowrap; }
-.ws-fx-range { flex: 1; min-width: 0; accent-color: var(--highlight-border); }
+.ws-tr .ws-fx { width: auto; min-width: 0; align-self: flex-end; justify-content: center; padding: 0 var(--sp-1); font-family: inherit; cursor: pointer; }   /* 2026-11-23 Andy：滑桿改成循環按鈕 */
 /* 色標第二層面板（貼在左面板右邊，left 由 js/word-space.js _lhSpNavPlace 設） */
 .ws-legpanel {
     position: absolute; z-index: 5; top: calc(env(safe-area-inset-top, 0px) + 0.75rem); left: 11.5rem;
@@ -3027,6 +3028,9 @@ body.ws-open .ws-space { opacity: 1; }
 .ws-legbtn .ic, .ws-nav .ic { fill: currentColor; stroke: none; }
 .ws-legbtn .ic { width: 0.5rem; height: 0.5rem; transition: transform 0.2s; }
 .ws-legbtn[aria-expanded="true"] .ic { transform: rotate(180deg); }
+/* 2026-11-23 Andy（手機直放）：色標面板在左面板下面時，分頁改橫的、跨在下緣的縫上，三角形朝下 */
+.ws-legbtn.ws-legdown { width: 3rem; height: var(--legbtn-w); }
+.ws-legbtn.ws-legdown .ic { rotate: 90deg; }
 @media (hover: hover) and (pointer: fine) { .ws-legbtn:hover { background: var(--action-bg-hover); border-color: var(--action-bg-hover); } }
 /* 換批的左右三角形（多重宇宙才有）：畫面左右邊界的正中間 */
 /* 0.98.22 Andy：直接一顆大三角形（沒有底座）；0.98.22.1 顏色用自訂顏色裡叫「邊框」的那個（--highlight-border，city 是粉紅） */
@@ -3043,7 +3047,7 @@ body.ws-open .ws-space { opacity: 1; }
 @media (max-width: 600px) { .ws-panel { max-width: calc(100% - 1.5rem); } }   /* 0.98.14：展開也貼齊上緣，跟收合鈕同一個位置（面板 10rem 寬，碰不到右上的縮放列） */
 @media (pointer: coarse) { .ws-hud-btn, .ws-leg { min-height: var(--hit); min-width: var(--hit); } }
 /* 0.98.22.7 Andy（iPad 截圖）：色標分頁在觸控上也維持扁扁的；看得到的窄，按得到的範圍用透明的 ::after 往右撐開 */
-@media (pointer: coarse) { .ws-legbtn.ws-hud-btn { min-width: 0; min-height: 0; } .ws-legbtn::after { content: ''; position: absolute; inset: 0 calc((var(--legbtn-w) - var(--hit)) / 2); } }
+@media (pointer: coarse) { .ws-legbtn.ws-hud-btn { min-width: 0; min-height: 0; } .ws-legbtn::after { content: ''; position: absolute; inset: 0 calc((var(--legbtn-w) - var(--hit)) / 2); } .ws-legbtn.ws-legdown::after { inset: calc((var(--legbtn-w) - var(--hit)) / 2) 0; } }
 /* 三塊面板往左、上、右收走（只在打開／收合的動畫期間加 transition，不動面板平常的收合動畫） */
 /* 打開：先 ws-leave（三塊面板收走 0.45 秒），面板走完才 ws-open（星雲淡入）；關閉反過來（js/word-space.js _lhSpShow／lhWsClose） */
 body.ws-anim :is(#leftPanel, #rightPanel, #mainContainer, #mobileTabBar) { transition: translate 0.45s cubic-bezier(0.6, 0, 0.3, 1), opacity 0.45s ease; will-change: translate, opacity; }
@@ -3410,16 +3414,38 @@ html[data-lm] .section-body.has-cols .section-textarea { padding-left: 0.75rem; 
 .ws-ptop > .ws-aib { grid-column: 3; grid-row: 1; }
 .ws-ptop > .ws-cnav { grid-column: 2; grid-row: 2; }
 /* Andy（手機橫放）：左邊兩塊面板碰到上方中間那排 → 整排搬到下方（JS 判斷後加 .ws-plow），排法跟窄螢幕一樣 */
-.ws-plow .ws-ptop { top: auto; bottom: calc(env(safe-area-inset-bottom, 0px) + 0.75rem); }
+.ws-plow .ws-ptop { top: auto; bottom: max(0.75rem, env(safe-area-inset-bottom, 0px)); }
+@media (min-width: 761px) and (pointer: coarse) { .ws-plow .ws-ptop { bottom: max(0.5rem, calc(env(safe-area-inset-bottom, 0px) - 0.75rem)); } }   /* 2026-11-24 Andy：iPad 再往下（底部橫條很細，不用整個安全區） */   /* 2026-11-23 Andy：下面不要再多留一截，只讓開 iPhone 底部橫條 */
 .ws-plow .ws-ptop > .ws-cnav { grid-row: 1; align-self: end; }
 .ws-plow .ws-ptop > .ws-pages, .ws-plow .ws-ptop > .ws-dice, .ws-plow .ws-ptop > .ws-aib { grid-row: 2; }
 @media (max-width: 760px) {
     .ws-space { --ws-pw: calc(100vw - 1.5rem - 2 * (2.5rem + var(--sp-2))); }
-    .ws-ptop { top: auto; bottom: calc(env(safe-area-inset-bottom, 0px) + 0.75rem); }
+    .ws-ptop { top: auto; bottom: max(0.75rem, env(safe-area-inset-bottom, 0px)); }
     .ws-ptop > .ws-cnav { grid-row: 1; align-self: end; }   /* 窄螢幕在下方：導覽列改到面板上面 */
     .ws-ptop > .ws-pages { grid-row: 2; }
     .ws-ptop > .ws-dice, .ws-ptop > .ws-aib { grid-row: 2; }
 }
+/* 2026-11-23 Andy（手機）：在下方、有分批滑桿、有星座導覽時，◀ ▶ 搬到滑桿左右兩邊：[骰子][◀][滑桿][▶][AI]，保留／更新／取消留在上面一列；總寬跟原本一樣 */
+@media (max-width: 760px) {
+.ws-ptop:not(:has(> .ws-pages[hidden])):has(> .ws-cnav:not([hidden])) { width: calc(var(--ws-pw) + 2 * (2.5rem + var(--sp-2))); grid-template-columns: auto auto minmax(0, 1fr) auto auto; }
+.ws-ptop:not(:has(> .ws-pages[hidden])):has(> .ws-cnav:not([hidden])) > .ws-cnav { display: contents; }
+.ws-ptop:not(:has(> .ws-pages[hidden])):has(> .ws-cnav:not([hidden])) > .ws-dice { grid-column: 1; }
+.ws-ptop:not(:has(> .ws-pages[hidden])):has(> .ws-cnav:not([hidden])) > .ws-pages { grid-column: 3; }
+.ws-ptop:not(:has(> .ws-pages[hidden])):has(> .ws-cnav:not([hidden])) > .ws-aib { grid-column: 5; }
+.ws-ptop:not(:has(> .ws-pages[hidden])):has(> .ws-cnav:not([hidden])) > .ws-cnav > .ws-cn-prev { grid-column: 2; grid-row: 2; align-self: stretch; }
+.ws-ptop:not(:has(> .ws-pages[hidden])):has(> .ws-cnav:not([hidden])) > .ws-cnav > .ws-cn-next { grid-column: 4; grid-row: 2; align-self: stretch; }
+.ws-ptop:not(:has(> .ws-pages[hidden])):has(> .ws-cnav:not([hidden])) > .ws-cnav > .ws-cn-mid { grid-column: 2 / 5; grid-row: 1; }
+}
+.ws-plow .ws-ptop:not(:has(> .ws-pages[hidden])):has(> .ws-cnav:not([hidden])) { width: calc(var(--ws-pw) + 2 * (2.5rem + var(--sp-2))); grid-template-columns: auto auto minmax(0, 1fr) auto auto; }
+.ws-plow .ws-ptop:not(:has(> .ws-pages[hidden])):has(> .ws-cnav:not([hidden])) > .ws-cnav { display: contents; }
+.ws-plow .ws-ptop:not(:has(> .ws-pages[hidden])):has(> .ws-cnav:not([hidden])) > .ws-dice { grid-column: 1; }
+.ws-plow .ws-ptop:not(:has(> .ws-pages[hidden])):has(> .ws-cnav:not([hidden])) > .ws-pages { grid-column: 3; }
+.ws-plow .ws-ptop:not(:has(> .ws-pages[hidden])):has(> .ws-cnav:not([hidden])) > .ws-aib { grid-column: 5; }
+.ws-plow .ws-ptop:not(:has(> .ws-pages[hidden])):has(> .ws-cnav:not([hidden])) > .ws-cnav > .ws-cn-prev { grid-column: 2; grid-row: 2; align-self: stretch; }
+.ws-plow .ws-ptop:not(:has(> .ws-pages[hidden])):has(> .ws-cnav:not([hidden])) > .ws-cnav > .ws-cn-next { grid-column: 4; grid-row: 2; align-self: stretch; }
+.ws-plow .ws-ptop:not(:has(> .ws-pages[hidden])):has(> .ws-cnav:not([hidden])) > .ws-cnav > .ws-cn-mid { grid-column: 2 / 5; grid-row: 1; }
+/* 宇宙還沒成形（js _lhSpFrame 加 .wait）：骰子、AI 變淡、不能按 */
+.ws-cbtn.wait { opacity: 0.35; pointer-events: none; }
 .ws-cbtn { width: 2.5rem; height: 2.5rem; min-width: 2.5rem; padding: 0; flex: none; font-weight: 700; font-size: 0.875rem; letter-spacing: 0.02em; transition: box-shadow 0.25s, border-color 0.25s, color 0.25s; }
 .ws-cbtn .ic { width: 1.375rem; height: 1.375rem; fill: none; stroke: currentColor; stroke-width: 1.6; }
 .ws-cbtn .ic circle { fill: currentColor; stroke: none; }

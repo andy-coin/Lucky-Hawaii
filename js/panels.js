@@ -203,7 +203,8 @@
                     end();
                     if (!dragging) return;   // 沒拖：交給 click 收起
                     _lhSheetDragged = true;
-                    if (r < LH_SHEET_MIN) { _lhSheetApply(prev); mobileTab('search'); return; }   // 拉很低 = 收起，高度維持上次
+                    // 拉很低 = 收起，高度維持上次。2026-11-24 Andy：等滑下去的動畫（0.35 秒）走完才換回上次的高度，不然會先彈回原高再消失
+                    if (r < LH_SHEET_MIN) { mobileTab('search'); setTimeout(() => _lhSheetApply(prev), 400); return; }
                     lhSet(LH_SHEET_KEY, JSON.stringify(Math.round(r * 1000) / 1000));
                 };
                 const cancel = () => { end(); _lhSheetApply(prev); };
