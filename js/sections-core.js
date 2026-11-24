@@ -58,7 +58,8 @@ function lhSecFields(s) {
         ...(s.align === 'center' || s.align === 'right' ? { align: s.align } : {}),   // 文字對齊：預設靠左（沒有欄位）
         ...(s.rj === true ? { rj: true } : {}),   // 吸附排版：和前一段同一列（沒有欄位＝自己一列）
         ...(Number.isInteger(s.rw) && s.rw >= 1 && s.rw <= 119 ? { rw: s.rw } : {}),   // 吸附排版：在這一列佔的寬度（120 格；沒有欄位＝均分）
-        ...(Number.isInteger(s.rh) && s.rh >= LH_ROW_HMIN && s.rh <= LH_ROW_HMAX ? { rh: s.rh } : {})   // 吸附排版：這一列的高度 px（只寫在列首；沒有＝跟著內容）
+        ...(Number.isInteger(s.rh) && s.rh >= LH_ROW_HMIN && s.rh <= LH_ROW_HMAX ? { rh: s.rh } : {}),   // 吸附排版：這一列的高度 px（只寫在列首；沒有＝跟著內容）
+        ...(Number.isInteger(s.num) && s.num >= 0 && s.num <= LH_SEC_NUM_MAX ? { num: s.num } : {})   // 2026-11-25 Andy：自己挑的羅馬數字（0＝不編號）；沒有欄位＝照順序自動編
     };
 }
 
@@ -259,14 +260,17 @@ function lhToRoman(n) {
 }
 
 // 同類型出現 2 次以上才依目前順序加羅馬數字；Custom 不編號，沒名字就叫 Custom（B2）
+// 2026-11-25 Andy：段落選單的滾輪可以自己挑（s.num，0＝不編號）；沒挑過的照順序（插在 Verse I 下面的新 Verse 先給 II）
+const LH_SEC_NUM_MAX = 10;
+function lhSecAutoNum(sections, s) {
+    const same = sections.filter(x => x.type === s.type);
+    return same.length > 1 ? same.indexOf(s) + 1 : 0;
+}
 function lhSecNames(sections) {
-    const total = new Map(), seen = new Map();
-    for (const s of sections) total.set(s.type, (total.get(s.type) || 0) + 1);
     return sections.map(s => {
         if (s.type === 'custom') return (s.custom || '').trim() || LH_SEC_NAMES.custom;
-        const n = (seen.get(s.type) || 0) + 1;
-        seen.set(s.type, n);
-        return total.get(s.type) > 1 ? LH_SEC_NAMES[s.type] + ' ' + lhToRoman(n) : LH_SEC_NAMES[s.type];
+        const n = Number.isInteger(s.num) ? s.num : lhSecAutoNum(sections, s);
+        return n ? LH_SEC_NAMES[s.type] + ' ' + lhToRoman(n) : LH_SEC_NAMES[s.type];
     });
 }
 
@@ -281,6 +285,7 @@ function lhSecFinalize(sections) {
         if (!f.rj) delete s.rj;
         if (!f.rw) delete s.rw;
         if (!f.rh) delete s.rh;
+        if (!('num' in f)) delete s.num;
         Object.assign(s, f);
     }
     if (sections[0]) delete sections[0].rj;   // 第一段一定是第一列的開頭

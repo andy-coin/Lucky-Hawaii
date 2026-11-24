@@ -56,9 +56,18 @@ test('查整個詞：判斷、押韻比對（同母音／同子音／同讀音�
     await expect.poll(() => page.evaluate(() => _lhSp.words.length)).toBe(2);   // 0.98.05 起畫在 canvas 上
     await expect(page.locator('body')).toHaveClass(/ws-open/);
     expect(await page.evaluate(() => document.getElementById('mainContainer').inert)).toBe(true);
-    // 圖例：一欄、依第一個字的聲調收納，點開才看到組合；釘三個詞連成星座
-    expect(await page.locator('.ws-leg-tone').count()).toBe(1);
-    await expect(page.locator('.ws-sub')).toBeHidden();
+    // 2026-11-25 Andy：查詞沒有第二面板（色標）——第一面板每個字一排聲調鈕（辦法 4·3、看法 4·3：每排只有「一二三四」，沒有輕聲）
+    expect(await page.locator('.ws-leg-tone').count()).toBe(0);
+    await expect(page.locator('.ws-legbtn')).toBeHidden();
+    expect(await page.locator('.ws-tone-row').count()).toBe(2);
+    expect(await page.locator('.ws-tone-row').first().locator('[data-tt]').count()).toBe(4);
+    await page.locator('.ws-tone-row').first().locator('[data-tt="1"]').click();   // 第一字一聲：兩個都是四聲 → 全部收起來
+    expect(await page.evaluate(() => _lhSp.words.filter(w => !w.off).length)).toBe(0);
+    await page.locator('.ws-tone-row').first().locator('[data-tt="4"]').click();   // 同一排再選四聲（或）→ 回來
+    expect(await page.evaluate(() => _lhSp.words.filter(w => !w.off).length)).toBe(2);
+    await page.locator('.ws-tone-row').first().locator('[data-tt="1"]').click();
+    await page.locator('.ws-tone-row').first().locator('[data-tt="4"]').click();
+    // 釘三個詞連成星座
     const pts = await page.evaluate(async () => {
         const ws = _lhSp.words;
         ws.push(...ws.map(w => ({ ...w })));   // 只有兩個詞：複製出第三、四個假的位置點就好

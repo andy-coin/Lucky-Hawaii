@@ -46,57 +46,67 @@
                     }
                 }
             } else {
-                // 整詞查詞庫（解決破音字問題）；找不到才逐字取第一讀音
-                const word = chars.join('');
-                let wordlistSyllables = null;
-                if (wordPhoneticMap && word.length > 1) {
-                    const z = wordPhoneticMap.get(word);
-                    if (z) {
-                        const syl = z.split(' ');
-                        if (syl.length === chars.length) wordlistSyllables = syl;
+                // 0.98.44.2 Andy：空白分開多個詞（蒸籠 發粿）＝各詞分開算，AI 給押其中任一個詞的詞（groups）；不是多詞就照舊整串
+                const qs = typeof lhWsQuery === 'function' ? lhWsQuery(trimmed) : null;
+                const parts = qs && qs.length > 1 ? qs : [chars];
+                const rhymesOf = chars => {
+                    const out = [];
+                    // 整詞查詞庫（解決破音字問題）；找不到才逐字取第一讀音
+                    const word = chars.join('');
+                    let wordlistSyllables = null;
+                    if (wordPhoneticMap && word.length > 1) {
+                        const z = wordPhoneticMap.get(word);
+                        if (z) {
+                            const syl = z.split(' ');
+                            if (syl.length === chars.length) wordlistSyllables = syl;
+                        }
                     }
-                }
 
-                for (let i = 0; i < chars.length; i++) {
-                    const char = chars[i];
-                    if (char === '*') {
-                        currentRhymes.push({ char: '*', isWild: true, zhuyin: '', initial: '', rhyme: '', familyLabel: '' });
-                        continue;
-                    }
-                    let zhuyin;
-                    if (wordlistSyllables) {
-                        zhuyin = stripTone(wordlistSyllables[i]);
-                    } else {
-                        const zhuyins = chineseDict[char];
-                        if (!zhuyins || zhuyins.length === 0) {
-                            currentRhymes.push({ char, zhuyin: '', initial: '', rhyme: '', familyLabel: '', notFound: true });
+                    for (let i = 0; i < chars.length; i++) {
+                        const char = chars[i];
+                        if (char === '*') {
+                            out.push({ char: '*', isWild: true, zhuyin: '', initial: '', rhyme: '', familyLabel: '' });
                             continue;
                         }
-                        // 破音字讀音選擇優先順序：
-                        // 1. 使用者點選的 chip（_polyphonic）
-                        // 2. polyphonicsOrderMap 定義的主要讀音（第一個）
-                        // 3. dict 第一個（fallback）
-                        if (_polyphonic.char === char && _polyphonic.reading) {
-                            const base = _polyphonic.reading.replace(/[ˊˇˋ˙]$/, '');
-                            zhuyin = zhuyins.includes(base) ? base : zhuyins[0];
-                        } else if (polyphonicsOrderMap && polyphonicsOrderMap.has(char)) {
-                            const primaryBase = polyphonicsOrderMap.get(char)[0].replace(/[ˊˇˋ˙]$/, '');
-                            zhuyin = zhuyins.includes(primaryBase) ? primaryBase : zhuyins[0];
+                        let zhuyin;
+                        if (wordlistSyllables) {
+                            zhuyin = stripTone(wordlistSyllables[i]);
                         } else {
-                            zhuyin = zhuyins[0];
+                            const zhuyins = chineseDict[char];
+                            if (!zhuyins || zhuyins.length === 0) {
+                                out.push({ char, zhuyin: '', initial: '', rhyme: '', familyLabel: '', notFound: true });
+                                continue;
+                            }
+                            // 破音字讀音選擇優先順序：
+                            // 1. 使用者點選的 chip（_polyphonic）
+                            // 2. polyphonicsOrderMap 定義的主要讀音（第一個）
+                            // 3. dict 第一個（fallback）
+                            if (_polyphonic.char === char && _polyphonic.reading) {
+                                const base = _polyphonic.reading.replace(/[ˊˇˋ˙]$/, '');
+                                zhuyin = zhuyins.includes(base) ? base : zhuyins[0];
+                            } else if (polyphonicsOrderMap && polyphonicsOrderMap.has(char)) {
+                                const primaryBase = polyphonicsOrderMap.get(char)[0].replace(/[ˊˇˋ˙]$/, '');
+                                zhuyin = zhuyins.includes(primaryBase) ? primaryBase : zhuyins[0];
+                            } else {
+                                zhuyin = zhuyins[0];
+                            }
                         }
+                        const initial = getZhuyinInitial(zhuyin);
+                        const rhyme = getZhuyinRhyme(zhuyin);
+                        // 子音 = 聲母（有）或起始音節（ㄩ/ㄧ/ㄨ 介音，或直接是韻母如 ㄢ）
+                        const effectiveInitial = initial ||
+                            (zhuyin[0] === 'ㄩ' ? 'ㄩ' :
+                             zhuyin[0] === 'ㄧ' ? 'ㄧ' :
+                             zhuyin[0] === 'ㄨ' ? 'ㄨ' : rhyme);
+                        const familyId = RHYME_TO_FAMILY[rhyme];
+                        const familyLabel = familyId !== undefined ? RHYME_FAMILIES[familyId].label : rhyme;
+                        out.push({ char, zhuyin, initial: effectiveInitial, rhyme, familyLabel });
                     }
-                    const initial = getZhuyinInitial(zhuyin);
-                    const rhyme = getZhuyinRhyme(zhuyin);
-                    // 子音 = 聲母（有）或起始音節（ㄩ/ㄧ/ㄨ 介音，或直接是韻母如 ㄢ）
-                    const effectiveInitial = initial ||
-                        (zhuyin[0] === 'ㄩ' ? 'ㄩ' :
-                         zhuyin[0] === 'ㄧ' ? 'ㄧ' :
-                         zhuyin[0] === 'ㄨ' ? 'ㄨ' : rhyme);
-                    const familyId = RHYME_TO_FAMILY[rhyme];
-                    const familyLabel = familyId !== undefined ? RHYME_FAMILIES[familyId].label : rhyme;
-                    currentRhymes.push({ char, zhuyin, initial: effectiveInitial, rhyme, familyLabel });
-                }
+                    return out;
+                };
+                const groups = parts.map(rhymesOf);
+                groups.forEach((g, i) => { if (i && g[0]) g[0] = { ...g[0], sep: true }; currentRhymes.push(...g); });
+                if (groups.length > 1) currentRhymes.groups = groups;
             }
 
             if (currentRhymes.length === 0) {
@@ -122,21 +132,21 @@
             const usePinyin = lastSearchType === 'pinyin';
             const fmt = zy => usePinyin ? zhuyinToPinyin(zy) : zy;
             if (rhymeMode === 'rhyme') {
-                const parts = currentRhymes.map(r => r.isWild
+                const parts = currentRhymes.map(r => (r.sep ? '｜　' : '') + (r.isWild
                     ? `<span class="rhyme-label" style="opacity:0.4">＊</span>`
                     : r.notFound
                         ? `<span class="rhyme-not-found" title="${r.char} 未收錄於字庫">∅<button class="report-char-btn" onclick="reportMissingChar('${r.char}')">回報</button></span>`
                         : `<span class="rhyme-label">${fmt(r.rhyme)}</span><span style="font-size:0.72rem;color:var(--text-secondary)"> (${fmt(r.zhuyin)})</span>`
-                );
+                ));
                 display.innerHTML = '母音　' + parts.join('　');
             } else {
-                const parts = currentRhymes.map(r => {
+                const parts = currentRhymes.map(r => (r.sep ? '｜　' : '') + (r => {
                     if (r.isWild) return `<span class="rhyme-label" style="opacity:0.4">＊</span>`;
                     if (r.notFound) return `<span class="rhyme-not-found" title="${r.char} 未收錄於字庫">∅<button class="report-char-btn" onclick="reportMissingChar('${r.char}')">回報</button></span>`;
                     return r.initial
                         ? `<span class="rhyme-label">${fmt(r.initial)}</span>`
                         : `<span style="font-size:0.72rem;color:var(--text-secondary)">∅</span>`;
-                });
+                })(r));
                 display.innerHTML = '子音　' + (parts.length ? parts.join('　') : '<span style="font-size:0.82rem;color:var(--text-secondary)">無聲母</span>');
             }
             // 搜尋過後韻腳搬到 AI 面板的標題列（固定在頂端，捲到下面的詞卡也看得到）

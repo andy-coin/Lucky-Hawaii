@@ -6,7 +6,8 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="好韻器">
-    <link rel="apple-touch-icon" href="icon.png">
+    <link rel="apple-touch-icon" href="icon.png?v=0.98.45">
+    <link rel="icon" type="image/png" href="favicon.png?v=0.98.45">
     <!-- computer -->
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
@@ -14,14 +15,14 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700&family=Noto+Serif+TC:wght@400;700&family=JetBrains+Mono:wght@400&display=swap">
-    <link rel="stylesheet" href="css/base.css?v=0.98.44.1">
-    <link rel="stylesheet" href="css/panels.css?v=0.98.44.1">
-    <link rel="stylesheet" href="css/responsive.css?v=0.98.44.1">
-    <link rel="stylesheet" href="css/print.css?v=0.98.44.1" media="print">
-    <script src="data/rhyme-dict.js?v=0.98.44.1"></script>
-    <script src="data/polyphonic-order.js?v=0.98.44.1"></script>
-    <script src="js/safety.js?v=0.98.44.1"></script>
-    <script src="js/layout.js?v=0.98.44.1"></script>
+    <link rel="stylesheet" href="css/base.css?v=0.98.45">
+    <link rel="stylesheet" href="css/panels.css?v=0.98.45">
+    <link rel="stylesheet" href="css/responsive.css?v=0.98.45">
+    <link rel="stylesheet" href="css/print.css?v=0.98.45" media="print">
+    <script src="data/rhyme-dict.js?v=0.98.45"></script>
+    <script src="data/polyphonic-order.js?v=0.98.45"></script>
+    <script src="js/safety.js?v=0.98.45"></script>
+    <script src="js/layout.js?v=0.98.45"></script>
 </head>
 <body>
 
@@ -150,7 +151,7 @@
         <div class="footer">
             創作者專屬工具 · 歡迎分享
             <span class="about-btn" onclick="toggleAbout()">i</span>
-            <button class="feedback-btn" onclick="openFeedbackModal()">意見</button>
+            <button class="feedback-btn" onclick="openFeedbackModal()">回饋</button>
         </div>
 
         <div class="about-overlay" id="aboutOverlay" onclick="closeAbout(event)">
@@ -320,7 +321,7 @@
                 </div>
                 <div class="prefs-panel" role="tabpanel" id="prefsPanel-help" aria-labelledby="prefsTab-help" tabindex="0" hidden>
                     <button type="button" class="save-load-btn tour-replay-btn" style="width:100%;text-align:center;" onclick="lhTourStart()">重看功能導覽</button>
-                    <button class="settings-feedback-btn save-load-btn" style="width:100%;text-align:center;" onclick="closeSettingsOverlay({target:document.getElementById('settingsOverlay')});openFeedbackModal()">意見回饋</button>
+                    <button class="settings-feedback-btn save-load-btn" style="width:100%;text-align:center;" onclick="closeSettingsOverlay({target:document.getElementById('settingsOverlay')});openFeedbackModal()">回饋</button>
                     <button type="button" class="save-load-btn settings-about-btn" style="width:100%;text-align:center;" onclick="closeSettingsOverlay({target:document.getElementById('settingsOverlay')});toggleAbout()">關於好韻器</button>
                 </div>
             </div>
@@ -370,7 +371,8 @@
 
     <div class="feedback-modal-overlay" id="feedbackModalOverlay" onclick="closeFeedbackModal(event)">
         <div class="feedback-modal" onclick="event.stopPropagation()">
-            <h3>意見回饋</h3>
+            <h3>回饋</h3>
+            <p class="feedback-hi">有什麼話想對我說？鼓勵或是指教都可以！</p>
             <input id="feedbackSubject" placeholder="主旨（例：建議、問題回報）" maxlength="80">
             <textarea id="feedbackBody" placeholder="內文…" rows="5" maxlength="2000"></textarea>
             <div class="feedback-modal-actions">
@@ -604,42 +606,42 @@
 
     <div id="printSheet" aria-hidden="true"></div>
 
-    <script src="js/phonetic-tables.js?v=0.98.44.1"></script>
-    <script src="js/dict.js?v=0.98.44.1"></script>
-    <script src="js/search.js?v=0.98.44.1"></script>
-    <script src="js/state.js?v=0.98.44.1"></script>
-    <script src="js/sections-core.js?v=0.98.44.1"></script>
-    <script src="js/songs.js?v=0.98.44.1"></script>
-    <script src="js/undo.js?v=0.98.44.1"></script>
-    <script src="js/polyphonic.js?v=0.98.44.1"></script>
-    <script src="js/rhyme-core.js?v=0.98.44.1"></script>
-    <script src="js/line-core.js?v=0.98.44.1"></script>
-    <script src="js/cards.js?v=0.98.44.1"></script>
-    <script src="js/lyrics.js?v=0.98.44.1"></script>
-    <script src="js/sections.js?v=0.98.44.1"></script>
-    <script src="js/song-io.js?v=0.98.44.1"></script>
-    <script src="js/wordlist.js?v=0.98.44.1"></script>
-    <script src="js/panels.js?v=0.98.44.1"></script>
-<script src="js/dock.js?v=0.98.44.1"></script>
-    <script src="js/rhyme-display.js?v=0.98.44.1"></script>
-    <script src="js/ai-client.js?v=0.98.44.1"></script>
-    <script src="js/candidates.js?v=0.98.44.1"></script>
-    <script src="js/ai-generate.js?v=0.98.44.1"></script>
-    <script src="js/ui-common.js?v=0.98.44.1"></script>
-    <script src="js/custom-words.js?v=0.98.44.1"></script>
-    <script src="js/snapshots.js?v=0.98.44.1"></script>
-    <script src="js/space-pick.js?v=0.98.44.1"></script>   <!-- 宇宙：照設定載入新版或 0.98.40 對照版（sp-tune-defaults.js、sp-tune-defaults-mobile.js、word-space.js） -->
-    <script src="js/results.js?v=0.98.44.1"></script>
-    <script src="js/search-ui.js?v=0.98.44.1"></script>
-    <script src="js/theme.js?v=0.98.44.1"></script>
-    <script src="js/init.js?v=0.98.44.1"></script>
-    <script src="js/report.js?v=0.98.44.1"></script>
-    <script src="js/ai-word-events.js?v=0.98.44.1"></script>
-    <script src="js/word-drag.js?v=0.98.44.1"></script>
-    <script src="js/rhyme-map.js?v=0.98.44.1"></script>
-    <script src="js/roles.js?v=0.98.44.1"></script>
-    <script src="js/canvas.js?v=0.98.44.1"></script>
-    <script src="js/tour.js?v=0.98.44.1"></script>
-    <script src="js/bgfx.js?v=0.98.44.1"></script>
+    <script src="js/phonetic-tables.js?v=0.98.45"></script>
+    <script src="js/dict.js?v=0.98.45"></script>
+    <script src="js/search.js?v=0.98.45"></script>
+    <script src="js/state.js?v=0.98.45"></script>
+    <script src="js/sections-core.js?v=0.98.45"></script>
+    <script src="js/songs.js?v=0.98.45"></script>
+    <script src="js/undo.js?v=0.98.45"></script>
+    <script src="js/polyphonic.js?v=0.98.45"></script>
+    <script src="js/rhyme-core.js?v=0.98.45"></script>
+    <script src="js/line-core.js?v=0.98.45"></script>
+    <script src="js/cards.js?v=0.98.45"></script>
+    <script src="js/lyrics.js?v=0.98.45"></script>
+    <script src="js/sections.js?v=0.98.45"></script>
+    <script src="js/song-io.js?v=0.98.45"></script>
+    <script src="js/wordlist.js?v=0.98.45"></script>
+    <script src="js/panels.js?v=0.98.45"></script>
+<script src="js/dock.js?v=0.98.45"></script>
+    <script src="js/rhyme-display.js?v=0.98.45"></script>
+    <script src="js/ai-client.js?v=0.98.45"></script>
+    <script src="js/candidates.js?v=0.98.45"></script>
+    <script src="js/ai-generate.js?v=0.98.45"></script>
+    <script src="js/ui-common.js?v=0.98.45"></script>
+    <script src="js/custom-words.js?v=0.98.45"></script>
+    <script src="js/snapshots.js?v=0.98.45"></script>
+    <script src="js/space-pick.js?v=0.98.45"></script>   <!-- 宇宙：照設定載入新版或 0.98.40 對照版（sp-tune-defaults.js、sp-tune-defaults-mobile.js、word-space.js） -->
+    <script src="js/results.js?v=0.98.45"></script>
+    <script src="js/search-ui.js?v=0.98.45"></script>
+    <script src="js/theme.js?v=0.98.45"></script>
+    <script src="js/init.js?v=0.98.45"></script>
+    <script src="js/report.js?v=0.98.45"></script>
+    <script src="js/ai-word-events.js?v=0.98.45"></script>
+    <script src="js/word-drag.js?v=0.98.45"></script>
+    <script src="js/rhyme-map.js?v=0.98.45"></script>
+    <script src="js/roles.js?v=0.98.45"></script>
+    <script src="js/canvas.js?v=0.98.45"></script>
+    <script src="js/tour.js?v=0.98.45"></script>
+    <script src="js/bgfx.js?v=0.98.45"></script>
 </body>
 </html>

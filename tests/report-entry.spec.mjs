@@ -335,8 +335,8 @@ test('回報入口：遮罩', async ({ browser }) => {
 
 test('回報入口：改名意見', async ({ browser }) => {
     const { context, page } = await bootPage(browser, { wordlist: 'stub' });
-    await expect(page.locator('.footer .feedback-btn')).toHaveText('意見');
-    await expect(page.locator('.settings-feedback-btn')).toHaveText('意見回饋');
+    await expect(page.locator('.footer .feedback-btn')).toHaveText('回饋');
+    await expect(page.locator('.settings-feedback-btn')).toHaveText('回饋');
     await context.close();
 });
 

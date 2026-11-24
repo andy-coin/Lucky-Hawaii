@@ -110,10 +110,13 @@
                     if (wordlistData === null) { showToast('詞庫載入失敗，請重新整理頁面'); return; }
                 }
                 // 候選來源：選字 → 單字（非萬用）→ 押母音 → 押子音
-                const newBatch = selectedChars.size > 0 ? getWordlistCandidatesSelected()
+                // 0.98.44.2 Andy：空白分開多個詞（蒸籠 發粿）＝押其中任一個詞（各詞的候選合起來），不是當成一個四字詞
+                const byGroup = g => rhymeMode === 'rhyme' ? getWordlistCandidates(g, g.length) : getWordlistCandidatesInitial(g, g.length);
+                const gs = currentRhymes.groups, gl = gs && selectedChars.size === 0 ? gs.map(byGroup) : null;
+                const newBatch = gl ? (gl.includes(null) ? null : gl.flat())
+                    : selectedChars.size > 0 ? getWordlistCandidatesSelected()
                     : (currentRhymes.length === 1 && !currentRhymes[0]?.isWild) ? getWordlistCandidatesSingle()
-                    : rhymeMode === 'rhyme' ? getWordlistCandidates(currentRhymes, currentRhymes.length)
-                    : getWordlistCandidatesInitial(currentRhymes, currentRhymes.length);
+                    : byGroup(currentRhymes);
                 if (newBatch === null) { showToast('詞庫載入失敗，請重新整理頁面'); return; }
 
                 // 候選池（0.98.06）：照常用度排名（同分的維持隨機），扣掉已推薦、已保留的；常用度滑桿只留前幾 %。

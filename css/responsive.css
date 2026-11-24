@@ -678,6 +678,10 @@
             .lyrics-main > .lyrics-area { flex: 0 0 auto; overflow: visible; }
         }
 
+        /* 2026-11-25 Andy（iPad 橫放截圖）：在歌詞段落打字、鍵盤開著時，上面的歌曲分頁、標籤＆情境、新增段落先收起來，空間留給歌詞（收鍵盤就回來）。
+           標題列和工具列（復原、韻腳、角色）留著 */
+        html.kb-open:has(#lyricsSections :focus-within) #leftPanel :is(.lp-tabs, .context-section, .section-add-btn) { display: none; }
+
         /* ===== 虛擬鍵盤（D-09，UI-SPEC §4）：js/layout.js 在「有文字欄位聚焦、可見高度矮 150px 以上」時加 html.kb-open，
            並把 --app-h／--vv-top／--kb-inset 寫成鍵盤上方的可見範圍。下面的規則只負責讓位，不自己量尺寸。 ===== */
         @media (max-width: 900px) {

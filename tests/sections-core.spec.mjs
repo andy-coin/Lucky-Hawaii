@@ -78,6 +78,16 @@ test('名稱：編號', () => {
     expect(names([T('chorus'), T('verse'), T('chorus')])).toEqual(['Chorus I', 'Verse', 'Chorus II']);
 });
 
+test('名稱：自己挑的編號（段落選單滾輪，2026-11-25）', () => {
+    const names = secs => ev(`lhSecNames(${j(secs)})`);
+    // 沒挑過照順序；挑過的照挑的（0＝不編號），不影響其他段落的順序編號
+    expect(names([{ type: 'verse' }, { type: 'verse', num: 0 }, { type: 'verse' }])).toEqual(['Verse I', 'Verse', 'Verse III']);
+    expect(names([{ type: 'chorus', num: 2 }])).toEqual(['Chorus II']);
+    expect(ev(`lhSecFields({ type: 'verse', num: 3 }).num`)).toBe(3);
+    expect(ev(`'num' in lhSecFields({ type: 'verse', num: 99 })`)).toBe(false);   // 超出範圍不存
+    expect(ev(`'num' in lhSecFields({ type: 'verse', num: '2' })`)).toBe(false);
+});
+
 test('名稱：整理兩次結果相同', () => {
     const src = [
         { id: 'a', label: '主歌', text: '一' }, { id: 'b', label: '', text: '二' }, { id: 'c', label: 'Hook', text: '三' },

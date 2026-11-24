@@ -93,6 +93,8 @@
 
         // ===== 左側面板：歌詞段落 =====
         function toggleLeftPanel() {
+            // 2026-11-25 Andy（iPad 橫放）：歌詞面板展開（全寬）時，側邊那條三角形＝「收回」，回到一般寬度，不是整個收起來
+            if (document.body.classList.contains('lp-full')) { lhLpFull(false); return; }
             const panel = document.getElementById('leftPanel');
             panel.classList.toggle('collapsed');
             lhSet('leftPanelCollapsed', panel.classList.contains('collapsed'));

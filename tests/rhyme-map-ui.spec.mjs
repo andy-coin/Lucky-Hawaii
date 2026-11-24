@@ -1186,10 +1186,8 @@ test('浮動列：手機長按選字，連續改選取只出現一次', async ({
     expect(r.shows.length, '只出現一次').toBe(1);
     expect(r.shows[0] - r.last, '最後一次改變之後約 400ms').toBeGreaterThan(300);
     expect(r.shows[0] - r.last).toBeLessThan(900);
-    // 觸控：系統的拷貝／貼上選單貼在選取旁邊，選字列要躲開——選取在上半貼底、在下半貼頂（0.97.03）
-    const line = await lineBottom(page, 7);
-    const bb = await barBox(page);
-    expect(bb.y > line.bottom + 40 || bb.y + bb.height < line.bottom - 80, '離開選取那一行（貼到可見範圍離選取較遠的那一邊）：' + JSON.stringify({ bb, line })).toBe(true);
+    // 觸控（2026-11-25 Andy）：選字列不浮在選取旁邊（會擋到系統選單），直接收進歌詞工具列
+    expect(await page.evaluate(() => !!document.querySelector('#leftPanel .lyrics-tools > #rhymeSelBar.rm-docked.show'))).toBe(true);
     expect(errors).toEqual([]);
     await context.close();
 });

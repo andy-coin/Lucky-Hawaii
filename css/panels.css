@@ -406,6 +406,14 @@
         .word-ctx-menu.rm-bar { padding: var(--sp-1); min-width: 0; }
         .word-ctx-menu.rm-bar.show { display: flex; gap: var(--sp-1); flex-wrap: wrap; }
         .rm-bar .section-menu-btn { min-height: 2rem; min-width: var(--hit); white-space: nowrap; }
+        /* 2026-11-25 Andy（觸控）：選字列收進歌詞工具列（「吸附」左邊），重點色底比較容易注意到；放不下就橫向捲 */
+        .word-ctx-menu.rm-bar.rm-docked { position: static; z-index: auto; box-shadow: none; flex: 1 1 auto; min-width: 0; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin-inline-start: auto;
+            background: color-mix(in srgb, var(--highlight-border) 22%, var(--container-bg)); border-color: var(--highlight-border); }
+        .word-ctx-menu.rm-bar.rm-docked:not(.show) { display: none; }
+        .word-ctx-menu.rm-bar.rm-docked .rm-bar-reading:not([hidden]) { flex: none; }
+        .word-ctx-menu.rm-bar.rm-docked > .section-menu-btn { flex: none; }   /* 按鈕不擠扁，放不下就整排左右滑 */
+        .lyrics-tools:has(> .rm-bar.rm-docked.show) > .lyrics-total { display: none; }   /* 選字列出來時字數先讓位 */
+        .lyrics-tools:has(> .rm-bar.rm-docked.show) { position: sticky; top: 0; z-index: 3; background: var(--container-bg); }   /* 手機的歌詞欄整個會捲：選字列出來時工具列黏在頂端，才看得到 */
         /* 指定讀音那一列（10-06）：佔滿整列，標籤＋晶片；晶片外觀對齊字卡上的破音字 .poly-chip */
         .rm-bar-reading { flex: 1 0 100%; display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-1); }
         .rm-bar-reading[hidden] { display: none; }
@@ -918,6 +926,7 @@
             box-shadow: 0 8px 32px rgba(0,0,0,0.25);
         }
         .feedback-modal h3 { margin: 0 0 1rem; font-size: 1rem; color: var(--text-primary); }
+        .feedback-modal .feedback-hi { margin: -0.5rem 0 1rem; font-size: 0.875rem; color: var(--text-secondary); }   /* 2026-11-25 Andy：開場招呼 */
         .feedback-modal input, .feedback-modal textarea {
             width: 100%;
             box-sizing: border-box;
@@ -1430,6 +1439,22 @@
             gap: var(--sp-1);
         }
         .type-grid-3 { grid-template-columns: repeat(3, 1fr); }   /* 小中大、淡標準濃：三欄 */
+        /* 2026-11-25 Andy：類型右邊的羅馬數字滾輪——一次看到三格，中間那格（重點色框）就是選到的 */
+        .type-wrap { display: flex; gap: var(--sp-2); align-items: center; }
+        .type-wrap > .type-grid { flex: 1; min-width: 0; }
+        .sec-num { flex: none; width: 3.25rem; display: flex; flex-direction: column; align-items: stretch; gap: 0.125rem; }
+        .sec-num[hidden] { display: none; }
+        .sec-num-cap { font-size: 0.75rem; color: var(--text-secondary); text-align: center; }
+        .sec-num-step { min-height: 1.5rem; padding: 0; border: 1px solid var(--border); border-radius: 0.375rem; background: var(--card-bg); color: var(--text-secondary); font-size: 0.75rem; cursor: pointer; }
+        @media (hover: hover) and (pointer: fine) { .sec-num-step:hover { color: var(--text-primary); border-color: var(--highlight-border); } }
+        .sec-num-wheel { position: relative; height: 6rem; overflow-y: auto; scroll-snap-type: y mandatory; scrollbar-width: none; overscroll-behavior: contain;
+            padding-block: 2rem; box-sizing: border-box; border: 1px solid var(--border); border-radius: 0.5rem;
+            background: linear-gradient(transparent 2rem, color-mix(in srgb, var(--highlight-border) 18%, var(--card-bg)) 2rem, color-mix(in srgb, var(--highlight-border) 18%, var(--card-bg)) 4rem, transparent 4rem), var(--card-bg); }
+        .sec-num-wheel[hidden] { display: none; }
+        .sec-num-wheel::-webkit-scrollbar { display: none; }
+        .sec-num-item { height: 2rem; display: flex; align-items: center; justify-content: center; scroll-snap-align: center; font-family: var(--font-serif); font-size: 0.9375rem; color: var(--text-secondary); opacity: 0.55; cursor: pointer; }
+        .sec-num-item[aria-selected="true"] { color: var(--text-primary); font-weight: 700; opacity: 1; }
+        @media (pointer: coarse) { .sec-num-step { min-height: var(--hit); } }
         .type-row {
             min-height: 2rem;
             padding: var(--sp-1) var(--sp-2);
@@ -2982,6 +3007,13 @@ body.ws-open .ws-space { opacity: 1; }
 .ws-leg::before { content: ''; width: 0.625rem; height: 0.625rem; border-radius: 50%; background: var(--c); margin-inline-end: 0.375rem; }
 @media (hover: hover) and (pointer: fine) { .ws-leg:hover { border-color: var(--c); } }
 .ws-pos { display: flex; gap: var(--sp-1); }
+/* 2026-11-25 Andy：查詞的聲調鈕——每個字一排：[字][一][二][三][四]（[輕]），按下去用那個聲調的顏色 */
+.ws-tones { display: flex; flex-direction: column; gap: var(--sp-1); }
+.ws-tones[hidden] { display: none; }
+.ws-tone-row { flex-wrap: wrap; align-items: center; row-gap: 0.125rem; }
+.ws-tone-lab { flex: 1 0 100%; font-size: 0.75rem; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }   /* 2026-11-25 Andy：這一排押的音標寫在上面一行（多個詞時比較長） */
+.ws-tone-row .ws-hud-btn { flex: 1 1 0; min-width: 0; padding: 0; font-size: 0.8125rem; }
+.ws-tones .ws-tone-row .ws-hud-btn[aria-pressed="true"] { border-color: var(--c); color: var(--c); box-shadow: inset 0 -2px 0 var(--c); }
 .ws-pos[hidden] { display: none; }
 .ws-pos .ws-hud-btn { flex: 1; }
 .ws-pos .ws-hud-btn[aria-pressed="true"] { border-color: var(--highlight-border); color: var(--highlight-border); box-shadow: inset 0 -2px 0 var(--highlight-border); }
@@ -3412,7 +3444,7 @@ html[data-lm] .section-body.has-cols .section-textarea { padding-left: 0.75rem; 
 .ws-ptop:has(> .ws-pages[hidden]) > .ws-cnav > :is(.ws-cn-prev, .ws-cn-next) { min-width: 0; width: 1.875rem; padding: 0; }
 .ws-ptop > .ws-dice { grid-column: 1; grid-row: 1; }
 .ws-ptop > .ws-aib { grid-column: 3; grid-row: 1; }
-.ws-ptop > .ws-cnav { grid-column: 2; grid-row: 2; }
+.ws-ptop > .ws-cnav { grid-column: 1 / -1; grid-row: 2; }   /* 2026-11-25 Andy：導覽列橫跨骰子到 AI，下面不留空白 */
 /* Andy（手機橫放）：左邊兩塊面板碰到上方中間那排 → 整排搬到下方（JS 判斷後加 .ws-plow），排法跟窄螢幕一樣 */
 .ws-plow .ws-ptop { top: auto; bottom: max(0.75rem, env(safe-area-inset-bottom, 0px)); }
 @media (min-width: 761px) and (pointer: coarse) { .ws-plow .ws-ptop { bottom: max(0.5rem, calc(env(safe-area-inset-bottom, 0px) - 0.75rem)); } }   /* 2026-11-24 Andy：iPad 再往下（底部橫條很細，不用整個安全區） */   /* 2026-11-23 Andy：下面不要再多留一截，只讓開 iPhone 底部橫條 */
@@ -3453,7 +3485,7 @@ html[data-lm] .section-body.has-cols .section-textarea { padding-left: 0.75rem; 
 .ws-dice.on { color: var(--con-dice); border-color: var(--con-dice); box-shadow: 0 0 0 1px var(--con-dice), 0 0 0.5rem color-mix(in srgb, var(--con-dice) 70%, transparent), 0 0 1.25rem color-mix(in srgb, var(--con-dice) 35%, transparent); }
 .ws-aib.on { color: var(--con-ai); border-color: var(--con-ai); box-shadow: 0 0 0 1px var(--con-ai), 0 0 0.5rem color-mix(in srgb, var(--con-ai) 70%, transparent), 0 0 1.25rem color-mix(in srgb, var(--con-ai) 35%, transparent); }
 .ws-aib.busy { opacity: 0.5; cursor: progress; }   /* AI 想的時候變淡（不新增動畫：Phase 7 規則） */
-.ws-cnav { display: flex; gap: var(--sp-1); }   /* 每顆都是獨立按鈕（自己的底色、外框），沒有共用的面板底 */
+.ws-cnav { display: flex; gap: var(--sp-1); justify-content: space-between; }   /* 每顆都是獨立按鈕（自己的底色、外框），沒有共用的面板底 */
 .ws-cnav[hidden] { display: none; }
 .ws-cnav > .ws-hud-btn { flex: 1 1 auto; min-height: 1.625rem; padding: 0 0.5rem; font-size: 0.75rem; white-space: nowrap; }   /* Andy：導覽列縮小 */
 .ws-cnav > .ws-cn-prev, .ws-cnav > .ws-cn-next { flex: 0 0 1.875rem; padding: 0; }

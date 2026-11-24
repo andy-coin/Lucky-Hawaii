@@ -1296,11 +1296,19 @@ function _lhMapBarPlace() {
             const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
             x = pos.left;
             if (matchMedia('(pointer: coarse)').matches) {
-                // 觸控：系統自己的「拷貝／貼上」選單貼在選取旁邊，選字列不能跟它搶位置 → 貼到可見範圍離選取比較遠的那一邊（上半＝貼底、下半＝貼頂）
+                // 觸控：系統的拷貝／貼上選單貼在選取旁邊，選字列不能跟它搶位置 → 貼到可見範圍離選取比較遠的那一邊（找不到工具列時的後備）
                 const top = vv ? vv.offsetTop : 0, h = vv ? vv.height : innerHeight;
                 y = (p0.top + pos.top + pos.height) / 2 < top + h / 2 ? top + h : top + 0.5 * rem;
             } else y = pos.top + pos.height + 0.25 * rem;
         }
+    }
+    // 2026-11-25 Andy（觸控）：浮在選取旁邊總有機會擋到系統選單 → 直接收進歌詞工具列（「吸附」左邊），一定閃得開
+    const tools = matchMedia('(pointer: coarse)').matches && ta.closest('#leftPanel')?.querySelector('.lyrics-tools');
+    if (tools) {
+        if (_lhMapBar.parentNode !== tools) tools.insertBefore(_lhMapBar, tools.querySelector('#canvasTools'));
+        _lhMapBar.classList.add('rm-docked', 'show');
+        _lhMapBar.style.left = _lhMapBar.style.top = '';
+        return;
     }
     lhPlaceMenu(_lhMapBar, x, y);
 }
@@ -1407,6 +1415,7 @@ function _lhMapBarOnChange(e) {
         const t = e.target;
         if (!t.contains || !(t.contains(area) || area.contains(t))) return;
         if (t.classList && t.classList.contains('rhyme-mirror')) return;
+        if (_lhMapBar && _lhMapBar.classList.contains('rm-docked')) return;   // 2026-11-25：收進工具列的選字列不跟著選取浮動，捲動不用收
         if (_lhMapBarSnap && performance.now() > _lhMapBarGrace) lhMapHideBar(true);
     }, true);
     // Alt+↓：焦點到浮動列（D-16）

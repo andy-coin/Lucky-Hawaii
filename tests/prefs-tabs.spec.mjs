@@ -38,7 +38,7 @@ test('分頁：結構、無障礙屬性、每個設定都在某個分頁裡', as
     expect(await btnTab('從檔案匯入')).toBe('prefsPanel-data');
     expect(await btnTab('匯出設定外觀')).toBe('prefsPanel-data');   // 0.98.21：「清除字庫 local 覆寫」拿掉，位置給儲存空間
     expect(await btnTab('重看功能導覽')).toBe('prefsPanel-help');
-    expect(await btnTab('意見回饋')).toBe('prefsPanel-help');
+    expect(await page.locator('.settings-feedback-btn').evaluate(b => b.closest('[role=tabpanel]').id)).toBe('prefsPanel-help');   // 2026-11-25「意見回饋」改名「回饋」（字面會撞到分頁「說明與回饋」）
     // 點分頁切換
     await tab(page, '資料與備份').click();
     await expect(page.locator('#prefsPanel-data')).toBeVisible();

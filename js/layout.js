@@ -123,6 +123,9 @@ function _lhKbUpdate() {
         if (was && typeof lhCanvasApply === 'function') lhCanvasApply();   // 鍵盤收起：自由畫布排回來（canvas.js 較晚載入）
         return;
     }
+    // 2026-11-25 Andy（iPad 橫放，偶爾）：打字途中 iOS 還會再把整頁往上推（歌詞被推到狀態列底下、下面空一大截）。
+    // 寬版沒有 sheet 的 --vv-top 補位 → 鍵盤開著時，每次視窗捲動／縮放都把整頁拉回頂端（捲動交給面板自己）
+    if (!lhIsSheetMode() && (window.scrollY || vvTop)) window.scrollTo(0, 0);
     // 不四捨五入：iOS 的 visualViewport 常是小數，湊整會讓面板差 0.5px 露出一條縫
     root.style.setProperty('--app-h', vvH + 'px');
     root.style.setProperty('--vv-top', vvTop + 'px');

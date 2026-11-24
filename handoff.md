@@ -1,3 +1,31 @@
+## ⚠️ 下次開工先提醒 Andy
+- **白洞裡補 DONATE 資訊**（2026-11-25 Andy 交代：下次工作好韻器時提醒他）。
+- 行動裝置「重點跟隨」：點一下顯示韻腳也會叫出鍵盤，兩者衝突，還沒想到兩全辦法（只記不修）。
+
+## 最新：0.98.45（2026-11-25）——已 push
+- 保留詞星座：js/word-space.js `_lhSpKeptChords`（進宇宙時：只吸附近的點，每群最多 10 顆，群內最小生成樹）；`_lhSpPin` 新增時只連最近、未滿、夠近（100% 縮放畫面短邊 35%）的星座。
+- 查詞聲調鈕：每排上面寫押的音標（押母音＝韻母，押子音／同讀音＝聲母；多詞「ㄥ/ㄚ」）。
+- 觸控選字列：收進歌詞工具列（「吸附」左邊，js/rhyme-map.js _lhMapBarPlace，.rm-docked），出現時字數讓位。
+- 段落編號：滾輪加「編號」標題、上下箭頭、中間底色帶（css .sec-num*）。
+- iPad 打字途中被推上去：js/layout.js _lhKbUpdate 鍵盤開著＋非 sheet 時每次都 scrollTo(0,0)。**待實機確認**。
+- AI 導覽「保留」改成便利貼說法；展開歌詞面板（lp-full）時側邊三角形＝收回（js/lyrics.js toggleLeftPanel）。
+- 新 icon：icon.png（512，方形給 iOS 主畫面）、icon-192.png、favicon.png（圓角，分頁用）；manifest 兩個尺寸。
+- 第 5 點（iPad 骰子／AI 空白）Andy 說可能誤會，再遇到再說；改動已還原。
+
+## 最新：蚵仔麵線（2026-11-25）——12 點清單（本地，未 push）
+- 1 保留詞星座有上限：js/word-space.js `_lhSpPin` 只連「最近、未滿 LH_SP_CON_MAX」的星座；一進宇宙保留詞很多＝_lhSpConBuild 分區。
+- 2a 關聯詞第二面板：非破音字不寫注音（_lhSpClLabel 看 cfg.poly）。2b 查詞「顯示全部」：第二面板不建，第一面板 .ws-tones 每字一排聲調鈕（_lhSpToneBuild／_lhSpToneApply，同排或、跨排且；有輕聲詞才有「輕」）。
+- 3 觸控選字列：放在選取第一個字正上方（js/rhyme-map.js _lhMapBarPlace），重點色底（css panels ~409，只觸控）。
+- 4 段落編號滾輪：s.num（0＝不編號，1～10；沒有＝照順序）js/sections-core.js lhSecNames／lhSecAutoNum；選單 .sec-num-wheel（js/sections.js lhSecMenuBuild／Sync）。
+- 6 多重宇宙導覽列橫跨骰子到 AI（css .ws-ptop > .ws-cnav grid-column 1/-1）。
+- 7 白洞出口：一開始就用蓋滿時的大小畫（光暈照比例），從 1/C 放大回原尺寸（_lhSpVoid 出口）。
+- 9 「意見」→「回饋」＋招呼語（index.html、css .feedback-hi）。10 AI 遇多詞＝各詞候選合起來（currentRhymes.groups；js/rhyme-display.js、js/ai-generate.js）。
+- 11 宇宙導覽：第一步「字越大越常用」，拿掉拖詞、特效兩步。12 主導覽萬用字例「*莉蓮」。
+- 13 打歌詞＋鍵盤開：收起歌曲分頁、標籤＆情境、新增段落（css/responsive.css ~681）。待 Andy iPad／iPhone 實測。
+- **5（只記不修）行動裝置「重點跟隨」**：要點一下才顯示韻腳，但點一下也會叫出輸入框（鍵盤）。兩者衝突，還沒想到兩全的做法，之後再討論。
+- **8 待解決**：白洞裡補 DONATE 資訊。
+- tests：相關 426 項通過；改了過時測試（回饋改名、選字列位置、查詞沒有色標）；新增段落編號單元測試。
+
 ## 最新：0.98.44.1（2026-11-24，只換 ?v= 快取編號，顯示版本仍 0.98.44）——已 push
 - iPad 橫放點歌詞框：iOS 把整頁往上推，段落標題被推出畫面、下面空一截。js/layout.js `_lhKbReveal`：非 sheet 版面先 scrollTo(0,0)，再把整段 .lyrics-section（放得下的話）捲進面板可見範圍。**待 Andy iPad 實機確認**；手機（sheet）不受影響。
 

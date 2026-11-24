@@ -978,7 +978,36 @@ function lhSecMenuBuild() {
     const alignBlock = _lhMkBlock('文字對齊', aligns), actBlock = _lhMkBlock('段落', acts);
     alignBlock.classList.add('section-full-only');
     actBlock.classList.add('section-full-only');
-    m.append(title, _lhMkBlock('類型', types), nameBlock, _lhMkBlock('顏色', grid, row), alignBlock, _lhMkBlock('位置', moves), actBlock);   // 不放「關閉設定」：點空白處、Esc 就會關
+    // 2026-11-25 Andy：類型旁邊一個直的滾輪挑羅馬數字（— 不編號、I～X）；停下來那格就是選到的
+    const wheel = _lhMk('div', 'sec-num-wheel');
+    wheel.setAttribute('role', 'listbox');
+    wheel.setAttribute('aria-label', '段落編號');
+    for (let k = 0; k <= LH_SEC_NUM_MAX; k++) {
+        const it = _lhMk('div', 'sec-num-item', k ? lhToRoman(k) : '—');
+        it.setAttribute('role', 'option');
+        it.dataset.num = k;
+        it.addEventListener('click', () => wheel.scrollTo({ top: it.offsetTop - (wheel.clientHeight - it.offsetHeight) / 2, behavior: 'smooth' }));
+        wheel.append(it);
+    }
+    let wheelT = 0;
+    wheel.addEventListener('scroll', () => {
+        if (wheel._sync) return;   // 程式自己捲的（打開選單時對到目前的編號）不算選
+        clearTimeout(wheelT);
+        wheelT = setTimeout(() => {   // 停下來 150ms 才算選定（iOS 的慣性捲動會一直送 scroll）
+            const its = [...wheel.children], mid = wheel.scrollTop + wheel.clientHeight / 2;
+            const it = its.reduce((a, b) => Math.abs(b.offsetTop + b.offsetHeight / 2 - mid) < Math.abs(a.offsetTop + a.offsetHeight / 2 - mid) ? b : a);
+            if (_lhMenuSec() && _lhMenuSec().type !== 'custom') { _lhMenuSet('num', 'num', +it.dataset.num); lhSecMenuSync(); }
+        }, 150);
+    });
+    // 2026-11-25 Andy（看不出來是滾輪）：上下各一顆箭頭（按一下換一格），中間那格有底色＝選到的
+    const step = d => { const n = Math.max(0, Math.min(LH_SEC_NUM_MAX, (+(wheel.querySelector('[aria-selected="true"]') || wheel.children[0]).dataset.num) + d)); wheel.children[n].click(); };
+    const numUp = _lhMkBtn('sec-num-step', '▲', '上一個編號'), numDn = _lhMkBtn('sec-num-step', '▼', '下一個編號');
+    numUp.addEventListener('click', () => step(-1)); numDn.addEventListener('click', () => step(1));
+    const numBox = _lhMk('div', 'sec-num');
+    numBox.append(_lhMk('span', 'sec-num-cap', '編號'), numUp, wheel, numDn);
+    const typeWrap = _lhMk('div', 'type-wrap');
+    typeWrap.append(types, numBox);
+    m.append(title, _lhMkBlock('類型', typeWrap), nameBlock, _lhMkBlock('顏色', grid, row), alignBlock, _lhMkBlock('位置', moves), actBlock);   // 不放「關閉設定」：點空白處、Esc 就會關
     document.body.appendChild(m);
 
     // 顏色：色票與「無顏色」馬上套用；原生選色盤拖動時只預覽（input），放開才記一步（change，D-06）
@@ -1119,6 +1148,13 @@ function lhSecMenuSync() {
         r.tabIndex = on ? 0 : -1;
     });
     _lhMenu.querySelector('.section-menu-name').hidden = s.type !== 'custom';
+    {   // 滾輪對到目前顯示的編號（自己挑過的，或照順序自動給的）
+        const wheel = _lhMenu.querySelector('.sec-num-wheel'), n = Number.isInteger(s.num) ? s.num : lhSecAutoNum(song.sections, s);
+        wheel.closest('.sec-num').hidden = wheel.hidden = s.type === 'custom';
+        wheel.querySelectorAll('.sec-num-item').forEach(it => it.setAttribute('aria-selected', String(+it.dataset.num === n)));
+        const it = wheel.children[n];
+        if (it && !wheel.hidden) { wheel._sync = true; wheel.scrollTop = it.offsetTop - (wheel.clientHeight - it.offsetHeight) / 2; requestAnimationFrame(() => requestAnimationFrame(() => { wheel._sync = false; })); }
+    }
     _lhMenu.querySelectorAll('.section-align').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.align === (s.align || 'left'))));
     const name = _lhMenu.querySelector('.section-name-input');
     if (document.activeElement !== name) name.value = s.custom;
