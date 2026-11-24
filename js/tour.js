@@ -17,10 +17,12 @@ const LH_TOURS = {
           body: '照常用程度排序。點字卡可以選字，AI 建議就只找含這些字的詞；按住字卡能直接拖進歌詞。' },
         { sel: '.search-box', title: '雙押、多押',
           body: '輸入連續的詞（例如「洋流」），列出每個字都押韻的詞。用 * 代替不必押的字（例如「*莉蓮」）；空白分開多個詞（例如「蒸籠 發粿」）會一起列出來。按「顯示全部」把所有押韻詞攤開來挑。' },
-        { sel: '#mainContainer > .header', title: '自己排版面', mouse: true,
-          body: '抓著三塊面板的標題列拖曳：放到別塊中間是對調，放到邊緣是分割畫面。拖面板之間的分隔線可以調寬度。' },
         { sel: '#mainContainer > .header', title: '加到主畫面', ios: true,
           body: '在 Safari 按分享鈕（方框加向上箭頭），選「加入主畫面」。之後從主畫面打開就像 App 一樣全螢幕，沒有網址列擋畫面。' },
+        { sel: '#mainContainer > .header', title: '加到主畫面', android: true,
+          body: '在 Chrome 按右上角的 ⋮，選「加到主畫面」或「安裝應用程式」。之後從主畫面打開就像 App 一樣全螢幕，沒有網址列擋畫面。' },
+        { sel: '#mainContainer > .header', title: '自己排版面', mouse: true,
+          body: '抓著三塊面板的標題列拖曳：放到別塊中間是對調，放到邊緣是分割畫面。拖面板之間的分隔線可以調寬度。' },
         { sel: '#settingsTrigger', title: '偏好設定',
           body: '讀音顯示、自訂詞彙、主題顏色、特效、AI 金鑰、備份都在這裡。每塊面板右上角的「?」可以再看一次說明。' },
     ],
@@ -60,10 +62,12 @@ const LH_TOURS = {
 // ios：只給 iPhone／iPad 用 Safari 開、還沒加到主畫面的人（iPadOS 會假裝是 Mac：用觸控點數認）
 const _lhTourIosWeb = () => (/iP(hone|ad|od)/.test(navigator.userAgent) || (/Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1))
     && !(navigator.standalone === true || matchMedia('(display-mode: standalone)').matches);
+// android：Android 手機、平板用瀏覽器開、還沒加到主畫面的人（2026-11-25 Andy）
+const _lhTourAndroidWeb = () => /Android/.test(navigator.userAgent) && !matchMedia('(display-mode: standalone)').matches;
 // 電腦（滑鼠、不是底部 sheet 版面）走完整的步驟；平板、手機跳過 mouse: true 的步驟，說明有 bodyTouch 就用觸控版
 function lhTourSteps(group = 'search') {
     const desk = matchMedia('(hover: hover) and (pointer: fine)').matches && !lhIsSheetMode();
-    return (LH_TOURS[group] || LH_TOURS.search).filter(s => (desk || !s.mouse) && (!s.ios || _lhTourIosWeb())).map(s => desk || !s.bodyTouch ? s : { ...s, body: s.bodyTouch });
+    return (LH_TOURS[group] || LH_TOURS.search).filter(s => (desk || !s.mouse) && (!s.ios || _lhTourIosWeb()) && (!s.android || _lhTourAndroidWeb())).map(s => desk || !s.bodyTouch ? s : { ...s, body: s.bodyTouch });
 }
 const _lhTourSeen = () => { const v = lhGet(LH_TOUR_KEY) || ''; return v === '1' ? [] : v.split(' ').filter(Boolean); };   // 舊版 '1'：新的分面板導覽當作都沒看過
 function _lhTourMark(group) { const s = _lhTourSeen(); if (!s.includes(group)) lhSet(LH_TOUR_KEY, [...s, group].join(' ')); }

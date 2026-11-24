@@ -1,6 +1,6 @@
 // 本地伺服器＝本機或區網私有 IP（手機測試.command 讓同一個 Wi‑Fi 的 iPhone／iPad 連進來，也算本地：有齒輪、輔助線、開發者功能）
 const LH_LOCAL_HOST = (() => { try { return /^(localhost|127\.0\.0\.1|192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+|172\.(1[6-9]|2\d|3[01])\.\d+\.\d+)$/.test(location.hostname); } catch (e) { lhWarn('讀不到網址主機名稱', e); return false; } })();
-const LH_BUILD = '大餅包小餅';   // 本地測試代號（台灣小吃系列）：每輪改完換一個，Andy 看標題後面的小字就知道是不是最新版（只有本地顯示）
+const LH_BUILD = '綠豆椪';   // 本地測試代號（台灣小吃系列）：每輪改完換一個，Andy 看標題後面的小字就知道是不是最新版（只有本地顯示）
 // ===== 黑洞開關（Andy）：BLACK_HOLE_ONLINE＝線上版有沒有黑洞。改成 true、升版 push 就上線；本地永遠有（方便調） =====
 const BLACK_HOLE_ONLINE = true;   // 0.98.43：Andy 調好參數、寫進預設，線上開
 const LH_SP_BH = LH_LOCAL_HOST || BLACK_HOLE_ONLINE;
