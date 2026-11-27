@@ -503,7 +503,7 @@ test('設定：矮螢幕上對話框不超出、可以捲', async ({ browser }) 
         const dialogs = [
             // 分頁式（R2）：對話框本身固定高度不捲，捲的是分頁內容
             ['設定分頁內容', '#settingsOverlay', '#prefsPanel-search', 'toggleSettings(),lhPrefsSelectTab("search")'],
-            ['關於', '#aboutOverlay', '.about-content', 'toggleAbout()'],
+            ['說明與回饋', '#settingsOverlay', '#prefsPanel-help', 'toggleAbout()'],
             ['回報', '#feedbackModalOverlay', '.feedback-modal', 'openFeedbackModal()'],
         ];
         for (const [name, overlay, box, open] of dialogs) {
@@ -1015,7 +1015,6 @@ test('版面：圖層順序', async ({ browser }) => {
             ['底部面板', await z(page, '#leftPanel')],
             ['分頁列', await z(page, '#mobileTabBar')],
             ['設定／關於', await z(page, '#settingsOverlay')],
-            ['關於', await z(page, '#aboutOverlay')],
             ['複製提示', await z(page, '.copy-toast')],
             ['字詞選單', await z(page, '#wordCtxMenu')],
             ['意見回饋', await z(page, '#feedbackModalOverlay')],

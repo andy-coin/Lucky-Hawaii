@@ -6,16 +6,14 @@
         // 「關於」：顯示目前詞庫包的名稱與來源說明（NOTICE.txt）。名稱與內文一律用 textContent，不會被當成 HTML（T-06-11）
         let _aboutNoticeSeq = 0;   // 連續開關時只有最新一次的結果會寫進畫面
         async function renderAboutPackNotice() {
-            const nameEl = document.getElementById('aboutPackName');
             const noticeEl = document.getElementById('aboutPackNotice');
-            if (!nameEl || !noticeEl) return;
+            if (!noticeEl) return;
             const seq = ++_aboutNoticeSeq;
             let desc = activeLexiconPack;
             if (!desc) {
                 try { desc = await resolveLexiconPack(); } catch (e) { lhWarn('詞庫來源說明讀取失敗', e); }
             }
             if (seq !== _aboutNoticeSeq) return;
-            nameEl.textContent = desc ? (desc.name ?? desc.id) : '';
             let text = '詞庫來源說明暫時讀不到';
             try {
                 // 路徑檢查和載入詞庫時一樣：只准 data/ 底下的簡單路徑
@@ -59,6 +57,7 @@
             if (_lhPrefsTab === 'map' && typeof lhMapPrefsBuild === 'function') lhMapPrefsBuild();   // 韻腳設定第一次看到才建
             if (_lhPrefsTab === 'ai' && typeof byokRenderPrefs === 'function') byokRenderPrefs();
             if (_lhPrefsTab === 'data' && typeof lhDataRender === 'function') lhDataRender();   // 快照、垃圾桶（js/snapshots.js）
+            if (_lhPrefsTab === 'help') { document.getElementById('aboutVer').textContent = LH_APP_VERSION; renderAboutPackNotice(); }   // 版本號只寫在 js/safety.js；詞庫說明每次看都重讀
             _lhPrefsBgFxSync();
             document.getElementById(tab.getAttribute('aria-controls')).scrollTop = 0;
             tab.scrollIntoView({ block: 'nearest', inline: 'nearest' });   // 手機上分頁列橫向捲動：選到的分頁要看得到
@@ -195,18 +194,15 @@
             setUiScale(lhUiScale - LH_UI_SCALE_STEP);
         }
 
+        // 「i」鈕：打開偏好設定的「說明與回饋」分頁（0.98.46：關於內容已併進去，不再有獨立浮層）
         function toggleAbout() {
-            const overlay = document.getElementById('aboutOverlay');
-            overlay.classList.toggle('show');
-            // 每次打開都重讀：換包之後看到的永遠是目前這一包的來源說明
-            document.getElementById('aboutVer').textContent = LH_APP_VERSION;   // 版本號只寫在 js/safety.js 一個地方（0.98.12：原本 index.html 寫死，升版常漏）
-            if (overlay.classList.contains('show')) renderAboutPackNotice();
-        }
-
-        function closeAbout(event) {
-            if (event.target === event.currentTarget) {
-                document.getElementById('aboutOverlay').classList.remove('show');
+            const ov = document.getElementById('settingsOverlay');
+            if (!ov.classList.contains('show')) {
+                ov.classList.add('show');
+                renderLexiconPackList();
+                if (typeof lhMapCloseAll === 'function') lhMapCloseAll();
             }
+            lhPrefsSelectTab('help', true);
         }
         function _getSearchSingleChar(val) {
             const chars = [...val.trim()].filter(c => /[一-鿿]/.test(c));

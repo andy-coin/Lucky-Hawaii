@@ -770,13 +770,14 @@ function lhMapPrefsBuild() {
     pv.setAttribute('aria-hidden', 'true');
     const pvDiff = _lhMk('span', 'section-menu-cap rm-preview-diff', '對照差異要有同類型的前一段才看得到');
     pvDiff.hidden = true;
-    const preview = _lhMkBlock('調整句尾上色、逐行字數與斷句標記的開關、位置、大小和顏色。預覽：', pv, pvDiff);   // 0.98.09：說明併進預覽的子標題，跟預覽一起凍結在頂端
+    const intro = _lhMkBlock('調整句尾上色、逐行字數與斷句標記的開關、位置、大小和顏色。');   // 0.98.47：說明句放回最上面
+    const preview = _lhMkBlock('預覽：', pv, pvDiff);   // 0.98.09：說明併進預覽的子標題，跟預覽一起凍結在頂端
     preview.classList.add('lm-preview-block');
     // 最上面是模式三鈕（關閉／重點跟隨／全部標記），取代原本的「句尾上色」與「滑過才顯示」兩個開關
     const modeBlock = _lhMkBlock('韻腳地圖模式', _lhMapModeSeg(), _lhMk('span', 'section-menu-cap', LH_MAP_MODE_HINT));
     // 說明一行在最上面（0.98.09），接著預覽並黏頂（CSS .lm-preview-block sticky）：往下捲著改選項，預覽一直看得到
-    sec.append(preview, modeBlock, _lhMkBlock('韻腳地圖', ...mapRows), _lhMkBlock('句構分析', ...lineRow, sub,
-        ..._lhMapPrefRow('autoHover', '反白停留自動分析', LH_MAP_HOVER_HINT, 'rmPrefHover')), look, colors);
+    sec.append(intro, modeBlock, _lhMkBlock('韻腳地圖', ...mapRows), _lhMkBlock('句構分析', ...lineRow, sub,
+        ..._lhMapPrefRow('autoHover', '反白停留自動分析', LH_MAP_HOVER_HINT, 'rmPrefHover')), look, colors, preview);   // 0.98.46：預覽放最下面，黏在底部（CSS sticky bottom）
     // 整個段落共用一個點擊監聽（和選單一樣）：開關翻轉、寬韻／嚴格選一個，改了就存、就畫
     sec.addEventListener('click', e => {
         const seg = e.target.closest && e.target.closest('.rm-seg-btn');

@@ -2830,7 +2830,7 @@ body.editor-open .lyrics-section-header { touch-action: none; }
 /* 設定「韻腳與句構」：預覽黏在分頁頂端，下面的選項自己捲，切換時馬上看得到 */
 /* 手機（窄或矮）維持整個面板一起捲，不讓預覽吃掉半個畫面 */
 @media (min-width: 600px) and (min-height: 600px) {
-    .prefs-panel > .lm-preview-block { position: sticky; top: 0; z-index: 2; background: var(--card-bg); padding-bottom: var(--sp-2); border-bottom: 1px solid var(--border); }   /* 0.98.07：預覽凍結在頂端（歌詞短了，不會吃掉太多空間） */
+    .prefs-panel > .lm-preview-block { position: sticky; bottom: 0; z-index: 2; background: color-mix(in srgb, var(--accent-line, #4fd1c5) 14%, var(--card-bg)); padding: var(--sp-2); border-top: 2px solid var(--accent-line, #4fd1c5); border-radius: 0.5rem 0.5rem 0 0; }   /* 0.98.47：預覽區用主色淡底＋粗上線跟選項分開 */   /* 0.98.07：預覽凍結在頂端（歌詞短了，不會吃掉太多空間） */
     .prefs-panel > .lm-preview-block .lm-preview { max-height: none; overflow: visible; }   /* 預覽完整顯示，不在裡面捲 */
 }
 /* 吸附分列：縫加寬一點好抓（js/canvas.js 拖縫調整兩邊）；同一列卡片等高；有固定列高（data-rh）時文字框撐滿、字多在裡面捲 */

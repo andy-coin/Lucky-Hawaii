@@ -776,7 +776,7 @@
             box-shadow: 0 12px 40px rgba(0,0,0,0.2);
             width: min(34rem, 92vw);
             /* 分頁式（R2）：固定高度，換分頁時視窗不跳；捲動的是下面的分頁內容 */
-            height: min(40rem, calc(var(--app-h) - 2rem));
+            height: min(48rem, calc(var(--app-h) - 2rem));   /* 0.98.46：原 40rem 加長 1.2 倍 */
             overflow: hidden;
         }
 
@@ -876,7 +876,6 @@
         @media (max-width: 900px), (pointer: coarse) {
             .settings-saveload .save-load-btn,
             .settings-feedback-btn,
-            .settings-about-btn,
             .tour-replay-btn,
             .prefs-tabs [role="tab"],
             .reset-color,

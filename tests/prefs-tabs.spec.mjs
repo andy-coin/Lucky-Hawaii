@@ -44,11 +44,11 @@ test('分頁：結構、無障礙屬性、每個設定都在某個分頁裡', as
     await expect(page.locator('#prefsPanel-data')).toBeVisible();
     await expect(page.locator('#prefsPanel-look')).toBeHidden();
     await expect(tab(page, '資料與備份')).toHaveAttribute('aria-selected', 'true');
-    // 「關於好韻器」關掉設定、打開關於
+    // 「關於」已併進說明分頁：不再有獨立按鈕或浮層，內文直接在分頁上
     await tab(page, '說明與回饋').click();
-    await page.getByRole('button', { name: '關於好韻器' }).click();
-    await expect(page.locator('#settingsOverlay')).not.toHaveClass(/show/);
-    await expect(page.locator('#aboutOverlay')).toHaveClass(/show/);
+    await expect(page.getByRole('button', { name: '關於好韻器' })).toHaveCount(0);
+    await expect(page.locator('#aboutOverlay')).toHaveCount(0);
+    await expect(page.locator('#prefsPanel-help')).toContainText('希望能幫助大家想出絕妙好詞');
     expect(errors).toEqual([]);
     await context.close();
 });
