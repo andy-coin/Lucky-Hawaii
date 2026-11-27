@@ -42,13 +42,13 @@ test('主題：按鈕依序循環五個主題、顯示名字、記住選擇', as
 
 test('主題：舊的晝夜偏好與新使用者的預設', async ({ browser }) => {
     const cases = [
-        [{}, 'light', 'moon'], [{}, 'dark', 'plain'],
+        [{}, 'light', 'moon'], [{}, 'dark', 'moon'],   // 2026-11-27 Andy：新使用者一律 Moon
         [{ hoyun_theme_mode: 'light' }, 'dark', 'moon'], [{ hoyun_theme_mode: 'dark' }, 'light', 'plain'],
         [{ hoyun_theme_mode: 'light', containerBg: '#fff7e6' }, 'light', 'custom'],
         [{ hoyun_theme_mode: 'dark', textColor: '#123456' }, 'light', 'custom'],
         [{ containerBg: '#eee3ce' }, 'light', 'moon'],   // 舊版預設色不算自訂
         [{ hoyun_theme_mode: 'city' }, 'light', 'city'],
-        [{ hoyun_theme_mode: 'bogus' }, 'dark', 'plain'],
+        [{ hoyun_theme_mode: 'bogus' }, 'dark', 'moon'],
     ];
     for (const [storage, scheme, want] of cases) {
         const { context, page } = await bootPage(browser, { wordlist: 'stub', colorScheme: scheme, storage });

@@ -2,6 +2,21 @@
 - **白洞裡補 DONATE 資訊**（2026-11-25 Andy 交代：下次工作好韻器時提醒他）。
 - 行動裝置「重點跟隨」：點一下顯示韻腳也會叫出鍵盤，兩者衝突，還沒想到兩全辦法（只記不修）。
 
+## 2026-11-27（代號 肉圓，本地未 commit）
+- impeccable 已移除；刪 DESIGN.md、.impeccable/，保留 PRODUCT.md（產品說明，未 commit）。
+- index.html 修兩個多餘結尾標籤：常用字按鈕後多一個 `</button>`（:98）、About「歡迎留言」後多一個 `</p>`（:162）。
+- 紫藍殘留清掉：韻腳地圖讀音晶片改 var(--accent-line)／var(--accent-soft)（css/panels.css:424-425）；8 個選色器 HTML 預設值改成 Moon 色（index.html:36 起、:189 起；載入後本來就會被實際色蓋掉）。
+- 新使用者一律 Moon，不看系統深淺色（js/theme.js:38 lhResolveTheme）；舊存 dark 仍→Plain。
+- 過時測試更新：theme-r2.spec:45/51、style.spec:119（新預設 Moon）、visual.spec:16 results-dark 改明講 Plain；style.spec 白名單補紅龜粿的 lh-drum 動畫、遮罩 #000、無顏色紅斜線 #e05d5d。受影響 7 檔全過。
+- frontend-design 審查（只看不改）：建議清單在對話裡，等 Andy 挑。
+
+## 進行中（2026-11-26，本地，未 commit／未 push；代號 紅龜粿）
+- 段落設定選單（由上到下）：顏色一排 → 類型／編號兩個滾筒 →（Custom 才有）自訂名稱 → 對齊、位置、段落。
+  - 顏色：8 色＋無顏色（透明圓＋紅斜線，aria-label 無顏色）＋自訂（原生選色器做成圓、中間一支筆，筆用 createElementNS 建，不能 innerHTML）擠成一排 20px 小圓；觸控 44px 換行成兩排 5 顆（js/sections.js lhSecMenuBuild 色票段、css/panels.css「選單固定寬」那段）。
+  - 選單寬固定 16.25rem（260px），自訂名稱框 width 100%，切 Custom 不再變寬。
+  - 滾筒：js/sections.js `_lhWheel`／`_lhWheelCenter`／`_lhWheelsCenter`；css `.sec-wheel`（--wr／--wn，觸控 44×3 格不壓扁）。
+  - 測試更新：sections-audit.spec.mjs:406、line-audit.spec.mjs（@keyframes 白名單加 lh-drum，Andy 指定）。sections／undo／layout／line-audit 全過。**待 Andy 看**。
+
 ## 最新：0.98.45.1（2026-11-25，只換 ?v=）——已 push
 - 主畫面導覽：「加到主畫面」移到第 4 步（iOS 用 Safari 分享→加入主畫面；新增 Android：Chrome ⋮→加到主畫面／安裝應用程式，js/tour.js _lhTourAndroidWeb）。已經從主畫面打開的不顯示。
 

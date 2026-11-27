@@ -902,6 +902,31 @@ function _lhMkBlock(cap, ...kids) {
     return b;
 }
 
+// 2026-11-26 Andy：類型、編號都是滾筒——捲動停下 150ms，中間那格就是選到的；程式自己捲（_sync）不算選
+function _lhWheelCenter(wheel, it) {
+    if (!it || wheel.hidden) return;
+    wheel._sync = true;
+    wheel.scrollTop = it.offsetTop - (wheel.clientHeight - it.offsetHeight) / 2;
+    requestAnimationFrame(() => requestAnimationFrame(() => { wheel._sync = false; }));
+}
+function _lhWheel(wheel, pick) {
+    let t = 0;
+    wheel.addEventListener('scroll', () => {
+        if (wheel._sync) return;
+        clearTimeout(t);
+        t = setTimeout(() => {   // iOS 的慣性捲動會一直送 scroll，停下來才算
+            const mid = wheel.scrollTop + wheel.clientHeight / 2, dist = el => Math.abs(el.offsetTop + el.offsetHeight / 2 - mid);
+            if (_lhMenuSec()) pick([...wheel.children].reduce((a, b) => dist(b) < dist(a) ? b : a));
+        }, 150);
+    });
+}
+// 兩個滾筒對到目前的類型與編號（選單要先顯示才量得到位置）
+function _lhWheelsCenter() {
+    if (!_lhMenu) return;
+    _lhWheelCenter(_lhMenu.querySelector('.type-grid'), _lhMenu.querySelector('.type-row[aria-checked="true"]'));
+    _lhWheelCenter(_lhMenu.querySelector('.sec-num-wheel'), _lhMenu.querySelector('.sec-num-item[aria-selected="true"]'));
+}
+
 function lhSecMenuBuild() {
     if (_lhMenu) return _lhMenu;
     const m = _lhMk('div', 'word-ctx-menu section-menu');
@@ -921,15 +946,20 @@ function lhSecMenuBuild() {
     pick.type = 'color';
     pick.value = '#888888';
     pick.setAttribute('aria-label', '自訂顏色');
-    const none = _lhMkBtn('section-menu-btn section-color-none', '無顏色');
-    const row = _lhMk('div', 'section-menu-row');
-    row.append(pick, none);
-    // 類型：8 個 radio，兩欄
-    const types = _lhMk('div', 'type-grid');
+    // 2026-11-26 Andy：色票、無顏色（透明＋紅斜線）、自訂（圓裡一支筆）擠成一排小圓
+    const none = _lhMkBtn('section-color-none', '', '無顏色');
+    const pickWrap = _lhMk('span', 'sec-pick');
+    const NS = 'http://www.w3.org/2000/svg', pen = document.createElementNS(NS, 'svg');
+    pen.setAttribute('class', 'ic'); pen.setAttribute('viewBox', '0 0 24 24'); pen.setAttribute('aria-hidden', 'true');
+    for (const d of ['M12 20h9', 'M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z']) { const pa = document.createElementNS(NS, 'path'); pa.setAttribute('d', d); pen.append(pa); }
+    pickWrap.append(pick, pen);
+    grid.append(none, pickWrap);
+    // 類型：8 個 radio，排成一個直的滾筒（2026-11-26 Andy，原本兩欄）
+    const types = _lhMk('div', 'type-grid sec-wheel');
     types.setAttribute('role', 'radiogroup');
     types.setAttribute('aria-label', '段落類型');
     for (const t of LH_SEC_TYPES) {
-        const r = _lhMkBtn('type-row', LH_SEC_NAMES[t]);
+        const r = _lhMkBtn('type-row sec-wheel-item', LH_SEC_NAMES[t]);
         r.setAttribute('role', 'radio');
         r.dataset.type = t;
         types.appendChild(r);
@@ -979,35 +1009,25 @@ function lhSecMenuBuild() {
     alignBlock.classList.add('section-full-only');
     actBlock.classList.add('section-full-only');
     // 2026-11-25 Andy：類型旁邊一個直的滾輪挑羅馬數字（— 不編號、I～X）；停下來那格就是選到的
-    const wheel = _lhMk('div', 'sec-num-wheel');
+    const wheel = _lhMk('div', 'sec-num-wheel sec-wheel');
     wheel.setAttribute('role', 'listbox');
     wheel.setAttribute('aria-label', '段落編號');
     for (let k = 0; k <= LH_SEC_NUM_MAX; k++) {
-        const it = _lhMk('div', 'sec-num-item', k ? lhToRoman(k) : '—');
+        const it = _lhMk('div', 'sec-num-item sec-wheel-item', k ? lhToRoman(k) : '—');
         it.setAttribute('role', 'option');
         it.dataset.num = k;
         it.addEventListener('click', () => wheel.scrollTo({ top: it.offsetTop - (wheel.clientHeight - it.offsetHeight) / 2, behavior: 'smooth' }));
         wheel.append(it);
     }
-    let wheelT = 0;
-    wheel.addEventListener('scroll', () => {
-        if (wheel._sync) return;   // 程式自己捲的（打開選單時對到目前的編號）不算選
-        clearTimeout(wheelT);
-        wheelT = setTimeout(() => {   // 停下來 150ms 才算選定（iOS 的慣性捲動會一直送 scroll）
-            const its = [...wheel.children], mid = wheel.scrollTop + wheel.clientHeight / 2;
-            const it = its.reduce((a, b) => Math.abs(b.offsetTop + b.offsetHeight / 2 - mid) < Math.abs(a.offsetTop + a.offsetHeight / 2 - mid) ? b : a);
-            if (_lhMenuSec() && _lhMenuSec().type !== 'custom') { _lhMenuSet('num', 'num', +it.dataset.num); lhSecMenuSync(); }
-        }, 150);
-    });
-    // 2026-11-25 Andy（看不出來是滾輪）：上下各一顆箭頭（按一下換一格），中間那格有底色＝選到的
-    const step = d => { const n = Math.max(0, Math.min(LH_SEC_NUM_MAX, (+(wheel.querySelector('[aria-selected="true"]') || wheel.children[0]).dataset.num) + d)); wheel.children[n].click(); };
-    const numUp = _lhMkBtn('sec-num-step', '▲', '上一個編號'), numDn = _lhMkBtn('sec-num-step', '▼', '下一個編號');
-    numUp.addEventListener('click', () => step(-1)); numDn.addEventListener('click', () => step(1));
-    const numBox = _lhMk('div', 'sec-num');
-    numBox.append(_lhMk('span', 'sec-num-cap', '編號'), numUp, wheel, numDn);
-    const typeWrap = _lhMk('div', 'type-wrap');
-    typeWrap.append(types, numBox);
-    m.append(title, _lhMkBlock('類型', typeWrap), nameBlock, _lhMkBlock('顏色', grid, row), alignBlock, _lhMkBlock('位置', moves), actBlock);   // 不放「關閉設定」：點空白處、Esc 就會關
+    _lhWheel(wheel, it => { if (_lhMenuSec().type !== 'custom') { _lhMenuSet('num', 'num', +it.dataset.num); lhSecMenuSync(); } });
+    _lhWheel(types, it => { if (it.dataset.type !== _lhMenuSec().type) { lhSecMenuType(it.dataset.type); lhSecMenuSync(); } });
+    // 2026-11-25 Andy：拿掉 ▲▼，滾輪本身做成窄圓筒（css/panels.css .sec-num-wheel）；點上下露出的那格一樣會換
+    const numBox = _lhMk('div', 'sec-num'), typeBox = _lhMk('div', 'sec-type');
+    numBox.append(_lhMk('span', 'sec-num-cap', '編號'), wheel);
+    typeBox.append(_lhMk('span', 'sec-num-cap', '類型'), types);
+    const typeWrap = _lhMk('div', 'section-menu-block type-wrap');
+    typeWrap.append(typeBox, numBox);
+    m.append(title, _lhMkBlock('顏色', grid), typeWrap, nameBlock, alignBlock, _lhMkBlock('位置', moves), actBlock);   // 不放「關閉設定」：點空白處、Esc 就會關
     document.body.appendChild(m);
 
     // 顏色：色票與「無顏色」馬上套用；原生選色盤拖動時只預覽（input），放開才記一步（change，D-06）
@@ -1049,6 +1069,7 @@ function lhSecMenuBuild() {
         const next = rows[(i + k + rows.length) % rows.length];
         next.tabIndex = 0;
         next.focus({ preventScroll: true });
+        _lhWheelCenter(types, next);   // 滾筒跟著焦點轉，但不算選（Enter／空白才選）
     });
     // 自訂名稱：Enter 或離開欄位送出（一步）；Esc 還原文字、選單不關；組字中的 Enter／Esc 是選字與取消組字，一律不處理
     name.addEventListener('keydown', e => {
@@ -1148,13 +1169,12 @@ function lhSecMenuSync() {
         r.tabIndex = on ? 0 : -1;
     });
     _lhMenu.querySelector('.section-menu-name').hidden = s.type !== 'custom';
-    {   // 滾輪對到目前顯示的編號（自己挑過的，或照順序自動給的）
+    {   // 編號滾筒：自己挑過的，或照順序自動給的；Custom 沒有編號
         const wheel = _lhMenu.querySelector('.sec-num-wheel'), n = Number.isInteger(s.num) ? s.num : lhSecAutoNum(song.sections, s);
         wheel.closest('.sec-num').hidden = wheel.hidden = s.type === 'custom';
         wheel.querySelectorAll('.sec-num-item').forEach(it => it.setAttribute('aria-selected', String(+it.dataset.num === n)));
-        const it = wheel.children[n];
-        if (it && !wheel.hidden) { wheel._sync = true; wheel.scrollTop = it.offsetTop - (wheel.clientHeight - it.offsetHeight) / 2; requestAnimationFrame(() => requestAnimationFrame(() => { wheel._sync = false; })); }
     }
+    if (_lhMenu.classList.contains('show')) _lhWheelsCenter();
     _lhMenu.querySelectorAll('.section-align').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.align === (s.align || 'left'))));
     const name = _lhMenu.querySelector('.section-name-input');
     if (document.activeElement !== name) name.value = s.custom;
@@ -1180,6 +1200,7 @@ function lhSecOpenMenu(secEl, x, y, byKeyboard, drop) {
     m.querySelectorAll('.section-full-only').forEach(n => { n.hidden = _lhMenuDrop; });   // 左鍵下拉只給選類型，保持矮
     lhSecMenuSync();
     lhPlaceMenu(m, x, y);
+    _lhWheelsCenter();
     // 鍵盤打開才把焦點放到目前類型那一列；滑鼠、觸控不搶焦點（手機鍵盤不要彈出來）
     if (byKeyboard) m.querySelector('.type-row[aria-checked="true"]')?.focus({ preventScroll: true });
     return m;

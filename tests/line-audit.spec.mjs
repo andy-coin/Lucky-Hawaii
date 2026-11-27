@@ -510,8 +510,8 @@ test('檢查：setProperty 只在固定的地方、新樣式沒有動畫', () =>
         // 例外：「滑過才顯示」的淡入淡出是 Andy 指定的（2026-11-13），只有這組允許 transition
         expect(mine.filter(r => /transition|animation/.test(r.body) && !r.sel.includes('data-rm-hover')).map(r => r.sel), f + ' 第 11 階段的規則沒有動畫').toEqual([]);
         // 兩個檔案目前都沒有 @keyframes（動畫都放在 css/base.css，是第 10 階段之前就有的）；註解裡的字不算
-        // 0.98.40 Andy 指定的黑洞旋轉 wsBhFlow、吞下去 wsGulp、白洞閃爍 wsWh 不算
-        expect((css.replace(/\/\*[\s\S]*?\*\//g, '').match(/@keyframes(?!\s+(?:wsBhFlow|wsGulp|wsWh)\b)/g) || []).length, f + ' 沒有新增 @keyframes').toBe(0);
+        // 0.98.40 Andy 指定的黑洞旋轉 wsBhFlow、吞下去 wsGulp、白洞閃爍 wsWh 不算；2026-11-26 Andy 指定的段落滾筒壓扁 lh-drum 不算
+        expect((css.replace(/\/\*[\s\S]*?\*\//g, '').match(/@keyframes(?!\s+(?:wsBhFlow|wsGulp|wsWh|lh-drum)\b)/g) || []).length, f + ' 沒有新增 @keyframes').toBe(0);
     }
     expect(seen, '有掃到第 11 階段的規則').toBeGreaterThan(20);
     // 自檢

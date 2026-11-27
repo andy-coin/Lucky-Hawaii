@@ -13,7 +13,7 @@ const DEVICE_NAMES = ['phone', 'tablet', 'desktop'];
 // 5 種畫面 × 3 種裝置 = 15 張：結果（淺／深）、歌詞面板、AI 面板、客製顏色結果（UI-SPEC §14.2 的預設）
 const STATES = [
     { name: 'results' },
-    { name: 'results-dark', colorScheme: 'dark' },
+    { name: 'results-dark', colorScheme: 'dark', storage: { hoyun_theme_mode: 'plain' } },   // 2026-11-27 起新使用者一律 Moon，深色要明講 Plain
     { name: 'lyrics' },
     { name: 'ai' },
     { name: 'custom', storage: { containerBg: '#fff7e6', textColor: '#1a202c', highlightColor: '#2b6cb0' } },

@@ -28,14 +28,14 @@
             }
             return false;
         }
-        // 存的值 → 主題名。舊版只存 light／dark（或沒存）：有自訂顏色→自訂；暗（或沒存且系統是深色）→Plain；其餘→Moon。
+        // 存的值 → 主題名。舊版只存 light／dark（或沒存）：有自訂顏色→自訂；暗→Plain；其餘（含第一次開啟）→Moon。
         // 舊值不改寫儲存（備份檔、舊版程式照樣讀得懂），使用者按一次主題鈕才存新名字
         function lhResolveTheme(saved) {
             if (LH_THEMES.includes(saved)) return saved;
             if (lhHasCustomColors()) return 'custom';
             if (saved === 'dark') return 'plain';
             if (saved === 'light') return 'moon';
-            return (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'plain' : 'moon';
+            return 'moon';   // 第一次開啟一律 Moon（不看系統深淺色）
         }
 
         function applyTheme(name, save = true) {
@@ -186,5 +186,5 @@
         document.getElementById('sTextColor').addEventListener('input', (e) => handleColorChange('textColor', e.target.value, true));
         document.getElementById('sHighlightColor').addEventListener('input', (e) => handleColorChange('highlightColor', e.target.value));
 
-        // 初始：記憶 > 系統偏好（深色→Plain、淺色→Moon）；舊版的 light／dark 照 lhResolveTheme 遷移
+        // 初始：記憶 > Moon；舊版的 light／dark 照 lhResolveTheme 遷移
         applyTheme(lhResolveTheme(lhGet(THEME_KEY)), false);

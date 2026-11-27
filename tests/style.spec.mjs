@@ -116,7 +116,7 @@ test('視覺：沒存顏色時用預設底色', async ({ browser }) => {
 
 test('視覺：主題優先順序（存的 > 系統 > 淺色）', async ({ browser }) => {
     const cases = [
-        [undefined, 'light', 'light'], [undefined, 'dark', 'dark'],
+        [undefined, 'light', 'light'], [undefined, 'dark', 'light'],   // 2026-11-27 Andy：第一次開一律 Moon（淺色），不看系統
         ['light', 'dark', 'light'], ['light', 'light', 'light'],
         ['dark', 'light', 'dark'], ['dark', 'dark', 'dark'],
     ];
@@ -221,7 +221,9 @@ test('視覺：沒有新的顏色常數', () => {
     // 0.98.40 Andy：黑洞、虛空、白洞是宇宙裡固定的太空色（黑洞就是黑的，不跟主題換），只准在 css/panels.css
     const SPACE = new Set(['rgba(60,25,38,0.3)', 'rgba(50,22,34,0.12)', 'rgba(228,208,218,0.6)', 'rgba(190,150,170,0.22)', 'rgba(150,40,70,0.5)', 'rgba(235,220,228,0.32)', 'rgba(255,255,255,0.75)', 'rgba(255,255,255,0.45)', 'rgba(255,255,255,0.55)', 'rgba(255,255,255,0.25)', 'rgba(150,150,150,0.42)', 'rgba(200,200,200,0.7)']);
     // 列印檔印出來一律黑字白底，只有 css/print.css 可以直接寫 #000／#fff（Phase 8，UI-SPEC §4.3）
-    const allowedIn = (set, file, n) => set.has(n) || isScrim(n) || (file === 'css/panels.css' && SPACE.has(n)) || (file === 'css/print.css' && (n === '#000' || n === '#fff'));
+    // 2026-11-26 Andy 指定的段落選單「無顏色」紅斜線 #e05d5d，只准在 css/panels.css
+    const SEC_MENU = new Set(['#e05d5d']);
+    const allowedIn = (set, file, n) => set.has(n) || isScrim(n) || (file === 'css/panels.css' && (SPACE.has(n) || SEC_MENU.has(n))) || (file === 'css/print.css' && (n === '#000' || n === '#fff'));
     // Phase 8 UI-SPEC D-09：破壞性動作的色票只准寫在宣告 --danger-* 變數的那一行
     const DANGER_HEX = new Set(['#c53030', '#9b2c2c', '#fc8181']);
     const extra = [];
@@ -230,9 +232,12 @@ test('視覺：沒有新的顏色常數', () => {
             // 夜間 UI 重設計：新的色票只准寫在 base.css 的設計變數宣告（:root／[data-theme="dark"]），元件一律用 var()
             if (f === 'css/base.css' && /^\s*--[\w-]+\s*:/.test(line)) continue;
             const declaresDanger = /--danger-[a-z-]+\s*:/.test(line);
+            // 遮罩（mask-image）只看透明度、不是畫面色：滾筒上下淡出用的 #000 放過（2026-11-26 段落選單）
+            const isMask = /mask-image\s*:/.test(line);
             for (const m of line.matchAll(lit)) {
                 const n = norm(m[0]);
                 if (declaresDanger && DANGER_HEX.has(n)) continue;
+                if (isMask && n === '#000') continue;
                 if (!allowedIn(allow, f, n)) extra.push(`${f}: ${m[0]}`);
             }
         }
@@ -308,8 +313,8 @@ test('視覺：行動色只在變數定義裡', () => {
 
 test('視覺：Phase 7 沒有新的動畫', () => {
     // @keyframes 的數量要和 Phase 7 的起點（commit 952d24f）一樣
-    // 0.98.40 Andy 指定的黑洞旋轉 wsBhFlow、吞下去 wsGulp、白洞閃爍 wsWh（css/panels.css）不算
-    const count = text => (stripCssComments(text).match(/@keyframes\b(?!\s+(?:wsBhFlow|wsGulp|wsWh)\b)/g) || []).length;
+    // 0.98.40 Andy 指定的黑洞旋轉 wsBhFlow、吞下去 wsGulp、白洞閃爍 wsWh（css/panels.css）不算；2026-11-26 Andy 指定段落選單滾筒 lh-drum 也不算
+    const count = text => (stripCssComments(text).match(/@keyframes\b(?!\s+(?:wsBhFlow|wsGulp|wsWh|lh-drum)\b)/g) || []).length;
     const before = CSS_FILES.reduce((n, f) => {
         try { return n + count(execFileSync('git', ['show', `952d24f:${f}`], { encoding: 'utf8', maxBuffer: 1 << 26 })); } catch { return n; }   // 起點之後才新增的檔案算 0
     }, 0);
