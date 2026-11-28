@@ -47,7 +47,10 @@ test('分頁：結構、無障礙屬性、每個設定都在某個分頁裡', as
     // 「關於」已併進說明分頁：不再有獨立按鈕或浮層，內文直接在分頁上
     await tab(page, '說明與回饋').click();
     await expect(page.getByRole('button', { name: '關於好韻器' })).toHaveCount(0);
-    await expect(page.locator('#aboutOverlay')).toHaveCount(0);
+    await page.evaluate(() => toggleAbout());
+    await expect(page.locator('#aboutOverlay')).toHaveClass(/show/);   // 「i」鈕自己一頁，不跳設定
+    await expect(page.locator('#aboutContent')).toContainText('希望能幫助大家想出絕妙好詞');
+    await expect(page.locator('#aboutContent .about-pack')).toHaveCount(0);   // 詞庫說明只在設定裡
     await expect(page.locator('#prefsPanel-help')).toContainText('希望能幫助大家想出絕妙好詞');
     expect(errors).toEqual([]);
     await context.close();

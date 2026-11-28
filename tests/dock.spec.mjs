@@ -62,6 +62,25 @@ test('收起 AI：中間不跟著變胖（0.98.06）、分頁在邊上，再打�
     await context.close();
 });
 
+test('段落選單：類型滾筒滑鼠可以拖、可以甩（0.98.48）', async ({ browser }) => {
+    const { context, page, errors } = await boot(browser, withSong([typed('sa', 'verse', 'A')]));
+    await waitStill(page);
+    await page.locator('#lyricsSections .section-type').first().click({ button: 'right' });
+    const wheel = page.locator('#sectionMenu .type-grid');
+    await expect(wheel).toBeVisible();
+    const sel = () => page.locator('#sectionMenu .type-row[aria-checked="true"]').getAttribute('data-type');
+    const t0 = await sel();
+    const [x, y] = await centerOf(wheel);
+    await mouseDrag(page, [x, y + 40], [x, y - 40], 6);   // 慢拖：往上拖＝選到後面的類型
+    await expect.poll(sel, { timeout: 3000 }).not.toBe(t0);
+    const t1 = await sel();
+    await page.mouse.move(x, y - 40); await page.mouse.down();   // 快甩（往下，上一步已經在最後一個）：放開後還會繼續滾
+    await page.mouse.move(x, y, { steps: 2 }); await page.mouse.move(x, y + 40, { steps: 2 }); await page.mouse.up();
+    await expect.poll(sel, { timeout: 3000 }).not.toBe(t1);
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
 test('兩邊都收：查詢區在兩個分頁之間、維持原本寬度不填滿（0.98.06）', async ({ browser }) => {
     const { context, page, errors } = await boot(browser, { 'lh:tourSeen': '1', leftPanelCollapsed: 'true', rightPanelCollapsed: 'true' });
     const b = await boxes(page);
@@ -72,6 +91,22 @@ test('兩邊都收：查詢區在兩個分頁之間、維持原本寬度不填�
     expect(b.results.x).toBeGreaterThanOrEqual(lt.x + lt.width - 0.5);
     expect(b.results.x + b.results.width).toBeLessThanOrEqual(rt.x + 0.5);
     expect(b.results.width).toBeLessThan(1920 * 0.6);
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+test('兩邊都收：中間面板左右邊都能拉寬（0.98.48）', async ({ browser }) => {
+    const { context, page, errors } = await boot(browser, { 'lh:tourSeen': '1', leftPanelCollapsed: 'true', rightPanelCollapsed: 'true' });
+    const w0 = (await boxes(page)).results.width;
+    const divs = page.locator('.dock-divider');
+    expect(await divs.count()).toBe(2);
+    { const [x, y] = await centerOf(divs.nth(0)); await mouseDrag(page, [x, y], [x - 120, y]); }
+    await waitStill(page);
+    const w1 = (await boxes(page)).results.width;
+    expect(w1).toBeGreaterThan(w0 + 100);
+    { const [x, y] = await centerOf(divs.nth(1)); await mouseDrag(page, [x, y], [x + 120, y]); }
+    await waitStill(page);
+    expect((await boxes(page)).results.width).toBeGreaterThan(w1 + 100);
     expect(errors).toEqual([]);
     await context.close();
 });

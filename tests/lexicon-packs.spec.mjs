@@ -649,13 +649,13 @@ test('詞庫包：關於視窗顯示目前詞庫的來源', async ({ browser }) 
     test.setTimeout(60_000);
     const { context, page, errors, warnings } = await bootPage(browser, { wordlist: 'stub' });
     try {
-        const openAbout = async () => { await page.evaluate(() => toggleAbout()); await expect(page.locator('#prefsPanel-help')).toBeVisible(); };
+        const openAbout = async () => { await page.evaluate(() => { toggleSettings(); lhPrefsSelectTab('help'); }); await expect(page.locator('#prefsPanel-help')).toBeVisible(); };
         const closeAbout = () => page.evaluate(() => closeSettingsOverlay({ target: document.getElementById('settingsOverlay') }));
         // v0.96：照實說明（含教育部衍生成分的授權限制）
         await openAbout();
-        await expect(page.locator('#aboutPackNotice')).toContainText('vChewing');
+        await expect(page.locator('#prefsPanel-help .about-notice')).toContainText('vChewing');
         // 內容太長時區塊自己捲動，不撐破視窗
-        const box = await page.locator('#aboutPackNotice').evaluate(el => ({ over: getComputedStyle(el).overflowY, max: getComputedStyle(el).maxHeight, size: parseFloat(getComputedStyle(el).fontSize) }));
+        const box = await page.locator('#prefsPanel-help .about-notice').evaluate(el => ({ over: getComputedStyle(el).overflowY, max: getComputedStyle(el).maxHeight, size: parseFloat(getComputedStyle(el).fontSize) }));
         expect(box.over).not.toBe('auto');   // 0.98.47：完整顯示、不出現 scrollbar
         expect(box.size).toBeGreaterThanOrEqual(12);
         await closeAbout();
@@ -663,14 +663,14 @@ test('詞庫包：關於視窗顯示目前詞庫的來源', async ({ browser }) 
         // 換成新酷音：重開「關於」看到新包的說明（含上游 commit）
         expect(await page.evaluate(() => switchLexiconPack('chewing'))).toBe(true);
         await openAbout();
-        await expect(page.locator('#aboutPackNotice')).toContainText('c44e81aef24b06f1509f19e1be54c99812d0c43f');
-        await expect(page.locator('#aboutPackNotice')).not.toContainText('重編國語辭典修訂本》 https://dict.revised.moe.edu.tw');
+        await expect(page.locator('#prefsPanel-help .about-notice')).toContainText('c44e81aef24b06f1509f19e1be54c99812d0c43f');
+        await expect(page.locator('#prefsPanel-help .about-notice')).not.toContainText('重編國語辭典修訂本》 https://dict.revised.moe.edu.tw');
         await closeAbout();
 
         // 說明檔讀不到（500）：照實顯示，不留空白也不丟錯
         await context.route(/\/data\/packs\/chewing\/NOTICE\.txt(\?.*)?$/, route => route.fulfill({ status: 500, body: 'x' }));
         await openAbout();
-        await expect(page.locator('#aboutPackNotice')).toHaveText('詞庫來源說明暫時讀不到');
+        await expect(page.locator('#prefsPanel-help .about-notice')).toHaveText('詞庫來源說明暫時讀不到');
         expect(warnings.some(m => m.includes('詞庫來源說明讀取失敗'))).toBe(true);
         expect(realErrors(errors)).toEqual([]);
     } finally { await context.close(); }

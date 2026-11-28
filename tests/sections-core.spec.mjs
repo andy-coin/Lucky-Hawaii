@@ -74,6 +74,8 @@ test('名稱：編號', () => {
     expect(names([T('custom', '  ')])).toEqual(['Custom']);
     expect(names([T('chorus')])).toEqual(['Chorus']);
     expect(names([T('prechorus'), T('custom', 'A'), T('custom', 'A')])).toEqual(['Pre-Chorus', 'A', 'A']);
+    // 0.98.48：Custom 也能挑編號（只有自己挑的算，不自動編）
+    expect(ev(`lhSecNames(${j([{ type: 'custom', custom: 'Hook', num: 2 }, { type: 'custom', custom: '', num: 3 }, { type: 'custom', custom: 'Hook', num: 0 }])})`)).toEqual(['Hook II', 'Custom III', 'Hook']);
     // 順序決定編號：換位置後編號跟著走
     expect(names([T('chorus'), T('verse'), T('chorus')])).toEqual(['Chorus I', 'Verse', 'Chorus II']);
 });

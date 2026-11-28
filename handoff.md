@@ -2,6 +2,17 @@
 - **白洞裡補 DONATE 資訊**（2026-11-25 Andy 交代：下次工作好韻器時提醒他）。
 - 行動裝置「重點跟隨」：點一下顯示韻腳也會叫出鍵盤，兩者衝突，還沒想到兩全辦法（只記不修）。
 
+## 0.98.48（2026-11-28，代號 筒仔米糕）——已 push（連同肉圓、紅龜粿、側邊條顏色一起）
+- 宇宙篩選鈕（字首／字尾／字數、聲調鈕）按下 → 剩下的星系往中心靠攏（距離 ×0.6，重疊推開；js/word-space.js `LH_SP_PACK`／`_lhSpPack`），鏡頭縮放＋平移框住全部；取消＝回原位、鏡頭不動。星系都還在就只做 overview。
+  - 放大不再卡 100%：照框住的大小放，上限只剩「最小的字 21px」（_lhSpPack 的 `const z = …`）。
+  - 等級：0 直接到位；1、2 級 0.6 秒；3～5 級 0.9 秒。動畫：`_lhSpFrame` 的 `_lhSp.pack` 段＋nav 段 `nv.tz`。
+- 灰底鈕：按下去整串（所有平行宇宙）都沒詞就 disabled（_lhSpToneApply 尾、_lhRelApply 的 `const any`）；css/panels.css `.ws-hud-btn:disabled`。
+- 聲調鈕也會跳平行宇宙：`_lhSpToneFind`（照 _lhRelFind）。跳過去／換批時篩選還開著 → `_lhSpShow` 裡 `_lhSpPack(true)` 一出現就靠攏好。
+- 重新進宇宙（!reopen）篩選全部重置：`_lhSpShow` 開頭。舊行為：聲調只有換查詢才清，字首／字數完全不清。
+- 測試：word-space.spec 26 項全過（新增「篩選後」第 1～5 級、「篩選鈕：沒詞就灰掉…」；第 1 則改成驗證灰鈕）。
+- Plain 側邊條淡黃 #d8cfa6（css/panels.css:3568）Andy 同意 → 加進 tests/style.spec 白名單（只准 panels.css）。版號 0.98.48（js/safety.js、index.html ?v=）。受影響 12 檔 277 項全過。
+- **待 Andy 看**手感（靠攏倍率、秒數、灰底深淺）。
+
 ## 2026-11-27（代號 肉圓，本地未 commit）
 - impeccable 已移除；刪 DESIGN.md、.impeccable/，保留 PRODUCT.md（產品說明，未 commit）。
 - index.html 修兩個多餘結尾標籤：常用字按鈕後多一個 `</button>`（:98）、About「歡迎留言」後多一個 `</p>`（:162）。

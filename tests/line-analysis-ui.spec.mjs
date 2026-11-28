@@ -1184,7 +1184,7 @@ test('預覽：每個開關都看得到', async ({ browser }) => {
     const diffCap = page.locator('#mapSettingsSection .rm-preview-diff');
     await expect(pv).toHaveAttribute('aria-hidden', 'true');
     await expect(pv).toContainText('辛得勒');
-    await expect(page.locator('#mapSettingsSection .lm-preview-block > .section-menu-cap').first()).toHaveText('調整句尾上色、逐行字數與斷句標記的開關、位置、大小和顏色。預覽：');
+    await expect(page.locator('#mapSettingsSection .lm-preview-block > .section-menu-cap').first()).toHaveText('預覽：');
     await expect(pv.locator('.lm-t-c')).toHaveCount(8);
     // 字數
     await prefSw(page, '字數').click();

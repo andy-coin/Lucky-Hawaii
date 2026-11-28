@@ -816,10 +816,10 @@
             .color-grid .color-item { margin-right: 0; justify-content: space-between; }
         }
         /* 主題（手機才有，標題列的主題鈕在手機藏起來） */
-        .prefs-theme { display: none; margin-bottom: 1rem; }
-        @media (max-width: 440px) { .prefs-theme { display: block; } }
-        .prefs-theme-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.375rem; }
-        .prefs-theme-row button { min-height: var(--hit); border: 1px solid var(--border); border-radius: var(--radius-s); background: var(--card-bg); color: var(--text-primary); font: inherit; font-size: 0.8rem; cursor: pointer; }
+        .prefs-theme { display: block; margin-bottom: 1rem; }   /* 0.98.47：電腦版也有（原本只有手機） */
+        .prefs-theme-row { display: flex; gap: 0.375rem; overflow-x: auto; scroll-snap-type: x proximity; scrollbar-width: none; overscroll-behavior-x: contain; }   /* 0.98.48：一排橫向滾筒，窄螢幕左右滑 */
+        .prefs-theme-row::-webkit-scrollbar { display: none; }
+        .prefs-theme-row button { flex: 1 0 4.75rem; scroll-snap-align: center; min-height: var(--hit); border: 1px solid var(--border); border-radius: var(--radius-s); background: var(--card-bg); color: var(--text-primary); font: inherit; font-size: 0.8rem; cursor: pointer; }
         .prefs-theme-row button[aria-pressed="true"] { border-color: var(--highlight-border); color: var(--highlight-border); font-weight: 700; box-shadow: inset 0 0 0 1px var(--highlight-border); }
         .settings-dropdown > .prefs-panel { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; display: flex; flex-direction: column; gap: 0.75rem; }
         .prefs-panel > * { flex-shrink: 0; }

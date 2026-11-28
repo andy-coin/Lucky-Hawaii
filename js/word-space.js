@@ -1,6 +1,6 @@
 // 本地伺服器＝本機或區網私有 IP（手機測試.command 讓同一個 Wi‑Fi 的 iPhone／iPad 連進來，也算本地：有齒輪、輔助線、開發者功能）
 const LH_LOCAL_HOST = (() => { try { return /^(localhost|127\.0\.0\.1|192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+|172\.(1[6-9]|2\d|3[01])\.\d+\.\d+)$/.test(location.hostname); } catch (e) { lhWarn('讀不到網址主機名稱', e); return false; } })();
-const LH_BUILD = '肉圓';   // 本地測試代號（台灣小吃系列）：每輪改完換一個，Andy 看標題後面的小字就知道是不是最新版（只有本地顯示）
+const LH_BUILD = '筒仔米糕';   // 本地測試代號（台灣小吃系列）：每輪改完換一個，Andy 看標題後面的小字就知道是不是最新版（只有本地顯示）
 // ===== 黑洞開關（Andy）：BLACK_HOLE_ONLINE＝線上版有沒有黑洞。改成 true、升版 push 就上線；本地永遠有（方便調） =====
 const BLACK_HOLE_ONLINE = true;   // 0.98.43：Andy 調好參數、寫進預設，線上開
 const LH_SP_BH = LH_LOCAL_HOST || BLACK_HOLE_ONLINE;
@@ -1049,13 +1049,14 @@ function _lhRelShow() {
                 : 'color-mix(in oklab, ' + base + ' ' + (100 - 15 * Math.min(ri, 4)) + '%, var(' + (dl > 0 ? '--text-primary' : '--text-secondary') + '))'; } });
 }
 // 篩選：不符合的星系（和流星）收回中心淡出，符合的綻放回來；不重排
-const _lhRelOk = k => { const { pos, len } = _lhRel, P = { head: '首', tail: '尾' }[pos]; return !!k && (!P || k.pos === P) && (!len.size || len.has(k.len)); };
+const _lhRelOk = (k, pos = _lhRel.pos, len = _lhRel.len) => { const P = { head: '首', tail: '尾' }[pos]; return !!k && (!P || k.pos === P) && (!len.size || len.has(k.len)); };
+const _lhRelCatC = new WeakMap(), _lhRelCatOf = (cfg, e) => { let k = _lhRelCatC.get(e); if (!k) _lhRelCatC.set(e, k = cfg.catOf(e)); return k; };
 // Andy 0.98.22.11：按了字首／字尾／字數，這個宇宙沒有符合的星系、別的宇宙有 → 直接星際穿越過去（符合的第一個宇宙）
 function _lhRelFind() {
     const cfg = _lhSp.cfg;
     if (_lhRelApply(false, true) || !cfg || !cfg.rel || !cfg.catOf) return;
     const pages = _lhSpPages(cfg), cur = Math.min(cfg.page || 0, pages.length - 1);
-    const hit = pages.map((pg, i) => i).find(i => i !== cur && pages[i].some(e => _lhRelOk(cfg.catOf(e))));   // 宇宙照字數排好了 → 跳到符合的第一個
+    const hit = pages.map((pg, i) => i).find(i => i !== cur && pages[i].some(e => !_lhWs.hidden.has(e.w) && _lhRelOk(_lhRelCatOf(cfg, e))));   // 宇宙照字數排好了 → 跳到符合的第一個
     if (hit !== undefined) _lhSpWhip(hit); else showToast('沒有符合的詞，取消篩選試試');
 }
 function _lhRelApply(now, quiet) {
@@ -1063,23 +1064,26 @@ function _lhRelApply(now, quiet) {
     let n = 0;
     for (const w of _lhSp.words) { w.off = !!w.cat && !ok(w.cat); if (now) w.vis = w.off ? 0 : 1; if (!w.off) n++; if (w.off && w.pinned) { w.pinned = false; _lhSpPin(w); } }
     for (const [cl, b] of _lhSp.legBtns || []) b.hidden = !!cl.cat && !ok(cl.cat);
-    const el = _lhSp.el;
-    el.querySelectorAll('[data-pos]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.pos === pos)));
-    el.querySelectorAll('[data-len]').forEach(b => b.setAttribute('aria-pressed', String(len.has(b.dataset.len))));
+    const el = _lhSp.el, cfg = _lhSp.cfg;
+    // 2026-11-28 Andy：按下去整串（所有平行宇宙）都沒有符合的詞＝灰掉、不能按（已經按下的照樣能取消）
+    const any = (p, l) => !cfg || !cfg.catOf || cfg.list.some(e => !_lhWs.hidden.has(e.w) && _lhRelOk(_lhRelCatOf(cfg, e), p, l));
+    el.querySelectorAll('[data-pos]').forEach(b => { const on = b.dataset.pos === pos; b.setAttribute('aria-pressed', String(on)); b.disabled = !on && !any(b.dataset.pos, len); });
+    el.querySelectorAll('[data-len]').forEach(b => { const k = b.dataset.len, on = len.has(k); b.setAttribute('aria-pressed', String(on)); b.disabled = !on && !any(pos, new Set([...len, k])); });
     _lhSpTitle(n);
     for (const cl of _lhSp.groups) cl.ver++;
     _lhSp.dirty = true;
     _lhSpClearSync();
     if (!n && !now && !quiet) showToast('這一批沒有符合的詞，換一批或取消篩選試試');
+    if (n && !now) _lhSpPack();
     return n;
 }
 
 // ===== 2026-11-25 Andy：查詞的「顯示全部」——第一面板每個字一排聲調鈕（一二三四，那個位置有輕聲詞才有「輕」）。
 // 同一排選幾個＝或、不同排＝且、一排都沒選＝不限；不符合的星系收起來（跟關聯詞的字首／字數同一套 off／vis）
-const _lhSpTones = e => e.z.split(' ').map(getZhuyinTone);
+const _lhSpTnC = new WeakMap(), _lhSpTones = e => { let t = _lhSpTnC.get(e); if (!t) _lhSpTnC.set(e, t = e.z.split(' ').map(getZhuyinTone)); return t; };
+const _lhSpToneOkE = (e, tf) => { const t = _lhSpTones(e); return tf.every((S, i) => !S || !S.size || t[i] === undefined || S.has(t[i])); };
 function _lhSpToneOk(w) {
-    const tf = _lhSp.tf || [], t = w.tn || (w.tn = _lhSpTones(w.e));
-    return tf.every((S, i) => !S || !S.size || t[i] === undefined || S.has(t[i]));
+    return _lhSpToneOkE(w.e, _lhSp.tf || []);
 }
 function _lhSpToneBuild(cfg) {
     const box = _lhSp.el.querySelector('.ws-tones');
@@ -1102,7 +1106,7 @@ function _lhSpToneBuild(cfg) {
             b.type = 'button'; b.title = '第' + (i + 1) + '字 ' + LH_WS_TONE_N[t - 1];
             b.style.setProperty('--c', LH_WS_TONE_C[t - 1]);
             b.dataset.ti = i; b.dataset.tt = t;
-            b.addEventListener('click', () => { const S = _lhSp.tf[i] || (_lhSp.tf[i] = new Set()); S.has(t) ? S.delete(t) : S.add(t); _lhSpToneApply(false); });
+            b.addEventListener('click', () => { const S = _lhSp.tf[i] || (_lhSp.tf[i] = new Set()); S.has(t) ? S.delete(t) : S.add(t); _lhSpToneFind(); });
             row.append(b);
         }
         return row;
@@ -1110,7 +1114,7 @@ function _lhSpToneBuild(cfg) {
     box.hidden = !box.childElementCount;
     _lhSpToneApply(true);
 }
-function _lhSpToneApply(now) {
+function _lhSpToneApply(now, quiet) {
     let n = 0;
     for (const w of _lhSp.words) { w.off = !_lhSpToneOk(w); if (now) w.vis = w.off ? 0 : 1; if (!w.off) n++; if (w.off && w.pinned) { w.pinned = false; _lhSpPin(w); } }
     _lhSp.el.querySelectorAll('.ws-tones [data-tt]').forEach(b => b.setAttribute('aria-pressed', String(!!(_lhSp.tf[b.dataset.ti] && _lhSp.tf[b.dataset.ti].has(+b.dataset.tt)))));
@@ -1118,7 +1122,65 @@ function _lhSpToneApply(now) {
     for (const cl of _lhSp.groups) cl.ver++;
     _lhSp.dirty = true;
     _lhSpClearSync();
-    if (!n && !now) showToast('這一批沒有符合的詞，換一批或少選一個聲調試試');
+    // 2026-11-28 Andy：按下去整串（所有平行宇宙）都沒有符合的詞＝灰掉、不能按（例：輕聲常常一個都沒有）；已經按下的照樣能取消
+    const cfg = _lhSp.cfg, tf = _lhSp.tf || [], list = cfg ? cfg.list.filter(e => !_lhWs.hidden.has(e.w)) : [];
+    _lhSp.el.querySelectorAll('.ws-tones [data-tt]').forEach(b => {
+        const i = +b.dataset.ti, t = +b.dataset.tt, on = !!(tf[i] && tf[i].has(t));
+        if (on) { b.disabled = false; return; }
+        const tf2 = tf.slice(); tf2[i] = new Set([...(tf[i] || []), t]);
+        b.disabled = !list.some(e => _lhSpToneOkE(e, tf2));
+    });
+    if (!n && !now && !quiet) showToast('這一批沒有符合的詞，換一批或少選一個聲調試試');
+    if (n && !now) _lhSpPack();
+    return n;
+}
+// 2026-11-28 Andy：聲調鈕也跟字首／字數一樣——這個宇宙沒有符合的、別的宇宙有 → 星際穿越過去（符合的第一個宇宙）
+function _lhSpToneFind() {
+    const cfg = _lhSp.cfg;
+    if (_lhSpToneApply(false, true) || !cfg) return;
+    const pages = _lhSpPages(cfg), cur = Math.min(cfg.page || 0, pages.length - 1), tf = _lhSp.tf || [];
+    const hit = pages.map((pg, i) => i).find(i => i !== cur && pages[i].some(e => !_lhWs.hidden.has(e.w) && _lhSpToneOkE(e, tf)));
+    if (hit !== undefined) _lhSpWhip(hit); else showToast('沒有符合的詞，少選一個聲調試試');
+}
+
+// 2026-11-28 Andy：按了篩選鈕（聲調／字首字尾／字數）→ 剩下的星系往宇宙中心靠攏一點，鏡頭縮放到看得到全部（overview）；
+// 取消篩選＝星系回原位（鏡頭不動）。照特效等級：0（系統減少動態）直接到位；1、2 級 0.6 秒；3～5 級 0.9 秒（星系照光速上限追過去）
+const LH_SP_PACK = 0.6;   // 靠攏倍率：離宇宙中心的距離 × 0.6（再把重疊的推開）
+function _lhSpPack(instant) {
+    const G = _lhSp.groups || [], live = new Set(), P = _lhSp.pack;
+    let any = false;
+    for (const w of _lhSp.words) { if (w.off) any = true; else if (w.cl) live.add(w.cl); }
+    const on = G.filter(cl => live.has(cl)), pack = any && on.length > 1 && on.length < G.length;   // 星系沒被收掉就不靠攏
+    // cur＝上一次靠攏走完後的家；orig＝cur 扣掉已經靠攏的位移＝原位
+    const rem = new Map(P ? P.items.map(([cl, dx, dy]) => [cl, [dx * (1 - P.k), dy * (1 - P.k)]]) : []);
+    const cur = new Map(G.map(cl => { const r = rem.get(cl) || [0, 0]; return [cl, { x: cl.hx + r[0], y: cl.hy + r[1] }]; }));
+    const tgt = new Map(G.map(cl => { const c = cur.get(cl); return [cl, { x: c.x - (cl.pkx || 0), y: c.y - (cl.pky || 0) }]; }));   // 先當作全部回原位
+    const ox = new Map([...tgt].map(([cl, p]) => [cl, { ...p }]));
+    if (pack) {
+        for (const cl of on) { const p = tgt.get(cl); p.x *= LH_SP_PACK; p.y *= LH_SP_PACK; }
+        for (let it = 0; it < 30; it++) for (let i = 0; i < on.length; i++) for (let j = i + 1; j < on.length; j++) {   // ponytail: O(n²×30)，星系通常幾十個以內
+            const a = tgt.get(on[i]), b = tgt.get(on[j]), dx = b.x - a.x, dy = b.y - a.y, d = Math.hypot(dx, dy) || 1, over = on[i].r + on[j].r + 30 - d;
+            if (over > 0) { const m = over / 2 / d; a.x -= dx * m; a.y -= dy * m; b.x += dx * m; b.y += dy * m; }
+        }
+    }
+    const items = [];
+    for (const cl of G) {
+        const p = tgt.get(cl), c = cur.get(cl), o = ox.get(cl), r = rem.get(cl) || [0, 0];
+        items.push([cl, p.x - c.x + r[0], p.y - c.y + r[1]]);   // 這次要走的＝上次沒走完的＋新的位移
+        cl.pkx = p.x - o.x; cl.pky = p.y - o.y;
+    }
+    const L = _lhSpCfg(), ms = instant || !L.fps ? 1 : L.orbit ? 900 : 600;   // instant：篩選跳到別的宇宙，一出現就是靠攏好、框好的樣子
+    _lhSp.pack = { t0: _lhSpNow(), ms, items, k: 0 };
+    _lhSp.dirty = true;
+    if (!any || !on.length) return;
+    // overview：框住剩下的星系（含半徑）
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    for (const cl of on) { const p = tgt.get(cl); x0 = Math.min(x0, p.x - cl.r); x1 = Math.max(x1, p.x + cl.r); y0 = Math.min(y0, p.y - cl.r); y1 = Math.max(y1, p.y + cl.r); }
+    const W = _lhSp.el.clientWidth || innerWidth, H = _lhSp.el.clientHeight || innerHeight, [zLo, zHi] = _lhSp.zLim || [LH_SP_ZMIN, LH_SP_ZMAX];   // 宇宙還在淡入時 el 量不到寬高
+    const fz = Math.min((W - 60) / Math.max(1, x1 - x0), (H - 80) / Math.max(1, y1 - y0));
+    const z = Math.min(zHi, Math.max(zLo, fz));   // 2026-11-28 Andy：不設 100% 上限——剩下的星系小就放大到填滿（上限＝最小的字 21px）
+    _lhSp.navF = null;
+    _lhSp.nav = { t0: _lhSpNow(), ms, fz: _lhSp.z, tz: z, cx0: -_lhSp.px / _lhSp.z, cy0: -_lhSp.py / _lhSp.z, cx1: (x0 + x1) / 2, cy1: (y0 + y1) / 2 };
 }
 
 // 打開星雲（或已經開著時換內容）：cfg = { list, title, rel, groupOf, headOf, colorOf }
@@ -1127,6 +1189,7 @@ function _lhSpShow(cfg) {
     const reopen = !el.hidden, oldCfg = _lhSp.cfg;
     if (!reopen && typeof lhTourAuto === 'function') lhTourAuto('space', 1800);   // 第一次打開：等詞飛進來再跑導覽
     _lhSp.cfg = cfg;
+    if (!reopen) { _lhRel.pos = ''; _lhRel.len.clear(); _lhSp.tf = []; }   // 2026-11-28 Andy：重新進宇宙＝篩選鈕全部重置（換批、跳宇宙才沿用）
     const batches = _lhSpPages(cfg), pageN = batches.length, page = Math.min(cfg.page || 0, pageN - 1);
     // Andy（第 5 級）：凝聚過的平行宇宙，切回去不再重跑混沌——離開時把整個宇宙（詞、星系、縮放、位置）收起來，回來直接放回去；
     // 星際穿越動畫照播。關掉宇宙（lhWsClose）或換查詢就清掉，下次「顯示全部」進來照樣從頭凝聚
@@ -1262,13 +1325,14 @@ function _lhSpShow(cfg) {
     if (LV.spiral && qn > 2) { const g0 = Math.max(40, Math.min(320, 2000 / (0.413 * qn))); _lhSp.gapFn = i => g0 * (0.12 + 0.88 * Math.pow(1 - i / qn, 2)); }
     _lhSp.bornAt = 0;
     _lhSp.px = 0; _lhSp.py = 0;
-    _lhSp.nav = null;
+    _lhSp.nav = null; _lhSp.pack = null;
     _lhSp.zLim = _lhSpZLim();
     _lhSp.z = _lhSp.z100 = Math.min(_lhSp.zLim[1], Math.max(_lhSp.zLim[0], _lhSpFitZoom(_lhSp.words)));   // 打開時的縮放也夾在字大小的範圍裡
     _lhSp.zAcc = _lhSp.pAcc = _lhSp.gD = 0; _lhSp.slices = _lhSp.slCur = null; _lhSp.zPrev = _lhSp.pxPrev = _lhSp.pyPrev = undefined;   // 換宇宙重設縮放、位置：不算成「動很快」
     _lhSp.dpr = Math.min(window.devicePixelRatio || 1, 2);
     if (hit) { _lhSp.z = pc.z; _lhSp.px = pc.px; _lhSp.py = pc.py; }   // 回到離開時的縮放、位置
     _lhSp.S = _lhSp.S0 = Math.min(LH_SP_SMAX, _lhSpBucket(_lhSp.z * _lhSp.dpr));
+    if (_lhSp.words.some(w => w.off)) _lhSpPack(true);   // 2026-11-28 Andy：換批／篩選跳到別的宇宙時篩選還開著＝一出現就靠攏好、鏡頭框好
     if (hit) {   // 凝聚過的宇宙：全部直接是完成的樣子（小圖現在一次畫好，穿越動畫蓋著看不到）
         const now = _lhSpNow();
         for (const w of _lhSp.words) { w.spr = _lhSpSprite(w, _lhSp.S); w.born = now - 5000; w.gx0 = w.gy0 = 0; w.gk = 0; w.gHold = false; w.free = false; }
@@ -1643,8 +1707,14 @@ function _lhSpFrame(tr) {
     if (_lhSp.nav) {   // 導覽：緩出
         const nv = _lhSp.nav, k = Math.min(1, (t - nv.t0) / (nv.ms || 600)), e = nv.w ? k * k * (3 - 2 * k) : 1 - Math.pow(1 - k, 3);
         if (nv.w) { nv.tx = -nv.w.px * _lhSp.z; nv.ty = -nv.w.py * _lhSp.z; }   // 星座導覽：目標星還在公轉，每格重算
-        _lhSp.px = _lhSp.nav.fx + (_lhSp.nav.tx - _lhSp.nav.fx) * e;
-        _lhSp.py = _lhSp.nav.fy + (_lhSp.nav.ty - _lhSp.nav.fy) * e;
+        if (nv.tz) {   // 篩選後的 overview（_lhSpPack）：縮放照比例、畫面中心照世界座標一起滑
+            const z = nv.fz * Math.pow(nv.tz / nv.fz, e);
+            _lhSp.z = z; _lhSp.zt = t;
+            _lhSp.px = -(nv.cx0 + (nv.cx1 - nv.cx0) * e) * z; _lhSp.py = -(nv.cy0 + (nv.cy1 - nv.cy0) * e) * z;
+        } else {
+            _lhSp.px = _lhSp.nav.fx + (_lhSp.nav.tx - _lhSp.nav.fx) * e;
+            _lhSp.py = _lhSp.nav.fy + (_lhSp.nav.ty - _lhSp.nav.fy) * e;
+        }
         _lhSpApplyView();
         if (k >= 1) {
             if (nv.w) _lhSp.navF = nv.w;   // 0.98.22.11 Andy：到站後鏡頭鬆鬆地跟著這顆星（見下面），而且它會閃
@@ -1652,6 +1722,13 @@ function _lhSpFrame(tr) {
             if (nv.w && 16 * nv.w.s * _lhSpZv() < 14) { _lhSp.holoPin = true; _lhSp.holo = null; _lhSpHolo(nv.w); }
             _lhSp.nav = null;
         }
+        busy = true;
+    }
+    if (_lhSp.pack) {   // 篩選後靠攏（_lhSpPack）：家跟現在位置一起挪；第 1、2 級沒飄移，cl.x 也要直接挪
+        const P = _lhSp.pack, k = Math.min(1, (t - P.t0) / P.ms), e = k * k * (3 - 2 * k), de = e - P.k;
+        P.k = e;
+        for (const [cl, dx, dy] of P.items) { cl.hx += dx * de; cl.hy += dy * de; if (!cl.held) { cl.x += dx * de; cl.y += dy * de; if (P.ms <= 1) cl.qx = undefined; } }   // 直接到位：光速上限那關也跟著跳過去
+        if (k >= 1) _lhSp.pack = null;
         busy = true;
     }
     const T = (t - _lhSp.t0) / 1000;

@@ -61,11 +61,13 @@ test('查整個詞：判斷、押韻比對（同母音／同子音／同讀音�
     await expect(page.locator('.ws-legbtn')).toBeHidden();
     expect(await page.locator('.ws-tone-row').count()).toBe(2);
     expect(await page.locator('.ws-tone-row').first().locator('[data-tt]').count()).toBe(4);
-    await page.locator('.ws-tone-row').first().locator('[data-tt="1"]').click();   // 第一字一聲：兩個都是四聲 → 全部收起來
-    expect(await page.evaluate(() => _lhSp.words.filter(w => !w.off).length)).toBe(0);
-    await page.locator('.ws-tone-row').first().locator('[data-tt="4"]').click();   // 同一排再選四聲（或）→ 回來
+    // 2026-11-28 Andy：第一字一聲：兩個都是四聲 → 按了也沒有詞＝灰掉不能按
+    await expect(page.locator('.ws-tone-row').first().locator('[data-tt="1"]')).toBeDisabled();
+    await page.locator('.ws-tone-row').first().locator('[data-tt="4"]').click();   // 四聲 → 兩個都在
     expect(await page.evaluate(() => _lhSp.words.filter(w => !w.off).length)).toBe(2);
-    await page.locator('.ws-tone-row').first().locator('[data-tt="1"]').click();
+    await page.locator('.ws-tone-row').nth(1).locator('[data-tt="3"]').click();   // 不同排（且）→ 照樣兩個
+    expect(await page.evaluate(() => _lhSp.words.filter(w => !w.off).length)).toBe(2);
+    await page.locator('.ws-tone-row').nth(1).locator('[data-tt="3"]').click();
     await page.locator('.ws-tone-row').first().locator('[data-tt="4"]').click();
     // 釘三個詞連成星座
     const pts = await page.evaluate(async () => {
@@ -735,3 +737,77 @@ test('詞宇宙：本地快轉鈕跳過凝聚、黑洞直接長好', async ({ br
     await context.close();
 });
 
+
+// 2026-11-28 Andy：篩選鈕（字首／字尾／字數、聲調）→ 剩下的星系往中心靠攏、鏡頭縮放到全部都在畫面裡；取消篩選回原位。五個等級都要
+test('篩選後：剩下的星系靠攏＋overview，取消篩選回原位（第 1～5 級）', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, {});
+    await page.fill('#searchInput', '心');
+    await expect(page.locator('.char-card').first()).toBeVisible({ timeout: 20000 });
+    for (const lv of [1, 2, 3, 4, 5]) {
+        await page.evaluate(lv => { lhFxSetLevel(lv); selectedChars.clear(); selectedChars.add('心'); lhWsRelOpen(); }, lv);
+        await page.waitForFunction(() => _lhSp.words.length > 10 && _lhSp.el.clientWidth > 0, null, { timeout: 30000 });
+        await page.waitForTimeout(500);
+        const home = () => page.evaluate(() => _lhSp.groups.map(c => [c.hx - (c.pkx || 0), c.hy - (c.pky || 0)]));
+        const h0 = await home();
+        await page.evaluate(() => document.querySelector('#wordSpace [data-pos="head"]').click());
+        await page.waitForFunction(() => !_lhSp.pack && !_lhSp.nav, null, { timeout: 5000 });
+        const r = await page.evaluate(() => {
+            const live = new Set(_lhSp.words.filter(w => !w.off && w.cl).map(w => w.cl)), on = _lhSp.groups.filter(c => live.has(c));
+            const W = _lhSp.el.clientWidth, H = _lhSp.el.clientHeight, z = _lhSp.z;
+            const out = on.filter(c => { const x = W / 2 + _lhSp.px + c.hx * z, y = H / 2 + _lhSp.py + c.hy * z; return x < 0 || x > W || y < 0 || y > H; }).length;
+            return { on: on.length, all: _lhSp.groups.length, packed: on.filter(c => c.pkx || c.pky).length, out, z, zLo: _lhSp.zLim[0], z100: _lhSpZ100(), W, H, px: _lhSp.px, py: _lhSp.py, pos: on.map(c => [Math.round(c.hx), Math.round(c.hy), Math.round(c.r)]) };
+        });
+        expect(r.on, '第 ' + lv + ' 級').toBeGreaterThan(1);
+        if (r.on < r.all) expect(r.packed, '第 ' + lv + ' 級有靠攏').toBeGreaterThan(0);
+        expect(r.out, '第 ' + lv + ' 級剩下的恆星都在畫面裡 ' + JSON.stringify(r)).toBe(0);
+        await page.evaluate(() => document.querySelector('#wordSpace [data-pos="head"]').click());   // 再按一次＝取消
+        await page.waitForFunction(() => !_lhSp.pack, null, { timeout: 5000 });
+        expect(await page.evaluate(() => _lhSp.groups.every(c => !c.pkx && !c.pky)), '第 ' + lv + ' 級回原位').toBe(true);
+        const h1 = await home();
+        expect(h1.length).toBe(h0.length);
+        await page.evaluate(() => lhWsClose());
+        await expect(page.locator('#wordSpace')).toBeHidden();
+    }
+    expect(errors).toEqual([]);
+    await context.close();
+});
+
+// 2026-11-28 Andy：按了也沒有詞的篩選鈕＝灰掉；聲調鈕也能跳到別的平行宇宙；重新進宇宙篩選全部重置
+test('篩選鈕：沒詞就灰掉、聲調跳平行宇宙、重新進宇宙重置', async ({ browser }) => {
+    const { context, page, errors } = await bootPage(browser, {});
+    await page.evaluate(() => { _lhWs.input = '安打'; _lhWs.list = [{ w: '辦法', z: 'ㄅㄢˋ ㄈㄚˇ', p: 50 }, { w: '看法', z: 'ㄎㄢˋ ㄈㄚˇ', p: 60 }, { w: '安打', z: 'ㄢ ㄉㄚˇ', p: 70 }, { w: '盤子', z: 'ㄆㄢˊ ㄗ˙', p: 80 }]; lhWsOpen(); });
+    await page.waitForFunction(() => _lhSp.words.length === 4 && _lhSp.el.clientWidth > 0, null, { timeout: 20000 });
+    const btn = (i, t) => '#wordSpace .ws-tones [data-ti="' + i + '"][data-tt="' + t + '"]';
+    await expect(page.locator(btn(1, 5))).toBeEnabled();
+    await page.evaluate(s => document.querySelector(s).click(), btn(0, 1));   // 第 1 字一聲＝只剩「安打」→ 第 2 字輕聲沒有詞
+    await expect(page.locator(btn(1, 5))).toBeDisabled();
+    await expect(page.locator(btn(0, 2))).toBeEnabled();   // 同一排多選＝放寬，照樣能按
+    await expect(page.locator(btn(0, 1))).toBeEnabled();   // 按下去的照樣能取消
+    await page.evaluate(() => lhWsClose());
+    await expect(page.locator('#wordSpace')).toBeHidden();
+    await page.evaluate(() => lhWsOpen());
+    await page.waitForFunction(() => _lhSp.words.length === 4 && _lhSp.el.clientWidth > 0, null, { timeout: 20000 });
+    expect(await page.evaluate(() => (_lhSp.tf || []).every(S => !S || !S.size) && _lhSp.words.every(w => !w.off))).toBe(true);
+    await expect(page.locator(btn(1, 5))).toBeEnabled();
+    await page.evaluate(() => lhWsClose());
+    await expect(page.locator('#wordSpace')).toBeHidden();
+    // 聲調跳平行宇宙：找一個「只有別的宇宙有」的聲調組合
+    await page.evaluate(() => { _lhWs.input = '安打'; _lhWs.list = wordlistData.filter(e => [...e.w].length === 2 && /ㄢ/.test(e.z)); lhWsOpen(); });
+    await page.waitForFunction(() => _lhSp.words.length > 10 && _lhSp.el.clientWidth > 0, null, { timeout: 30000 });
+    const pick = await page.evaluate(() => {
+        const pages = _lhSpPages(_lhSp.cfg); if (pages.length < 2) return null;
+        for (const i of [0, 1]) for (const t of [1, 2, 3, 4, 5]) for (const j of [0, 1]) for (const u of [1, 2, 3, 4, 5]) {
+            if (i === j) continue; const tf = []; tf[i] = new Set([t]); tf[j] = new Set([u]);
+            const ix = pages.map((pg, k) => pg.some(e => _lhSpToneOkE(e, tf)) ? k : -1).filter(k => k >= 0);
+            if (ix.length && !ix.includes(0)) return { i, t, j, u, to: ix[0] };
+        }
+        return null;
+    });
+    if (pick) {
+        await page.evaluate(p => { _lhSp.tf = []; _lhSp.tf[p.i] = new Set([p.t]); document.querySelector('#wordSpace .ws-tones [data-ti="' + p.j + '"][data-tt="' + p.u + '"]').click(); }, pick);
+        await expect.poll(() => page.evaluate(() => _lhSp.cfg.page), { timeout: 10000 }).toBe(pick.to);
+        await page.waitForFunction(() => _lhSp.words.length > 0 && _lhSp.words.some(w => !w.off), null, { timeout: 10000 });
+    }
+    expect(errors).toEqual([]);
+    await context.close();
+});

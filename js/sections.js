@@ -910,6 +910,41 @@ function _lhWheelCenter(wheel, it) {
     requestAnimationFrame(() => requestAnimationFrame(() => { wheel._sync = false; }));
 }
 function _lhWheel(wheel, pick) {
+    // 0.98.48 滑鼠也能拖、甩：按住往上下拖＝捲，放開時帶著速度慢慢停（觸控本來就會捲，不另外處理）。
+    // 拖的時候關掉 scroll-snap，不然每動一下就被吸回去；停下來再還原，瀏覽器自己吸到最近一格，後面照舊 150ms 後選中間那格
+    let raf = 0, dragged = false;
+    const snap = on => { wheel.style.scrollSnapType = on ? '' : 'none'; };
+    wheel.addEventListener('pointerdown', e => {
+        if (e.pointerType !== 'mouse' || e.button !== 0) return;
+        cancelAnimationFrame(raf); snap(true);
+        const y0 = e.clientY, st0 = wheel.scrollTop, pts = [[e.timeStamp, e.clientY]];
+        let moved = false;
+        const move = ev => {
+            if (!moved && Math.abs(ev.clientY - y0) < 4) return;
+            if (!moved) { moved = true; snap(false); wheel.setPointerCapture(e.pointerId); }
+            wheel.scrollTop = st0 - (ev.clientY - y0);
+            pts.push([ev.timeStamp, ev.clientY]);
+            while (pts.length > 2 && ev.timeStamp - pts[0][0] > 100) pts.shift();
+        };
+        const end = ev => {
+            wheel.removeEventListener('pointermove', move); wheel.removeEventListener('pointerup', end); wheel.removeEventListener('pointercancel', end);
+            if (!moved) return;
+            dragged = true; setTimeout(() => { dragged = false; }, 0);   // 放開那一下的 click 不算點選
+            const [t0, yA] = pts[0], dt = ev.timeStamp - t0;
+            let v = dt > 0 && ev.timeStamp - pts[pts.length - 1][0] < 80 ? -(ev.clientY - yA) / dt : 0;   // px/ms，往上甩＝內容往下捲
+            let last = performance.now();
+            const step = now => {
+                const d = Math.min(now - last, 32); last = now;
+                const before = wheel.scrollTop;
+                wheel.scrollTop = before + v * d;
+                v *= Math.pow(0.94, d / 16);   // ponytail: 摩擦力固定 0.94，覺得滑太遠／太短再調這個數
+                if (Math.abs(v) > 0.03 && wheel.scrollTop !== before) raf = requestAnimationFrame(step); else snap(true);
+            };
+            raf = requestAnimationFrame(step);
+        };
+        wheel.addEventListener('pointermove', move); wheel.addEventListener('pointerup', end); wheel.addEventListener('pointercancel', end);
+    });
+    wheel.addEventListener('click', e => { if (dragged) { e.stopPropagation(); e.preventDefault(); } }, true);
     let t = 0;
     wheel.addEventListener('scroll', () => {
         if (wheel._sync) return;
@@ -1019,7 +1054,7 @@ function lhSecMenuBuild() {
         it.addEventListener('click', () => wheel.scrollTo({ top: it.offsetTop - (wheel.clientHeight - it.offsetHeight) / 2, behavior: 'smooth' }));
         wheel.append(it);
     }
-    _lhWheel(wheel, it => { if (_lhMenuSec().type !== 'custom') { _lhMenuSet('num', 'num', +it.dataset.num); lhSecMenuSync(); } });
+    _lhWheel(wheel, it => { _lhMenuSet('num', 'num', +it.dataset.num); lhSecMenuSync(); });
     _lhWheel(types, it => { if (it.dataset.type !== _lhMenuSec().type) { lhSecMenuType(it.dataset.type); lhSecMenuSync(); } });
     // 2026-11-25 Andy：拿掉 ▲▼，滾輪本身做成窄圓筒（css/panels.css .sec-num-wheel）；點上下露出的那格一樣會換
     const numBox = _lhMk('div', 'sec-num'), typeBox = _lhMk('div', 'sec-type');
@@ -1169,9 +1204,8 @@ function lhSecMenuSync() {
         r.tabIndex = on ? 0 : -1;
     });
     _lhMenu.querySelector('.section-menu-name').hidden = s.type !== 'custom';
-    {   // 編號滾筒：自己挑過的，或照順序自動給的；Custom 沒有編號
-        const wheel = _lhMenu.querySelector('.sec-num-wheel'), n = Number.isInteger(s.num) ? s.num : lhSecAutoNum(song.sections, s);
-        wheel.closest('.sec-num').hidden = wheel.hidden = s.type === 'custom';
+    {   // 編號滾筒：自己挑過的，或照順序自動給的（Custom 不自動編，只有自己挑的）
+        const wheel = _lhMenu.querySelector('.sec-num-wheel'), n = Number.isInteger(s.num) ? s.num : s.type === 'custom' ? 0 : lhSecAutoNum(song.sections, s);
         wheel.querySelectorAll('.sec-num-item').forEach(it => it.setAttribute('aria-selected', String(+it.dataset.num === n)));
     }
     if (_lhMenu.classList.contains('show')) _lhWheelsCenter();

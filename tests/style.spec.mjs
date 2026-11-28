@@ -223,6 +223,8 @@ test('視覺：沒有新的顏色常數', () => {
     // 列印檔印出來一律黑字白底，只有 css/print.css 可以直接寫 #000／#fff（Phase 8，UI-SPEC §4.3）
     // 2026-11-26 Andy 指定的段落選單「無顏色」紅斜線 #e05d5d，只准在 css/panels.css
     const SEC_MENU = new Set(['#e05d5d']);
+    // 0.98.48：Plain 主題側邊條收合鈕的淡黃 #d8cfa6（Andy 同意推上線），只准在 css/panels.css
+    SEC_MENU.add('#d8cfa6');
     const allowedIn = (set, file, n) => set.has(n) || isScrim(n) || (file === 'css/panels.css' && (SPACE.has(n) || SEC_MENU.has(n))) || (file === 'css/print.css' && (n === '#000' || n === '#fff'));
     // Phase 8 UI-SPEC D-09：破壞性動作的色票只准寫在宣告 --danger-* 變數的那一行
     const DANGER_HEX = new Set(['#c53030', '#9b2c2c', '#fc8181']);

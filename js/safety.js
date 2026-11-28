@@ -246,7 +246,7 @@ function lhIdbOpen() {
 
 // ===== 備份 =====
 // 備份記錄格式 { id, seq, label, createdAt, appVersion, schema, data }，之後的遷移與還原都讀這個形狀（D-11、D-12）
-const LH_APP_VERSION = '0.98.47';
+const LH_APP_VERSION = '0.98.48';
 const LH_BACKUP_KEEP = 3;   // 0.98.21 起只有舊版程式在用；安全快照改成下面的 24 小時規則
 const LH_BACKUP_KEEP_MS = 24 * 3600e3, LH_BACKUP_KEEP_MAX = 10;
 // 基準備份與升級前的安全副本釘住，淘汰永遠不碰（F1）：刪歌、匯入產生的自動備份再多，也擠不掉升級前那份

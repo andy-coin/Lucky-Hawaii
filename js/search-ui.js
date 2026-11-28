@@ -6,8 +6,8 @@
         // 「關於」：顯示目前詞庫包的名稱與來源說明（NOTICE.txt）。名稱與內文一律用 textContent，不會被當成 HTML（T-06-11）
         let _aboutNoticeSeq = 0;   // 連續開關時只有最新一次的結果會寫進畫面
         async function renderAboutPackNotice() {
-            const noticeEl = document.getElementById('aboutPackNotice');
-            if (!noticeEl) return;
+            const noticeEls = document.querySelectorAll('.about-notice');
+            if (!noticeEls.length) return;
             const seq = ++_aboutNoticeSeq;
             let desc = activeLexiconPack;
             if (!desc) {
@@ -24,8 +24,7 @@
                 text = await r.text();
             } catch (e) { lhWarn('詞庫來源說明讀取失敗', e); }
             if (seq !== _aboutNoticeSeq) return;
-            noticeEl.textContent = text;
-            noticeEl.scrollTop = 0;
+            for (const el of noticeEls) { el.textContent = text; el.scrollTop = 0; }
         }
 
         // 偏好設定面板
@@ -57,7 +56,7 @@
             if (_lhPrefsTab === 'map' && typeof lhMapPrefsBuild === 'function') lhMapPrefsBuild();   // 韻腳設定第一次看到才建
             if (_lhPrefsTab === 'ai' && typeof byokRenderPrefs === 'function') byokRenderPrefs();
             if (_lhPrefsTab === 'data' && typeof lhDataRender === 'function') lhDataRender();   // 快照、垃圾桶（js/snapshots.js）
-            if (_lhPrefsTab === 'help') { document.getElementById('aboutVer').textContent = LH_APP_VERSION; renderAboutPackNotice(); }   // 版本號只寫在 js/safety.js；詞庫說明每次看都重讀
+            if (_lhPrefsTab === 'help') { document.querySelector('.about-ver').textContent = LH_APP_VERSION; renderAboutPackNotice(); }   // 版本號只寫在 js/safety.js；詞庫說明每次看都重讀
             _lhPrefsBgFxSync();
             document.getElementById(tab.getAttribute('aria-controls')).scrollTop = 0;
             tab.scrollIntoView({ block: 'nearest', inline: 'nearest' });   // 手機上分頁列橫向捲動：選到的分頁要看得到
@@ -194,15 +193,20 @@
             setUiScale(lhUiScale - LH_UI_SCALE_STEP);
         }
 
-        // 「i」鈕：打開偏好設定的「說明與回饋」分頁（0.98.46：關於內容已併進去，不再有獨立浮層）
+        // 「i」鈕：自己一頁（複製設定「說明與回饋」裡的簡介那一塊，內容只寫一份）
         function toggleAbout() {
-            const ov = document.getElementById('settingsOverlay');
-            if (!ov.classList.contains('show')) {
-                ov.classList.add('show');
-                renderLexiconPackList();
-                if (typeof lhMapCloseAll === 'function') lhMapCloseAll();
-            }
-            lhPrefsSelectTab('help', true);
+            const ov = document.getElementById('aboutOverlay');
+            const box = document.getElementById('aboutContent');
+            ov.classList.toggle('show');
+            if (!ov.classList.contains('show')) return;
+            const src = document.querySelector('#prefsPanel-help .about-inline');
+            box.replaceChildren(src.cloneNode(true));
+            box.querySelector('.about-pack')?.remove();   // 詞庫說明只在設定裡
+            for (const v of box.querySelectorAll('.about-ver')) v.textContent = LH_APP_VERSION;   // 版本號只寫在 js/safety.js
+            renderAboutPackNotice();   // 每次打開都重讀：換包之後看到的是目前這一包（設定那份與這份一起更新）
+        }
+        function closeAbout(event) {
+            if (event.target === event.currentTarget) document.getElementById('aboutOverlay').classList.remove('show');
         }
         function _getSearchSingleChar(val) {
             const chars = [...val.trim()].filter(c => /[一-鿿]/.test(c));

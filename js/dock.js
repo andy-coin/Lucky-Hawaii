@@ -189,7 +189,7 @@ function lhDockRender() {
     _dkRects = {};
     _dkDivs = new Map();
     _dkLayout(_dkVis, frame, gap);
-    if (classic) for (const [k, d] of _dkDivs) if (!_dkOpen(d.src.k[d.ja]) || !_dkOpen(d.src.k[d.jb])) _dkDivs.delete(k);
+    // 0.98.48：收起那邊旁邊的分隔線也留著，中間面板的左右邊永遠拉得動（往收起那邊拉＝吃掉它留的位置）
     for (const id of Object.keys(_dkRects)) {
         const el = document.getElementById(LH_DOCK_BLOCKS[id]);
         if (el) _dkSetVars(el, _dkRects[id]);
@@ -299,11 +299,14 @@ function _dkResizeStart(e, key) {
             if (!d) continue;
             const { a, b, vertical } = it;
             const min = (vertical ? LH_DOCK_MIN_W : LH_DOCK_MIN_H) * rem();
-            if (a + b < 2 * min) continue;
+            // 收起的那一塊沒有最小寬（它只是留著的空位），展開的才有
+            const isOpen = j => typeof d.src.k[j] !== 'string' || _dkOpen(d.src.k[j]);
+            const minA = isOpen(d.ja) ? min : 0, minB = isOpen(d.jb) ? min : 0;
+            if (a + b < minA + minB) continue;
             let delta = (vertical ? ev.clientX : ev.clientY) - it.start;
             // 三直排、另一邊收著：中間已經最窄還往收起那邊拉 → 吃掉收起那欄留的位置，中間整塊移過去（不會擋住）
             const src = d.src, ci = [0, 1, 2].find(i => i !== d.ja && i !== d.jb);
-            if (vertical && src.k.length === 3 && ci !== undefined && document.body.classList.contains('dock-classic') && !_dkOpen(src.k[ci]) && (d.ja === 1 || d.jb === 1)) {
+            if (vertical && src.k.length === 3 && ci !== undefined && document.body.classList.contains('dock-classic') && !_dkOpen(src.k[ci]) && (d.ja === 1 || d.jb === 1) && isOpen(d.ja === 1 ? d.jb : d.ja)) {
                 const o = d.ja === 1 ? d.jb : d.ja, l = it.s0.map(x => x * it.u), total = l[0] + l[1] + l[2];
                 const g = o === 2 ? delta : -delta;   // 正＝中間變寬
                 let M, C = l[ci], O;
@@ -329,7 +332,7 @@ function _dkResizeStart(e, key) {
                     : { x: Math.min(r.x, q.x), y: best.t, w: Math.max(r.x + r.w, q.x + q.w) - Math.min(r.x, q.x), h: 2 };
             }
             // 起點本來就小於最小值時不硬跳：只擋「再縮小」
-            delta = Math.min(Math.max(delta, Math.min(0, min - a)), Math.max(0, b - min));
+            delta = Math.min(Math.max(delta, Math.min(0, minA - a)), Math.max(0, b - minB));
             writes.push([d, Math.max(0, it.P * (a + delta) / (a + b)), it.P]);
         }
         for (const [d, first, P] of writes) {

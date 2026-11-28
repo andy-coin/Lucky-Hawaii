@@ -3058,6 +3058,8 @@ body.ws-open .ws-space { opacity: 1; }
     display: inline-flex; align-items: center; justify-content: center;
 }
 .ws-close, .ws-help { min-width: 2rem; padding: 0; }
+/* 2026-11-28 Andy：篩選鈕按了也沒有詞（js _lhSpToneApply／_lhRelApply）＝灰底、不能按 */
+.ws-hud-btn:disabled { background: color-mix(in srgb, var(--text-secondary) 22%, var(--card-bg)); color: var(--text-secondary); opacity: 0.45; cursor: not-allowed; box-shadow: none; }
 .ws-help { font-weight: 700; }
 .ws-zoom { justify-content: flex-end; }
    /* 0.98.41：觸控沒有縮放鈕，右上那排變窄，特效滑桿自己撐開 */
@@ -3559,3 +3561,13 @@ html[data-lm] .section-body.has-cols .section-textarea { padding-left: 0.75rem; 
 
 /* 0.98.41：本地黑洞物理對照（js/space-pick.js）——切回新版的鈕，壓在宇宙上面 */
 .lh-phys-back { position: fixed; right: 1rem; bottom: 1rem; z-index: 100000; padding: var(--sp-2) var(--sp-4); font-size: 0.875rem; font-weight: 700; border-radius: var(--radius-m); border: 0; background: var(--danger-bg); color: var(--danger-text); box-shadow: 0 4px 16px rgba(0,0,0,.35); cursor: pointer; }   /* Andy：要一眼看得到怎麼切回來 */
+
+/* 0.98.48：側邊條（歌詞、AI 建議）收起和展開同一個顏色、左右同色：實色底＋反白箭頭。預設用 AI 建議的顏色，Plain（深色）用淡黃 */
+@media (min-width: 901px) {
+    :root { --tab-bg: var(--accent-4); }
+    html[data-lh-theme="plain"] { --tab-bg: #d8cfa6; }
+    .side-panel .side-panel-tab { background: var(--tab-bg); color: var(--card-bg); }
+    @media (hover: hover) and (pointer: fine) {
+        .side-panel .side-panel-tab:hover { filter: brightness(1.12); color: var(--card-bg); background: var(--tab-bg); }
+    }
+}

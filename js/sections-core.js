@@ -259,7 +259,7 @@ function lhToRoman(n) {
     return out;
 }
 
-// 同類型出現 2 次以上才依目前順序加羅馬數字；Custom 不編號，沒名字就叫 Custom（B2）
+// 同類型出現 2 次以上才依目前順序加羅馬數字；Custom 沒名字就叫 Custom、編號只有自己挑的才有（B2）
 // 2026-11-25 Andy：段落選單的滾輪可以自己挑（s.num，0＝不編號）；沒挑過的照順序（插在 Verse I 下面的新 Verse 先給 II）
 const LH_SEC_NUM_MAX = 10;
 function lhSecAutoNum(sections, s) {
@@ -268,9 +268,11 @@ function lhSecAutoNum(sections, s) {
 }
 function lhSecNames(sections) {
     return sections.map(s => {
-        if (s.type === 'custom') return (s.custom || '').trim() || LH_SEC_NAMES.custom;
-        const n = Number.isInteger(s.num) ? s.num : lhSecAutoNum(sections, s);
-        return n ? LH_SEC_NAMES[s.type] + ' ' + lhToRoman(n) : LH_SEC_NAMES[s.type];
+        // 0.98.48：Custom 也能挑編號（只有自己挑的才算，不照順序自動編）
+        const isC = s.type === 'custom';
+        const n = Number.isInteger(s.num) ? s.num : isC ? 0 : lhSecAutoNum(sections, s);
+        const base = isC ? ((s.custom || '').trim() || LH_SEC_NAMES.custom) : LH_SEC_NAMES[s.type];
+        return n ? base + ' ' + lhToRoman(n) : base;
     });
 }
 
